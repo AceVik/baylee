@@ -467,9 +467,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             mana,
             effect,
         } => {
-            let Some(player) = eval::players(player, state, you).first().copied() else {
-                return None;
-            };
+            let player = eval::players(player, state, you).first().copied()?;
             // If they can't pay, the fallback fires immediately.
             let can_pay = state.players[player.get() as usize].mana_pool.total() >= u32::from(mana);
             if !can_pay {
