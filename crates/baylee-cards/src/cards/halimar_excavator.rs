@@ -1,15 +1,25 @@
 //! Halimar Excavator — {1}{U} — Creature — Human Wizard Ally
 //! Oracle: Whenever this creature or another Ally you control enters, target player mills X cards, where X is the number of Allies you control.
 //! Set: WWK #29 — Worldwake | Scryfall ID: d147dce7-b2dd-426a-9ff7-843d50bb8b01 | Oracle ID: fd3e37c9-93bf-4f3e-a279-22afbffd8d43
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — rally mill per Ally (opponent heads-up; target choice M3).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, PlayerRel, Trigger, ZoneSel,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ALLY_ETB: Filter = Filter::And(&[
+    Filter::ControlledByYou,
+    Filter::Or(&[Filter::This, Filter::HasSubtype(creature::ALLY)]),
+]);
+static ALLIES_YOU: Filter =
+    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(64),
@@ -20,11 +30,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{1}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[
-            subtypes::creature::HUMAN,
-            subtypes::creature::WIZARD,
-            subtypes::creature::ALLY,
-        ],
+        subtypes: &[creature::HUMAN, creature::WIZARD, creature::ALLY],
         power: Some(1),
         toughness: Some(3),
         loyalty: None,
@@ -37,11 +43,19 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Triggered {
+        trigger: Trigger::EntersBattlefield(&ALLY_ETB),
+        effects: &[Effect::Mill {
+            amount: Amount::CountOf {
+                filter: &ALLIES_YOU,
+                zone: ZoneSel::Battlefield,
+            },
+            target: PlayerRel::Opponent,
+        }],
+        targets: None,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

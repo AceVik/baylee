@@ -221,6 +221,9 @@ fn matches(
             PlayerRel::Opponent => *player != you,
             _ => true,
         },
+        (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
         (Trigger::StepBegin { step, whose }, GameEvent::StepChanged { .. }) => {
             let step_matches = matches!(
                 (step, event),

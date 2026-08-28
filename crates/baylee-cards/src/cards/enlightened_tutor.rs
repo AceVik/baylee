@@ -1,15 +1,22 @@
 //! Enlightened Tutor — {W} — Instant
 //! Oracle: Search your library for an artifact or enchantment card, reveal it, then shuffle and put that card on top.
 //! Set: DMR #6 — Dominaria Remastered | Scryfall ID: 1c9675fb-1a89-420f-aea8-50e0642f549c | Oracle ID: c5229c17-b7be-4b05-b683-f2277edc4849
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — filtered tutor to the top of the library (reveal is M3).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    SearchDest,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static FIND: Filter = Filter::Or(&[
+    Filter::HasType(TypeSet::ARTIFACT),
+    Filter::HasType(TypeSet::ENCHANTMENT),
+]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(42),
@@ -33,11 +40,18 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[Effect::SearchLibrary {
+            filter: &FIND,
+            dest: SearchDest::TopOfLibrary,
+            tapped: false,
+            shuffle: true,
+            optional: false,
+        }],
+        targets: None,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

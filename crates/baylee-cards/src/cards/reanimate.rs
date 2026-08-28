@@ -1,15 +1,19 @@
 //! Reanimate — {B} — Sorcery
 //! Oracle: Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.
 //! Set: DSC #155 — Duskmourn: House of Horror Commander | Scryfall ID: 368b6903-5fc4-43e7-bd44-46b8107c8bb4 | Oracle ID: a044474a-cd72-4e9d-bd8d-a08f2de9cdc0
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — reanimation with life payment equal to cmc.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, PlayerRel, TargetReq, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static CREATURE_GY: Filter = Filter::HasType(TypeSet::CREATURE);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(125),
@@ -33,11 +37,23 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[
+            Effect::GraveyardToBattlefield {
+                target: TargetSpec::CardInGraveyard(&CREATURE_GY, PlayerRel::EachPlayer),
+            },
+            Effect::LoseLife {
+                amount: Amount::TargetCmc,
+                target: PlayerRel::You,
+            },
+        ],
+        targets: Some(TargetReq::one(TargetSpec::CardInGraveyard(
+            &CREATURE_GY,
+            PlayerRel::EachPlayer,
+        ))),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

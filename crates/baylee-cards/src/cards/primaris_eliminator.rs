@@ -3,15 +3,21 @@
 //! Oracle: • Executioner Round — Destroy target creature.
 //! Oracle: • Hyperfrag Round — Creatures target player controls get -2/-2 until end of turn.
 //! Set: 40K #50 — Warhammer 40,000 Commander | Scryfall ID: db7ab081-d6cd-4323-98bf-536e4df95115 | Oracle ID: 7d679591-f8ea-4c4c-ab98-7b9e3438cf57
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — ETB destruction works; NOT SUPPORTED yet: "choose one" modal
+// triggers and the -2/-2 mode (modal trigger choices, M2.S8).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetReq, TargetSpec, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static CREATURE_F: Filter = Filter::HasType(TypeSet::CREATURE);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(118),
@@ -22,9 +28,9 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{4}{B}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::creature::ASTARTES, subtypes::creature::WARRIOR],
+        subtypes: &[creature::ASTARTES, creature::WARRIOR],
         power: Some(3),
-        toughness: Some(2),
+        toughness: Some(3),
         loyalty: None,
         alternative_costs: &[],
         additional_costs: &[],
@@ -35,11 +41,15 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial("modal trigger choice + -2/-2 mode (M2.S8)"),
+    abilities: &[AbilityDef::Triggered {
+        trigger: Trigger::EntersBattlefield(&Filter::This),
+        effects: &[Effect::Destroy {
+            target: TargetSpec::Object(&CREATURE_F),
+        }],
+        targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

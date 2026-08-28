@@ -2,15 +2,20 @@
 //! Oracle: Flash (You may cast this spell any time you could cast an instant.)
 //! Oracle: When Venser enters, return target spell or permanent to its owner's hand.
 //! Set: 2X2 #66 — Double Masters 2022 | Scryfall ID: 77e19416-aa6c-46f1-b247-a94da5d1a13a | Oracle ID: 0f41cefc-d6ff-4db7-ba35-502b7e081de1
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — flash + ETB bounce of a spell or permanent.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetReq, TargetSpec, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static SPELL_OR_PERMANENT: Filter = Filter::Any;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(182),
@@ -21,7 +26,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{2}{U}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[subtypes::creature::HUMAN, subtypes::creature::WIZARD],
+        subtypes: &[creature::HUMAN, creature::WIZARD],
         power: Some(2),
         toughness: Some(2),
         loyalty: None,
@@ -31,14 +36,20 @@ pub static CARD: CardDef = CardDef {
         enter_modifiers: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
+    keywords: KeywordSet::FLASH,
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Triggered {
+        trigger: Trigger::EntersBattlefield(&Filter::This),
+        effects: &[Effect::ReturnToHand {
+            target: TargetSpec::StackOrBattlefield(&SPELL_OR_PERMANENT),
+        }],
+        targets: Some(TargetReq::one(TargetSpec::StackOrBattlefield(
+            &SPELL_OR_PERMANENT,
+        ))),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

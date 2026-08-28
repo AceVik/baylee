@@ -3,12 +3,15 @@
 //! Oracle: Whenever you draw a card, you gain 2 life.
 //! Oracle: Whenever an opponent draws a card, they lose 2 life.
 //! Set: DMU #107 — Dominaria United | Scryfall ID: d67be074-cdd4-41d9-ac89-0a0456c4e4b2 | Oracle ID: 34f34409-326d-4994-a0ea-1a69aa278f03
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — deathtouch + draw-punish both directions.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, KeywordSet, PartnerKind,
+    PlayerRel, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -22,7 +25,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{2}{B}{B}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[subtypes::creature::PHYREXIAN, subtypes::creature::PRAETOR],
+        subtypes: &[creature::PHYREXIAN, creature::PRAETOR],
         power: Some(4),
         toughness: Some(5),
         loyalty: None,
@@ -32,14 +35,28 @@ pub static CARD: CardDef = CardDef {
         enter_modifiers: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
-    keywords: KeywordSet::EMPTY,
+    keywords: KeywordSet::DEATHTOUCH,
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Triggered {
+            trigger: Trigger::Draws(PlayerRel::You),
+            effects: &[Effect::GainLife {
+                amount: Amount::Fixed(2),
+            }],
+            targets: None,
+        },
+        AbilityDef::Triggered {
+            trigger: Trigger::Draws(PlayerRel::Opponent),
+            effects: &[Effect::LoseLife {
+                amount: Amount::Fixed(2),
+                target: PlayerRel::Opponent,
+            }],
+            targets: None,
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

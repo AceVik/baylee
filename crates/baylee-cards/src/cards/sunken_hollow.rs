@@ -6,8 +6,8 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
-    EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
+    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
+    Effect, EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::land;
@@ -51,7 +51,7 @@ pub static CARD: CardDef = CardDef {
         cost: Cost::TAP,
         effects: &[Effect::AddManaChoice {
             colors: &[ManaColor::Black, ManaColor::Green],
-            amount: 1,
+            amount: Amount::Fixed(1),
             combination: false,
         }],
         target: None,

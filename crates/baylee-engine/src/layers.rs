@@ -104,6 +104,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::RemoveType(_)
                 | Modifier::AddSubtype(_)
                 | Modifier::AllCreatureTypes
+                | Modifier::AllBasicLandTypes
         ),
         Filter::HasColor(_) | Filter::IsColorless => {
             matches!(modifier, Modifier::AddColor(_) | Modifier::SetColor(_))
@@ -141,6 +142,17 @@ fn apply(
                 ) {
                     c.subtypes.insert(sid);
                 }
+            }
+        }
+        Modifier::AllBasicLandTypes => {
+            for sid in [
+                subtypes::land::FOREST,
+                subtypes::land::ISLAND,
+                subtypes::land::PLAINS,
+                subtypes::land::SWAMP,
+                subtypes::land::MOUNTAIN,
+            ] {
+                c.subtypes.insert(sid);
             }
         }
         Modifier::AddColor(col) => c.colors = c.colors.union(*col),

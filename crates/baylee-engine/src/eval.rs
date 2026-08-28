@@ -91,7 +91,7 @@ pub fn amount(
     match amount {
         Amount::Fixed(n) => *n,
         Amount::X | Amount::NegX => x.unwrap_or(0),
-        Amount::TargetPower => 0, // resolved in resolve.rs (needs the target list)
+        Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
@@ -169,6 +169,23 @@ pub fn target_options(
                         .copied(),
                 );
             }
+            out
+        }
+        TargetSpec::StackOrBattlefield(filter) => {
+            let mut out: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Stack)
+                .iter()
+                .chain(state.battlefield_view().iter())
+                .filter(|id| {
+                    state
+                        .object(**id)
+                        .is_some_and(|o| matches(filter, state, o, you, this))
+                })
+                .copied()
+                .collect();
+            out.sort();
+            out.dedup();
             out
         }
         TargetSpec::ThisObject => vec![this],

@@ -3,15 +3,21 @@
 //! Oracle: Echo {3}{W}{W} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)
 //! Oracle: When this creature enters, return target creature card from your graveyard to the battlefield.
 //! Set: SOC #151 — Secrets of Strixhaven Commander | Scryfall ID: b26d50dd-54a1-43ce-9884-3999f698d97b | Oracle ID: 8c31fec9-e4b3-4761-990e-7be38eb05604
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — flying + ETB reanimation implemented. NOT SUPPORTED yet: echo
+// (delayed upkeep payment, M2.S7b) and protection from black (M2.S6+).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    PlayerRel, TargetReq, TargetSpec, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static CREATURE_GY: Filter = Filter::HasType(TypeSet::CREATURE);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(80),
@@ -22,7 +28,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{3}{W}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::creature::ANGEL, subtypes::creature::SPIRIT],
+        subtypes: &[creature::ANGEL, creature::SPIRIT],
         power: Some(2),
         toughness: Some(2),
         loyalty: None,
@@ -32,14 +38,21 @@ pub static CARD: CardDef = CardDef {
         enter_modifiers: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::EMPTY,
+    keywords: KeywordSet::FLYING,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial("echo (M2.S7b), protection from black (M2.S6+)"),
+    abilities: &[AbilityDef::Triggered {
+        trigger: Trigger::EntersBattlefield(&Filter::This),
+        effects: &[Effect::GraveyardToBattlefield {
+            target: TargetSpec::CardInGraveyard(&CREATURE_GY, PlayerRel::You),
+        }],
+        targets: Some(TargetReq::one(TargetSpec::CardInGraveyard(
+            &CREATURE_GY,
+            PlayerRel::You,
+        ))),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

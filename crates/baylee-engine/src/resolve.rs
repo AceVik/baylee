@@ -92,6 +92,10 @@ fn amount2(
             .and_then(|t| state.object(*t))
             .and_then(|o| o.characteristics().power)
             .map_or(0, |p| p.max(0) as u32),
+        Amount::TargetCmc => targets
+            .first()
+            .and_then(|t| state.object(*t))
+            .map_or(0, |o| o.characteristics().mana_cost.cmc()),
         other => eval::amount(other, state, you, this, x),
     }
 }
@@ -291,9 +295,10 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
 /// Executes one operation; returns `Some(pending)` when it suspends.
 fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     match op {
-        Effect::SearchLibrary { .. } | Effect::Scry { .. } | Effect::PutFromHandOnTop { .. } => {
-            exec_choice(state, res, op)
-        }
+        Effect::SearchLibrary { .. }
+        | Effect::Scry { .. }
+        | Effect::PutFromHandOnTop { .. }
+        | Effect::OptionalBasicLandSearchFor { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
 }
@@ -380,15 +385,53 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 prompt: ChoicePrompt::PutBackOnTop,
             })
         }
+        Effect::OptionalBasicLandSearchFor { player } => {
+            let player = eval::players(player, state, you).first().copied()?;
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(player))
+                .iter()
+                .filter(|id| {
+                    state.object(**id).is_some_and(|o| {
+                        o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::LAND)
+                            && o.characteristics()
+                                .supertypes
+                                .contains(baylee_core::types::SupertypeSet::BASIC)
+                    })
+                })
+                .copied()
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::SearchLibrary {
+                dest: SearchDest::Battlefield,
+                tapped: true,
+                shuffle: true,
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::SearchLibrary,
+            })
+        }
         Effect::AddManaChoice {
             colors,
             amount,
             combination,
         } => {
-            let per_pick = if combination { 1 } else { amount };
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
+            if n == 0 {
+                return None;
+            }
+            let per_pick = if combination { 1 } else { n };
             res.awaiting = Some(AwaitingOp::ManaChoice {
                 colors,
-                remaining: amount,
+                remaining: n,
                 per_pick,
             });
             Some(Pending::ChooseColor {
@@ -489,6 +532,48 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::AddCounterFilter {
+            filter,
+            kind,
+            amount,
+        } => {
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
+            let objects: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state
+                        .object(**id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .copied()
+                .collect();
+            for id in objects {
+                if let Some(obj) = state.object_mut(id) {
+                    let old = obj.counters.get(kind);
+                    let new = obj.counters.add(kind, n);
+                    state.journal.record(GameEvent::CounterChanged {
+                        object: id,
+                        kind,
+                        old,
+                        new,
+                    });
+                }
+            }
+            None
+        }
+        Effect::AddManaDynamic { color, amount } => {
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
+            state.players[you.get() as usize].mana_pool.add(color, n);
+            state.journal.record(GameEvent::ManaProduced {
+                player: you,
+                color,
+                amount: n,
+                source: Some(res.source),
+            });
+            None
+        }
         Effect::ReturnToHand { .. } => {
             if let Some(&target_id) = res.targets.first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
@@ -563,6 +648,18 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         Cause::Effect,
                     );
                 }
+            }
+            None
+        }
+        Effect::GraveyardToHand { .. } => {
+            if let Some(&target_id) = res.targets.first() {
+                let owner = state.object(target_id).map_or(you, |o| o.owner);
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Hand(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
             }
             None
         }
@@ -883,6 +980,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::DealDamageToTargetController { amount } => {
+            if let Some(&target_id) = res.targets.first() {
+                let controller = state.object(target_id).map_or(you, |o| o.controller);
+                let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i16;
+                deal_to_player(state, res.source, controller, n);
+            }
+            None
+        }
         Effect::Destroy { .. } => {
             if let Some(&target_id) = res.targets.first() {
                 sba::destroy(state, target_id);
@@ -945,6 +1050,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::SearchLibrary { .. }
         | Effect::Scry { .. }
         | Effect::PutFromHandOnTop { .. }
+        | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::AddManaChoice { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")

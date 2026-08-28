@@ -2,15 +2,24 @@
 //! Oracle: Vigilance
 //! Oracle: Whenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield.
 //! Set: SOC #178 — Secrets of Strixhaven Commander | Scryfall ID: 3d6eacf2-f6c7-4ede-b5a5-7463602699ae | Oracle ID: b2e950fb-cb7e-40a0-a311-5bbdd0477b29
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — vigilance + reanimation on ETB and on attack.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    PlayerRel, TargetReq, TargetSpec, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static SMALL_PERMANENT: Filter = Filter::And(&[
+    Filter::CmcAtMost(3),
+    Filter::Not(&Filter::HasType(TypeSet::INSTANT)),
+    Filter::Not(&Filter::HasType(TypeSet::SORCERY)),
+]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(158),
@@ -21,7 +30,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{4}{W}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::creature::GIANT],
+        subtypes: &[creature::GIANT],
         power: Some(6),
         toughness: Some(6),
         loyalty: None,
@@ -31,14 +40,33 @@ pub static CARD: CardDef = CardDef {
         enter_modifiers: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::EMPTY,
+    keywords: KeywordSet::VIGILANCE,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Triggered {
+            trigger: Trigger::EntersBattlefield(&Filter::This),
+            effects: &[Effect::GraveyardToBattlefield {
+                target: TargetSpec::CardInGraveyard(&SMALL_PERMANENT, PlayerRel::You),
+            }],
+            targets: Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
+                &SMALL_PERMANENT,
+                PlayerRel::You,
+            ))),
+        },
+        AbilityDef::Triggered {
+            trigger: Trigger::Attacks(&Filter::This),
+            effects: &[Effect::GraveyardToBattlefield {
+                target: TargetSpec::CardInGraveyard(&SMALL_PERMANENT, PlayerRel::You),
+            }],
+            targets: Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
+                &SMALL_PERMANENT,
+                PlayerRel::You,
+            ))),
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

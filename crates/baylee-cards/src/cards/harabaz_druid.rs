@@ -1,15 +1,21 @@
 //! Harabaz Druid — {1}{G} — Creature — Human Druid Ally
 //! Oracle: {T}: Add X mana of any one color, where X is the number of Allies you control.
 //! Set: WWK #105 — Worldwake | Scryfall ID: 78a538cf-2291-49aa-8429-17d97d454479 | Oracle ID: ead985ec-f29f-4a3b-b8b1-061142cc5bd1
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — dynamic Ally mana (choose a color, X = Allies).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind, ZoneSel,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ALLIES_YOU: Filter =
+    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(66),
@@ -20,11 +26,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{1}{G}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[
-            subtypes::creature::HUMAN,
-            subtypes::creature::DRUID,
-            subtypes::creature::ALLY,
-        ],
+        subtypes: &[creature::HUMAN, creature::DRUID, creature::ALLY],
         power: Some(0),
         toughness: Some(1),
         loyalty: None,
@@ -37,11 +39,32 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddManaChoice {
+            colors: &[
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ],
+            amount: Amount::CountOf {
+                filter: &ALLIES_YOU,
+                zone: ZoneSel::Battlefield,
+            },
+            combination: false,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // X = Allies is delivered by AddManaChoice's dynamic Amount::CountOf
+    // (evaluated at resolution against your battlefield).
 }

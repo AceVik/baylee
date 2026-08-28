@@ -722,6 +722,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
             h.u16(s.get());
         }
         M::AllCreatureTypes => h.u8(4),
+        M::AllBasicLandTypes => h.u8(13),
         M::AddColor(c) => {
             h.u8(5);
             h.u8(c.bits());

@@ -65,6 +65,8 @@ pub enum Modifier {
     AddSubtype(SubtypeId),
     /// Affected creatures are every creature type (Maskwood Nexus).
     AllCreatureTypes,
+    /// Affected lands are every basic land type (Great Divide Guide).
+    AllBasicLandTypes,
     /// Adds colors.
     AddColor(ColorSet),
     /// Sets colors (Mycosynth Lattice: "…are colorless").

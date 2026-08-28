@@ -48,6 +48,8 @@ pub enum Trigger {
     SpellCast(&'static Filter),
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
+    /// An object matching the filter attacks (Sun Titan).
+    Attacks(&'static Filter),
     /// The source entered the battlefield AND was evoked (cast for its
     /// evoke cost, CR 702.74).
     EntersBattlefieldEvoked,

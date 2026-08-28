@@ -70,6 +70,8 @@ pub enum Amount {
     NegX,
     /// The power of the first target (last known characteristics).
     TargetPower,
+    /// The mana value of the first target (Reanimate's life loss).
+    TargetCmc,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.
@@ -118,6 +120,8 @@ pub enum TargetSpec {
     Object(&'static Filter),
     /// A spell on the stack matching the filter.
     Spell(&'static Filter),
+    /// A spell on the stack OR a permanent on the battlefield (Venser).
+    StackOrBattlefield(&'static Filter),
     /// A card in a graveyard matching the filter.
     CardInGraveyard(&'static Filter, PlayerRel),
     /// The source object.
@@ -255,6 +259,11 @@ pub enum Effect {
         /// To what.
         target: TargetSpec,
     },
+    /// Deal damage to the first target's controller (Tuktuk Scrapper).
+    DealDamageToTargetController {
+        /// How much.
+        amount: Amount,
+    },
     /// Destroy a target permanent (can't be regenerated).
     Destroy {
         /// What.
@@ -294,6 +303,13 @@ pub enum Effect {
         /// Amount.
         amount: u16,
     },
+    /// Add a computed amount of one color (Harabaz Druid: X = Allies).
+    AddManaDynamic {
+        /// Color.
+        color: ManaColor,
+        /// How much.
+        amount: Amount,
+    },
     /// Add a subtype-granting note — placeholder for M2 (changeling etc.).
     GrantSubtype {
         /// Subtype.
@@ -304,6 +320,16 @@ pub enum Effect {
         /// Counter kind.
         kind: CounterKind,
         /// How many.
+        amount: Amount,
+    },
+    /// Put counters on every object matching a filter (Kazandu
+    /// Blademaster's rally).
+    AddCounterFilter {
+        /// Which objects.
+        filter: &'static Filter,
+        /// Counter kind.
+        kind: CounterKind,
+        /// How many per object.
         amount: Amount,
     },
     /// Return a target object (battlefield or stack) to its owner's hand.
@@ -333,6 +359,11 @@ pub enum Effect {
         /// What (`CardInGraveyard`).
         target: TargetSpec,
     },
+    /// Return a graveyard card to its owner's hand (Archaeomancer).
+    GraveyardToHand {
+        /// What (`CardInGraveyard`).
+        target: TargetSpec,
+    },
     /// Put a graveyard card onto the battlefield under your control
     /// (reanimation).
     GraveyardToBattlefield {
@@ -343,8 +374,8 @@ pub enum Effect {
     AddManaChoice {
         /// Allowed colors.
         colors: &'static [ManaColor],
-        /// How much mana.
-        amount: u16,
+        /// How much mana (dynamic amounts evaluate at resolution).
+        amount: Amount,
         /// Whether each mana may be a different color (filter lands).
         combination: bool,
     },
@@ -405,6 +436,12 @@ pub enum Effect {
     },
     /// Sacrifice the source permanent (evoke).
     SacrificeSelf,
+    /// A relative player may search their library for a basic land onto
+    /// the battlefield tapped, then shuffle (Path to Exile).
+    OptionalBasicLandSearchFor {
+        /// Who may search.
+        player: PlayerRel,
+    },
     /// All objects matching a filter get computed P/T modifiers until a
     /// duration ends (Toxic Deluge: `-X/-X` on all creatures).
     PumpFilter {
