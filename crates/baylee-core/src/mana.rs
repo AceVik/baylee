@@ -260,6 +260,31 @@ impl ManaCost {
             .take(self.len as usize)
             .filter_map(|s| *s)
     }
+
+    /// The cost with `{X}`/`{Y}`/`{Z}` replaced by `Generic(x)` (CR 601.2b).
+    #[must_use]
+    pub fn with_x(&self, x: u32) -> Self {
+        let mut out = Self::ZERO;
+        for s in self.symbols() {
+            let s = match s {
+                ManaSymbol::Variable(_) => ManaSymbol::Generic(x),
+                other => other,
+            };
+            out.push_sorted(s);
+        }
+        out
+    }
+
+    /// Two costs combined (additional costs like kicker stack onto the
+    /// base cost, CR 601.2f).
+    #[must_use]
+    pub fn combine(&self, other: &ManaCost) -> Self {
+        let mut out = *self;
+        for s in other.symbols() {
+            out.push_sorted(s);
+        }
+        out
+    }
 }
 
 const fn parse_color_byte(b: u8) -> Option<Color> {

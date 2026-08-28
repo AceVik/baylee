@@ -10,7 +10,7 @@
 
 use baylee_cards_dsl::{
     AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    TargetSpec, TokenDef, Trigger,
+    TargetReq, TargetSpec, TokenDef, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
@@ -48,6 +48,9 @@ pub static CARD: CardDef = CardDef {
         power: Some(2),
         toughness: Some(2),
         loyalty: None,
+        alternative_costs: &[],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::EMPTY,
@@ -60,14 +63,12 @@ pub static CARD: CardDef = CardDef {
             effects: &[Effect::ExileLinked {
                 target: TargetSpec::Object(&TARGET_F),
             }],
-            target: Some(TargetSpec::Object(&TARGET_F)),
-            up_to_one: true,
+            targets: Some(TargetReq::up_to_one(TargetSpec::Object(&TARGET_F))),
         },
         AbilityDef::Triggered {
             trigger: Trigger::LeavesBattlefield(&Filter::This),
             effects: &[Effect::CreateTokenFromLinked { token: &ILLUSION }],
-            target: None,
-            up_to_one: false,
+            targets: None,
         },
     ],
 };

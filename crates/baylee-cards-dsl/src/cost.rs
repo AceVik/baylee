@@ -20,13 +20,37 @@ pub enum CostPart {
     Discard(&'static Filter),
     /// Exile the source.
     ExileSelf,
+    /// Exile a card from your hand matching the filter (pitch costs).
+    ExileFromHand(&'static Filter),
+    /// Pay life equal to the spell's X value (Toxic Deluge).
+    PayLifeX,
+}
+
+/// When an alternative cost may be used.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AltCondition {
+    /// Always (Force of Will, evoke).
+    Always,
+    /// Only when it is not your turn (Force of Negation).
+    NotYourTurn,
+    /// Only while you control your commander (Fierce Guardianship).
+    CommanderControlled,
+}
+
+/// An alternative way to pay a spell's cost (CR 601.2b).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct AlternativeCost {
+    /// What you pay instead of the mana cost.
+    pub cost: Cost,
+    /// When it may be used.
+    pub condition: AltCondition,
 }
 
 /// A complete cost: a mana part plus non-mana parts.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Cost {
     /// The mana part (`ManaCost::ZERO` for none).
-    pub mana: ManaCost,
+    pub mana: baylee_core::mana::ManaCost,
     /// The non-mana parts.
     pub parts: &'static [CostPart],
 }

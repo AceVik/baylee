@@ -36,6 +36,8 @@ pub struct Resolution {
     pub targets: SmallVec<[ObjectId; 2]>,
     /// X value, if any.
     pub x: Option<u32>,
+    /// Chosen target player, if any.
+    pub chosen_player: Option<PlayerId>,
     /// The suspended choice, if any.
     pub awaiting: Option<AwaitingOp>,
 }
@@ -684,6 +686,44 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::SacrificeSelf => {
+            let owner = state.object(res.source).map_or(you, |o| o.owner);
+            if let Some(obj) = state.object_mut(res.source) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = state.move_object(
+                res.source,
+                ZoneLocation::Graveyard(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            None
+        }
+        Effect::PumpFilter {
+            filter,
+            power,
+            toughness,
+            duration,
+        } => {
+            let signed = |a: &Amount| -> i16 {
+                let v = amount2(a, state, you, res.source, res.x, &res.targets) as i16;
+                if matches!(a, Amount::NegX) { -v } else { v }
+            };
+            let p = signed(&power);
+            let t = signed(&toughness);
+            let ts = state.next_timestamp();
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(res.source),
+                controller: you,
+                layer: baylee_cards_dsl::Layer::PtModify,
+                timestamp: ts,
+                duration,
+                filter: crate::effects::EffectFilter::Dsl(filter),
+                modifier: baylee_cards_dsl::Modifier::ModifyPT(p, t),
+            });
+            None
+        }
         Effect::CreateTokenFromLinked { token } => {
             // The exiled card's owner creates the token; its power and
             // toughness are the exiled card's mana value.
@@ -763,6 +803,40 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::DrawCards { amount } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
             state.draw_cards(you, n);
+            None
+        }
+        Effect::DrawCardsFor { amount, who } => {
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
+            let players = match who {
+                PlayerRel::Chosen => res.chosen_player.into_iter().collect(),
+                other => eval::players(other, state, you),
+            };
+            for player in players {
+                state.draw_cards(player, n);
+            }
+            None
+        }
+        Effect::ExileTargetsCreateTokens { token } => {
+            let targets = res.targets.clone();
+            for target_id in targets {
+                let Some(obj) = state.object(target_id) else {
+                    continue;
+                };
+                let owner = obj.owner;
+                let controller = obj.controller;
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                // Token replacement applies per token created (CR 614.1
+                // applies to the total, per controller).
+                create_one_token(state, controller, token);
+            }
             None
         }
         Effect::DealDamage { amount, target } => {

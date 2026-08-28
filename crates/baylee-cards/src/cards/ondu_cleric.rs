@@ -37,6 +37,9 @@ pub static CARD: CardDef = CardDef {
         power: Some(1),
         toughness: Some(1),
         loyalty: None,
+        alternative_costs: &[],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::EMPTY,
@@ -48,8 +51,7 @@ pub static CARD: CardDef = CardDef {
         effects: &[Effect::GainLife {
             amount: Amount::Fixed(1),
         }],
-        target: None,
-        up_to_one: false,
+        targets: None,
     }],
 };
 

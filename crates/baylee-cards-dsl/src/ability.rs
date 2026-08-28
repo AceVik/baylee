@@ -39,6 +39,9 @@ pub enum Trigger {
     SpellCast(&'static Filter),
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
+    /// The source entered the battlefield AND was evoked (cast for its
+    /// evoke cost, CR 702.74).
+    EntersBattlefieldEvoked,
     /// A step begins (whose turn: you/opponent/any).
     StepBegin {
         /// Which step.
@@ -59,7 +62,7 @@ pub enum AbilityDef {
         /// Effect operations, in order.
         effects: &'static [Effect],
         /// Target requirement, if any.
-        target: Option<TargetSpec>,
+        targets: Option<crate::effect::TargetReq>,
     },
     /// Activated ability (`cost: effect`).
     Activated {
@@ -81,15 +84,30 @@ pub enum AbilityDef {
         /// Effect operations.
         effects: &'static [Effect],
         /// Target requirement.
-        target: Option<TargetSpec>,
-        /// "Up to one target" — the choice may be declined.
-        up_to_one: bool,
+        targets: Option<crate::effect::TargetReq>,
     },
     /// Static/continuous ability (layers, CR 613).
     Static(crate::static_ability::StaticAbility),
     /// A replacement or trigger-modification rule (CR 614; Doubling
     /// Season, Panharmonicon, Elesh Norn).
     Replacement(crate::static_ability::ReplacementRule),
+    /// A spell with modes: the caster chooses one (overload, choose-one
+    /// charms). Each mode may override the cost.
+    ModalSpell {
+        /// The modes to choose from.
+        modes: &'static [SpellMode],
+    },
+}
+
+/// One mode of a [`crate::AbilityDef::ModalSpell`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct SpellMode {
+    /// Effect operations of this mode.
+    pub effects: &'static [crate::effect::Effect],
+    /// Target requirement of this mode.
+    pub target: Option<crate::effect::TargetSpec>,
+    /// Cost override for this mode (overload); `None` = the printed cost.
+    pub cost_override: Option<baylee_core::mana::ManaCost>,
 }
 
 /// Which event a trigger-modifying rule cares about.

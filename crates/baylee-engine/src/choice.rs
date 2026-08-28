@@ -97,8 +97,53 @@ pub enum Pending {
         /// What is being decided.
         prompt: YesNoPrompt,
     },
+    /// Choose how to cast a spell (normal / alternative cost / mode).
+    ChooseCastMode {
+        /// Casting player.
+        player: PlayerId,
+        /// The legal cast options.
+        options: Vec<CastModeDesc>,
+    },
+    /// Choose the value of X for a spell.
+    ChooseNumber {
+        /// Choosing player.
+        player: PlayerId,
+        /// Minimum value.
+        min: u32,
+        /// Maximum value.
+        max: u32,
+    },
+    /// Choose a target player.
+    ChoosePlayer {
+        /// Choosing player.
+        player: PlayerId,
+        /// Candidate players.
+        options: Vec<PlayerId>,
+    },
     /// The game is over.
     GameOver(GameResult),
+}
+
+/// One legal way to cast a spell (CR 601.2b).
+#[derive(Clone, Debug)]
+pub struct CastModeDesc {
+    /// Option index (answered via `PlayerAction::ChooseMode`).
+    pub index: u8,
+    /// Which kind of cast this is.
+    pub kind: CastModeKind,
+    /// The mana part to pay with this option.
+    pub cost: baylee_core::mana::ManaCost,
+}
+
+/// The kind of a cast option.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CastModeKind {
+    /// Printed cost.
+    Normal,
+    /// An alternative cost (pitch, evoke, …).
+    Alternative(usize),
+    /// A spell mode (overload and friends).
+    Mode(usize),
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
@@ -122,6 +167,8 @@ pub enum YesNoPrompt {
         /// Life to pay.
         amount: u16,
     },
+    /// Kicker/additional cost yes-or-no at cast time.
+    Kicker,
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -190,6 +237,12 @@ pub enum PlayerAction {
     },
     /// Choose a mana color.
     ChooseColor(baylee_core::mana::ManaColor),
+    /// Choose a cast option (index into `ChooseCastMode::options`).
+    ChooseMode(usize),
+    /// Choose a number (X values).
+    ChooseNumber(u32),
+    /// Choose a target player.
+    ChoosePlayer(PlayerId),
     /// Answer a yes/no decision.
     YesNo(bool),
     /// Concede the game.

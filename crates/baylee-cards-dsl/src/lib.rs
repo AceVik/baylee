@@ -12,10 +12,10 @@ pub mod effect;
 pub mod filter;
 pub mod static_ability;
 
-pub use ability::{AbilityDef, ActivationTiming, StepKind, Trigger, TriggerEventKind};
-pub use cost::{Cost, CostPart};
+pub use ability::{AbilityDef, ActivationTiming, SpellMode, StepKind, Trigger, TriggerEventKind};
+pub use cost::{AltCondition, AlternativeCost, Cost, CostPart};
 pub use effect::{
-    Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetSpec, TokenDef, ZoneSel,
+    Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetReq, TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility};
@@ -81,8 +81,15 @@ pub struct FaceDef {
     pub power: Option<i16>,
     /// Toughness (creatures).
     pub toughness: Option<i16>,
-    /// Starting loyalty (planeswalkers).
+    /// Loyalty (planeswalkers).
     pub loyalty: Option<u16>,
+    /// Alternative costs (pitch, evoke, conditional free — CR 601.2b).
+    pub alternative_costs: &'static [crate::cost::AlternativeCost],
+    /// Optional additional costs offered at cast (kicker, CR 702.33).
+    pub additional_costs: &'static [crate::cost::Cost],
+    /// Mandatory additional cost parts paid at cast (Toxic Deluge's
+    /// "pay X life").
+    pub mandatory_additional_costs: &'static [crate::cost::CostPart],
 }
 
 /// Simple keyword abilities as a bitset.

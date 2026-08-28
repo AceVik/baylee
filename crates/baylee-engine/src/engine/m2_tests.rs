@@ -1,7 +1,7 @@
 use super::*;
 use baylee_cards_dsl::{
     AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, Layer,
-    Modifier, PartnerKind, StaticAbility, TargetSpec,
+    Modifier, PartnerKind, StaticAbility, TargetReq, TargetSpec,
 };
 use baylee_core::ids::{CardIndex, PrintRef};
 use baylee_core::preset::{
@@ -32,6 +32,9 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
         power: pt.map(|(p, _)| p),
         toughness: pt.map(|(_, t)| t),
         loyalty: None,
+        alternative_costs: &[],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
     }
 }
 
@@ -86,7 +89,7 @@ static PUMP_EFFECTS: &[Effect] = &[Effect::CreateContinuousEffect {
 
 static PUMP_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: PUMP_EFFECTS,
-    target: Some(TargetSpec::Object(&CREATURE_F)),
+    targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
 }];
 
 impl TestLookup {

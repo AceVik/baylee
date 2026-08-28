@@ -73,8 +73,8 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Vec<PlayerId
             .filter(|p| !p.has_lost)
             .map(|p| p.id)
             .collect(),
-        PlayerRel::ControllerOfTarget => {
-            vec![] // resolved in resolve.rs (needs the target list)
+        PlayerRel::ControllerOfTarget | PlayerRel::Chosen => {
+            vec![] // resolved in resolve.rs (needs the target/player context)
         }
     }
 }
@@ -90,7 +90,7 @@ pub fn amount(
 ) -> u32 {
     match amount {
         Amount::Fixed(n) => *n,
-        Amount::X => x.unwrap_or(0),
+        Amount::X | Amount::NegX => x.unwrap_or(0),
         Amount::TargetPower => 0, // resolved in resolve.rs (needs the target list)
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
@@ -172,6 +172,7 @@ pub fn target_options(
             out
         }
         TargetSpec::ThisObject => vec![this],
-        TargetSpec::Player(_) => vec![], // player targeting: M2 (heads-up auto-resolves)
+        // Player targeting resolves via ChoosePlayer in the casting wizard.
+        TargetSpec::Player(_) | TargetSpec::AnyPlayer => vec![],
     }
 }

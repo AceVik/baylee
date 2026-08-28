@@ -269,21 +269,19 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue = found.into_iter().collect();
         }
         while let Some(t) = self.trigger_queue.front().copied() {
-            let (target_spec, up_to_one) = self
+            let req = self
                 .state
                 .object(t.source)
                 .and_then(|o| o.card)
                 .and_then(|c| self.lookup.card(c.index))
                 .and_then(|def| def.abilities.get(t.ability_index as usize))
-                .map_or((None, false), |a| match a {
-                    AbilityDef::Triggered {
-                        target, up_to_one, ..
-                    } => (*target, *up_to_one),
-                    _ => (None, false),
+                .and_then(|a| match a {
+                    AbilityDef::Triggered { targets, .. } => *targets,
+                    _ => None,
                 });
-            if let Some(spec) = target_spec {
-                let options = eval::target_options(&spec, &self.state, t.controller, t.source);
-                if options.is_empty() && !up_to_one {
+            if let Some(req) = req {
+                let options = eval::target_options(&req.spec, &self.state, t.controller, t.source);
+                if options.len() < req.min as usize {
                     // No legal target: the trigger is removed from the stack
                     // entirely (CR 603.3d).
                     self.trigger_queue.pop_front();
@@ -293,11 +291,12 @@ impl<L: CardLookup> Engine<L> {
                     source: t.source,
                     ability_index: t.ability_index,
                 });
+                let max = req.max.min(options.len() as u8);
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
-                    min: u8::from(!up_to_one),
-                    max: 1,
+                    min: req.min,
+                    max,
                 };
                 self.awaiting_answer = true;
                 return;
@@ -338,6 +337,7 @@ impl<L: CardLookup> Engine<L> {
                 pc: 0,
                 targets: obj.targets.clone(),
                 x: None,
+                chosen_player: None,
                 awaiting: None,
             };
             match resolve::run(&mut self.state, &mut res) {
@@ -350,7 +350,8 @@ impl<L: CardLookup> Engine<L> {
             }
             return;
         }
-        // A spell resolves.
+        // A spell resolves (plain spells and modal spells alike — the
+        // chosen mode is stored on the spell object).
         let spell_fx = self
             .state
             .object(top)
@@ -359,6 +360,20 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|def| {
                 def.abilities.iter().find_map(|a| match a {
                     AbilityDef::Spell { effects, .. } if !effects.is_empty() => Some(*effects),
+                    _ => None,
+                })
+            })
+            .or_else(|| {
+                let mode_index = self.state.object(top)?.mode_index?;
+                let def = self
+                    .state
+                    .object(top)
+                    .and_then(|o| o.card)
+                    .and_then(|c| self.lookup.card(c.index))?;
+                def.abilities.iter().find_map(|a| match a {
+                    AbilityDef::ModalSpell { modes } => {
+                        modes.get(mode_index as usize).map(|m| m.effects)
+                    }
                     _ => None,
                 })
             });
@@ -371,7 +386,8 @@ impl<L: CardLookup> Engine<L> {
                 effects: resolve::flatten(fx),
                 pc: 0,
                 targets: obj.targets.clone(),
-                x: None,
+                x: Some(obj.x_value),
+                chosen_player: obj.chosen_player,
                 awaiting: None,
             };
             match resolve::run(&mut self.state, &mut res) {

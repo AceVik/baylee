@@ -6,7 +6,7 @@
 
 use baylee_cards_dsl::{
     AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    TargetSpec,
+    TargetReq, TargetSpec,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
@@ -28,6 +28,9 @@ pub static CARD: CardDef = CardDef {
         power: None,
         toughness: None,
         loyalty: None,
+        alternative_costs: &[],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,
@@ -36,7 +39,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
         effects: &[Effect::CounterTargetSpell],
-        target: Some(TargetSpec::Spell(&ANY_SPELL)),
+        targets: Some(TargetReq::one(TargetSpec::Spell(&ANY_SPELL))),
     }],
 };
 

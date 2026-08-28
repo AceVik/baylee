@@ -334,7 +334,7 @@ pub fn render_stub(
             format!("&[{}]", subtype_paths.join(", "))
         };
         face_defs.push_str(&format!(
-            "    FaceDef {{\n        name: {:?},\n        mana_cost: {mana},\n        types: {types},\n        supertypes: {supers},\n        subtypes: {subtypes},\n        power: {},\n        toughness: {},\n        loyalty: {},\n    }},\n",
+            "    FaceDef {{\n        name: {:?},\n        mana_cost: {mana},\n        types: {types},\n        supertypes: {supers},\n        subtypes: {subtypes},\n        power: {},\n        toughness: {},\n        loyalty: {},\n        alternative_costs: &[],\n        additional_costs: &[],\n        mandatory_additional_costs: &[],\n    }},\n",
             f.name,
             pt_expr(f.power.as_deref()),
             pt_expr(f.toughness.as_deref()),

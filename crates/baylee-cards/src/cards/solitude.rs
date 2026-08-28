@@ -3,16 +3,22 @@
 //! Oracle: Lifelink
 //! Oracle: When this creature enters, exile up to one other target creature. That creature's controller gains life equal to its power.
 //! Oracle: Evoke—Exile a white card from your hand.
-//! Set: MH2 #32 — Modern Horizons 2 | Scryfall ID: 47a6234f-309f-4e03-9263-66da48b57153 | Oracle ID: dcb9c2a7-ae54-4ddc-a567-640bf4bf4366
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Set: MSC #37 — Marvel Super Heroes Commander | Scryfall ID: 47a6234f-309f-4e03-9263-66da48b57153 | Oracle ID: dcb9c2a7-ae54-4ddc-a567-640bf4bf4366
+// IMPLEMENTED — flash/lifelink, exile ETB with life, pitch-evoke.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, AltCondition, AlternativeCost, Amount, CardDef, CommanderRule, Cost, CostPart,
+    Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec,
+    Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static CREATURE_OTHER: Filter = Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::Another]);
+static WHITE_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White]));
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(152),
@@ -24,22 +30,51 @@ pub static CARD: CardDef = CardDef {
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
         subtypes: &[
-            subtypes::creature::ELEMENTAL,
-            subtypes::creature::INCARNATION,
+            baylee_core::generated::subtypes::creature::ELEMENTAL,
+            baylee_core::generated::subtypes::creature::INCARNATION,
         ],
         power: Some(3),
         toughness: Some(2),
         loyalty: None,
+        alternative_costs: &[AlternativeCost {
+            cost: Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::ExileFromHand(&WHITE_CARD)],
+            },
+            condition: AltCondition::Always,
+        }],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::EMPTY,
+    keywords: KeywordSet::FLASH.union(KeywordSet::LIFELINK),
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Triggered {
+            trigger: Trigger::EntersBattlefield(&Filter::This),
+            effects: &[
+                Effect::Exile {
+                    target: TargetSpec::Object(&CREATURE_OTHER),
+                },
+                Effect::GainLifeFor {
+                    amount: Amount::TargetPower,
+                    who: PlayerRel::ControllerOfTarget,
+                },
+            ],
+            targets: Some(TargetReq::up_to_one(TargetSpec::Object(&CREATURE_OTHER))),
+        },
+        AbilityDef::Triggered {
+            trigger: Trigger::EntersBattlefieldEvoked,
+            effects: &[Effect::SacrificeSelf],
+            targets: None,
+        },
+    ],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Pitch path: exile a white card from hand, no mana spent; creature is
+    // sacrificed after its ETB.
 }

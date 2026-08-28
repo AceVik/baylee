@@ -35,6 +35,9 @@ pub static CARD: CardDef = CardDef {
         power: Some(3),
         toughness: Some(4),
         loyalty: None,
+        alternative_costs: &[],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
     }],
     color_identity: ColorSet::from_slice(&[
         Color::Black,
@@ -56,8 +59,7 @@ pub static CARD: CardDef = CardDef {
             shuffle: true,
             optional: true,
         }],
-        target: None,
-        up_to_one: false,
+        targets: None,
     }],
 };
 

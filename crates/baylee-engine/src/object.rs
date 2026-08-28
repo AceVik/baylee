@@ -258,6 +258,16 @@ pub struct GameObject {
     pub targets: SmallVec<[ObjectId; 2]>,
     /// Which ability this is (`AbilityOnStack` objects only).
     pub ability: Option<AbilityLoc>,
+    /// The value of X chosen at cast time (spells).
+    pub x_value: u32,
+    /// Whether the kicker/additional cost was paid (spells).
+    pub kicked: bool,
+    /// Whether this spell was cast for an alternative cost (evoke checks).
+    pub alt_cast: bool,
+    /// A chosen target player (player-targeting spells).
+    pub chosen_player: Option<PlayerId>,
+    /// The chosen spell mode (modal spells / overload).
+    pub mode_index: Option<u8>,
 }
 
 impl GameObject {
@@ -286,6 +296,11 @@ impl GameObject {
             riders: RiderSet::new(),
             targets: SmallVec::new(),
             ability: None,
+            x_value: 0,
+            kicked: false,
+            alt_cast: false,
+            chosen_player: None,
+            mode_index: None,
         }
     }
 

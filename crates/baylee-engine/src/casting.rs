@@ -33,11 +33,17 @@ pub enum CastError {
     VariableCost,
 }
 
-/// Whether `card` can be cast by `player` right now (S2 rules).
+/// Whether `card` can be cast by `player` right now (printed cost or any
+/// alternative/mode).
 ///
 /// # Errors
 /// [`CastError`] describing the first legality violation.
-pub fn can_cast(state: &GameState, player: PlayerId, card: ObjectId) -> Result<(), CastError> {
+pub fn can_cast(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+) -> Result<(), CastError> {
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
     if obj.zone != Zone::Hand || obj.zone_owner != Some(player) {
         return Err(CastError::NotInHand);
@@ -52,49 +58,36 @@ pub fn can_cast(state: &GameState, player: PlayerId, card: ObjectId) -> Result<(
             return Err(CastError::BadTiming);
         }
     }
-    if c.mana_cost.has_variable() {
-        return Err(CastError::VariableCost);
-    }
     let pool = &state.players[player.get() as usize].mana_pool;
-    if !mana_pay::can_pay(pool, &c.mana_cost) {
-        return Err(CastError::NotEnoughMana);
+    // Printed cost probed with X = 0; the full payment is validated when
+    // the wizard finishes.
+    if !mana_pay::can_pay(pool, &c.mana_cost.with_x(0)) {
+        // Alternative costs may still make it castable (pitch/evoke) —
+        // the wizard computes the exact options.
+        let Some(card_ref) = obj.card else {
+            return Err(CastError::NotEnoughMana);
+        };
+        let Some(def) = lookup.card(card_ref.index) else {
+            return Err(CastError::NotEnoughMana);
+        };
+        let face = &def.faces[0];
+        let any_alt = face.alternative_costs.iter().any(|alt| {
+            let condition_ok =
+                !matches!(alt.condition, baylee_cards_dsl::AltCondition::NotYourTurn)
+                    || state.turn.active != player;
+            condition_ok && mana_pay::can_pay(pool, &alt.cost.mana)
+        });
+        let any_mode = def.abilities.iter().any(|a| match a {
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes.iter().any(|m| {
+                mana_pay::can_pay(pool, &m.cost_override.unwrap_or(face.mana_cost).with_x(0))
+            }),
+            _ => false,
+        });
+        if !any_alt && !any_mode {
+            return Err(CastError::NotEnoughMana);
+        }
     }
     Ok(())
-}
-
-/// Casts a spell: pays the cost, moves the card to the stack.
-///
-/// # Errors
-/// [`CastError`] on legality, [`StateError`] on stale handles.
-///
-/// # Panics
-/// Internal invariant violations (existence validated first).
-pub fn cast_spell(
-    state: &mut GameState,
-    player: PlayerId,
-    card: ObjectId,
-) -> Result<ObjectId, CastFailure> {
-    can_cast(state, player, card).map_err(CastFailure::Legality)?;
-    let cost = state
-        .object(card)
-        .expect("validated")
-        .characteristics()
-        .mana_cost;
-    let pool = &mut state.players[player.get() as usize].mana_pool;
-    debug_assert!(mana_pay::pay(pool, &cost), "payment validated by can_cast");
-    {
-        let obj = state.object_mut(card).expect("validated");
-        obj.kind = ObjectKind::Spell;
-        obj.controller = player;
-    }
-    state
-        .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)
-        .map_err(CastFailure::State)?;
-    state.journal.record(GameEvent::SpellCast {
-        object: card,
-        player,
-    });
-    Ok(card)
 }
 
 /// Plays a land (special action, no stack).

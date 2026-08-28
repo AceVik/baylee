@@ -83,6 +83,8 @@ pub struct Engine<L: CardLookup> {
     trigger_scan_seq: u64,
     /// A cast/activation waiting for its target choice.
     pending_plan: Option<PlanKind>,
+    /// A spell being cast step by step (modes/targets/X/kicker/pitch).
+    cast_wizard: Option<cast_wizard::CastWizard>,
     /// Triggers collected but not yet stacked (target choices first).
     trigger_queue: VecDeque<trigger::PendingTrigger>,
 }
@@ -90,11 +92,6 @@ pub struct Engine<L: CardLookup> {
 /// What a `Pending::ChooseTargets` is targeting for.
 #[derive(Clone, Copy, Debug)]
 enum PlanKind {
-    /// Casting a spell.
-    CastSpell {
-        /// The card being cast.
-        card: ObjectId,
-    },
     /// Activating an ability.
     ActivateAbility {
         /// Source permanent.
@@ -139,6 +136,7 @@ impl<L: CardLookup> Engine<L> {
             resolution: None,
             trigger_scan_seq,
             pending_plan: None,
+            cast_wizard: None,
             trigger_queue: VecDeque::new(),
         };
         engine.state.turn_start_timestamp = engine.state.timestamp;
@@ -210,6 +208,7 @@ impl<L: CardLookup> Engine<L> {
 
 mod abilities;
 mod actions;
+mod cast_wizard;
 mod progress;
 
 #[cfg(test)]
@@ -220,5 +219,7 @@ mod s3_tests;
 mod s4_tests;
 #[cfg(test)]
 mod s6_tests;
+#[cfg(test)]
+mod s7_tests;
 #[cfg(test)]
 mod tests;

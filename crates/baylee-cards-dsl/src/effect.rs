@@ -65,6 +65,9 @@ pub enum Amount {
     Fixed(u32),
     /// The value of X chosen at cast time.
     X,
+    /// The negated value of X (Toxic Deluge's `-X/-X`; evaluated as a
+    /// negative at use sites).
+    NegX,
     /// The power of the first target (last known characteristics).
     TargetPower,
     /// Number of objects matching a filter in a zone.
@@ -104,6 +107,8 @@ pub enum PlayerRel {
     EachOpponent,
     /// The controller of the first target.
     ControllerOfTarget,
+    /// The player chosen via `Pending::ChoosePlayer`.
+    Chosen,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).
@@ -117,8 +122,66 @@ pub enum TargetSpec {
     CardInGraveyard(&'static Filter, PlayerRel),
     /// The source object.
     ThisObject,
-    /// A player (M2 adds player choice; heads-up auto-resolves).
+    /// A player relative to the controller (You/Opponent; heads-up
+    /// auto-resolves for Opponent in two-player games).
     Player(PlayerRel),
+    /// Any player (choice via `Pending::ChoosePlayer`).
+    AnyPlayer,
+}
+
+/// How many targets an ability/spell requires.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct TargetReq {
+    /// What may be targeted.
+    pub spec: TargetSpec,
+    /// Minimum number of targets (0 = may decline).
+    pub min: u8,
+    /// Maximum number of targets (255 = "any number", X-driven).
+    pub max: u8,
+    /// Whether the count is exactly X (Curse of the Swine).
+    pub count_is_x: bool,
+}
+
+impl TargetReq {
+    /// Exactly one target.
+    pub const fn one(spec: TargetSpec) -> Self {
+        Self {
+            spec,
+            min: 1,
+            max: 1,
+            count_is_x: false,
+        }
+    }
+
+    /// Up to one target.
+    pub const fn up_to_one(spec: TargetSpec) -> Self {
+        Self {
+            spec,
+            min: 0,
+            max: 1,
+            count_is_x: false,
+        }
+    }
+
+    /// Up to `max` targets.
+    pub const fn up_to(spec: TargetSpec, max: u8) -> Self {
+        Self {
+            spec,
+            min: 0,
+            max,
+            count_is_x: false,
+        }
+    }
+
+    /// Exactly X targets.
+    pub const fn x_targets(spec: TargetSpec) -> Self {
+        Self {
+            spec,
+            min: 0,
+            max: 255,
+            count_is_x: true,
+        }
+    }
 }
 
 /// Where a searched card goes.
@@ -171,6 +234,19 @@ pub enum Effect {
     DrawCards {
         /// How many.
         amount: Amount,
+    },
+    /// A relative player draws cards.
+    DrawCardsFor {
+        /// How many.
+        amount: Amount,
+        /// Who.
+        who: PlayerRel,
+    },
+    /// Exile all targets; each exiled permanent's controller creates the
+    /// token (Curse of the Swine).
+    ExileTargetsCreateTokens {
+        /// The token to create per exiled permanent.
+        token: &'static TokenDef,
     },
     /// Deal damage to a target.
     DealDamage {
@@ -323,5 +399,19 @@ pub enum Effect {
         /// The token to create (power/toughness are overridden by the
         /// linked card's mana value).
         token: &'static TokenDef,
+    },
+    /// Sacrifice the source permanent (evoke).
+    SacrificeSelf,
+    /// All objects matching a filter get computed P/T modifiers until a
+    /// duration ends (Toxic Deluge: `-X/-X` on all creatures).
+    PumpFilter {
+        /// Which objects are pumped.
+        filter: &'static Filter,
+        /// Power modifier (may be negative/X-driven).
+        power: Amount,
+        /// Toughness modifier (may be negative/X-driven).
+        toughness: Amount,
+        /// How long.
+        duration: crate::static_ability::Duration,
     },
 }

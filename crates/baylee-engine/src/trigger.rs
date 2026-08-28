@@ -208,6 +208,14 @@ fn matches(
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (
+            Trigger::EntersBattlefieldEvoked,
+            GameEvent::ZoneChanged {
+                object,
+                to: Zone::Battlefield,
+                ..
+            },
+        ) => *object == source && state.object(*object).is_some_and(|o| o.alt_cast),
         (Trigger::Draws(rel), GameEvent::CardsDrawn { player, .. }) => match rel {
             PlayerRel::You => *player == you,
             PlayerRel::Opponent => *player != you,

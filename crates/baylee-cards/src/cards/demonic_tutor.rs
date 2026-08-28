@@ -28,6 +28,9 @@ pub static CARD: CardDef = CardDef {
         power: None,
         toughness: None,
         loyalty: None,
+        alternative_costs: &[],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::EMPTY,
@@ -42,7 +45,7 @@ pub static CARD: CardDef = CardDef {
             shuffle: true,
             optional: false,
         }],
-        target: None,
+        targets: None,
     }],
 };
 

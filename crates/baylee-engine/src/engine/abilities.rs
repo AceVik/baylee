@@ -24,7 +24,7 @@ impl<L: CardLookup> Engine<L> {
             {
                 legal.lands.push(card);
             }
-            if casting::can_cast(&self.state, player, card).is_ok() {
+            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok() {
                 legal.castable.push(card);
             }
         }
@@ -82,22 +82,12 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::SacrificeSelf
                 | CostPart::Sacrifice(_)
                 | CostPart::Discard(_)
-                | CostPart::ExileSelf => {}
+                | CostPart::ExileSelf
+                | CostPart::ExileFromHand(_)
+                | CostPart::PayLifeX => {}
             }
         }
         true
-    }
-
-    pub(crate) fn spell_target_spec(&self, card: ObjectId) -> Option<baylee_cards_dsl::TargetSpec> {
-        let def = self
-            .state
-            .object(card)
-            .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))?;
-        def.abilities.iter().find_map(|a| match a {
-            AbilityDef::Spell { target, .. } => *target,
-            _ => None,
-        })
     }
 
     // ---------------------------------------------------- S3: abilities
@@ -171,6 +161,7 @@ impl<L: CardLookup> Engine<L> {
                 pc: 0,
                 targets,
                 x: None,
+                chosen_player: None,
                 awaiting: None,
             };
             debug_assert!(matches!(
@@ -241,6 +232,9 @@ impl<L: CardLookup> Engine<L> {
                         ZonePosition::Top,
                         Cause::Cost,
                     )?;
+                }
+                CostPart::ExileFromHand(_) | CostPart::PayLifeX => {
+                    // Choice/X-driven parts are paid in the casting wizard.
                 }
                 CostPart::Sacrifice(_) | CostPart::Discard(_) => {
                     return Err(EngineError::IllegalAction(

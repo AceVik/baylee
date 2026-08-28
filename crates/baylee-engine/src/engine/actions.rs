@@ -1,7 +1,7 @@
 use super::{
     AttackerInfo, BlockerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent,
     ObjectId, Pending, PlanKind, PlayerAction, PlayerId, SmallVec, Status, Zone, ZoneLocation,
-    ZonePosition, casting, combat, eval, resolve, sba,
+    ZonePosition, cast_wizard, casting, combat, resolve, sba,
 };
 
 impl<L: CardLookup> Engine<L> {
@@ -99,24 +99,37 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.castable.contains(&card) {
                     return Err(EngineError::IllegalAction("spell not castable now"));
                 }
-                if let Some(spec) = self.spell_target_spec(card) {
-                    let options = eval::target_options(&spec, &self.state, player, card);
-                    if options.is_empty() {
-                        return Err(EngineError::IllegalAction("no legal targets"));
-                    }
-                    self.pending_plan = Some(PlanKind::CastSpell { card });
-                    self.pending = Pending::ChooseTargets {
-                        player,
-                        options,
-                        min: 1,
-                        max: 1,
-                    };
-                    self.awaiting_answer = true;
-                    return Ok(());
-                }
-                casting::cast_spell(&mut self.state, player, card)?;
-                self.after_action(player);
-                Ok(())
+                self.start_cast_wizard(player, card)
+            }
+            (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
+                if *p == player =>
+            {
+                let mut wizard = self.cast_wizard.take().expect("wizard active");
+                let Some(option) = wizard.options.get(index).map(|o| o.kind) else {
+                    return Err(EngineError::IllegalAction("no such cast mode"));
+                };
+                wizard.option = Some(option);
+                wizard.stage = cast_wizard::WizardStage::Targets;
+                self.cast_wizard = Some(wizard);
+                self.advance_cast_wizard()
+            }
+            (Pending::ChooseNumber { player: p, .. }, PlayerAction::ChooseNumber(n))
+                if *p == player =>
+            {
+                let mut wizard = self.cast_wizard.take().expect("wizard active");
+                wizard.x = n;
+                wizard.stage = cast_wizard::WizardStage::Targets;
+                self.cast_wizard = Some(wizard);
+                self.advance_cast_wizard()
+            }
+            (Pending::ChoosePlayer { player: p, .. }, PlayerAction::ChoosePlayer(chosen))
+                if *p == player =>
+            {
+                let mut wizard = self.cast_wizard.take().expect("wizard active");
+                wizard.chosen_player = Some(chosen);
+                wizard.stage = cast_wizard::WizardStage::Kicker;
+                self.cast_wizard = Some(wizard);
+                self.advance_cast_wizard()
             }
             (
                 Pending::Priority { player: p, legal },
@@ -145,16 +158,17 @@ impl<L: CardLookup> Engine<L> {
                 {
                     return Err(EngineError::IllegalAction("invalid target selection"));
                 }
+                // Wizard path: targets go to the active cast wizard.
+                if self.cast_wizard.is_some() {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.targets = objects.into_iter().collect();
+                    wizard.stage = cast_wizard::WizardStage::Kicker;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
                 let plan = self.pending_plan.take().expect("target plan set");
                 let targets: SmallVec<[ObjectId; 2]> = objects.into_iter().collect();
                 match plan {
-                    PlanKind::CastSpell { card } => {
-                        casting::cast_spell(&mut self.state, player, card)?;
-                        if let Some(obj) = self.state.object_mut(card) {
-                            obj.targets = targets;
-                        }
-                        self.after_action(player);
-                    }
                     PlanKind::ActivateAbility {
                         source,
                         ability_index,
@@ -193,6 +207,18 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                // Wizard path: kicker yes/no.
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Kicker)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.kicked = answer;
+                    wizard.stage = cast_wizard::WizardStage::PitchChoice;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_yes_no(&mut self.state, &mut res, answer) {
                     resolve::Flow::Wait(pending) => {
@@ -221,6 +247,18 @@ impl<L: CardLookup> Engine<L> {
                     || !objects.iter().all(|o| options.contains(o))
                 {
                     return Err(EngineError::IllegalAction("invalid card selection"));
+                }
+                // Wizard path: pitch cards (exile-from-hand costs).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::PitchChoice)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.pitch = objects.into_iter().collect();
+                    wizard.stage = cast_wizard::WizardStage::Done;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume(&mut self.state, &mut res, &objects) {
