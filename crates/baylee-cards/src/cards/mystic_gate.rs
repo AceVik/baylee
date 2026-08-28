@@ -1,15 +1,17 @@
 //! Mystic Gate — (no cost) — Land
 //! Oracle: {T}: Add {C}.
-//! Oracle: {W/U}, {T}: Add {W}{W}, {W}{U}, or {U}{U}.
-//! Set: CMM #1013 — Commander Masters | Scryfall ID: 6f99714f-43bc-4048-b650-97dfef4c10fe | Oracle ID: e9f5feb2-2c1a-46ce-885a-4f378d7d10af
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! {1}, {T}: Add two mana in any combination of {White} and/or {Blue}.
+//! Set: SHM #277 — Shadowmoor | Scryfall ID: 6f99714f-43bc-4048-b650-97dfef4c10fe | Oracle ID: e9f5feb2-2c1a-46ce-885a-4f378d7d10af
+// IMPLEMENTED — filter land (colorless tap + {1},{T} for two combination mana).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
+    FaceDef, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 pub static CARD: CardDef = CardDef {
@@ -28,16 +30,42 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
+    color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddMana {
+                color: ManaColor::Colorless,
+                amount: 1,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+        AbilityDef::Activated {
+            cost: Cost {
+                mana: baylee_core::mana!("{1}"),
+                parts: &[baylee_cards_dsl::CostPart::TapSelf],
+            },
+            effects: &[Effect::AddManaChoice {
+                colors: &[ManaColor::White, ManaColor::Blue],
+                amount: 2,
+                combination: true,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

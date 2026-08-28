@@ -33,6 +33,7 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[CostPart::PayLifeX],
+        enter_modifiers: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::EMPTY,

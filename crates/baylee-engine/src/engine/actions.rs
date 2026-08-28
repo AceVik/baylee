@@ -184,6 +184,9 @@ impl<L: CardLookup> Engine<L> {
                         let controller = self.state.object(source).map_or(player, |o| o.controller);
                         self.push_ability_to_stack(controller, source, ability_index, targets)?;
                     }
+                    PlanKind::EntryTap { .. } => {
+                        unreachable!("entry-tap plans are answered via YesNo")
+                    }
                 }
                 Ok(())
             }
@@ -207,6 +210,24 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                // Shockland entry choice: pay life or enter tapped.
+                if let Some(PlanKind::EntryTap { object, amount }) = self.pending_plan.take() {
+                    if answer {
+                        let p_ref = &mut self.state.players[player.get() as usize];
+                        let old = p_ref.life;
+                        p_ref.life -= i32::from(amount);
+                        let new = p_ref.life;
+                        self.state.journal.record(GameEvent::LifeChanged {
+                            player,
+                            old,
+                            new,
+                            cause: Cause::Cost,
+                        });
+                    } else if let Some(obj) = self.state.object_mut(object) {
+                        obj.status.insert(Status::TAPPED);
+                    }
+                    return Ok(());
+                }
                 // Wizard path: kicker yes/no.
                 if self
                     .cast_wizard

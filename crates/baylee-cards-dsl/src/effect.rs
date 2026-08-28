@@ -378,6 +378,9 @@ pub enum Effect {
         /// Who gains control.
         new_controller: PlayerRel,
     },
+    /// Each player gains control of all creatures they own (Homeward
+    /// Path).
+    AllCreaturesToOwner,
     /// Phase a target permanent out (Clever Concealment).
     PhaseOut {
         /// What phases out (first target when set, else the source).

@@ -35,6 +35,7 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[],
     }
 }
 

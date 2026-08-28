@@ -18,6 +18,8 @@ pub enum CostPart {
     PayLife(u16),
     /// Discard a card matching the filter (choice at payment).
     Discard(&'static Filter),
+    /// Discard the source card itself (cycling).
+    DiscardSelf,
     /// Exile the source.
     ExileSelf,
     /// Exile a card from your hand matching the filter (pitch costs).

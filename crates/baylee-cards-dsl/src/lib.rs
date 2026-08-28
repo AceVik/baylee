@@ -12,7 +12,7 @@ pub mod effect;
 pub mod filter;
 pub mod static_ability;
 
-pub use ability::{AbilityDef, ActivationTiming, SpellMode, StepKind, Trigger, TriggerEventKind};
+pub use ability::{AbilityDef, ActivationTiming, ActivationZone, SpellMode, StepKind, Trigger, TriggerEventKind};
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart};
 pub use effect::{
     Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetReq, TargetSpec, TokenDef, ZoneSel,
@@ -90,6 +90,19 @@ pub struct FaceDef {
     /// Mandatory additional cost parts paid at cast (Toxic Deluge's
     /// "pay X life").
     pub mandatory_additional_costs: &'static [crate::cost::CostPart],
+    /// As-it-enters-the-battlefield modifiers (taplands, shocklands).
+    pub enter_modifiers: &'static [EnterModifier],
+}
+
+/// As-it-enters-the-battlefield modifiers (CR 614.1c/d).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum EnterModifier {
+    /// Enters tapped (triomes, Arcane Sanctum).
+    Tapped,
+    /// Enters tapped unless you control a matching permanent (checklands).
+    TappedUnless(&'static Filter),
+    /// "You may pay N life; if you don't, this enters tapped" (shocklands).
+    TappedOrPayLife(u16),
 }
 
 /// Simple keyword abilities as a bitset.

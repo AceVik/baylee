@@ -1,13 +1,16 @@
-//! Godless Shrine — (no cost) — Land — Plains Swamp
+//! Godless Shrine — (no cost) — Land — PLAINS SWAMP
 //! Oracle: ({T}: Add {W} or {B}.)
-//! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
-//! Set: TRK #285 — Star Trek | Scryfall ID: 8fbd1ae0-3d4c-492a-a1ea-85a95fa3d7b6 | Oracle ID: 73864fcc-1bde-4bc0-831e-2b93e546e417
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Godless Shrine enters the battlefield tapped unless you pay 2 life.
+//! Set: FDN #281 — Foundations | Scryfall ID: 8fbd1ae0-3d4c-492a-a1ea-85a95fa3d7b6 | Oracle ID: 73864fcc-1bde-4bc0-831e-2b93e546e417
+// IMPLEMENTED — shockland (pay 2 life or enters tapped; intrinsic mana via subtypes).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Coverage, EnterModifier,
+    FaceDef, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, land};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -28,16 +31,15 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[EnterModifier::TappedOrPayLife(2)],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
+    color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
+    coverage: Coverage::Implemented,
     abilities: &[],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

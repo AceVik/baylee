@@ -1,16 +1,28 @@
-//! Prairie Stream — (no cost) — Land — Plains Island
-//! Oracle: ({T}: Add {W} or {U}.)
-//! Oracle: This land enters tapped unless you control two or more basic lands.
-//! Set: MSC #257 — Marvel Super Heroes Commander | Scryfall ID: b2e133b4-2263-4ac2-8d16-7bf307d5e104 | Oracle ID: 5330e24a-8568-446e-840a-594cd08bd1bc
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Prairie Stream — (no cost) — Land
+//! Oracle: Prairie Stream enters the battlefield tapped unless you control a PLAINS or an ISLAND.
+//! {T}: Add White or Blue.
+//! Set: BFZ #241 — Battle for Zendikar | Scryfall ID: b2e133b4-2263-4ac2-8d16-7bf307d5e104 | Oracle ID: 5330e24a-8568-446e-840a-594cd08bd1bc
+// IMPLEMENTED — checkland (ETB tapped unless you control a PLAINS/ISLAND) + 2-color mana.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
+    EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::land;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static CHECK: Filter = Filter::And(&[
+    Filter::ControlledByYou,
+    Filter::HasType(TypeSet::LAND),
+    Filter::Or(&[
+        Filter::HasSubtype(land::PLAINS),
+        Filter::HasSubtype(land::ISLAND),
+    ]),
+]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(117),
@@ -21,23 +33,33 @@ pub static CARD: CardDef = CardDef {
         mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::land::PLAINS, subtypes::land::ISLAND],
+        subtypes: &[],
         power: None,
         toughness: None,
         loyalty: None,
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
+    color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddManaChoice {
+            colors: &[ManaColor::White, ManaColor::Blue],
+            amount: 1,
+            combination: false,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

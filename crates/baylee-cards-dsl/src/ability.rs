@@ -13,6 +13,15 @@ pub enum ActivationTiming {
     SorcerySpeed,
 }
 
+/// Where an activated ability may be activated from.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ActivationZone {
+    /// On the battlefield (default).
+    Battlefield,
+    /// From your hand (cycling).
+    Hand,
+}
+
 /// Steps/phases triggers can listen to.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum StepKind {
@@ -76,6 +85,8 @@ pub enum AbilityDef {
         timing: ActivationTiming,
         /// Mana abilities don't use the stack (CR 605.1).
         mana_ability: bool,
+        /// Where the ability may be activated from (cycling = from hand).
+        zone: ActivationZone,
     },
     /// Triggered ability (`when/whenever/at …, effect`).
     Triggered {

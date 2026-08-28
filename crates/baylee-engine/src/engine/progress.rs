@@ -3,6 +3,7 @@ use super::{
     ObjectId, ObjectKind, Pending, Phase, PlanKind, PlayerId, Resolution, SmallVec, Status, Step,
     Zone, ZoneLocation, ZonePosition, combat, eval, resolve, sba, trigger,
 };
+use crate::choice::YesNoPrompt;
 
 impl<L: CardLookup> Engine<L> {
     pub(crate) fn run_until_choice(&mut self) {
@@ -14,6 +15,11 @@ impl<L: CardLookup> Engine<L> {
             //    refresh characteristic caches (generation compare).
             self.sync_static_effects();
             self.state.refresh_characteristics();
+            // 0b. As-it-enters modifiers (taplands, shockland choices).
+            self.apply_enter_modifiers();
+            if self.awaiting_answer {
+                return;
+            }
             // 1. Game over?
             if let Some(result) = self.game_result() {
                 self.pending = Pending::GameOver(result);
@@ -121,6 +127,90 @@ impl<L: CardLookup> Engine<L> {
             };
             self.awaiting_answer = true;
             true
+        }
+    }
+
+    /// Applies as-it-enters-the-battlefield modifiers to permanents that
+    /// entered since the last scan (CR 614.1c/d; taplands, shocklands).
+    pub(crate) fn apply_enter_modifiers(&mut self) {
+        use baylee_cards_dsl::EnterModifier;
+        let events: Vec<(ObjectId, PlayerId)> = self
+            .state
+            .journal
+            .entries()
+            .get(self.entry_scan_seq as usize..)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|e| match &e.event {
+                GameEvent::ZoneChanged {
+                    object,
+                    to: Zone::Battlefield,
+                    ..
+                } => Some(*object),
+                _ => None,
+            })
+            .filter_map(|id| {
+                self.state
+                    .object(id)
+                    .map(|o| (id, o.controller))
+            })
+            .collect();
+        self.entry_scan_seq = self.state.journal.last_seq();
+        for (id, controller) in events {
+            let Some(card) = self.state.object(id).and_then(|o| o.card) else {
+                continue;
+            };
+            let Some(def) = self.lookup.card(card.index) else {
+                continue;
+            };
+            for modifier in def.faces[0].enter_modifiers {
+                match modifier {
+                    EnterModifier::Tapped => {
+                        if let Some(obj) = self.state.object_mut(id) {
+                            obj.status.insert(Status::TAPPED);
+                        }
+                    }
+                    EnterModifier::TappedUnless(filter) => {
+                        let controlled = self
+                            .state
+                            .zones
+                            .list(ZoneLocation::Battlefield)
+                            .iter()
+                            .any(|other| {
+                                *other != id
+                                    && self.state.object(*other).is_some_and(|o| {
+                                        eval::matches(filter, &self.state, o, controller, id)
+                                    })
+                            });
+                        if !controlled {
+                            if let Some(obj) = self.state.object_mut(id) {
+                                obj.status.insert(Status::TAPPED);
+                            }
+                        }
+                    }
+                    EnterModifier::TappedOrPayLife(amount) => {
+                        let amount = *amount;
+                        // Unpayable → tapped without a choice.
+                        if self.state.players[controller.get() as usize].life <= i32::from(amount)
+                        {
+                            if let Some(obj) = self.state.object_mut(id) {
+                                obj.status.insert(Status::TAPPED);
+                            }
+                            continue;
+                        }
+                        self.pending_plan = Some(PlanKind::EntryTap {
+                            object: id,
+                            amount,
+                        });
+                        self.pending = Pending::YesNo {
+                            player: controller,
+                            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+                        };
+                        self.awaiting_answer = true;
+                        return; // one choice at a time
+                    }
+                }
+            }
         }
     }
 

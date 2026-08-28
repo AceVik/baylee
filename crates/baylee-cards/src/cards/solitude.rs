@@ -45,6 +45,7 @@ pub static CARD: CardDef = CardDef {
         }],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::FLASH.union(KeywordSet::LIFELINK),

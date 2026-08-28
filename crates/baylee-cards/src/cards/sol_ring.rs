@@ -5,7 +5,7 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, CardDef, CommanderRule, Cost, Coverage, Effect, FaceDef,
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect, FaceDef,
     KeywordSet, PartnerKind,
 };
 use baylee_core::color::{Color, ColorSet};
@@ -29,6 +29,7 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[],
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
@@ -44,6 +45,7 @@ pub static CARD: CardDef = CardDef {
         target: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,
+        zone: ActivationZone::Battlefield,
     }],
 };
 

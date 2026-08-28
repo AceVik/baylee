@@ -29,6 +29,7 @@ pub static CARD: CardDef = CardDef {
             alternative_costs: &[],
             additional_costs: &[],
             mandatory_additional_costs: &[],
+        enter_modifiers: &[],
         },
         FaceDef {
             name: "Ghastly Mimicry",
@@ -42,6 +43,7 @@ pub static CARD: CardDef = CardDef {
             alternative_costs: &[],
             additional_costs: &[],
             mandatory_additional_costs: &[],
+        enter_modifiers: &[],
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

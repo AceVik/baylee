@@ -1,9 +1,10 @@
 use super::{
-    AbilityDef, AbilityLoc, ActivationTiming, CardLookup, Cause, Cost, CostPart, Engine,
+    AbilityDef, ActivationTiming, AbilityLoc, CardLookup, Cause, Cost, CostPart, Engine,
     EngineError, GameEvent, GameObject, LegalActions, NameRef, ObjectId, Pending, Phase, PlanKind,
-    PlayerId, Resolution, SmallVec, Status, TypeSet, ZoneLocation, ZonePosition, casting, eval,
-    mana_pay, resolve,
+    Resolution, SmallVec, Status, TypeSet, Zone, ZoneLocation, ZonePosition, casting, eval,
+    mana_pay, resolve, PlayerId,
 };
+use baylee_cards_dsl::ActivationZone;
 
 impl<L: CardLookup> Engine<L> {
     pub(crate) fn compute_legal(&self, player: PlayerId) -> LegalActions {
@@ -44,14 +45,45 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             };
             for (i, ability) in def.abilities.iter().enumerate() {
-                let AbilityDef::Activated { cost, timing, .. } = ability else {
+                let AbilityDef::Activated {
+                    cost, timing, zone, ..
+                } = ability else {
                     continue;
                 };
+                if *zone != ActivationZone::Battlefield {
+                    continue; // hand-zone abilities are scanned below
+                }
                 if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                     continue;
                 }
                 if self.can_afford(player, id, cost) {
                     legal.abilities.push((id, i as u32));
+                }
+            }
+        }
+        // Hand-zone activations (cycling).
+        for &card in self.state.zones.list(ZoneLocation::Hand(player)) {
+            let Some(obj) = self.state.object(card) else {
+                continue;
+            };
+            let Some(card_ref) = obj.card else { continue };
+            let Some(def) = self.lookup.card(card_ref.index) else {
+                continue;
+            };
+            for (i, ability) in def.abilities.iter().enumerate() {
+                let AbilityDef::Activated {
+                    cost, timing, zone, ..
+                } = ability else {
+                    continue;
+                };
+                if *zone != ActivationZone::Hand {
+                    continue;
+                }
+                if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                    continue;
+                }
+                if self.can_afford(player, card, cost) {
+                    legal.abilities.push((card, i as u32));
                 }
             }
         }
@@ -82,6 +114,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::SacrificeSelf
                 | CostPart::Sacrifice(_)
                 | CostPart::Discard(_)
+                | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ExileFromHand(_)
                 | CostPart::PayLifeX => {}
@@ -99,7 +132,7 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
-        let (cost, effects, target, mana_ability) = {
+        let (card_index, cost, effects, target, mana_ability, zone) = {
             let obj = self
                 .state
                 .object(source)
@@ -116,6 +149,7 @@ impl<L: CardLookup> Engine<L> {
                 effects,
                 target,
                 mana_ability,
+                zone,
                 ..
             } = def
                 .abilities
@@ -124,8 +158,23 @@ impl<L: CardLookup> Engine<L> {
             else {
                 return Err(EngineError::IllegalAction("not an activated ability"));
             };
-            (*cost, *effects, *target, *mana_ability)
+            (card.index, *cost, *effects, *target, *mana_ability, *zone)
         };
+        // Zone validation (battlefield abilities vs. hand abilities).
+        let in_right_zone = match zone {
+            ActivationZone::Battlefield => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Battlefield),
+            ActivationZone::Hand => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Hand && o.zone_owner == Some(player)),
+        };
+        if !in_right_zone {
+            return Err(EngineError::IllegalAction("ability not usable from this zone"));
+        }
+        let _ = card_index;
         // Targets (chosen first unless already provided).
         if targets.is_empty()
             && let Some(spec) = target
@@ -202,6 +251,15 @@ impl<L: CardLookup> Engine<L> {
                     if let Some(obj) = self.state.object_mut(source) {
                         obj.status.remove(Status::TAPPED);
                     }
+                }
+                CostPart::DiscardSelf => {
+                    let owner = self.state.object(source).map_or(player, |o| o.owner);
+                    self.state.move_object(
+                        source,
+                        ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        Cause::Cost,
+                    )?;
                 }
                 CostPart::SacrificeSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);

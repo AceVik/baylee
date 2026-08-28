@@ -1,16 +1,18 @@
 //! Bojuka Bog — (no cost) — Land
-//! Oracle: This land enters tapped.
-//! Oracle: When this land enters, exile target player's graveyard.
-//! Oracle: {T}: Add {B}.
-//! Set: SOC #363 — Secrets of Strixhaven Commander | Scryfall ID: 55b5b094-9d2d-4d96-b90c-78fecdae725a | Oracle ID: 04b7362d-0490-4cb0-b5d7-2a7732f659ce
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Oracle: Bojuka Bog enters the battlefield tapped.
+//! When Bojuka Bog enters, exile all cards from target player's graveyard.
+//! Set: C18 #259 — Commander 2018 | Scryfall ID: 55b5b094-9d2d-4d96-b90c-78fecdae725a | Oracle ID: 04b7362d-0490-4cb0-b5d7-2a7732f659ce
+// IMPLEMENTED — ETB tapped + exile target player's graveyard (opponent
+// auto-resolves heads-up; multiplayer player choice is a protocol M3 item).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
+    EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 pub static CARD: CardDef = CardDef {
@@ -29,16 +31,34 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[EnterModifier::Tapped],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
+    color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddMana {
+                color: ManaColor::Black,
+                amount: 1,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+        AbilityDef::Triggered {
+            trigger: Trigger::EntersBattlefield(&Filter::This),
+            effects: &[Effect::ExileGraveyard {
+                player: PlayerRel::Opponent,
+            }],
+            targets: None,
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

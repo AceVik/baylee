@@ -1,13 +1,16 @@
-//! Temple Garden — (no cost) — Land — Forest Plains
+//! Temple Garden — (no cost) — Land — FOREST PLAINS
 //! Oracle: ({T}: Add {G} or {W}.)
-//! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
-//! Set: TRK #301 — Star Trek | Scryfall ID: b9b0589d-f327-46a7-8bac-06b7654c547a | Oracle ID: f413a83d-a40d-434c-b20a-4c707c0527fa
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Temple Garden enters the battlefield tapped unless you pay 2 life.
+//! Set: FDN #283 — Foundations | Scryfall ID: b9b0589d-f327-46a7-8bac-06b7654c547a | Oracle ID: f413a83d-a40d-434c-b20a-4c707c0527fa
+// IMPLEMENTED — shockland (pay 2 life or enters tapped; intrinsic mana via subtypes).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Coverage, EnterModifier,
+    FaceDef, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, land};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -28,16 +31,15 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[EnterModifier::TappedOrPayLife(2)],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
+    color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
+    coverage: Coverage::Implemented,
     abilities: &[],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

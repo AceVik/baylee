@@ -1,15 +1,24 @@
 //! Marsh Flats — (no cost) — Land
 //! Oracle: {T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Swamp card, put it onto the battlefield, then shuffle.
 //! Set: MH2 #248 — Modern Horizons 2 | Scryfall ID: 9db3ba6d-eb7f-4f5b-9a3b-c6239c3baa42 | Oracle ID: dab520d0-20b4-4273-ba6b-eb07f85ea433
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — fetchland (tap + pay life + sacrifice → search Plains/Swamp
+// to the battlefield tapped, shuffle).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage, Effect,
+    FaceDef, Filter, KeywordSet, PartnerKind, SearchDest,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, land};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static SEARCH_FILTER: Filter = Filter::Or(&[
+    Filter::HasSubtype(land::PLAINS),
+    Filter::HasSubtype(land::SWAMP),
+]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(91),
@@ -27,16 +36,38 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[],
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost {
+            mana: ManaCost::ZERO,
+            parts: &[
+                CostPart::TapSelf,
+                CostPart::SacrificeSelf,
+                CostPart::PayLife(1),
+            ],
+        },
+        effects: &[Effect::SearchLibrary {
+            filter: &SEARCH_FILTER,
+            dest: SearchDest::Battlefield,
+            tapped: true,
+            shuffle: true,
+            optional: false,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: false,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Fetchland family coverage lives in baylee-engine (fetchland test with
+    // Polluted Delta + the land-wave group test).
 }

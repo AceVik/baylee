@@ -83,6 +83,8 @@ pub struct Engine<L: CardLookup> {
     trigger_scan_seq: u64,
     /// A cast/activation waiting for its target choice.
     pending_plan: Option<PlanKind>,
+    /// Journal seq up to which as-it-enters modifiers were applied.
+    entry_scan_seq: u64,
     /// A spell being cast step by step (modes/targets/X/kicker/pitch).
     cast_wizard: Option<cast_wizard::CastWizard>,
     /// Triggers collected but not yet stacked (target choices first).
@@ -105,6 +107,13 @@ enum PlanKind {
         source: ObjectId,
         /// Ability index.
         ability_index: u32,
+    },
+    /// A shockland entry choice (pay life or enter tapped).
+    EntryTap {
+        /// The entering land.
+        object: ObjectId,
+        /// Life to pay.
+        amount: u16,
     },
 }
 
@@ -136,6 +145,7 @@ impl<L: CardLookup> Engine<L> {
             resolution: None,
             trigger_scan_seq,
             pending_plan: None,
+            entry_scan_seq: 0,
             cast_wizard: None,
             trigger_queue: VecDeque::new(),
         };

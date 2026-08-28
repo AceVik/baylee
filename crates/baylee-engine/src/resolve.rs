@@ -653,6 +653,24 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::AllCreaturesToOwner => {
+            let creatures: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state.object(**id).is_some_and(|o| {
+                        o.characteristics().types.contains(baylee_core::types::TypeSet::CREATURE)
+                    })
+                })
+                .copied()
+                .collect();
+            for id in creatures {
+                let owner = state.object(id).map_or(you, |o| o.owner);
+                change_controller(state, id, owner);
+            }
+            None
+        }
         Effect::PhaseOut { target } => {
             let target_id = match target {
                 Some(_) => res.targets.first().copied(),

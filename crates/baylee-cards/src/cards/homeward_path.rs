@@ -1,16 +1,21 @@
 //! Homeward Path — (no cost) — Land
-//! Oracle: {T}: Add {C}.
-//! Oracle: {T}: Each player gains control of all creatures they own.
-//! Set: C16 #301 — Commander 2016 | Scryfall ID: 54734347-eee7-4c52-b514-7342afeccabd | Oracle ID: cb8ec2e4-8223-4172-8f2c-37c918a573fa
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Oracle: {T}: Add {C}. {T}: Each player gains control of all creatures they own.
+//! Set: C13 #262 — Commander 2013 | Scryfall ID: 54734347-eee7-4c52-b514-7342afeccabd | Oracle ID: cb8ec2e4-8223-4172-8f2c-37c918a573fa
+// IMPLEMENTED.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart,
+    Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec,
+    Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature, land};
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(71),
@@ -28,16 +33,33 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[],
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+    cost: Cost::TAP,
+    effects: &[Effect::AddMana {
+        color: ManaColor::Colorless,
+        amount: 1,
+    }],
+    target: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: true,
+    zone: ActivationZone::Battlefield,
+},
+AbilityDef::Activated {
+    cost: Cost::TAP,
+    effects: &[Effect::AllCreaturesToOwner],
+    target: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: false,
+    zone: ActivationZone::Battlefield,
+}],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

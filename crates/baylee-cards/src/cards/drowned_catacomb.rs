@@ -1,16 +1,28 @@
 //! Drowned Catacomb — (no cost) — Land
-//! Oracle: This land enters tapped unless you control an Island or a Swamp.
-//! Oracle: {T}: Add {U} or {B}.
-//! Set: MSC #239 — Marvel Super Heroes Commander | Scryfall ID: ebea49ab-e5cf-46d9-ae35-226a7321ede0 | Oracle ID: 819fc966-434e-470f-91e9-a38df974ad17
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Oracle: Drowned Catacomb enters the battlefield tapped unless you control a ISLAND or an SWAMP.
+//! {T}: Add Blue or Black.
+//! Set: XLN #252 — Ixalan | Scryfall ID: ebea49ab-e5cf-46d9-ae35-226a7321ede0 | Oracle ID: 819fc966-434e-470f-91e9-a38df974ad17
+// IMPLEMENTED — checkland (ETB tapped unless you control a ISLAND/SWAMP) + 2-color mana.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
+    EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::land;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static CHECK: Filter = Filter::And(&[
+    Filter::ControlledByYou,
+    Filter::HasType(TypeSet::LAND),
+    Filter::Or(&[
+        Filter::HasSubtype(land::ISLAND),
+        Filter::HasSubtype(land::SWAMP),
+    ]),
+]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(36),
@@ -28,16 +40,26 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
+        enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddManaChoice {
+            colors: &[ManaColor::Blue, ManaColor::Black],
+            amount: 1,
+            combination: false,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}
