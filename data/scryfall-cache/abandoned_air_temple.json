@@ -1,0 +1,21 @@
+{
+  "id": "9c0433f9-8f1e-4a19-a83f-a41925f1b1a9",
+  "oracle_id": "9575d7ce-f26d-4b90-87a3-6329e9799572",
+  "name": "Abandoned Air Temple",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a basic land.\n{T}: Add {W}.\n{3}{W}, {T}: Put a +1/+1 counter on each creature you control.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "263",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

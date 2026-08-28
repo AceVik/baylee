@@ -1,0 +1,23 @@
+{
+  "id": "b5545882-6963-4729-b2c6-fb4bdc75ffcc",
+  "oracle_id": "36cd2364-d113-47d1-b2c4-b088d9eb88dd",
+  "name": "Brainstorm",
+  "mana_cost": "{U}",
+  "type_line": "Instant",
+  "oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "tle",
+  "set_name": "Avatar: The Last Airbender Eternal",
+  "collector_number": "155",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

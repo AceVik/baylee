@@ -1,0 +1,23 @@
+{
+  "id": "cd702cf1-10ca-4448-9fb1-b6de635e839c",
+  "oracle_id": "244d4807-0802-41bc-9460-55ac38a28a72",
+  "name": "Vendilion Clique",
+  "mana_cost": "{1}{U}{U}",
+  "type_line": "Legendary Creature — Faerie Wizard",
+  "oracle_text": "Flash\nFlying\nWhen Vendilion Clique enters, look at target player's hand. You may choose a nonland card from it. If you do, that player reveals the chosen card, puts it on the bottom of their library, then draws a card.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "a25",
+  "set_name": "Masters 25",
+  "collector_number": "76",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

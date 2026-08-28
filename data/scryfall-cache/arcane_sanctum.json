@@ -1,0 +1,23 @@
+{
+  "id": "c75eeb97-3249-4762-84b0-387f27fb255f",
+  "oracle_id": "7d7cf15c-06b9-4062-a1eb-32614c458a3b",
+  "name": "Arcane Sanctum",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}, {U}, or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U",
+    "W"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "259",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

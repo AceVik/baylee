@@ -1,0 +1,23 @@
+{
+  "id": "a2c56479-4bee-4edb-80d7-4af010b7c793",
+  "oracle_id": "6e9ef5ef-6aed-4d3e-a59b-9e3dc8740b1b",
+  "name": "Raffine's Tower",
+  "mana_cost": "",
+  "type_line": "Land — Plains Island Swamp",
+  "oracle_text": "({T}: Add {W}, {U}, or {B}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U",
+    "W"
+  ],
+  "set": "snc",
+  "set_name": "Streets of New Capenna",
+  "collector_number": "254",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

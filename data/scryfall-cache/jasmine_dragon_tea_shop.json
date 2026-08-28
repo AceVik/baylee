@@ -1,0 +1,19 @@
+{
+  "id": "da2c83d4-a95f-47ff-a08f-694eb78d6b9b",
+  "oracle_id": "d9a24444-289f-473f-9985-8df275257555",
+  "name": "Jasmine Dragon Tea Shop",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast an Ally spell or activate an ability of an Ally source.\n{5}, {T}: Create a 1/1 white Ally creature token.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "270",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

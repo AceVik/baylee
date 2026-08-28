@@ -1,0 +1,22 @@
+{
+  "id": "9d471e36-a3ab-4a96-ba4b-8eca921ea37a",
+  "oracle_id": "c8d95ca8-7d12-4072-aeaf-e20f248c7e39",
+  "name": "Scrubland",
+  "mana_cost": "",
+  "type_line": "Land — Plains Swamp",
+  "oracle_text": "({T}: Add {W} or {B}.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "313",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

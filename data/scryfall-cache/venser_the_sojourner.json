@@ -1,0 +1,25 @@
+{
+  "id": "8f61a0ea-c2e8-4571-9669-19abd8bbc874",
+  "oracle_id": "a8bf8ff8-d924-4fd2-b5ed-05b38f55325a",
+  "name": "Venser, the Sojourner",
+  "mana_cost": "{3}{W}{U}",
+  "type_line": "Legendary Planeswalker — Venser",
+  "oracle_text": "+2: Exile target permanent you own. Return it to the battlefield under your control at the beginning of the next end step.\n−1: Creatures can't be blocked this turn.\n−8: You get an emblem with \"Whenever you cast a spell, exile target permanent.\"",
+  "colors": [
+    "U",
+    "W"
+  ],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "ddi",
+  "set_name": "Duel Decks: Venser vs. Koth",
+  "collector_number": "1",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": "3",
+  "card_faces": null
+}

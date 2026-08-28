@@ -1,0 +1,25 @@
+[package]
+name = "baylee-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Deterministic MTG rules kernel (no I/O, no async)"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+baylee-cards-dsl.workspace = true
+rustc-hash.workspace = true
+xxhash-rust.workspace = true
+smallvec.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+rhai.workspace = true
+rand_chacha.workspace = true
+rand_core.workspace = true
+
+[dev-dependencies]
+baylee-cards.workspace = true
+uuid.workspace = true

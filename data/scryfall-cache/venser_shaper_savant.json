@@ -1,0 +1,23 @@
+{
+  "id": "77e19416-aa6c-46f1-b247-a94da5d1a13a",
+  "oracle_id": "0f41cefc-d6ff-4db7-ba35-502b7e081de1",
+  "name": "Venser, Shaper Savant",
+  "mana_cost": "{2}{U}{U}",
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nWhen Venser enters, return target spell or permanent to its owner's hand.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "2x2",
+  "set_name": "Double Masters 2022",
+  "collector_number": "66",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

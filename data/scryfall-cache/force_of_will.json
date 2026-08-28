@@ -1,0 +1,23 @@
+{
+  "id": "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+  "oracle_id": "956381ba-6d37-4a8a-846c-bad79222dbee",
+  "name": "Force of Will",
+  "mana_cost": "{3}{U}{U}",
+  "type_line": "Instant",
+  "oracle_text": "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "50",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

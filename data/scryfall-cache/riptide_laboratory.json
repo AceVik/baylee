@@ -1,0 +1,21 @@
+{
+  "id": "25a9cb87-e572-4885-8561-1d4b158ec7e4",
+  "oracle_id": "444d50dd-a44a-42db-bbf6-d0978e3bd6a3",
+  "name": "Riptide Laboratory",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}{U}, {T}: Return target Wizard you control to its owner's hand.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "303",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

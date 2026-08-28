@@ -1,0 +1,27 @@
+{
+  "id": "f333ea01-124f-4125-87ab-609be40e774c",
+  "oracle_id": "481c3e14-b670-4fab-aa9f-6ce5b514096d",
+  "name": "Aang and Katara",
+  "mana_cost": "{3}{G}{W}{U}",
+  "type_line": "Legendary Creature — Human Avatar Ally",
+  "oracle_text": "Whenever Aang and Katara enter or attack, create X 1/1 white Ally creature tokens, where X is the number of tapped artifacts and/or creatures you control.",
+  "colors": [
+    "G",
+    "U",
+    "W"
+  ],
+  "color_identity": [
+    "G",
+    "U",
+    "W"
+  ],
+  "set": "tle",
+  "set_name": "Avatar: The Last Airbender Eternal",
+  "collector_number": "69",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "5",
+  "toughness": "5",
+  "loyalty": null,
+  "card_faces": null
+}

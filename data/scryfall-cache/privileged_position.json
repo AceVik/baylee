@@ -1,0 +1,25 @@
+{
+  "id": "9655bbe4-062f-4278-ad05-a326a64c5b69",
+  "oracle_id": "abd62af0-c17d-4f62-af15-9ea83037b990",
+  "name": "Privileged Position",
+  "mana_cost": "{2}{G/W}{G/W}{G/W}",
+  "type_line": "Enchantment",
+  "oracle_text": "({G/W} can be paid with either {G} or {W}.)\nOther permanents you control have hexproof. (They can't be the targets of spells or abilities your opponents control.)",
+  "colors": [
+    "G",
+    "W"
+  ],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "2x2",
+  "set_name": "Double Masters 2022",
+  "collector_number": "263",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

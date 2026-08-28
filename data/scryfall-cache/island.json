@@ -1,0 +1,21 @@
+{
+  "id": "f3cc07cd-cc79-4745-b0b7-eade60175cc3",
+  "oracle_id": "b2c6aa39-2d2a-459c-a555-fb48ba993373",
+  "name": "Island",
+  "mana_cost": "",
+  "type_line": "Basic Land — Island",
+  "oracle_text": "({T}: Add {U}.)",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "trk",
+  "set_name": "Star Trek",
+  "collector_number": "319",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

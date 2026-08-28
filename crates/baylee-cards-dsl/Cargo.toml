@@ -1,0 +1,12 @@
+[package]
+name = "baylee-cards-dsl"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Card authoring framework: CardDef data model and builders"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true

@@ -1,0 +1,22 @@
+{
+  "id": "b2e133b4-2263-4ac2-8d16-7bf307d5e104",
+  "oracle_id": "5330e24a-8568-446e-840a-594cd08bd1bc",
+  "name": "Prairie Stream",
+  "mana_cost": "",
+  "type_line": "Land — Plains Island",
+  "oracle_text": "({T}: Add {W} or {U}.)\nThis land enters tapped unless you control two or more basic lands.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "257",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

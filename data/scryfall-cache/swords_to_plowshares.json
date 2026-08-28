@@ -1,0 +1,23 @@
+{
+  "id": "b4e9c870-23c0-413a-ae39-265f09da16d1",
+  "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52",
+  "name": "Swords to Plowshares",
+  "mana_cost": "{W}",
+  "type_line": "Instant",
+  "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "143",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

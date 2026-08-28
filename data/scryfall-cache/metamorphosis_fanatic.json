@@ -1,0 +1,23 @@
+{
+  "id": "16448d95-ee21-4def-b880-26f6f159c213",
+  "oracle_id": "017aa9b3-a8ea-4588-9c50-e914a7d8e4ee",
+  "name": "Metamorphosis Fanatic",
+  "mana_cost": "{4}{B}{B}",
+  "type_line": "Creature — Human Cleric",
+  "oracle_text": "Lifelink\nWhen this creature enters, return up to one target creature card from your graveyard to the battlefield with a lifelink counter on it.\nMiracle {1}{B} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "21",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "4",
+  "toughness": "4",
+  "loyalty": null,
+  "card_faces": null
+}

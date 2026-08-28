@@ -1,0 +1,23 @@
+{
+  "id": "ced43447-fefc-482a-b8fa-33b9616aa532",
+  "oracle_id": "f4232466-dd6a-49bf-be6c-95905c3ded17",
+  "name": "Ondu Cleric",
+  "mana_cost": "{1}{W}",
+  "type_line": "Creature — Kor Cleric Ally",
+  "oracle_text": "Whenever this creature or another Ally you control enters, you may gain life equal to the number of Allies you control.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "zen",
+  "set_name": "Zendikar",
+  "collector_number": "30",
+  "rarity": "common",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

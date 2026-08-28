@@ -1,0 +1,40 @@
+{
+  "id": "5adcb500-8c77-4925-8e2c-1243502827d1",
+  "oracle_id": "c178953c-3888-4edd-9d0c-265bd82b1d24",
+  "name": "Glasspool Mimic // Glasspool Shore",
+  "mana_cost": null,
+  "type_line": "Creature — Shapeshifter Rogue // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "60",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Glasspool Mimic",
+      "mana_cost": "{2}{U}",
+      "type_line": "Creature — Shapeshifter Rogue",
+      "oracle_text": "You may have this creature enter as a copy of a creature you control, except it's a Shapeshifter Rogue in addition to its other types.",
+      "power": "0",
+      "toughness": "0",
+      "loyalty": null
+    },
+    {
+      "name": "Glasspool Shore",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

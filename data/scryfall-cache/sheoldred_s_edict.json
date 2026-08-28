@@ -1,0 +1,23 @@
+{
+  "id": "a9225cc3-90f0-448f-a8d9-7c6c2796d077",
+  "oracle_id": "217062f5-96f1-454c-9507-17f34ef37070",
+  "name": "Sheoldred's Edict",
+  "mana_cost": "{1}{B}",
+  "type_line": "Instant",
+  "oracle_text": "Choose one —\n• Each opponent sacrifices a nontoken creature of their choice.\n• Each opponent sacrifices a creature token of their choice.\n• Each opponent sacrifices a planeswalker of their choice.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "one",
+  "set_name": "Phyrexia: All Will Be One",
+  "collector_number": "108",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

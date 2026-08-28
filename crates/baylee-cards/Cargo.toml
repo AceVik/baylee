@@ -1,0 +1,13 @@
+[package]
+name = "baylee-cards"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Compiled card registry (one file per card)"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+baylee-cards-dsl.workspace = true

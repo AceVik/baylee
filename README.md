@@ -1,0 +1,27 @@
+# baylee
+
+A high-performance, memory-efficient Magic: The Gathering platform written in
+Rust: a deterministic rules engine (one process per game, up to 8 players),
+a gateway service (accounts, decks, lobbies, image cache), and WASM clients
+(Leptos lobby, Bevy 2.5D game table).
+
+**Status: M0 — foundations.** See `docs/architecture.md` for the master plan
+and `AGENTS.md` for build/test commands.
+
+## Workspace layout
+
+| Crate | Purpose |
+|---|---|
+| `baylee-core` | Shared foundations: ids, colors, types/subtypes, mana, presets (wasm-safe) |
+| `baylee-protocol` | Binary WS protocol (protobuf, wasm-safe) |
+| `baylee-engine` | Deterministic rules kernel (no I/O, no async) |
+| `baylee-cards-dsl` | Card authoring framework (data model + builders) |
+| `baylee-cards` | Compiled card registry (one file per card) |
+| `baylee-cards-codegen` | Scryfall/catalog/forge-reference code generation |
+| `baylee-ai` | Heuristic AI controllers (difficulty profiles) |
+| `baylee-engine-server` | Binary: one process per game, WS transport |
+
+## Legal
+
+Unofficial, non-commercial fan project (see `NOTICE` and `docs/legal.md`).
+Code licensed AGPL-3.0-only.

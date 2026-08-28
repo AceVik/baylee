@@ -1,0 +1,23 @@
+{
+  "id": "4f616706-ec97-4923-bb1e-11a69fbaa1f8",
+  "oracle_id": "cc187110-1148-4090-bbb8-e205694a39f5",
+  "name": "Counterspell",
+  "mana_cost": "{U}{U}",
+  "type_line": "Instant",
+  "oracle_text": "Counter target spell.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "114",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "a749c591-2fbe-41d8-ac5b-56ebce82d33e",
+  "oracle_id": "47a785ed-8095-4685-8daa-02c4e2b0ffcd",
+  "name": "Spellseeker",
+  "mana_cost": "{2}{U}",
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "When this creature enters, you may search your library for an instant or sorcery card with mana value 2 or less, reveal it, put it into your hand, then shuffle.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "120",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

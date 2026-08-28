@@ -1,0 +1,23 @@
+{
+  "id": "47a6234f-309f-4e03-9263-66da48b57153",
+  "oracle_id": "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
+  "name": "Solitude",
+  "mana_cost": "{3}{W}{W}",
+  "type_line": "Creature — Elemental Incarnation",
+  "oracle_text": "Flash\nLifelink\nWhen this creature enters, exile up to one other target creature. That creature's controller gains life equal to its power.\nEvoke—Exile a white card from your hand.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "32",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

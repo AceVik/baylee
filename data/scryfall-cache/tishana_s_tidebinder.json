@@ -1,0 +1,23 @@
+{
+  "id": "907b3d1d-8c85-4707-80b5-c4d832df9846",
+  "oracle_id": "2993dc7d-723d-4a9b-94bd-4bb02a9f7243",
+  "name": "Tishana's Tidebinder",
+  "mana_cost": "{2}{U}",
+  "type_line": "Creature — Merfolk Wizard",
+  "oracle_text": "Flash\nWhen this creature enters, counter up to one target activated or triggered ability. If an ability of an artifact, creature, or planeswalker is countered this way, that permanent loses all abilities for as long as this creature remains on the battlefield. (Mana abilities can't be targeted.)",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "81",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "8fbd1ae0-3d4c-492a-a1ea-85a95fa3d7b6",
+  "oracle_id": "73864fcc-1bde-4bc0-831e-2b93e546e417",
+  "name": "Godless Shrine",
+  "mana_cost": "",
+  "type_line": "Land — Plains Swamp",
+  "oracle_text": "({T}: Add {W} or {B}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "trk",
+  "set_name": "Star Trek",
+  "collector_number": "285",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

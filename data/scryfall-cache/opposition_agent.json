@@ -1,0 +1,23 @@
+{
+  "id": "086f97e9-8b62-44f3-b467-149c2ac5ca78",
+  "oracle_id": "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
+  "name": "Opposition Agent",
+  "mana_cost": "{2}{B}",
+  "type_line": "Creature — Human Rogue",
+  "oracle_text": "Flash\nYou control your opponents while they're searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "141",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "bac81940-d717-49ff-83b2-16a22bb2c988",
+  "oracle_id": "6557813b-4ee7-4881-a37c-10c8ea097360",
+  "name": "Wartime Protestors",
+  "mana_cost": "{3}{R}",
+  "type_line": "Creature — Human Rebel Ally",
+  "oracle_text": "Haste\nWhenever another Ally you control enters, put a +1/+1 counter on that creature and it gains haste until end of turn.",
+  "colors": [
+    "R"
+  ],
+  "color_identity": [
+    "R"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "160",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "4",
+  "toughness": "4",
+  "loyalty": null,
+  "card_faces": null
+}

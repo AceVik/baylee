@@ -1,0 +1,22 @@
+{
+  "id": "b0d161fc-4a2a-4f1d-82b4-a746552552df",
+  "oracle_id": "703243f0-8cb3-420f-958f-5fd4bde30293",
+  "name": "Savannah",
+  "mana_cost": "",
+  "type_line": "Land — Forest Plains",
+  "oracle_text": "({T}: Add {G} or {W}.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "311",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

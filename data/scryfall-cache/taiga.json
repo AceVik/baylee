@@ -1,0 +1,22 @@
+{
+  "id": "0c2c39fc-b564-4ab5-833c-ff029760b7a7",
+  "oracle_id": "22e3cf1d-3559-4ce1-954c-8dc815342979",
+  "name": "Taiga",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Forest",
+  "oracle_text": "({T}: Add {R} or {G}.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "317",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

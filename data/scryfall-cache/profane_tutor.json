@@ -1,0 +1,23 @@
+{
+  "id": "2afc6f7d-ab59-4d64-bd11-6bd0fd4bfcd2",
+  "oracle_id": "27a1f42c-0b86-4609-9609-1fa9cab7e7c9",
+  "name": "Profane Tutor",
+  "mana_cost": "",
+  "type_line": "Sorcery",
+  "oracle_text": "Suspend 2—{1}{B} (Rather than cast this card from your hand, pay {1}{B} and exile it with two time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nSearch your library for a card, put that card into your hand, then shuffle.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "97",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

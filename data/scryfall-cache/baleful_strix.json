@@ -1,0 +1,25 @@
+{
+  "id": "be8439e6-f779-49f0-806a-b04995697a6a",
+  "oracle_id": "37688720-03de-4eca-a82d-a0afe8d58adc",
+  "name": "Baleful Strix",
+  "mana_cost": "{U}{B}",
+  "type_line": "Artifact Creature — Bird",
+  "oracle_text": "Flying, deathtouch\nWhen this creature enters, draw a card.",
+  "colors": [
+    "B",
+    "U"
+  ],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "otc",
+  "set_name": "Outlaws of Thunder Junction Commander",
+  "collector_number": "215",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

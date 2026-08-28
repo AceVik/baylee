@@ -1,0 +1,19 @@
+{
+  "id": "18a1b3f5-473d-45ca-be0d-e67e77ba30ce",
+  "oracle_id": "67f43ac6-2a58-4b53-b5d7-0330e2a252e2",
+  "name": "Reflecting Pool",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add one mana of any type that a land you control could produce.",
+  "colors": [],
+  "color_identity": [],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "358",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

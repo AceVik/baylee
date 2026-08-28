@@ -1,0 +1,21 @@
+{
+  "id": "3d5529ca-5c20-4dfd-8595-96d6dfa6debe",
+  "oracle_id": "276cece9-f9f2-46e6-ae76-daddaa2fb9ab",
+  "name": "Kor Haven",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {C}.\n{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "nem",
+  "set_name": "Nemesis",
+  "collector_number": "141",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

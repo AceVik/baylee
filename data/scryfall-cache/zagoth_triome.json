@@ -1,0 +1,23 @@
+{
+  "id": "cc520518-2063-4b57-a0d4-10cf62a7175e",
+  "oracle_id": "fdd46004-eaba-4024-8687-39b23dc6a58c",
+  "name": "Zagoth Triome",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Forest Island",
+  "oracle_text": "({T}: Add {B}, {G}, or {U}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G",
+    "U"
+  ],
+  "set": "iko",
+  "set_name": "Ikoria: Lair of Behemoths",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

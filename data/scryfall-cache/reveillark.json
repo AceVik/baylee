@@ -1,0 +1,23 @@
+{
+  "id": "53b4dcd6-b1b6-4f1c-9264-e58bdc87399b",
+  "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3",
+  "name": "Reveillark",
+  "mana_cost": "{4}{W}",
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Flying\nWhen this creature leaves the battlefield, return up to two target creature cards with power 2 or less from your graveyard to the battlefield.\nEvoke {5}{W} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "2x2",
+  "set_name": "Double Masters 2022",
+  "collector_number": "26",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "4",
+  "toughness": "3",
+  "loyalty": null,
+  "card_faces": null
+}

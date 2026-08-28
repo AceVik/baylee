@@ -1,0 +1,23 @@
+{
+  "id": "4ba9f15f-00d2-4797-9228-91b320e85705",
+  "oracle_id": "0634091a-a74c-4cea-b6d1-7324a725554a",
+  "name": "Eerie Interlude",
+  "mana_cost": "{2}{W}",
+  "type_line": "Instant",
+  "oracle_text": "Exile any number of target creatures you control. Return those cards to the battlefield under their owner's control at the beginning of the next end step.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "khc",
+  "set_name": "Kaldheim Commander",
+  "collector_number": "22",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,25 @@
+{
+  "id": "662fe50f-d75c-422c-8c6c-1f9b5c4ba21f",
+  "oracle_id": "ae7604bb-4818-45a3-960c-cf3d83f15964",
+  "name": "Teferi, Time Raveler",
+  "mana_cost": "{1}{W}{U}",
+  "type_line": "Legendary Planeswalker — Teferi",
+  "oracle_text": "Each opponent can cast spells only any time they could cast a sorcery.\n+1: Until your next turn, you may cast sorcery spells as though they had flash.\n−3: Return up to one target artifact, creature, or enchantment to its owner's hand. Draw a card.",
+  "colors": [
+    "U",
+    "W"
+  ],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "rvr",
+  "set_name": "Ravnica Remastered",
+  "collector_number": "232",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": "4",
+  "card_faces": null
+}

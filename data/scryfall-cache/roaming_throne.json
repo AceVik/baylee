@@ -1,0 +1,19 @@
+{
+  "id": "32fd8b7c-baf3-4d3d-be6f-044a917b11a0",
+  "oracle_id": "3640c29b-1534-4952-b297-619ade948431",
+  "name": "Roaming Throne",
+  "mana_cost": "{4}",
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "Ward {2}\nAs this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nIf a triggered ability of another creature you control of the chosen type triggers, it triggers an additional time.",
+  "colors": [],
+  "color_identity": [],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "258",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "4",
+  "toughness": "4",
+  "loyalty": null,
+  "card_faces": null
+}

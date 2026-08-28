@@ -1,0 +1,21 @@
+{
+  "id": "e52214e1-404a-405a-b08e-20e13c087338",
+  "oracle_id": "59119143-c0fa-49dd-adf0-e2fd3029c48b",
+  "name": "Karakas",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {W}.\n{T}: Return target legendary creature to its owner's hand.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "uma",
+  "set_name": "Ultimate Masters",
+  "collector_number": "244",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

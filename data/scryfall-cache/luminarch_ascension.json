@@ -1,0 +1,23 @@
+{
+  "id": "b3770d86-4496-4c06-aab1-2917cfec100e",
+  "oracle_id": "90076bf5-aa9a-4a6e-9035-9aa97fd5561e",
+  "name": "Luminarch Ascension",
+  "mana_cost": "{1}{W}",
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of each opponent's end step, if you didn't lose life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\n{1}{W}: Create a 4/4 white Angel creature token with flying. Activate only if this enchantment has four or more quest counters on it.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "a25",
+  "set_name": "Masters 25",
+  "collector_number": "23",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "13c6101a-da40-4785-8ccb-4e779bbbdb55",
+  "oracle_id": "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
+  "name": "Liquimetal Torque",
+  "mana_cost": "{2}",
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}.\n{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "228",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

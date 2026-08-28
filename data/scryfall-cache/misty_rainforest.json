@@ -1,0 +1,19 @@
+{
+  "id": "88231c0d-0cc8-44ec-bf95-81d1710ac141",
+  "oracle_id": "09dd85aa-47bc-4713-a9b9-8b52ff2285ed",
+  "name": "Misty Rainforest",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "250",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

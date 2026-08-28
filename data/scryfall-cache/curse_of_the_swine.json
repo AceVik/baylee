@@ -1,0 +1,23 @@
+{
+  "id": "91eb9067-0bc7-4497-ba9c-c1ea41e5a379",
+  "oracle_id": "5669ea7c-c4fc-494c-896b-4bce9b494817",
+  "name": "Curse of the Swine",
+  "mana_cost": "{X}{U}{U}",
+  "type_line": "Sorcery",
+  "oracle_text": "Exile X target creatures. For each creature exiled this way, its controller creates a 2/2 green Boar creature token.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "192",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "2b74bb81-fb9a-40e5-a941-e517430b52f5",
+  "oracle_id": "ec2b3779-55f7-4169-aa66-6312fb52721f",
+  "name": "Indatha Triome",
+  "mana_cost": "",
+  "type_line": "Land — Plains Swamp Forest",
+  "oracle_text": "({T}: Add {W}, {B}, or {G}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G",
+    "W"
+  ],
+  "set": "iko",
+  "set_name": "Ikoria: Lair of Behemoths",
+  "collector_number": "248",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

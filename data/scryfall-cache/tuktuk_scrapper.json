@@ -1,0 +1,23 @@
+{
+  "id": "d3a84a2a-6384-497a-8ee2-de0fa74fcc80",
+  "oracle_id": "85cf2403-b419-4364-8ac9-67dd1ceddf9e",
+  "name": "Tuktuk Scrapper",
+  "mana_cost": "{3}{R}",
+  "type_line": "Creature — Goblin Artificer Ally",
+  "oracle_text": "Whenever this creature or another Ally you control enters, you may destroy target artifact. If that artifact is put into a graveyard this way, this creature deals damage to that artifact's controller equal to the number of Allies you control.",
+  "colors": [
+    "R"
+  ],
+  "color_identity": [
+    "R"
+  ],
+  "set": "wwk",
+  "set_name": "Worldwake",
+  "collector_number": "94",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

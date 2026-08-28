@@ -1,0 +1,23 @@
+{
+  "id": "861b5889-0183-4bee-afeb-a4b2aa700a8e",
+  "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9",
+  "name": "Smothering Tithe",
+  "mana_cost": "{3}{W}",
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "57",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

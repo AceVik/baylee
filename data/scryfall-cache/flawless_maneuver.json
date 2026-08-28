@@ -1,0 +1,23 @@
+{
+  "id": "ab12f69e-1491-47a8-8c46-d85bbf637ff6",
+  "oracle_id": "4e183439-17d2-47ff-9d99-5e22821d91e3",
+  "name": "Flawless Maneuver",
+  "mana_cost": "{2}{W}",
+  "type_line": "Instant",
+  "oracle_text": "If you control a commander, you may cast this spell without paying its mana cost.\nCreatures you control gain indestructible until end of turn.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "24",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "6f99714f-43bc-4048-b650-97dfef4c10fe",
+  "oracle_id": "e9f5feb2-2c1a-46ce-885a-4f378d7d10af",
+  "name": "Mystic Gate",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{W/U}, {T}: Add {W}{W}, {W}{U}, or {U}{U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1013",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

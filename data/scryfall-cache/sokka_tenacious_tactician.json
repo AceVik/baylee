@@ -1,0 +1,27 @@
+{
+  "id": "f0fa5897-1da7-488f-bb19-1632e969c050",
+  "oracle_id": "6b68acc2-b9d5-495b-8054-c04bae1349f1",
+  "name": "Sokka, Tenacious Tactician",
+  "mana_cost": "{1}{U}{R}{W}",
+  "type_line": "Legendary Creature — Human Warrior Ally",
+  "oracle_text": "Menace, prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nOther Allies you control have menace and prowess.\nWhenever you cast a noncreature spell, create a 1/1 white Ally creature token.",
+  "colors": [
+    "R",
+    "U",
+    "W"
+  ],
+  "color_identity": [
+    "R",
+    "U",
+    "W"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "242",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "3",
+  "loyalty": null,
+  "card_faces": null
+}

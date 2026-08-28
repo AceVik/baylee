@@ -1,0 +1,23 @@
+{
+  "id": "b50e1800-a45c-43bd-8886-8a06145d9346",
+  "oracle_id": "a6708b11-1bcd-4208-a967-fe91f2e3313c",
+  "name": "Recurring Nightmare",
+  "mana_cost": "{2}{B}",
+  "type_line": "Enchantment",
+  "oracle_text": "Sacrifice a creature, Return this enchantment to its owner's hand: Return target creature card from your graveyard to the battlefield. Activate only as a sorcery.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "113",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

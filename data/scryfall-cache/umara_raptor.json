@@ -1,0 +1,23 @@
+{
+  "id": "6049cc80-1faa-48bf-897e-fefe5a8e7ab2",
+  "oracle_id": "a58ee84f-1d9c-4924-b7b1-14a9b2ba3b98",
+  "name": "Umara Raptor",
+  "mana_cost": "{2}{U}",
+  "type_line": "Creature — Bird Ally",
+  "oracle_text": "Flying\nWhenever this creature or another Ally you control enters, you may put a +1/+1 counter on this creature.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "zen",
+  "set_name": "Zendikar",
+  "collector_number": "75",
+  "rarity": "common",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

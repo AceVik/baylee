@@ -1,0 +1,42 @@
+{
+  "id": "7eb9e83d-515d-4911-a06b-9982200277b2",
+  "oracle_id": "93056597-b964-421f-be2f-e92abef1c2a4",
+  "name": "Emeritus of Woe // Demonic Tutor",
+  "mana_cost": "{3}{B} // {1}{B}",
+  "type_line": "Creature — Vampire Warlock // Sorcery",
+  "oracle_text": null,
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "sos",
+  "set_name": "Secrets of Strixhaven",
+  "collector_number": "80",
+  "rarity": "mythic",
+  "layout": "prepare",
+  "power": "5",
+  "toughness": "4",
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Emeritus of Woe",
+      "mana_cost": "{3}{B}",
+      "type_line": "Creature — Vampire Warlock",
+      "oracle_text": "This creature enters prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)\nAt the beginning of your end step, if two or more creatures died this turn, this creature becomes prepared.",
+      "power": "5",
+      "toughness": "4",
+      "loyalty": null
+    },
+    {
+      "name": "Demonic Tutor",
+      "mana_cost": "{1}{B}",
+      "type_line": "Sorcery",
+      "oracle_text": "Search your library for a card, put that card into your hand, then shuffle.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

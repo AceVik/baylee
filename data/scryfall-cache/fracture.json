@@ -1,0 +1,25 @@
+{
+  "id": "cba33bf7-0919-408c-8eb0-0bb9fe920c81",
+  "oracle_id": "f21d0319-0509-4ac1-b6e3-10955a26fd7a",
+  "name": "Fracture",
+  "mana_cost": "{W}{B}",
+  "type_line": "Instant",
+  "oracle_text": "Destroy target artifact, enchantment, or planeswalker.",
+  "colors": [
+    "B",
+    "W"
+  ],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "310",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

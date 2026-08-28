@@ -1,0 +1,19 @@
+{
+  "id": "d11c5fe0-1528-4c94-a8cc-42bcab9d7487",
+  "oracle_id": "27b047e3-0d41-45e2-98e9-9391d7923a1e",
+  "name": "Exotic Orchard",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add one mana of any color that a land an opponent controls could produce.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mbc",
+  "set_name": "Mystery Booster Commander Edition",
+  "collector_number": "79",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

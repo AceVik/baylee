@@ -1,0 +1,25 @@
+{
+  "id": "50bc0f5b-7421-45b9-af85-86dd9821b7d8",
+  "oracle_id": "92019547-f6db-4ea6-8356-d0a90ace5662",
+  "name": "Soulherder",
+  "mana_cost": "{1}{W}{U}",
+  "type_line": "Creature — Spirit",
+  "oracle_text": "Whenever a creature is exiled from the battlefield, put a +1/+1 counter on this creature.\nAt the beginning of your end step, you may exile another target creature you control, then return that card to the battlefield under its owner's control.",
+  "colors": [
+    "U",
+    "W"
+  ],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "khc",
+  "set_name": "Kaldheim Commander",
+  "collector_number": "93",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

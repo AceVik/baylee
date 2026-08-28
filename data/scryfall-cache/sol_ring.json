@@ -1,0 +1,19 @@
+{
+  "id": "91fdb56b-54d5-4272-8319-505ff987fe9b",
+  "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+  "name": "Sol Ring",
+  "mana_cost": "{1}",
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}{C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "211",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

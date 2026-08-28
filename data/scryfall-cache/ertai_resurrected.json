@@ -1,0 +1,25 @@
+{
+  "id": "7f7e780e-fbc5-4dc0-b5c7-efcb8645c7c6",
+  "oracle_id": "3d038f7c-95fa-4b71-8f74-b9b4dd45cde0",
+  "name": "Ertai Resurrected",
+  "mana_cost": "{2}{U}{B}",
+  "type_line": "Legendary Creature — Phyrexian Human Wizard",
+  "oracle_text": "Flash\nWhen Ertai Resurrected enters, choose up to one —\n• Counter target spell, activated ability, or triggered ability. Its controller draws a card.\n• Destroy another target creature or planeswalker. Its controller draws a card.",
+  "colors": [
+    "B",
+    "U"
+  ],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "dmu",
+  "set_name": "Dominaria United",
+  "collector_number": "199",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

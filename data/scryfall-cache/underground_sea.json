@@ -1,0 +1,22 @@
+{
+  "id": "26cee543-6eab-494e-a803-33a5d48d7d74",
+  "oracle_id": "4b22be3a-8ce1-47d1-b82e-6c3ccfb0548b",
+  "name": "Underground Sea",
+  "mana_cost": "",
+  "type_line": "Land — Island Swamp",
+  "oracle_text": "({T}: Add {U} or {B}.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "323",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

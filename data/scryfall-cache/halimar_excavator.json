@@ -1,0 +1,23 @@
+{
+  "id": "d147dce7-b2dd-426a-9ff7-843d50bb8b01",
+  "oracle_id": "fd3e37c9-93bf-4f3e-a279-22afbffd8d43",
+  "name": "Halimar Excavator",
+  "mana_cost": "{1}{U}",
+  "type_line": "Creature — Human Wizard Ally",
+  "oracle_text": "Whenever this creature or another Ally you control enters, target player mills X cards, where X is the number of Allies you control.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "wwk",
+  "set_name": "Worldwake",
+  "collector_number": "29",
+  "rarity": "common",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "3",
+  "loyalty": null,
+  "card_faces": null
+}

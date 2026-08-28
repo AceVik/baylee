@@ -1,0 +1,23 @@
+{
+  "id": "9dab0052-7f0c-4b56-847f-20552666a271",
+  "oracle_id": "39213de3-6a4a-4879-a7f9-70f45013765e",
+  "name": "Everybody Lives!",
+  "mana_cost": "{1}{W}",
+  "type_line": "Instant",
+  "oracle_text": "All creatures gain hexproof and indestructible until end of turn. Players gain hexproof until end of turn. Players can't lose life this turn and players can't lose the game or win the game this turn.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "who",
+  "set_name": "Doctor Who",
+  "collector_number": "18",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

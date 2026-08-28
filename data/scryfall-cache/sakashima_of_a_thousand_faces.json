@@ -1,0 +1,23 @@
+{
+  "id": "714c3a1f-7b30-4ed8-8f38-6176758741fb",
+  "oracle_id": "8ecdaf4b-4442-42da-9714-4257a83faf50",
+  "name": "Sakashima of a Thousand Faces",
+  "mana_cost": "{3}{U}",
+  "type_line": "Legendary Creature — Human Rogue",
+  "oracle_text": "You may have Sakashima enter as a copy of another creature you control, except it has Sakashima's other abilities.\nThe \"legend rule\" doesn't apply to permanents you control.\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "89",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

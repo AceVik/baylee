@@ -1,0 +1,23 @@
+{
+  "id": "c58ff93f-7135-40af-92ce-358da48694dc",
+  "oracle_id": "fe8fc442-ed17-40b2-8624-69f2eed3f9be",
+  "name": "Nesting Dovehawk",
+  "mana_cost": "{3}{W}",
+  "type_line": "Creature — Bird",
+  "oracle_text": "Flying\nAt the beginning of combat on your turn, populate. (Create a token that's a copy of a creature token you control.)\nWhenever a creature token you control enters, put a +1/+1 counter on this creature.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "moc",
+  "set_name": "March of the Machine Commander",
+  "collector_number": "17",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

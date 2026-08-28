@@ -1,0 +1,27 @@
+{
+  "id": "b0a18f8b-7364-4375-b2e1-e2f15978517f",
+  "oracle_id": "0972d46e-423b-454e-87c7-a2d40fb6fb6d",
+  "name": "Katara, the Fearless",
+  "mana_cost": "{G}{W}{U}",
+  "type_line": "Legendary Creature — Human Warrior Ally",
+  "oracle_text": "If a triggered ability of an Ally you control triggers, that ability triggers an additional time.",
+  "colors": [
+    "G",
+    "U",
+    "W"
+  ],
+  "color_identity": [
+    "G",
+    "U",
+    "W"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "230",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "3",
+  "loyalty": null,
+  "card_faces": null
+}

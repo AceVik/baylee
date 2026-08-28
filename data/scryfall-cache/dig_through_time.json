@@ -1,0 +1,23 @@
+{
+  "id": "020939d6-72f0-4aa0-9ac2-d16cc896cd7f",
+  "oracle_id": "f8b17b89-26ce-4208-874a-9e1d66514640",
+  "name": "Dig Through Time",
+  "mana_cost": "{6}{U}{U}",
+  "type_line": "Instant",
+  "oracle_text": "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)\nLook at the top seven cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "195",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

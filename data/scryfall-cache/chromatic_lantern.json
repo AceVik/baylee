@@ -1,0 +1,19 @@
+{
+  "id": "9b29492a-8bdd-4806-8d1b-3058ed277cc1",
+  "oracle_id": "539f5396-d99a-417d-a84c-dff7930b5900",
+  "name": "Chromatic Lantern",
+  "mana_cost": "{3}",
+  "type_line": "Artifact",
+  "oracle_text": "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mbc",
+  "set_name": "Mystery Booster Commander Edition",
+  "collector_number": "73",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

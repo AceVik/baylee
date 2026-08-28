@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+// baylee wire protocol v0 — transport handshake + preset transfer.
+// See docs/protocol.md. Binary WebSocket frames, one Envelope per frame.
+package baylee.v1;
+
+// ---------------------------------------------------------------- handshake
+
+message Hello {
+  uint32 protocol_version = 1;
+  // Hash of the server's compiled card pool; mismatches invalidate client
+  // caches and refuse the session.
+  string card_pool_hash = 2;
+}
+
+message HelloAck {
+  uint32 protocol_version = 1;
+  bool compatible = 2;
+  string message = 3;
+}
+
+message JoinGame {
+  string game_id = 1;
+  // Gateway-issued seat token: binds this connection to exactly one seat.
+  string seat_token = 2;
+}
+
+message ResumeGame {
+  string game_id = 1;
+  string seat_token = 2;
+  // Last delta sequence number the client has applied.
+  uint64 last_seq = 3;
+}
+
+// ------------------------------------------------------------------- preset
+
+enum Finish {
+  FINISH_UNSPECIFIED = 0;
+  FINISH_NORMAL = 1;
+  FINISH_FOIL = 2;
+  FINISH_ETCHED = 3;
+}
+
+message PrintInfo {
+  string scryfall_id = 1;
+  string lang = 2;
+  Finish finish = 3;
+}
+
+message DeckEntry {
+  uint32 card_index = 1;
+  uint32 print_ref = 2;
+}
+
+message AiProfile {
+  uint32 lookahead = 1;
+  uint32 temperature_milli = 2;
+  uint32 mulligan_skill = 3;
+  // 0 random, 1 attack-leader, 2 archenemy
+  uint32 politics = 4;
+  // 0 none, 1 basic, 2 threat-aware
+  uint32 hold_up = 5;
+}
+
+message SeatController {
+  oneof kind {
+    uint64 human_user_id = 1;
+    AiProfile ai = 2;
+    bool open = 3;
+  }
+}
+
+message ModifierSpec {
+  string key = 1;
+  uint64 script_hash = 2;
+  map<string, string> params = 3;
+}
+
+message SeatSpec {
+  SeatController controller = 1;
+  repeated DeckEntry deck = 2;
+  optional int32 starting_life = 3;
+  repeated DeckEntry starting_hand = 4;
+  repeated DeckEntry starting_battlefield = 5;
+  repeated string emblems = 6;
+  optional uint32 team = 7;
+}
+
+message HouseRules {
+  bool mulligan_free_first = 1;
+  // 0 = run-once-then-break, 1 = comp-rules-draw
+  uint32 loop_policy = 2;
+  uint32 decision_timeout_secs = 3;
+  uint32 reconnect_window_secs = 4;
+  bool timing_normalization = 5;
+  bool takebacks = 6;
+  bool time_extension_votes = 7;
+}
+
+message GamePresetMsg {
+  // 0 commander, 1 highlander, 2 freeform, 3 custom
+  uint32 format = 1;
+  uint64 seed = 2;
+  bool dev_mode = 3;
+  HouseRules house_rules = 4;
+  repeated ModifierSpec modifiers = 5;
+  repeated PrintInfo prints = 6;
+  repeated SeatSpec seats = 7;
+}
+
+// ----------------------------------------------------------------- envelope
+
+message Heartbeat {
+  uint64 client_time_ms = 1;
+}
+
+message Error {
+  uint32 code = 1;
+  string message = 2;
+}
+
+message Envelope {
+  oneof msg {
+    Hello hello = 1;
+    HelloAck hello_ack = 2;
+    JoinGame join = 3;
+    ResumeGame resume = 4;
+    GamePresetMsg preset = 5;
+    Heartbeat heartbeat = 6;
+    Error error = 7;
+  }
+}

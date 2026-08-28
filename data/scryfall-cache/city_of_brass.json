@@ -1,0 +1,19 @@
+{
+  "id": "c21565d0-fc40-4d89-9b27-87c03385e0af",
+  "oracle_id": "f25351e3-539b-4bbc-b92d-6480acf4d722",
+  "name": "City of Brass",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Whenever this land becomes tapped, it deals 1 damage to you.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tmc",
+  "set_name": "Teenage Mutant Ninja Turtles Eternal",
+  "collector_number": "62",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

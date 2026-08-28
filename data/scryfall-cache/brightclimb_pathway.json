@@ -1,0 +1,41 @@
+{
+  "id": "d24c3d51-795d-4c01-a34a-3280fccd2d78",
+  "oracle_id": "1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9",
+  "name": "Brightclimb Pathway // Grimclimb Pathway",
+  "mana_cost": null,
+  "type_line": "Land // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Brightclimb Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Grimclimb Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

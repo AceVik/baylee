@@ -1,0 +1,22 @@
+{
+  "id": "efd35cb4-862d-4699-a197-b744989b3ceb",
+  "oracle_id": "02418479-9455-417f-a6a1-004356faff37",
+  "name": "Tundra",
+  "mana_cost": "",
+  "type_line": "Land — Plains Island",
+  "oracle_text": "({T}: Add {W} or {U}.)",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "322",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

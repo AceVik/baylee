@@ -1,0 +1,19 @@
+{
+  "id": "a16fabbe-4557-4067-b882-f2e5dbd8b458",
+  "oracle_id": "913e6182-706a-4872-8c8a-e146b0ae0738",
+  "name": "Sword of Hearth and Home",
+  "mana_cost": "{3}",
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +2/+2 and has protection from green and from white.\nWhenever equipped creature deals combat damage to a player, exile up to one target creature you own, then search your library for a basic land card. Put both cards onto the battlefield under your control, then shuffle.\nEquip {2}",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "238",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "52884e67-c742-4799-9afd-55bc70b2cf40",
+  "oracle_id": "cf5f4860-e805-46a3-9352-a2c583e33403",
+  "name": "Storm of Saruman",
+  "mana_cost": "{4}{U}{U}",
+  "type_line": "Enchantment",
+  "oracle_text": "Ward {3}\nWhenever you cast your second spell each turn, copy it, except the copy isn't legendary. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "ltr",
+  "set_name": "The Lord of the Rings: Tales of Middle-earth",
+  "collector_number": "72",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

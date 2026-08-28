@@ -1,0 +1,23 @@
+{
+  "id": "44dcab01-1d13-4dfc-ae2f-fbaa3dd35087",
+  "oracle_id": "5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f",
+  "name": "Elesh Norn, Mother of Machines",
+  "mana_cost": "{4}{W}",
+  "type_line": "Legendary Creature — Phyrexian Praetor",
+  "oracle_text": "Vigilance\nIf a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\nPermanents entering don't cause abilities of permanents your opponents control to trigger.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "one",
+  "set_name": "Phyrexia: All Will Be One",
+  "collector_number": "10",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "4",
+  "toughness": "7",
+  "loyalty": null,
+  "card_faces": null
+}

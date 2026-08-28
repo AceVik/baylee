@@ -1,0 +1,22 @@
+{
+  "id": "f465ded8-0d38-42ac-bafc-a12185013c5d",
+  "oracle_id": "42bf259d-4bb9-49c3-b4ec-223dca62f4d6",
+  "name": "Fetid Heath",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{W/B}, {T}: Add {W}{W}, {W}{B}, or {B}{B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "372",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

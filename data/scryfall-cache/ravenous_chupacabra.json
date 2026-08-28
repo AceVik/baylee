@@ -1,0 +1,23 @@
+{
+  "id": "a4dfbac0-1849-41c5-853a-1fee108d0b01",
+  "oracle_id": "7b459306-149b-4f43-abc1-2dd70c748c0e",
+  "name": "Ravenous Chupacabra",
+  "mana_cost": "{2}{B}{B}",
+  "type_line": "Creature — Beast Horror",
+  "oracle_text": "When this creature enters, destroy target creature an opponent controls.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "mkc",
+  "set_name": "Murders at Karlov Manor Commander",
+  "collector_number": "136",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

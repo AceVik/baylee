@@ -1,0 +1,23 @@
+{
+  "id": "3de308cc-14ac-407e-99e7-568572ecd0e7",
+  "oracle_id": "24d0f5e7-0d9e-4b76-900e-a7274e80312d",
+  "name": "Mulldrifter",
+  "mana_cost": "{4}{U}",
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Flying\nWhen this creature enters, draw two cards.\nEvoke {2}{U} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "67",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

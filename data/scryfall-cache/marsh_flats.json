@@ -1,0 +1,19 @@
+{
+  "id": "9db3ba6d-eb7f-4f5b-9a3b-c6239c3baa42",
+  "oracle_id": "dab520d0-20b4-4273-ba6b-eb07f85ea433",
+  "name": "Marsh Flats",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Swamp card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "248",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

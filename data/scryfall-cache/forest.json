@@ -1,0 +1,21 @@
+{
+  "id": "dce15387-4114-4b3e-91aa-5b42b45c44ac",
+  "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+  "name": "Forest",
+  "mana_cost": "",
+  "type_line": "Basic Land — Forest",
+  "oracle_text": "({T}: Add {G}.)",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "trk",
+  "set_name": "Star Trek",
+  "collector_number": "325",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

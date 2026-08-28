@@ -1,0 +1,18 @@
+[package]
+name = "baylee-cards-codegen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Code generation: Scryfall catalogs/cards, card stubs, forge index"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+baylee-cards-dsl.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+heck.workspace = true
+ureq.workspace = true

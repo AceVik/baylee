@@ -1,0 +1,19 @@
+{
+  "id": "5889fde1-730d-43d0-aaa4-499784a80530",
+  "oracle_id": "38a12bd7-4394-44a8-91a0-6a4ff7fa4f71",
+  "name": "Maze of Ith",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "250",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "2da5f3f8-5eef-498f-ba2c-2f3fbc3745aa",
+  "oracle_id": "0fd57894-b917-41c8-a394-360d1d31b236",
+  "name": "Ephemerate",
+  "mana_cost": "{W}",
+  "type_line": "Instant",
+  "oracle_text": "Exile target creature you control, then return it to the battlefield under its owner's control.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "mh1",
+  "set_name": "Modern Horizons",
+  "collector_number": "7",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

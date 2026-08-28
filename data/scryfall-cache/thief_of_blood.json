@@ -1,0 +1,23 @@
+{
+  "id": "1625be56-a8e9-44f3-a213-b758bffd447f",
+  "oracle_id": "97d61346-bd53-4eb8-a920-6ae0382eb20d",
+  "name": "Thief of Blood",
+  "mana_cost": "{4}{B}{B}",
+  "type_line": "Creature — Vampire",
+  "oracle_text": "Flying\nAs this creature enters, remove all counters from all permanents. This creature enters with a +1/+1 counter on it for each counter removed this way.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "cma",
+  "set_name": "Commander Anthology",
+  "collector_number": "71",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "823ad188-bd56-476d-9853-bed90bfad582",
+  "oracle_id": "5768fe50-a134-492c-a725-5ed02610c39f",
+  "name": "Mirrorhall Mimic // Ghastly Mimicry",
+  "mana_cost": null,
+  "type_line": "Creature — Spirit // Enchantment — Aura",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "vow",
+  "set_name": "Innistrad: Crimson Vow",
+  "collector_number": "68",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Mirrorhall Mimic",
+      "mana_cost": "{3}{U}",
+      "type_line": "Creature — Spirit",
+      "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield, except it's a Spirit in addition to its other types.\nDisturb {3}{U}{U} (You may cast this card from your graveyard transformed for its disturb cost.)",
+      "power": "0",
+      "toughness": "0",
+      "loyalty": null
+    },
+    {
+      "name": "Ghastly Mimicry",
+      "mana_cost": "",
+      "type_line": "Enchantment — Aura",
+      "oracle_text": "Enchant creature\nAt the beginning of your upkeep, create a token that's a copy of enchanted creature, except it's a Spirit in addition to its other types.\nIf Ghastly Mimicry would be put into a graveyard from anywhere, exile it instead.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

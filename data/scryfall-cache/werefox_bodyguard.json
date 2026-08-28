@@ -1,0 +1,23 @@
+{
+  "id": "4494dfa1-1343-417e-b0c5-2b096442dd0e",
+  "oracle_id": "d5ee2ced-29f4-430f-962e-2f930b92624c",
+  "name": "Werefox Bodyguard",
+  "mana_cost": "{1}{W}{W}",
+  "type_line": "Creature — Elf Fox Knight",
+  "oracle_text": "Flash\nWhen this creature enters, exile up to one other target non-Fox creature until this creature leaves the battlefield.\n{1}{W}, Sacrifice this creature: You gain 2 life.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "woe",
+  "set_name": "Wilds of Eldraine",
+  "collector_number": "39",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

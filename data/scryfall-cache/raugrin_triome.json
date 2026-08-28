@@ -1,0 +1,23 @@
+{
+  "id": "02138fbb-3962-4348-8d31-faaefba0b8b2",
+  "oracle_id": "c7fa1dda-9312-4ec8-82cd-a1ba7bc33497",
+  "name": "Raugrin Triome",
+  "mana_cost": "",
+  "type_line": "Land — Island Mountain Plains",
+  "oracle_text": "({T}: Add {U}, {R}, or {W}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U",
+    "W"
+  ],
+  "set": "iko",
+  "set_name": "Ikoria: Lair of Behemoths",
+  "collector_number": "251",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

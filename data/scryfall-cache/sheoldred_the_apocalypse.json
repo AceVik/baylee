@@ -1,0 +1,23 @@
+{
+  "id": "d67be074-cdd4-41d9-ac89-0a0456c4e4b2",
+  "oracle_id": "34f34409-326d-4994-a0ea-1a69aa278f03",
+  "name": "Sheoldred, the Apocalypse",
+  "mana_cost": "{2}{B}{B}",
+  "type_line": "Legendary Creature — Phyrexian Praetor",
+  "oracle_text": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "dmu",
+  "set_name": "Dominaria United",
+  "collector_number": "107",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "4",
+  "toughness": "5",
+  "loyalty": null,
+  "card_faces": null
+}

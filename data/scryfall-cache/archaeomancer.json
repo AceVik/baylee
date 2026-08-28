@@ -1,0 +1,23 @@
+{
+  "id": "cc258713-6ce3-44e0-9b4b-8fa7d1d093a1",
+  "oracle_id": "a91a3266-cadd-47a0-9b20-160307f14c07",
+  "name": "Archaeomancer",
+  "mana_cost": "{2}{U}{U}",
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "When this creature enters, return target instant or sorcery card from your graveyard to your hand.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "uma",
+  "set_name": "Ultimate Masters",
+  "collector_number": "45",
+  "rarity": "common",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

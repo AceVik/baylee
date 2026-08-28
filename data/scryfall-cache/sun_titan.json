@@ -1,0 +1,23 @@
+{
+  "id": "3d6eacf2-f6c7-4ede-b5a5-7463602699ae",
+  "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
+  "name": "Sun Titan",
+  "mana_cost": "{4}{W}{W}",
+  "type_line": "Creature — Giant",
+  "oracle_text": "Vigilance\nWhenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "178",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "6",
+  "toughness": "6",
+  "loyalty": null,
+  "card_faces": null
+}

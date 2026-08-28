@@ -1,0 +1,22 @@
+{
+  "id": "52dcdabd-a186-45fe-9fee-6c0f1afeaf16",
+  "oracle_id": "2b8144a0-08d2-4c28-9fd7-5d90f90105e4",
+  "name": "Bleachbone Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "250",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

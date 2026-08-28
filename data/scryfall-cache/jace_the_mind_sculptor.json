@@ -1,0 +1,23 @@
+{
+  "id": "c8817585-0d32-4d56-9142-0d29512e86a9",
+  "oracle_id": "7f77a84e-5a4b-4834-aefa-3cecc175ae8e",
+  "name": "Jace, the Mind Sculptor",
+  "mana_cost": "{2}{U}{U}",
+  "type_line": "Legendary Planeswalker — Jace",
+  "oracle_text": "+2: Look at the top card of target player's library. You may put that card on the bottom of that player's library.\n0: Draw three cards, then put two cards from your hand on top of your library in any order.\n−1: Return target creature to its owner's hand.\n−12: Exile all cards from target player's library, then that player shuffles their hand into their library.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "2xm",
+  "set_name": "Double Masters",
+  "collector_number": "56",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": "3",
+  "card_faces": null
+}

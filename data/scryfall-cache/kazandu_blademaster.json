@@ -1,0 +1,23 @@
+{
+  "id": "9642bdbf-c03f-4c48-a5c8-c9201a08b834",
+  "oracle_id": "133f5d30-d883-493e-93a1-cf9583db460b",
+  "name": "Kazandu Blademaster",
+  "mana_cost": "{W}{W}",
+  "type_line": "Creature — Human Soldier Ally",
+  "oracle_text": "First strike, vigilance\nWhenever this creature or another Ally you control enters, you may put a +1/+1 counter on this creature.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "zen",
+  "set_name": "Zendikar",
+  "collector_number": "16",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "5032d71d-d9f8-498c-97d1-271c2e9c1c47",
+  "oracle_id": "fb60739e-1dc3-481d-a056-ad72e665c680",
+  "name": "Rite of Replication",
+  "mana_cost": "{2}{U}{U}",
+  "type_line": "Sorcery",
+  "oracle_text": "Kicker {5} (You may pay an additional {5} as you cast this spell.)\nCreate a token that's a copy of target creature. If this spell was kicked, create five of those tokens instead.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "202",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "78a538cf-2291-49aa-8429-17d97d454479",
+  "oracle_id": "ead985ec-f29f-4a3b-b8b1-061142cc5bd1",
+  "name": "Harabaz Druid",
+  "mana_cost": "{1}{G}",
+  "type_line": "Creature — Human Druid Ally",
+  "oracle_text": "{T}: Add X mana of any one color, where X is the number of Allies you control.",
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "set": "wwk",
+  "set_name": "Worldwake",
+  "collector_number": "105",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "0",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

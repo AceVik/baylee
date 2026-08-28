@@ -1,0 +1,19 @@
+{
+  "id": "6e288374-2b71-4ace-b1d2-a19fee6cb4af",
+  "oracle_id": "ef86989d-ce80-4e55-aece-7d11710eeffa",
+  "name": "Polluted Delta",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "224",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

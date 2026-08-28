@@ -1,0 +1,22 @@
+{
+  "id": "73403d04-fe97-4830-8b80-16dd1a1a6cc1",
+  "oracle_id": "13ff3222-91cb-4796-a34e-899ed817694c",
+  "name": "Badlands",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Mountain",
+  "oracle_text": "({T}: Add {B} or {R}.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "291",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

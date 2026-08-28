@@ -1,0 +1,25 @@
+{
+  "id": "8a475868-a335-45e7-9d59-9dc4c2cea1ae",
+  "oracle_id": "5b8f0cdf-572d-4025-b930-79291f7c35be",
+  "name": "Vanishing Verse",
+  "mana_cost": "{W}{B}",
+  "type_line": "Instant",
+  "oracle_text": "Exile target monocolored permanent.",
+  "colors": [
+    "B",
+    "W"
+  ],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "335",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

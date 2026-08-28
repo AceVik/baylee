@@ -1,0 +1,23 @@
+{
+  "id": "8e4c6ba1-1abc-478f-9b7c-97e9e3c92fb0",
+  "oracle_id": "d521a329-a53a-4962-810a-2abed80df260",
+  "name": "Recruiter of the Guard",
+  "mana_cost": "{2}{W}",
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "266",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

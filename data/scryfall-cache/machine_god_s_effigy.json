@@ -1,0 +1,21 @@
+{
+  "id": "637f69c2-ba24-42d1-9345-8ebdb04b6904",
+  "oracle_id": "64ebdd6f-acde-4aab-a86b-2798bad5f70c",
+  "name": "Machine God's Effigy",
+  "mana_cost": "{4}",
+  "type_line": "Artifact",
+  "oracle_text": "You may have this artifact enter as a copy of any creature on the battlefield, except it's an artifact and it has \"{T}: Add {U}.\" (It's not a creature.)\n{T}: Add {U}.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "brc",
+  "set_name": "The Brothers' War Commander",
+  "collector_number": "16",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

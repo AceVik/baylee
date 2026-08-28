@@ -1,0 +1,23 @@
+{
+  "id": "a24b4cb6-cebb-428b-8654-74347a6a8d63",
+  "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39",
+  "name": "Demonic Tutor",
+  "mana_cost": "{1}{B}",
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a card, put that card into your hand, then shuffle.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "150",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

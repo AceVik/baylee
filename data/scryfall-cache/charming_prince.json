@@ -1,0 +1,23 @@
+{
+  "id": "aa7b47e1-7e32-4f2f-aecf-bac7ca197081",
+  "oracle_id": "c48d844c-3976-4fa5-8e0d-3f0e535e7619",
+  "name": "Charming Prince",
+  "mana_cost": "{1}{W}",
+  "type_line": "Creature — Human Noble",
+  "oracle_text": "When this creature enters, choose one —\n• Scry 2.\n• You gain 3 life.\n• Exile another target creature you own. Return it to the battlefield under your control at the beginning of the next end step.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "568",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

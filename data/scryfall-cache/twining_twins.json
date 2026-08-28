@@ -1,0 +1,43 @@
+{
+  "id": "043718ea-59f6-4d1a-94c5-271704c1a38a",
+  "oracle_id": "105aea98-8eb9-4fb2-a0cb-7c7513317c5b",
+  "name": "Twining Twins // Swift Spiral",
+  "mana_cost": "{2}{U}{U} // {1}{W}",
+  "type_line": "Creature — Faerie Wizard // Instant — Adventure",
+  "oracle_text": null,
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "woe",
+  "set_name": "Wilds of Eldraine",
+  "collector_number": "240",
+  "rarity": "rare",
+  "layout": "adventure",
+  "power": "4",
+  "toughness": "4",
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Twining Twins",
+      "mana_cost": "{2}{U}{U}",
+      "type_line": "Creature — Faerie Wizard",
+      "oracle_text": "Flying, vigilance, ward {1}",
+      "power": "4",
+      "toughness": "4",
+      "loyalty": null
+    },
+    {
+      "name": "Swift Spiral",
+      "mana_cost": "{1}{W}",
+      "type_line": "Instant — Adventure",
+      "oracle_text": "Exile target nontoken creature. Return it to the battlefield under its owner's control at the beginning of the next end step.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

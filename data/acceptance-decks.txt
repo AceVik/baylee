@@ -1,0 +1,239 @@
+# baylee acceptance suite — the architecture proof.
+# Both decks fully implemented (waves W1–W8) = M2.5 exit criterion.
+# Format: [deck:Name] / [sideboard] / [commander] sections, rows "N Card Name".
+
+[deck:Allytifact]
+1 Aang and Katara
+1 Aminatou, the Fateshifter
+1 Badlands
+1 Bloodstained Mire
+1 Cavern of Souls
+1 Chromatic Lantern
+1 City of Brass
+1 Clever Concealment
+1 Command Tower
+1 Crib Swap
+1 Cursed Mirror
+1 Cyclonic Rift
+1 Darksteel Forge
+1 Demonic Tutor
+1 Doubling Season
+1 Earth King's Lieutenant
+1 Eerie Interlude
+1 Elesh Norn, Mother of Machines
+1 Elspeth, Storm Slayer
+1 Enlightened Tutor
+1 Ephemerate
+1 Everybody Lives!
+1 Exotic Orchard
+1 Flawless Maneuver
+1 Flooded Strand
+1 Force of Will
+2 Forest
+1 Great Divide Guide
+1 Hagra Diabolist
+1 Halimar Excavator
+1 Hallowed Fountain
+1 Harabaz Druid
+1 Heliod's Intervention
+1 Helm of the Host
+1 Heroic Intervention
+1 Homeward Path
+1 Indatha Triome
+1 Inspirit, Flagship Vessel
+2 Island
+1 Jasmine Dragon Tea Shop
+1 Jin-Gitaxias, Progress Tyrant
+1 Karn, the Great Creator
+1 Katara, the Fearless
+1 Kazandu Blademaster
+1 Loran of the Third Path
+1 Machine God's Effigy
+1 Mana Drain
+1 Marsh Flats
+1 Maskwood Nexus
+1 Mirrorhall Mimic
+1 Misty Rainforest
+1 Mox Opal
+1 Mycosynth Lattice
+1 Mystical Tutor
+1 Nesting Dovehawk
+1 Ondu Cleric
+1 Pact of Negation
+1 Padeem, Consul of Innovation
+1 Panharmonicon
+1 Path of Ancestry
+1 Path to Exile
+1 Phyrexian Metamorph
+2 Plains
+1 Polluted Delta
+1 Privileged Position
+1 Progenitor Mimic
+1 Raugrin Triome
+1 Reanimate
+1 Reflecting Pool
+1 Reflections of Littjara
+1 Reliquary Tower
+1 Rite of Replication
+1 Roaming Throne
+1 Sakashima of a Thousand Faces
+1 Savannah
+1 Sea Gate Loremaster
+1 Smothering Tithe
+1 Sokka, Tenacious Tactician
+1 Sol Ring
+1 Spark Double
+1 Spirit Water Revival
+1 Storm of Saruman
+1 Surgical Metamorph
+1 Swords to Plowshares
+1 Taiga
+1 Temple Garden
+1 Tuktuk Scrapper
+1 Tundra
+1 Umara Raptor
+1 Underground Sea
+1 Venser, the Sojourner
+1 Vindicate
+1 Void Rend
+1 Wartime Protestors
+1 Windswept Heath
+1 Zagoth Triome
+
+[sideboard]
+1 Double Major
+1 Emeritus of Woe
+1 Fierce Guardianship
+1 Glasspool Mimic
+1 Liquimetal Coating
+1 Liquimetal Torque
+1 Sword of Hearth and Home
+1 Tribute to the World Tree
+1 Urza's Saga
+1 Wizard Class
+
+[commander]
+1 General Tazri
+
+[deck:Victory]
+1 Abandoned Air Temple
+1 Ancestral Vision
+1 Arcane Sanctum
+1 Archaeomancer
+1 Arid Mesa
+1 Baleful Strix
+1 Banishing Stroke
+1 Bleachbone Verge
+1 Brainstorm
+1 Brightclimb Pathway
+1 Cavern of Souls
+1 Charming Prince
+1 Clearwater Pathway
+1 Commander's Insight
+1 Counterspell
+1 Curse of the Swine
+1 Cyclonic Rift
+1 Damn
+1 Demonic Tutor
+1 Dig Through Time
+1 Drowned Catacomb
+1 Eerie Interlude
+1 Elesh Norn, Mother of Machines
+1 Entreat the Dead
+1 Ephemerate
+1 Ertai Resurrected
+1 Esper Sentinel
+1 Fetid Heath
+1 Flooded Strand
+1 Force of Will
+1 Fracture
+1 Gilded Drake
+1 Glacial Fortress
+1 Godless Shrine
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Island
+1 Isolated Chapel
+1 Jace, the Mind Sculptor
+1 Karmic Guide
+1 Kor Haven
+1 Loran of the Third Path
+1 Mana Drain
+1 Marsh Flats
+1 Maze of Ith
+1 Metamorphosis Fanatic
+1 Misty Rainforest
+1 Mulldrifter
+1 Mystic Gate
+1 Mystical Tutor
+1 Orcish Bowmasters
+1 Palace Jailer
+1 Path to Exile
+1 Phantasmal Image
+1 Phyrexian Metamorph
+1 Plains
+1 Polluted Delta
+1 Prairie Stream
+1 Primaris Eliminator
+1 Profane Tutor
+1 Raffine's Tower
+1 Ravenous Chupacabra
+1 Reanimate
+1 Recruiter of the Guard
+1 Recurring Nightmare
+1 Reflecting Pool
+1 Reliquary Tower
+1 Restoration Angel
+1 Reveillark
+1 Rhystic Study
+1 Riptide Laboratory
+1 Scalding Tarn
+1 Scrubland
+1 Sensei's Divining Top
+1 Sheoldred
+1 Sheoldred's Edict
+1 Sheoldred, the Apocalypse
+1 Sol Ring
+1 Solemn Simulacrum
+1 Solitude
+1 Soulherder
+1 Spellseeker
+1 Sun Titan
+1 Sunken Hollow
+1 Swamp
+1 Swords to Plowshares
+1 Teferi, Time Raveler
+1 Temporal Mastery
+1 Tishana's Tidebinder
+1 Toxic Deluge
+1 Tundra
+1 Twining Twins
+1 Underground Sea
+1 Vanishing Verse
+1 Venser, Shaper Savant
+1 Vindicate
+1 Void Rend
+1 Wasteland
+1 Watery Grave
+
+[sideboard]
+1 Aether Channeler
+1 Ashiok, Dream Render
+1 Bojuka Bog
+1 Exotic Orchard
+1 Force of Negation
+1 Karakas
+1 Luminarch Ascension
+1 Misdirection
+1 Opposition Agent
+1 Skyclave Apparition
+1 Snapcaster Mage
+1 Supreme Verdict
+1 Thief of Blood
+1 Tower of the Magistrate
+1 Vendilion Clique
+1 Volrath's Stronghold
+1 Werefox Bodyguard
+
+[commander]
+1 Aminatou, the Fateshifter

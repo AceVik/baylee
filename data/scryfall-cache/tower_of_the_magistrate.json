@@ -1,0 +1,19 @@
+{
+  "id": "ee0481db-15ae-46b4-89a3-01c95a9626c7",
+  "oracle_id": "ac08fae8-208c-4602-8d39-9bfd29b53a5e",
+  "name": "Tower of the Magistrate",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Target creature gains protection from artifacts until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mmq",
+  "set_name": "Mercadian Masques",
+  "collector_number": "330",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

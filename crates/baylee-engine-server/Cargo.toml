@@ -1,0 +1,15 @@
+[package]
+name = "baylee-engine-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Binary: one process per game, websocket transport"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+baylee-engine.workspace = true
+baylee-protocol.workspace = true
+tracing.workspace = true

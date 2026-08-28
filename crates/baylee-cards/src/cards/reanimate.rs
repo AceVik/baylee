@@ -1,0 +1,39 @@
+//! Reanimate — {B} — Sorcery
+//! Oracle: Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.
+//! Set: DSC #155 — Duskmourn: House of Horror Commander | Scryfall ID: 368b6903-5fc4-43e7-bd44-46b8107c8bb4 | Oracle ID: a044474a-cd72-4e9d-bd8d-a08f2de9cdc0
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+#![allow(unused_imports, missing_docs)]
+
+use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_core::color::{Color, ColorSet};
+use baylee_core::generated::subtypes;
+use baylee_core::ids::CardIndex;
+use baylee_core::mana::ManaCost;
+use baylee_core::types::{SupertypeSet, TypeSet};
+
+pub static CARD: CardDef = CardDef {
+    index: CardIndex::new(125),
+    oracle_id: "a044474a-cd72-4e9d-bd8d-a08f2de9cdc0",
+    scryfall_id: "368b6903-5fc4-43e7-bd44-46b8107c8bb4",
+    faces: &[FaceDef {
+        name: "Reanimate",
+        mana_cost: baylee_core::mana!("{B}"),
+        types: TypeSet::SORCERY,
+        supertypes: SupertypeSet::EMPTY,
+        subtypes: &[],
+        power: None,
+        toughness: None,
+        loyalty: None,
+    }],
+    color_identity: ColorSet::from_slice(&[Color::Black]),
+    keywords: KeywordSet::EMPTY,
+    commander: CommanderRule::NotEligible,
+    partner: PartnerKind::None,
+    coverage: Coverage::Unimplemented,
+    abilities: &[],
+};
+
+#[cfg(test)]
+mod tests {
+    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+}

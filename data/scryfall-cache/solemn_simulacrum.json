@@ -1,0 +1,19 @@
+{
+  "id": "daafd816-f7c1-4630-9e5c-a1e5db570a35",
+  "oracle_id": "00c0543c-2a1f-4425-8283-4062d74a1637",
+  "name": "Solemn Simulacrum",
+  "mana_cost": "{4}",
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "215",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

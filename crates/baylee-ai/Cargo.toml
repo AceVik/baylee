@@ -1,0 +1,13 @@
+[package]
+name = "baylee-ai"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Heuristic AI controllers with difficulty profiles"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+baylee-engine.workspace = true

@@ -1,0 +1,23 @@
+{
+  "id": "c57b4876-5387-4f73-b8e2-8e7bdca8b0bc",
+  "oracle_id": "f5daadc1-98ff-480a-82bb-fe7bfaa7b60e",
+  "name": "Jin-Gitaxias, Progress Tyrant",
+  "mana_cost": "{5}{U}{U}",
+  "type_line": "Legendary Creature — Phyrexian Praetor",
+  "oracle_text": "Whenever you cast an artifact, instant, or sorcery spell, copy that spell. You may choose new targets for the copy. This ability triggers only once each turn. (A copy of a permanent spell becomes a token.)\nWhenever an opponent casts an artifact, instant, or sorcery spell, counter that spell. This ability triggers only once each turn.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "neo",
+  "set_name": "Kamigawa: Neon Dynasty",
+  "collector_number": "59",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": "5",
+  "toughness": "5",
+  "loyalty": null,
+  "card_faces": null
+}

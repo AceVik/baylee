@@ -1,0 +1,19 @@
+{
+  "id": "71e491c5-8c07-449b-b2f1-ffa052e6d311",
+  "oracle_id": "cb027150-848c-4a66-88ad-e20222304dd8",
+  "name": "Scalding Tarn",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Mountain card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "254",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

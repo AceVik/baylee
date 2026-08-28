@@ -1,0 +1,19 @@
+{
+  "id": "70ffc71f-328d-421d-926b-6f2e45ffb812",
+  "oracle_id": "83b43aba-bf9c-4da2-967d-9daa632e97d2",
+  "name": "Helm of the Host",
+  "mana_cost": "{4}",
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "At the beginning of combat on your turn, create a token that's a copy of equipped creature, except the token isn't legendary. That token gains haste.\nEquip {5}",
+  "colors": [],
+  "color_identity": [],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "200",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+baylee — an unofficial, non-commercial fan project
+====================================================
+
+baylee is unofficial fan content permitted under Wizards of the Coast's Fan
+Content Policy. It is not approved, endorsed, sponsored, or affiliated with
+Wizards of the Coast. Portions of the materials used (card names, rules text,
+and imagery when displayed by clients) are property of Wizards of the Coast,
+© Wizards of the Coast LLC. No Wizards of the Coast assets are distributed
+in this repository.
+
+Card data and images are provided by Scryfall (https://scryfall.com) under
+its API terms. This project honors Scryfall's rate limits and caches images
+as encouraged by their guidelines.
+
+The Forge rules engine (https://github.com/Card-Forge/forge, GPL-3.0) may be
+used during development as a read-only rules reference. No Forge source code
+or data files are copied into this repository.
+
+baylee source code is licensed under the GNU Affero General Public License
+v3.0 only (see LICENSE). The project is free and non-commercial; no feature
+will ever be placed behind payment.

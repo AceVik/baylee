@@ -1,0 +1,23 @@
+{
+  "id": "60afeb75-2c1e-4634-8c83-88b1dddb77c2",
+  "oracle_id": "fb220f46-f8b8-4804-baa4-e7d50b4871f7",
+  "name": "Aether Channeler",
+  "mana_cost": "{2}{U}",
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "When this creature enters, choose one —\n• Create a 1/1 white Bird creature token with flying.\n• Return another target nonland permanent to its owner's hand.\n• Draw a card.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "dmu",
+  "set_name": "Dominaria United",
+  "collector_number": "42",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

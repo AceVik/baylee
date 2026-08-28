@@ -1,0 +1,19 @@
+{
+  "id": "bd1d13f7-fd38-4f0b-a8e0-1eac78668117",
+  "oracle_id": "29737a60-3ebd-40d9-b935-c4f54b90d45d",
+  "name": "Windswept Heath",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Plains card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "235",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

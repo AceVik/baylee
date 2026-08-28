@@ -1,0 +1,23 @@
+{
+  "id": "9e83a0ef-4fea-45ba-86c0-130d6687f7fe",
+  "oracle_id": "b3d81980-76f2-44e2-b1c9-01e30c726312",
+  "name": "Loran of the Third Path",
+  "mana_cost": "{2}{W}",
+  "type_line": "Legendary Creature — Human Artificer",
+  "oracle_text": "Vigilance\nWhen Loran enters, destroy up to one target artifact or enchantment.\n{T}: You and target opponent each draw a card.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "mkc",
+  "set_name": "Murders at Karlov Manor Commander",
+  "collector_number": "71",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

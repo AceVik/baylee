@@ -1,0 +1,22 @@
+{
+  "id": "d673a2d5-0c61-48dc-8c8d-06f0c7b6b8bf",
+  "oracle_id": "027dd013-baa7-4111-b3c9-f4d1414e9c45",
+  "name": "Glacial Fortress",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Plains or an Island.\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "248",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

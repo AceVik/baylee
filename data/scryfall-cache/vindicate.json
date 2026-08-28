@@ -1,0 +1,25 @@
+{
+  "id": "683c4e13-525c-45c9-8832-bfe67965c34e",
+  "oracle_id": "63c1ac21-e3d8-40c2-8c09-3f31c52992ef",
+  "name": "Vindicate",
+  "mana_cost": "{1}{W}{B}",
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy target permanent.",
+  "colors": [
+    "B",
+    "W"
+  ],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "294",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

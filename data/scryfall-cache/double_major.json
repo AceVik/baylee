@@ -1,0 +1,25 @@
+{
+  "id": "c3d35413-8742-4443-8859-93c91112978d",
+  "oracle_id": "ece44a82-dcf0-4439-bdd9-a09c99a6f159",
+  "name": "Double Major",
+  "mana_cost": "{G}{U}",
+  "type_line": "Instant",
+  "oracle_text": "Copy target creature spell you control, except it isn't legendary if the spell is legendary. (A copy of a creature spell becomes a token.)",
+  "colors": [
+    "G",
+    "U"
+  ],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "stx",
+  "set_name": "Strixhaven: School of Mages",
+  "collector_number": "179",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

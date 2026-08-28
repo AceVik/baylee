@@ -1,0 +1,23 @@
+{
+  "id": "db7ab081-d6cd-4323-98bf-536e4df95115",
+  "oracle_id": "7d679591-f8ea-4c4c-ab98-7b9e3438cf57",
+  "name": "Primaris Eliminator",
+  "mana_cost": "{4}{B}",
+  "type_line": "Creature — Astartes Warrior",
+  "oracle_text": "When this creature enters, choose one —\n• Executioner Round — Destroy target creature.\n• Hyperfrag Round — Creatures target player controls get -2/-2 until end of turn.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "40k",
+  "set_name": "Warhammer 40,000 Commander",
+  "collector_number": "50",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

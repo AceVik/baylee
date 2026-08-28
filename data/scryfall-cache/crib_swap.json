@@ -1,0 +1,23 @@
+{
+  "id": "8f2fb3c6-af75-47a3-9f97-521872c32890",
+  "oracle_id": "2987c385-011a-4032-a516-a46d1e9dc9e8",
+  "name": "Crib Swap",
+  "mana_cost": "{2}{W}",
+  "type_line": "Kindred Instant — Shapeshifter",
+  "oracle_text": "Changeling (This card is every creature type.)\nExile target creature. Its controller creates a 1/1 colorless Shapeshifter creature token with changeling.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "ecl",
+  "set_name": "Lorwyn Eclipsed",
+  "collector_number": "11",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

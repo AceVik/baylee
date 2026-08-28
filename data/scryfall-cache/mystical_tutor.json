@@ -1,0 +1,23 @@
+{
+  "id": "36fa9a0b-b0c9-43ea-ba11-99d7982f974e",
+  "oracle_id": "fb81f95c-70f8-4eb7-8d15-15d0ae23ec03",
+  "name": "Mystical Tutor",
+  "mana_cost": "{U}",
+  "type_line": "Instant",
+  "oracle_text": "Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "60",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

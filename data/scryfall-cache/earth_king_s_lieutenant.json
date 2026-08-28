@@ -1,0 +1,25 @@
+{
+  "id": "4533d155-5c56-41a5-9d76-2d1414ac47c9",
+  "oracle_id": "9da9248d-1201-447f-b6c2-2b64af4f71c4",
+  "name": "Earth King's Lieutenant",
+  "mana_cost": "{G}{W}",
+  "type_line": "Creature — Human Soldier Ally",
+  "oracle_text": "Trample\nWhen this creature enters, put a +1/+1 counter on each other Ally creature you control.\nWhenever another Ally you control enters, put a +1/+1 counter on this creature.",
+  "colors": [
+    "G",
+    "W"
+  ],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "217",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

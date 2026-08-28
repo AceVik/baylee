@@ -1,0 +1,23 @@
+{
+  "id": "e671de25-c47c-48a1-919b-6aa30dab142f",
+  "oracle_id": "d90af00a-d322-4265-9954-7b1e80702e18",
+  "name": "Skyclave Apparition",
+  "mana_cost": "{1}{W}{W}",
+  "type_line": "Creature — Kor Spirit",
+  "oracle_text": "When this creature enters, exile up to one target nonland, nontoken permanent you don't control with mana value 4 or less.\nWhen this creature leaves the battlefield, the exiled card's owner creates an X/X blue Illusion creature token, where X is the mana value of the exiled card.",
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "173",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

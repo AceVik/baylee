@@ -1,0 +1,22 @@
+{
+  "id": "3a8eef9b-9b03-42cd-a27a-07021bf0b33f",
+  "oracle_id": "cd2c90ac-2b04-461c-92f3-939871b6b6a3",
+  "name": "Sunken Hollow",
+  "mana_cost": "",
+  "type_line": "Land — Island Swamp",
+  "oracle_text": "({T}: Add {U} or {B}.)\nThis land enters tapped unless you control two or more basic lands.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "271",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

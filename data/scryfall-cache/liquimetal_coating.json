@@ -1,0 +1,19 @@
+{
+  "id": "f631447c-36e3-4d82-a658-19c9767a216b",
+  "oracle_id": "f4bdc551-c2eb-4a34-a3e3-b4a017c925af",
+  "name": "Liquimetal Coating",
+  "mana_cost": "{2}",
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Target permanent becomes an artifact in addition to its other types until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cm2",
+  "set_name": "Commander Anthology Volume II",
+  "collector_number": "197",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

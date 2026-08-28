@@ -1,0 +1,19 @@
+{
+  "id": "0548fb60-c843-4f8f-a029-6f10efc63a41",
+  "oracle_id": "0895c9b7-ae7d-4bb3-af17-3b75deb50a25",
+  "name": "Command Tower",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+  "colors": [],
+  "color_identity": [],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "233",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

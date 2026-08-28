@@ -1,0 +1,23 @@
+{
+  "id": "c303e7e2-cb22-4dea-889f-d03e2494ed0f",
+  "oracle_id": "5e2c1e0e-0a10-416a-9b50-96ee0cbbc24e",
+  "name": "Hagra Diabolist",
+  "mana_cost": "{4}{B}",
+  "type_line": "Creature — Ogre Shaman Ally",
+  "oracle_text": "Whenever this creature or another Ally you control enters, you may have target player lose life equal to the number of Allies you control.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "zen",
+  "set_name": "Zendikar",
+  "collector_number": "95",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": "3",
+  "toughness": "2",
+  "loyalty": null,
+  "card_faces": null
+}

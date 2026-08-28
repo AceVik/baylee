@@ -1,0 +1,23 @@
+{
+  "id": "077392b3-6b06-46c8-8737-51e85f690448",
+  "oracle_id": "4d67e2a7-4aa7-44cc-853b-500d7aac046d",
+  "name": "Cursed Mirror",
+  "mana_cost": "{2}{R}",
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {R}.\nAs this artifact enters, you may have it become a copy of any creature on the battlefield until end of turn, except it has haste.",
+  "colors": [
+    "R"
+  ],
+  "color_identity": [
+    "R"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "242",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

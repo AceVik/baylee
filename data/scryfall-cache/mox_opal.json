@@ -1,0 +1,19 @@
+{
+  "id": "56001a36-126b-4c08-af98-a6cc4d84210e",
+  "oracle_id": "de2440de-e948-4811-903c-0bbe376ff64d",
+  "name": "Mox Opal",
+  "mana_cost": "{0}",
+  "type_line": "Legendary Artifact",
+  "oracle_text": "Metalcraft — {T}: Add one mana of any color. Activate only if you control three or more artifacts.",
+  "colors": [],
+  "color_identity": [],
+  "set": "2xm",
+  "set_name": "Double Masters",
+  "collector_number": "275",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

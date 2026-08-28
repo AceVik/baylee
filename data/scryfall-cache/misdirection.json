@@ -1,0 +1,23 @@
+{
+  "id": "c96763d6-0cea-40ed-afb2-886bfebe50a0",
+  "oracle_id": "c39e5fb0-6de3-4105-ad3c-0ecb8951a1d5",
+  "name": "Misdirection",
+  "mana_cost": "{3}{U}{U}",
+  "type_line": "Instant",
+  "oracle_text": "You may exile a blue card from your hand rather than pay this spell's mana cost.\nChange the target of target spell with a single target.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "ddt",
+  "set_name": "Duel Decks: Merfolk vs. Goblins",
+  "collector_number": "15",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "1e7aa3a6-4219-4c54-97bd-571680af9e99",
+  "oracle_id": "4f328996-f9dd-4c7a-9548-bc4b9d0d943f",
+  "name": "Surgical Metamorph",
+  "mana_cost": "{3}{U}",
+  "type_line": "Artifact Creature — Phyrexian Shapeshifter",
+  "oracle_text": "This spell costs {1} less to cast if you weren't the starting player.\nYou may have Surgical Metamorph enter as a copy of any permanent on the battlefield, except it's an artifact in addition to its other types.",
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "set": "yone",
+  "set_name": "Alchemy: Phyrexia",
+  "collector_number": "6",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "card_faces": null
+}

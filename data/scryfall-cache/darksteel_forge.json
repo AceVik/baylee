@@ -1,0 +1,19 @@
+{
+  "id": "421089c4-c8d3-48c5-b313-fb1741546271",
+  "oracle_id": "9b3bec05-441f-4fdf-8b51-69fa8613fcd4",
+  "name": "Darksteel Forge",
+  "mana_cost": "{9}",
+  "type_line": "Artifact",
+  "oracle_text": "Artifacts you control have indestructible. (Effects that say \"destroy\" don't destroy them. Artifact creatures with indestructible can't be destroyed by damage.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "2xm",
+  "set_name": "Double Masters",
+  "collector_number": "248",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}
