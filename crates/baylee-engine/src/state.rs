@@ -84,6 +84,43 @@ impl Names {
     }
 }
 
+/// A delayed trigger registered for a future game point (suspend finishes,
+/// pact payments, rebound re-casts).
+#[derive(Clone, Debug)]
+pub struct DelayedTrigger {
+    /// Controlling player.
+    pub controller: PlayerId,
+    /// When it fires.
+    pub when: DelayedWhen,
+    /// What it does.
+    pub action: DelayedAction,
+}
+
+/// When a delayed trigger fires.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum DelayedWhen {
+    /// At the controller's next upkeep.
+    NextUpkeep,
+    /// At the controller's next cleanup.
+    NextCleanup,
+}
+
+/// What a delayed trigger does.
+#[derive(Clone, Debug)]
+pub enum DelayedAction {
+    /// Cast a card from exile without paying its mana cost (rebound,
+    /// suspend finish).
+    CastFromExileWithoutPaying {
+        /// The card in exile.
+        card: ObjectId,
+    },
+    /// Pay a cost or lose the game (Pact of Negation).
+    PayCostOrLose {
+        /// The mana cost to pay.
+        cost: baylee_core::mana::ManaCost,
+    },
+}
+
 /// Per-turn counters for conditional triggers (reset at every turn start).
 #[derive(Clone, Debug)]
 pub struct PerTurn {
@@ -159,6 +196,8 @@ pub struct GameState {
     /// Bowmasters): noncreature spells cast and cards drawn per player this
     /// turn, reset at every turn start.
     pub per_turn: PerTurn,
+    /// Registered delayed triggers (suspend finishes, pact payments).
+    pub delayed: Vec<DelayedTrigger>,
     /// Seeded randomness.
     pub rng: GameRng,
     /// The event journal.
@@ -217,6 +256,7 @@ impl GameState {
             turn_start_timestamp: 0,
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
+            delayed: Vec::new(),
             rng: GameRng::new(preset.seed),
             journal: Journal::default(),
             names: Names::default(),
@@ -724,6 +764,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Adventure => h.u8(3),
             Rider::Foretold => h.u8(4),
             Rider::Plotted => h.u8(5),
+            Rider::Suspend => h.u8(6),
         }
     }
 }

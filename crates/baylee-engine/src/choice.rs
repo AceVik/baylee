@@ -199,6 +199,8 @@ pub struct LegalActions {
     /// Activated abilities available on controlled permanents:
     /// `(source, ability_index)`.
     pub abilities: Vec<(ObjectId, u32)>,
+    /// Cards suspendable from hand.
+    pub suspendable: Vec<ObjectId>,
 }
 
 /// A player's answer to a [`Pending`] request.
@@ -246,6 +248,11 @@ pub enum PlayerAction {
     ChooseObjects {
         /// The chosen objects.
         objects: Vec<ObjectId>,
+    },
+    /// Suspend a card from hand with time counters.
+    Suspend {
+        /// The card to suspend.
+        card: ObjectId,
     },
     /// Order objects (index 0 = topmost).
     OrderObjects {

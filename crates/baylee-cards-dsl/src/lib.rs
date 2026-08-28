@@ -154,6 +154,8 @@ keywords! {
     PARTNER = 27, "Partner (generic).";
     UNBLOCKABLE = 28, "Can't be blocked.";
     UNCOUNTERABLE = 29, "Can't be countered.";
+    REBOUND = 30, "Rebound.";
+    PROTECTION_BLACK = 31, "Protection from black.";
 }
 
 impl KeywordSet {

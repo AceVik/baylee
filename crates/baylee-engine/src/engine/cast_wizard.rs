@@ -55,6 +55,8 @@ pub(crate) struct CastWizard {
     pub stage: WizardStage,
     /// Options computed at start (kept for the Done stage).
     pub options: Vec<CastModeDesc>,
+    /// Whether this cast is free (rebound, suspend finish).
+    pub free: bool,
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -76,11 +78,37 @@ impl<L: CardLookup> Engine<L> {
             pitch: SmallVec::new(),
             stage: WizardStage::ChooseMode,
             options,
+            free: false,
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
             wizard.stage = WizardStage::XValue;
         }
+        self.cast_wizard = Some(wizard);
+        self.advance_cast_wizard()
+    }
+
+    /// Starts a free cast (rebound at upkeep, suspend finish): no payment,
+    /// but targets and other choices still run through the wizard.
+    pub(crate) fn start_free_cast(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+    ) -> Result<(), EngineError> {
+        let mut wizard = CastWizard {
+            card,
+            player,
+            option: Some(CastModeKind::Normal),
+            targets: SmallVec::new(),
+            chosen_player: None,
+            x: 0,
+            kicked: false,
+            pitch: SmallVec::new(),
+            stage: WizardStage::Targets,
+            options: Vec::new(),
+            free: true,
+        };
+        let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
@@ -381,10 +409,12 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         let player = wizard.player;
-        if !mana_pay::pay(
-            &mut self.state.players[player.get() as usize].mana_pool,
-            &total,
-        ) {
+        if !wizard.free
+            && !mana_pay::pay(
+                &mut self.state.players[player.get() as usize].mana_pool,
+                &total,
+            )
+        {
             self.cast_wizard = None;
             return Err(EngineError::IllegalAction("cannot pay the total cost"));
         }
@@ -461,6 +491,7 @@ impl<L: CardLookup> Engine<L> {
             obj.kicked = wizard.kicked;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));
             obj.chosen_player = wizard.chosen_player;
+            obj.cast_from_hand = !wizard.free;
             obj.mode_index = match wizard.option {
                 Some(CastModeKind::Mode(i)) => Some(i.try_into().expect("mode index fits u8")),
                 _ => None,

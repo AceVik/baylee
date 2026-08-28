@@ -1,7 +1,7 @@
 use super::{
-    AttackerInfo, BlockerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent,
-    ObjectId, Pending, PlanKind, PlayerAction, PlayerId, SmallVec, Status, Zone, ZoneLocation,
-    ZonePosition, cast_wizard, casting, combat, resolve, sba,
+    AbilityDef, AttackerInfo, BlockerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError,
+    GameEvent, LossReason, ObjectId, Pending, PlanKind, PlayerAction, PlayerId, SmallVec, Status,
+    Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay, resolve, sba,
 };
 
 impl<L: CardLookup> Engine<L> {
@@ -143,6 +143,40 @@ impl<L: CardLookup> Engine<L> {
                 }
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
+            (Pending::Priority { player: p, legal }, PlayerAction::Suspend { card })
+                if *p == player =>
+            {
+                if !legal.suspendable.contains(&card) {
+                    return Err(EngineError::IllegalAction("card cannot be suspended"));
+                }
+                let counters = self
+                    .state
+                    .object(card)
+                    .and_then(|o| o.card)
+                    .and_then(|c| self.lookup.card(c.index))
+                    .and_then(|def| {
+                        def.abilities.iter().find_map(|a| match a {
+                            AbilityDef::Suspend { counters } => Some(*counters),
+                            _ => None,
+                        })
+                    })
+                    .ok_or(EngineError::IllegalAction("not a suspend card"))?;
+                let owner = self.state.object(card).map_or(player, |o| o.owner);
+                {
+                    let obj = self.state.object_mut(card).expect("validated");
+                    obj.riders.push(crate::object::Rider::Suspend);
+                    obj.counters
+                        .add(baylee_cards_dsl::CounterKind::Time, u16::from(counters));
+                }
+                self.state.move_object(
+                    card,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )?;
+                self.after_action(player);
+                Ok(())
+            }
             (
                 Pending::ChooseTargets {
                     player: p,
@@ -187,6 +221,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")
                     }
+                    PlanKind::DelayedPay { .. } => {
+                        unreachable!("delayed-pay plans are answered via YesNo")
+                    }
                 }
                 Ok(())
             }
@@ -226,6 +263,21 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                // Delayed pay-or-lose (Pact of Negation).
+                if matches!(self.pending_plan, Some(PlanKind::DelayedPay { .. })) {
+                    let Some(PlanKind::DelayedPay { cost }) = self.pending_plan.take() else {
+                        unreachable!()
+                    };
+                    if answer {
+                        debug_assert!(mana_pay::pay(
+                            &mut self.state.players[player.get() as usize].mana_pool,
+                            &cost,
+                        ));
+                    } else {
+                        sba::eliminate_player(&mut self.state, player, LossReason::Life);
+                    }
+                    return Ok(());
+                }
                 // Tax choice (Rhystic Study & co.).
                 if self.resolution.as_ref().is_some_and(|r| {
                     matches!(
@@ -247,7 +299,11 @@ impl<L: CardLookup> Engine<L> {
                     return Ok(());
                 }
                 // Shockland entry choice: pay life or enter tapped.
-                if let Some(PlanKind::EntryTap { object, amount }) = self.pending_plan.take() {
+                if matches!(self.pending_plan, Some(PlanKind::EntryTap { .. })) {
+                    let Some(PlanKind::EntryTap { object, amount }) = self.pending_plan.take()
+                    else {
+                        unreachable!()
+                    };
                     if answer {
                         let p_ref = &mut self.state.players[player.get() as usize];
                         let old = p_ref.life;

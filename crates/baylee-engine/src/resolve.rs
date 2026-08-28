@@ -614,6 +614,30 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::Blink { .. } => {
+            if let Some(&target_id) = res.targets.first() {
+                let owner = state.object(target_id).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.kind = ObjectKind::Permanent;
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         Effect::AddCounter { kind, amount } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
             let target_id = res.targets.first().copied().unwrap_or(res.source);
@@ -997,6 +1021,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     Cause::Effect,
                 );
             }
+            None
+        }
+        Effect::PayCostOrLoseLater { cost } => {
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::NextUpkeep,
+                action: crate::state::DelayedAction::PayCostOrLose { cost },
+            });
             None
         }
         Effect::SacrificeSelf => {

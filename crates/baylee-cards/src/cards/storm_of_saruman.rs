@@ -2,12 +2,13 @@
 //! Oracle: Ward {3}
 //! Oracle: Whenever you cast your second spell each turn, copy it, except the copy isn't legendary. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)
 //! Set: LTR #72 — The Lord of the Rings: Tales of Middle-earth | Scryfall ID: 52884e67-c742-4799-9afd-55bc70b2cf40 | Oracle ID: cf5f4860-e805-46a3-9352-a2c583e33403
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — NOT SUPPORTED yet: spell copies (M2.S7c) and ward cost (M2.S6+).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -34,11 +35,9 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
+    coverage: Coverage::Partial("spell copy (M2.S7c), ward cost (M2.S6+)"),
     abilities: &[],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

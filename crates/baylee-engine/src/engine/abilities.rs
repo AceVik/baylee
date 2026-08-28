@@ -62,7 +62,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        // Hand-zone activations (cycling).
+        // Hand-zone activations (cycling) and suspensions.
         for &card in self.state.zones.list(ZoneLocation::Hand(player)) {
             let Some(obj) = self.state.object(card) else {
                 continue;
@@ -72,20 +72,26 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             };
             for (i, ability) in def.abilities.iter().enumerate() {
-                let AbilityDef::Activated {
-                    cost, timing, zone, ..
-                } = ability
-                else {
-                    continue;
-                };
-                if *zone != ActivationZone::Hand {
-                    continue;
-                }
-                if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
-                    continue;
-                }
-                if self.can_afford(player, card, cost) {
-                    legal.abilities.push((card, i as u32));
+                match ability {
+                    AbilityDef::Activated {
+                        cost, timing, zone, ..
+                    } => {
+                        if *zone != ActivationZone::Hand {
+                            continue;
+                        }
+                        if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if self.can_afford(player, card, cost) {
+                            legal.abilities.push((card, i as u32));
+                        }
+                    }
+                    AbilityDef::Suspend { .. } => {
+                        if sorcery_timing {
+                            legal.suspendable.push(card);
+                        }
+                    }
+                    _ => {}
                 }
             }
         }

@@ -116,6 +116,12 @@ pub enum AbilityDef {
         /// The modes to choose from.
         modes: &'static [SpellMode],
     },
+    /// Suspend: exile with N time counters from your hand (sorcery speed);
+    /// remove one at your upkeep, cast for free when the last is removed.
+    Suspend {
+        /// Time counters.
+        counters: u8,
+    },
 }
 
 /// One mode of a [`crate::AbilityDef::ModalSpell`].

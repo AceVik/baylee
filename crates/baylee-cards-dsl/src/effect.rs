@@ -8,7 +8,7 @@ use crate::KeywordSet;
 use crate::filter::Filter;
 use baylee_core::color::ColorSet;
 use baylee_core::ids::SubtypeId;
-use baylee_core::mana::ManaColor;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 /// Counter kinds (objects and players). Lives here so card definitions can
@@ -218,6 +218,12 @@ pub enum Effect {
     },
     /// Exile a target object.
     Exile {
+        /// What.
+        target: TargetSpec,
+    },
+    /// Exile a target and return it to the battlefield immediately
+    /// (Ephemerate).
+    Blink {
         /// What.
         target: TargetSpec,
     },
@@ -467,6 +473,12 @@ pub enum Effect {
     },
     /// Sacrifice the source permanent (evoke).
     SacrificeSelf,
+    /// Register a delayed "pay or lose" trigger at your next upkeep
+    /// (Pact of Negation).
+    PayCostOrLoseLater {
+        /// The mana cost to pay at your next upkeep.
+        cost: ManaCost,
+    },
     /// A relative player may search their library for a basic land onto
     /// the battlefield tapped, then shuffle (Path to Exile).
     OptionalBasicLandSearchFor {

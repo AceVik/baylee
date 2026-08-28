@@ -212,6 +212,8 @@ pub enum Rider {
     Foretold,
     /// Plotted (castable without paying as a sorcery).
     Plotted,
+    /// Suspended (time counters tick down at upkeep; cast for free at zero).
+    Suspend,
 }
 
 /// Riders attached to an object.
@@ -268,6 +270,8 @@ pub struct GameObject {
     pub chosen_player: Option<PlayerId>,
     /// The chosen spell mode (modal spells / overload).
     pub mode_index: Option<u8>,
+    /// Whether the spell was cast from the hand (rebound condition).
+    pub cast_from_hand: bool,
 }
 
 impl GameObject {
@@ -301,6 +305,7 @@ impl GameObject {
             alt_cast: false,
             chosen_player: None,
             mode_index: None,
+            cast_from_hand: true,
         }
     }
 

@@ -1,7 +1,7 @@
 use super::{
     AbilityDef, CardLookup, Cause, CombatDeclared, EndReason, Engine, GameEvent, GameResult,
-    ObjectId, ObjectKind, Pending, Phase, PlanKind, PlayerId, Resolution, SmallVec, Status, Step,
-    Zone, ZoneLocation, ZonePosition, combat, eval, resolve, sba, trigger,
+    LossReason, ObjectId, ObjectKind, Pending, Phase, PlanKind, PlayerId, Resolution, SmallVec,
+    Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval, mana_pay, resolve, sba, trigger,
 };
 use crate::choice::YesNoPrompt;
 
@@ -43,6 +43,10 @@ impl<L: CardLookup> Engine<L> {
             self.collect_triggers();
             if self.awaiting_answer {
                 return; // a trigger's target choice is pending
+            }
+            // 3b. Delayed actions queued by upkeep processing.
+            if self.process_delayed() {
+                return; // a delayed action produced a pending choice
             }
             // 4. Resolve the top of the stack after all passed.
             if self.resolve_next {
@@ -522,6 +526,32 @@ impl<L: CardLookup> Engine<L> {
                 Cause::Spell,
             );
         } else {
+            // Rebound (CR 702.88): cast from hand → exile with a rebound
+            // rider and a delayed re-cast at the next upkeep.
+            let rebound = self.state.object(spell).is_some_and(|o| {
+                o.cast_from_hand
+                    && o.characteristics()
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::REBOUND)
+            });
+            if rebound {
+                if let Some(obj) = self.state.object_mut(spell) {
+                    obj.kind = ObjectKind::Card;
+                    obj.riders.push(crate::object::Rider::Rebound);
+                }
+                let _ = self.state.move_object(
+                    spell,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                self.state.delayed.push(crate::state::DelayedTrigger {
+                    controller: owner,
+                    when: crate::state::DelayedWhen::NextUpkeep,
+                    action: crate::state::DelayedAction::CastFromExileWithoutPaying { card: spell },
+                });
+                return;
+            }
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Card;
             }
@@ -555,10 +585,106 @@ impl<L: CardLookup> Engine<L> {
         });
     }
 
+    /// Queues delayed actions (suspend finishes, pact payments) when the
+    /// upkeep step begins.
+    pub(crate) fn queue_upkeep_delayed(&mut self) {
+        let active = self.state.turn.active;
+        // Suspend countdown: decrement time counters, cast at zero.
+        let suspended: Vec<ObjectId> = self
+            .state
+            .zones
+            .list(ZoneLocation::Exile(active))
+            .iter()
+            .filter(|id| {
+                self.state.object(**id).is_some_and(|o| {
+                    o.riders
+                        .iter()
+                        .any(|r| matches!(r, crate::object::Rider::Suspend))
+                })
+            })
+            .copied()
+            .collect();
+        for card in suspended {
+            let remaining = self
+                .state
+                .object(card)
+                .map_or(0, |o| o.counters.get(baylee_cards_dsl::CounterKind::Time));
+            if remaining <= 1 {
+                // Last counter removed: cast it without paying (CR 702.61).
+                if let Some(obj) = self.state.object_mut(card) {
+                    obj.counters.set(baylee_cards_dsl::CounterKind::Time, 0);
+                }
+                self.delayed_queue
+                    .push_back(crate::state::DelayedAction::CastFromExileWithoutPaying { card });
+            } else if let Some(obj) = self.state.object_mut(card) {
+                obj.counters
+                    .set(baylee_cards_dsl::CounterKind::Time, remaining - 1);
+                self.state.journal.record(GameEvent::CounterChanged {
+                    object: card,
+                    kind: baylee_cards_dsl::CounterKind::Time,
+                    old: remaining,
+                    new: remaining - 1,
+                });
+            }
+        }
+        // Delayed triggers registered for this upkeep.
+        let mut i = 0;
+        while i < self.state.delayed.len() {
+            let fire = matches!(
+                self.state.delayed[i].when,
+                crate::state::DelayedWhen::NextUpkeep
+            ) && self.state.delayed[i].controller == active;
+            if fire {
+                let trigger = self.state.delayed.remove(i);
+                self.delayed_queue.push_back(trigger.action);
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+    /// Processes one queued delayed action; returns `true` when a pending
+    /// choice was produced.
+    pub(crate) fn process_delayed(&mut self) -> bool {
+        let Some(action) = self.delayed_queue.pop_front() else {
+            return false;
+        };
+        match action {
+            crate::state::DelayedAction::CastFromExileWithoutPaying { card } => {
+                let owner = self
+                    .state
+                    .object(card)
+                    .map_or(self.state.turn.active, |o| o.owner);
+                let _ = self.start_free_cast(owner, card);
+                self.awaiting_answer
+            }
+            crate::state::DelayedAction::PayCostOrLose { cost } => {
+                let active = self.state.turn.active;
+                // If the player can't pay, they lose outright (no choice).
+                let can_pay =
+                    mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
+                if !can_pay {
+                    sba::eliminate_player(&mut self.state, active, LossReason::Life);
+                    return false;
+                }
+                self.pending_plan = Some(PlanKind::DelayedPay { cost });
+                self.pending = Pending::YesNo {
+                    player: active,
+                    prompt: YesNoPrompt::Generic,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+        }
+    }
+
     pub(crate) fn advance_step(&mut self) {
         let (phase, step) = (self.state.turn.phase, self.state.turn.step);
         let (next_phase, next_step) = match (phase, step) {
-            (_, Step::Untap) => (Phase::Beginning, Step::Upkeep),
+            (_, Step::Untap) => {
+                self.queue_upkeep_delayed();
+                (Phase::Beginning, Step::Upkeep)
+            }
             (_, Step::Upkeep) => (Phase::Beginning, Step::Draw),
             (_, Step::Draw) => {
                 // Turn-based action: draw (first player skips on turn 1 in

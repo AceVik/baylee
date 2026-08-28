@@ -85,6 +85,8 @@ pub struct Engine<L: CardLookup> {
     pending_plan: Option<PlanKind>,
     /// Journal seq up to which as-it-enters modifiers were applied.
     entry_scan_seq: u64,
+    /// Delayed actions queued by upkeep processing.
+    delayed_queue: VecDeque<crate::state::DelayedAction>,
     /// A spell being cast step by step (modes/targets/X/kicker/pitch).
     cast_wizard: Option<cast_wizard::CastWizard>,
     /// Triggers collected but not yet stacked (target choices first).
@@ -114,6 +116,11 @@ enum PlanKind {
         object: ObjectId,
         /// Life to pay.
         amount: u16,
+    },
+    /// A delayed pay-or-lose decision (Pact of Negation).
+    DelayedPay {
+        /// The mana cost to pay.
+        cost: baylee_core::mana::ManaCost,
     },
 }
 
@@ -146,6 +153,7 @@ impl<L: CardLookup> Engine<L> {
             trigger_scan_seq,
             pending_plan: None,
             entry_scan_seq: 0,
+            delayed_queue: VecDeque::new(),
             cast_wizard: None,
             trigger_queue: VecDeque::new(),
         };
@@ -249,6 +257,8 @@ mod s4_tests;
 mod s6_tests;
 #[cfg(test)]
 mod s7_tests;
+#[cfg(test)]
+mod s7b_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
