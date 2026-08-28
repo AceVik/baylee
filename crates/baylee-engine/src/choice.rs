@@ -92,6 +92,8 @@ pub enum ChoicePrompt {
     SearchLibrary,
     /// Scry: choose cards for the bottom; the rest stays on top.
     ScryBottom,
+    /// Put cards from your hand on top of your library (chosen order).
+    PutBackOnTop,
     /// Generic selection.
     Generic,
 }

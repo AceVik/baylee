@@ -13,7 +13,7 @@ use crate::object::{ObjectKind, Status};
 use crate::sba;
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
-use baylee_cards_dsl::{Effect, SearchDest, TargetSpec};
+use baylee_cards_dsl::{Amount, Effect, PlayerRel, SearchDest, TargetSpec};
 use baylee_core::ids::{ObjectId, PlayerId};
 use smallvec::SmallVec;
 
@@ -55,6 +55,27 @@ pub enum AwaitingOp {
         /// How many cards were looked at.
         looked: u8,
     },
+    /// Chosen hand cards go on top of the library in chosen order.
+    PutBackOnTop,
+}
+
+/// Amount evaluation with target context ([`Amount::TargetPower`]).
+fn amount2(
+    amount: &Amount,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+    x: Option<u32>,
+    targets: &[ObjectId],
+) -> u32 {
+    match amount {
+        Amount::TargetPower => targets
+            .first()
+            .and_then(|t| state.object(*t))
+            .and_then(|o| o.characteristics().power)
+            .map_or(0, |p| p.max(0) as u32),
+        other => eval::amount(other, state, you, this, x),
+    }
 }
 
 /// Flattens nested `Sequence`s into one flat op list.
@@ -162,6 +183,17 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
+        AwaitingOp::PutBackOnTop => {
+            // Chosen cards go on top in chosen order (last chosen = top).
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
     }
     res.pc += 1;
     run(state, res)
@@ -170,7 +202,9 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
 /// Executes one operation; returns `Some(pending)` when it suspends.
 fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     match op {
-        Effect::SearchLibrary { .. } | Effect::Scry { .. } => exec_choice(state, res, op),
+        Effect::SearchLibrary { .. } | Effect::Scry { .. } | Effect::PutFromHandOnTop { .. } => {
+            exec_choice(state, res, op)
+        }
         _ => exec_immediate(state, res, op),
     }
 }
@@ -218,7 +252,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             })
         }
         Effect::Scry { amount } => {
-            let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
             let looked: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -241,6 +275,21 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 prompt: ChoicePrompt::ScryBottom,
             })
         }
+        Effect::PutFromHandOnTop { count } => {
+            let hand = state.zones.list(ZoneLocation::Hand(you)).clone();
+            let n = (count as usize).min(hand.len());
+            if n == 0 {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::PutBackOnTop);
+            Some(Pending::ChooseCards {
+                player: you,
+                options: hand,
+                min: n as u8,
+                max: n as u8,
+                prompt: ChoicePrompt::PutBackOnTop,
+            })
+        }
         _ => unreachable!("not a choice op"),
     }
 }
@@ -252,12 +301,42 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
     match op {
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
         Effect::GainLife { amount } => {
-            let n = eval::amount(&amount, state, you, res.source, res.x) as i32;
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
             gain_life(state, you, n);
             None
         }
+        Effect::GainLifeFor { amount, who } => {
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
+            let players = match who {
+                PlayerRel::ControllerOfTarget => res
+                    .targets
+                    .first()
+                    .and_then(|t| state.object(*t))
+                    .map_or_else(Vec::new, |o| vec![o.controller]),
+                other => eval::players(other, state, you),
+            };
+            for player in players {
+                gain_life(state, player, n);
+            }
+            None
+        }
+        Effect::Exile { .. } => {
+            if let Some(&target_id) = res.targets.first() {
+                let owner = state.object(target_id).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         Effect::LoseLife { amount, target } => {
-            let n = eval::amount(&amount, state, you, res.source, res.x) as i32;
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
             for player in eval::players(target, state, you) {
                 let p = &mut state.players[player.get() as usize];
                 let old = p.life;
@@ -273,12 +352,12 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::DrawCards { amount } => {
-            let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
             state.draw_cards(you, n);
             None
         }
         Effect::DealDamage { amount, target } => {
-            let n = eval::amount(&amount, state, you, res.source, res.x) as i16;
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i16;
             match target {
                 TargetSpec::Player(rel) => {
                     for player in eval::players(rel, state, you) {
@@ -326,7 +405,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::Mill { amount, target } => {
-            let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
             for player in eval::players(target, state, you) {
                 let top: Vec<ObjectId> = state
                     .zones
@@ -360,7 +439,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)
-        Effect::SearchLibrary { .. } | Effect::Scry { .. } => {
+        Effect::SearchLibrary { .. } | Effect::Scry { .. } | Effect::PutFromHandOnTop { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
     }

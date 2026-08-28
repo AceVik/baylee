@@ -15,6 +15,8 @@ pub enum Amount {
     Fixed(u32),
     /// The value of X chosen at cast time.
     X,
+    /// The power of the first target (last known characteristics).
+    TargetPower,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.
@@ -50,6 +52,8 @@ pub enum PlayerRel {
     EachPlayer,
     /// Each opponent.
     EachOpponent,
+    /// The controller of the first target.
+    ControllerOfTarget,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).
@@ -85,6 +89,24 @@ pub enum Effect {
     GainLife {
         /// How much.
         amount: Amount,
+    },
+    /// A chosen relative player gains life.
+    GainLifeFor {
+        /// How much.
+        amount: Amount,
+        /// Who.
+        who: PlayerRel,
+    },
+    /// Exile a target object.
+    Exile {
+        /// What.
+        target: TargetSpec,
+    },
+    /// Put cards from your hand on top of your library, in the order they
+    /// were chosen (Brainstorm-style).
+    PutFromHandOnTop {
+        /// How many.
+        count: u8,
     },
     /// A player loses life.
     LoseLife {

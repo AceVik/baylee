@@ -8,7 +8,6 @@ use crate::state::GameState;
 use crate::zone::ZoneLocation;
 use baylee_cards_dsl::{Amount, Filter, PlayerRel, TargetSpec, ZoneSel};
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_core::types::TypeSet;
 
 /// Evaluates a [`Filter`] against an object.
 #[allow(clippy::only_used_in_recursion)] // part of the eval API: future filters (auras, counts) need state
@@ -61,6 +60,9 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Vec<PlayerId
             .filter(|p| !p.has_lost)
             .map(|p| p.id)
             .collect(),
+        PlayerRel::ControllerOfTarget => {
+            vec![] // resolved in resolve.rs (needs the target list)
+        }
     }
 }
 
@@ -76,6 +78,7 @@ pub fn amount(
     match amount {
         Amount::Fixed(n) => *n,
         Amount::X => x.unwrap_or(0),
+        Amount::TargetPower => 0, // resolved in resolve.rs (needs the target list)
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
@@ -132,11 +135,8 @@ pub fn target_options(
             .iter()
             .filter(|id| {
                 state.object(**id).is_some_and(|o| {
-                    o.characteristics().types.intersects(
-                        TypeSet::INSTANT
-                            .union(TypeSet::SORCERY)
-                            .union(TypeSet::KINDRED),
-                    ) && matches(filter, state, o, you, this)
+                    o.kind == crate::object::ObjectKind::Spell
+                        && matches(filter, state, o, you, this)
                 })
             })
             .copied()

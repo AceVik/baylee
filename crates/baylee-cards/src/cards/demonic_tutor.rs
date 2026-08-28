@@ -1,15 +1,19 @@
 //! Demonic Tutor — {1}{B} — Sorcery
 //! Oracle: Search your library for a card, put that card into your hand, then shuffle.
 //! Set: CMM #150 — Commander Masters | Scryfall ID: a24b4cb6-cebb-428b-8654-74347a6a8d63 | Oracle ID: 82004860-e589-4e38-8d61-8c0210e4ea39
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — unrestricted tutor to hand.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    SearchDest,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_CARD: Filter = Filter::Any;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(32),
@@ -29,11 +33,21 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[Effect::SearchLibrary {
+            filter: &ANY_CARD,
+            dest: SearchDest::Hand,
+            tapped: false,
+            shuffle: true,
+            optional: false,
+        }],
+        target: None,
+    }],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage via s4 scenario tests: tutoring puts any chosen
+    // library card into hand and shuffles.
 }

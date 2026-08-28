@@ -1,15 +1,19 @@
 //! Counterspell — {U}{U} — Instant
 //! Oracle: Counter target spell.
 //! Set: DSC #114 — Duskmourn: House of Horror Commander | Scryfall ID: 4f616706-ec97-4923-bb1e-11a69fbaa1f8 | Oracle ID: cc187110-1148-4090-bbb8-e205694a39f5
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — hard counter (target selection on the stack).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_SPELL: Filter = Filter::Any;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(25),
@@ -29,11 +33,15 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[Effect::CounterTargetSpell],
+        target: Some(TargetSpec::Spell(&ANY_SPELL)),
+    }],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage via s4 scenario tests: countering a creature
+    // spell moves it to the graveyard instead of the battlefield.
 }

@@ -1,12 +1,13 @@
 //! Brainstorm — {U} — Instant
 //! Oracle: Draw three cards, then put two cards from your hand on top of your library in any order.
 //! Set: TLE #155 — Avatar: The Last Airbender Eternal | Scryfall ID: b5545882-6963-4729-b2c6-fb4bdc75ffcc | Oracle ID: 36cd2364-d113-47d1-b2c4-b088d9eb88dd
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — draw 3, put 2 back on top (chosen order).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -29,11 +30,20 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[
+            Effect::DrawCards {
+                amount: Amount::Fixed(3),
+            },
+            Effect::PutFromHandOnTop { count: 2 },
+        ],
+        target: None,
+    }],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage via s4 scenario tests: draw 3 then put 2 back;
+    // the top card of the library afterwards is the second chosen card.
 }

@@ -39,6 +39,7 @@ heck = "0.5"
 tracing = "0.1"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.26"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

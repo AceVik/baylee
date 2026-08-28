@@ -1,14 +1,16 @@
 //! Sol Ring — {1} — Artifact
 //! Oracle: {T}: Add {C}{C}.
 //! Set: MSC #211 — Marvel Super Heroes Commander | Scryfall ID: 91fdb56b-54d5-4272-8319-505ff987fe9b | Oracle ID: 6ad8011d-3471-4369-9d68-b264cc027487
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — mana rock (mana ability, resolves without the stack).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, CardDef, CommanderRule, Cost, Coverage, Effect, FaceDef,
+    KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 pub static CARD: CardDef = CardDef {
@@ -29,11 +31,21 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddMana {
+            color: ManaColor::Colorless,
+            amount: 2,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+    }],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage via s4 scenario tests: tapping adds {C}{C}
+    // immediately (no stack object created).
 }

@@ -23,3 +23,8 @@ rand_core.workspace = true
 [dev-dependencies]
 baylee-cards.workspace = true
 uuid.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "basics"
+harness = false

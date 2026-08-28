@@ -1,15 +1,19 @@
 //! Swords to Plowshares — {W} — Instant
 //! Oracle: Exile target creature. Its controller gains life equal to its power.
 //! Set: MSC #143 — Marvel Super Heroes Commander | Scryfall ID: b4e9c870-23c0-413a-ae39-265f09da16d1 | Oracle ID: b1544f21-7e98-461b-aed5-e748b0168c52
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — exile removal + controller gains power as life.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, PlayerRel, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static CREATURE: Filter = Filter::HasType(TypeSet::CREATURE);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(164),
@@ -29,11 +33,23 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[
+            Effect::Exile {
+                target: TargetSpec::Object(&CREATURE),
+            },
+            Effect::GainLifeFor {
+                amount: Amount::TargetPower,
+                who: PlayerRel::ControllerOfTarget,
+            },
+        ],
+        target: Some(TargetSpec::Object(&CREATURE)),
+    }],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage via s4 scenario tests: the creature is exiled
+    // (not destroyed) and its controller gains life equal to its power.
 }
