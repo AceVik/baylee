@@ -148,6 +148,10 @@ pub fn target_options(
             .filter(|id| {
                 state.object(**id).is_some_and(|o| {
                     o.kind == crate::object::ObjectKind::Spell
+                        && !o
+                            .characteristics()
+                            .keywords
+                            .contains(baylee_cards_dsl::KeywordSet::UNCOUNTERABLE)
                         && matches(filter, state, o, you, this)
                 })
             })

@@ -384,11 +384,42 @@ pub enum Effect {
         /// What.
         token: &'static TokenDef,
     },
+    /// Create a token under the first target's controller (Crib Swap).
+    CreateTokenForTargetController {
+        /// What.
+        token: &'static TokenDef,
+    },
+    /// Put N +1/+1 counters on an Army creature you control, or create a
+    /// 0/0 Army token with N +1/+1 counters if you control none (amass).
+    Amass {
+        /// Army subtype.
+        subtype: SubtypeId,
+        /// How many counters.
+        amount: u16,
+    },
+    /// Put the source on top of its owner's library (Sensei's Divining Top).
+    PutSourceOnTopOfLibrary,
+    /// Look at the top N cards of your library and put them back in any
+    /// order.
+    ReorderTopLibrary {
+        /// How many.
+        count: u8,
+    },
     /// Shockland entry: you may pay N life; if you don't, the source
     /// enters tapped (yes/no choice).
     PayLifeOrEnterTapped {
         /// Life to pay.
         amount: u16,
+    },
+    /// A player may pay {N}; if they don't, run `effect` (Rhystic Study,
+    /// Esper Sentinel, Smothering Tithe).
+    PlayerMayPayOr {
+        /// Who decides.
+        player: PlayerRel,
+        /// Generic mana to pay.
+        mana: u16,
+        /// What happens when they don't pay.
+        effect: &'static Effect,
     },
     /// Create a continuous effect (Giant Growth style): applies `modifier`
     /// on `layer` to `filter` for `duration`. `filter = This` binds to the

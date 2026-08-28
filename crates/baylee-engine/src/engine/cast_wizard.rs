@@ -370,6 +370,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Pays everything and puts the spell on the stack.
+    #[allow(clippy::too_many_lines)] // payment is a flat checklist; extraction would obscure it
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
         let face = self.wizard_face(wizard);
         // Total mana: option cost (with X) + kicker mana when taken.
@@ -467,6 +468,16 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;
+        // Per-turn tracking for conditional triggers (Esper Sentinel).
+        if !face.types.contains(baylee_core::types::TypeSet::CREATURE)
+            && let Some(v) = self
+                .state
+                .per_turn
+                .noncreature_spells
+                .get_mut(player.get() as usize)
+        {
+            *v = v.saturating_add(1);
+        }
         self.state.journal.record(GameEvent::SpellCast {
             object: card,
             player,

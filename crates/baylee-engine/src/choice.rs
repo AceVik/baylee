@@ -120,6 +120,13 @@ pub enum Pending {
         /// Candidate players.
         options: Vec<PlayerId>,
     },
+    /// Order objects (top-of-library reorder, trigger ordering later).
+    OrderObjects {
+        /// Choosing player.
+        player: PlayerId,
+        /// Objects to order (index 0 = topmost after the choice).
+        objects: Vec<ObjectId>,
+    },
     /// The game is over.
     GameOver(GameResult),
 }
@@ -169,6 +176,11 @@ pub enum YesNoPrompt {
     },
     /// Kicker/additional cost yes-or-no at cast time.
     Kicker,
+    /// "Pay {N}?" for a tax trigger (Rhystic Study & co.).
+    PayTax {
+        /// Generic mana to pay.
+        mana: u16,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -233,6 +245,11 @@ pub enum PlayerAction {
     /// Choose objects (mulligan bottoming, discards, legend rule).
     ChooseObjects {
         /// The chosen objects.
+        objects: Vec<ObjectId>,
+    },
+    /// Order objects (index 0 = topmost).
+    OrderObjects {
+        /// The ordered objects.
         objects: Vec<ObjectId>,
     },
     /// Choose a mana color.

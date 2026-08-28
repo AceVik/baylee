@@ -153,6 +153,7 @@ keywords! {
     CHANGELING = 26, "Changeling (every creature type).";
     PARTNER = 27, "Partner (generic).";
     UNBLOCKABLE = 28, "Can't be blocked.";
+    UNCOUNTERABLE = 29, "Can't be countered.";
 }
 
 impl KeywordSet {

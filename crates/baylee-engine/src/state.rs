@@ -84,6 +84,32 @@ impl Names {
     }
 }
 
+/// Per-turn counters for conditional triggers (reset at every turn start).
+#[derive(Clone, Debug)]
+pub struct PerTurn {
+    /// Noncreature spells cast this turn, per player.
+    pub noncreature_spells: Vec<u32>,
+    /// Cards drawn this turn, per player.
+    pub draws: Vec<u32>,
+}
+
+impl PerTurn {
+    /// Zeroed counters for `players` seats.
+    #[must_use]
+    pub fn new(players: usize) -> Self {
+        Self {
+            noncreature_spells: vec![0; players],
+            draws: vec![0; players],
+        }
+    }
+
+    /// Resets all counters (called at every turn start).
+    pub fn reset(&mut self) {
+        self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
+        self.draws.iter_mut().for_each(|v| *v = 0);
+    }
+}
+
 /// A registered replacement rule from a permanent on the battlefield.
 #[derive(Clone, Copy, Debug)]
 pub struct ReplacementEntry {
@@ -129,6 +155,10 @@ pub struct GameState {
     pub turn_start_timestamp: u64,
     /// Combat phase state.
     pub combat: crate::combat::CombatState,
+    /// Per-turn counters for conditional triggers (Esper Sentinel, Orcish
+    /// Bowmasters): noncreature spells cast and cards drawn per player this
+    /// turn, reset at every turn start.
+    pub per_turn: PerTurn,
     /// Seeded randomness.
     pub rng: GameRng,
     /// The event journal.
@@ -186,6 +216,7 @@ impl GameState {
             turn: TurnInfo::new(PlayerId::new(0)),
             turn_start_timestamp: 0,
             combat: crate::combat::CombatState::default(),
+            per_turn: PerTurn::new(preset.seats.len()),
             rng: GameRng::new(preset.seed),
             journal: Journal::default(),
             names: Names::default(),
@@ -470,6 +501,9 @@ impl GameState {
             }
         }
         if !drawn.is_empty() {
+            if let Some(v) = self.per_turn.draws.get_mut(player.get() as usize) {
+                *v = v.saturating_add(drawn.len() as u32);
+            }
             self.journal.record(crate::event::GameEvent::CardsDrawn {
                 player,
                 count: drawn.len() as u16,

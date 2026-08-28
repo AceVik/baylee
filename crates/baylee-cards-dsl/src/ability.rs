@@ -48,8 +48,14 @@ pub enum Trigger {
     SpellCast(&'static Filter),
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
+    /// A player draws a card except the first one they draw each turn
+    /// (Orcish Bowmasters).
+    DrawsExceptFirst(crate::effect::PlayerRel),
     /// An object matching the filter attacks (Sun Titan).
     Attacks(&'static Filter),
+    /// The first noncreature spell cast by a player each turn (Esper
+    /// Sentinel).
+    FirstNoncreatureSpellCast(crate::effect::PlayerRel),
     /// The source entered the battlefield AND was evoked (cast for its
     /// evoke cost, CR 702.74).
     EntersBattlefieldEvoked,

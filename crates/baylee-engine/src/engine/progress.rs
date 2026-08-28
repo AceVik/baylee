@@ -543,6 +543,7 @@ impl<L: CardLookup> Engine<L> {
             self.state.turn.number += 1;
         }
         self.state.turn_start_timestamp = self.state.timestamp;
+        self.state.per_turn.reset();
         let active = self.state.turn.active;
         self.state.players[active.get() as usize].lands_played_this_turn = 0;
         self.state.turn.phase = Phase::Beginning;

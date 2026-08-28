@@ -166,6 +166,7 @@ fn trigger_count(
     count
 }
 
+#[allow(clippy::too_many_lines)] // the trigger×event matrix is naturally one flat table
 fn matches(
     trigger: &Trigger,
     event: &GameEvent,
@@ -224,6 +225,43 @@ fn matches(
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (Trigger::DrawsExceptFirst(rel), GameEvent::CardsDrawn { player, .. }) => {
+            let count = state
+                .per_turn
+                .draws
+                .get(player.get() as usize)
+                .copied()
+                .unwrap_or(0);
+            let player_matches = match rel {
+                PlayerRel::You => *player == you,
+                PlayerRel::Opponent => *player != you,
+                _ => true,
+            };
+            // The event fires from the SECOND card drawn onward.
+            player_matches && count > 1
+        }
+        (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player }) => {
+            let player_matches = match rel {
+                PlayerRel::You => *player == you,
+                PlayerRel::Opponent => *player != you,
+                _ => true,
+            };
+            if !player_matches {
+                return false;
+            }
+            let is_noncreature = state.object(*object).is_some_and(|o| {
+                !o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+            });
+            let count = state
+                .per_turn
+                .noncreature_spells
+                .get(player.get() as usize)
+                .copied()
+                .unwrap_or(0);
+            is_noncreature && count == 1
+        }
         (Trigger::StepBegin { step, whose }, GameEvent::StepChanged { .. }) => {
             let step_matches = matches!(
                 (step, event),

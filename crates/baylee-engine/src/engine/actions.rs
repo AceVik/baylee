@@ -209,7 +209,43 @@ impl<L: CardLookup> Engine<L> {
                 }
                 Ok(())
             }
+            (Pending::OrderObjects { player: p, .. }, PlayerAction::OrderObjects { objects })
+                if *p == player =>
+            {
+                let mut res = self.resolution.take().expect("resolution suspended");
+                match resolve::resume(&mut self.state, &mut res, &objects) {
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                    resolve::Flow::Complete => {
+                        self.finish_resolution(&res);
+                    }
+                }
+                Ok(())
+            }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                // Tax choice (Rhystic Study & co.).
+                if self.resolution.as_ref().is_some_and(|r| {
+                    matches!(
+                        r.awaiting,
+                        Some(crate::resolve::AwaitingOp::PlayerMayPay { .. })
+                    )
+                }) {
+                    let mut res = self.resolution.take().expect("resolution suspended");
+                    match resolve::resume_tax_choice(&mut self.state, &mut res, answer) {
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => {
+                            self.finish_resolution(&res);
+                        }
+                    }
+                    return Ok(());
+                }
                 // Shockland entry choice: pay life or enter tapped.
                 if let Some(PlanKind::EntryTap { object, amount }) = self.pending_plan.take() {
                     if answer {

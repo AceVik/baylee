@@ -9,11 +9,13 @@
 use crate::choice::{ChoicePrompt, Pending, YesNoPrompt};
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
+use crate::mana_pay;
 use crate::object::{Characteristics, GameObject, ObjectKind, Status};
 use crate::sba;
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_cards_dsl::{Amount, Effect, PlayerRel, SearchDest, TargetSpec};
+use baylee_core::color::ColorSet;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::SubtypeSet;
@@ -59,6 +61,17 @@ pub enum AwaitingOp {
         /// How many cards were looked at.
         looked: u8,
     },
+    /// A player decides whether to pay for a tax effect.
+    PlayerMayPay {
+        /// The player deciding.
+        player: PlayerId,
+        /// Generic mana to pay.
+        mana: u16,
+        /// The effect to run when they don't pay.
+        effect: &'static Effect,
+    },
+    /// Top-of-library reorder (Sensei's Divining Top).
+    ReorderTopLibrary,
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
     /// A mana color choice (choice-restricted mana abilities).
@@ -210,6 +223,54 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
     run(state, res)
 }
 
+/// Resumes a tax choice (Rhystic Study & co.): `paid` means the player
+/// chose to pay the mana.
+///
+/// # Panics
+/// When the suspended operation is not a tax choice.
+#[must_use]
+pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool) -> Flow {
+    let AwaitingOp::PlayerMayPay {
+        player,
+        mana,
+        effect,
+    } = res.awaiting.take().expect("resume without awaiting op")
+    else {
+        panic!("resume_tax_choice on non-tax choice");
+    };
+    if paid {
+        debug_assert!(mana_pay::pay(
+            &mut state.players[player.get() as usize].mana_pool,
+            &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
+        ));
+        res.pc += 1;
+        return run(state, res);
+    }
+    // Not paid: run the fallback effect inline, then continue.
+    let fallback = Resolution {
+        source: res.source,
+        on_stack: res.on_stack,
+        controller: res.controller,
+        effects: flatten(std::slice::from_ref(effect)),
+        pc: 0,
+        targets: res.targets.clone(),
+        x: res.x,
+        chosen_player: res.chosen_player,
+        awaiting: None,
+    };
+    let mut fallback = fallback;
+    match run(state, &mut fallback) {
+        Flow::Complete => {}
+        Flow::Wait(pending) => {
+            res.awaiting = fallback.awaiting;
+            res.effects.splice(res.pc..res.pc, fallback.effects);
+            return Flow::Wait(pending);
+        }
+    }
+    res.pc += 1;
+    run(state, res)
+}
+
 /// Resumes a suspended resolution with the chosen cards.
 ///
 /// # Panics
@@ -284,8 +345,22 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
+        AwaitingOp::ReorderTopLibrary => {
+            // chosen[0] becomes the topmost card (end of the library vec).
+            for &card in chosen.iter().rev() {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
         AwaitingOp::ManaChoice { .. } | AwaitingOp::PayLifeOrTapSelf { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
+        }
+        AwaitingOp::PlayerMayPay { .. } => {
+            unreachable!("tax choices resume via resume_tax_choice")
         }
     }
     res.pc += 1;
@@ -298,7 +373,9 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         Effect::SearchLibrary { .. }
         | Effect::Scry { .. }
         | Effect::PutFromHandOnTop { .. }
-        | Effect::OptionalBasicLandSearchFor { .. } => exec_choice(state, res, op),
+        | Effect::OptionalBasicLandSearchFor { .. }
+        | Effect::PlayerMayPayOr { .. }
+        | Effect::ReorderTopLibrary { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
 }
@@ -383,6 +460,47 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: n as u8,
                 max: n as u8,
                 prompt: ChoicePrompt::PutBackOnTop,
+            })
+        }
+        Effect::PlayerMayPayOr {
+            player,
+            mana,
+            effect,
+        } => {
+            let Some(player) = eval::players(player, state, you).first().copied() else {
+                return None;
+            };
+            // If they can't pay, the fallback fires immediately.
+            let can_pay = state.players[player.get() as usize].mana_pool.total() >= u32::from(mana);
+            if !can_pay {
+                return exec_immediate(state, res, *effect);
+            }
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                mana,
+                effect,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayTax { mana },
+            })
+        }
+        Effect::ReorderTopLibrary { count } => {
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(count as usize)
+                .copied()
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ReorderTopLibrary);
+            Some(Pending::OrderObjects {
+                player: you,
+                objects: options,
             })
         }
         Effect::OptionalBasicLandSearchFor { player } => {
@@ -714,6 +832,86 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 filter,
                 modifier,
             });
+            None
+        }
+        Effect::CreateTokenForTargetController { token } => {
+            if let Some(&target_id) = res.targets.first() {
+                let controller = state.object(target_id).map_or(you, |o| o.controller);
+                create_one_token(state, controller, token);
+            }
+            None
+        }
+        Effect::Amass { subtype, amount } => {
+            // Find an Army you control; if none, create a 0/0 Army token.
+            static ARMY: baylee_core::ids::SubtypeId = baylee_core::ids::SubtypeId::new(0);
+            let _ = ARMY;
+            let army = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .copied()
+                .find(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.controller == you
+                            && o.characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::CREATURE)
+                            && o.characteristics().subtypes.contains(subtype)
+                    })
+                });
+            let target_id = if let Some(id) = army {
+                id
+            } else {
+                // Create the 0/0 Army token, then put counters on it.
+                let name = state.names.intern("Army");
+                let base = Characteristics {
+                    name,
+                    mana_cost: ManaCost::ZERO,
+                    colors: ColorSet::EMPTY,
+                    types: baylee_core::types::TypeSet::CREATURE,
+                    supertypes: baylee_core::types::SupertypeSet::EMPTY,
+                    subtypes: SubtypeSet::from_slice(&[subtype]),
+                    keywords: baylee_cards_dsl::KeywordSet::EMPTY,
+                    power: Some(0),
+                    toughness: Some(0),
+                    loyalty: None,
+                };
+                let ts = state.next_timestamp();
+                let id = state.arena.insert_with(|id| {
+                    let mut obj = GameObject::new_bare(id, you, ObjectKind::Permanent, base);
+                    obj.timestamp = ts;
+                    obj
+                });
+                state
+                    .zones
+                    .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
+                if let Some(obj) = state.object_mut(id) {
+                    obj.zone = crate::zone::Zone::Battlefield;
+                }
+                id
+            };
+            if let Some(obj) = state.object_mut(target_id) {
+                let old = obj.counters.get(baylee_cards_dsl::CounterKind::P1P1);
+                let new = obj
+                    .counters
+                    .add(baylee_cards_dsl::CounterKind::P1P1, amount);
+                state.journal.record(GameEvent::CounterChanged {
+                    object: target_id,
+                    kind: baylee_cards_dsl::CounterKind::P1P1,
+                    old,
+                    new,
+                });
+            }
+            None
+        }
+        Effect::PutSourceOnTopOfLibrary => {
+            let owner = state.object(res.source).map_or(you, |o| o.owner);
+            let _ = state.move_object(
+                res.source,
+                ZoneLocation::Library(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
             None
         }
         Effect::CreateToken { token } => {
@@ -1051,6 +1249,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::Scry { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
+        | Effect::PlayerMayPayOr { .. }
+        | Effect::ReorderTopLibrary { .. }
         | Effect::AddManaChoice { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
