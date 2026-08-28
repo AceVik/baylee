@@ -132,7 +132,8 @@ impl<L: CardLookup> Engine<L> {
 
     /// Applies as-it-enters-the-battlefield modifiers to permanents that
     /// entered since the last scan (CR 614.1c/d; taplands, shocklands).
-    pub(crate) fn apply_enter_modifiers(&mut self) {
+    /// Returns whether anything changed (for legal-list recomputation).
+    pub(crate) fn apply_enter_modifiers(&mut self) -> bool {
         use baylee_cards_dsl::EnterModifier;
         let events: Vec<(ObjectId, PlayerId)> = self
             .state
@@ -149,13 +150,10 @@ impl<L: CardLookup> Engine<L> {
                 } => Some(*object),
                 _ => None,
             })
-            .filter_map(|id| {
-                self.state
-                    .object(id)
-                    .map(|o| (id, o.controller))
-            })
+            .filter_map(|id| self.state.object(id).map(|o| (id, o.controller)))
             .collect();
         self.entry_scan_seq = self.state.journal.last_seq();
+        let mut changed = false;
         for (id, controller) in events {
             let Some(card) = self.state.object(id).and_then(|o| o.card) else {
                 continue;
@@ -168,6 +166,7 @@ impl<L: CardLookup> Engine<L> {
                     EnterModifier::Tapped => {
                         if let Some(obj) = self.state.object_mut(id) {
                             obj.status.insert(Status::TAPPED);
+                            changed = true;
                         }
                     }
                     EnterModifier::TappedUnless(filter) => {
@@ -182,36 +181,33 @@ impl<L: CardLookup> Engine<L> {
                                         eval::matches(filter, &self.state, o, controller, id)
                                     })
                             });
-                        if !controlled {
-                            if let Some(obj) = self.state.object_mut(id) {
-                                obj.status.insert(Status::TAPPED);
-                            }
+                        if !controlled && let Some(obj) = self.state.object_mut(id) {
+                            obj.status.insert(Status::TAPPED);
+                            changed = true;
                         }
                     }
                     EnterModifier::TappedOrPayLife(amount) => {
                         let amount = *amount;
                         // Unpayable → tapped without a choice.
-                        if self.state.players[controller.get() as usize].life <= i32::from(amount)
-                        {
+                        if self.state.players[controller.get() as usize].life <= i32::from(amount) {
                             if let Some(obj) = self.state.object_mut(id) {
                                 obj.status.insert(Status::TAPPED);
+                                changed = true;
                             }
                             continue;
                         }
-                        self.pending_plan = Some(PlanKind::EntryTap {
-                            object: id,
-                            amount,
-                        });
+                        self.pending_plan = Some(PlanKind::EntryTap { object: id, amount });
                         self.pending = Pending::YesNo {
                             player: controller,
                             prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
                         };
                         self.awaiting_answer = true;
-                        return; // one choice at a time
+                        return true; // one choice at a time
                     }
                 }
             }
         }
+        changed
     }
 
     /// Keeps the effect table in sync with the battlefield: registers

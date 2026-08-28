@@ -25,7 +25,11 @@ pub static CARD: CardDef = CardDef {
         mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::land::PLAINS, subtypes::land::SWAMP, subtypes::land::FOREST],
+        subtypes: &[
+            subtypes::land::PLAINS,
+            subtypes::land::SWAMP,
+            subtypes::land::FOREST,
+        ],
         power: None,
         toughness: None,
         loyalty: None,

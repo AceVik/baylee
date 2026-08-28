@@ -6,8 +6,8 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage, Effect,
-    FaceDef, Filter, KeywordSet, PartnerKind, SearchDest,
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind, SearchDest,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, land};

@@ -5,9 +5,8 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart,
-    Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec,
-    Trigger,
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature, land};
@@ -15,9 +14,7 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-
 static CREATURE_CARD: Filter = Filter::HasType(TypeSet::CREATURE);
-
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(186),
@@ -42,27 +39,29 @@ pub static CARD: CardDef = CardDef {
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Activated {
-    cost: Cost::TAP,
-    effects: &[Effect::AddMana {
-        color: ManaColor::Colorless,
-        amount: 1,
-    }],
-    target: None,
-    timing: ActivationTiming::InstantSpeed,
-    mana_ability: true,
-    zone: ActivationZone::Battlefield,
-},
-AbilityDef::Activated {
-    cost: Cost::TAP,
-    effects: &[Effect::GraveyardToTop {
-        target: TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You),
-    }],
-    target: Some(TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You)),
-    timing: ActivationTiming::InstantSpeed,
-    mana_ability: false,
-    zone: ActivationZone::Battlefield,
-}],
+    abilities: &[
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddMana {
+                color: ManaColor::Colorless,
+                amount: 1,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::GraveyardToTop {
+                target: TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You),
+            }],
+            target: Some(TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You)),
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: false,
+            zone: ActivationZone::Battlefield,
+        },
+    ],
 };
 
 #[cfg(test)]

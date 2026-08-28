@@ -12,7 +12,9 @@ pub mod effect;
 pub mod filter;
 pub mod static_ability;
 
-pub use ability::{AbilityDef, ActivationTiming, ActivationZone, SpellMode, StepKind, Trigger, TriggerEventKind};
+pub use ability::{
+    AbilityDef, ActivationTiming, ActivationZone, SpellMode, StepKind, Trigger, TriggerEventKind,
+};
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart};
 pub use effect::{
     Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetReq, TargetSpec, TokenDef, ZoneSel,

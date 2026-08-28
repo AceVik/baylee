@@ -29,7 +29,7 @@ pub static CARD: CardDef = CardDef {
             alternative_costs: &[],
             additional_costs: &[],
             mandatory_additional_costs: &[],
-        enter_modifiers: &[],
+            enter_modifiers: &[],
         },
         FaceDef {
             name: "Swift Spiral",
@@ -43,7 +43,7 @@ pub static CARD: CardDef = CardDef {
             alternative_costs: &[],
             additional_costs: &[],
             mandatory_additional_costs: &[],
-        enter_modifiers: &[],
+            enter_modifiers: &[],
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),

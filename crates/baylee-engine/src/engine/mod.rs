@@ -211,6 +211,24 @@ impl<L: CardLookup> Engine<L> {
         }
         self.awaiting_answer = false;
         self.apply_inner(player, action)?;
+        // As-it-enters modifiers run before anything else (they may
+        // override the just-published pending with a shockland choice);
+        // if they changed the state, the published legal list is stale.
+        let recompute_player = if self.apply_enter_modifiers() {
+            if let Pending::Priority { player: p, .. } = &self.pending {
+                Some(*p)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if let Some(p) = recompute_player {
+            let legal = self.compute_legal(p);
+            if let Pending::Priority { legal: l, .. } = &mut self.pending {
+                *l = Box::new(legal);
+            }
+        }
         self.run_until_choice();
         Ok(())
     }
@@ -233,3 +251,5 @@ mod s6_tests;
 mod s7_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod w1_tests;

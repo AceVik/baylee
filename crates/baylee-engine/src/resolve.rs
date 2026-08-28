@@ -660,7 +660,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .iter()
                 .filter(|id| {
                     state.object(**id).is_some_and(|o| {
-                        o.characteristics().types.contains(baylee_core::types::TypeSet::CREATURE)
+                        o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
                     })
                 })
                 .copied()

@@ -1,8 +1,8 @@
 use super::{
-    AbilityDef, ActivationTiming, AbilityLoc, CardLookup, Cause, Cost, CostPart, Engine,
+    AbilityDef, AbilityLoc, ActivationTiming, CardLookup, Cause, Cost, CostPart, Engine,
     EngineError, GameEvent, GameObject, LegalActions, NameRef, ObjectId, Pending, Phase, PlanKind,
-    Resolution, SmallVec, Status, TypeSet, Zone, ZoneLocation, ZonePosition, casting, eval,
-    mana_pay, resolve, PlayerId,
+    PlayerId, Resolution, SmallVec, Status, TypeSet, Zone, ZoneLocation, ZonePosition, casting,
+    eval, mana_pay, resolve,
 };
 use baylee_cards_dsl::ActivationZone;
 
@@ -47,7 +47,8 @@ impl<L: CardLookup> Engine<L> {
             for (i, ability) in def.abilities.iter().enumerate() {
                 let AbilityDef::Activated {
                     cost, timing, zone, ..
-                } = ability else {
+                } = ability
+                else {
                     continue;
                 };
                 if *zone != ActivationZone::Battlefield {
@@ -73,7 +74,8 @@ impl<L: CardLookup> Engine<L> {
             for (i, ability) in def.abilities.iter().enumerate() {
                 let AbilityDef::Activated {
                     cost, timing, zone, ..
-                } = ability else {
+                } = ability
+                else {
                     continue;
                 };
                 if *zone != ActivationZone::Hand {
@@ -172,7 +174,9 @@ impl<L: CardLookup> Engine<L> {
                 .is_some_and(|o| o.zone == Zone::Hand && o.zone_owner == Some(player)),
         };
         if !in_right_zone {
-            return Err(EngineError::IllegalAction("ability not usable from this zone"));
+            return Err(EngineError::IllegalAction(
+                "ability not usable from this zone",
+            ));
         }
         let _ = card_index;
         // Targets (chosen first unless already provided).
