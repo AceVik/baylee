@@ -21,6 +21,7 @@ pub struct SbaOutcome {
 /// Runs one SBA pass over the state (CR 704.3 list, S2 subset):
 /// player losses, lethal damage, loyalty, legend rule, counter
 /// annihilation, token cleanup.
+#[allow(clippy::too_many_lines)] // the CR 704.3 list is naturally one long pass
 pub fn run(state: &mut GameState) -> SbaOutcome {
     let mut outcome = SbaOutcome::default();
 

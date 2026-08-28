@@ -571,6 +571,20 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     h.option_u32(obj.attached_to.map(baylee_core::ids::ObjectId::slot));
     h.u64(obj.timestamp);
     h.u32(obj.version);
+    // Targets + ability location.
+    h.usize(obj.targets.len());
+    for t in &obj.targets {
+        h.u32(t.slot());
+    }
+    match &obj.ability {
+        Some(loc) => {
+            h.u8(1);
+            h.u32(loc.card.get());
+            h.u32(loc.index);
+            h.u32(loc.source.slot());
+        }
+        None => h.u8(0),
+    }
     // Exile riders.
     h.usize(obj.riders.len());
     for rider in &obj.riders {

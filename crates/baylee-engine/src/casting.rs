@@ -97,48 +97,6 @@ pub fn cast_spell(
     Ok(card)
 }
 
-/// Resolves the top object of the stack (S2: no effects — permanents enter
-/// the battlefield, instants/sorceries go to the graveyard).
-///
-/// # Panics
-/// Internal invariant violations (stack objects always exist).
-pub fn resolve_top(state: &mut GameState) {
-    let Some(&top) = state.zones.list(ZoneLocation::Stack).last() else {
-        return;
-    };
-    let (is_permanent, controller) = {
-        let obj = state.object(top).expect("stack object exists");
-        (obj.characteristics().types.is_permanent(), obj.controller)
-    };
-    state
-        .journal
-        .record(GameEvent::StackObjectResolved { object: top });
-    if is_permanent {
-        if let Some(obj) = state.object_mut(top) {
-            obj.kind = ObjectKind::Permanent;
-            obj.status.remove(crate::object::Status::TAPPED);
-        }
-        let _ = state.move_object(
-            top,
-            ZoneLocation::Battlefield,
-            ZonePosition::Top,
-            Cause::Spell,
-        );
-        let _ = controller;
-    } else {
-        let owner = state.object(top).map_or(controller, |o| o.owner);
-        if let Some(obj) = state.object_mut(top) {
-            obj.kind = ObjectKind::Card;
-        }
-        let _ = state.move_object(
-            top,
-            ZoneLocation::Graveyard(owner),
-            ZonePosition::Top,
-            Cause::Spell,
-        );
-    }
-}
-
 /// Plays a land (special action, no stack).
 ///
 /// # Errors

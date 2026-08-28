@@ -44,7 +44,7 @@ pub fn parse_decks(text: &str) -> Result<Vec<DeckRow>, CodegenError> {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        if let Some(section) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
+        if let Some(section) = line.strip_circumfix('[', ']') {
             if let Some(name) = section.strip_prefix("deck:") {
                 deck = name.to_string();
                 zone = Zone::Main;

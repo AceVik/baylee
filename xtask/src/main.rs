@@ -149,12 +149,19 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
     for (i, name) in names.iter().enumerate() {
         let card = scryfall::fetch_named(name, &agent, &cache)?;
         let (info, content) = stubgen::render_stub(&card, i as u32, &cats)?;
-        write_or_check(
-            check,
-            &root.join(format!("crates/baylee-cards/src/cards/{}.rs", info.slug)),
-            &content,
-            &mut changed,
-        )?;
+        let stub_path = root.join(format!("crates/baylee-cards/src/cards/{}.rs", info.slug));
+        // Implemented cards are hand-owned: only touch files that are
+        // missing or still carry the GENERATED STUB marker.
+        let implemented = fs::read_to_string(&stub_path)
+            .is_ok_and(|existing| !existing.contains("// GENERATED STUB"));
+        if implemented {
+            if check {
+                println!("skip (implemented): {}", info.slug);
+            }
+            stubs.push(info);
+            continue;
+        }
+        write_or_check(check, &stub_path, &content, &mut changed)?;
         stubs.push(info);
     }
     write_or_check(

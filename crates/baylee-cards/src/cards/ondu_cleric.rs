@@ -1,15 +1,24 @@
-//! Ondu Cleric — {1}{W} — Creature — Kor Cleric Ally
-//! Oracle: Whenever this creature or another Ally you control enters, you may gain life equal to the number of Allies you control.
+//! Ondu Cleric — {1}{W} — Creature — Human Cleric Ally
+//! Oracle: Whenever Ondu Cleric or another Ally enters the battlefield under your control, you gain 1 life.
 //! Set: ZEN #30 — Zendikar | Scryfall ID: ced43447-fefc-482a-b8fa-33b9616aa532 | Oracle ID: f4232466-dd6a-49bf-be6c-95905c3ded17
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — rally: ETB of self or another Ally you control → gain 1 life.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+// "Ondu Cleric or another Ally … under your control"
+static ALLY_ETB: Filter = Filter::And(&[
+    Filter::ControlledByYou,
+    Filter::Or(&[Filter::This, Filter::HasSubtype(creature::ALLY)]),
+]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(104),
@@ -21,7 +30,7 @@ pub static CARD: CardDef = CardDef {
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
         subtypes: &[
-            subtypes::creature::KOR,
+            subtypes::creature::HUMAN,
             subtypes::creature::CLERIC,
             subtypes::creature::ALLY,
         ],
@@ -33,11 +42,19 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Triggered {
+        trigger: Trigger::EntersBattlefield(&ALLY_ETB),
+        effects: &[Effect::GainLife {
+            amount: Amount::Fixed(1),
+        }],
+        target: None,
+    }],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level test lives in baylee-engine (cleric_rally_gains_life):
+    // own ETB triggers once, another Ally's ETB triggers again, non-Ally
+    // creatures do not trigger.
 }

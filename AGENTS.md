@@ -18,7 +18,9 @@
 - Generated files are **committed** and regenerated only via `cargo xtask codegen`;
   never edit them by hand (marked `// GENERATED`).
 - No `String`/`HashMap` iteration in engine hot paths; determinism is sacred
-  (seeded RNG only, `baylee_core::ids` handles only).
+  (seeded RNG only, `baylee_core::ids` handles only). **Banned in
+  baylee-engine/baylee-core: the `algebraic_*` float methods (Rust 1.98+),
+  `std::time`, and `std::random` — all non-deterministic.**
 - The engine never interprets `PrintRef` — prints are presentation-only.
 - Card implementations carry a mandatory human-readable header (name, oracle
   text, types, set, Scryfall id) — keep it in sync when editing a card.

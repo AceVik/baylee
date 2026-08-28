@@ -39,6 +39,17 @@ pub struct CardRef {
     pub print: PrintRef,
 }
 
+/// Which ability an `AbilityOnStack` object represents.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct AbilityLoc {
+    /// The card the ability belongs to.
+    pub card: CardIndex,
+    /// Index into `CardDef::abilities`.
+    pub index: u32,
+    /// The permanent/spell that produced the ability (the source).
+    pub source: ObjectId,
+}
+
 /// Copiable values (CR 707.2): printed or token-defined characteristics.
 ///
 /// Computed/layered characteristics are a *projection* of this base plus
@@ -267,6 +278,10 @@ pub struct GameObject {
     pub version: u32,
     /// Exile riders.
     pub riders: RiderSet,
+    /// Chosen targets (spells/abilities on the stack).
+    pub targets: SmallVec<[ObjectId; 2]>,
+    /// Which ability this is (`AbilityOnStack` objects only).
+    pub ability: Option<AbilityLoc>,
 }
 
 impl GameObject {
@@ -293,7 +308,41 @@ impl GameObject {
             timestamp: 0,
             version: 0,
             riders: RiderSet::new(),
+            targets: SmallVec::new(),
+            ability: None,
         }
+    }
+
+    /// Creates an ability object on the stack.
+    #[must_use]
+    pub fn new_ability_on_stack(
+        id: ObjectId,
+        controller: PlayerId,
+        ability: AbilityLoc,
+        targets: SmallVec<[ObjectId; 2]>,
+        name: NameRef,
+    ) -> Self {
+        let mut obj = Self::new_bare(
+            id,
+            controller,
+            ObjectKind::AbilityOnStack,
+            Characteristics {
+                name,
+                mana_cost: ManaCost::ZERO,
+                colors: ColorSet::EMPTY,
+                types: TypeSet::EMPTY,
+                supertypes: SupertypeSet::EMPTY,
+                subtypes: SubtypeSet::EMPTY,
+                keywords: KeywordSet::EMPTY,
+                power: None,
+                toughness: None,
+                loyalty: None,
+            },
+        );
+        obj.ability = Some(ability);
+        obj.targets = targets;
+        obj.zone = Zone::Stack;
+        obj
     }
 
     /// Creates a card-less object (token, emblem).

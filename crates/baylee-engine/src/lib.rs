@@ -54,8 +54,14 @@ pub mod pipeline {}
 /// Replacement effect registry and application, CR 614–616 (M2.S6).
 pub mod replacement {}
 
-/// Triggered abilities, APNAP ordering (M1.S3).
-pub mod trigger {}
+/// Triggered abilities: collection and APNAP ordering.
+pub mod trigger;
+
+/// Evaluation of DSL data: filters, amounts, target options.
+pub mod eval;
+
+/// Effect resolution: the op interpreter with choice continuations.
+pub mod resolve;
 
 /// Characteristic projection: layers 1–7, dependency, cached recompute (M2.S5).
 pub mod layers {}

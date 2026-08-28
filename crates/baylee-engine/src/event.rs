@@ -168,6 +168,22 @@ pub enum GameEvent {
         /// The object.
         object: ObjectId,
     },
+    /// A triggered/activated ability was put on the stack.
+    AbilityTriggered {
+        /// The ability object on the stack.
+        object: ObjectId,
+        /// Its source permanent/spell.
+        source: ObjectId,
+        /// Index into the source card's abilities.
+        ability_index: u32,
+        /// Controlling player.
+        controller: PlayerId,
+    },
+    /// A spell was countered.
+    SpellCountered {
+        /// The countered spell object.
+        object: ObjectId,
+    },
     /// A card was discarded.
     Discarded {
         /// The card.

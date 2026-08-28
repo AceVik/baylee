@@ -59,8 +59,41 @@ pub enum Pending {
         /// The duplicated permanents (choose exactly one to keep).
         options: Vec<ObjectId>,
     },
+    /// Choose cards from a server-side filtered set (searches, browses).
+    ChooseCards {
+        /// Choosing player.
+        player: PlayerId,
+        /// The legal options (already filtered — e.g. only Islands/Swamps).
+        options: Vec<ObjectId>,
+        /// Minimum to choose.
+        min: u8,
+        /// Maximum to choose.
+        max: u8,
+        /// Why (UI hint).
+        prompt: ChoicePrompt,
+    },
+    /// Choose targets for a spell/ability being cast/activated.
+    ChooseTargets {
+        /// Choosing player.
+        player: PlayerId,
+        /// The legal targets.
+        options: Vec<ObjectId>,
+        /// How many to choose.
+        count: u8,
+    },
     /// The game is over.
     GameOver(GameResult),
+}
+
+/// Why a [`Pending::ChooseCards`] is presented (UI hint).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ChoicePrompt {
+    /// Library search (tutor/fetch).
+    SearchLibrary,
+    /// Scry: choose cards for the bottom; the rest stays on top.
+    ScryBottom,
+    /// Generic selection.
+    Generic,
 }
 
 /// Everything a player may legally do with priority (precomputed).
@@ -74,6 +107,9 @@ pub struct LegalActions {
     pub castable: Vec<ObjectId>,
     /// Mana abilities activatable on the battlefield.
     pub mana_abilities: Vec<ObjectId>,
+    /// Activated abilities available on controlled permanents:
+    /// `(source, ability_index)`.
+    pub abilities: Vec<(ObjectId, u32)>,
 }
 
 /// A player's answer to a [`Pending`] request.
@@ -99,6 +135,13 @@ pub enum PlayerAction {
     ActivateManaAbility {
         /// The mana source permanent.
         source: ObjectId,
+    },
+    /// Activate an ability of a permanent.
+    ActivateAbility {
+        /// The source permanent.
+        source: ObjectId,
+        /// Index into the card's abilities.
+        ability_index: u32,
     },
     /// Declare attackers with their defending players.
     DeclareAttackers {
