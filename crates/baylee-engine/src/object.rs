@@ -345,10 +345,15 @@ impl GameObject {
 
     /// Current characteristics.
     ///
-    /// M1: always the base. M2 will project through the layer system when
-    /// `cache.generation != game.effect_generation`.
+    /// Returns the layer-projected cache when it has been computed (the
+    /// engine refreshes caches after every effect-set change), otherwise
+    /// the copiable base.
     #[must_use]
     pub fn characteristics(&self) -> &Characteristics {
-        &self.base
+        if self.cache.generation == u64::MAX {
+            &self.base
+        } else {
+            &self.cache.value
+        }
     }
 }

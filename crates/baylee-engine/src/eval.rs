@@ -40,6 +40,19 @@ pub fn matches(
         Filter::HasKeyword(k) => obj.characteristics().keywords.contains(*k),
         Filter::CmcAtMost(n) => obj.characteristics().mana_cost.cmc() <= *n,
         Filter::CmcAtLeast(n) => obj.characteristics().mana_cost.cmc() >= *n,
+        Filter::InZone(z) => {
+            use baylee_cards_dsl::ZoneRef;
+            match z {
+                ZoneRef::Battlefield => obj.zone == crate::zone::Zone::Battlefield,
+                ZoneRef::Stack => obj.zone == crate::zone::Zone::Stack,
+                ZoneRef::Library => obj.zone == crate::zone::Zone::Library,
+                ZoneRef::Hand => obj.zone == crate::zone::Zone::Hand,
+                ZoneRef::Graveyard => obj.zone == crate::zone::Zone::Graveyard,
+                ZoneRef::Exile => obj.zone == crate::zone::Zone::Exile,
+                ZoneRef::Command => obj.zone == crate::zone::Zone::Command,
+                ZoneRef::NotBattlefield => obj.zone != crate::zone::Zone::Battlefield,
+            }
+        }
     }
 }
 

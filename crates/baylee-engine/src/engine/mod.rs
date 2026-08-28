@@ -213,6 +213,8 @@ mod actions;
 mod progress;
 
 #[cfg(test)]
+mod m2_tests;
+#[cfg(test)]
 mod s3_tests;
 #[cfg(test)]
 mod s4_tests;

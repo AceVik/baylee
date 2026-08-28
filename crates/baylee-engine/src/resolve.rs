@@ -572,6 +572,32 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::CreateContinuousEffect {
+            layer,
+            filter,
+            modifier,
+            duration,
+        } => {
+            let filter = if matches!(filter, baylee_cards_dsl::Filter::This) {
+                crate::effects::EffectFilter::ObjectIs(
+                    res.targets.first().copied().unwrap_or(res.source),
+                )
+            } else {
+                crate::effects::EffectFilter::Dsl(filter)
+            };
+            let timestamp = state.next_timestamp();
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(res.source),
+                controller: you,
+                layer,
+                timestamp,
+                duration,
+                filter,
+                modifier,
+            });
+            None
+        }
         Effect::CreateToken { token } => {
             let name = state.names.intern(token.name);
             let base = Characteristics {

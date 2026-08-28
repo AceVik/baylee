@@ -126,6 +126,10 @@ pub struct GameState {
     pub names: Names,
     /// Monotonic timestamp source (effects ordering).
     pub timestamp: u64,
+    /// Registered continuous effects (anthems, type changes, pumps).
+    pub effects: crate::effects::EffectTable,
+    /// The effect generation the characteristic caches were computed at.
+    pub characteristics_generation: u64,
     /// Effect-set generation for characteristic caches (M2).
     pub effect_generation: u64,
 }
@@ -173,6 +177,8 @@ impl GameState {
             journal: Journal::default(),
             names: Names::default(),
             timestamp: 0,
+            effects: crate::effects::EffectTable::default(),
+            characteristics_generation: u64::MAX,
             effect_generation: 0,
         };
         state.journal.record(GameEvent::GameStarted {
@@ -307,6 +313,46 @@ impl GameState {
         self.timestamp
     }
 
+    /// Recomputes characteristic caches when the effect set changed.
+    ///
+    /// Hot path: one generation compare. When stale, permanents and stack
+    /// objects are re-projected through the layer system (CR 613).
+    ///
+    /// # Panics
+    /// Internal invariant violations (zone objects always exist).
+    pub fn refresh_characteristics(&mut self) {
+        if self.characteristics_generation == self.effects.generation {
+            return;
+        }
+        let generation = self.effects.generation;
+        // Cross-zone effects (Maskwood Nexus & co.) reach into library,
+        // hand, graveyard — then every object must be projected, not only
+        // battlefield + stack.
+        let cross_zone = self
+            .effects
+            .iter()
+            .any(|fx| matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reaches_other_zones(f)));
+        let ids: Vec<ObjectId> = if cross_zone {
+            self.arena.iter().map(|(id, _)| id).collect()
+        } else {
+            self.zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .chain(self.zones.list(ZoneLocation::Stack).iter())
+                .copied()
+                .collect()
+        };
+        for id in ids {
+            let Some(obj) = self.object(id) else {
+                continue;
+            };
+            let value = crate::layers::recompute(self, obj);
+            let obj = self.object_mut(id).expect("zone object exists");
+            obj.cache = crate::object::CachedChar { generation, value };
+        }
+        self.characteristics_generation = generation;
+    }
+
     /// Object access.
     #[must_use]
     pub fn object(&self, id: ObjectId) -> Option<&GameObject> {
@@ -413,6 +459,15 @@ impl GameState {
         h.u64(self.timestamp);
         h.u64(self.turn_start_timestamp);
         h.u64(self.effect_generation);
+        h.u64(self.characteristics_generation);
+        for fx in self.effects.iter() {
+            h.u32(fx.source.map_or(u32::MAX, baylee_core::ids::ObjectId::slot));
+            h.u8(fx.controller.get());
+            h.u8(fx.layer as u8);
+            h.u64(fx.timestamp);
+            h.u8(fx.duration as u8);
+            hash_modifier(&mut h, &fx.modifier);
+        }
         h.u32(self.turn.number);
         h.u8(self.turn.active.get());
         h.u8(self.turn.phase as u8);
@@ -499,6 +554,9 @@ impl Hasher {
         self.bytes(&v.to_le_bytes());
     }
     fn u32(&mut self, v: u32) {
+        self.bytes(&v.to_le_bytes());
+    }
+    fn i16(&mut self, v: i16) {
         self.bytes(&v.to_le_bytes());
     }
     fn i32(&mut self, v: i32) {
@@ -604,6 +662,65 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Foretold => h.u8(4),
             Rider::Plotted => h.u8(5),
         }
+    }
+}
+
+/// Whether a DSL filter mentions non-battlefield zones (then its effect
+/// needs cross-zone projection).
+fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::{Filter, ZoneRef};
+    match filter {
+        Filter::InZone(z) => !matches!(z, ZoneRef::Battlefield),
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reaches_other_zones),
+        Filter::Not(f) => filter_reaches_other_zones(f),
+        _ => false,
+    }
+}
+
+fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
+    use baylee_cards_dsl::Modifier as M;
+    match m {
+        M::AddType(t) => {
+            h.u8(1);
+            h.u16(t.bits());
+        }
+        M::RemoveType(t) => {
+            h.u8(2);
+            h.u16(t.bits());
+        }
+        M::AddSubtype(s) => {
+            h.u8(3);
+            h.u16(s.get());
+        }
+        M::AllCreatureTypes => h.u8(4),
+        M::AddColor(c) => {
+            h.u8(5);
+            h.u8(c.bits());
+        }
+        M::SetColor(c) => {
+            h.u8(6);
+            h.u8(c.bits());
+        }
+        M::AddKeyword(k) => {
+            h.u8(7);
+            h.u128(k.bits());
+        }
+        M::RemoveKeyword(k) => {
+            h.u8(8);
+            h.u128(k.bits());
+        }
+        M::LoseKeywords => h.u8(9),
+        M::ModifyPT(p, t) => {
+            h.u8(10);
+            h.i16(*p);
+            h.i16(*t);
+        }
+        M::SetPT(p, t) => {
+            h.u8(11);
+            h.i16(*p);
+            h.i16(*t);
+        }
+        M::SwitchPT => h.u8(12),
     }
 }
 

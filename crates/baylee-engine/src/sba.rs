@@ -67,6 +67,14 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
             }
             continue;
         }
+        // Indestructible permanents can't be destroyed (CR 702.12b).
+        if obj
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE)
+        {
+            continue;
+        }
         let toughness = obj.characteristics().toughness.unwrap_or(0);
         let dead = if toughness <= 0 {
             true

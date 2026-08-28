@@ -10,13 +10,15 @@ pub mod ability;
 pub mod cost;
 pub mod effect;
 pub mod filter;
+pub mod static_ability;
 
 pub use ability::{AbilityDef, ActivationTiming, StepKind, Trigger};
 pub use cost::{Cost, CostPart};
 pub use effect::{
     Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetSpec, TokenDef, ZoneSel,
 };
-pub use filter::Filter;
+pub use filter::{Filter, ZoneRef};
+pub use static_ability::{Duration, LAYERS, Layer, Modifier, StaticAbility};
 
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{CardIndex, SubtypeId};
@@ -152,6 +154,12 @@ impl KeywordSet {
     #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
+    }
+
+    /// Difference (keyword removal).
+    #[must_use]
+    pub const fn difference(self, other: Self) -> Self {
+        Self(self.0 & !other.0)
     }
 
     /// Whether no keywords are set.

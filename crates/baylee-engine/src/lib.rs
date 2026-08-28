@@ -63,11 +63,11 @@ pub mod eval;
 /// Effect resolution: the op interpreter with choice continuations.
 pub mod resolve;
 
-/// Characteristic projection: layers 1–7, dependency, cached recompute (M2.S5).
-pub mod layers {}
+/// Characteristic projection: layers 1–7, dependency, cached recompute.
+pub mod layers;
 
-/// `ContinuousEffect`, `EffectTable`, modifiers, durations (M2.S5).
-pub mod effects {}
+/// `ContinuousEffect`, `EffectTable`, modifiers, durations.
+pub mod effects;
 
 /// Precomputed legal actions incl. filtered searches (M1.S3).
 pub mod legality {}

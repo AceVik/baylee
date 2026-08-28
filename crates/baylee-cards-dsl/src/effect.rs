@@ -283,4 +283,17 @@ pub enum Effect {
         /// Life to pay.
         amount: u16,
     },
+    /// Create a continuous effect (Giant Growth style): applies `modifier`
+    /// on `layer` to `filter` for `duration`. `filter = This` binds to the
+    /// first target.
+    CreateContinuousEffect {
+        /// The layer it applies in.
+        layer: crate::static_ability::Layer,
+        /// Which objects are affected (`This` = first target).
+        filter: &'static Filter,
+        /// What changes.
+        modifier: crate::static_ability::Modifier,
+        /// How long it lasts.
+        duration: crate::static_ability::Duration,
+    },
 }

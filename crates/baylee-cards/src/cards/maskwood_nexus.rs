@@ -1,16 +1,45 @@
 //! Maskwood Nexus — {4} — Artifact
 //! Oracle: Creatures you control are every creature type. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.
-//! Oracle: {3}, {T}: Create a 2/2 blue Shapeshifter creature token with changeling. (It is every creature type.)
-//! Set: CLB #865 — Commander Legends: Battle for Baldur's Gate | Scryfall ID: 1246c42d-57c0-4cba-959a-15ad89d8a50b | Oracle ID: 9b2cdbed-c733-409b-b0e4-2c8960c25111
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! {3}, {T}: Create a 2/2 blue Shapeshifter creature token with changeling. (It is every creature type.)
+//! Set: KHM #240 — Kaldheim | Scryfall ID: 1246c42d-57c0-4cba-959a-15ad89d8a50b | Oracle ID: 9b2cdbed-c733-409b-b0e4-2c8960c25111
+// IMPLEMENTED — cross-zone type granting (library/hand/graveyard/stack) +
+// shapeshifter token creation.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, CardDef, CommanderRule, Cost, CostPart, Coverage, Effect,
+    FaceDef, Filter, KeywordSet, Layer, Modifier, PartnerKind, StaticAbility, TokenDef, ZoneRef,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+// Creatures you control (battlefield), creature spells you control (stack),
+// creature cards you own that aren't on the battlefield — CR 613.4 layer 4.
+static NEXUS_FILTER: Filter = Filter::And(&[
+    Filter::HasType(TypeSet::CREATURE),
+    Filter::Or(&[
+        Filter::And(&[
+            Filter::ControlledByYou,
+            Filter::InZone(ZoneRef::Battlefield),
+        ]),
+        Filter::And(&[Filter::ControlledByYou, Filter::InZone(ZoneRef::Stack)]),
+        Filter::And(&[Filter::OwnedByYou, Filter::InZone(ZoneRef::NotBattlefield)]),
+    ]),
+]);
+
+static SHAPESHIFTER_TOKEN: TokenDef = TokenDef {
+    name: "Shapeshifter",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::EMPTY,
+    subtypes: &[creature::SHAPESHIFTER],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::CHANGELING,
+};
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(92),
@@ -30,11 +59,32 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Static(StaticAbility {
+            layer: Layer::Type,
+            filter: NEXUS_FILTER,
+            modifier: Modifier::AllCreatureTypes,
+            cross_zone: true,
+        }),
+        AbilityDef::Activated {
+            cost: Cost {
+                mana: baylee_core::mana!("{3}"),
+                parts: &[CostPart::TapSelf],
+            },
+            effects: &[Effect::CreateToken {
+                token: &SHAPESHIFTER_TOKEN,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: false,
+        },
+    ],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage lives in baylee-engine (m2 cross-zone test):
+    // with Nexus out, a non-Ally creature card in the library counts as an
+    // Ally for General Tazri's ETB tutor.
 }

@@ -53,6 +53,30 @@ pub enum Filter {
     CmcAtMost(u32),
     /// Converted mana cost at least N.
     CmcAtLeast(u32),
+    /// Is in the given zone (cross-zone effects like Maskwood Nexus).
+    InZone(ZoneRef),
+}
+
+/// Zone references for filters (engine zones, DSL view).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ZoneRef {
+    /// The battlefield.
+    Battlefield,
+    /// The stack.
+    Stack,
+    /// A library.
+    Library,
+    /// A hand.
+    Hand,
+    /// A graveyard.
+    Graveyard,
+    /// Exile.
+    Exile,
+    /// The command zone.
+    Command,
+    /// Any zone except the battlefield ("cards you own that aren't on the
+    /// battlefield").
+    NotBattlefield,
 }
 
 impl Filter {

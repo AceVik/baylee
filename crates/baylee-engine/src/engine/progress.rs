@@ -1,7 +1,7 @@
 use super::{
     AbilityDef, CardLookup, Cause, CombatDeclared, EndReason, Engine, GameEvent, GameResult,
     ObjectId, ObjectKind, Pending, Phase, PlanKind, PlayerId, Resolution, SmallVec, Status, Step,
-    ZoneLocation, ZonePosition, combat, eval, resolve, sba, trigger,
+    Zone, ZoneLocation, ZonePosition, combat, eval, resolve, sba, trigger,
 };
 
 impl<L: CardLookup> Engine<L> {
@@ -10,6 +10,10 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         loop {
+            // 0. Continuous effects: sync statics with the battlefield and
+            //    refresh characteristic caches (generation compare).
+            self.sync_static_effects();
+            self.state.refresh_characteristics();
             // 1. Game over?
             if let Some(result) = self.game_result() {
                 self.pending = Pending::GameOver(result);
@@ -120,7 +124,64 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    pub(crate) fn alive_players(&self) -> Vec<PlayerId> {
+    /// Keeps the effect table in sync with the battlefield: registers
+    /// static abilities of permanents, drops effects whose source left.
+    pub(crate) fn sync_static_effects(&mut self) {
+        use baylee_cards_dsl::Duration;
+        // Drop effects whose source left the battlefield (structural
+        // anthem removal).
+        let gone: Vec<ObjectId> = self
+            .state
+            .effects
+            .iter()
+            .filter_map(|fx| fx.source)
+            .filter(|s| {
+                self.state
+                    .object(*s)
+                    .is_none_or(|o| o.zone != Zone::Battlefield)
+            })
+            .collect();
+        self.state.effects.remove_where(|fx| {
+            matches!(fx.duration, Duration::WhileSourceOnBattlefield)
+                && fx.source.is_some_and(|s| gone.contains(&s))
+        });
+        // Collect statics of permanents not yet registered (then apply,
+        // so the borrow of `state` ends before mutation).
+        let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
+        let mut to_register = Vec::new();
+        for id in ids {
+            let Some(obj) = self.state.object(id) else {
+                continue;
+            };
+            let Some(card) = obj.card else { continue };
+            let Some(def) = self.lookup.card(card.index) else {
+                continue;
+            };
+            for ability in def.abilities {
+                let AbilityDef::Static(sa) = ability else {
+                    continue;
+                };
+                if self.state.effects.has_source_ability(id, sa.modifier) {
+                    continue;
+                }
+                to_register.push(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(id),
+                    controller: obj.controller,
+                    layer: sa.layer,
+                    timestamp: obj.timestamp,
+                    duration: Duration::WhileSourceOnBattlefield,
+                    filter: crate::effects::EffectFilter::Dsl(&sa.filter),
+                    modifier: sa.modifier,
+                });
+            }
+        }
+        for fx in to_register {
+            self.state.effects.register(fx);
+        }
+    }
+
+    fn alive_players(&self) -> Vec<PlayerId> {
         self.state
             .players
             .iter()
@@ -382,6 +443,9 @@ impl<L: CardLookup> Engine<L> {
             (_, Step::CombatEnd) => {
                 self.state.combat = crate::combat::CombatState::default();
                 self.combat_declared = CombatDeclared::None;
+                self.state.effects.remove_where(|fx| {
+                    matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfCombat)
+                });
                 (Phase::SecondMain, Step::Main)
             }
             (_, Step::End) => (Phase::Ending, Step::Cleanup),
@@ -434,10 +498,14 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn cleanup_step(&mut self) -> bool {
-        // Clear damage (CR 514.2) and check hand size.
+        // Clear damage (CR 514.2), expire "until end of turn" effects
+        // (CR 514.2), and check hand size.
         for obj in self.state.arena.iter_mut_all() {
             obj.damage = 0;
         }
+        self.state
+            .effects
+            .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
         let active = self.state.turn.active;
         let max_hand = 7i32 + i32::from(self.state.players[active.get() as usize].hand_modifier);
         let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len() as i32;

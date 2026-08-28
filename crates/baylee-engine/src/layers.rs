@@ -1,0 +1,192 @@
+//! Characteristic projection through the layer system (CR 613).
+//!
+//! `recompute` starts from an object's copiable base characteristics and
+//! applies every matching continuous effect, layer by layer (1–7),
+//! timestamp-ordered within a layer with dependency detection (CR 613.8).
+//! The result lands in the object's cache, keyed by the effect generation —
+//! the hot path is one integer compare.
+
+use crate::effects::{ContinuousEffect, EffectFilter};
+use crate::eval;
+use crate::object::{Characteristics, GameObject};
+use crate::state::GameState;
+use baylee_cards_dsl::{Filter, KeywordSet, LAYERS, Modifier};
+use baylee_core::generated::subtypes;
+use baylee_core::ids::PlayerId;
+
+/// Recomputes an object's characteristics from its base plus all matching
+/// continuous effects.
+#[must_use]
+pub fn recompute(state: &GameState, obj: &GameObject) -> Characteristics {
+    let mut c = obj.base.clone();
+    let mut controller = obj.controller;
+    for layer in LAYERS {
+        let mut fxs: Vec<&ContinuousEffect> = state
+            .effects
+            .iter()
+            .filter(|fx| fx.layer == layer && applies(state, fx, obj))
+            .collect();
+        sort_by_dependency(state, &mut fxs, obj);
+        for fx in fxs {
+            apply(&mut c, &mut controller, fx, state, obj);
+        }
+    }
+    // Layer 7d: counters (CR 613.4c).
+    if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
+        let plus = obj.counters.get(crate::object::CounterKind::P1P1) as i16;
+        let minus = obj.counters.get(crate::object::CounterKind::M1M1) as i16;
+        if let Some(p) = &mut c.power {
+            *p += plus - minus;
+        }
+        if let Some(t) = &mut c.toughness {
+            *t += plus - minus;
+        }
+    }
+    // Changeling (CR 702.73): every creature type.
+    if c.keywords.contains(KeywordSet::CHANGELING) {
+        for id in 0..subtypes::COUNT {
+            let sid = baylee_core::ids::SubtypeId::new(id);
+            if matches!(
+                subtypes::kind(sid),
+                baylee_core::types::SubtypeKind::Creature
+            ) {
+                c.subtypes.insert(sid);
+            }
+        }
+    }
+    let _ = controller; // control changes land in M2.S6
+    c
+}
+
+fn applies(state: &GameState, fx: &ContinuousEffect, obj: &GameObject) -> bool {
+    match &fx.filter {
+        EffectFilter::ObjectIs(id) => *id == obj.id,
+        EffectFilter::Dsl(filter) => eval::matches(
+            filter,
+            state,
+            obj,
+            fx.controller,
+            fx.source.unwrap_or(obj.id),
+        ),
+    }
+}
+
+/// Dependency-aware ordering (CR 613.8): within a layer, an effect is
+/// applied before effects that depend on it. Dependency (approximation):
+/// B depends on A when A's modifier could change whether B's filter
+/// matches. Cycles fall back to timestamp order.
+fn sort_by_dependency(state: &GameState, fxs: &mut Vec<&ContinuousEffect>, obj: &GameObject) {
+    fxs.sort_by(|a, b| {
+        let a_first = depends_on(state, b, a, obj);
+        let b_first = depends_on(state, a, b, obj);
+        match (a_first, b_first) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.timestamp.cmp(&b.timestamp),
+        }
+    });
+}
+
+fn depends_on(
+    state: &GameState,
+    dependent: &ContinuousEffect,
+    depended: &ContinuousEffect,
+    obj: &GameObject,
+) -> bool {
+    let EffectFilter::Dsl(filter) = dependent.filter else {
+        return false;
+    };
+    could_change_match(
+        &depended.modifier,
+        &filter,
+        state,
+        obj,
+        dependent.controller,
+    )
+}
+
+/// Conservative dependency test: does `modifier` change anything `filter`
+/// reads?
+fn could_change_match(
+    modifier: &Modifier,
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+) -> bool {
+    match filter {
+        Filter::HasType(_) | Filter::LacksType(_) | Filter::HasSubtype(_) => matches!(
+            modifier,
+            Modifier::AddType(_)
+                | Modifier::RemoveType(_)
+                | Modifier::AddSubtype(_)
+                | Modifier::AllCreatureTypes
+        ),
+        Filter::HasColor(_) | Filter::IsColorless => {
+            matches!(modifier, Modifier::AddColor(_) | Modifier::SetColor(_))
+        }
+        Filter::HasKeyword(_) => matches!(
+            modifier,
+            Modifier::AddKeyword(_) | Modifier::RemoveKeyword(_) | Modifier::LoseKeywords
+        ),
+        Filter::And(parts) | Filter::Or(parts) => parts
+            .iter()
+            .any(|f| could_change_match(modifier, f, state, obj, you)),
+        Filter::Not(f) => could_change_match(modifier, f, state, obj, you),
+        _ => false,
+    }
+}
+
+fn apply(
+    c: &mut Characteristics,
+    controller: &mut PlayerId,
+    fx: &ContinuousEffect,
+    state: &GameState,
+    obj: &GameObject,
+) {
+    let _ = (state, obj);
+    match &fx.modifier {
+        Modifier::AddType(t) => c.types = c.types.union(*t),
+        Modifier::RemoveType(t) => c.types = c.types.difference(*t),
+        Modifier::AddSubtype(s) => c.subtypes.insert(*s),
+        Modifier::AllCreatureTypes => {
+            for id in 0..subtypes::COUNT {
+                let sid = baylee_core::ids::SubtypeId::new(id);
+                if matches!(
+                    subtypes::kind(sid),
+                    baylee_core::types::SubtypeKind::Creature
+                ) {
+                    c.subtypes.insert(sid);
+                }
+            }
+        }
+        Modifier::AddColor(col) => c.colors = c.colors.union(*col),
+        Modifier::SetColor(col) => c.colors = *col,
+        Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),
+        Modifier::RemoveKeyword(k) => c.keywords = c.keywords.difference(*k),
+        Modifier::LoseKeywords => c.keywords = KeywordSet::EMPTY,
+        Modifier::ModifyPT(p, t) => {
+            if let Some(power) = &mut c.power {
+                *power += p;
+            }
+            if let Some(toughness) = &mut c.toughness {
+                *toughness += t;
+            }
+        }
+        Modifier::SetPT(p, t) => {
+            if c.power.is_some() {
+                c.power = Some(*p);
+            }
+            if c.toughness.is_some() {
+                c.toughness = Some(*t);
+            }
+        }
+        Modifier::SwitchPT => {
+            if let (Some(p), Some(t)) = (c.power, c.toughness) {
+                c.power = Some(t);
+                c.toughness = Some(p);
+            }
+        }
+    }
+    let _ = controller;
+}

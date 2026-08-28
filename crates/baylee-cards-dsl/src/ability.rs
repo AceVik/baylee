@@ -83,6 +83,6 @@ pub enum AbilityDef {
         /// Target requirement.
         target: Option<TargetSpec>,
     },
-    /// Static/continuous ability (M2: layers, filters, durations).
-    Static,
+    /// Static/continuous ability (layers, CR 613).
+    Static(crate::static_ability::StaticAbility),
 }
