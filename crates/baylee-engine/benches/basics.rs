@@ -1,5 +1,6 @@
 //! Baseline performance benchmarks (CI regression budgets derive from
 //! these). Run: `cargo bench -p baylee-engine`.
+#![allow(missing_docs)] // bench target: criterion's generated fns are self-describing
 
 use baylee_core::ids::{CardIndex, PrintRef};
 use baylee_core::preset::{
@@ -111,7 +112,7 @@ fn bench_priority_pass(c: &mut Criterion) {
     });
 }
 
-/// The baseline benchmark group (CI regression budgets derive from these).
+// The baseline benchmark group (CI regression budgets derive from these).
 criterion_group!(
     basics,
     bench_setup,

@@ -161,6 +161,7 @@ fn hand_has(engine: &Engine<RegistryLookup>, player: PlayerId, card: CardIndex) 
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // scenario script — step-by-step readability beats extraction
 fn counterspell_counters_a_creature_spell() {
     let mut engine = Engine::new(
         &preset(
