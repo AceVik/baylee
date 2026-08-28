@@ -81,6 +81,20 @@ pub enum Pending {
         /// How many to choose.
         count: u8,
     },
+    /// Choose a mana color (choice-restricted mana abilities).
+    ChooseColor {
+        /// Choosing player.
+        player: PlayerId,
+        /// Allowed colors.
+        options: Vec<baylee_core::mana::ManaColor>,
+    },
+    /// A yes/no decision (shockland life payment, optional effects).
+    YesNo {
+        /// Deciding player.
+        player: PlayerId,
+        /// What is being decided.
+        prompt: YesNoPrompt,
+    },
     /// The game is over.
     GameOver(GameResult),
 }
@@ -95,6 +109,18 @@ pub enum ChoicePrompt {
     /// Put cards from your hand on top of your library (chosen order).
     PutBackOnTop,
     /// Generic selection.
+    Generic,
+}
+
+/// What a [`Pending::YesNo`] asks.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum YesNoPrompt {
+    /// "You may pay N life; if you don't, this enters tapped" (shocklands).
+    PayLifeOrEnterTapped {
+        /// Life to pay.
+        amount: u16,
+    },
+    /// Generic yes/no (optional effects).
     Generic,
 }
 
@@ -160,6 +186,10 @@ pub enum PlayerAction {
         /// The chosen objects.
         objects: Vec<ObjectId>,
     },
+    /// Choose a mana color.
+    ChooseColor(baylee_core::mana::ManaColor),
+    /// Answer a yes/no decision.
+    YesNo(bool),
     /// Concede the game.
     Concede,
 }

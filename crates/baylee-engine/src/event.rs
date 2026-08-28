@@ -191,6 +191,13 @@ pub enum GameEvent {
         /// The player.
         player: PlayerId,
     },
+    /// Cards were drawn (drives "whenever you draw" triggers).
+    CardsDrawn {
+        /// The drawing player.
+        player: PlayerId,
+        /// How many.
+        count: u16,
+    },
     /// A creature was declared as attacker.
     BecameAttacker {
         /// The attacking creature.

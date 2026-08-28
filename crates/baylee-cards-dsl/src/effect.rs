@@ -4,9 +4,59 @@
 //! expressible here is either an M2 primitive (continuous durations, copy,
 //! phases) or a candidate for a flagged `// NOT SUPPORTED:` in the card.
 
+use crate::KeywordSet;
 use crate::filter::Filter;
+use baylee_core::color::ColorSet;
 use baylee_core::ids::SubtypeId;
 use baylee_core::mana::ManaColor;
+use baylee_core::types::{SupertypeSet, TypeSet};
+
+/// Counter kinds (objects and players). Lives here so card definitions can
+/// reference counters without engine dependencies.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum CounterKind {
+    /// +1/+1.
+    P1P1,
+    /// −1/−1.
+    M1M1,
+    /// Loyalty.
+    Loyalty,
+    /// Lore (sagas).
+    Lore,
+    /// Time (suspend, vanishing).
+    Time,
+    /// Charge.
+    Charge,
+    /// Poison (players).
+    Poison,
+    /// Energy (players).
+    Energy,
+    /// Rad (players).
+    Rad,
+    /// Card-specific counters.
+    Custom(u16),
+}
+
+/// Definition of a token a card can create.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct TokenDef {
+    /// Token name.
+    pub name: &'static str,
+    /// Colors.
+    pub colors: ColorSet,
+    /// Types.
+    pub types: TypeSet,
+    /// Supertypes.
+    pub supertypes: SupertypeSet,
+    /// Subtypes.
+    pub subtypes: &'static [SubtypeId],
+    /// Power (creatures).
+    pub power: Option<i16>,
+    /// Toughness (creatures).
+    pub toughness: Option<i16>,
+    /// Keywords.
+    pub keywords: KeywordSet,
+}
 
 /// A computed number (CR 107.1).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -63,6 +113,8 @@ pub enum TargetSpec {
     Object(&'static Filter),
     /// A spell on the stack matching the filter.
     Spell(&'static Filter),
+    /// A card in a graveyard matching the filter.
+    CardInGraveyard(&'static Filter, PlayerRel),
     /// The source object.
     ThisObject,
     /// A player (M2 adds player choice; heads-up auto-resolves).
@@ -170,5 +222,65 @@ pub enum Effect {
     GrantSubtype {
         /// Subtype.
         subtype: SubtypeId,
+    },
+    /// Put counters on the first target (or the source when no target).
+    AddCounter {
+        /// Counter kind.
+        kind: CounterKind,
+        /// How many.
+        amount: Amount,
+    },
+    /// Return a target object (battlefield or stack) to its owner's hand.
+    ReturnToHand {
+        /// What.
+        target: TargetSpec,
+    },
+    /// Return all objects matching a filter to their owners' hands.
+    ReturnAllToHand {
+        /// What.
+        filter: &'static Filter,
+        /// Only objects controlled by opponents (Cyclonic Rift style).
+        opponents_only: bool,
+    },
+    /// Destroy all objects matching a filter (wraths).
+    DestroyAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// Exile all cards from a player's graveyard (Bojuka Bog).
+    ExileGraveyard {
+        /// Whose graveyard.
+        player: PlayerRel,
+    },
+    /// Put a graveyard card on top of its owner's library (Volrath's).
+    GraveyardToTop {
+        /// What (`CardInGraveyard`).
+        target: TargetSpec,
+    },
+    /// Put a graveyard card onto the battlefield under your control
+    /// (reanimation).
+    GraveyardToBattlefield {
+        /// What (`CardInGraveyard`).
+        target: TargetSpec,
+    },
+    /// Add mana of a chosen color (choice per mana when `combination`).
+    AddManaChoice {
+        /// Allowed colors.
+        colors: &'static [ManaColor],
+        /// How much mana.
+        amount: u16,
+        /// Whether each mana may be a different color (filter lands).
+        combination: bool,
+    },
+    /// Create a token under your control.
+    CreateToken {
+        /// What.
+        token: &'static TokenDef,
+    },
+    /// Shockland entry: you may pay N life; if you don't, the source
+    /// enters tapped (yes/no choice).
+    PayLifeOrEnterTapped {
+        /// Life to pay.
+        amount: u16,
     },
 }

@@ -6,15 +6,17 @@
 //! answer. Everything runs through the normal event pipeline, so the
 //! journal stays complete.
 
-use crate::choice::{ChoicePrompt, Pending};
+use crate::choice::{ChoicePrompt, Pending, YesNoPrompt};
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
-use crate::object::{ObjectKind, Status};
+use crate::object::{Characteristics, GameObject, ObjectKind, Status};
 use crate::sba;
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_cards_dsl::{Amount, Effect, PlayerRel, SearchDest, TargetSpec};
 use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::mana::{ManaColor, ManaCost};
+use baylee_core::types::SubtypeSet;
 use smallvec::SmallVec;
 
 /// A running effect resolution (continuation).
@@ -57,6 +59,20 @@ pub enum AwaitingOp {
     },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
+    /// A mana color choice (choice-restricted mana abilities).
+    ManaChoice {
+        /// Allowed colors.
+        colors: &'static [ManaColor],
+        /// Mana still to choose (combination lands pick per mana).
+        remaining: u16,
+        /// Mana added per pick (1 for combination, all for single-choice).
+        per_pick: u16,
+    },
+    /// "You may pay N life; if you don't, this enters tapped".
+    PayLifeOrTapSelf {
+        /// Life to pay.
+        amount: u16,
+    },
 }
 
 /// Amount evaluation with target context ([`Amount::TargetPower`]).
@@ -118,6 +134,74 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         res.pc += 1;
     }
     Flow::Complete
+}
+
+/// Resumes a color choice suspended on [`AwaitingOp::ManaChoice`].
+///
+/// # Panics
+/// When the suspended operation is not a mana choice.
+#[must_use]
+pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: ManaColor) -> Flow {
+    let AwaitingOp::ManaChoice {
+        colors,
+        remaining,
+        per_pick,
+    } = res.awaiting.take().expect("resume without awaiting op")
+    else {
+        panic!("resume_with_color on non-mana choice");
+    };
+    debug_assert!(colors.contains(&color));
+    state.players[res.controller.get() as usize]
+        .mana_pool
+        .add(color, per_pick);
+    state.journal.record(GameEvent::ManaProduced {
+        player: res.controller,
+        color,
+        amount: per_pick,
+        source: Some(res.source),
+    });
+    if remaining > 1 {
+        res.awaiting = Some(AwaitingOp::ManaChoice {
+            colors,
+            remaining: remaining - 1,
+            per_pick,
+        });
+        return Flow::Wait(Pending::ChooseColor {
+            player: res.controller,
+            options: colors.to_vec(),
+        });
+    }
+    res.pc += 1;
+    run(state, res)
+}
+
+/// Resumes a yes/no choice (shockland payment and friends).
+///
+/// # Panics
+/// When the suspended operation is not a yes/no choice.
+#[must_use]
+pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
+    let AwaitingOp::PayLifeOrTapSelf { amount } =
+        res.awaiting.take().expect("resume without awaiting op")
+    else {
+        panic!("resume_yes_no on non-yes/no choice");
+    };
+    if answer {
+        let p = &mut state.players[res.controller.get() as usize];
+        let old = p.life;
+        p.life -= i32::from(amount);
+        let new = p.life;
+        state.journal.record(GameEvent::LifeChanged {
+            player: res.controller,
+            old,
+            new,
+            cause: Cause::Effect,
+        });
+    } else if let Some(obj) = state.object_mut(res.source) {
+        obj.status.insert(Status::TAPPED);
+    }
+    res.pc += 1;
+    run(state, res)
 }
 
 /// Resumes a suspended resolution with the chosen cards.
@@ -194,6 +278,9 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
+        AwaitingOp::ManaChoice { .. } | AwaitingOp::PayLifeOrTapSelf { .. } => {
+            unreachable!("color/yes-no choices resume via their own functions")
+        }
     }
     res.pc += 1;
     run(state, res)
@@ -210,6 +297,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
 }
 
 /// Operations that suspend on a player choice.
+#[allow(clippy::too_many_lines)] // the choice-op dispatch table is naturally flat
 fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
@@ -290,6 +378,36 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 prompt: ChoicePrompt::PutBackOnTop,
             })
         }
+        Effect::AddManaChoice {
+            colors,
+            amount,
+            combination,
+        } => {
+            let per_pick = if combination { 1 } else { amount };
+            res.awaiting = Some(AwaitingOp::ManaChoice {
+                colors,
+                remaining: amount,
+                per_pick,
+            });
+            Some(Pending::ChooseColor {
+                player: you,
+                options: colors.to_vec(),
+            })
+        }
+        Effect::PayLifeOrEnterTapped { amount } => {
+            // Not payable at all → no choice, enters tapped (CR 614.1c).
+            if state.players[you.get() as usize].life <= i32::from(amount) {
+                if let Some(obj) = state.object_mut(res.source) {
+                    obj.status.insert(Status::TAPPED);
+                }
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::PayLifeOrTapSelf { amount });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+            })
+        }
         _ => unreachable!("not a choice op"),
     }
 }
@@ -332,6 +450,153 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+            }
+            None
+        }
+        Effect::AddCounter { kind, amount } => {
+            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
+            let target_id = res.targets.first().copied().unwrap_or(res.source);
+            if let Some(obj) = state.object_mut(target_id) {
+                let old = obj.counters.get(kind);
+                let new = obj.counters.add(kind, n);
+                state.journal.record(GameEvent::CounterChanged {
+                    object: target_id,
+                    kind,
+                    old,
+                    new,
+                });
+            }
+            None
+        }
+        Effect::ReturnToHand { .. } => {
+            if let Some(&target_id) = res.targets.first() {
+                let owner = state.object(target_id).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Hand(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::ReturnAllToHand {
+            filter,
+            opponents_only,
+        } => {
+            let all: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state.object(**id).is_some_and(|o| {
+                        (!opponents_only || o.controller != you)
+                            && eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .copied()
+                .collect();
+            for id in all {
+                let owner = state.object(id).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(id) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    id,
+                    ZoneLocation::Hand(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::DestroyAll { filter } => {
+            let all: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state
+                        .object(**id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .copied()
+                .collect();
+            for id in all {
+                sba::destroy(state, id);
+            }
+            None
+        }
+        Effect::ExileGraveyard { player } => {
+            for player in eval::players(player, state, you) {
+                let cards: Vec<ObjectId> =
+                    state.zones.list(ZoneLocation::Graveyard(player)).clone();
+                for card in cards {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Exile(player),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+            None
+        }
+        Effect::GraveyardToTop { .. } => {
+            if let Some(&target_id) = res.targets.first() {
+                let owner = state.object(target_id).map_or(you, |o| o.owner);
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Library(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::GraveyardToBattlefield { .. } => {
+            if let Some(&target_id) = res.targets.first() {
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.kind = ObjectKind::Permanent;
+                    obj.controller = you;
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::CreateToken { token } => {
+            let name = state.names.intern(token.name);
+            let base = Characteristics {
+                name,
+                mana_cost: ManaCost::ZERO,
+                colors: token.colors,
+                types: token.types,
+                supertypes: token.supertypes,
+                subtypes: SubtypeSet::from_slice(token.subtypes),
+                keywords: token.keywords,
+                power: token.power,
+                toughness: token.toughness,
+                loyalty: None,
+            };
+            let ts = state.next_timestamp();
+            let id = state.arena.insert_with(|id| {
+                let mut obj = GameObject::new_bare(id, you, ObjectKind::Permanent, base);
+                obj.timestamp = ts;
+                obj
+            });
+            state
+                .zones
+                .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
+            if let Some(obj) = state.object_mut(id) {
+                obj.zone = crate::zone::Zone::Battlefield;
             }
             None
         }
@@ -439,7 +704,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)
-        Effect::SearchLibrary { .. } | Effect::Scry { .. } | Effect::PutFromHandOnTop { .. } => {
+        Effect::SearchLibrary { .. }
+        | Effect::Scry { .. }
+        | Effect::PutFromHandOnTop { .. }
+        | Effect::AddManaChoice { .. }
+        | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
     }

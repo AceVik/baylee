@@ -139,6 +139,7 @@ name = "baylee-cards-dsl"
 version = "0.1.0"
 dependencies = [
  "baylee-core",
+ "serde",
 ]
 
 [[package]]

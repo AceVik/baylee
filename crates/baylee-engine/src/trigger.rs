@@ -113,13 +113,11 @@ fn matches(
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
-        (Trigger::Draws(rel), GameEvent::ZoneChanged { .. }) => {
-            // Draw events are ZoneChanged to Hand; matched via `rel` on the
-            // receiving player (M1.S3 approximation, refined with explicit
-            // Draw events in M2).
-            let _ = rel;
-            false
-        }
+        (Trigger::Draws(rel), GameEvent::CardsDrawn { player, .. }) => match rel {
+            PlayerRel::You => *player == you,
+            PlayerRel::Opponent => *player != you,
+            _ => true,
+        },
         (Trigger::StepBegin { step, whose }, GameEvent::StepChanged { .. }) => {
             let step_matches = matches!(
                 (step, event),

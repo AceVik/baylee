@@ -12,7 +12,6 @@ use baylee_core::color::ColorSet;
 use baylee_core::ids::{CardIndex, NameRef, ObjectId, PlayerId, PrintRef};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
-use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 /// What kind of object this is.
@@ -108,30 +107,7 @@ pub struct CachedChar {
     pub value: Characteristics,
 }
 
-/// Counter kinds (objects and players).
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum CounterKind {
-    /// +1/+1.
-    P1P1,
-    /// −1/−1.
-    M1M1,
-    /// Loyalty.
-    Loyalty,
-    /// Lore (sagas).
-    Lore,
-    /// Time (suspend, vanishing).
-    Time,
-    /// Charge.
-    Charge,
-    /// Poison (players).
-    Poison,
-    /// Energy (players).
-    Energy,
-    /// Rad (players).
-    Rad,
-    /// Card-specific counters (generated names).
-    Custom(u16),
-}
+pub use baylee_cards_dsl::CounterKind;
 
 /// Counters on an object.
 #[derive(Clone, Debug, Default)]

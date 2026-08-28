@@ -167,6 +167,39 @@ impl<L: CardLookup> Engine<L> {
                 }
                 Ok(())
             }
+            (Pending::ChooseColor { player: p, options }, PlayerAction::ChooseColor(color))
+                if *p == player =>
+            {
+                if !options.contains(&color) {
+                    return Err(EngineError::IllegalAction("color not allowed"));
+                }
+                let mut res = self.resolution.take().expect("resolution suspended");
+                match resolve::resume_with_color(&mut self.state, &mut res, color) {
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                    resolve::Flow::Complete => {
+                        self.finish_resolution(&res);
+                    }
+                }
+                Ok(())
+            }
+            (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                let mut res = self.resolution.take().expect("resolution suspended");
+                match resolve::resume_yes_no(&mut self.state, &mut res, answer) {
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                    resolve::Flow::Complete => {
+                        self.finish_resolution(&res);
+                    }
+                }
+                Ok(())
+            }
             (
                 Pending::ChooseCards {
                     player: p,

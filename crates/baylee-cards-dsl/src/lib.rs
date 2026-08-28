@@ -13,7 +13,9 @@ pub mod filter;
 
 pub use ability::{AbilityDef, ActivationTiming, StepKind, Trigger};
 pub use cost::{Cost, CostPart};
-pub use effect::{Amount, Effect, PlayerRel, SearchDest, TargetSpec, ZoneSel};
+pub use effect::{
+    Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetSpec, TokenDef, ZoneSel,
+};
 pub use filter::Filter;
 
 use baylee_core::color::ColorSet;

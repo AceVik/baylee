@@ -141,6 +141,24 @@ pub fn target_options(
             })
             .copied()
             .collect(),
+        TargetSpec::CardInGraveyard(filter, rel) => {
+            let mut out = Vec::new();
+            for player in players(*rel, state, you) {
+                out.extend(
+                    state
+                        .zones
+                        .list(ZoneLocation::Graveyard(player))
+                        .iter()
+                        .filter(|id| {
+                            state
+                                .object(**id)
+                                .is_some_and(|o| matches(filter, state, o, you, this))
+                        })
+                        .copied(),
+                );
+            }
+            out
+        }
         TargetSpec::ThisObject => vec![this],
         TargetSpec::Player(_) => vec![], // player targeting: M2 (heads-up auto-resolves)
     }

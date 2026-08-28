@@ -394,6 +394,12 @@ impl GameState {
                 drawn.push(top);
             }
         }
+        if !drawn.is_empty() {
+            self.journal.record(crate::event::GameEvent::CardsDrawn {
+                player,
+                count: drawn.len() as u16,
+            });
+        }
         drawn
     }
 

@@ -10,3 +10,4 @@ workspace = true
 
 [dependencies]
 baylee-core.workspace = true
+serde.workspace = true
