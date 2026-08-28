@@ -86,10 +86,8 @@ impl<L: CardLookup> Engine<L> {
                             legal.abilities.push((card, i as u32));
                         }
                     }
-                    AbilityDef::Suspend { .. } => {
-                        if sorcery_timing {
-                            legal.suspendable.push(card);
-                        }
+                    AbilityDef::Suspend { .. } if sorcery_timing => {
+                        legal.suspendable.push(card);
                     }
                     _ => {}
                 }

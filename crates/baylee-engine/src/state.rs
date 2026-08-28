@@ -226,6 +226,7 @@ impl GameState {
     ///
     /// # Panics
     /// Internal invariant violations (freshly created objects are always present).
+    #[allow(clippy::too_many_lines)] // setup is a linear checklist; extraction would obscure it
     pub fn from_preset(preset: &GamePreset, lookup: &impl CardLookup) -> Result<Self, SetupError> {
         preset.validate()?;
         let default_life = match preset.format {
