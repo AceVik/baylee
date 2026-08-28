@@ -180,6 +180,7 @@ fn suspend_countdown_casts_for_free_at_zero() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // scenario script — step-by-step readability beats extraction
 fn ephemerate_rebounds_for_free_at_next_upkeep() {
     let mut engine = Engine::new(
         &preset(
