@@ -463,16 +463,15 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     if let baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement {
                         object_filter,
                     } = entry.rule
-                    {
-                        if eval::matches(
-                            &object_filter,
+                        && eval::matches(
+                            object_filter,
                             state,
                             target_obj,
                             entry.controller,
                             entry.source,
-                        ) {
-                            n_total = n_total.saturating_mul(2);
-                        }
+                        )
+                    {
+                        n_total = n_total.saturating_mul(2);
                     }
                 }
             }
@@ -626,16 +625,15 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     if let baylee_cards_dsl::ReplacementRule::DoubleTokenCreation {
                         controller_filter,
                     } = entry.rule
-                    {
-                        if eval::matches(
-                            &controller_filter,
+                        && eval::matches(
+                            controller_filter,
                             state,
                             source_obj,
                             res.controller,
                             entry.source,
-                        ) {
-                            count *= 2;
-                        }
+                        )
+                    {
+                        count *= 2;
                     }
                 }
             }
