@@ -1,15 +1,19 @@
 //! Panharmonicon — {4} — Artifact
 //! Oracle: If an artifact or creature entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 //! Set: 2X2 #310 — Double Masters 2022 | Scryfall ID: 998d0cc8-ca2a-41c3-ab65-d05c26ab8278 | Oracle ID: 76678885-3674-443d-b9a2-2a460cf6aac0
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — ETB-trigger multiplication for your permanents.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, FaceDef, Filter, KeywordSet, PartnerKind,
+    ReplacementRule, TriggerEventKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOUR_PERMANENTS: Filter = Filter::ControlledByYou;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(110),
@@ -29,11 +33,17 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Replacement(
+        ReplacementRule::TriggerMultiplier {
+            source_filter: &YOUR_PERMANENTS,
+            event: TriggerEventKind::EntersBattlefield,
+        },
+    )],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage in baylee-engine s6 tests: a rally trigger
+    // fires twice with Panharmonicon on the battlefield.
 }

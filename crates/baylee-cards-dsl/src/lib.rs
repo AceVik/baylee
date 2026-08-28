@@ -12,13 +12,13 @@ pub mod effect;
 pub mod filter;
 pub mod static_ability;
 
-pub use ability::{AbilityDef, ActivationTiming, StepKind, Trigger};
+pub use ability::{AbilityDef, ActivationTiming, StepKind, Trigger, TriggerEventKind};
 pub use cost::{Cost, CostPart};
 pub use effect::{
     Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
-pub use static_ability::{Duration, LAYERS, Layer, Modifier, StaticAbility};
+pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility};
 
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{CardIndex, SubtypeId};

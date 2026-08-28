@@ -108,7 +108,8 @@ impl<L: CardLookup> Engine<L> {
                     self.pending = Pending::ChooseTargets {
                         player,
                         options,
-                        count: 1,
+                        min: 1,
+                        max: 1,
                     };
                     self.awaiting_answer = true;
                     return Ok(());
@@ -133,11 +134,14 @@ impl<L: CardLookup> Engine<L> {
                 Pending::ChooseTargets {
                     player: p,
                     options,
-                    count,
+                    min,
+                    max,
                 },
                 PlayerAction::ChooseObjects { objects },
             ) if *p == player => {
-                if objects.len() != *count as usize || !objects.iter().all(|o| options.contains(o))
+                if objects.len() < *min as usize
+                    || objects.len() > *max as usize
+                    || !objects.iter().all(|o| options.contains(o))
                 {
                     return Err(EngineError::IllegalAction("invalid target selection"));
                 }
@@ -161,6 +165,8 @@ impl<L: CardLookup> Engine<L> {
                         source,
                         ability_index,
                     } => {
+                        // Consume the queued trigger before stacking it.
+                        self.trigger_queue.pop_front();
                         let controller = self.state.object(source).map_or(player, |o| o.controller);
                         self.push_ability_to_stack(controller, source, ability_index, targets)?;
                     }

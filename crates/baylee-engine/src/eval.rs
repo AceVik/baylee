@@ -132,8 +132,7 @@ pub fn target_options(
 ) -> Vec<ObjectId> {
     match spec {
         TargetSpec::Object(filter) => state
-            .zones
-            .list(ZoneLocation::Battlefield)
+            .battlefield_view()
             .iter()
             .filter(|id| {
                 state

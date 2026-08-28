@@ -2,15 +2,21 @@
 //! Oracle: If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.
 //! Oracle: If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.
 //! Set: FDN #216 — Foundations | Scryfall ID: f2c4f80e-84a0-463b-82c3-5c6503809351 | Oracle ID: 01546b7d-a233-4176-8843-d732074dc5b6
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — token creation and counter placement doubling (all counter
+// kinds on permanents). NOT SUPPORTED yet: planeswalker ETB-loyalty
+// doubling routes through this same hook once walkers land (M2.S7).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, FaceDef, Filter, KeywordSet, PartnerKind,
+    ReplacementRule,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOURS: Filter = Filter::ControlledByYou;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(35),
@@ -30,11 +36,19 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial("planeswalker ETB-loyalty doubling lands with walkers (M2.S7)"),
+    abilities: &[
+        AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
+            controller_filter: &YOURS,
+        }),
+        AbilityDef::Replacement(ReplacementRule::DoubleCounterPlacement {
+            object_filter: &YOURS,
+        }),
+    ],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage in baylee-engine s6 tests: Maskwood Nexus's
+    // token ability creates two Shapeshifters with Doubling Season out.
 }

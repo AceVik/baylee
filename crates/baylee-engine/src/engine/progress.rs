@@ -179,6 +179,51 @@ impl<L: CardLookup> Engine<L> {
         for fx in to_register {
             self.state.effects.register(fx);
         }
+        // Sync replacement rules (drop rules of departed sources, register
+        // new ones).
+        let gone_rules: Vec<ObjectId> = self
+            .state
+            .replacement_rules
+            .iter()
+            .map(|r| r.source)
+            .filter(|s| {
+                self.state
+                    .object(*s)
+                    .is_none_or(|o| o.zone != Zone::Battlefield)
+            })
+            .collect();
+        self.state
+            .replacement_rules
+            .retain(|r| !gone_rules.contains(&r.source));
+        let mut rules_to_add = Vec::new();
+        for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
+            let Some(obj) = self.state.object(id) else {
+                continue;
+            };
+            let Some(card) = obj.card else { continue };
+            let Some(def) = self.lookup.card(card.index) else {
+                continue;
+            };
+            for ability in def.abilities {
+                let AbilityDef::Replacement(rule) = ability else {
+                    continue;
+                };
+                if self
+                    .state
+                    .replacement_rules
+                    .iter()
+                    .any(|r| r.source == id && r.rule == *rule)
+                {
+                    continue;
+                }
+                rules_to_add.push(crate::state::ReplacementEntry {
+                    source: id,
+                    controller: obj.controller,
+                    rule: *rule,
+                });
+            }
+        }
+        self.state.replacement_rules.extend(rules_to_add);
     }
 
     fn alive_players(&self) -> Vec<PlayerId> {
@@ -224,19 +269,21 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue = found.into_iter().collect();
         }
         while let Some(t) = self.trigger_queue.front().copied() {
-            let target_spec = self
+            let (target_spec, up_to_one) = self
                 .state
                 .object(t.source)
                 .and_then(|o| o.card)
                 .and_then(|c| self.lookup.card(c.index))
                 .and_then(|def| def.abilities.get(t.ability_index as usize))
-                .and_then(|a| match a {
-                    AbilityDef::Triggered { target, .. } => *target,
-                    _ => None,
+                .map_or((None, false), |a| match a {
+                    AbilityDef::Triggered {
+                        target, up_to_one, ..
+                    } => (*target, *up_to_one),
+                    _ => (None, false),
                 });
             if let Some(spec) = target_spec {
                 let options = eval::target_options(&spec, &self.state, t.controller, t.source);
-                if options.is_empty() {
+                if options.is_empty() && !up_to_one {
                     // No legal target: the trigger is removed from the stack
                     // entirely (CR 603.3d).
                     self.trigger_queue.pop_front();
@@ -249,7 +296,8 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
-                    count: 1,
+                    min: u8::from(!up_to_one),
+                    max: 1,
                 };
                 self.awaiting_answer = true;
                 return;
@@ -479,6 +527,23 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn untap_step(&mut self) {
         let active = self.state.turn.active;
         let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
+        // Phasing: phased-out permanents the active player controls phase
+        // back in at the untap step (CR 702.26b).
+        for id in &battlefield {
+            let phased = self
+                .state
+                .object(*id)
+                .is_some_and(|o| o.controller == active && o.status.contains(Status::PHASED_OUT));
+            if phased {
+                if let Some(obj) = self.state.object_mut(*id) {
+                    obj.status.remove(Status::PHASED_OUT);
+                }
+                self.state.journal.record(GameEvent::PhaseChanged {
+                    object: *id,
+                    phased_out: false,
+                });
+            }
+        }
         for id in battlefield {
             let tapped = self
                 .state

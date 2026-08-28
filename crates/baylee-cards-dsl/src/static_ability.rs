@@ -113,3 +113,40 @@ pub enum Duration {
     /// Indefinitely (emblems, boss effects).
     Indefinitely,
 }
+
+/// Replacement rules and trigger modification (CR 614; Doubling Season,
+/// Panharmonicon, Elesh Norn, Roaming Throne).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ReplacementRule {
+    /// "If an effect would create tokens under your control, it creates
+    /// twice that many" (Doubling Season). Filter applies to the affected
+    /// controller.
+    DoubleTokenCreation {
+        /// Which controllers' token creations are doubled.
+        controller_filter: &'static Filter,
+    },
+    /// "If an effect would put counters on a permanent you control, it
+    /// puts twice that many" (Doubling Season). Filter applies to the
+    /// object receiving counters.
+    DoubleCounterPlacement {
+        /// Which objects' counter placements are doubled.
+        object_filter: &'static Filter,
+    },
+    /// "…causes a triggered ability of a permanent you control to trigger,
+    /// that ability triggers an additional time" (Panharmonicon).
+    TriggerMultiplier {
+        /// Which trigger sources are multiplied (usually permanents you
+        /// control or of a type).
+        source_filter: &'static Filter,
+        /// Which event kind is multiplied.
+        event: crate::ability::TriggerEventKind,
+    },
+    /// "Permanents entering the battlefield don't cause abilities of
+    /// permanents your opponents control to trigger" (Elesh Norn).
+    TriggerSuppress {
+        /// Which trigger sources are suppressed.
+        source_filter: &'static Filter,
+        /// Which event kind is suppressed.
+        event: crate::ability::TriggerEventKind,
+    },
+}

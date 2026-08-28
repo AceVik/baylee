@@ -84,6 +84,17 @@ impl Names {
     }
 }
 
+/// A registered replacement rule from a permanent on the battlefield.
+#[derive(Clone, Copy, Debug)]
+pub struct ReplacementEntry {
+    /// The source permanent.
+    pub source: ObjectId,
+    /// The rule's controller (for "you" in its filters).
+    pub controller: PlayerId,
+    /// The rule.
+    pub rule: baylee_cards_dsl::ReplacementRule,
+}
+
 /// Setup failures.
 #[derive(Debug, thiserror::Error)]
 pub enum SetupError {
@@ -128,6 +139,8 @@ pub struct GameState {
     pub timestamp: u64,
     /// Registered continuous effects (anthems, type changes, pumps).
     pub effects: crate::effects::EffectTable,
+    /// Registered replacement rules (Doubling Season, Panharmonicon, …).
+    pub replacement_rules: Vec<ReplacementEntry>,
     /// The effect generation the characteristic caches were computed at.
     pub characteristics_generation: u64,
     /// Effect-set generation for characteristic caches (M2).
@@ -178,6 +191,7 @@ impl GameState {
             names: Names::default(),
             timestamp: 0,
             effects: crate::effects::EffectTable::default(),
+            replacement_rules: Vec::new(),
             characteristics_generation: u64::MAX,
             effect_generation: 0,
         };
@@ -357,6 +371,21 @@ impl GameState {
     #[must_use]
     pub fn object(&self, id: ObjectId) -> Option<&GameObject> {
         self.arena.get(id)
+    }
+
+    /// The battlefield as rules see it: phased-out permanents are treated
+    /// as though they don't exist (CR 702.26).
+    #[must_use]
+    pub fn battlefield_view(&self) -> Vec<ObjectId> {
+        self.zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| {
+                self.object(*id)
+                    .is_some_and(|o| !o.status.contains(crate::object::Status::PHASED_OUT))
+            })
+            .collect()
     }
 
     /// Mutable object access.

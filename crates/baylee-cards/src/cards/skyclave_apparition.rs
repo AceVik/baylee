@@ -2,15 +2,38 @@
 //! Oracle: When this creature enters, exile up to one target nonland, nontoken permanent you don't control with mana value 4 or less.
 //! Oracle: When this creature leaves the battlefield, the exiled card's owner creates an X/X blue Illusion creature token, where X is the mana value of the exiled card.
 //! Set: SOC #173 — Secrets of Strixhaven Commander | Scryfall ID: e671de25-c47c-48a1-919b-6aa30dab142f | Oracle ID: d90af00a-d322-4265-9954-7b1e80702e18
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — linked exile on ETB (up to one) + Illusion token on LTB.
+// "Nontoken" is structural in the engine (tokens have no backing card and
+// are not offered as options anyway when they can't be exiled-linked
+// meaningfully); tracked in the protocol layer.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetSpec, TokenDef, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static TARGET_F: Filter = Filter::And(&[
+    Filter::ControlledByOpponent,
+    Filter::LacksType(TypeSet::LAND),
+    Filter::CmcAtMost(4),
+]);
+
+static ILLUSION: TokenDef = TokenDef {
+    name: "Illusion",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::EMPTY,
+    subtypes: &[creature::ILLUSION],
+    power: None, // set to the exiled card's mana value
+    toughness: None,
+    keywords: KeywordSet::EMPTY,
+};
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(146),
@@ -30,11 +53,27 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Triggered {
+            trigger: Trigger::EntersBattlefield(&Filter::This),
+            effects: &[Effect::ExileLinked {
+                target: TargetSpec::Object(&TARGET_F),
+            }],
+            target: Some(TargetSpec::Object(&TARGET_F)),
+            up_to_one: true,
+        },
+        AbilityDef::Triggered {
+            trigger: Trigger::LeavesBattlefield(&Filter::This),
+            effects: &[Effect::CreateTokenFromLinked { token: &ILLUSION }],
+            target: None,
+            up_to_one: false,
+        },
+    ],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage in baylee-engine s6 tests: ETB exiles a target,
+    // LTB makes the owner an X/X Illusion with X = its mana value.
 }

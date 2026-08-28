@@ -296,4 +296,32 @@ pub enum Effect {
         /// How long it lasts.
         duration: crate::static_ability::Duration,
     },
+    /// Change who controls a target permanent (Gilded Drake exchange,
+    /// Homeward Path restore).
+    ChangeController {
+        /// Who gains control.
+        new_controller: PlayerRel,
+    },
+    /// Phase a target permanent out (Clever Concealment).
+    PhaseOut {
+        /// What phases out (first target when set, else the source).
+        target: Option<TargetSpec>,
+    },
+    /// Exile a target with a link to the source ("until ~ leaves the
+    /// battlefield", Skyclave Apparition).
+    ExileLinked {
+        /// What.
+        target: TargetSpec,
+    },
+    /// Return everything exiled with a link to the source to the
+    /// battlefield under its owner's control.
+    ReturnLinkedToBattlefield,
+    /// Create a token under the *owner* of the card exiled with a link to
+    /// the source, with power/toughness set to that card's mana value
+    /// (Skyclave Apparition's Illusion).
+    CreateTokenFromLinked {
+        /// The token to create (power/toughness are overridden by the
+        /// linked card's mana value).
+        token: &'static TokenDef,
+    },
 }

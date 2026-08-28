@@ -219,6 +219,22 @@ pub enum GameEvent {
         /// Why.
         reason: LossReason,
     },
+    /// Control of a permanent changed.
+    ControllerChanged {
+        /// The object.
+        object: ObjectId,
+        /// Previous controller.
+        old: PlayerId,
+        /// New controller.
+        new: PlayerId,
+    },
+    /// A permanent phased out or in.
+    PhaseChanged {
+        /// The object.
+        object: ObjectId,
+        /// Whether it is now phased out.
+        phased_out: bool,
+    },
     /// The game ended with a winner.
     GameWon {
         /// The winner (`None` = draw).

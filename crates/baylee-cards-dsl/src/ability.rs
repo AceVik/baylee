@@ -82,7 +82,21 @@ pub enum AbilityDef {
         effects: &'static [Effect],
         /// Target requirement.
         target: Option<TargetSpec>,
+        /// "Up to one target" — the choice may be declined.
+        up_to_one: bool,
     },
     /// Static/continuous ability (layers, CR 613).
     Static(crate::static_ability::StaticAbility),
+    /// A replacement or trigger-modification rule (CR 614; Doubling
+    /// Season, Panharmonicon, Elesh Norn).
+    Replacement(crate::static_ability::ReplacementRule),
+}
+
+/// Which event a trigger-modifying rule cares about.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TriggerEventKind {
+    /// A permanent entering the battlefield.
+    EntersBattlefield,
+    /// Any event.
+    Any,
 }

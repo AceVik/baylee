@@ -219,4 +219,6 @@ mod s3_tests;
 #[cfg(test)]
 mod s4_tests;
 #[cfg(test)]
+mod s6_tests;
+#[cfg(test)]
 mod tests;

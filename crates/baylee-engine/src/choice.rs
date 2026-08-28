@@ -78,8 +78,10 @@ pub enum Pending {
         player: PlayerId,
         /// The legal targets.
         options: Vec<ObjectId>,
-        /// How many to choose.
-        count: u8,
+        /// Minimum to choose (0 for "up to" targets).
+        min: u8,
+        /// Maximum to choose.
+        max: u8,
     },
     /// Choose a mana color (choice-restricted mana abilities).
     ChooseColor {

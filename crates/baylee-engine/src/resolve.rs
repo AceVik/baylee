@@ -456,9 +456,29 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::AddCounter { kind, amount } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
             let target_id = res.targets.first().copied().unwrap_or(res.source);
+            // Counter-placement replacements (Doubling Season, CR 614.2).
+            let mut n_total = n;
+            if let Some(target_obj) = state.object(target_id) {
+                for entry in &state.replacement_rules {
+                    if let baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement {
+                        object_filter,
+                    } = entry.rule
+                    {
+                        if eval::matches(
+                            &object_filter,
+                            state,
+                            target_obj,
+                            entry.controller,
+                            entry.source,
+                        ) {
+                            n_total = n_total.saturating_mul(2);
+                        }
+                    }
+                }
+            }
             if let Some(obj) = state.object_mut(target_id) {
                 let old = obj.counters.get(kind);
-                let new = obj.counters.add(kind, n);
+                let new = obj.counters.add(kind, n_total);
                 state.journal.record(GameEvent::CounterChanged {
                     object: target_id,
                     kind,
@@ -599,30 +619,132 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CreateToken { token } => {
-            let name = state.names.intern(token.name);
-            let base = Characteristics {
-                name,
-                mana_cost: ManaCost::ZERO,
-                colors: token.colors,
-                types: token.types,
-                supertypes: token.supertypes,
-                subtypes: SubtypeSet::from_slice(token.subtypes),
-                keywords: token.keywords,
-                power: token.power,
-                toughness: token.toughness,
-                loyalty: None,
+            // Token-creation replacements (Doubling Season, CR 614.1).
+            let mut count = 1u32;
+            if let Some(source_obj) = state.object(res.source) {
+                for entry in &state.replacement_rules {
+                    if let baylee_cards_dsl::ReplacementRule::DoubleTokenCreation {
+                        controller_filter,
+                    } = entry.rule
+                    {
+                        if eval::matches(
+                            &controller_filter,
+                            state,
+                            source_obj,
+                            res.controller,
+                            entry.source,
+                        ) {
+                            count *= 2;
+                        }
+                    }
+                }
+            }
+            for _ in 0..count {
+                create_one_token(state, res.controller, token);
+            }
+            None
+        }
+        Effect::ChangeController { new_controller } => {
+            if let Some(&target_id) = res.targets.first() {
+                let new = match new_controller {
+                    PlayerRel::You => you,
+                    PlayerRel::ControllerOfTarget => you,
+                    _ => you,
+                };
+                change_controller(state, target_id, new);
+            }
+            None
+        }
+        Effect::PhaseOut { target } => {
+            let target_id = match target {
+                Some(_) => res.targets.first().copied(),
+                None => Some(res.source),
             };
-            let ts = state.next_timestamp();
-            let id = state.arena.insert_with(|id| {
-                let mut obj = GameObject::new_bare(id, you, ObjectKind::Permanent, base);
-                obj.timestamp = ts;
-                obj
-            });
-            state
-                .zones
-                .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
-            if let Some(obj) = state.object_mut(id) {
-                obj.zone = crate::zone::Zone::Battlefield;
+            if let Some(id) = target_id {
+                if let Some(obj) = state.object_mut(id) {
+                    obj.status.insert(Status::PHASED_OUT);
+                }
+                state.journal.record(GameEvent::PhaseChanged {
+                    object: id,
+                    phased_out: true,
+                });
+            }
+            None
+        }
+        Effect::ExileLinked { .. } => {
+            if let Some(&target_id) = res.targets.first() {
+                let owner = state.object(target_id).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.kind = ObjectKind::Card;
+                    obj.riders
+                        .push(crate::object::Rider::Linked { host: res.source });
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::CreateTokenFromLinked { token } => {
+            // The exiled card's owner creates the token; its power and
+            // toughness are the exiled card's mana value.
+            let mut owner = None;
+            let mut cmc = 0;
+            'scan: for seat in 0..state.players.len() {
+                let p = PlayerId::new(seat as u8);
+                for &card in state.zones.list(ZoneLocation::Exile(p)) {
+                    if state.object(card).is_some_and(|o| {
+                        o.riders
+                            .iter()
+                            .any(|r| matches!(r, crate::object::Rider::Linked { host } if *host == res.source))
+                    }) {
+                        owner = Some(p);
+                        cmc = state
+                            .object(card)
+                            .map_or(0, |o| o.characteristics().mana_cost.cmc());
+                        break 'scan;
+                    }
+                }
+            }
+            if let Some(owner) = owner {
+                let mut def = *token;
+                def.power = Some(cmc as i16);
+                def.toughness = Some(cmc as i16);
+                create_one_token(state, owner, &def);
+            }
+            None
+        }
+        Effect::ReturnLinkedToBattlefield => {
+            // Everything exiled with a link to the source returns under its
+            // owner's control (Skyclave Apparition & co.).
+            let mut returning = Vec::new();
+            for seat in 0..state.players.len() {
+                let p = PlayerId::new(seat as u8);
+                for &card in state.zones.list(ZoneLocation::Exile(p)) {
+                    if state.object(card).is_some_and(|o| {
+                        o.riders
+                            .iter()
+                            .any(|r| matches!(r, crate::object::Rider::Linked { host } if *host == res.source))
+                    }) {
+                        returning.push(card);
+                    }
+                }
+            }
+            for card in returning {
+                if let Some(obj) = state.object_mut(card) {
+                    obj.kind = ObjectKind::Permanent;
+                    obj.riders
+                        .retain(|r| !matches!(r, crate::object::Rider::Linked { host } if *host == res.source));
+                }
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
             }
             None
         }
@@ -738,6 +860,60 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             unreachable!("choice ops dispatch to exec_choice")
         }
     }
+}
+
+fn create_one_token(
+    state: &mut GameState,
+    controller: PlayerId,
+    token: &baylee_cards_dsl::TokenDef,
+) {
+    let name = state.names.intern(token.name);
+    let base = Characteristics {
+        name,
+        mana_cost: ManaCost::ZERO,
+        colors: token.colors,
+        types: token.types,
+        supertypes: token.supertypes,
+        subtypes: SubtypeSet::from_slice(token.subtypes),
+        keywords: token.keywords,
+        power: token.power,
+        toughness: token.toughness,
+        loyalty: None,
+    };
+    let ts = state.next_timestamp();
+    let id = state.arena.insert_with(|id| {
+        let mut obj = GameObject::new_bare(id, controller, ObjectKind::Permanent, base);
+        obj.timestamp = ts;
+        obj
+    });
+    state
+        .zones
+        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
+    if let Some(obj) = state.object_mut(id) {
+        obj.zone = crate::zone::Zone::Battlefield;
+    }
+}
+
+fn change_controller(state: &mut GameState, target: ObjectId, new_controller: PlayerId) {
+    let Some(obj) = state.object(target) else {
+        return;
+    };
+    let old = obj.controller;
+    if old == new_controller {
+        return;
+    }
+    let ts = state.next_timestamp();
+    {
+        let obj = state.object_mut(target).expect("checked above");
+        obj.controller = new_controller;
+        // Control changes restart summoning sickness (CR 302.6).
+        obj.timestamp = ts;
+    }
+    state.journal.record(GameEvent::ControllerChanged {
+        object: target,
+        old,
+        new: new_controller,
+    });
 }
 
 fn gain_life(state: &mut GameState, player: PlayerId, n: i32) {

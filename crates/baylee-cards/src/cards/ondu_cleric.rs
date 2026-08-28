@@ -49,6 +49,7 @@ pub static CARD: CardDef = CardDef {
             amount: Amount::Fixed(1),
         }],
         target: None,
+        up_to_one: false,
     }],
 };
 

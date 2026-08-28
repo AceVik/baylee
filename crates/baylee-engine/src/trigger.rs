@@ -35,29 +35,27 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         return Vec::new();
     }
     let mut triggers = Vec::new();
-    for &permanent in state.zones.list(ZoneLocation::Battlefield) {
-        let Some(obj) = state.object(permanent) else {
-            continue;
-        };
-        let Some(card) = obj.card else { continue };
-        let Some(def) = lookup.card(card.index) else {
-            continue;
-        };
-        for (index, ability) in def.abilities.iter().enumerate() {
-            let AbilityDef::Triggered { trigger, .. } = ability else {
-                continue;
-            };
-            for entry in events {
-                if matches(trigger, &entry.event, state, permanent, obj.controller) {
-                    triggers.push(PendingTrigger {
-                        source: permanent,
-                        ability_index: index as u32,
-                        controller: obj.controller,
-                        timestamp: obj.timestamp,
-                    });
-                    break; // one trigger per event per ability — next event
-                }
-            }
+    collect_for_objects(
+        state,
+        lookup,
+        state.zones.list(ZoneLocation::Battlefield),
+        events,
+        true,
+        &mut triggers,
+    );
+    // LTB/Dies triggers look back in time (CR 603.10): the source is no
+    // longer on the battlefield when they fire.
+    for seat in 0..state.players.len() {
+        let p = PlayerId::new(seat as u8);
+        for loc in [ZoneLocation::Graveyard(p), ZoneLocation::Exile(p)] {
+            collect_for_objects(
+                state,
+                lookup,
+                state.zones.list(loc),
+                events,
+                false,
+                &mut triggers,
+            );
         }
     }
     // APNAP: active player first, then in turn order; same controller by
@@ -69,6 +67,103 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         (distance, t.timestamp)
     });
     triggers
+}
+
+/// Scans a set of objects for triggered abilities matching the events.
+/// `all_kinds` = every trigger kind (battlefield scan); `false` = only
+/// LTB/Dies (off-battlefield scan, CR 603.10).
+fn collect_for_objects(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    objects: &[ObjectId],
+    events: &[crate::event::JournalEntry],
+    all_kinds: bool,
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for &permanent in objects {
+        let Some(obj) = state.object(permanent) else {
+            continue;
+        };
+        let Some(card) = obj.card else { continue };
+        let Some(def) = lookup.card(card.index) else {
+            continue;
+        };
+        for (index, ability) in def.abilities.iter().enumerate() {
+            let AbilityDef::Triggered { trigger, .. } = ability else {
+                continue;
+            };
+            if !all_kinds && !matches!(trigger, Trigger::LeavesBattlefield(_) | Trigger::Dies(_)) {
+                continue;
+            }
+            for entry in events {
+                if matches(trigger, &entry.event, state, permanent, obj.controller) {
+                    let times = trigger_count(state, trigger, permanent, obj.controller);
+                    for _ in 0..times {
+                        triggers.push(PendingTrigger {
+                            source: permanent,
+                            ability_index: index as u32,
+                            controller: obj.controller,
+                            timestamp: obj.timestamp,
+                        });
+                    }
+                    break; // one trigger per event per ability — next event
+                }
+            }
+        }
+    }
+}
+
+/// How often a trigger fires: trigger multipliers (Panharmonicon) add,
+/// suppressors (Elesh Norn) zero it out.
+fn trigger_count(
+    state: &GameState,
+    trigger: &Trigger,
+    source: ObjectId,
+    controller: PlayerId,
+) -> u32 {
+    let Some(source_obj) = state.object(source) else {
+        return 1;
+    };
+    let event_kind = match trigger {
+        Trigger::EntersBattlefield(_) => baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
+        _ => baylee_cards_dsl::TriggerEventKind::Any,
+    };
+    let mut count = 1u32;
+    for entry in &state.replacement_rules {
+        match entry.rule {
+            baylee_cards_dsl::ReplacementRule::TriggerMultiplier {
+                source_filter,
+                event,
+            } if (event == event_kind || event == baylee_cards_dsl::TriggerEventKind::Any)
+                && eval::matches(
+                    source_filter,
+                    state,
+                    source_obj,
+                    entry.controller,
+                    entry.source,
+                ) =>
+            {
+                count += 1;
+            }
+            baylee_cards_dsl::ReplacementRule::TriggerSuppress {
+                source_filter,
+                event,
+            } if (event == event_kind || event == baylee_cards_dsl::TriggerEventKind::Any)
+                && eval::matches(
+                    source_filter,
+                    state,
+                    source_obj,
+                    entry.controller,
+                    entry.source,
+                ) =>
+            {
+                return 0;
+            }
+            _ => {}
+        }
+    }
+    let _ = controller;
+    count
 }
 
 fn matches(

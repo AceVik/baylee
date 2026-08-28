@@ -57,6 +57,7 @@ pub static CARD: CardDef = CardDef {
             optional: true,
         }],
         target: None,
+        up_to_one: false,
     }],
 };
 

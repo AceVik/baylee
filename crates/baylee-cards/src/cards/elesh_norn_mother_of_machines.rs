@@ -3,15 +3,22 @@
 //! Oracle: If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 //! Oracle: Permanents entering don't cause abilities of permanents your opponents control to trigger.
 //! Set: ONE #10 — Phyrexia: All Will Be One | Scryfall ID: 44dcab01-1d13-4dfc-ae2f-fbaa3dd35087 | Oracle ID: 5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — vigilance + ETB-trigger multiplication (yours) and
+// suppression (opponents').
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, FaceDef, Filter, KeywordSet, PartnerKind,
+    ReplacementRule, TriggerEventKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOURS: Filter = Filter::ControlledByYou;
+static OPPONENTS: Filter = Filter::ControlledByOpponent;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(39),
@@ -28,14 +35,24 @@ pub static CARD: CardDef = CardDef {
         loyalty: None,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::EMPTY,
+    keywords: KeywordSet::VIGILANCE,
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Replacement(ReplacementRule::TriggerMultiplier {
+            source_filter: &YOURS,
+            event: TriggerEventKind::EntersBattlefield,
+        }),
+        AbilityDef::Replacement(ReplacementRule::TriggerSuppress {
+            source_filter: &OPPONENTS,
+            event: TriggerEventKind::EntersBattlefield,
+        }),
+    ],
 };
 
 #[cfg(test)]
 mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
+    // Engine-level coverage in baylee-engine s6 tests: your rally fires
+    // twice, the opponent's rally is fully suppressed.
 }
