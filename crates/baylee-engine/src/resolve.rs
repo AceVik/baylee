@@ -644,12 +644,10 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::ChangeController { new_controller } => {
             if let Some(&target_id) = res.targets.first() {
-                let new = match new_controller {
-                    PlayerRel::You => you,
-                    PlayerRel::ControllerOfTarget => you,
-                    _ => you,
-                };
-                change_controller(state, target_id, new);
+                // Control-change ops always favor the effect's controller
+                // (Gilded Drake-style exchanges get a dedicated op in S7).
+                let _ = new_controller;
+                change_controller(state, target_id, you);
             }
             None
         }

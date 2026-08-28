@@ -287,7 +287,6 @@ fn doubling_season_doubles_token_creation() {
     )
     .unwrap();
     keep_mulligans(&mut engine);
-    let p0 = PlayerId::new(0);
     let nexus = engine
         .state()
         .zones
@@ -373,6 +372,7 @@ fn doubling_season_doubles_token_creation() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // scenario script — step-by-step readability beats extraction
 fn skyclave_exiles_and_owner_gets_illusion() {
     let mut engine = Engine::new(
         &preset(
