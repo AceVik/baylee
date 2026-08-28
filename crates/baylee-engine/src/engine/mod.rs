@@ -226,7 +226,7 @@ impl<L: CardLookup> Engine<L> {
         if let Some(p) = recompute_player {
             let legal = self.compute_legal(p);
             if let Pending::Priority { legal: l, .. } = &mut self.pending {
-                *l = Box::new(legal);
+                **l = legal;
             }
         }
         self.run_until_choice();

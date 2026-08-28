@@ -23,9 +23,6 @@ fn forest() -> CardIndex {
 fn plains() -> CardIndex {
     card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
 }
-fn island() -> CardIndex {
-    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
-}
 fn hallowed_fountain() -> CardIndex {
     card_index("f1750962-a87c-49f6-b731-02ae971ac6ea")
 }
