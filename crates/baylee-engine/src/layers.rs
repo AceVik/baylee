@@ -26,7 +26,7 @@ pub fn recompute(state: &GameState, obj: &GameObject) -> Characteristics {
             .iter()
             .filter(|fx| fx.layer == layer && applies(state, fx, obj))
             .collect();
-        sort_by_dependency(state, &mut fxs, obj);
+        sort_by_dependency(&mut fxs);
         for fx in fxs {
             apply(&mut c, &mut controller, fx, state, obj);
         }
@@ -75,10 +75,10 @@ fn applies(state: &GameState, fx: &ContinuousEffect, obj: &GameObject) -> bool {
 /// applied before effects that depend on it. Dependency (approximation):
 /// B depends on A when A's modifier could change whether B's filter
 /// matches. Cycles fall back to timestamp order.
-fn sort_by_dependency(state: &GameState, fxs: &mut Vec<&ContinuousEffect>, obj: &GameObject) {
+fn sort_by_dependency(fxs: &mut Vec<&ContinuousEffect>) {
     fxs.sort_by(|a, b| {
-        let a_first = depends_on(state, b, a, obj);
-        let b_first = depends_on(state, a, b, obj);
+        let a_first = depends_on(b, a);
+        let b_first = depends_on(a, b);
         match (a_first, b_first) {
             (true, false) => std::cmp::Ordering::Less,
             (false, true) => std::cmp::Ordering::Greater,
@@ -87,33 +87,16 @@ fn sort_by_dependency(state: &GameState, fxs: &mut Vec<&ContinuousEffect>, obj: 
     });
 }
 
-fn depends_on(
-    state: &GameState,
-    dependent: &ContinuousEffect,
-    depended: &ContinuousEffect,
-    obj: &GameObject,
-) -> bool {
+fn depends_on(dependent: &ContinuousEffect, depended: &ContinuousEffect) -> bool {
     let EffectFilter::Dsl(filter) = dependent.filter else {
         return false;
     };
-    could_change_match(
-        &depended.modifier,
-        &filter,
-        state,
-        obj,
-        dependent.controller,
-    )
+    could_change_match(&depended.modifier, filter)
 }
 
 /// Conservative dependency test: does `modifier` change anything `filter`
 /// reads?
-fn could_change_match(
-    modifier: &Modifier,
-    filter: &Filter,
-    state: &GameState,
-    obj: &GameObject,
-    you: PlayerId,
-) -> bool {
+fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
     match filter {
         Filter::HasType(_) | Filter::LacksType(_) | Filter::HasSubtype(_) => matches!(
             modifier,
@@ -129,10 +112,10 @@ fn could_change_match(
             modifier,
             Modifier::AddKeyword(_) | Modifier::RemoveKeyword(_) | Modifier::LoseKeywords
         ),
-        Filter::And(parts) | Filter::Or(parts) => parts
-            .iter()
-            .any(|f| could_change_match(modifier, f, state, obj, you)),
-        Filter::Not(f) => could_change_match(modifier, f, state, obj, you),
+        Filter::And(parts) | Filter::Or(parts) => {
+            parts.iter().any(|f| could_change_match(modifier, f))
+        }
+        Filter::Not(f) => could_change_match(modifier, f),
         _ => false,
     }
 }
