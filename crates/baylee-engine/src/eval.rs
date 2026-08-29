@@ -193,9 +193,8 @@ pub fn target_options(
             out
         }
         TargetSpec::ThisObject => vec![this],
-        // EventObject is implicit (no player choice).
-        TargetSpec::EventObject => vec![],
-        // Player targeting resolves via ChoosePlayer in the casting wizard.
-        TargetSpec::Player(_) | TargetSpec::AnyPlayer => vec![],
+        // EventObject is implicit (no player choice); player targeting
+        // resolves via ChoosePlayer in the casting wizard.
+        TargetSpec::EventObject | TargetSpec::Player(_) | TargetSpec::AnyPlayer => vec![],
     }
 }

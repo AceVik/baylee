@@ -1030,20 +1030,20 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                                 .contains(baylee_core::types::TypeSet::CREATURE)
                     })
                 });
-            if let Some(id) = token {
-                if let Some(base) = state.object(id).map(|o| o.base.clone()) {
-                    let ts = state.next_timestamp();
-                    let new_id = state.arena.insert_with(|oid| {
-                        let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
-                        obj.timestamp = ts;
-                        obj
-                    });
-                    state
-                        .zones
-                        .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top);
-                    if let Some(obj) = state.object_mut(new_id) {
-                        obj.zone = crate::zone::Zone::Battlefield;
-                    }
+            if let Some(id) = token
+                && let Some(base) = state.object(id).map(|o| o.base.clone())
+            {
+                let ts = state.next_timestamp();
+                let new_id = state.arena.insert_with(|oid| {
+                    let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
+                    obj.timestamp = ts;
+                    obj
+                });
+                state
+                    .zones
+                    .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top);
+                if let Some(obj) = state.object_mut(new_id) {
+                    obj.zone = crate::zone::Zone::Battlefield;
                 }
             }
             None
@@ -1065,13 +1065,13 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 return None;
             }
             res.awaiting = Some(AwaitingOp::BottomFromHand { player });
-            return Some(Pending::ChooseCards {
+            Some(Pending::ChooseCards {
                 player,
                 options,
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
-            });
+            })
         }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
