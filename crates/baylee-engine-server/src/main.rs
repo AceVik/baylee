@@ -7,6 +7,7 @@
 //! The game logic (engine + AI seats) lives in [`session`]; this file is
 //! pure transport: decode frames → session → encode frames.
 
+mod preset;
 mod session;
 mod view;
 
@@ -31,10 +32,13 @@ async fn main() {
         .await
         .expect("bind websocket port");
     tracing::info!(port, "baylee-engine-server listening");
+    let games: Games =
+        std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
     while let Ok((stream, peer)) = listener.accept().await {
         tracing::info!(%peer, "client connected");
+        let games = games.clone();
         tokio::spawn(async move {
-            if let Err(err) = handle_connection(stream).await {
+            if let Err(err) = handle_connection(stream, games).await {
                 tracing::warn!(%peer, %err, "connection closed with error");
             }
         });
@@ -49,11 +53,16 @@ fn tracing_subscriber_init() {
     }
 }
 
+/// All live games on this server (v1: process-local; federation is a
+/// gateway milestone).
+type Games = std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, Session>>>;
+
 async fn handle_connection(
     stream: tokio::net::TcpStream,
+    games: Games,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut ws = tokio_tungstenite::accept_async(stream).await?;
-    let mut session: Option<Session> = None;
+    let mut game_id: Option<String> = None;
     while let Some(frame) = ws.next().await {
         let frame = frame?;
         if !frame.is_binary() {
@@ -64,35 +73,68 @@ async fn handle_connection(
             continue;
         };
         let replies: Vec<Envelope> = match msg {
-            v1::envelope::Msg::CreateGame(_create) => {
-                // v1: every connection gets the acceptance-deck duel
-                // (preset transfer from the gateway lands with M3 server
-                // federation; the duel harness is the dev path).
-                let preset = acceptance_duel_preset();
-                session = Session::new(&preset);
-                match session.as_mut() {
-                    Some(s) => {
-                        let mut out = vec![Envelope {
+            v1::envelope::Msg::CreateGame(create) => {
+                let preset = match create.preset {
+                    Some(msg) => match preset::from_proto(&msg) {
+                        Ok(p) => p,
+                        Err(reason) => {
+                            ws.send(tokio_tungstenite::tungstenite::Message::Binary(
+                                error(&format!("bad preset: {reason}"))
+                                    .encode_to_vec()
+                                    .into(),
+                            ))
+                            .await?;
+                            continue;
+                        }
+                    },
+                    // No preset: the dev acceptance duel.
+                    None => acceptance_duel_preset(),
+                };
+                let id = uuid::Uuid::now_v7().to_string();
+                let mut out = Vec::new();
+                match Session::new(&preset) {
+                    Some(session) => {
+                        out.push(Envelope {
                             msg: Some(v1::envelope::Msg::GameCreated(v1::GameCreated {
-                                game_id: uuid::Uuid::now_v7().to_string(),
+                                game_id: id.clone(),
                                 your_seat: 0,
                             })),
-                        }];
-                        out.extend(s.pump());
-                        out
+                        });
+                        let mut games = games.lock().await;
+                        games.insert(id.clone(), session);
+                        let session = games.get_mut(&id).expect("just inserted");
+                        out.extend(session.pump());
+                        game_id = Some(id);
                     }
-                    None => vec![error("could not start the game")],
+                    None => out.push(error("could not start the game")),
+                }
+                out
+            }
+            v1::envelope::Msg::Join(join) => {
+                // Re-attach to a live game (v1: re-send the current view +
+                // pending; full resume with seq comes with protocol v2).
+                let mut games = games.lock().await;
+                match games.get_mut(&join.game_id) {
+                    Some(session) => {
+                        game_id = Some(join.game_id.clone());
+                        session.pump()
+                    }
+                    None => vec![error("no such game")],
                 }
             }
             v1::envelope::Msg::PlayerAction(action_msg) => {
-                let Some(s) = session.as_mut() else {
+                let Some(id) = game_id.as_ref() else {
                     continue;
                 };
                 let Ok(action) = serde_json::from_slice::<PlayerAction>(&action_msg.action_json)
                 else {
                     continue;
                 };
-                s.act(action)
+                let mut games = games.lock().await;
+                match games.get_mut(id) {
+                    Some(session) => session.act(action),
+                    None => vec![error("no such game")],
+                }
             }
             v1::envelope::Msg::Heartbeat(_) => {
                 vec![Envelope {

@@ -11,6 +11,7 @@ use futures_util::{SinkExt, StreamExt};
 use prost::Message;
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)] // e2e scenario script
 async fn create_game_and_answer_first_choice() {
     // Bind an ephemeral port first, then release it for the server.
     let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -54,6 +55,7 @@ async fn create_game_and_answer_first_choice() {
     let mut saw_game_created = false;
     let mut saw_view = false;
     let mut first_pending: Option<Pending> = None;
+    let mut game_id = String::new();
     for _ in 0..10 {
         let Some(frame) = ws.next().await else { break };
         let frame = frame.expect("frame");
@@ -62,7 +64,10 @@ async fn create_game_and_answer_first_choice() {
         }
         let env = Envelope::decode(frame.into_data()).expect("decode");
         match env.msg {
-            Some(v1::envelope::Msg::GameCreated(_)) => saw_game_created = true,
+            Some(v1::envelope::Msg::GameCreated(created)) => {
+                saw_game_created = true;
+                game_id = created.game_id;
+            }
             Some(v1::envelope::Msg::StateDelta(delta)) => {
                 // Hidden information: the view exists and carries only
                 // the viewing seat's own hand contents.
@@ -117,6 +122,39 @@ async fn create_game_and_answer_first_choice() {
             break;
         }
     }
-    let _ = server.kill();
     assert!(advanced, "the game advanced after the first answer");
+
+    // A second connection joins the same game by id (multi-game manager).
+    let (mut ws2, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .expect("second client connects");
+    let join = Envelope {
+        msg: Some(v1::envelope::Msg::Join(v1::JoinGame {
+            game_id: game_id.clone(),
+            seat_token: String::new(),
+        })),
+    };
+    ws2.send(tokio_tungstenite::tungstenite::Message::Binary(
+        join.encode_to_vec().into(),
+    ))
+    .await
+    .expect("send join");
+    let mut joined = false;
+    for _ in 0..10 {
+        let Some(frame) = ws2.next().await else { break };
+        let frame = frame.expect("frame");
+        if !frame.is_binary() {
+            continue;
+        }
+        let env = Envelope::decode(frame.into_data()).expect("decode");
+        if matches!(
+            env.msg,
+            Some(v1::envelope::Msg::StateDelta(_) | v1::envelope::Msg::ChoiceRequest(_))
+        ) {
+            joined = true;
+            break;
+        }
+    }
+    let _ = server.kill();
+    assert!(joined, "a second client re-attached to the live game");
 }
