@@ -279,6 +279,36 @@ Open milestones discovered tonight:
 - M4-core game manager shipped alongside: multi-game hosting, real
   client presets via `preset::from_proto`, JoinGame re-attach.
 
+## 2026-08-30 — user card-review batch (20+ fixes, all verified vs Scryfall)
+
+- Data corrections: Aang and Katara {3}{G}{W}{U} (was {1}), Earth King's
+  Lieutenant {1}{G} (was {3}), Elspeth NOT commander-eligible, Ondu
+  Cleric (real text: gain life = number of Allies you control — the stub
+  had "1 life" again, third stub-text catch after Sheoldred + Twining
+  Twins), Jin-Gitaxias triggers are artifact/instant/sorcery (not
+  noncreature), Emeritus of Woe was the worst: I had invented an MDFC
+  back face from the stub comment — the real card is the "prepared"
+  Vampire Warlock with a linked Demonic Tutor.
+- Rules fixes: fetchlands enter UNTAPPED; 21 land color identities
+  corrected (ability mana symbols count: shocklands/triomes/checklands
+  were EMPTY); Bojuka Bog targets ANY player (not opponents);
+  Heliod's Intervention target player (GainLifeFor Chosen + DoubleX);
+  Cyclonic Rift = "you don't control" (not opponents-only); blink family
+  returns under OWNER's control; suspend costs are PAID ({U}/{1}{B} —
+  the action was free before); triomes have mana abilities + cycling as
+  hand-zone DiscardSelf→draw; produced_colors includes restricted mana
+  (Exotic Orchard sees Cavern's full range).
+- New mechanic: **prepared** (Rider::Prepared, enters-prepared modifier,
+  prepared cast of a linked registry card with unprepare,
+  per_turn.creatures_died tracking + IfCreaturesDiedAtLeast re-prepare).
+- Centralization: `baylee_cards::tokens` (stable token ids = art keys;
+  cards reference central TokenDefs), `ALL_MANA_COLORS` +
+  `ANY_COLOR_MANA` in the DSL (used by 5 cards).
+- Test lesson: behavior-correct fixes break tests with hardcoded
+  expectations (cleric +1/+2 life, free suspend) — update tests to the
+  real rules; turn-2 belongs to p1 in heads-up (sorcery windows are
+  every OTHER turn for p0 — guards must span full rounds).
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
