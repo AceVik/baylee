@@ -4,13 +4,12 @@
 //! Oracle: • You gain 3 life.
 //! Oracle: • Exile another target creature you own. Return it to the battlefield under your control at the beginning of the next end step.
 //! Set: TDS #8 — Tarkir: Dragonstorm | Scryfall ID: aa7b47e1-7e32-4f2f-aecf-bac7ca197081 | Oracle ID: c48d844c-3976-4fa5-8e0d-3f0e535e7619
-// PARTIAL — modal ETB implemented (modes 1-2); the blink mode needs
-// end-step delayed return (M2.S7b+).
+// IMPLEMENTED — all three modes (scry, lifegain, end-step blink).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
     AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    PartnerKind, SpellMode, Trigger,
+    PartnerKind, SpellMode, TargetSpec, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
@@ -24,6 +23,12 @@ static SCRY_EFFECTS: &[Effect] = &[Effect::Scry {
 static LIFE_EFFECTS: &[Effect] = &[Effect::GainLife {
     amount: Amount::Fixed(3),
 }];
+static BLINK_EFFECTS: &[Effect] = &[Effect::ExileAndReturnAtEndStep];
+static OTHER_CREATURE_YOU_OWN: Filter = Filter::And(&[
+    Filter::Another,
+    Filter::HasType(TypeSet::CREATURE),
+    Filter::OwnedByYou,
+]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(18),
@@ -47,7 +52,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("blink mode (end-step delayed return, M2.S7b+)"),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::ModalTriggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
         modes: &[
@@ -59,6 +64,11 @@ pub static CARD: CardDef = CardDef {
             SpellMode {
                 effects: LIFE_EFFECTS,
                 target: None,
+                cost_override: None,
+            },
+            SpellMode {
+                effects: BLINK_EFFECTS,
+                target: Some(TargetSpec::Object(&OTHER_CREATURE_YOU_OWN)),
                 cost_override: None,
             },
         ],

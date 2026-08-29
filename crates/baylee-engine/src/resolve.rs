@@ -86,6 +86,9 @@ pub enum AwaitingOp {
     },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
+    /// One mana of a color in your commander's color identity
+    /// (Command Tower).
+    CommanderMana,
     /// A mana color choice (choice-restricted mana abilities).
     ManaChoice {
         /// Allowed colors.
@@ -167,12 +170,27 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     Flow::Complete
 }
 
-/// Resumes a color choice suspended on [`AwaitingOp::ManaChoice`].
+/// Resumes a color choice suspended on [`AwaitingOp::ManaChoice`] or
+/// [`AwaitingOp::CommanderMana`].
 ///
 /// # Panics
 /// When the suspended operation is not a mana choice.
 #[must_use]
 pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: ManaColor) -> Flow {
+    if matches!(res.awaiting, Some(AwaitingOp::CommanderMana)) {
+        res.awaiting = None;
+        state.players[res.controller.get() as usize]
+            .mana_pool
+            .add(color, 1);
+        state.journal.record(GameEvent::ManaProduced {
+            player: res.controller,
+            color,
+            amount: 1,
+            source: Some(res.source),
+        });
+        res.pc += 1;
+        return run(state, res);
+    }
     let AwaitingOp::ManaChoice {
         colors,
         remaining,
@@ -388,7 +406,9 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
-        AwaitingOp::ManaChoice { .. } | AwaitingOp::PayLifeOrTapSelf { .. } => {
+        AwaitingOp::ManaChoice { .. }
+        | AwaitingOp::CommanderMana
+        | AwaitingOp::PayLifeOrTapSelf { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
         AwaitingOp::PlayerMayPay { .. } => {
@@ -596,6 +616,46 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 max: 1,
                 prompt: ChoicePrompt::SearchLibrary,
             })
+        }
+        Effect::AddManaCommanderIdentity => {
+            // Union the color identities of your command-zone cards.
+            let mut colors = ColorSet::EMPTY;
+            for id in state.zones.list(ZoneLocation::Command(you)) {
+                if let Some(obj) = state.object(*id) {
+                    colors = colors.union(obj.characteristics().color_identity);
+                }
+            }
+            let options: Vec<ManaColor> = [
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ]
+            .into_iter()
+            .filter(|c| {
+                colors.contains(match c {
+                    ManaColor::White => baylee_core::color::Color::White,
+                    ManaColor::Blue => baylee_core::color::Color::Blue,
+                    ManaColor::Black => baylee_core::color::Color::Black,
+                    ManaColor::Red => baylee_core::color::Color::Red,
+                    ManaColor::Green => baylee_core::color::Color::Green,
+                    ManaColor::Colorless => return false,
+                })
+            })
+            .collect();
+            if options.is_empty() {
+                // No commander (non-commander game): colorless.
+                state.players[you.get() as usize]
+                    .mana_pool
+                    .add(ManaColor::Colorless, 1);
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::CommanderMana);
+            return Some(Pending::ChooseColor {
+                player: you,
+                options,
+            });
         }
         Effect::AddManaChoice {
             colors,
@@ -959,6 +1019,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     power: Some(0),
                     toughness: Some(0),
                     loyalty: None,
+                    color_identity: ColorSet::EMPTY,
                 };
                 let ts = state.next_timestamp();
                 let id = state.arena.insert_with(|id| {
@@ -1600,6 +1661,33 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::CounterTargetSpellOrAbility => {
+            if let Some(&target_id) = res.targets.first() {
+                let kind = state.object(target_id).map(|o| o.kind);
+                if kind == Some(ObjectKind::AbilityOnStack) {
+                    state
+                        .journal
+                        .record(GameEvent::SpellCountered { object: target_id });
+                    state.zones.remove(target_id, ZoneLocation::Stack);
+                    let _ = state.arena.remove(target_id);
+                } else {
+                    state
+                        .journal
+                        .record(GameEvent::SpellCountered { object: target_id });
+                    let owner = state.object(target_id).map_or(you, |o| o.owner);
+                    if let Some(obj) = state.object_mut(target_id) {
+                        obj.kind = ObjectKind::Card;
+                    }
+                    let _ = state.move_object(
+                        target_id,
+                        ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+            None
+        }
         Effect::CounterTargetSpell => {
             if let Some(&target_id) = res.targets.first() {
                 state
@@ -1685,6 +1773,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::PlayerMayPayOr { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddManaChoice { .. }
+        | Effect::AddManaCommanderIdentity
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
@@ -1708,6 +1797,7 @@ fn create_one_token(
         power: token.power,
         toughness: token.toughness,
         loyalty: None,
+        color_identity: ColorSet::EMPTY,
     };
     let ts = state.next_timestamp();
     let id = state.arena.insert_with(|id| {

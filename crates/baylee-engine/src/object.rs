@@ -75,6 +75,9 @@ pub struct Characteristics {
     pub toughness: Option<i16>,
     /// Loyalty (planeswalkers).
     pub loyalty: Option<u16>,
+    /// Color identity (commander rules: mana symbols in cost + rules text).
+    /// Not a characteristic in the CR sense — never layer-modified.
+    pub color_identity: ColorSet,
 }
 
 impl Characteristics {
@@ -93,6 +96,7 @@ impl Characteristics {
             power: f.power,
             toughness: f.toughness,
             loyalty: f.loyalty,
+            color_identity: def.color_identity,
         }
     }
 }
@@ -340,6 +344,7 @@ impl GameObject {
                 power: None,
                 toughness: None,
                 loyalty: None,
+                color_identity: ColorSet::EMPTY,
             },
         );
         obj.ability = Some(ability);

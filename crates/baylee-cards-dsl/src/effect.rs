@@ -130,6 +130,8 @@ pub enum TargetSpec {
     ThisObject,
     /// An activated/triggered ability on the stack (Tishana's Tidebinder).
     AbilityOnStack(&'static Filter),
+    /// A spell or ability on the stack (Ertai Resurrected's counter mode).
+    SpellOrAbility(&'static Filter),
     /// The object the triggering event was about (Wartime Protestors'
     /// "that creature").
     EventObject,
@@ -292,6 +294,9 @@ pub enum Effect {
     /// Counter an activated or triggered ability on the stack (Tishana's
     /// Tidebinder).
     CounterTargetAbility,
+    /// Counter the first target regardless of whether it is a spell or an
+    /// ability on the stack (Ertai Resurrected).
+    CounterTargetSpellOrAbility,
     /// The source of the first target (an ability) loses all abilities
     /// until end of turn.
     TargetSourceLosesAbilities,
@@ -431,6 +436,9 @@ pub enum Effect {
         /// What (`CardInGraveyard`).
         target: TargetSpec,
     },
+    /// Add one mana of any color in your commander's color identity
+    /// (Command Tower); the choice is made on resolution.
+    AddManaCommanderIdentity,
     /// Add mana of a chosen color (choice per mana when `combination`).
     AddManaChoice {
         /// Allowed colors.

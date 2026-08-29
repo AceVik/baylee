@@ -4,18 +4,47 @@
 //! Oracle: • Counter target spell, activated ability, or triggered ability. Its controller draws a card.
 //! Oracle: • Destroy another target creature or planeswalker. Its controller draws a card.
 //! Set: DMU #199 — Dominaria United | Scryfall ID: 7f7e780e-fbc5-4dc0-b5c7-efcb8645c7c6 | Oracle ID: 3d038f7c-95fa-4b71-8f74-b9b4dd45cde0
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — flash + modal ETB (counter / destroy / decline via the
+// empty third mode for "up to one").
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, PlayerRel, SpellMode, TargetSpec, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
+static ANY: Filter = Filter::Any;
+static OTHER_CREATURE_OR_WALKER: Filter = Filter::And(&[
+    Filter::Another,
+    Filter::Or(&[
+        Filter::HasType(TypeSet::CREATURE),
+        Filter::HasType(TypeSet::PLANESWALKER),
+    ]),
+]);
+static COUNTER_EFFECTS: &[Effect] = &[
+    Effect::CounterTargetSpellOrAbility,
+    Effect::DrawCardsFor {
+        amount: Amount::Fixed(1),
+        who: PlayerRel::ControllerOfTarget,
+    },
+];
+static DESTROY_EFFECTS: &[Effect] = &[
+    Effect::Destroy {
+        target: TargetSpec::Object(&OTHER_CREATURE_OR_WALKER),
+    },
+    Effect::DrawCardsFor {
+        amount: Amount::Fixed(1),
+        who: PlayerRel::ControllerOfTarget,
+    },
+];
+
 pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(45),
+    index: CardIndex::new(46),
     oracle_id: "3d038f7c-95fa-4b71-8f74-b9b4dd45cde0",
     scryfall_id: "7f7e780e-fbc5-4dc0-b5c7-efcb8645c7c6",
     faces: &[FaceDef {
@@ -23,11 +52,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{2}{U}{B}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[
-            subtypes::creature::PHYREXIAN,
-            subtypes::creature::HUMAN,
-            subtypes::creature::WIZARD,
-        ],
+        subtypes: &[creature::PHYREXIAN, creature::HUMAN, creature::WIZARD],
         power: Some(3),
         toughness: Some(2),
         loyalty: None,
@@ -36,15 +61,34 @@ pub static CARD: CardDef = CardDef {
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::Legendary,
+    color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black]),
+    keywords: KeywordSet::FLASH,
+    commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::ModalTriggered {
+        trigger: Trigger::EntersBattlefield(&Filter::This),
+        modes: &[
+            SpellMode {
+                effects: COUNTER_EFFECTS,
+                target: Some(TargetSpec::SpellOrAbility(&ANY)),
+                cost_override: None,
+            },
+            SpellMode {
+                effects: DESTROY_EFFECTS,
+                target: Some(TargetSpec::Object(&OTHER_CREATURE_OR_WALKER)),
+                cost_override: None,
+            },
+            // "Choose up to one" — declining is mode 2 (no effects).
+            SpellMode {
+                effects: &[],
+                target: None,
+                cost_override: None,
+            },
+        ],
+        once_per_turn: false,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

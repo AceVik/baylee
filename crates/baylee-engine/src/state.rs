@@ -399,6 +399,7 @@ impl GameState {
             power: None,
             toughness: None,
             loyalty: None,
+            color_identity: baylee_core::color::ColorSet::EMPTY,
         };
         self.timestamp += 1;
         let ts = self.timestamp;

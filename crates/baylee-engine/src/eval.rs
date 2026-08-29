@@ -210,6 +210,21 @@ pub fn target_options(
             })
             .copied()
             .collect(),
+        TargetSpec::SpellOrAbility(filter) => state
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .filter(|id| {
+                state.object(**id).is_some_and(|o| {
+                    matches!(
+                        o.kind,
+                        crate::object::ObjectKind::Spell
+                            | crate::object::ObjectKind::AbilityOnStack
+                    ) && matches(filter, state, o, you, this)
+                })
+            })
+            .copied()
+            .collect(),
         // EventObject is implicit (no player choice); player targeting
         // resolves via ChoosePlayer in the casting wizard.
         TargetSpec::EventObject | TargetSpec::Player(_) | TargetSpec::AnyPlayer => vec![],
