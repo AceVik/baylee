@@ -122,26 +122,25 @@ fn collect_for_objects(
             .contains(baylee_cards_dsl::KeywordSet::PROWESS)
         {
             for entry in events {
-                if let GameEvent::SpellCast { object, player } = &entry.event {
-                    if *player == obj.controller
-                        && state.object(*object).is_some_and(|spell| {
-                            !spell
-                                .characteristics()
-                                .types
-                                .contains(baylee_core::types::TypeSet::CREATURE)
-                        })
-                    {
-                        triggers.push(PendingTrigger {
-                            source: permanent,
-                            ability_index: u32::MAX,
-                            controller: obj.controller,
-                            timestamp: obj.timestamp,
-                            event_object: Some(permanent),
-                            synthetic_effects: Some(PROWESS_PUMP),
-                            once_per_turn: false,
-                        });
-                        break;
-                    }
+                if let GameEvent::SpellCast { object, player } = &entry.event
+                    && *player == obj.controller
+                    && state.object(*object).is_some_and(|spell| {
+                        !spell
+                            .characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                    })
+                {
+                    triggers.push(PendingTrigger {
+                        source: permanent,
+                        ability_index: u32::MAX,
+                        controller: obj.controller,
+                        timestamp: obj.timestamp,
+                        event_object: Some(permanent),
+                        synthetic_effects: Some(PROWESS_PUMP),
+                        once_per_turn: false,
+                    });
+                    break;
                 }
             }
         }

@@ -89,9 +89,8 @@ pub fn amount(
     x: Option<u32>,
 ) -> u32 {
     match amount {
-        Amount::Fixed(n) => *n,
+        Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
         Amount::X | Amount::NegX => x.unwrap_or(0),
-        Amount::NegXFixed(n) => *n,
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {

@@ -638,6 +638,7 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    #[allow(clippy::too_many_lines)] // resolution dispatch is a flat router; extraction would obscure it
     pub(crate) fn resolve_stack_top(&mut self) {
         let Some(&top) = self.state.zones.list(ZoneLocation::Stack).last() else {
             return;
@@ -1015,10 +1016,10 @@ impl<L: CardLookup> Engine<L> {
             step: next_step,
         });
         // Monarch: at the beginning of the monarch's end step, draw (CR 718.4).
-        if next_step == Step::End {
-            if let Some(monarch) = self.state.monarch {
-                self.state.draw_cards(monarch, 1);
-            }
+        if next_step == Step::End
+            && let Some(monarch) = self.state.monarch
+        {
+            self.state.draw_cards(monarch, 1);
         }
     }
 
