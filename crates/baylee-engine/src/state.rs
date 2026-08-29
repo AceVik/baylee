@@ -400,6 +400,8 @@ impl GameState {
             toughness: None,
             loyalty: None,
             color_identity: baylee_core::color::ColorSet::EMPTY,
+            produced_colors: baylee_core::color::ColorSet::EMPTY,
+            produced_colorless: false,
         };
         self.timestamp += 1;
         let ts = self.timestamp;
@@ -890,6 +892,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::PreventDamageToIt => h.u8(19),
         M::PreventDamageFromIt => h.u8(20),
         M::OpponentsCantSearch => h.u8(21),
+        M::NoMaxHandSize => h.u8(22),
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

@@ -168,7 +168,8 @@ fn apply(
         | Modifier::CantLoseLife
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
-        | Modifier::OpponentsCantSearch => {}
+        | Modifier::OpponentsCantSearch
+        | Modifier::NoMaxHandSize => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

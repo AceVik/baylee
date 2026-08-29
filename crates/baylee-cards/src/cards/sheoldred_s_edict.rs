@@ -4,15 +4,24 @@
 //! Oracle: • Each opponent sacrifices a creature token of their choice.
 //! Oracle: • Each opponent sacrifices a planeswalker of their choice.
 //! Set: ONE #108 — Phyrexia: All Will Be One | Scryfall ID: a9225cc3-90f0-448f-a8d9-7c6c2796d077 | Oracle ID: 217062f5-96f1-454c-9507-17f34ef37070
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — all three edict modes (per-opponent sacrifice choice).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    PlayerRel, SpellMode,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static NONTOKEN_CREATURE: Filter = Filter::And(&[
+    Filter::HasType(TypeSet::CREATURE),
+    Filter::Not(&Filter::IsToken),
+]);
+static CREATURE_TOKEN: Filter = Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::IsToken]);
+static WALKER: Filter = Filter::HasType(TypeSet::PLANESWALKER);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(144),
@@ -36,11 +45,36 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::ModalSpell {
+        modes: &[
+            SpellMode {
+                effects: &[Effect::SacrificeFilter {
+                    who: PlayerRel::EachOpponent,
+                    filter: &NONTOKEN_CREATURE,
+                }],
+                target: None,
+                cost_override: None,
+            },
+            SpellMode {
+                effects: &[Effect::SacrificeFilter {
+                    who: PlayerRel::EachOpponent,
+                    filter: &CREATURE_TOKEN,
+                }],
+                target: None,
+                cost_override: None,
+            },
+            SpellMode {
+                effects: &[Effect::SacrificeFilter {
+                    who: PlayerRel::EachOpponent,
+                    filter: &WALKER,
+                }],
+                target: None,
+                cost_override: None,
+            },
+        ],
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

@@ -1177,7 +1177,16 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state.characteristics_generation = u64::MAX;
         let active = self.state.turn.active;
-        let max_hand = 7i32 + i32::from(self.state.players[active.get() as usize].hand_modifier);
+        // Reliquary Tower & co.: no maximum hand size for this player.
+        let no_max = self.state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::NoMaxHandSize)
+                && fx.controller == active
+        });
+        let max_hand = if no_max {
+            i32::MAX
+        } else {
+            7i32 + i32::from(self.state.players[active.get() as usize].hand_modifier)
+        };
         let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len() as i32;
         if hand_size > max_hand {
             self.pending = Pending::DiscardChoice {

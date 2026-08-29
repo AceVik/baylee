@@ -47,7 +47,7 @@ pub struct Resolution {
 }
 
 /// An operation suspended on a player choice.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum AwaitingOp {
     /// A library search: chosen card goes to `dest`.
     SearchLibrary {
@@ -83,6 +83,14 @@ pub enum AwaitingOp {
     RedirectNewTarget {
         /// The spell on the stack whose target changes.
         spell: ObjectId,
+    },
+    /// After `SacrificeFilter`: sacrifice the chosen permanent, then ask
+    /// the next remaining player.
+    SacrificeFilter {
+        /// What may be sacrificed.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Players still to choose.
+        remaining: Vec<PlayerId>,
     },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
@@ -393,6 +401,47 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             {
                 obj.targets.clear();
                 obj.targets.push(new_target);
+            }
+        }
+        AwaitingOp::SacrificeFilter { filter, remaining } => {
+            if let Some(&victim) = chosen.first() {
+                let owner = state.object(victim).map_or(res.controller, |o| o.owner);
+                if let Some(obj) = state.object_mut(victim) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    victim,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            // Ask the next player who still has a legal sacrifice.
+            let mut remaining = remaining;
+            while let Some(player) = remaining.first().copied() {
+                remaining.remove(0);
+                let options: Vec<ObjectId> = state
+                    .zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .filter(|id| {
+                        state.object(**id).is_some_and(|o| {
+                            o.controller == player
+                                && eval::matches(filter, state, o, res.controller, res.source)
+                        })
+                    })
+                    .copied()
+                    .collect();
+                if !options.is_empty() {
+                    res.awaiting = Some(AwaitingOp::SacrificeFilter { filter, remaining });
+                    return Flow::Wait(Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::Generic,
+                    });
+                }
             }
         }
         AwaitingOp::ReorderTopLibrary => {
@@ -1034,6 +1083,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     toughness: Some(0),
                     loyalty: None,
                     color_identity: ColorSet::EMPTY,
+                    produced_colors: ColorSet::EMPTY,
+                    produced_colorless: false,
                 };
                 let ts = state.next_timestamp();
                 let id = state.arena.insert_with(|id| {
@@ -1277,6 +1328,62 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             for _ in 0..count {
                 create_one_token(state, res.controller, token);
+            }
+            None
+        }
+        Effect::GainLifeDoubleX => {
+            let n = res.x.unwrap_or(0).saturating_mul(2) as i32;
+            gain_life(state, you, n);
+            None
+        }
+        Effect::DrainAllCountersIntoSelf => {
+            let mut drained: u16 = 0;
+            for id in state.zones.list(ZoneLocation::Battlefield).clone() {
+                if let Some(obj) = state.object_mut(id) {
+                    let held: Vec<_> = obj.counters.iter().collect();
+                    for (kind, n) in held {
+                        if n > 0 {
+                            obj.counters.set(kind, 0);
+                            drained = drained.saturating_add(n);
+                        }
+                    }
+                }
+            }
+            if drained > 0
+                && let Some(src) = state.object_mut(res.source)
+            {
+                src.counters
+                    .add(baylee_cards_dsl::CounterKind::P1P1, drained);
+            }
+            None
+        }
+        Effect::IfEventPowerAtLeast { n, then, otherwise } => {
+            let power = res
+                .event_object
+                .and_then(|id| state.object(id))
+                .and_then(|o| o.characteristics().power)
+                .unwrap_or(0);
+            let branch = if power >= n { then } else { otherwise };
+            let targets: SmallVec<[ObjectId; 2]> = res.event_object.into_iter().collect();
+            let mut nested = Resolution {
+                source: res.source,
+                on_stack: res.on_stack,
+                controller: res.controller,
+                effects: flatten(branch),
+                pc: 0,
+                targets,
+                event_object: res.event_object,
+                x: res.x,
+                chosen_player: res.chosen_player,
+                awaiting: None,
+            };
+            match run(state, &mut nested) {
+                Flow::Complete => {}
+                Flow::Wait(pending) => {
+                    res.awaiting = nested.awaiting;
+                    res.effects.splice(res.pc..res.pc, nested.effects);
+                    return Some(pending);
+                }
             }
             None
         }
@@ -1647,6 +1754,103 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             });
             None
         }
+        Effect::SacrificeFilter { who, filter } => {
+            let mut players = eval::players(who, state, you);
+            players.retain(|p| {
+                state
+                    .zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .any(|id| {
+                        state.object(*id).is_some_and(|o| {
+                            o.controller == *p && eval::matches(filter, state, o, you, res.source)
+                        })
+                    })
+            });
+            let Some(player) = players.first().copied() else {
+                return None;
+            };
+            players.remove(0);
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state.object(**id).is_some_and(|o| {
+                        o.controller == player && eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .copied()
+                .collect();
+            res.awaiting = Some(AwaitingOp::SacrificeFilter {
+                filter,
+                remaining: players,
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
+        Effect::AddManaLandColor { mine } => {
+            // Union the producible mana of all lands of the chosen side.
+            let mut colors = ColorSet::EMPTY;
+            let mut colorless = false;
+            for id in state.zones.list(ZoneLocation::Battlefield) {
+                let Some(obj) = state.object(*id) else {
+                    continue;
+                };
+                if !obj
+                    .characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::LAND)
+                {
+                    continue;
+                }
+                let side_matches = if mine {
+                    obj.controller == you
+                } else {
+                    obj.controller != you
+                };
+                if side_matches {
+                    let c = obj.characteristics();
+                    colors = colors.union(c.produced_colors);
+                    colorless |= c.produced_colorless;
+                }
+            }
+            let mut options: Vec<ManaColor> = [
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ]
+            .into_iter()
+            .filter(|c| {
+                colors.contains(match c {
+                    ManaColor::White => baylee_core::color::Color::White,
+                    ManaColor::Blue => baylee_core::color::Color::Blue,
+                    ManaColor::Black => baylee_core::color::Color::Black,
+                    ManaColor::Red => baylee_core::color::Color::Red,
+                    ManaColor::Green => baylee_core::color::Color::Green,
+                    ManaColor::Colorless => return false,
+                })
+            })
+            .collect();
+            if colorless {
+                options.push(ManaColor::Colorless);
+            }
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::CommanderMana);
+            Some(Pending::ChooseColor {
+                player: you,
+                options,
+            })
+        }
         Effect::RedirectTarget { new_filter } => {
             // The new target is chosen at resolution (CR 115.7): ask the
             // controller for any object matching the filter.
@@ -1837,6 +2041,8 @@ fn create_one_token(
         toughness: token.toughness,
         loyalty: None,
         color_identity: ColorSet::EMPTY,
+        produced_colors: ColorSet::EMPTY,
+        produced_colorless: false,
     };
     let ts = state.next_timestamp();
     let id = state.arena.insert_with(|id| {

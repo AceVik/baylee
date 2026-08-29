@@ -8,7 +8,7 @@
 
 use crate::zone::Zone;
 use baylee_cards_dsl::{CardDef, KeywordSet};
-use baylee_core::color::ColorSet;
+use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::{CardIndex, NameRef, ObjectId, PlayerId, PrintRef};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
@@ -78,6 +78,11 @@ pub struct Characteristics {
     /// Color identity (commander rules: mana symbols in cost + rules text).
     /// Not a characteristic in the CR sense — never layer-modified.
     pub color_identity: ColorSet,
+    /// Mana colors this object's abilities could produce (Exotic Orchard,
+    /// Reflecting Pool). Includes basic-land-type derivation.
+    pub produced_colors: ColorSet,
+    /// Whether any ability could produce colorless mana.
+    pub produced_colorless: bool,
 }
 
 impl Characteristics {
@@ -85,18 +90,101 @@ impl Characteristics {
     #[must_use]
     pub fn from_face(def: &CardDef, face: usize, name: NameRef) -> Self {
         let f = &def.faces[face.min(def.faces.len() - 1)];
+        let subtypes = SubtypeSet::from_slice(f.subtypes);
+        let mut produced = ColorSet::EMPTY;
+        let mut produced_colorless = false;
+        // Basic-land-type derivation (CR 305.6).
+        let land_types = [
+            (baylee_core::generated::subtypes::land::PLAINS, Color::White),
+            (baylee_core::generated::subtypes::land::ISLAND, Color::Blue),
+            (baylee_core::generated::subtypes::land::SWAMP, Color::Black),
+            (baylee_core::generated::subtypes::land::MOUNTAIN, Color::Red),
+            (baylee_core::generated::subtypes::land::FOREST, Color::Green),
+        ];
+        for (subtype, color) in land_types {
+            if subtypes.contains(subtype) {
+                produced = produced.union(ColorSet::of(color));
+            }
+        }
+        // Mana abilities on the card.
+        for ability in def.abilities {
+            let baylee_cards_dsl::AbilityDef::Activated {
+                mana_ability: true,
+                effects,
+                ..
+            } = ability
+            else {
+                continue;
+            };
+            for effect in *effects {
+                match effect {
+                    baylee_cards_dsl::Effect::AddMana { color, .. } => match color {
+                        baylee_core::mana::ManaColor::Colorless => produced_colorless = true,
+                        c => {
+                            let col = match c {
+                                baylee_core::mana::ManaColor::White => Color::White,
+                                baylee_core::mana::ManaColor::Blue => Color::Blue,
+                                baylee_core::mana::ManaColor::Black => Color::Black,
+                                baylee_core::mana::ManaColor::Red => Color::Red,
+                                baylee_core::mana::ManaColor::Green => Color::Green,
+                                baylee_core::mana::ManaColor::Colorless => unreachable!(),
+                            };
+                            produced = produced.union(ColorSet::of(col));
+                        }
+                    },
+                    baylee_cards_dsl::Effect::AddManaChoice { colors, .. } => {
+                        for c in *colors {
+                            match c {
+                                baylee_core::mana::ManaColor::Colorless => {
+                                    produced_colorless = true;
+                                }
+                                baylee_core::mana::ManaColor::White => {
+                                    produced = produced.union(ColorSet::of(Color::White));
+                                }
+                                baylee_core::mana::ManaColor::Blue => {
+                                    produced = produced.union(ColorSet::of(Color::Blue));
+                                }
+                                baylee_core::mana::ManaColor::Black => {
+                                    produced = produced.union(ColorSet::of(Color::Black));
+                                }
+                                baylee_core::mana::ManaColor::Red => {
+                                    produced = produced.union(ColorSet::of(Color::Red));
+                                }
+                                baylee_core::mana::ManaColor::Green => {
+                                    produced = produced.union(ColorSet::of(Color::Green));
+                                }
+                            }
+                        }
+                    }
+                    // "Any color" families (Command Tower, orchard/pool).
+                    baylee_cards_dsl::Effect::AddManaCommanderIdentity
+                    | baylee_cards_dsl::Effect::AddManaLandColor { .. } => {
+                        produced = produced.union(ColorSet::from_slice(&[
+                            Color::White,
+                            Color::Blue,
+                            Color::Black,
+                            Color::Red,
+                            Color::Green,
+                        ]));
+                    }
+                    _ => {}
+                }
+            }
+        }
         Self {
             name,
             mana_cost: f.mana_cost,
             colors: f.mana_cost.colors(),
             types: f.types,
             supertypes: f.supertypes,
-            subtypes: SubtypeSet::from_slice(f.subtypes),
+            subtypes,
             keywords: def.keywords,
             power: f.power,
             toughness: f.toughness,
             loyalty: f.loyalty,
             color_identity: def.color_identity,
+            produced_colors: produced,
+            produced_colorless,
         }
     }
 }
@@ -349,6 +437,8 @@ impl GameObject {
                 toughness: None,
                 loyalty: None,
                 color_identity: ColorSet::EMPTY,
+                produced_colors: ColorSet::EMPTY,
+                produced_colorless: false,
             },
         );
         obj.ability = Some(ability);

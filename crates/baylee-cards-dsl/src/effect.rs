@@ -316,6 +316,35 @@ pub enum Effect {
     /// Drake); if no exchange happens (no/illegal target), sacrifice the
     /// source.
     ExchangeControlOrSacrifice,
+    /// Each player in `who` sacrifices a permanent they control matching
+    /// the filter (their choice; Sheoldred's Edict).
+    SacrificeFilter {
+        /// Who sacrifices.
+        who: PlayerRel,
+        /// What may be sacrificed.
+        filter: &'static Filter,
+    },
+    /// Remove all counters from all permanents; the source enters with
+    /// that many +1/+1 counters (Thief of Blood).
+    DrainAllCountersIntoSelf,
+    /// Branch on the event object's power (Tribute to the World Tree):
+    /// `then` when power >= `n`, else `otherwise`.
+    IfEventPowerAtLeast {
+        /// Threshold.
+        n: i16,
+        /// Effects when power >= n.
+        then: &'static [Effect],
+        /// Effects otherwise.
+        otherwise: &'static [Effect],
+    },
+    /// Add one mana of any color that a land (yours or an opponent's)
+    /// could produce (Exotic Orchard / Reflecting Pool).
+    AddManaLandColor {
+        /// `true` = your lands, `false` = opponents' lands.
+        mine: bool,
+    },
+    /// Twice X (Heliod's Intervention lifegain mode) — helper amount.
+    GainLifeDoubleX,
     /// Search your library for a matching card (server-side filtered).
     SearchLibrary {
         /// What to find.

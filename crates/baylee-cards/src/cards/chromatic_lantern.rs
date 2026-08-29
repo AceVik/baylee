@@ -2,15 +2,27 @@
 //! Oracle: Lands you control have "{T}: Add one mana of any color."
 //! Oracle: {T}: Add one mana of any color.
 //! Set: MBC #73 — Mystery Booster Commander Edition | Scryfall ID: 9b29492a-8bdd-4806-8d1b-3058ed277cc1 | Oracle ID: 539f5396-d99a-417d-a84c-dff7930b5900
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — its own any-color mana ability works; the "lands you
+// control have ..." grant needs ability-granting statics (own
+// milestone).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_COLOR: &[ManaColor] = &[
+    ManaColor::White,
+    ManaColor::Blue,
+    ManaColor::Black,
+    ManaColor::Red,
+    ManaColor::Green,
+];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(19),
@@ -34,11 +46,22 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial(
+        "lands-you-control mana grant (ability-granting statics, own milestone)",
+    ),
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddManaChoice {
+            colors: ANY_COLOR,
+            amount: Amount::Fixed(1),
+            combination: false,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

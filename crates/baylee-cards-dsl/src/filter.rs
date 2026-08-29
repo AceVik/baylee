@@ -39,6 +39,8 @@ pub enum Filter {
     IsColorless,
     /// Exactly one color (Vanishing Verse).
     Monocolored,
+    /// Is a token (Sheoldred's Edict: "creature token").
+    IsToken,
     /// Controlled by `you`.
     ControlledByYou,
     /// Controlled by an opponent of `you`.

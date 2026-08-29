@@ -98,6 +98,8 @@ pub enum Modifier {
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
+    /// The controller has no maximum hand size (Reliquary Tower).
+    NoMaxHandSize,
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

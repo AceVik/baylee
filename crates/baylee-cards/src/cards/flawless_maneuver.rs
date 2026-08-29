@@ -2,15 +2,20 @@
 //! Oracle: If you control a commander, you may cast this spell without paying its mana cost.
 //! Oracle: Creatures you control gain indestructible until end of turn.
 //! Set: CMM #24 — Commander Masters | Scryfall ID: ab12f69e-1491-47a8-8c46-d85bbf637ff6 | Oracle ID: 4e183439-17d2-47ff-9d99-5e22821d91e3
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — commander-conditional free cast + team indestructible.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, AltCondition, AlternativeCost, CardDef, CommanderRule, Cost, Coverage, Duration,
+    Effect, FaceDef, Filter, KeywordSet, Layer, Modifier, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOUR_CREATURES: Filter =
+    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(51),
@@ -25,7 +30,10 @@ pub static CARD: CardDef = CardDef {
         power: None,
         toughness: None,
         loyalty: None,
-        alternative_costs: &[],
+        alternative_costs: &[AlternativeCost {
+            cost: Cost::FREE,
+            condition: AltCondition::CommanderControlled,
+        }],
         additional_costs: &[],
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
@@ -34,11 +42,17 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[Effect::CreateContinuousEffect {
+            layer: Layer::Ability,
+            filter: &YOUR_CREATURES,
+            modifier: Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
+            duration: Duration::UntilEndOfTurn,
+        }],
+        targets: None,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}
