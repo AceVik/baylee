@@ -1049,6 +1049,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::PlayerHexproof => h.u8(26),
         M::SorceriesHaveFlash => h.u8(29),
         M::GrantTriggered { .. } => h.u8(30),
+        M::ManaIsAnyColor => h.u8(31),
         M::GrantActivated { mana_ability, .. } => {
             h.u8(27);
             h.u8(u8::from(*mana_ability));

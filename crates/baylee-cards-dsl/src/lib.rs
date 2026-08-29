@@ -135,6 +135,10 @@ pub struct FaceDef {
     /// Disturb (CR 702.112): this face may be cast from the graveyard
     /// for its mana cost; exile it after.
     pub disturb: bool,
+    /// Adventure (CR 715): this face is an Adventure spell — when it
+    /// resolves, exile the card; the front face may then be cast from
+    /// exile.
+    pub adventure: bool,
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).

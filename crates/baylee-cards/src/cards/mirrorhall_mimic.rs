@@ -44,6 +44,7 @@ pub static CARD: CardDef = CardDef {
             convoke: false,
             cost_reduction: None,
             disturb: false,
+            adventure: false,
         },
         FaceDef {
             name: "Ghastly Mimicry",
@@ -65,6 +66,7 @@ pub static CARD: CardDef = CardDef {
             convoke: false,
             cost_reduction: None,
             disturb: true,
+            adventure: false,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

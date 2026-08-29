@@ -3,18 +3,35 @@
 //! Oracle: Draw two cards. If this spell's additional cost was paid, instead shuffle your graveyard into your library, draw seven cards, and you have no maximum hand size for the rest of the game.
 //! Oracle: Exile Spirit Water Revival.
 //! Set: TLA #74 — Avatar: The Last Airbender | Scryfall ID: 0c019e76-c88e-4d1b-a546-0f4e462ef44a | Oracle ID: 68979160-b5ce-4787-8a1e-1f40e614c3b0
-// PARTIAL — waterbend (convoke-style payment assists) and the kicked
-// outcome need payment assists (M2.S7+). Base draw-2 + exile implemented.
+// IMPLEMENTED — waterbend (kicker-style additional cost paid via
+// convoke taps on artifacts AND creatures), kick-branched outcome,
+// self-exile always.
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, KeywordSet, PartnerKind,
-    TargetSpec,
+    AbilityDef, Amount, CardDef, CommanderRule, Cost, Coverage, Duration, Effect, FaceDef, Filter,
+    KeywordSet, Layer, Modifier, PartnerKind,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static KICKED_OUTCOME: &[Effect] = &[
+    Effect::ShuffleGraveyardIntoLibrary,
+    Effect::DrawCards {
+        amount: Amount::Fixed(7),
+    },
+    Effect::CreateContinuousEffect {
+        layer: Layer::Text,
+        filter: &Filter::Any,
+        modifier: Modifier::NoMaxHandSize,
+        duration: Duration::Indefinitely,
+    },
+];
+static NORMAL_OUTCOME: &[Effect] = &[Effect::DrawCards {
+    amount: Amount::Fixed(2),
+}];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(156),
@@ -30,30 +47,33 @@ pub static CARD: CardDef = CardDef {
         toughness: None,
         loyalty: None,
         alternative_costs: &[],
-        additional_costs: &[],
+        additional_costs: &[Cost {
+            mana: baylee_core::mana!("{6}"),
+            parts: &[],
+        }],
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
         abilities: &[],
         castable_from_hand: true,
         miracle: None,
         delve: false,
-        convoke: false,
+        convoke: true,
         cost_reduction: None,
         disturb: false,
+        adventure: false,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("waterbend assist + kicked outcome (M2.S7+)"),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
         effects: &[
-            Effect::DrawCards {
-                amount: Amount::Fixed(2),
+            Effect::IfKicked {
+                then: KICKED_OUTCOME,
+                otherwise: NORMAL_OUTCOME,
             },
-            Effect::Exile {
-                target: TargetSpec::ThisObject,
-            },
+            Effect::ExileSource,
         ],
         targets: None,
     }],

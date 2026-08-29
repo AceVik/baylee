@@ -115,6 +115,9 @@ pub enum Modifier {
     /// The controller may cast sorcery spells as though they had flash
     /// (Teferi, Time Raveler +1).
     SorceriesHaveFlash,
+    /// Players may spend mana as though it were mana of any color
+    /// (Mycosynth Lattice).
+    ManaIsAnyColor,
     /// The affected object gains an activated ability (Urza's Saga
     /// chapters, Chromatic Lantern-style grants).
     GrantActivated {

@@ -46,6 +46,7 @@ pub static CARD: CardDef = CardDef {
         convoke: false,
         cost_reduction: None,
         disturb: false,
+        adventure: false,
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,

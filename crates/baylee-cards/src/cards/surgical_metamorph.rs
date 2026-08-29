@@ -42,6 +42,7 @@ pub static CARD: CardDef = CardDef {
         convoke: false,
         cost_reduction: Some(baylee_cards_dsl::CostReduction::NotStartingPlayer(1)),
         disturb: false,
+        adventure: false,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,

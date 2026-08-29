@@ -62,7 +62,11 @@ pub fn can_cast(
             .card
             .and_then(|c| lookup.card(c.index))
             .is_some_and(|def| def.faces.iter().any(|f| f.disturb));
-    if !in_hand && !flashback_ok && !disturb_ok {
+    // Adventure (CR 715): a card on an adventure may be cast from exile.
+    let adventure_ok = !in_hand
+        && obj.zone == Zone::Exile
+        && obj.riders.contains(&crate::object::Rider::Adventure);
+    if !in_hand && !flashback_ok && !disturb_ok && !adventure_ok {
         return Err(CastError::NotInHand);
     }
     let c = obj.characteristics();

@@ -42,12 +42,13 @@ pub static CARD: CardDef = CardDef {
         convoke: false,
         cost_reduction: None,
         disturb: false,
+        adventure: false,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("copy isn't legendary + copy target re-choice (protocol M3)"),
+    coverage: Coverage::Partial("copy target re-choice (protocol M3)"),
     abilities: &[
         AbilityDef::Ward { mana: 3 },
         AbilityDef::Triggered {
@@ -56,7 +57,11 @@ pub static CARD: CardDef = CardDef {
                 filter: &YOUR_SPELL,
             },
             once_per_turn: false,
-            effects: &[Effect::CopyTargetSpell],
+            effects: &[Effect::CopyTargetSpell {
+                mods: &[baylee_cards_dsl::CopyMod::RemoveSupertype(
+                    SupertypeSet::LEGENDARY,
+                )],
+            }],
             targets: Some(TargetReq::one(TargetSpec::EventObject)),
         },
     ],

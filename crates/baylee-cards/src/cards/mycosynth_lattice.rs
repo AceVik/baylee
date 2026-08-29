@@ -41,12 +41,13 @@ pub static CARD: CardDef = CardDef {
         convoke: false,
         cost_reduction: None,
         disturb: false,
+        adventure: false,
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("mana-as-any-color conversion (player rule, M2.S7+)"),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Type,
@@ -59,6 +60,12 @@ pub static CARD: CardDef = CardDef {
             filter: Filter::Any,
             modifier: Modifier::SetColor(ColorSet::EMPTY),
             cross_zone: true,
+        }),
+        AbilityDef::Static(StaticAbility {
+            layer: Layer::Text,
+            filter: Filter::Any,
+            modifier: Modifier::ManaIsAnyColor,
+            cross_zone: false,
         }),
     ],
 };

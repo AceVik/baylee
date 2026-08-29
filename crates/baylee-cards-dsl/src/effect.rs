@@ -392,6 +392,16 @@ pub enum Effect {
     /// Remove all counters from all permanents; the source enters with
     /// that many +1/+1 counters (Thief of Blood).
     DrainAllCountersIntoSelf,
+    /// Shuffle your graveyard into your library (Spirit Water Revival's
+    /// waterbend outcome).
+    ShuffleGraveyardIntoLibrary,
+    /// Branch on whether the spell was kicked (paid its additional cost).
+    IfKicked {
+        /// Effects when kicked.
+        then: &'static [Effect],
+        /// Effects otherwise.
+        otherwise: &'static [Effect],
+    },
     /// Branch: you didn't lose life this turn (Luminarch Ascension).
     IfNotLostLifeThisTurn {
         /// Effects when the condition holds.
@@ -652,7 +662,12 @@ pub enum Effect {
     /// Copy a spell on the stack (Double Major, Jin-Gitaxias). The copy
     /// goes on the stack under your control; you may choose new targets
     /// (M3 protocol choice; currently same targets).
-    CopyTargetSpell,
+    /// Copy the first target (a spell on the stack) with modifications
+    /// ("except it isn't legendary").
+    CopyTargetSpell {
+        /// Copy modifications.
+        mods: &'static [crate::ability::CopyMod],
+    },
     /// Attach the source (equipment/aura) to a target permanent.
     AttachSelf {
         /// To what.

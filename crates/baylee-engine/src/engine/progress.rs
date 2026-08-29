@@ -1147,6 +1147,33 @@ impl<L: CardLookup> Engine<L> {
             };
             (obj.characteristics().types.is_permanent(), obj.owner)
         };
+        // Adventure (CR 715): an Adventure spell resolves to exile; the
+        // front face may then be cast from exile.
+        let is_adventure = self
+            .state
+            .object(spell)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .is_some_and(|def| {
+                let face = self
+                    .state
+                    .object(spell)
+                    .map_or(0, |o| o.face_index as usize);
+                def.faces.get(face).is_some_and(|f| f.adventure)
+            });
+        if is_adventure {
+            if let Some(obj) = self.state.object_mut(spell) {
+                obj.kind = ObjectKind::Card;
+                obj.riders.push(crate::object::Rider::Adventure);
+            }
+            let _ = self.state.move_object(
+                spell,
+                ZoneLocation::Exile(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            return;
+        }
         if is_permanent {
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;

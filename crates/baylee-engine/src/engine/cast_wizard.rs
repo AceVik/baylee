@@ -494,9 +494,13 @@ impl<L: CardLookup> Engine<L> {
                     .filter(|id| {
                         self.state.object(*id).is_some_and(|o| {
                             o.controller == wizard.player
-                                && o.characteristics()
+                                && (o
+                                    .characteristics()
                                     .types
                                     .contains(baylee_core::types::TypeSet::CREATURE)
+                                    || o.characteristics()
+                                        .types
+                                        .contains(baylee_core::types::TypeSet::ARTIFACT))
                                 && !o.status.contains(crate::object::Status::TAPPED)
                         })
                     })
@@ -613,10 +617,23 @@ impl<L: CardLookup> Engine<L> {
             // Restricted mana (Cavern of Souls & co.): matching entries
             // pay first, their riders apply; the rest comes from the pool.
             let (remaining, riders) = self.spend_restricted(player, wizard.card, total);
-            let paid = mana_pay::pay(
-                &mut self.state.players[player.get() as usize].mana_pool,
-                &remaining,
-            );
+            // Mycosynth Lattice: spend mana as though it were any color.
+            let wild = self
+                .state
+                .effects
+                .iter()
+                .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::ManaIsAnyColor));
+            let paid = if wild {
+                mana_pay::pay_wild(
+                    &mut self.state.players[player.get() as usize].mana_pool,
+                    &remaining,
+                )
+            } else {
+                mana_pay::pay(
+                    &mut self.state.players[player.get() as usize].mana_pool,
+                    &remaining,
+                )
+            };
             if !paid {
                 // Refund restricted entries (cast cancelled).
                 for (mana, _, _) in &riders {

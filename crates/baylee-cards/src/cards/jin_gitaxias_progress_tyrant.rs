@@ -48,6 +48,7 @@ pub static CARD: CardDef = CardDef {
         convoke: false,
         cost_reduction: None,
         disturb: false,
+        adventure: false,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,
@@ -58,7 +59,7 @@ pub static CARD: CardDef = CardDef {
         AbilityDef::Triggered {
             trigger: Trigger::SpellCast(&YOUR_NONCREATURE_SPELL),
             once_per_turn: true,
-            effects: &[Effect::CopyTargetSpell],
+            effects: &[Effect::CopyTargetSpell { mods: &[] }],
             targets: None,
         },
         AbilityDef::Triggered {

@@ -1514,14 +1514,34 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
-        Effect::CopyTargetSpell => {
+        Effect::CopyTargetSpell { mods } => {
             // Copy the spell on the stack under your control (same targets;
             // target re-choice is a protocol M3 item).
             if let Some(&target_id) = res.targets.first() {
-                let (card, base, targets) = {
+                let (card, mut base, targets) = {
                     let obj = state.object(target_id)?;
                     (obj.card, obj.base.clone(), obj.targets.clone())
                 };
+                for m in mods {
+                    match m {
+                        baylee_cards_dsl::CopyMod::AddType(t) => {
+                            base.types = base.types.union(*t);
+                        }
+                        baylee_cards_dsl::CopyMod::RemoveType(t) => {
+                            base.types = base.types.difference(*t);
+                        }
+                        baylee_cards_dsl::CopyMod::RemoveSupertype(s) => {
+                            base.supertypes = base.supertypes.difference(*s);
+                        }
+                        baylee_cards_dsl::CopyMod::AddSubtype(s) => {
+                            base.subtypes.insert(*s);
+                        }
+                        baylee_cards_dsl::CopyMod::AddKeyword(k) => {
+                            base.keywords = base.keywords.union(*k);
+                        }
+                        baylee_cards_dsl::CopyMod::AddCounter(_, _) => {}
+                    }
+                }
                 let name = base.name;
                 let ts = state.next_timestamp();
                 let id = state.arena.insert_with(|oid| {
@@ -1651,6 +1671,44 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             {
                 src.counters
                     .add(baylee_cards_dsl::CounterKind::P1P1, drained);
+            }
+            None
+        }
+        Effect::ShuffleGraveyardIntoLibrary => {
+            let graveyard: Vec<ObjectId> = state.zones.list(ZoneLocation::Graveyard(you)).clone();
+            for card in graveyard {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(you),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            state.shuffle_library(you);
+            None
+        }
+        Effect::IfKicked { then, otherwise } => {
+            let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
+            let branch = if kicked { then } else { otherwise };
+            let mut nested = Resolution {
+                source: res.source,
+                on_stack: res.on_stack,
+                controller: res.controller,
+                effects: flatten(branch),
+                pc: 0,
+                targets: res.targets.clone(),
+                event_object: res.event_object,
+                x: res.x,
+                chosen_player: res.chosen_player,
+                awaiting: None,
+            };
+            match run(state, &mut nested) {
+                Flow::Complete => {}
+                Flow::Wait(pending) => {
+                    res.awaiting = nested.awaiting;
+                    res.effects.splice(res.pc..res.pc, nested.effects);
+                    return Some(pending);
+                }
             }
             None
         }

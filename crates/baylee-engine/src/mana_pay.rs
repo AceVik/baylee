@@ -75,6 +75,33 @@ pub fn can_pay(pool: &ManaPool, cost: &ManaCost) -> bool {
 /// Returns `true` and mutates the pool on success; leaves the pool
 /// untouched and returns `false` on failure.
 #[must_use]
+/// Mycosynth Lattice: every mana spends as any color — the whole cost
+/// reduces to its cmc against the pool total.
+pub fn can_pay_wild(pool: &ManaPool, cost: &ManaCost) -> bool {
+    pool.total() >= cost.cmc()
+}
+
+/// Pays a cost in wild mode (any mana for any symbol).
+pub fn pay_wild(pool: &mut ManaPool, cost: &ManaCost) -> bool {
+    if !can_pay_wild(pool, cost) {
+        return false;
+    }
+    let mut remaining = cost.cmc();
+    for color in baylee_core::mana::ManaColor::ALL {
+        if remaining == 0 {
+            break;
+        }
+        let have = pool.available(color);
+        let take = have.min(remaining as u16);
+        if take > 0 {
+            pool.spend(color, take);
+            remaining -= u32::from(take);
+        }
+    }
+    remaining == 0
+}
+
+/// Pays a cost from the pool (exact colors first, flexible last).
 pub fn pay(pool: &mut ManaPool, cost: &ManaCost) -> bool {
     if !can_pay(pool, cost) {
         return false;

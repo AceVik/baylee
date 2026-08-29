@@ -204,7 +204,8 @@ fn apply(
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }
         | Modifier::SorceriesHaveFlash
-        | Modifier::GrantTriggered { .. } => {}
+        | Modifier::GrantTriggered { .. }
+        | Modifier::ManaIsAnyColor => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

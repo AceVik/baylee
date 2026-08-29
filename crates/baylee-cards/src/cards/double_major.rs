@@ -41,14 +41,19 @@ pub static CARD: CardDef = CardDef {
         convoke: false,
         cost_reduction: None,
         disturb: false,
+        adventure: false,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Green]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("copy isn't legendary (spell-copy modification, M2.S7c+)"),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
-        effects: &[Effect::CopyTargetSpell],
+        effects: &[Effect::CopyTargetSpell {
+            mods: &[baylee_cards_dsl::CopyMod::RemoveSupertype(
+                SupertypeSet::LEGENDARY,
+            )],
+        }],
         targets: Some(TargetReq::one(TargetSpec::Spell(&YOUR_CREATURE_SPELL))),
     }],
 };
