@@ -205,6 +205,23 @@ Open milestones discovered tonight:
 - Edit gotcha: an edit that "fails" may have partially applied — grep
   before retrying (duplicate impl blocks happened twice today).
 
+## 2026-08-29 — M3 core: engine-server live
+
+- Protocol v1 shipped: protobuf `Envelope` framing + **serde_json
+  payloads** for the choice taxonomy (`Pending`/`PlayerAction` got serde
+  derives) — avoids a full proto mapping of ~30 enum variants; typed
+  mapping is protocol v2.
+- `baylee-engine-server`: `Session` (engine + human seat + AI seats
+  auto-driven via baylee-ai) factored socket-free for tests; tokio +
+  tokio-tungstenite transport in main.rs; dev duel = acceptance decks.
+- Tests: session integration (AI pumps between human choices) + real
+  e2e (spawn binary, ws client, CreateGame → ChoiceRequest → answer →
+  game advances).
+- prost gotcha: oneof field names are snake_cased in generated code
+  (`PlayerActionMsg` → `Msg::PlayerAction`).
+- Workspace deps gotcha: adding a dependency to a member crate ALSO
+  requires it in `[workspace.dependencies]` (baylee-ai was missing).
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
