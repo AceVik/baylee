@@ -47,6 +47,8 @@ pub static CARD: CardDef = CardDef {
             abilities: &[],
             castable_from_hand: true,
             miracle: None,
+            delve: false,
+            convoke: false,
         },
         FaceDef {
             name: "Grimclimb Pathway",
@@ -64,6 +66,8 @@ pub static CARD: CardDef = CardDef {
             abilities: BACK_MANA,
             castable_from_hand: true,
             miracle: None,
+            delve: false,
+            convoke: false,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),

@@ -122,6 +122,12 @@ pub struct FaceDef {
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
     pub miracle: Option<ManaCost>,
+    /// Delve (CR 702.66): each card exiled from your graveyard while
+    /// casting pays for {1}.
+    pub delve: bool,
+    /// Convoke (CR 702.51): each creature tapped while casting pays for
+    /// {1} (colored-mana option is a payment refinement).
+    pub convoke: bool,
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).

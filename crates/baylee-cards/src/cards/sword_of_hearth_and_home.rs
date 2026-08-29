@@ -48,6 +48,8 @@ pub static CARD: CardDef = CardDef {
         abilities: &[],
         castable_from_hand: true,
         miracle: None,
+        delve: false,
+        convoke: false,
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,

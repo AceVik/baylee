@@ -106,6 +106,9 @@ pub enum Modifier {
     /// The affected object becomes a copy of the given object (layer 1
     /// copiable values; Cursed Mirror's until-EOT copy).
     BecomeCopyOf(baylee_core::ids::ObjectId),
+    /// The affected card (in a graveyard) may be cast for its mana cost;
+    /// exile it afterwards (flashback grant, Snapcaster Mage).
+    GrantsFlashback,
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

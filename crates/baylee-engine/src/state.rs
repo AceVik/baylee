@@ -868,6 +868,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Foretold => h.u8(4),
             Rider::Plotted => h.u8(5),
             Rider::Suspend => h.u8(6),
+            Rider::Flashback => h.u8(7),
         }
     }
 }
@@ -998,6 +999,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
             h.u8(24);
             h.u32(id.slot());
         }
+        M::GrantsFlashback => h.u8(25),
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

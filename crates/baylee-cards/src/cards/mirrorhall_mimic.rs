@@ -38,6 +38,8 @@ pub static CARD: CardDef = CardDef {
             abilities: &[],
             castable_from_hand: true,
             miracle: None,
+            delve: false,
+            convoke: false,
         },
         FaceDef {
             name: "Ghastly Mimicry",
@@ -55,6 +57,8 @@ pub static CARD: CardDef = CardDef {
             abilities: &[],
             castable_from_hand: false, // disturb: cast from the graveyard
             miracle: None,
+            delve: false,
+            convoke: false,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

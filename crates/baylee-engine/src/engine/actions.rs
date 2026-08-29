@@ -294,6 +294,18 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
+                // Wizard path: convoke (tap creatures, {1} each).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Convoke)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.convoke_taps = objects.into_iter().collect();
+                    wizard.stage = cast_wizard::WizardStage::Done;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
                 let plan = self.pending_plan.take().expect("target plan set");
                 let targets: SmallVec<[ObjectId; 2]> = objects.into_iter().collect();
                 match plan {
@@ -535,7 +547,19 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.pitch = objects.into_iter().collect();
-                    wizard.stage = cast_wizard::WizardStage::Done;
+                    wizard.stage = cast_wizard::WizardStage::Delve;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                // Wizard path: delve cards (exile-from-graveyard, {1} each).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Delve)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.delve_exiles = objects.into_iter().collect();
+                    wizard.stage = cast_wizard::WizardStage::Convoke;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }

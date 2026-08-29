@@ -38,6 +38,16 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
+        // Flashback: granted cards in your graveyard are castable.
+        for &card in self.state.zones.list(ZoneLocation::Graveyard(player)) {
+            let granted = self.state.effects.iter().any(|fx| {
+                matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsFlashback)
+                    && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == card)
+            });
+            if granted && casting::can_cast(&self.state, &self.lookup, player, card).is_ok() {
+                legal.castable.push(card);
+            }
+        }
         for &id in self.state.zones.list(ZoneLocation::Battlefield) {
             if casting::can_activate_mana(&self.state, player, id) {
                 legal.mana_abilities.push(id);

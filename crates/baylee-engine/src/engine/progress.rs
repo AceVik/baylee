@@ -960,6 +960,23 @@ impl<L: CardLookup> Engine<L> {
                 });
                 return;
             }
+            // Flashback (CR 702.34): exile instead of the graveyard.
+            let flashback = self
+                .state
+                .object(spell)
+                .is_some_and(|o| o.riders.contains(&crate::object::Rider::Flashback));
+            if flashback {
+                if let Some(obj) = self.state.object_mut(spell) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = self.state.move_object(
+                    spell,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                return;
+            }
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Card;
             }

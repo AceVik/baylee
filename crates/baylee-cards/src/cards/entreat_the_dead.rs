@@ -36,6 +36,8 @@ pub static CARD: CardDef = CardDef {
         abilities: &[],
         castable_from_hand: true,
         miracle: Some(baylee_core::mana!("{X}{B}{B}")),
+        delve: false,
+        convoke: false,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::EMPTY,

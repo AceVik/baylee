@@ -92,6 +92,11 @@ pub enum AwaitingOp {
         /// Players still to choose.
         remaining: Vec<PlayerId>,
     },
+    /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
+    DigRest {
+        /// The looked-at cards not chosen.
+        rest: Vec<ObjectId>,
+    },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
     /// One mana of a color in your commander's color identity
@@ -383,6 +388,26 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+            }
+        }
+        AwaitingOp::DigRest { rest } => {
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Hand(res.controller),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            for card in rest {
+                if !chosen.contains(&card) {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Library(res.controller),
+                        ZonePosition::Bottom,
+                        Cause::Effect,
+                    );
+                }
             }
         }
         AwaitingOp::BottomFromHand { player } => {
@@ -1849,6 +1874,27 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 options,
             })
         }
+        Effect::LookAtTopPick { count, pick } => {
+            let top: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(count as usize)
+                .copied()
+                .collect();
+            if top.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::DigRest { rest: top.clone() });
+            Some(Pending::ChooseCards {
+                player: you,
+                options: top,
+                min: pick,
+                max: pick,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
         Effect::RedirectTarget { new_filter } => {
             // The new target is chosen at resolution (CR 115.7): ask the
             // controller for any object matching the filter.
@@ -1894,6 +1940,22 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::TakeExtraTurn => {
             state.extra_turns.push_back(you);
+            None
+        }
+        Effect::GrantFlashback => {
+            if let Some(&target) = res.targets.first() {
+                let ts = state.next_timestamp();
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    layer: baylee_cards_dsl::Layer::Text,
+                    timestamp: ts,
+                    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                    filter: crate::effects::EffectFilter::ObjectIs(target),
+                    modifier: baylee_cards_dsl::Modifier::GrantsFlashback,
+                });
+            }
             None
         }
         Effect::ExileSource => {

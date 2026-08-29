@@ -238,6 +238,15 @@ pub enum Effect {
         /// What.
         target: TargetSpec,
     },
+    /// Look at the top `count` cards of your library; put `pick` of them
+    /// into your hand and the rest on the bottom in any order (Dig
+    /// Through Time).
+    LookAtTopPick {
+        /// How many to look at.
+        count: u8,
+        /// How many to keep.
+        pick: u8,
+    },
     /// Put cards from your hand on top of your library, in the order they
     /// were chosen (Brainstorm-style).
     PutFromHandOnTop {
@@ -289,6 +298,10 @@ pub enum Effect {
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
     PutTargetOnBottomOfLibrary,
+    /// The first target (a card in a graveyard) gains flashback with
+    /// flashback cost = its mana cost until end of turn (Snapcaster
+    /// Mage).
+    GrantFlashback,
     /// The controller takes an extra turn after this one (Temporal
     /// Mastery).
     TakeExtraTurn,

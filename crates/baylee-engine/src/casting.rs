@@ -45,7 +45,17 @@ pub fn can_cast(
     card: ObjectId,
 ) -> Result<(), CastError> {
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
-    if obj.zone != Zone::Hand || obj.zone_owner != Some(player) {
+    let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
+    // Flashback (CR 702.34): a granted card may be cast from its owner's
+    // graveyard.
+    let flashback_ok = !in_hand
+        && obj.zone == Zone::Graveyard
+        && obj.zone_owner == Some(player)
+        && state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsFlashback)
+                && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == card)
+        });
+    if !in_hand && !flashback_ok {
         return Err(CastError::NotInHand);
     }
     let c = obj.characteristics();

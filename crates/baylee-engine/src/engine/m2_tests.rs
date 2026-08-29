@@ -39,6 +39,8 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
         abilities: &[],
         castable_from_hand: true,
         miracle: None,
+        delve: false,
+        convoke: false,
     }
 }
 

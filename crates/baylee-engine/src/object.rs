@@ -310,6 +310,9 @@ pub enum Rider {
     Plotted,
     /// Suspended (time counters tick down at upkeep; cast for free at zero).
     Suspend,
+    /// Cast via flashback: exile instead of the graveyard on resolution
+    /// (CR 702.34).
+    Flashback,
 }
 
 /// Riders attached to an object.

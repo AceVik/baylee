@@ -35,6 +35,8 @@ pub static CARD: CardDef = CardDef {
         abilities: &[],
         castable_from_hand: true,
         miracle: None,
+        delve: false,
+        convoke: false,
     }],
     color_identity: ColorSet::from_slice(&[Color::Green]),
     keywords: KeywordSet::EMPTY,

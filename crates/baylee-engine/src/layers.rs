@@ -180,7 +180,8 @@ fn apply(
         | Modifier::PreventDamageFromIt
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
-        | Modifier::ProtectionFrom(_) => {}
+        | Modifier::ProtectionFrom(_)
+        | Modifier::GrantsFlashback => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

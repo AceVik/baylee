@@ -28,6 +28,10 @@ pub(crate) enum WizardStage {
     Kicker,
     /// Pitch choice (exile-from-hand).
     PitchChoice,
+    /// Delve choice (exile-from-graveyard, {1} each).
+    Delve,
+    /// Convoke choice (tap creatures, {1} each).
+    Convoke,
     /// Ready to pay and cast.
     Done,
 }
@@ -51,6 +55,10 @@ pub(crate) struct CastWizard {
     pub kicked: bool,
     /// Cards chosen for pitch (exile-from-hand).
     pub pitch: SmallVec<[ObjectId; 2]>,
+    /// Cards chosen to delve (exile-from-graveyard, {1} each).
+    pub delve_exiles: SmallVec<[ObjectId; 8]>,
+    /// Creatures chosen to tap for convoke ({1} each).
+    pub convoke_taps: SmallVec<[ObjectId; 8]>,
     /// Current stage.
     pub stage: WizardStage,
     /// Options computed at start (kept for the Done stage).
@@ -76,6 +84,8 @@ impl<L: CardLookup> Engine<L> {
             x: 0,
             kicked: false,
             pitch: SmallVec::new(),
+            delve_exiles: SmallVec::new(),
+            convoke_taps: SmallVec::new(),
             stage: WizardStage::ChooseMode,
             options,
             free: false,
@@ -116,6 +126,8 @@ impl<L: CardLookup> Engine<L> {
             x: 0,
             kicked: false,
             pitch: SmallVec::new(),
+            delve_exiles: SmallVec::new(),
+            convoke_taps: SmallVec::new(),
             stage: WizardStage::Targets,
             options,
             free: false,
@@ -141,6 +153,8 @@ impl<L: CardLookup> Engine<L> {
             x: 0,
             kicked: false,
             pitch: SmallVec::new(),
+            delve_exiles: SmallVec::new(),
+            convoke_taps: SmallVec::new(),
             stage: WizardStage::Targets,
             options: Vec::new(),
             free: true,
@@ -388,9 +402,65 @@ impl<L: CardLookup> Engine<L> {
                     return Ok(());
                 }
                 let mut wizard = wizard;
-                wizard.stage = WizardStage::Done;
+                wizard.stage = WizardStage::Delve;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
+            }
+            WizardStage::Delve => {
+                let face = self.wizard_face(&wizard);
+                let graveyard: Vec<ObjectId> = self
+                    .state
+                    .zones
+                    .list(ZoneLocation::Graveyard(wizard.player))
+                    .clone();
+                if !face.delve || graveyard.is_empty() {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Convoke;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                self.pending = Pending::ChooseCards {
+                    player: wizard.player,
+                    options: graveyard,
+                    min: 0,
+                    max: 99,
+                    prompt: ChoicePrompt::Generic,
+                };
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Convoke => {
+                let face = self.wizard_face(&wizard);
+                let untapped: Vec<ObjectId> = self
+                    .state
+                    .zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        self.state.object(*id).is_some_and(|o| {
+                            o.controller == wizard.player
+                                && o.characteristics()
+                                    .types
+                                    .contains(baylee_core::types::TypeSet::CREATURE)
+                                && !o.status.contains(crate::object::Status::TAPPED)
+                        })
+                    })
+                    .collect();
+                if !face.convoke || untapped.is_empty() {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Done;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                self.pending = Pending::ChooseTargets {
+                    player: wizard.player,
+                    options: untapped,
+                    min: 0,
+                    max: 99,
+                };
+                self.awaiting_answer = true;
+                Ok(())
             }
             WizardStage::Done => self.finish_cast(&wizard),
         }
@@ -465,6 +535,26 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         let player = wizard.player;
+        // Delve (CR 702.66): exile the chosen graveyard cards; each pays
+        // for {1} of the generic part.
+        for &card in &wizard.delve_exiles {
+            let _ = self.state.move_object(
+                card,
+                ZoneLocation::Exile(player),
+                ZonePosition::Top,
+                Cause::Cost,
+            )?;
+        }
+        // Convoke (CR 702.51): tap the chosen creatures; each pays for {1}.
+        for &creature in &wizard.convoke_taps {
+            if let Some(obj) = self.state.object_mut(creature) {
+                obj.status.insert(crate::object::Status::TAPPED);
+            }
+        }
+        let reduction = (wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32;
+        if reduction > 0 {
+            total = reduce_generic(&total, reduction);
+        }
         if !wizard.free
             && !mana_pay::pay(
                 &mut self.state.players[player.get() as usize].mana_pool,
@@ -548,6 +638,12 @@ impl<L: CardLookup> Engine<L> {
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));
             obj.chosen_player = wizard.chosen_player;
             obj.cast_from_hand = !wizard.free;
+            // Flashback (CR 702.34): a spell cast from the graveyard via a
+            // grant is exiled instead of hitting the graveyard again.
+            if obj.zone == crate::zone::Zone::Graveyard {
+                obj.riders.push(crate::object::Rider::Flashback);
+                obj.cast_from_hand = false;
+            }
             obj.mode_index = match wizard.option {
                 Some(CastModeKind::Mode(i)) => Some(i.try_into().expect("mode index fits u8")),
                 _ => None,
@@ -586,6 +682,11 @@ impl<L: CardLookup> Engine<L> {
 }
 
 /// The mana cost for the wizard's chosen option, X applied.
+/// Removes up to `n` generic mana from a cost (delve/convoke payments).
+fn reduce_generic(cost: &ManaCost, n: u32) -> ManaCost {
+    cost.with_less_generic(n)
+}
+
 fn wizard_cost(wizard: &CastWizard) -> ManaCost {
     let base = wizard
         .options

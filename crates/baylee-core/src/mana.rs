@@ -275,6 +275,26 @@ impl ManaCost {
         out
     }
 
+    /// The cost with up to `n` generic mana removed (delve/convoke).
+    #[must_use]
+    pub fn with_less_generic(&self, n: u32) -> Self {
+        let mut out = Self::ZERO;
+        let mut remaining = n;
+        for s in self.symbols() {
+            match s {
+                ManaSymbol::Generic(amount) => {
+                    let cut = amount.min(remaining);
+                    remaining -= cut;
+                    if amount - cut > 0 {
+                        out.push_sorted(ManaSymbol::Generic(amount - cut));
+                    }
+                }
+                other => out.push_sorted(other),
+            }
+        }
+        out
+    }
+
     /// Two costs combined (additional costs like kicker stack onto the
     /// base cost, CR 601.2f).
     #[must_use]

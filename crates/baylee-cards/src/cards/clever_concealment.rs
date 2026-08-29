@@ -2,15 +2,21 @@
 //! Oracle: Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)
 //! Oracle: Any number of target nonland permanents you control phase out. (Treat them and anything attached to them as though they don't exist until your next turn.)
 //! Set: MSC #125 — Marvel Super Heroes Commander | Scryfall ID: 41d45a8a-ea1d-4fbc-86d2-5d6340f3b639 | Oracle ID: 42bb7ea9-f6e4-4551-8d93-3b1eae84b865
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — convoke (generic {1} per tapped creature; the
+// colored-mana option is a payment refinement) + mass phase-out.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetReq, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOUR_NONLAND_PERMANENTS: Filter =
+    Filter::And(&[Filter::LacksType(TypeSet::LAND), Filter::ControlledByYou]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(22),
@@ -32,16 +38,26 @@ pub static CARD: CardDef = CardDef {
         abilities: &[],
         castable_from_hand: true,
         miracle: None,
+        delve: false,
+        convoke: true,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[Effect::PhaseOut {
+            target: Some(TargetSpec::Object(&YOUR_NONLAND_PERMANENTS)),
+        }],
+        targets: Some(TargetReq {
+            spec: TargetSpec::Object(&YOUR_NONLAND_PERMANENTS),
+            min: 0,
+            max: 255,
+            count_is_x: false,
+        }),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

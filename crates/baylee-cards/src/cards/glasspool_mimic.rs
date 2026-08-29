@@ -49,6 +49,8 @@ pub static CARD: CardDef = CardDef {
             abilities: &[],
             castable_from_hand: true,
             miracle: None,
+            delve: false,
+            convoke: false,
         },
         FaceDef {
             name: "Glasspool Shore",
@@ -66,6 +68,8 @@ pub static CARD: CardDef = CardDef {
             abilities: SHORE_MANA,
             castable_from_hand: true,
             miracle: None,
+            delve: false,
+            convoke: false,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
