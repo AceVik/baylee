@@ -44,6 +44,7 @@ pub static CARD: CardDef = CardDef {
         enter_modifiers: &[EnterModifier::ChooseSubtype],
         abilities: &[],
         castable_from_hand: true,
+        miracle: None,
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,

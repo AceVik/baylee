@@ -36,6 +36,7 @@ pub static CARD: CardDef = CardDef {
             enter_modifiers: &[],
             abilities: &[],
             castable_from_hand: true,
+            miracle: None,
         },
         FaceDef {
             name: "The True Scriptures",
@@ -52,6 +53,7 @@ pub static CARD: CardDef = CardDef {
             enter_modifiers: &[],
             abilities: &[],
             castable_from_hand: true,
+            miracle: None,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Black]),

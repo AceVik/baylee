@@ -46,6 +46,7 @@ pub static CARD: CardDef = CardDef {
             enter_modifiers: &[],
             abilities: &[],
             castable_from_hand: true,
+            miracle: None,
         },
         FaceDef {
             name: "Mistgate Pathway",
@@ -62,6 +63,7 @@ pub static CARD: CardDef = CardDef {
             enter_modifiers: &[],
             abilities: BACK_MANA,
             castable_from_hand: true,
+            miracle: None,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),

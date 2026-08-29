@@ -1877,6 +1877,38 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::PutTargetOnBottomOfLibrary => {
+            for &target in &res.targets {
+                let owner = state.object(target).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(target) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    target,
+                    ZoneLocation::Library(owner),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
+        Effect::TakeExtraTurn => {
+            state.extra_turns.push_back(you);
+            None
+        }
+        Effect::ExileSource => {
+            let owner = state.object(res.source).map_or(you, |o| o.owner);
+            if let Some(obj) = state.object_mut(res.source) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = state.move_object(
+                res.source,
+                ZoneLocation::Exile(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            None
+        }
         Effect::UntapTarget => {
             for &target in &res.targets {
                 if let Some(obj) = state.object_mut(target) {

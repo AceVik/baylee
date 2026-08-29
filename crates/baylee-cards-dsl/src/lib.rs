@@ -119,6 +119,9 @@ pub struct FaceDef {
     /// Whether this face can be cast from the hand (false for disturb
     /// backs — they are cast from the graveyard instead).
     pub castable_from_hand: bool,
+    /// Miracle cost: when revealed as the first card drawn this turn, the
+    /// card may be cast for this cost (CR 702.94).
+    pub miracle: Option<ManaCost>,
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).

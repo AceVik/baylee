@@ -88,6 +88,43 @@ impl<L: CardLookup> Engine<L> {
         self.advance_cast_wizard()
     }
 
+    /// Starts a miracle cast (CR 702.94): timing-free, at the miracle
+    /// cost; targets and other choices still run through the wizard.
+    pub(crate) fn start_miracle_cast(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+    ) -> Result<(), EngineError> {
+        let cost = self
+            .state
+            .object(card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .and_then(|def| def.faces[0].miracle)
+            .ok_or(EngineError::IllegalAction("not a miracle card"))?;
+        let options = vec![CastModeDesc {
+            index: 0,
+            kind: CastModeKind::Miracle,
+            cost,
+        }];
+        let mut wizard = CastWizard {
+            card,
+            player,
+            option: Some(CastModeKind::Miracle),
+            targets: SmallVec::new(),
+            chosen_player: None,
+            x: 0,
+            kicked: false,
+            pitch: SmallVec::new(),
+            stage: WizardStage::Targets,
+            options,
+            free: false,
+        };
+        let _ = &mut wizard;
+        self.cast_wizard = Some(wizard);
+        self.advance_cast_wizard()
+    }
+
     /// Starts a free cast (rebound at upkeep, suspend finish): no payment,
     /// but targets and other choices still run through the wizard.
     pub(crate) fn start_free_cast(

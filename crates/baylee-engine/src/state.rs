@@ -215,6 +215,11 @@ pub struct GameState {
     pub per_turn: PerTurn,
     /// Registered delayed triggers (suspend finishes, pact payments).
     pub delayed: Vec<DelayedTrigger>,
+    /// First-of-turn drawn cards awaiting a miracle offer (CR 702.94).
+    pub pending_miracle: std::collections::VecDeque<(PlayerId, ObjectId)>,
+    /// Queued extra turns (CR 500.7); the front player takes the next
+    /// turn instead of the normal successor.
+    pub extra_turns: std::collections::VecDeque<PlayerId>,
     /// The monarch designation (CR 718), if any.
     pub monarch: Option<PlayerId>,
     /// Per-turn fire counts for once-per-turn triggers (reset each turn).
@@ -279,6 +284,8 @@ impl GameState {
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
             delayed: Vec::new(),
+            pending_miracle: std::collections::VecDeque::new(),
+            extra_turns: std::collections::VecDeque::new(),
             monarch: None,
             ability_fires: rustc_hash::FxHashMap::default(),
             rng: GameRng::new(preset.seed),
@@ -605,6 +612,13 @@ impl GameState {
     /// the loss is a state-based action (CR 704.5b).
     pub fn draw_cards(&mut self, player: PlayerId, n: usize) -> Vec<ObjectId> {
         let mut drawn = Vec::with_capacity(n);
+        let first_of_turn = self
+            .per_turn
+            .draws
+            .get(player.get() as usize)
+            .copied()
+            .unwrap_or(0)
+            == 0;
         for _ in 0..n {
             let Some(&top) = self.zones.list(ZoneLocation::Library(player)).last() else {
                 if let Some(p) = self.players.get_mut(player.get() as usize) {
@@ -623,6 +637,11 @@ impl GameState {
             {
                 drawn.push(top);
             }
+        }
+        // Miracle (CR 702.94): the first card drawn this turn may be
+        // revealed and cast for its miracle cost — the engine offers it.
+        if first_of_turn && let Some(&card) = drawn.first() {
+            self.pending_miracle.push_back((player, card));
         }
         if !drawn.is_empty() {
             if let Some(v) = self.per_turn.draws.get_mut(player.get() as usize) {
@@ -933,6 +952,7 @@ fn counter_tag(kind: CounterKind) -> u8 {
         CounterKind::Poison => 7,
         CounterKind::Energy => 8,
         CounterKind::Rad => 9,
+        CounterKind::Lifelink => 10,
         CounterKind::Custom(id) => 100u8.saturating_add((id % 100) as u8),
     }
 }

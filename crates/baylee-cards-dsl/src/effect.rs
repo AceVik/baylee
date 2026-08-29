@@ -33,6 +33,8 @@ pub enum CounterKind {
     Energy,
     /// Rad (players).
     Rad,
+    /// Lifelink counter (grants lifelink, CR 122.1b).
+    Lifelink,
     /// Card-specific counters.
     Custom(u16),
 }
@@ -284,6 +286,14 @@ pub enum Effect {
         /// What.
         target: TargetSpec,
     },
+    /// Put each target on the bottom of its owner's library (Banishing
+    /// Stroke).
+    PutTargetOnBottomOfLibrary,
+    /// The controller takes an extra turn after this one (Temporal
+    /// Mastery).
+    TakeExtraTurn,
+    /// Exile the source object (Temporal Mastery's self-exile rider).
+    ExileSource,
     /// Untap each target.
     UntapTarget,
     /// Exile each target; return it to the battlefield under its owner's

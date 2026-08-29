@@ -143,6 +143,11 @@ enum PlanKind {
         /// The card being played.
         card: ObjectId,
     },
+    /// Miracle offer for a drawn card (CR 702.94).
+    Miracle {
+        /// The drawn card.
+        card: ObjectId,
+    },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.
@@ -289,6 +294,8 @@ mod progress;
 mod m2_tests;
 #[cfg(test)]
 mod mdfc_tests;
+#[cfg(test)]
+mod miracle_tests;
 #[cfg(test)]
 mod s3_tests;
 #[cfg(test)]

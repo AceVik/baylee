@@ -162,6 +162,8 @@ pub enum CastModeKind {
     Face(usize),
     /// Play a specific land face of an MDFC (pathways; CR 712.4a).
     PlayLandFace(usize),
+    /// Miracle cast (CR 702.94).
+    Miracle,
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
@@ -191,6 +193,11 @@ pub enum YesNoPrompt {
     PayTax {
         /// Generic mana to pay.
         mana: u16,
+    },
+    /// "Reveal and cast for its miracle cost?" (CR 702.94).
+    Miracle {
+        /// The drawn card.
+        card: baylee_core::ids::ObjectId,
     },
     /// Generic yes/no (optional effects).
     Generic,

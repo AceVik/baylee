@@ -352,6 +352,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::PlayLandFace { .. } => {
                         unreachable!("land-face plans are answered via ChooseMode")
                     }
+                    PlanKind::Miracle { .. } => {
+                        unreachable!("miracle plans are answered via YesNo")
+                    }
                 }
                 Ok(())
             }
@@ -448,6 +451,16 @@ impl<L: CardLookup> Engine<L> {
                         resolve::Flow::Complete => {
                             self.finish_resolution(&res);
                         }
+                    }
+                    return Ok(());
+                }
+                // Miracle offer: yes starts the miracle cast wizard.
+                if matches!(self.pending_plan, Some(PlanKind::Miracle { .. })) {
+                    let Some(PlanKind::Miracle { card }) = self.pending_plan.take() else {
+                        unreachable!()
+                    };
+                    if answer {
+                        return self.start_miracle_cast(player, card);
                     }
                     return Ok(());
                 }

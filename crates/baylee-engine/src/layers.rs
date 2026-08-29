@@ -42,6 +42,10 @@ pub fn recompute(state: &GameState, obj: &GameObject) -> Characteristics {
             *t += plus - minus;
         }
     }
+    // Keyword counters (CR 122.1b): a lifelink counter grants lifelink.
+    if obj.counters.get(crate::object::CounterKind::Lifelink) > 0 {
+        c.keywords = c.keywords.union(KeywordSet::LIFELINK);
+    }
     // Changeling (CR 702.73): every creature type.
     if c.keywords.contains(KeywordSet::CHANGELING) {
         for id in 0..subtypes::COUNT {

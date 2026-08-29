@@ -49,6 +49,10 @@ impl<L: CardLookup> Engine<L> {
             if self.process_delayed() {
                 return; // a delayed action produced a pending choice
             }
+            // 3c. Miracle offers for first-of-turn draws (CR 702.94).
+            if self.offer_miracle() {
+                return;
+            }
             // 4. Resolve the top of the stack after all passed.
             if self.resolve_next {
                 self.resolve_next = false;
@@ -65,6 +69,33 @@ impl<L: CardLookup> Engine<L> {
                 return; // a pending choice was set
             }
         }
+    }
+
+    /// Offers the next pending miracle cast (first-of-turn draws with
+    /// miracle still in hand). Returns `true` when a choice was produced.
+    pub(crate) fn offer_miracle(&mut self) -> bool {
+        while let Some((player, card)) = self.state.pending_miracle.pop_front() {
+            let Some(obj) = self.state.object(card) else {
+                continue;
+            };
+            if obj.zone != crate::zone::Zone::Hand || obj.zone_owner != Some(player) {
+                continue;
+            }
+            let Some(def) = obj.card.and_then(|c| self.lookup.card(c.index)) else {
+                continue;
+            };
+            if def.faces[obj.face_index as usize].miracle.is_none() {
+                continue;
+            }
+            self.pending_plan = Some(PlanKind::Miracle { card });
+            self.pending = Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::Miracle { card },
+            };
+            self.awaiting_answer = true;
+            return true;
+        }
+        false
     }
 
     /// One step-machine transition. Returns `true` when a pending choice
@@ -879,7 +910,12 @@ impl<L: CardLookup> Engine<L> {
 
     pub(crate) fn begin_turn(&mut self, first_turn: bool) {
         if !first_turn {
-            let next = self.next_alive_after(self.state.turn.active);
+            // Extra turns (CR 500.7) preempt the normal successor.
+            let next = self
+                .state
+                .extra_turns
+                .pop_front()
+                .unwrap_or_else(|| self.next_alive_after(self.state.turn.active));
             self.state.turn.active = next;
             self.state.turn.number += 1;
         }

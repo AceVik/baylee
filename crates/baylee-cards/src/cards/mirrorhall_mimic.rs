@@ -37,6 +37,7 @@ pub static CARD: CardDef = CardDef {
             enter_modifiers: &[],
             abilities: &[],
             castable_from_hand: true,
+            miracle: None,
         },
         FaceDef {
             name: "Ghastly Mimicry",
@@ -53,6 +54,7 @@ pub static CARD: CardDef = CardDef {
             enter_modifiers: &[],
             abilities: &[],
             castable_from_hand: false, // disturb: cast from the graveyard
+            miracle: None,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
