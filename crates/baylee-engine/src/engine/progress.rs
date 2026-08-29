@@ -178,20 +178,19 @@ impl<L: CardLookup> Engine<L> {
                         None
                     }
                 })
+                && let Some(obj) = self.state.object_mut(id)
             {
-                if let Some(obj) = self.state.object_mut(id) {
-                    let old = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
-                    let new = obj
-                        .counters
-                        .add(baylee_cards_dsl::CounterKind::Loyalty, loyalty);
-                    self.state.journal.record(GameEvent::CounterChanged {
-                        object: id,
-                        kind: baylee_cards_dsl::CounterKind::Loyalty,
-                        old,
-                        new,
-                    });
-                    changed = true;
-                }
+                let old = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
+                let new = obj
+                    .counters
+                    .add(baylee_cards_dsl::CounterKind::Loyalty, loyalty);
+                self.state.journal.record(GameEvent::CounterChanged {
+                    object: id,
+                    kind: baylee_cards_dsl::CounterKind::Loyalty,
+                    old,
+                    new,
+                });
+                changed = true;
             }
             // Clone-on-enter: offer the copy choice before anything else
             // for this permanent (CR 614.4).

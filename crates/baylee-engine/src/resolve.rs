@@ -429,9 +429,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 PlayerRel::Chosen => res.chosen_player.into_iter().collect::<Vec<_>>(),
                 other => eval::players(other, state, you),
             };
-            let Some(player) = players.first().copied() else {
-                return None;
-            };
+            let player = players.first().copied()?;
             let n = eval::amount(&amount, state, player, res.source, res.x) as usize;
             let looked: Vec<ObjectId> = state
                 .zones
@@ -447,13 +445,13 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             res.awaiting = Some(AwaitingOp::Scry {
                 looked: looked.len() as u8,
             });
-            return Some(Pending::ChooseCards {
+            Some(Pending::ChooseCards {
                 player,
                 options: looked,
                 min: 0,
                 max: n as u8,
                 prompt: ChoicePrompt::ScryBottom,
-            });
+            })
         }
         Effect::Scry { amount } => {
             let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
