@@ -100,7 +100,7 @@ pub struct Engine<L: CardLookup> {
 }
 
 /// What a `Pending::ChooseTargets` is targeting for.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 enum PlanKind {
     /// Activating an ability.
     ActivateAbility {
@@ -154,6 +154,11 @@ enum PlanKind {
     Miracle {
         /// The drawn card.
         card: ObjectId,
+    },
+    /// Target choice for a synthetic trigger (granted triggered ability).
+    SyntheticTriggerTarget {
+        /// The queued trigger.
+        trigger: crate::trigger::PendingTrigger,
     },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {

@@ -230,6 +230,10 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(source)
                 .is_some_and(|o| o.counters.get(kind) >= u16::from(min)),
+            baylee_cards_dsl::ActivationCondition::CountersOnSelfExactly(kind, n) => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
         }
     }
 

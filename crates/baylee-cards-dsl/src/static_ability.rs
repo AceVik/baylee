@@ -125,6 +125,15 @@ pub enum Modifier {
         /// Whether it's a mana ability.
         mana_ability: bool,
     },
+    /// The affected object gains a triggered ability (class levels).
+    GrantTriggered {
+        /// The trigger condition.
+        trigger: crate::ability::Trigger,
+        /// The ability's effects.
+        effects: &'static [crate::effect::Effect],
+        /// Target requirement of the ability.
+        target: Option<crate::effect::TargetSpec>,
+    },
     /// The affected object gets +P/+T for each filter-matching permanent
     /// its controller controls (Construct tokens, "for each artifact").
     ModifyPTPerCount {

@@ -4,18 +4,27 @@
 //! Oracle: {2}{U}: Level 2 — When this Class becomes level 2, draw two cards.
 //! Oracle: {4}{U}: Level 3 — Whenever you draw a card, put a +1/+1 counter on target creature you control.
 //! Set: AFR #81 — Adventures in the Forgotten Realms | Scryfall ID: d1f629fb-b097-4240-8560-ef47f5678f48 | Oracle ID: 36f68aa3-9955-46f1-bc87-497f16ef5222
-// PARTIAL — level 1 (no max hand size via hand modifier... engine's hand
-// modifier is static; the class level system needs Class-level tracking
-// (M2+). Everything else needs that same system.
+// IMPLEMENTED — all three levels: no-max-hand-size (L1), draw-two
+// level-up (L2), and the draw-watcher counter grant (L3, GrantTriggered).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind,
+    AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, Amount, CardDef,
+    CommanderRule, Cost, CounterKind, Coverage, Duration, Effect, FaceDef, Filter, KeywordSet,
+    Layer, Modifier, PartnerKind, PlayerRel, StaticAbility, TargetSpec, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
+use baylee_core::generated::subtypes::{self, enchantment};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOUR_CREATURE: Filter =
+    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]);
+static LEVEL3_FX: &[Effect] = &[Effect::AddCounter {
+    kind: CounterKind::P1P1,
+    amount: Amount::Fixed(1),
+}];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(192),
@@ -26,7 +35,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{U}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
+        subtypes: &[enchantment::CLASS],
         power: None,
         toughness: None,
         loyalty: None,
@@ -46,8 +55,65 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("Class level system (M2+)"),
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        // Level 1 (printed).
+        AbilityDef::Static(StaticAbility {
+            layer: Layer::Text,
+            filter: Filter::Any,
+            modifier: Modifier::NoMaxHandSize,
+            cross_zone: false,
+        }),
+        // {2}{U}: Level 2 (sorcery speed, requires level 1).
+        AbilityDef::ActivatedConditional {
+            cost: Cost {
+                mana: baylee_core::mana!("{2}{U}"),
+                parts: &[],
+            },
+            effects: &[
+                Effect::AddCounter {
+                    kind: CounterKind::Level,
+                    amount: Amount::Fixed(1),
+                },
+                Effect::DrawCards {
+                    amount: Amount::Fixed(2),
+                },
+            ],
+            target: None,
+            timing: ActivationTiming::SorcerySpeed,
+            mana_ability: false,
+            zone: ActivationZone::Battlefield,
+            condition: ActivationCondition::CountersOnSelfExactly(CounterKind::Level, 0),
+        },
+        // {4}{U}: Level 3 (sorcery speed, requires level 2).
+        AbilityDef::ActivatedConditional {
+            cost: Cost {
+                mana: baylee_core::mana!("{4}{U}"),
+                parts: &[],
+            },
+            effects: &[
+                Effect::AddCounter {
+                    kind: CounterKind::Level,
+                    amount: Amount::Fixed(1),
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Text,
+                    filter: &Filter::This,
+                    modifier: Modifier::GrantTriggered {
+                        trigger: Trigger::Draws(PlayerRel::You),
+                        effects: LEVEL3_FX,
+                        target: Some(TargetSpec::Object(&YOUR_CREATURE)),
+                    },
+                    duration: Duration::WhileSourceOnBattlefield,
+                },
+            ],
+            target: None,
+            timing: ActivationTiming::SorcerySpeed,
+            mana_ability: false,
+            zone: ActivationZone::Battlefield,
+            condition: ActivationCondition::CountersOnSelfExactly(CounterKind::Level, 1),
+        },
+    ],
 };
 
 #[cfg(test)]

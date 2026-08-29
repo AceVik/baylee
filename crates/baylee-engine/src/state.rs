@@ -1032,6 +1032,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::GrantsFlashback => h.u8(25),
         M::PlayerHexproof => h.u8(26),
         M::SorceriesHaveFlash => h.u8(29),
+        M::GrantTriggered { .. } => h.u8(30),
         M::GrantActivated { mana_ability, .. } => {
             h.u8(27);
             h.u8(u8::from(*mana_ability));
@@ -1068,6 +1069,7 @@ fn counter_tag(kind: CounterKind) -> u8 {
         CounterKind::Energy => 8,
         CounterKind::Rad => 9,
         CounterKind::Lifelink => 10,
+        CounterKind::Level => 11,
         CounterKind::Custom(id) => 100u8.saturating_add((id % 100) as u8),
     }
 }

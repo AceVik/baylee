@@ -46,6 +46,8 @@ pub enum ActivationCondition {
     /// The source has at least N counters of a kind (Luminarch
     /// Ascension's quest counters).
     CountersOnSelf(crate::effect::CounterKind, u8),
+    /// The source has EXACTLY N counters of a kind (class level gating).
+    CountersOnSelfExactly(crate::effect::CounterKind, u8),
 }
 
 /// Trigger conditions for triggered abilities.

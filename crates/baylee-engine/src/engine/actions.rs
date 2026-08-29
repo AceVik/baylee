@@ -359,6 +359,10 @@ impl<L: CardLookup> Engine<L> {
                             self.apply_copy_choice(object, target);
                         }
                     }
+                    PlanKind::SyntheticTriggerTarget { trigger } => {
+                        self.trigger_queue.pop_front();
+                        self.push_synthetic_trigger_with_targets(&trigger, targets);
+                    }
                     PlanKind::ChooseSubtype { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")
                     }

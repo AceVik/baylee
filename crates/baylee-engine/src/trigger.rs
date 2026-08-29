@@ -28,6 +28,9 @@ pub struct PendingTrigger {
     pub event_object: Option<ObjectId>,
     /// Synthetic effects for engine-level keyword triggers (prowess).
     pub synthetic_effects: Option<&'static [baylee_cards_dsl::Effect]>,
+    /// Target spec for synthetic triggers that need a target choice
+    /// (granted triggered abilities, class levels).
+    pub synthetic_target: Option<baylee_cards_dsl::TargetSpec>,
     /// Fires at most once each turn (marked by the engine after stacking).
     pub once_per_turn: bool,
 }
@@ -82,6 +85,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                                 event_object,
                                 synthetic_effects: None,
                                 once_per_turn: *once_per_turn,
+                                synthetic_target: None,
                             });
                         }
                         break;
@@ -204,6 +208,48 @@ fn collect_for_objects(
                         event_object: Some(permanent),
                         synthetic_effects: Some(PROWESS_PUMP),
                         once_per_turn: false,
+                        synthetic_target: None,
+                    });
+                    break;
+                }
+            }
+        }
+        // Granted triggered abilities (class levels): continuous effects
+        // carrying GrantTriggered that apply to this permanent.
+        for fx in state.effects.iter() {
+            let baylee_cards_dsl::Modifier::GrantTriggered {
+                trigger,
+                effects,
+                target,
+            } = &fx.modifier
+            else {
+                continue;
+            };
+            let applies = match &fx.filter {
+                crate::effects::EffectFilter::ObjectIs(id) => *id == permanent,
+                crate::effects::EffectFilter::Dsl(filter) => eval::matches(
+                    filter,
+                    state,
+                    obj,
+                    fx.controller,
+                    fx.source.unwrap_or(permanent),
+                ),
+            };
+            if !applies {
+                continue;
+            }
+            for entry in events {
+                if matches(trigger, &entry.event, state, permanent, obj.controller) {
+                    let event_object = event_object_of(&entry.event);
+                    triggers.push(PendingTrigger {
+                        source: permanent,
+                        ability_index: u32::MAX,
+                        controller: obj.controller,
+                        timestamp: obj.timestamp,
+                        event_object,
+                        synthetic_effects: Some(effects),
+                        synthetic_target: *target,
+                        once_per_turn: false,
                     });
                     break;
                 }
@@ -243,6 +289,7 @@ fn collect_for_objects(
                         event_object: Some(target_obj),
                         synthetic_effects: Some(synthetic),
                         once_per_turn: false,
+                        synthetic_target: None,
                     });
                 }
             }
@@ -276,6 +323,7 @@ fn collect_for_objects(
                             event_object,
                             synthetic_effects: None,
                             once_per_turn: *once_per_turn,
+                            synthetic_target: None,
                         });
                     }
                     break; // one trigger per event per ability — next event

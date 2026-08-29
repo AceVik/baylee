@@ -35,6 +35,8 @@ pub enum CounterKind {
     Rad,
     /// Lifelink counter (grants lifelink, CR 122.1b).
     Lifelink,
+    /// Level counters (classes, CR 716).
+    Level,
     /// Card-specific counters.
     Custom(u16),
 }

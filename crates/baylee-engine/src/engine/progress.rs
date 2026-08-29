@@ -244,6 +244,7 @@ impl<L: CardLookup> Engine<L> {
                         event_object: None,
                         synthetic_effects: None,
                         once_per_turn: false,
+                        synthetic_target: None,
                     });
                 changed = true;
             }
@@ -794,6 +795,27 @@ impl<L: CardLookup> Engine<L> {
                     .ability_fires
                     .insert((t.source, t.ability_index), 1);
             }
+            // Synthetic triggers with a target requirement (granted
+            // triggered abilities): ask for the target first.
+            if t.synthetic_effects.is_some()
+                && let Some(spec) = t.synthetic_target
+            {
+                let options = eval::target_options(&spec, &self.state, t.controller, t.source);
+                if options.is_empty() {
+                    self.trigger_queue.pop_front(); // fizzles (no legal target)
+                    continue;
+                }
+                let plan_t = t.clone();
+                self.pending_plan = Some(PlanKind::SyntheticTriggerTarget { trigger: plan_t });
+                self.pending = Pending::ChooseTargets {
+                    player: t.controller,
+                    options,
+                    min: 1,
+                    max: 1,
+                };
+                self.awaiting_answer = true;
+                return;
+            }
             if let Some(synthetic) = t.synthetic_effects.as_ref() {
                 // Synthetic keyword trigger: effects live in the side map.
                 let card = self
@@ -1286,6 +1308,53 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Pushes a synthetic trigger (prowess, ward, granted abilities) with
+    /// explicitly chosen targets onto the stack.
+    pub(crate) fn push_synthetic_trigger_with_targets(
+        &mut self,
+        t: &crate::trigger::PendingTrigger,
+        targets: SmallVec<[ObjectId; 2]>,
+    ) {
+        let Some(synthetic) = t.synthetic_effects else {
+            return;
+        };
+        let Some(card) = self
+            .state
+            .object(t.source)
+            .and_then(|o| o.card)
+            .map(|c| c.index)
+        else {
+            return;
+        };
+        let name = self
+            .state
+            .object(t.source)
+            .map_or(NameRef::new(0), |o| o.base.name);
+        let id = self.state.arena.insert_with(|id| {
+            GameObject::new_ability_on_stack(
+                id,
+                t.controller,
+                AbilityLoc {
+                    card,
+                    index: u32::MAX,
+                    source: t.source,
+                },
+                targets,
+                name,
+            )
+        });
+        self.synthetic_fx.insert(id, synthetic);
+        self.state
+            .zones
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+        self.state.journal.record(GameEvent::AbilityTriggered {
+            object: id,
+            source: t.source,
+            ability_index: u32::MAX,
+            controller: t.controller,
+        });
+    }
+
     /// Queues delayed actions that fire at the first main phase (Mana
     /// Drain's mana).
     pub(crate) fn queue_first_main_delayed(&mut self) {
@@ -1348,6 +1417,7 @@ impl<L: CardLookup> Engine<L> {
                         event_object: None,
                         synthetic_effects: None,
                         once_per_turn: false,
+                        synthetic_target: None,
                     });
             }
         }
