@@ -1,26 +1,30 @@
 [package]
-name = "baylee-engine-server"
+name = "baylee-gateway"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Binary: one process per game, websocket transport"
+description = "Gateway: accounts, decks, lobby, and game hosting for baylee"
 
 [lints]
 workspace = true
 
 [dependencies]
+argon2.workspace = true
+axum.workspace = true
 baylee-ai.workspace = true
 baylee-cards.workspace = true
-baylee-cards-dsl.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
 baylee-gamehost.workspace = true
 baylee-protocol.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
+getrandom.workspace = true
 prost.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+subtle.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true
 tracing.workspace = true

@@ -1,10 +1,10 @@
-//! One game session: an engine, a human seat, AI seats auto-driven by
-//! baylee-ai. Socket-free so tests can drive it directly; the websocket
-//! transport lives in `main.rs`.
+//! One game session: an engine plus seats (humans and AI). Socket-free so
+//! tests and both servers (engine-server dev harness, gateway) drive it
+//! directly; transport lives with the callers.
 
 use baylee_ai::HeuristicAgent;
 use baylee_cards::dsl::CardDef;
-use baylee_core::ids::CardIndex;
+use baylee_core::ids::{CardIndex, PlayerId};
 use baylee_core::preset::{GamePreset, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
@@ -19,65 +19,97 @@ impl CardLookup for RegistryLookup {
     }
 }
 
-/// A live game: engine plus the seat the human connection controls.
+/// What sits in a seat.
+#[derive(Clone, Debug)]
+pub enum SeatKind {
+    /// A human connection (any number of these per game).
+    Human,
+    /// An auto-driven AI seat.
+    Ai(HeuristicAgent),
+}
+
+/// A live game: engine plus the seat roster.
 pub struct Session {
     engine: Engine<RegistryLookup>,
-    human_seat: baylee_core::ids::PlayerId,
-    agents: Vec<Option<HeuristicAgent>>,
+    seats: Vec<SeatKind>,
     seq: u64,
 }
 
 impl Session {
-    /// Starts a game from a preset; the first non-AI seat belongs to the
-    /// connecting human, all AI seats are auto-driven.
+    /// Starts a game from a preset; Open seats become humans, AI seats
+    /// get a heuristic agent.
     #[must_use]
     pub fn new(preset: &GamePreset) -> Option<Self> {
-        let human_seat = preset
-            .seats
-            .iter()
-            .position(|s| !matches!(s.controller, SeatController::Ai(_)))
-            .unwrap_or(0);
-        let agents: Vec<Option<HeuristicAgent>> = preset
+        let seats: Vec<SeatKind> = preset
             .seats
             .iter()
             .map(|s| match &s.controller {
-                SeatController::Ai(profile) => Some(HeuristicAgent::new(*profile)),
-                _ => None,
+                SeatController::Ai(profile) => Some(SeatKind::Ai(HeuristicAgent::new(*profile))),
+                _ => Some(SeatKind::Human),
             })
-            .collect();
+            .collect::<Option<_>>()?;
         let engine = Engine::new(preset, RegistryLookup).ok()?;
         Some(Self {
             engine,
-            human_seat: baylee_core::ids::PlayerId::new(human_seat as u8),
-            agents,
+            seats,
             seq: 0,
         })
     }
 
-    /// Drains AI-controlled pendings, then returns the envelopes the
-    /// human needs next (a choice request for their seat, or game over).
-    pub fn pump(&mut self) -> Vec<Envelope> {
+    /// Human (non-AI) seats, as player ids in seat order.
+    #[must_use]
+    pub fn human_seats(&self) -> Vec<PlayerId> {
+        self.seats
+            .iter()
+            .enumerate()
+            .filter(|(_, k)| matches!(k, SeatKind::Human))
+            .map(|(i, _)| PlayerId::new(i as u8))
+            .collect()
+    }
+
+    /// Read-only state access (views).
+    #[must_use]
+    pub fn state(&self) -> &baylee_engine::state::GameState {
+        self.engine.state()
+    }
+
+    /// The current pending choice.
+    #[must_use]
+    pub fn pending(&self) -> &Pending {
+        self.engine.pending()
+    }
+
+    /// Drains AI-controlled pendings, then returns per-seat envelopes:
+    /// a fresh hidden-information view for every human seat plus a
+    /// choice request for the acting seat (or game over for everyone).
+    /// Capped so an all-AI game can never hang the server.
+    pub fn pump(&mut self) -> Vec<(PlayerId, Envelope)> {
         let mut out = Vec::new();
-        loop {
+        for _ in 0..4096 {
             let pending = self.engine.pending().clone();
             let Some(player) = pending_player(&pending) else {
-                if let Pending::GameOver(result) = pending {
-                    out.push(view_envelope(self.seq, &self.engine, self.human_seat));
-                    out.push(choice_envelope(self.seq, &Pending::GameOver(result)));
+                if let Pending::GameOver(_) = &pending {
+                    for seat in self.human_seats() {
+                        out.push((seat, view_envelope(self.seq, &self.engine, seat)));
+                        out.push((seat, choice_envelope(self.seq, &pending)));
+                    }
                 }
                 return out;
             };
-            if player == self.human_seat {
-                out.push(view_envelope(self.seq, &self.engine, self.human_seat));
-                out.push(choice_envelope(self.seq, &pending));
+            let is_human = matches!(self.seats.get(player.get() as usize), Some(SeatKind::Human));
+            if is_human {
+                for seat in self.human_seats() {
+                    out.push((seat, view_envelope(self.seq, &self.engine, seat)));
+                }
+                out.push((player, choice_envelope(self.seq, &pending)));
                 return out;
             }
-            let action = self.agents[player.get() as usize]
-                .as_ref()
-                .expect("non-human seat has an agent")
-                .act(&self.engine, player);
+            let action = match &self.seats[player.get() as usize] {
+                SeatKind::Ai(agent) => agent.act(&self.engine, player),
+                SeatKind::Human => unreachable!(),
+            };
             if self.engine.apply(player, action).is_err() {
-                // AI mis-evaluation: pass when possible, else give up the game.
+                // AI mis-evaluation: pass when possible, else give up.
                 if matches!(pending, Pending::Priority { .. }) {
                     let _ = self.engine.apply(player, PlayerAction::PassPriority);
                 } else {
@@ -86,23 +118,31 @@ impl Session {
             }
             self.seq += 1;
         }
+        out
     }
 
-    /// Applies a human action, then pumps the AI until the human is
-    /// needed again.
-    pub fn act(&mut self, action: PlayerAction) -> Vec<Envelope> {
-        let player = self.human_seat;
+    /// Applies a human action, then pumps the AI until a human is needed.
+    ///
+    /// # Errors
+    /// When the action isn't the acting seat's legal answer.
+    pub fn act(
+        &mut self,
+        player: PlayerId,
+        action: PlayerAction,
+    ) -> Result<Vec<(PlayerId, Envelope)>, String> {
+        if !matches!(self.seats.get(player.get() as usize), Some(SeatKind::Human)) {
+            return Err("not a human seat".to_string());
+        }
         if self.engine.apply(player, action).is_err() {
-            return vec![error_envelope("illegal action for your seat")];
+            return Err("illegal action for your seat".to_string());
         }
         self.seq += 1;
-        self.pump()
+        Ok(self.pump())
     }
 }
 
-/// The player who must answer a pending choice (mirrors baylee-ai's
-/// helper; kept local so the server has no AI dependency for it).
-fn pending_player(pending: &Pending) -> Option<baylee_core::ids::PlayerId> {
+/// The player who must answer a pending choice.
+fn pending_player(pending: &Pending) -> Option<PlayerId> {
     match pending {
         Pending::Mulligan { player, .. }
         | Pending::MulliganBottom { player, .. }
@@ -124,11 +164,7 @@ fn pending_player(pending: &Pending) -> Option<baylee_core::ids::PlayerId> {
     }
 }
 
-fn view_envelope(
-    seq: u64,
-    engine: &Engine<RegistryLookup>,
-    seat: baylee_core::ids::PlayerId,
-) -> Envelope {
+fn view_envelope(seq: u64, engine: &Engine<RegistryLookup>, seat: PlayerId) -> Envelope {
     let view = crate::view::player_view(engine.state(), seat);
     Envelope {
         msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
@@ -145,15 +181,6 @@ fn choice_envelope(seq: u64, pending: &Pending) -> Envelope {
             game_id: String::new(),
             seq,
             pending_json: serde_json::to_vec(pending).unwrap_or_default(),
-        })),
-    }
-}
-
-fn error_envelope(message: &str) -> Envelope {
-    Envelope {
-        msg: Some(v1::envelope::Msg::Error(v1::Error {
-            code: 1,
-            message: message.to_string(),
         })),
     }
 }
@@ -207,18 +234,19 @@ mod tests {
         }
     }
 
-    /// M3: a session starts, the human answers mulligans, and the AI seat
-    /// is driven automatically between human choices.
+    /// A session starts, the human answers mulligans, and the AI seat is
+    /// driven automatically between human choices.
     #[test]
     fn session_pumps_ai_between_human_choices() {
         let mut session = Session::new(&test_preset()).expect("session builds");
+        let human = session.human_seats()[0];
         let mut human_choices = 0;
         for _ in 0..50 {
             let envelopes = session.pump();
             if envelopes.is_empty() {
                 break;
             }
-            for env in envelopes {
+            for (_, env) in envelopes {
                 let Some(v1::envelope::Msg::ChoiceRequest(req)) = env.msg else {
                     continue;
                 };
@@ -231,7 +259,7 @@ mod tests {
                     }
                     _ => PlayerAction::PassPriority,
                 };
-                session.act(action);
+                let _ = session.act(human, action);
             }
         }
         assert!(human_choices > 0, "the human received choices");

@@ -18,6 +18,8 @@ baylee-cards-dsl = { path = "crates/baylee-cards-dsl" }
 baylee-cards = { path = "crates/baylee-cards" }
 baylee-cards-codegen = { path = "crates/baylee-cards-codegen" }
 baylee-ai = { path = "crates/baylee-ai" }
+baylee-gamehost = { path = "crates/baylee-gamehost" }
+baylee-gateway = { path = "crates/baylee-gateway" }
 baylee-engine-server = { path = "crates/baylee-engine-server" }
 
 serde = { version = "1", features = ["derive"] }
@@ -41,6 +43,11 @@ ureq = { version = "3", features = ["json"] }
 heck = "0.5"
 tracing = "0.1"
 tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["ws"] }
+argon2 = "0.5"
+getrandom = "0.3"
+sha2 = "0.10"
+subtle = "2"
 tokio-tungstenite = "0.26"
 criterion = { version = "0.5", features = ["html_reports"] }
 

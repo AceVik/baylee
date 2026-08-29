@@ -7,16 +7,12 @@
 //! The game logic (engine + AI seats) lives in [`session`]; this file is
 //! pure transport: decode frames → session → encode frames.
 
-mod preset;
-mod session;
-mod view;
-
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::PlayerAction;
+use baylee_gamehost::{Session, preset};
 use baylee_protocol::v1::{self, Envelope};
 use futures_util::{SinkExt, StreamExt};
 use prost::Message;
-use session::Session;
 
 /// Default port (dev).
 const DEFAULT_PORT: u16 = 28765;
@@ -57,6 +53,7 @@ fn tracing_subscriber_init() {
 /// gateway milestone).
 type Games = std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, Session>>>;
 
+#[allow(clippy::too_many_lines)]
 async fn handle_connection(
     stream: tokio::net::TcpStream,
     games: Games,
@@ -103,7 +100,9 @@ async fn handle_connection(
                         let mut games = games.lock().await;
                         games.insert(id.clone(), session);
                         let session = games.get_mut(&id).expect("just inserted");
-                        out.extend(session.pump());
+                        // Dev harness: one human seat — route everything
+                        // addressed to it to this connection.
+                        out.extend(session.pump().into_iter().map(|(_, env)| env));
                         game_id = Some(id);
                     }
                     None => out.push(error("could not start the game")),
@@ -117,7 +116,7 @@ async fn handle_connection(
                 match games.get_mut(&join.game_id) {
                     Some(session) => {
                         game_id = Some(join.game_id.clone());
-                        session.pump()
+                        session.pump().into_iter().map(|(_, env)| env).collect()
                     }
                     None => vec![error("no such game")],
                 }
@@ -132,7 +131,12 @@ async fn handle_connection(
                 };
                 let mut games = games.lock().await;
                 match games.get_mut(id) {
-                    Some(session) => session.act(action),
+                    Some(session) => session
+                        .act(baylee_core::ids::PlayerId::new(0), action)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(_, env)| env)
+                        .collect(),
                     None => vec![error("no such game")],
                 }
             }
@@ -177,5 +181,8 @@ fn acceptance_duel_preset() -> GamePreset {
     .expect("acceptance deck file");
     let allytifact = baylee_ai::decks::load_acceptance(&text, "Allytifact").expect("Allytifact");
     let victory = baylee_ai::decks::load_acceptance(&text, "Victory").expect("Victory");
-    baylee_ai::decks::preset_for(1, &allytifact, &victory)
+    let mut preset = baylee_ai::decks::preset_for(1, &allytifact, &victory);
+    // Seat 0 is the connecting human.
+    preset.seats[0].controller = baylee_core::preset::SeatController::Open;
+    preset
 }
