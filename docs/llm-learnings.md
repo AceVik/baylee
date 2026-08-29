@@ -222,6 +222,31 @@ Open milestones discovered tonight:
 - Workspace deps gotcha: adding a dependency to a member crate ALSO
   requires it in `[workspace.dependencies]` (baylee-ai was missing).
 
+## 2026-08-29 — M3 views + last riders batch (185/9/0)
+
+- Hidden-information views: per-seat `PlayerView` (public zones full,
+  own hand contents, others counts-only) emitted as `StateDelta` before
+  each choice; e2e asserts it.
+- Adventure machinery (CR 715): `FaceDef.adventure` — adventure spells
+  resolve to exile with `Rider::Adventure`; the front face casts from
+  exile afterwards. Twining Twins (data-corrected vs Scryfall AGAIN —
+  stub had a different card's text; flying/vigilance/ward{1} 4/4 +
+  Swift Spiral = ExileAndReturnAtEndStep).
+- Spell-copy mods: `Effect::CopyTargetSpell { mods }` — Double Major +
+  Storm of Saruman "copy isn't legendary" done; target re-choice stays
+  protocol v2.
+- Spirit Water Revival: `IfKicked` branch + `ShuffleGraveyardIntoLibrary`;
+  waterbend = convoke extended to artifacts.
+- Mycosynth Lattice: `Modifier::ManaIsAnyColor` + `pay_wild` (cost → cmc
+  against pool total).
+- Spark Double: CopyOnEnter with 3 mods (both counters unconditionally —
+  harmless on the wrong card type, matches play).
+- **185 Implemented, 9 Partial, 0 Unimplemented (95.4%)**. The 9 left:
+  Aminatou (MP direction), Commander's Insight (commander-cast count),
+  Inspirit (station), Jin-Gitaxias + Storm (target re-choice), Karn
+  (outside-game), Opposition Agent (search takeover), Vendilion Clique
+  (presentation) — all protocol/gateway items, no engine blockers.
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
