@@ -16,8 +16,6 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static ANY_PLAYER_F: Filter = Filter::Any;
-
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(8),
     oracle_id: "93723b12-db34-4047-885e-8606415b1553",
