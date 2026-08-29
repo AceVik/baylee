@@ -351,13 +351,10 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     for name in &names {
         let slug = baylee_cards_codegen::stubgen::slug(name);
         let path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
-        let content = match fs::read_to_string(&path) {
-            Ok(c) => c,
-            Err(_) => {
-                println!("MISSING FILE: {slug}");
-                problems += 1;
-                continue;
-            }
+        let Ok(content) = fs::read_to_string(&path) else {
+            println!("MISSING FILE: {slug}");
+            problems += 1;
+            continue;
         };
         for check in [
             ("header name", content.contains("//!")),
