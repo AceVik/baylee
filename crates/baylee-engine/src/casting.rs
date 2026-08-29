@@ -49,6 +49,10 @@ pub fn can_cast(
         return Err(CastError::NotInHand);
     }
     let c = obj.characteristics();
+    // Lands can never be cast as spells (CR 305.1).
+    if c.types.contains(TypeSet::LAND) {
+        return Err(CastError::BadTiming);
+    }
     // Timing (CR 601.3): permanents and sorceries are sorcery-speed;
     // instants (flash later) are any-time.
     let is_instant = c.types.contains(TypeSet::INSTANT);

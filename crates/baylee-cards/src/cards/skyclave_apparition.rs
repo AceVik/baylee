@@ -61,6 +61,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::EntersBattlefield(&Filter::This),
+            once_per_turn: false,
             effects: &[Effect::ExileLinked {
                 target: TargetSpec::Object(&TARGET_F),
             }],
@@ -68,6 +69,7 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Triggered {
             trigger: Trigger::LeavesBattlefield(&Filter::This),
+            once_per_turn: false,
             effects: &[Effect::CreateTokenFromLinked { token: &ILLUSION }],
             targets: None,
         },

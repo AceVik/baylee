@@ -109,6 +109,15 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
     // --- Legend rule (CR 704.5j) ----------------------------------------
     for seat in 0..state.players.len() {
         let player = PlayerId::new(seat as u8);
+        // Sakashima-style suppression: the legend rule doesn't apply to
+        // permanents this player controls.
+        let legend_off = state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::LegendRuleOff)
+                && fx.controller == player
+        });
+        if legend_off {
+            continue;
+        }
         let mut by_name: rustc_hash::FxHashMap<u32, Vec<baylee_core::ids::ObjectId>> =
             rustc_hash::FxHashMap::default();
         for &id in state.zones.list(ZoneLocation::Battlefield) {

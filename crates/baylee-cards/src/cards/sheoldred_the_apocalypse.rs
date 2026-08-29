@@ -42,6 +42,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::Draws(PlayerRel::You),
+            once_per_turn: false,
             effects: &[Effect::GainLife {
                 amount: Amount::Fixed(2),
             }],
@@ -49,6 +50,7 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Triggered {
             trigger: Trigger::Draws(PlayerRel::Opponent),
+            once_per_turn: false,
             effects: &[Effect::LoseLife {
                 amount: Amount::Fixed(2),
                 target: PlayerRel::Opponent,

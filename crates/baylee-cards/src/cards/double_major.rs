@@ -1,15 +1,21 @@
 //! Double Major — {G}{U} — Instant
 //! Oracle: Copy target creature spell you control, except it isn't legendary if the spell is legendary. (A copy of a creature spell becomes a token.)
 //! Set: STX #179 — Strixhaven: School of Mages | Scryfall ID: c3d35413-8742-4443-8859-93c91112978d | Oracle ID: ece44a82-dcf0-4439-bdd9-a09c99a6f159
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — spell copy on the stack implemented; NOT SUPPORTED yet: the copy
+// isn't legendary (copy-time modification on spell copies, M2.S7c+).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetReq, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOUR_CREATURE_SPELL: Filter =
+    Filter::And(&[Filter::ControlledByYou, Filter::HasType(TypeSet::CREATURE)]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(34),
@@ -29,15 +35,16 @@ pub static CARD: CardDef = CardDef {
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    color_identity: ColorSet::from_slice(&[Color::Blue, Color::Green]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial("copy isn't legendary (spell-copy modification, M2.S7c+)"),
+    abilities: &[AbilityDef::Spell {
+        effects: &[Effect::CopyTargetSpell],
+        targets: Some(TargetReq::one(TargetSpec::Spell(&YOUR_CREATURE_SPELL))),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

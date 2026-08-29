@@ -43,6 +43,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::FirstNoncreatureSpellCast(PlayerRel::Opponent),
+        once_per_turn: false,
         effects: &[Effect::PlayerMayPayOr {
             player: PlayerRel::Opponent,
             mana: 1,

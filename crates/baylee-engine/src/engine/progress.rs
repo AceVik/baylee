@@ -159,6 +159,11 @@ impl<L: CardLookup> Engine<L> {
         self.entry_scan_seq = self.state.journal.last_seq();
         let mut changed = false;
         for (id, controller) in events {
+            // Clone-on-enter: offer the copy choice before anything else
+            // for this permanent (CR 614.4).
+            if self.check_copy_on_enter(id) {
+                return true;
+            }
             let Some(card) = self.state.object(id).and_then(|o| o.card) else {
                 continue;
             };
@@ -212,6 +217,93 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         changed
+    }
+
+    /// Checks a newly entered permanent for a clone-on-enter clause and
+    /// presents the copy choice when valid targets exist. Returns `true`
+    /// when a pending choice was produced.
+    pub(crate) fn check_copy_on_enter(&mut self, id: ObjectId) -> bool {
+        let (spec, controller) = {
+            let Some(obj) = self.state.object(id) else {
+                return false;
+            };
+            let Some(card) = obj.card else { return false };
+            let Some(def) = self.lookup.card(card.index) else {
+                return false;
+            };
+            let Some(spec) = def.abilities.iter().find_map(|a| match a {
+                AbilityDef::CopyOnEnter { target, .. } => Some(*target),
+                _ => None,
+            }) else {
+                return false;
+            };
+            (spec, obj.controller)
+        };
+        let options = eval::target_options(&spec, &self.state, controller, id);
+        if options.is_empty() {
+            return false; // optional: simply doesn't copy
+        }
+        self.pending_plan = Some(PlanKind::CopyOnEnter { object: id });
+        self.pending = Pending::ChooseTargets {
+            player: controller,
+            options,
+            min: 0,
+            max: 1,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// Applies the clone-on-enter choice: the permanent's copiable base is
+    /// replaced by the target's base, with the card's modifications.
+    pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
+        let mods: Vec<baylee_cards_dsl::CopyMod> = {
+            let Some(obj) = self.state.object(id) else {
+                return;
+            };
+            let Some(card) = obj.card else { return };
+            let Some(def) = self.lookup.card(card.index) else {
+                return;
+            };
+            def.abilities
+                .iter()
+                .find_map(|a| match a {
+                    AbilityDef::CopyOnEnter { mods, .. } => Some(mods.to_vec()),
+                    _ => None,
+                })
+                .unwrap_or_default()
+        };
+        let Some(target_base) = self.state.object(target).map(|o| o.base.clone()) else {
+            return;
+        };
+        {
+            let obj = self.state.object_mut(id).expect("copy target exists");
+            obj.base = target_base;
+        }
+        for m in mods {
+            let obj = self.state.object_mut(id).expect("copy target exists");
+            match m {
+                baylee_cards_dsl::CopyMod::AddType(t) => {
+                    obj.base.types = obj.base.types.union(t);
+                }
+                baylee_cards_dsl::CopyMod::RemoveType(t) => {
+                    obj.base.types = obj.base.types.difference(t);
+                }
+                baylee_cards_dsl::CopyMod::RemoveSupertype(s) => {
+                    obj.base.supertypes = obj.base.supertypes.difference(s);
+                }
+                baylee_cards_dsl::CopyMod::AddSubtype(s) => {
+                    obj.base.subtypes.insert(s);
+                }
+                baylee_cards_dsl::CopyMod::AddKeyword(k) => {
+                    obj.base.keywords = obj.base.keywords.union(k);
+                }
+                baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
+                    obj.counters.add(kind, n);
+                }
+            }
+        }
+        self.state.characteristics_generation = u64::MAX; // force recompute
     }
 
     /// Keeps the effect table in sync with the battlefield: registers
@@ -574,6 +666,7 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state.turn_start_timestamp = self.state.timestamp;
         self.state.per_turn.reset();
+        self.state.ability_fires.clear();
         let active = self.state.turn.active;
         self.state.players[active.get() as usize].lands_played_this_turn = 0;
         self.state.turn.phase = Phase::Beginning;
@@ -800,6 +893,13 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
+        // Temporary copies revert (Cursed Mirror).
+        for obj in self.state.arena.iter_mut_all() {
+            if let Some(original) = obj.original_base.take() {
+                obj.base = *original;
+            }
+        }
+        self.state.characteristics_generation = u64::MAX;
         let active = self.state.turn.active;
         let max_hand = 7i32 + i32::from(self.state.players[active.get() as usize].hand_modifier);
         let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len() as i32;

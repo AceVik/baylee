@@ -42,6 +42,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
+        once_per_turn: false,
         effects: &[Effect::ReturnToHand {
             target: TargetSpec::StackOrBattlefield(&SPELL_OR_PERMANENT),
         }],

@@ -44,6 +44,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Partial("echo (M2.S7b), protection from black (M2.S6+)"),
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
+        once_per_turn: false,
         effects: &[Effect::GraveyardToBattlefield {
             target: TargetSpec::CardInGraveyard(&CREATURE_GY, PlayerRel::You),
         }],

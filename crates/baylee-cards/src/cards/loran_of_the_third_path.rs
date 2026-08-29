@@ -47,6 +47,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::EntersBattlefield(&Filter::This),
+            once_per_turn: false,
             effects: &[Effect::Destroy {
                 target: TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT),
             }],

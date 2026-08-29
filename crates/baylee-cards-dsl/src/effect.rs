@@ -405,6 +405,30 @@ pub enum Effect {
     },
     /// Put the source on top of its owner's library (Sensei's Divining Top).
     PutSourceOnTopOfLibrary,
+    /// Create a token that's a copy of a target permanent (Rite of
+    /// Replication, Progenitor Mimic).
+    CreateTokenCopyOf {
+        /// What to copy (first target when set, else the source).
+        target: Option<TargetSpec>,
+        /// Extra copies when the spell was kicked (Rite of Replication: 4
+        /// bonus tokens for a total of 5).
+        kicked_bonus: u8,
+    },
+    /// Create a token that's a copy of the creature the source is attached
+    /// to (Helm of the Host).
+    CreateTokenCopyOfEquipped {
+        /// Extra copies when the spell was kicked.
+        kicked_bonus: u8,
+    },
+    /// Copy a spell on the stack (Double Major, Jin-Gitaxias). The copy
+    /// goes on the stack under your control; you may choose new targets
+    /// (M3 protocol choice; currently same targets).
+    CopyTargetSpell,
+    /// Attach the source (equipment/aura) to a target permanent.
+    AttachSelf {
+        /// To what.
+        target: TargetSpec,
+    },
     /// Look at the top N cards of your library and put them back in any
     /// order.
     ReorderTopLibrary {

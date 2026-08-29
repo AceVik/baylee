@@ -42,6 +42,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::EntersBattlefield(&Filter::This),
+            once_per_turn: false,
             effects: &[
                 Effect::DealDamage {
                     amount: Amount::Fixed(1),
@@ -56,6 +57,7 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Triggered {
             trigger: Trigger::DrawsExceptFirst(PlayerRel::Opponent),
+            once_per_turn: false,
             effects: &[Effect::Amass {
                 subtype: creature::ORC,
                 amount: 1,

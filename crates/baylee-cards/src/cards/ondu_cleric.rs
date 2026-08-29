@@ -49,6 +49,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&ALLY_ETB),
+        once_per_turn: false,
         effects: &[Effect::GainLife {
             amount: Amount::Fixed(1),
         }],

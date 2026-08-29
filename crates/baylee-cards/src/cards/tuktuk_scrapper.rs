@@ -48,6 +48,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&ALLY_ETB),
+        once_per_turn: false,
         effects: &[
             Effect::Destroy {
                 target: TargetSpec::Object(&ARTIFACT),

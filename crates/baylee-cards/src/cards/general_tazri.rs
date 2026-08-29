@@ -53,6 +53,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Partial("activated {WUBRG} pump needs Amount-driven modifiers (M2.S7)"),
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
+        once_per_turn: false,
         effects: &[Effect::SearchLibrary {
             filter: &ALLY_CARD,
             dest: SearchDest::Hand,

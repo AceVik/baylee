@@ -47,6 +47,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
+        once_per_turn: false,
         effects: &[Effect::SearchLibrary {
             filter: &CHEAP_SPELL,
             dest: SearchDest::Hand,

@@ -160,6 +160,7 @@ fn apply(
         Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),
         Modifier::RemoveKeyword(k) => c.keywords = c.keywords.difference(*k),
         Modifier::LoseKeywords => c.keywords = KeywordSet::EMPTY,
+        Modifier::LegendRuleOff => {} // handled by the SBA, not characteristics
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

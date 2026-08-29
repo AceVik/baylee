@@ -209,6 +209,14 @@ fn matches(
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (Trigger::BecomesTarget, GameEvent::SpellCast { object, .. }) => {
+            state
+                .object(*object)
+                .is_some_and(|o| o.targets.contains(&source))
+                || matches!(event, GameEvent::AbilityTriggered { object, .. } if {
+                    state.object(*object).is_some_and(|o| o.targets.contains(&source))
+                })
+        }
         (
             Trigger::EntersBattlefieldEvoked,
             GameEvent::ZoneChanged {

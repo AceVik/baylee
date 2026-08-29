@@ -224,6 +224,11 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::DelayedPay { .. } => {
                         unreachable!("delayed-pay plans are answered via YesNo")
                     }
+                    PlanKind::CopyOnEnter { object } => {
+                        if let Some(&target) = targets.first() {
+                            self.apply_copy_choice(object, target);
+                        }
+                    }
                 }
                 Ok(())
             }

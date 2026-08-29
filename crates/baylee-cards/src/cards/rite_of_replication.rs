@@ -2,15 +2,19 @@
 //! Oracle: Kicker {5} (You may pay an additional {5} as you cast this spell.)
 //! Oracle: Create a token that's a copy of target creature. If this spell was kicked, create five of those tokens instead.
 //! Set: SOC #202 — Secrets of Strixhaven Commander | Scryfall ID: 5032d71d-d9f8-498c-97d1-271c2e9c1c47 | Oracle ID: fb60739e-1dc3-481d-a056-ad72e665c680
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — kicker + 1 or 5 token copies.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Cost, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, TargetReq, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_CREATURE: Filter = Filter::HasType(TypeSet::CREATURE);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(135),
@@ -26,7 +30,10 @@ pub static CARD: CardDef = CardDef {
         toughness: None,
         loyalty: None,
         alternative_costs: &[],
-        additional_costs: &[],
+        additional_costs: &[Cost {
+            mana: baylee_core::mana!("{5}"),
+            parts: &[],
+        }],
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
     }],
@@ -34,11 +41,15 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[Effect::CreateTokenCopyOf {
+            target: Some(TargetSpec::Object(&ANY_CREATURE)),
+            kicked_bonus: 4,
+        }],
+        targets: Some(TargetReq::one(TargetSpec::Object(&ANY_CREATURE))),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

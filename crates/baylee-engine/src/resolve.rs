@@ -936,6 +936,105 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             );
             None
         }
+        Effect::CreateTokenCopyOf {
+            target,
+            kicked_bonus,
+        } => {
+            let target_id = match target {
+                Some(_) => res.targets.first().copied(),
+                None => Some(res.source),
+            };
+            let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
+            let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
+            if let Some(id) = target_id {
+                if let Some(base) = state.object(id).map(|o| o.base.clone()) {
+                    for _ in 0..count {
+                        let base = base.clone();
+                        let ts = state.next_timestamp();
+                        let new_id = state.arena.insert_with(|oid| {
+                            let mut obj =
+                                GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
+                            obj.timestamp = ts;
+                            obj
+                        });
+                        state
+                            .zones
+                            .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top);
+                        if let Some(obj) = state.object_mut(new_id) {
+                            obj.zone = crate::zone::Zone::Battlefield;
+                        }
+                    }
+                }
+            }
+            None
+        }
+        Effect::CreateTokenCopyOfEquipped { kicked_bonus } => {
+            let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
+            let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
+            if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to) {
+                if let Some(base) = state.object(equipped).map(|o| o.base.clone()) {
+                    for _ in 0..count {
+                        let base = base.clone();
+                        let ts = state.next_timestamp();
+                        let id = state.arena.insert_with(|oid| {
+                            let mut obj =
+                                GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
+                            obj.timestamp = ts;
+                            obj
+                        });
+                        state
+                            .zones
+                            .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
+                        if let Some(obj) = state.object_mut(id) {
+                            obj.zone = crate::zone::Zone::Battlefield;
+                        }
+                    }
+                }
+            }
+            None
+        }
+        Effect::CopyTargetSpell => {
+            // Copy the spell on the stack under your control (same targets;
+            // target re-choice is a protocol M3 item).
+            if let Some(&target_id) = res.targets.first() {
+                let (card, mut base, targets) = {
+                    let Some(obj) = state.object(target_id) else {
+                        return None;
+                    };
+                    (obj.card, obj.base.clone(), obj.targets.clone())
+                };
+                let name = base.name;
+                let ts = state.next_timestamp();
+                let id = state.arena.insert_with(|oid| {
+                    let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
+                    obj.timestamp = ts;
+                    obj
+                });
+                {
+                    let obj = state.object_mut(id).expect("fresh copy");
+                    obj.card = card;
+                    obj.targets = targets;
+                    obj.zone = crate::zone::Zone::Stack;
+                }
+                state
+                    .zones
+                    .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+                state.journal.record(GameEvent::SpellCast {
+                    object: id,
+                    player: you,
+                });
+                let _ = name;
+            }
+            None
+        }
+        Effect::AttachSelf { .. } => {
+            if let Some(&target_id) = res.targets.first() {
+                if let Some(obj) = state.object_mut(res.source) {
+                    obj.attached_to = Some(target_id);
+                }
+            }
+            None
+        }
         Effect::CreateToken { token } => {
             // Token-creation replacements (Doubling Season, CR 614.1).
             let mut count = 1u32;

@@ -46,6 +46,7 @@ pub static CARD: CardDef = CardDef {
     ),
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
+        once_per_turn: false,
         effects: &[Effect::SearchLibrary {
             filter: &SMALL_CREATURE,
             dest: SearchDest::Hand,

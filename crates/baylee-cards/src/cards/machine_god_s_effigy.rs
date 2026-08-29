@@ -2,15 +2,19 @@
 //! Oracle: You may have this artifact enter as a copy of any creature on the battlefield, except it's an artifact and it has "{T}: Add {U}." (It's not a creature.)
 //! Oracle: {T}: Add {U}.
 //! Set: BRC #16 — The Brothers' War Commander | Scryfall ID: 637f69c2-ba24-42d1-9345-8ebdb04b6904 | Oracle ID: 64ebdd6f-acde-4aab-a86b-2798bad5f70c
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — clone as noncreature artifact + blue mana tap.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, CopyMod, Cost, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_CREATURE: Filter = Filter::HasType(TypeSet::CREATURE);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(89),
@@ -30,15 +34,32 @@ pub static CARD: CardDef = CardDef {
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
+    color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::CopyOnEnter {
+            target: TargetSpec::Object(&ANY_CREATURE),
+            mods: &[
+                CopyMod::AddType(TypeSet::ARTIFACT),
+                CopyMod::RemoveType(TypeSet::CREATURE),
+            ],
+        },
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddMana {
+                color: ManaColor::Blue,
+                amount: 1,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

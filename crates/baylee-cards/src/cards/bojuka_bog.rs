@@ -52,6 +52,7 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Triggered {
             trigger: Trigger::EntersBattlefield(&Filter::This),
+            once_per_turn: false,
             effects: &[Effect::ExileGraveyard {
                 player: PlayerRel::Opponent,
             }],

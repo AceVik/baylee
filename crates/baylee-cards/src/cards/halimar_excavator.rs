@@ -46,6 +46,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&ALLY_ETB),
+        once_per_turn: false,
         effects: &[Effect::Mill {
             amount: Amount::CountOf {
                 filter: &ALLIES_YOU,

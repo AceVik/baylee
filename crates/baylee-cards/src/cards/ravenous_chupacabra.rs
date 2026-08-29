@@ -44,6 +44,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
+        once_per_turn: false,
         effects: &[Effect::Destroy {
             target: TargetSpec::Object(&ENEMY_CREATURE),
         }],

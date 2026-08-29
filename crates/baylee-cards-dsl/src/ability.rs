@@ -46,6 +46,9 @@ pub enum Trigger {
     Dies(&'static Filter),
     /// A spell matching the filter is cast.
     SpellCast(&'static Filter),
+    /// The source becomes the target of a spell or ability (ward,
+    /// Phantasmal Image).
+    BecomesTarget,
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
     /// A player draws a card except the first one they draw each turn
@@ -104,6 +107,8 @@ pub enum AbilityDef {
         effects: &'static [Effect],
         /// Target requirement.
         targets: Option<crate::effect::TargetReq>,
+        /// Fires at most once each turn (Jin-Gitaxias).
+        once_per_turn: bool,
     },
     /// Static/continuous ability (layers, CR 613).
     Static(crate::static_ability::StaticAbility),
@@ -122,6 +127,41 @@ pub enum AbilityDef {
         /// Time counters.
         counters: u8,
     },
+    /// "You may have ~ enter the battlefield as a copy of …" (clone
+    /// family). Choice is made as it enters.
+    CopyOnEnter {
+        /// What may be copied.
+        target: TargetSpec,
+        /// Modifications applied after copying (artifact, not legendary…).
+        mods: &'static [CopyMod],
+    },
+    /// A planeswalker loyalty ability (cost in loyalty counters; positive
+    /// = add, negative = remove).
+    Loyalty {
+        /// Loyalty delta.
+        cost: i8,
+        /// Effect operations.
+        effects: &'static [Effect],
+        /// Target requirement.
+        target: Option<TargetSpec>,
+    },
+}
+
+/// A modification applied after a clone copies its target.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CopyMod {
+    /// Adds types ("except it's an artifact").
+    AddType(baylee_core::types::TypeSet),
+    /// Removes types ("except it's not a creature").
+    RemoveType(baylee_core::types::TypeSet),
+    /// Removes supertypes ("except it's not legendary").
+    RemoveSupertype(baylee_core::types::SupertypeSet),
+    /// Adds a subtype ("except it's a Shapeshifter").
+    AddSubtype(baylee_core::ids::SubtypeId),
+    /// Grants a keyword ("with haste").
+    AddKeyword(crate::KeywordSet),
+    /// Enters with counters of a kind.
+    AddCounter(crate::CounterKind, u16),
 }
 
 /// One mode of a [`crate::AbilityDef::ModalSpell`].

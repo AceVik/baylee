@@ -258,6 +258,9 @@ pub struct GameObject {
     pub riders: RiderSet,
     /// Chosen targets (spells/abilities on the stack).
     pub targets: SmallVec<[ObjectId; 2]>,
+    /// Original base before a temporary copy (Cursed Mirror); reverted at
+    /// cleanup.
+    pub original_base: Option<Box<Characteristics>>,
     /// Which ability this is (`AbilityOnStack` objects only).
     pub ability: Option<AbilityLoc>,
     /// The value of X chosen at cast time (spells).
@@ -299,6 +302,7 @@ impl GameObject {
             version: 0,
             riders: RiderSet::new(),
             targets: SmallVec::new(),
+            original_base: None,
             ability: None,
             x_value: 0,
             kicked: false,

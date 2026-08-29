@@ -198,6 +198,8 @@ pub struct GameState {
     pub per_turn: PerTurn,
     /// Registered delayed triggers (suspend finishes, pact payments).
     pub delayed: Vec<DelayedTrigger>,
+    /// Per-turn fire counts for once-per-turn triggers (reset each turn).
+    pub ability_fires: rustc_hash::FxHashMap<(ObjectId, u32), u32>,
     /// Seeded randomness.
     pub rng: GameRng,
     /// The event journal.
@@ -258,6 +260,7 @@ impl GameState {
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
             delayed: Vec::new(),
+            ability_fires: rustc_hash::FxHashMap::default(),
             rng: GameRng::new(preset.seed),
             journal: Journal::default(),
             names: Names::default(),
@@ -816,6 +819,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
             h.u128(k.bits());
         }
         M::LoseKeywords => h.u8(9),
+        M::LegendRuleOff => h.u8(14),
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

@@ -77,6 +77,8 @@ pub enum Modifier {
     RemoveKeyword(KeywordSet),
     /// Removes all keyword abilities (Tishana's Tidebinder).
     LoseKeywords,
+    /// The legend rule doesn't apply to the effect's controller (Sakashima).
+    LegendRuleOff,
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

@@ -47,6 +47,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::EntersBattlefield(&Filter::This),
+            once_per_turn: false,
             effects: &[Effect::DrawCards {
                 amount: Amount::Fixed(2),
             }],
@@ -54,6 +55,7 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Triggered {
             trigger: Trigger::EntersBattlefieldEvoked,
+            once_per_turn: false,
             effects: &[Effect::SacrificeSelf],
             targets: None,
         },

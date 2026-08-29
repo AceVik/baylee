@@ -122,6 +122,11 @@ enum PlanKind {
         /// The mana cost to pay.
         cost: baylee_core::mana::ManaCost,
     },
+    /// A clone choosing what to copy as it enters.
+    CopyOnEnter {
+        /// The entering permanent.
+        object: ObjectId,
+    },
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -259,6 +264,8 @@ mod s6_tests;
 mod s7_tests;
 #[cfg(test)]
 mod s7b_tests;
+#[cfg(test)]
+mod s7c_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

@@ -52,6 +52,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::LeavesBattlefield(&Filter::This),
+            once_per_turn: false,
             effects: &[Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&SMALL_CREATURE_GY, PlayerRel::You),
             }],
@@ -62,6 +63,7 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Triggered {
             trigger: Trigger::EntersBattlefieldEvoked,
+            once_per_turn: false,
             effects: &[Effect::SacrificeSelf],
             targets: None,
         },

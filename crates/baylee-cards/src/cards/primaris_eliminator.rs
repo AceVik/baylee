@@ -44,6 +44,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Partial("modal trigger choice + -2/-2 mode (M2.S8)"),
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
+        once_per_turn: false,
         effects: &[Effect::Destroy {
             target: TargetSpec::Object(&CREATURE_F),
         }],
