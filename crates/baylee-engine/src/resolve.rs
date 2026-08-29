@@ -946,23 +946,22 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             };
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
-            if let Some(id) = target_id {
-                if let Some(base) = state.object(id).map(|o| o.base.clone()) {
-                    for _ in 0..count {
-                        let base = base.clone();
-                        let ts = state.next_timestamp();
-                        let new_id = state.arena.insert_with(|oid| {
-                            let mut obj =
-                                GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
-                            obj.timestamp = ts;
-                            obj
-                        });
-                        state
-                            .zones
-                            .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top);
-                        if let Some(obj) = state.object_mut(new_id) {
-                            obj.zone = crate::zone::Zone::Battlefield;
-                        }
+            if let Some(id) = target_id
+                && let Some(base) = state.object(id).map(|o| o.base.clone())
+            {
+                for _ in 0..count {
+                    let base = base.clone();
+                    let ts = state.next_timestamp();
+                    let new_id = state.arena.insert_with(|oid| {
+                        let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
+                        obj.timestamp = ts;
+                        obj
+                    });
+                    state
+                        .zones
+                        .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top);
+                    if let Some(obj) = state.object_mut(new_id) {
+                        obj.zone = crate::zone::Zone::Battlefield;
                     }
                 }
             }
@@ -971,23 +970,22 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::CreateTokenCopyOfEquipped { kicked_bonus } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
-            if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to) {
-                if let Some(base) = state.object(equipped).map(|o| o.base.clone()) {
-                    for _ in 0..count {
-                        let base = base.clone();
-                        let ts = state.next_timestamp();
-                        let id = state.arena.insert_with(|oid| {
-                            let mut obj =
-                                GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
-                            obj.timestamp = ts;
-                            obj
-                        });
-                        state
-                            .zones
-                            .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
-                        if let Some(obj) = state.object_mut(id) {
-                            obj.zone = crate::zone::Zone::Battlefield;
-                        }
+            if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to)
+                && let Some(base) = state.object(equipped).map(|o| o.base.clone())
+            {
+                for _ in 0..count {
+                    let base = base.clone();
+                    let ts = state.next_timestamp();
+                    let id = state.arena.insert_with(|oid| {
+                        let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
+                        obj.timestamp = ts;
+                        obj
+                    });
+                    state
+                        .zones
+                        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
+                    if let Some(obj) = state.object_mut(id) {
+                        obj.zone = crate::zone::Zone::Battlefield;
                     }
                 }
             }
@@ -998,9 +996,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // target re-choice is a protocol M3 item).
             if let Some(&target_id) = res.targets.first() {
                 let (card, base, targets) = {
-                    let Some(obj) = state.object(target_id) else {
-                        return None;
-                    };
+                    let obj = state.object(target_id)?;
                     (obj.card, obj.base.clone(), obj.targets.clone())
                 };
                 let name = base.name;
@@ -1028,10 +1024,10 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::AttachSelf { .. } => {
-            if let Some(&target_id) = res.targets.first() {
-                if let Some(obj) = state.object_mut(res.source) {
-                    obj.attached_to = Some(target_id);
-                }
+            if let Some(&target_id) = res.targets.first()
+                && let Some(obj) = state.object_mut(res.source)
+            {
+                obj.attached_to = Some(target_id);
             }
             None
         }
