@@ -145,6 +145,16 @@ pub enum AbilityDef {
         /// Target requirement.
         target: Option<TargetSpec>,
     },
+    /// A triggered ability with modes: the controller chooses one when it
+    /// triggers (Charming Prince, Aether Channeler).
+    ModalTriggered {
+        /// Trigger condition.
+        trigger: Trigger,
+        /// The modes to choose from.
+        modes: &'static [SpellMode],
+        /// Fires at most once each turn.
+        once_per_turn: bool,
+    },
 }
 
 /// A modification applied after a clone copies its target.

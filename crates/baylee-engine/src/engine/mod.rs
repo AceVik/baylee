@@ -91,6 +91,8 @@ pub struct Engine<L: CardLookup> {
     entry_scan_seq: u64,
     /// Delayed actions queued by upkeep processing.
     delayed_queue: VecDeque<crate::state::DelayedAction>,
+    /// Synthetic keyword-trigger effects by stack object (prowess).
+    synthetic_fx: rustc_hash::FxHashMap<ObjectId, &'static [baylee_cards_dsl::Effect]>,
     /// A spell being cast step by step (modes/targets/X/kicker/pitch).
     cast_wizard: Option<cast_wizard::CastWizard>,
     /// Triggers collected but not yet stacked (target choices first).
@@ -138,6 +140,13 @@ enum PlanKind {
         /// Ability index.
         ability_index: u32,
     },
+    /// A modal trigger waiting for its mode choice.
+    ModalTrigger {
+        /// The source permanent.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -172,6 +181,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_player_choice: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
+            synthetic_fx: rustc_hash::FxHashMap::default(),
             cast_wizard: None,
             trigger_queue: VecDeque::new(),
         };

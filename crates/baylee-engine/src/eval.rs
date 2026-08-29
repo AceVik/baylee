@@ -91,6 +91,7 @@ pub fn amount(
     match amount {
         Amount::Fixed(n) => *n,
         Amount::X | Amount::NegX => x.unwrap_or(0),
+        Amount::NegXFixed(n) => *n,
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
@@ -193,6 +194,8 @@ pub fn target_options(
             out
         }
         TargetSpec::ThisObject => vec![this],
+        // EventObject is implicit (no player choice).
+        TargetSpec::EventObject => vec![],
         // Player targeting resolves via ChoosePlayer in the casting wizard.
         TargetSpec::Player(_) | TargetSpec::AnyPlayer => vec![],
     }

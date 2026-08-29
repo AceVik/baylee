@@ -1,9 +1,10 @@
 use super::{
-    AbilityDef, CardLookup, Cause, CombatDeclared, EndReason, Engine, GameEvent, GameResult,
-    LossReason, ObjectId, ObjectKind, Pending, Phase, PlanKind, PlayerId, Resolution, SmallVec,
-    Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval, mana_pay, resolve, sba, trigger,
+    AbilityDef, AbilityLoc, CardLookup, Cause, CombatDeclared, EndReason, Engine, GameEvent,
+    GameObject, GameResult, LossReason, NameRef, ObjectId, ObjectKind, Pending, Phase, PlanKind,
+    PlayerId, Resolution, SmallVec, Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval,
+    mana_pay, resolve, sba, trigger,
 };
-use crate::choice::YesNoPrompt;
+use crate::choice::{CastModeDesc, CastModeKind, YesNoPrompt};
 
 impl<L: CardLookup> Engine<L> {
     pub(crate) fn run_until_choice(&mut self) {
@@ -483,7 +484,40 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_scan_seq = self.state.journal.last_seq();
             self.trigger_queue = found.into_iter().collect();
         }
-        while let Some(t) = self.trigger_queue.front().copied() {
+        while let Some(t) = self.trigger_queue.front().cloned() {
+            // Modal triggers: offer the mode choice first.
+            if t.ability_index != u32::MAX
+                && let Some(modes) = self
+                    .state
+                    .object(t.source)
+                    .and_then(|o| o.card)
+                    .and_then(|c| self.lookup.card(c.index))
+                    .and_then(|def| def.abilities.get(t.ability_index as usize))
+                    .and_then(|a| match a {
+                        AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
+                        _ => None,
+                    })
+            {
+                let options: Vec<CastModeDesc> = modes
+                    .iter()
+                    .enumerate()
+                    .map(|(i, _)| CastModeDesc {
+                        index: i as u8,
+                        kind: CastModeKind::Mode(i),
+                        cost: baylee_core::mana::ManaCost::ZERO,
+                    })
+                    .collect();
+                self.pending_plan = Some(PlanKind::ModalTrigger {
+                    source: t.source,
+                    ability_index: t.ability_index,
+                });
+                self.pending = Pending::ChooseCastMode {
+                    player: t.controller,
+                    options,
+                };
+                self.awaiting_answer = true;
+                return;
+            }
             let req = self
                 .state
                 .object(t.source)
@@ -495,6 +529,31 @@ impl<L: CardLookup> Engine<L> {
                     _ => None,
                 });
             if let Some(req) = req {
+                // EventObject targeting is implicit — no player choice.
+                if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
+                    let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
+                    self.trigger_queue.pop_front();
+                    if t.once_per_turn {
+                        self.state
+                            .ability_fires
+                            .insert((t.source, t.ability_index), 1);
+                    }
+                    let _ = self.push_ability_to_stack(
+                        t.controller,
+                        t.source,
+                        t.ability_index,
+                        targets,
+                    );
+                    if let Some(event_object) = t.event_object {
+                        let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
+                        if let Some(top) = top {
+                            if let Some(obj) = self.state.object_mut(top) {
+                                obj.event_object = Some(event_object);
+                            }
+                        }
+                    }
+                    continue;
+                }
                 let options = eval::target_options(&req.spec, &self.state, t.controller, t.source);
                 if options.len() < req.min as usize {
                     // No legal target: the trigger is removed from the stack
@@ -517,12 +576,64 @@ impl<L: CardLookup> Engine<L> {
                 return;
             }
             self.trigger_queue.pop_front();
-            let _ = self.push_ability_to_stack(
-                t.controller,
-                t.source,
-                t.ability_index,
-                SmallVec::new(),
-            );
+            if t.once_per_turn {
+                self.state
+                    .ability_fires
+                    .insert((t.source, t.ability_index), 1);
+            }
+            if let Some(synthetic) = t.synthetic_effects.as_ref() {
+                // Synthetic keyword trigger: effects live in the side map.
+                let card = self
+                    .state
+                    .object(t.source)
+                    .and_then(|o| o.card)
+                    .map(|c| c.index);
+                if let Some(card) = card {
+                    let name = self
+                        .state
+                        .object(t.source)
+                        .map_or(NameRef::new(0), |o| o.base.name);
+                    let id = self.state.arena.insert_with(|id| {
+                        GameObject::new_ability_on_stack(
+                            id,
+                            t.controller,
+                            AbilityLoc {
+                                card,
+                                index: u32::MAX,
+                                source: t.source,
+                            },
+                            SmallVec::new(),
+                            name,
+                        )
+                    });
+                    self.synthetic_fx.insert(id, synthetic);
+                    self.state
+                        .zones
+                        .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+                    self.state.journal.record(GameEvent::AbilityTriggered {
+                        object: id,
+                        source: t.source,
+                        ability_index: u32::MAX,
+                        controller: t.controller,
+                    });
+                }
+            } else {
+                let _ = self.push_ability_to_stack(
+                    t.controller,
+                    t.source,
+                    t.ability_index,
+                    SmallVec::new(),
+                );
+                // Carry the event object onto the fresh stack object.
+                if let Some(event_object) = t.event_object {
+                    let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
+                    if let Some(top) = top {
+                        if let Some(obj) = self.state.object_mut(top) {
+                            obj.event_object = Some(event_object);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -544,8 +655,44 @@ impl<L: CardLookup> Engine<L> {
                     | AbilityDef::Triggered { effects, .. }
                     | AbilityDef::Loyalty { effects, .. },
                 ) => *effects,
+                Some(AbilityDef::ModalTriggered { modes, .. }) => {
+                    let idx = obj.mode_index.map_or(0, |i| i as usize);
+                    modes
+                        .get(idx)
+                        .map(|m| m.effects)
+                        .expect("modal trigger mode exists")
+                }
                 _ => panic!("ability object references non-resolvable ability"),
             };
+            if loc.index == u32::MAX {
+                // Synthetic keyword trigger (prowess & co.): effects live in
+                // the side map instead of the card definition.
+                let synthetic = self
+                    .synthetic_fx
+                    .remove(&top)
+                    .expect("synthetic trigger has effects");
+                let mut res = Resolution {
+                    source: loc.source,
+                    on_stack: top,
+                    controller: obj.controller,
+                    effects: resolve::flatten(synthetic),
+                    pc: 0,
+                    targets: obj.targets.clone(),
+                    x: None,
+                    chosen_player: obj.chosen_player,
+                    event_object: obj.event_object,
+                    awaiting: None,
+                };
+                match resolve::run(&mut self.state, &mut res) {
+                    resolve::Flow::Complete => self.finish_resolution(&res),
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                }
+                return;
+            }
             let mut res = Resolution {
                 source: loc.source,
                 on_stack: top,
@@ -555,6 +702,7 @@ impl<L: CardLookup> Engine<L> {
                 targets: obj.targets.clone(),
                 x: None,
                 chosen_player: obj.chosen_player,
+                event_object: obj.event_object,
                 awaiting: None,
             };
             match resolve::run(&mut self.state, &mut res) {
@@ -605,6 +753,7 @@ impl<L: CardLookup> Engine<L> {
                 targets: obj.targets.clone(),
                 x: Some(obj.x_value),
                 chosen_player: obj.chosen_player,
+                event_object: None,
                 awaiting: None,
             };
             match resolve::run(&mut self.state, &mut res) {
@@ -864,6 +1013,12 @@ impl<L: CardLookup> Engine<L> {
             phase: next_phase,
             step: next_step,
         });
+        // Monarch: at the beginning of the monarch's end step, draw (CR 718.4).
+        if next_step == Step::End {
+            if let Some(monarch) = self.state.monarch {
+                self.state.draw_cards(monarch, 1);
+            }
+        }
     }
 
     pub(crate) fn any_first_or_double_striker(&self) -> bool {

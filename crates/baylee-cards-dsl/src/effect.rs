@@ -68,6 +68,8 @@ pub enum Amount {
     /// The negated value of X (Toxic Deluge's `-X/-X`; evaluated as a
     /// negative at use sites).
     NegX,
+    /// A fixed negative value (-N at use sites).
+    NegXFixed(u32),
     /// The power of the first target (last known characteristics).
     TargetPower,
     /// The mana value of the first target (Reanimate's life loss).
@@ -126,6 +128,9 @@ pub enum TargetSpec {
     CardInGraveyard(&'static Filter, PlayerRel),
     /// The source object.
     ThisObject,
+    /// The object the triggering event was about (Wartime Protestors'
+    /// "that creature").
+    EventObject,
     /// A player relative to the controller (You/Opponent; heads-up
     /// auto-resolves for Opponent in two-player games).
     Player(PlayerRel),
@@ -415,6 +420,13 @@ pub enum Effect {
         /// What.
         token: &'static TokenDef,
     },
+    /// Create N tokens under your control (Aang and Katara).
+    CreateTokenN {
+        /// What.
+        token: &'static TokenDef,
+        /// How many.
+        amount: Amount,
+    },
     /// Create a token under the first target's controller (Crib Swap).
     CreateTokenForTargetController {
         /// What.
@@ -444,6 +456,17 @@ pub enum Effect {
     CreateTokenCopyOfEquipped {
         /// Extra copies when the spell was kicked.
         kicked_bonus: u8,
+    },
+    /// Create a token that's a copy of the first creature token you
+    /// control (populate; no-op if none).
+    CreateTokenCopyOfFirstToken,
+    /// A relative player puts a filtered card from their hand on the
+    /// bottom of their library (Vendilion Clique).
+    BottomCardFromHand {
+        /// Whose hand.
+        player: PlayerRel,
+        /// Which cards may be chosen.
+        filter: &'static Filter,
     },
     /// Copy a spell on the stack (Double Major, Jin-Gitaxias). The copy
     /// goes on the stack under your control; you may choose new targets
@@ -528,6 +551,8 @@ pub enum Effect {
         /// The mana cost to pay at your next upkeep.
         cost: ManaCost,
     },
+    /// You become the monarch (Palace Jailer).
+    BecomeMonarch,
     /// A relative player may search their library for a basic land onto
     /// the battlefield tapped, then shuffle (Path to Exile).
     OptionalBasicLandSearchFor {

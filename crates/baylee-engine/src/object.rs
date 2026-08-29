@@ -273,6 +273,8 @@ pub struct GameObject {
     pub chosen_player: Option<PlayerId>,
     /// The chosen spell mode (modal spells / overload).
     pub mode_index: Option<u8>,
+    /// The object a triggering event was about (event-driven triggers).
+    pub event_object: Option<ObjectId>,
     /// Whether the spell was cast from the hand (rebound condition).
     pub cast_from_hand: bool,
 }
@@ -303,6 +305,7 @@ impl GameObject {
             riders: RiderSet::new(),
             targets: SmallVec::new(),
             original_base: None,
+            event_object: None,
             ability: None,
             x_value: 0,
             kicked: false,

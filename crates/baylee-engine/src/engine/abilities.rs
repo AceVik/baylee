@@ -282,6 +282,7 @@ impl<L: CardLookup> Engine<L> {
                 targets,
                 x: None,
                 chosen_player: None,
+                event_object: None,
                 awaiting: None,
             };
             debug_assert!(matches!(

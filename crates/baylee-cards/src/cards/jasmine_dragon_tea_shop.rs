@@ -1,17 +1,33 @@
 //! Jasmine Dragon Tea Shop — (no cost) — Land
 //! Oracle: {T}: Add {C}.
-//! Oracle: {T}: Add one mana of any color. Spend this mana only to cast an Ally spell or activate an ability of an Ally source.
-//! Oracle: {5}, {T}: Create a 1/1 white Ally creature token.
-//! Set: TLA #270 — Avatar: The Last Airbender | Scryfall ID: da2c83d4-a95f-47ff-a08f-694eb78d6b9b | Oracle ID: d9a24444-289f-473f-9985-8df275257555
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! {T}: Add one mana of any color. Spend this mana only to cast an Ally spell or activate an ability of an Ally source.
+//! {5}, {T}: Create a 1/1 white Ally creature token.
+//! Set: TLA #259 — Avatar: The Last Airbender | Scryfall ID: da2c83d4-a95f-47ff-a08f-694eb78d6b9b | Oracle ID: d9a24444-289f-473f-9985-8df275257555
+// PARTIAL — the ally-restriction on the choice mana is not enforced yet
+// (restricted mana riders land with the full payment solver, M2.S7+).
+// Everything else implemented.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
+    Effect, FaceDef, KeywordSet, PartnerKind, TokenDef,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ALLY_TOKEN: TokenDef = TokenDef {
+    name: "Ally",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::EMPTY,
+    subtypes: &[creature::ALLY],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::EMPTY,
+};
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(77),
@@ -35,11 +51,50 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial("ally-restricted mana rider (M2.S7+ payment solver)"),
+    abilities: &[
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddMana {
+                color: ManaColor::Colorless,
+                amount: 1,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddManaChoice {
+                colors: &[
+                    ManaColor::White,
+                    ManaColor::Blue,
+                    ManaColor::Black,
+                    ManaColor::Red,
+                    ManaColor::Green,
+                ],
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+                combination: false,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+        AbilityDef::Activated {
+            cost: Cost {
+                mana: baylee_core::mana!("{5}"),
+                parts: &[CostPart::TapSelf],
+            },
+            effects: &[Effect::CreateToken { token: &ALLY_TOKEN }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: false,
+            zone: ActivationZone::Battlefield,
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

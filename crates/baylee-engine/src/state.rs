@@ -198,6 +198,8 @@ pub struct GameState {
     pub per_turn: PerTurn,
     /// Registered delayed triggers (suspend finishes, pact payments).
     pub delayed: Vec<DelayedTrigger>,
+    /// The monarch designation (CR 718), if any.
+    pub monarch: Option<PlayerId>,
     /// Per-turn fire counts for once-per-turn triggers (reset each turn).
     pub ability_fires: rustc_hash::FxHashMap<(ObjectId, u32), u32>,
     /// Seeded randomness.
@@ -260,6 +262,7 @@ impl GameState {
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
             delayed: Vec::new(),
+            monarch: None,
             ability_fires: rustc_hash::FxHashMap::default(),
             rng: GameRng::new(preset.seed),
             journal: Journal::default(),
@@ -446,6 +449,48 @@ impl GameState {
     #[must_use]
     pub fn object(&self, id: ObjectId) -> Option<&GameObject> {
         self.arena.get(id)
+    }
+
+    /// Sets the monarch and releases monarch-linked exiles: when a player
+    /// becomes monarch, cards exiled "until an opponent becomes monarch"
+    /// (Palace Jailer) return if the new monarch is an opponent of the
+    /// jailer's controller.
+    pub fn set_monarch(&mut self, player: PlayerId) {
+        let previous = self.monarch;
+        self.monarch = Some(player);
+        if previous == Some(player) {
+            return;
+        }
+        // Monarch-link releases (Palace Jailer): return cards whose host's
+        // controller is not the new monarch.
+        let mut returning = Vec::new();
+        for seat in 0..self.players.len() {
+            let p = PlayerId::new(seat as u8);
+            for &card in self.zones.list(ZoneLocation::Exile(p)) {
+                if let Some(host) = self.object(card).and_then(|o| {
+                    o.riders.iter().find_map(|r| match r {
+                        crate::object::Rider::Linked { host } => Some(host),
+                        _ => None,
+                    })
+                }) {
+                    let host_controller = self.object(*host).map_or(player, |h| h.controller);
+                    if host_controller != player {
+                        returning.push(card);
+                    }
+                }
+            }
+        }
+        for card in returning {
+            if let Some(obj) = self.object_mut(card) {
+                obj.kind = crate::object::ObjectKind::Permanent;
+            }
+            let _ = self.move_object(
+                card,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+        }
     }
 
     /// The battlefield as rules see it: phased-out permanents are treated

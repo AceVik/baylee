@@ -104,6 +104,28 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
+                // Modal trigger mode choice.
+                if let Some(PlanKind::ModalTrigger {
+                    source,
+                    ability_index,
+                }) = self.pending_plan.take()
+                {
+                    self.trigger_queue.pop_front();
+                    let controller = self.state.object(source).map_or(player, |o| o.controller);
+                    self.push_ability_to_stack(controller, source, ability_index, SmallVec::new())?;
+                    // Set the chosen mode on the fresh stack object.
+                    let top = self
+                        .state
+                        .zones
+                        .list(ZoneLocation::Stack)
+                        .last()
+                        .copied()
+                        .expect("just pushed");
+                    if let Some(obj) = self.state.object_mut(top) {
+                        obj.mode_index = Some(index as u8);
+                    }
+                    return Ok(());
+                }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 let Some(option) = wizard.options.get(index).map(|o| o.kind) else {
                     return Err(EngineError::IllegalAction("no such cast mode"));
@@ -253,6 +275,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                     PlanKind::LoyaltyPlayer { .. } => {
                         unreachable!("loyalty-player plans are answered via ChoosePlayer")
+                    }
+                    PlanKind::ModalTrigger { .. } => {
+                        unreachable!("modal-trigger plans are answered via ChooseMode")
                     }
                     PlanKind::CopyOnEnter { object } => {
                         if let Some(&target) = targets.first() {

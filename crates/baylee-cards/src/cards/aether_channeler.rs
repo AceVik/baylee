@@ -4,15 +4,37 @@
 //! Oracle: • Return another target nonland permanent to its owner's hand.
 //! Oracle: • Draw a card.
 //! Set: DMU #42 — Dominaria United | Scryfall ID: 60afeb75-2c1e-4634-8c83-88b1dddb77c2 | Oracle ID: fb220f46-f8b8-4804-baa4-e7d50b4871f7
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — modal ETB with all three modes.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, SpellMode, TargetSpec, TokenDef, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static BIRD: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::EMPTY,
+    subtypes: &[creature::BIRD],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+};
+static TOKEN_EFFECTS: &[Effect] = &[Effect::CreateToken { token: &BIRD }];
+static BOUNCE_TARGET: Filter = Filter::And(&[Filter::LacksType(TypeSet::LAND), Filter::Another]);
+static BOUNCE_EFFECTS: &[Effect] = &[Effect::ReturnToHand {
+    target: TargetSpec::Object(&BOUNCE_TARGET),
+}];
+static DRAW_EFFECTS: &[Effect] = &[Effect::DrawCards {
+    amount: Amount::Fixed(1),
+}];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(2),
@@ -23,7 +45,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{2}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::creature::HUMAN, subtypes::creature::WIZARD],
+        subtypes: &[creature::HUMAN, creature::WIZARD],
         power: Some(2),
         toughness: Some(1),
         loyalty: None,
@@ -36,11 +58,29 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::ModalTriggered {
+        trigger: Trigger::EntersBattlefield(&Filter::This),
+        modes: &[
+            SpellMode {
+                effects: TOKEN_EFFECTS,
+                target: None,
+                cost_override: None,
+            },
+            SpellMode {
+                effects: BOUNCE_EFFECTS,
+                target: Some(TargetSpec::Object(&BOUNCE_TARGET)),
+                cost_override: None,
+            },
+            SpellMode {
+                effects: DRAW_EFFECTS,
+                target: None,
+                cost_override: None,
+            },
+        ],
+        once_per_turn: false,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

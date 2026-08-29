@@ -40,6 +40,8 @@ pub struct Resolution {
     pub x: Option<u32>,
     /// Chosen target player, if any.
     pub chosen_player: Option<PlayerId>,
+    /// The object the triggering event was about (event-driven triggers).
+    pub event_object: Option<ObjectId>,
     /// The suspended choice, if any.
     pub awaiting: Option<AwaitingOp>,
 }
@@ -72,6 +74,11 @@ pub enum AwaitingOp {
     },
     /// Top-of-library reorder (Sensei's Divining Top).
     ReorderTopLibrary,
+    /// A relative player bottoms a card from their hand (Vendilion Clique).
+    BottomFromHand {
+        /// Whose hand.
+        player: PlayerId,
+    },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
     /// A mana color choice (choice-restricted mana abilities).
@@ -254,6 +261,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
         effects: flatten(std::slice::from_ref(effect)),
         pc: 0,
         targets: res.targets.clone(),
+        event_object: res.event_object,
         x: res.x,
         chosen_player: res.chosen_player,
         awaiting: None,
@@ -341,6 +349,16 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     card,
                     ZoneLocation::Library(res.controller),
                     ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
+        AwaitingOp::BottomFromHand { player } => {
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(player),
+                    ZonePosition::Bottom,
                     Cause::Effect,
                 );
             }
@@ -997,6 +1015,64 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::CreateTokenCopyOfFirstToken => {
+            let token = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .copied()
+                .find(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.card.is_none()
+                            && o.controller == you
+                            && o.characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::CREATURE)
+                    })
+                });
+            if let Some(id) = token {
+                if let Some(base) = state.object(id).map(|o| o.base.clone()) {
+                    let ts = state.next_timestamp();
+                    let new_id = state.arena.insert_with(|oid| {
+                        let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
+                        obj.timestamp = ts;
+                        obj
+                    });
+                    state
+                        .zones
+                        .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top);
+                    if let Some(obj) = state.object_mut(new_id) {
+                        obj.zone = crate::zone::Zone::Battlefield;
+                    }
+                }
+            }
+            None
+        }
+        Effect::BottomCardFromHand { player, filter } => {
+            let player = eval::players(player, state, you).first().copied()?;
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Hand(player))
+                .iter()
+                .filter(|id| {
+                    state
+                        .object(**id)
+                        .is_some_and(|o| eval::matches(filter, state, o, player, res.source))
+                })
+                .copied()
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::BottomFromHand { player });
+            return Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            });
+        }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
@@ -1059,6 +1135,35 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             {
                 obj.attached_to = Some(target_id);
             }
+            None
+        }
+        Effect::CreateTokenN { token, amount } => {
+            let mut count = amount2(&amount, state, you, res.source, res.x, &res.targets);
+            // Token-creation replacements double the total (CR 614.1).
+            if let Some(source_obj) = state.object(res.source) {
+                for entry in &state.replacement_rules {
+                    if let baylee_cards_dsl::ReplacementRule::DoubleTokenCreation {
+                        controller_filter,
+                    } = entry.rule
+                        && eval::matches(
+                            controller_filter,
+                            state,
+                            source_obj,
+                            res.controller,
+                            entry.source,
+                        )
+                    {
+                        count *= 2;
+                    }
+                }
+            }
+            for _ in 0..count {
+                create_one_token(state, you, token);
+            }
+            None
+        }
+        Effect::BecomeMonarch => {
+            state.set_monarch(you);
             None
         }
         Effect::CreateToken { token } => {
@@ -1177,7 +1282,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         } => {
             let signed = |a: &Amount| -> i16 {
                 let v = amount2(a, state, you, res.source, res.x, &res.targets) as i16;
-                if matches!(a, Amount::NegX) { -v } else { v }
+                if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
+                    -v
+                } else {
+                    v
+                }
             };
             let p = signed(&power);
             let t = signed(&toughness);
@@ -1202,7 +1311,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         } => {
             let signed = |a: &Amount| -> i16 {
                 let v = amount2(a, state, you, res.source, res.x, &res.targets) as i16;
-                if matches!(a, Amount::NegX) { -v } else { v }
+                if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
+                    -v
+                } else {
+                    v
+                }
             };
             let p = signed(&power);
             let t = signed(&toughness);
@@ -1448,6 +1561,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::ReorderTopLibrary { .. }
+        | Effect::BottomCardFromHand { .. }
         | Effect::AddManaChoice { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")

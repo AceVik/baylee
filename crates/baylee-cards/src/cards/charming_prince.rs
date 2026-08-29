@@ -3,16 +3,27 @@
 //! Oracle: • Scry 2.
 //! Oracle: • You gain 3 life.
 //! Oracle: • Exile another target creature you own. Return it to the battlefield under your control at the beginning of the next end step.
-//! Set: FDN #568 — Foundations | Scryfall ID: aa7b47e1-7e32-4f2f-aecf-bac7ca197081 | Oracle ID: c48d844c-3976-4fa5-8e0d-3f0e535e7619
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Set: TDS #8 — Tarkir: Dragonstorm | Scryfall ID: aa7b47e1-7e32-4f2f-aecf-bac7ca197081 | Oracle ID: c48d844c-3976-4fa5-8e0d-3f0e535e7619
+// PARTIAL — modal ETB implemented (modes 1-2); the blink mode needs
+// end-step delayed return (M2.S7b+).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, SpellMode, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static SCRY_EFFECTS: &[Effect] = &[Effect::Scry {
+    amount: Amount::Fixed(2),
+}];
+static LIFE_EFFECTS: &[Effect] = &[Effect::GainLife {
+    amount: Amount::Fixed(3),
+}];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(18),
@@ -23,7 +34,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{1}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::creature::HUMAN, subtypes::creature::NOBLE],
+        subtypes: &[creature::HUMAN, creature::NOBLE],
         power: Some(2),
         toughness: Some(2),
         loyalty: None,
@@ -36,11 +47,24 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial("blink mode (end-step delayed return, M2.S7b+)"),
+    abilities: &[AbilityDef::ModalTriggered {
+        trigger: Trigger::EntersBattlefield(&Filter::This),
+        modes: &[
+            SpellMode {
+                effects: SCRY_EFFECTS,
+                target: None,
+                cost_override: None,
+            },
+            SpellMode {
+                effects: LIFE_EFFECTS,
+                target: None,
+                cost_override: None,
+            },
+        ],
+        once_per_turn: false,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

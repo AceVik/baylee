@@ -14,7 +14,7 @@ use baylee_cards_dsl::{AbilityDef, PlayerRel, StepKind, Trigger};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// A triggered ability waiting to go on the stack.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct PendingTrigger {
     /// The permanent whose ability triggered.
     pub source: ObjectId,
@@ -24,6 +24,12 @@ pub struct PendingTrigger {
     pub controller: PlayerId,
     /// Timestamp of the source (stable same-controller ordering).
     pub timestamp: u64,
+    /// The object the triggering event was about (if any).
+    pub event_object: Option<ObjectId>,
+    /// Synthetic effects for engine-level keyword triggers (prowess).
+    pub synthetic_effects: Option<&'static [baylee_cards_dsl::Effect]>,
+    /// Fires at most once each turn (marked by the engine after stacking).
+    pub once_per_turn: bool,
 }
 
 /// Matches new journal entries (from `from_seq` onward) against all
@@ -69,6 +75,27 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     triggers
 }
 
+static PROWESS_SELF: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::This;
+
+static PROWESS_PUMP: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::CreateContinuousEffect {
+        layer: baylee_cards_dsl::Layer::PtModify,
+        filter: &PROWESS_SELF,
+        modifier: baylee_cards_dsl::Modifier::ModifyPT(1, 1),
+        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+    }];
+
+/// The object an event is about, if any.
+fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
+    match event {
+        GameEvent::ZoneChanged { object, .. }
+        | GameEvent::SpellCast { object, .. }
+        | GameEvent::BecameAttacker { object, .. }
+        | GameEvent::BecameBlocker { object, .. } => Some(*object),
+        _ => None,
+    }
+}
+
 /// Scans a set of objects for triggered abilities matching the events.
 /// `all_kinds` = every trigger kind (battlefield scan); `false` = only
 /// LTB/Dies (off-battlefield scan, CR 603.10).
@@ -88,8 +115,43 @@ fn collect_for_objects(
         let Some(def) = lookup.card(card.index) else {
             continue;
         };
+        // Prowess (engine-level keyword trigger, CR 702.108).
+        if obj
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::PROWESS)
+        {
+            for entry in events {
+                if let GameEvent::SpellCast { object, player } = &entry.event {
+                    if *player == obj.controller
+                        && state.object(*object).is_some_and(|spell| {
+                            !spell
+                                .characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::CREATURE)
+                        })
+                    {
+                        triggers.push(PendingTrigger {
+                            source: permanent,
+                            ability_index: u32::MAX,
+                            controller: obj.controller,
+                            timestamp: obj.timestamp,
+                            event_object: Some(permanent),
+                            synthetic_effects: Some(PROWESS_PUMP),
+                            once_per_turn: false,
+                        });
+                        break;
+                    }
+                }
+            }
+        }
         for (index, ability) in def.abilities.iter().enumerate() {
-            let AbilityDef::Triggered { trigger, .. } = ability else {
+            let AbilityDef::Triggered {
+                trigger,
+                once_per_turn,
+                ..
+            } = ability
+            else {
                 continue;
             };
             if !all_kinds && !matches!(trigger, Trigger::LeavesBattlefield(_) | Trigger::Dies(_)) {
@@ -98,12 +160,16 @@ fn collect_for_objects(
             for entry in events {
                 if matches(trigger, &entry.event, state, permanent, obj.controller) {
                     let times = trigger_count(state, trigger, permanent, obj.controller);
+                    let event_object = event_object_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             source: permanent,
                             ability_index: index as u32,
                             controller: obj.controller,
                             timestamp: obj.timestamp,
+                            event_object,
+                            synthetic_effects: None,
+                            once_per_turn: *once_per_turn,
                         });
                     }
                     break; // one trigger per event per ability — next event

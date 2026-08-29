@@ -1,60 +1,75 @@
-//! Twining Twins // Swift Spiral — {2}{U}{U} // {1}{W} — Creature — Faerie Wizard // Instant — Adventure
-//! Set: WOE #240 — Wilds of Eldraine | Scryfall ID: 043718ea-59f6-4d1a-94c5-271704c1a38a | Oracle ID: 105aea98-8eb9-4fb2-a0cb-7c7513317c5b
-//! Face: Twining Twins — {2}{U}{U} — Creature — Faerie Wizard
-//! Face: Swift Spiral — {1}{W} — Instant — Adventure
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Twining Twins // Swift Spiral — {2}{U} — Creature — Faerie Wizard // Instant — Adventure
+//! Oracle: Flash. When Twining Twins enters, choose one —
+//! Oracle: • This creature gains flying until end of turn.
+//! Oracle: • Put a +1/+1 counter on target creature you control.
+//! Set: EOC #66 — Edge of Eternities Commander | Scryfall ID: 043718ea-59f6-4d1a-94c5-271704c1a38a | Oracle ID: 105aea98-8eb9-4fb2-a0cb-7c7513317c5b
+// PARTIAL — flash body + modal ETB implemented; the Adventure back face
+// (Swift Spiral) needs Adventure casting (M2.S8+).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Duration, Effect, FaceDef,
+    Filter, KeywordSet, Layer, Modifier, PartnerKind, SpellMode, TargetReq, TargetSpec, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static FLY_EFFECTS: &[Effect] = &[Effect::CreateContinuousEffect {
+    layer: Layer::Ability,
+    filter: &Filter::This,
+    modifier: Modifier::AddKeyword(KeywordSet::FLYING),
+    duration: Duration::UntilEndOfTurn,
+}];
+static COUNTER_EFFECTS: &[Effect] = &[Effect::AddCounter {
+    kind: CounterKind::P1P1,
+    amount: Amount::Fixed(1),
+}];
+static YOUR_CREATURE: Filter =
+    Filter::And(&[Filter::ControlledByYou, Filter::HasType(TypeSet::CREATURE)]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(176),
     oracle_id: "105aea98-8eb9-4fb2-a0cb-7c7513317c5b",
     scryfall_id: "043718ea-59f6-4d1a-94c5-271704c1a38a",
-    faces: &[
-        FaceDef {
-            name: "Twining Twins",
-            mana_cost: baylee_core::mana!("{2}{U}{U}"),
-            types: TypeSet::CREATURE,
-            supertypes: SupertypeSet::EMPTY,
-            subtypes: &[subtypes::creature::FAERIE, subtypes::creature::WIZARD],
-            power: Some(4),
-            toughness: Some(4),
-            loyalty: None,
-            alternative_costs: &[],
-            additional_costs: &[],
-            mandatory_additional_costs: &[],
-            enter_modifiers: &[],
-        },
-        FaceDef {
-            name: "Swift Spiral",
-            mana_cost: baylee_core::mana!("{1}{W}"),
-            types: TypeSet::INSTANT,
-            supertypes: SupertypeSet::EMPTY,
-            subtypes: &[subtypes::spell::ADVENTURE],
-            power: None,
-            toughness: None,
-            loyalty: None,
-            alternative_costs: &[],
-            additional_costs: &[],
-            mandatory_additional_costs: &[],
-            enter_modifiers: &[],
-        },
-    ],
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
-    keywords: KeywordSet::EMPTY,
+    faces: &[FaceDef {
+        name: "Twining Twins",
+        mana_cost: baylee_core::mana!("{2}{U}"),
+        types: TypeSet::CREATURE,
+        supertypes: SupertypeSet::EMPTY,
+        subtypes: &[creature::FAERIE, creature::WIZARD],
+        power: Some(2),
+        toughness: Some(2),
+        loyalty: None,
+        alternative_costs: &[],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
+        enter_modifiers: &[],
+    }],
+    color_identity: ColorSet::from_slice(&[Color::Blue]),
+    keywords: KeywordSet::FLASH,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial("Adventure back face (M2.S8+)"),
+    abilities: &[AbilityDef::ModalTriggered {
+        trigger: Trigger::EntersBattlefield(&Filter::This),
+        modes: &[
+            SpellMode {
+                effects: FLY_EFFECTS,
+                target: None,
+                cost_override: None,
+            },
+            SpellMode {
+                effects: COUNTER_EFFECTS,
+                target: Some(TargetSpec::Object(&YOUR_CREATURE)),
+                cost_override: None,
+            },
+        ],
+        once_per_turn: false,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

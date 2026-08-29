@@ -286,14 +286,16 @@ fn card_batch(
             .filter(|name| {
                 let slug = baylee_cards_codegen::stubgen::slug(name);
                 let path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
-                fs::read_to_string(&path)
-                    .map(|c| c.contains("Coverage::Unimplemented"))
-                    .unwrap_or(false)
+                fs::read_to_string(&path).is_ok_and(|c| c.contains("Coverage::Unimplemented"))
             })
             .cloned()
             .collect()
     };
-    println!("preparing {} card task package(s) in {}", wanted.len(), out.display());
+    println!(
+        "preparing {} card task package(s) in {}",
+        wanted.len(),
+        out.display()
+    );
     for name in &wanted {
         let slug = baylee_cards_codegen::stubgen::slug(name);
         let dir = out.join(&slug);
@@ -311,16 +313,16 @@ fn card_batch(
         }
         // 3. Scryfall JSON (metadata).
         let card = scryfall::fetch_named(name, &agent, &cache)?;
-        fs::write(dir.join("SCRYFALL.json"), serde_json::to_string_pretty(&card)?)?;
+        fs::write(
+            dir.join("SCRYFALL.json"),
+            serde_json::to_string_pretty(&card)?,
+        )?;
         // 4. Exemplar by type.
         let type_line = card.type_line.as_deref().unwrap_or("");
         let exemplar = exemplar_for(type_line);
         let exemplar_path = root.join(format!("crates/baylee-cards/src/cards/{exemplar}.rs"));
         if exemplar_path.exists() {
-            fs::write(
-                dir.join("EXEMPLAR.rs"),
-                fs::read_to_string(exemplar_path)?,
-            )?;
+            fs::write(dir.join("EXEMPLAR.rs"), fs::read_to_string(exemplar_path)?)?;
         }
         // 5. Prompt.
         let prompt = format!(
