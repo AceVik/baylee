@@ -100,6 +100,12 @@ pub enum Modifier {
     OpponentsCantSearch,
     /// The controller has no maximum hand size (Reliquary Tower).
     NoMaxHandSize,
+    /// Protection from sources matching the filter: can't be damaged,
+    /// targeted, or blocked by them (CR 702.16).
+    ProtectionFrom(&'static crate::Filter),
+    /// The affected object becomes a copy of the given object (layer 1
+    /// copiable values; Cursed Mirror's until-EOT copy).
+    BecomeCopyOf(baylee_core::ids::ObjectId),
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

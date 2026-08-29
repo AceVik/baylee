@@ -22,6 +22,8 @@ pub enum CostPart {
     DiscardSelf,
     /// Exile the source.
     ExileSelf,
+    /// Return the source to its owner's hand (Recurring Nightmare).
+    ReturnSelfToHand,
     /// Exile a card from your hand matching the filter (pitch costs).
     ExileFromHand(&'static Filter),
     /// Pay life equal to the spell's X value (Toxic Deluge).

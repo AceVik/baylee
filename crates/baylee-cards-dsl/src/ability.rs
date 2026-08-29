@@ -49,6 +49,12 @@ pub enum Trigger {
     /// The source becomes the target of a spell or ability (ward,
     /// Phantasmal Image).
     BecomesTarget,
+    /// A creature matching the filter is exiled from the battlefield
+    /// (Soulherder).
+    ExiledFromBattlefield(&'static Filter),
+    /// A source matching the filter deals combat damage to a player
+    /// (Sword of Hearth and Home: the equipped creature).
+    DealsCombatDamageToPlayer(&'static Filter),
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
     /// A player draws a card except the first one they draw each turn
@@ -133,6 +139,15 @@ pub enum AbilityDef {
     Suspend {
         /// Time counters.
         counters: u8,
+    },
+    /// "As ~ enters, you may have it become a copy of … until end of
+    /// turn" (Cursed Mirror). Choice is made as it enters; the copy is a
+    /// layer-1 continuous effect with `UntilEndOfTurn` duration.
+    CopyOnEnterUntilEot {
+        /// What may be copied.
+        target: crate::effect::TargetSpec,
+        /// Copy modifications applied as their own layer effects.
+        mods: &'static [CopyMod],
     },
     /// "You may have ~ enter the battlefield as a copy of …" (clone
     /// family). Choice is made as it enters.

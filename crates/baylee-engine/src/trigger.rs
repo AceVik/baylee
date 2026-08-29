@@ -320,6 +320,28 @@ fn matches(
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
         (
+            Trigger::ExiledFromBattlefield(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to: Zone::Exile,
+                ..
+            },
+        ) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (
+            Trigger::DealsCombatDamageToPlayer(filter),
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                target: crate::event::DamageTarget::Player(_),
+                is_combat: true,
+                ..
+            },
+        ) => state
+            .object(*damage_source)
+            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (
             Trigger::Dies(filter),
             GameEvent::ZoneChanged {
                 object,

@@ -1,15 +1,22 @@
 //! Recurring Nightmare — {2}{B} — Enchantment
 //! Oracle: Sacrifice a creature, Return this enchantment to its owner's hand: Return target creature card from your graveyard to the battlefield. Activate only as a sorcery.
 //! Set: TPR #113 — Tempest Remastered | Scryfall ID: b50e1800-a45c-43bd-8886-8a06145d9346 | Oracle ID: a6708b11-1bcd-4208-a967-fe91f2e3313c
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — sacrifice + bounce-to-hand cost, sorcery-speed
+// reanimation.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static CREATURE_YOU_CONTROL: Filter =
+    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]);
+static CREATURE_CARD: Filter = Filter::HasType(TypeSet::CREATURE);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(127),
@@ -36,11 +43,24 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost {
+            mana: ManaCost::ZERO,
+            parts: &[
+                CostPart::Sacrifice(&CREATURE_YOU_CONTROL),
+                CostPart::ReturnSelfToHand,
+            ],
+        },
+        effects: &[Effect::GraveyardToBattlefield {
+            target: TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You),
+        }],
+        target: Some(TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You)),
+        timing: ActivationTiming::SorcerySpeed,
+        mana_ability: false,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

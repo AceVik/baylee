@@ -2130,6 +2130,10 @@ fn deal_to_object_with_loyalty(state: &mut GameState, target: ObjectId, n: i16, 
     if n <= 0 {
         return;
     }
+    // Protection (CR 702.16b): matching sources deal no damage.
+    if eval::protected_from(state, target, source) {
+        return;
+    }
     let is_walker = state.object(target).is_some_and(|o| {
         o.characteristics()
             .types

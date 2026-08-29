@@ -132,8 +132,14 @@ fn apply(
     state: &GameState,
     obj: &GameObject,
 ) {
-    let _ = (state, obj);
     match &fx.modifier {
+        Modifier::BecomeCopyOf(id) => {
+            // Layer 1: copiable values of the target (its own projection
+            // included, CR 707.2).
+            if let Some(target) = state.object(*id) {
+                *c = target.characteristics().clone();
+            }
+        }
         Modifier::AddType(t) => c.types = c.types.union(*t),
         Modifier::RemoveType(t) => c.types = c.types.difference(*t),
         Modifier::AddSubtype(s) => c.subtypes.insert(*s),
@@ -173,7 +179,8 @@ fn apply(
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
         | Modifier::OpponentsCantSearch
-        | Modifier::NoMaxHandSize => {}
+        | Modifier::NoMaxHandSize
+        | Modifier::ProtectionFrom(_) => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

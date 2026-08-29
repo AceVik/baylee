@@ -48,6 +48,10 @@ pub fn matches(
             .object(this)
             .and_then(|src| src.chosen_subtype)
             .is_some_and(|s| obj.characteristics().subtypes.contains(s)),
+        Filter::AttachedToBySource => state
+            .object(this)
+            .and_then(|src| src.attached_to)
+            .is_some_and(|attached| attached == obj.id),
         Filter::HasKeyword(k) => obj.characteristics().keywords.contains(*k),
         Filter::CmcAtMost(n) => obj.characteristics().mana_cost.cmc() <= *n,
         Filter::CmcAtLeast(n) => obj.characteristics().mana_cost.cmc() >= *n,
@@ -135,13 +139,38 @@ pub fn amount(
 
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
 #[must_use]
+/// Protection (CR 702.16): does `object` have protection from a filter
+/// that `source` matches? Checked for damage, targeting, and blocking.
+#[must_use]
+pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> bool {
+    let (Some(obj), Some(src)) = (state.object(object), state.object(source)) else {
+        return false;
+    };
+    state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::ProtectionFrom(f) = fx.modifier else {
+            return false;
+        };
+        let applies = match &fx.filter {
+            crate::effects::EffectFilter::ObjectIs(id) => *id == object,
+            crate::effects::EffectFilter::Dsl(filter) => matches(
+                filter,
+                state,
+                obj,
+                fx.controller,
+                fx.source.unwrap_or(object),
+            ),
+        };
+        applies && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
+    })
+}
+
 pub fn target_options(
     spec: &TargetSpec,
     state: &GameState,
     you: PlayerId,
     this: ObjectId,
 ) -> Vec<ObjectId> {
-    match spec {
+    let options = match spec {
         TargetSpec::Object(filter) => state
             .battlefield_view()
             .iter()
@@ -234,5 +263,11 @@ pub fn target_options(
         // EventObject is implicit (no player choice); player targeting
         // resolves via ChoosePlayer in the casting wizard.
         TargetSpec::EventObject | TargetSpec::Player(_) | TargetSpec::AnyPlayer => vec![],
-    }
+    };
+    // Protection (CR 702.16c): a protected object can't be targeted by a
+    // matching source.
+    options
+        .into_iter()
+        .filter(|id| !protected_from(state, *id, this))
+        .collect()
 }

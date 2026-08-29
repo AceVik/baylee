@@ -309,7 +309,8 @@ impl<L: CardLookup> Engine<L> {
                 .abilities_for_face(obj.face_index as usize)
                 .iter()
                 .find_map(|a| match a {
-                    AbilityDef::CopyOnEnter { target, .. } => Some(*target),
+                    AbilityDef::CopyOnEnter { target, .. }
+                    | AbilityDef::CopyOnEnterUntilEot { target, .. } => Some(*target),
                     _ => None,
                 })
             else {
@@ -333,9 +334,11 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Applies the clone-on-enter choice: the permanent's copiable base is
-    /// replaced by the target's base, with the card's modifications.
+    /// replaced by the target's base, with the card's modifications. For
+    /// `CopyOnEnterUntilEot` (Cursed Mirror), the copy is a layer-1
+    /// continuous effect with `UntilEndOfTurn` duration instead.
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
-        let mods: Vec<baylee_cards_dsl::CopyMod> = {
+        let (mods, until_eot): (Vec<baylee_cards_dsl::CopyMod>, bool) = {
             let Some(obj) = self.state.object(id) else {
                 return;
             };
@@ -346,11 +349,73 @@ impl<L: CardLookup> Engine<L> {
             def.abilities_for_face(obj.face_index as usize)
                 .iter()
                 .find_map(|a| match a {
-                    AbilityDef::CopyOnEnter { mods, .. } => Some(mods.to_vec()),
+                    AbilityDef::CopyOnEnter { mods, .. } => Some((mods.to_vec(), false)),
+                    AbilityDef::CopyOnEnterUntilEot { mods, .. } => Some((mods.to_vec(), true)),
                     _ => None,
                 })
                 .unwrap_or_default()
         };
+        if until_eot {
+            // Temporary copy: layer-1 effect + mods as their own effects.
+            let controller = self
+                .state
+                .object(id)
+                .map_or(PlayerId::new(0), |o| o.controller);
+            let ts = self.state.next_timestamp();
+            self.state
+                .effects
+                .register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(id),
+                    controller,
+                    layer: baylee_cards_dsl::Layer::Copy,
+                    timestamp: ts,
+                    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                    filter: crate::effects::EffectFilter::ObjectIs(id),
+                    modifier: baylee_cards_dsl::Modifier::BecomeCopyOf(target),
+                });
+            for m in mods {
+                let (layer, modifier) = match m {
+                    baylee_cards_dsl::CopyMod::AddKeyword(k) => (
+                        baylee_cards_dsl::Layer::Ability,
+                        baylee_cards_dsl::Modifier::AddKeyword(k),
+                    ),
+                    baylee_cards_dsl::CopyMod::AddType(t) => (
+                        baylee_cards_dsl::Layer::Type,
+                        baylee_cards_dsl::Modifier::AddType(t),
+                    ),
+                    baylee_cards_dsl::CopyMod::RemoveType(t) => (
+                        baylee_cards_dsl::Layer::Type,
+                        baylee_cards_dsl::Modifier::RemoveType(t),
+                    ),
+                    baylee_cards_dsl::CopyMod::AddSubtype(s) => (
+                        baylee_cards_dsl::Layer::Type,
+                        baylee_cards_dsl::Modifier::AddSubtype(s),
+                    ),
+                    baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
+                        if let Some(obj) = self.state.object_mut(id) {
+                            obj.counters.add(kind, n);
+                        }
+                        continue;
+                    }
+                    baylee_cards_dsl::CopyMod::RemoveSupertype(_) => continue, // no modifier form
+                };
+                let ts = self.state.next_timestamp();
+                self.state
+                    .effects
+                    .register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(id),
+                        controller,
+                        layer,
+                        timestamp: ts,
+                        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                        filter: crate::effects::EffectFilter::ObjectIs(id),
+                        modifier,
+                    });
+            }
+            return;
+        }
         let Some(target_base) = self.state.object(target).map(|o| o.base.clone()) else {
             return;
         };

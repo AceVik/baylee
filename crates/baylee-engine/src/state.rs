@@ -884,6 +884,69 @@ fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> bool {
     }
 }
 
+/// Deterministic structural hash of a DSL filter (modifier payloads).
+fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
+    use baylee_cards_dsl::Filter as F;
+    match f {
+        F::Any => h.u8(0),
+        F::This => h.u8(1),
+        F::Another => h.u8(2),
+        F::And(parts) | F::Or(parts) => {
+            h.u8(if matches!(f, F::And(_)) { 3 } else { 4 });
+            for p in *parts {
+                filter_hash(h, p);
+            }
+        }
+        F::Not(inner) => {
+            h.u8(5);
+            filter_hash(h, inner);
+        }
+        F::HasType(t) => {
+            h.u8(6);
+            h.u16(t.bits());
+        }
+        F::LacksType(t) => {
+            h.u8(7);
+            h.u16(t.bits());
+        }
+        F::HasSupertype(s) => {
+            h.u8(8);
+            h.u8(s.bits());
+        }
+        F::HasSubtype(s) => {
+            h.u8(9);
+            h.u16(s.get().into());
+        }
+        F::HasColor(c) => {
+            h.u8(10);
+            h.u8(c.bits());
+        }
+        F::IsColorless => h.u8(11),
+        F::Monocolored => h.u8(12),
+        F::IsToken => h.u8(13),
+        F::ControlledByYou => h.u8(14),
+        F::ControlledByOpponent => h.u8(15),
+        F::OwnedByYou => h.u8(16),
+        F::Tapped => h.u8(17),
+        F::Untapped => h.u8(18),
+        F::Attacking => h.u8(19),
+        F::MatchesChosenTypeOfSource => h.u8(20),
+        F::AttachedToBySource => h.u8(25),
+        F::HasKeyword(k) => {
+            h.u8(21);
+            h.u128(k.bits());
+        }
+        F::CmcAtMost(n) | F::CmcAtLeast(n) => {
+            h.u8(if matches!(f, F::CmcAtMost(_)) { 22 } else { 23 });
+            h.u32(*n);
+        }
+        F::InZone(z) => {
+            h.u8(24);
+            h.u8(*z as u8);
+        }
+    }
+}
+
 fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
     use baylee_cards_dsl::Modifier as M;
     match m {
@@ -927,6 +990,14 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::PreventDamageFromIt => h.u8(20),
         M::OpponentsCantSearch => h.u8(21),
         M::NoMaxHandSize => h.u8(22),
+        M::ProtectionFrom(f) => {
+            h.u8(23);
+            filter_hash(h, f);
+        }
+        M::BecomeCopyOf(id) => {
+            h.u8(24);
+            h.u32(id.slot());
+        }
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

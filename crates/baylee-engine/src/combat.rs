@@ -128,6 +128,10 @@ pub fn can_block(
     if kw(a, K::UNBLOCKABLE) {
         return false;
     }
+    // Protection (CR 702.16d): can't be blocked by matching creatures.
+    if crate::eval::protected_from(state, attacker, blocker) {
+        return false;
+    }
     true
 }
 
@@ -245,7 +249,10 @@ fn deal_damage_to_object(
     if amount <= 0 {
         return;
     }
-    if prevent_from(state, source) || prevent_to(state, target) {
+    if prevent_from(state, source)
+        || prevent_to(state, target)
+        || crate::eval::protected_from(state, target, source)
+    {
         return;
     }
     if let Some(obj) = state.object_mut(target) {

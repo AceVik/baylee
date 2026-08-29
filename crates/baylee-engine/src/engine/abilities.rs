@@ -152,6 +152,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::Discard(_)
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
+                | CostPart::ReturnSelfToHand
                 | CostPart::ExileFromHand(_)
                 | CostPart::PayLifeX => {}
             }
@@ -537,6 +538,15 @@ impl<L: CardLookup> Engine<L> {
                     self.state.move_object(
                         source,
                         ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        Cause::Cost,
+                    )?;
+                }
+                CostPart::ReturnSelfToHand => {
+                    let owner = self.state.object(source).map_or(player, |o| o.owner);
+                    self.state.move_object(
+                        source,
+                        ZoneLocation::Hand(owner),
                         ZonePosition::Top,
                         Cause::Cost,
                     )?;
