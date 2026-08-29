@@ -49,9 +49,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "Plains/Swamp activation restriction (activation conditions, own milestone)",
-    ),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Activated {
             cost: Cost::TAP,

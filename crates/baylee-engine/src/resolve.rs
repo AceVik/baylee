@@ -1325,14 +1325,34 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 prompt: ChoicePrompt::Generic,
             })
         }
-        Effect::CreateTokenCopyOfEquipped { kicked_bonus } => {
+        Effect::CreateTokenCopyOfEquipped { kicked_bonus, mods } => {
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
             if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to)
                 && let Some(base) = state.object(equipped).map(|o| o.base.clone())
             {
                 for _ in 0..count {
-                    let base = base.clone();
+                    let mut base = base.clone();
+                    for m in mods {
+                        match m {
+                            baylee_cards_dsl::CopyMod::AddType(t) => {
+                                base.types = base.types.union(*t);
+                            }
+                            baylee_cards_dsl::CopyMod::RemoveType(t) => {
+                                base.types = base.types.difference(*t);
+                            }
+                            baylee_cards_dsl::CopyMod::RemoveSupertype(s) => {
+                                base.supertypes = base.supertypes.difference(*s);
+                            }
+                            baylee_cards_dsl::CopyMod::AddSubtype(s) => {
+                                base.subtypes.insert(*s);
+                            }
+                            baylee_cards_dsl::CopyMod::AddKeyword(k) => {
+                                base.keywords = base.keywords.union(*k);
+                            }
+                            baylee_cards_dsl::CopyMod::AddCounter(_, _) => {}
+                        }
+                    }
                     let ts = state.next_timestamp();
                     let id = state.arena.insert_with(|oid| {
                         let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
@@ -1486,6 +1506,41 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             {
                 src.counters
                     .add(baylee_cards_dsl::CounterKind::P1P1, drained);
+            }
+            None
+        }
+        Effect::IfNotLostLifeThisTurn { then } => {
+            // Journal scan since turn start: any LifeChanged for `you`
+            // with new < old is a life loss (CR 119.4a note).
+            let lost = state.journal.entries()[state.turn_start_seq as usize..]
+                .iter()
+                .any(|e| match &e.event {
+                    GameEvent::LifeChanged {
+                        player, old, new, ..
+                    } => *player == you && new < old,
+                    _ => false,
+                });
+            if !lost {
+                let mut nested = Resolution {
+                    source: res.source,
+                    on_stack: res.on_stack,
+                    controller: res.controller,
+                    effects: flatten(then),
+                    pc: 0,
+                    targets: res.targets.clone(),
+                    event_object: res.event_object,
+                    x: res.x,
+                    chosen_player: res.chosen_player,
+                    awaiting: None,
+                };
+                match run(state, &mut nested) {
+                    Flow::Complete => {}
+                    Flow::Wait(pending) => {
+                        res.awaiting = nested.awaiting;
+                        res.effects.splice(res.pc..res.pc, nested.effects);
+                        return Some(pending);
+                    }
+                }
             }
             None
         }

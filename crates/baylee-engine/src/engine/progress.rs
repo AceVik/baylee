@@ -1166,6 +1166,7 @@ impl<L: CardLookup> Engine<L> {
             self.state.turn.number += 1;
         }
         self.state.turn_start_timestamp = self.state.timestamp;
+        self.state.turn_start_seq = self.state.journal.last_seq();
         self.state.per_turn.reset();
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();

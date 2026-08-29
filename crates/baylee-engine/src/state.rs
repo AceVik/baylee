@@ -145,6 +145,10 @@ pub struct PerTurn {
     pub noncreature_spells: Vec<u32>,
     /// Cards drawn this turn, per player.
     pub draws: Vec<u32>,
+    /// All spells cast this turn, per player (second-spell triggers).
+    pub spells_cast: Vec<u32>,
+    /// Whether each player lost life this turn (Luminarch Ascension).
+    pub life_lost: Vec<bool>,
 }
 
 impl PerTurn {
@@ -153,6 +157,8 @@ impl PerTurn {
     pub fn new(players: usize) -> Self {
         Self {
             noncreature_spells: vec![0; players],
+            spells_cast: vec![0; players],
+            life_lost: vec![false; players],
             draws: vec![0; players],
         }
     }
@@ -161,6 +167,8 @@ impl PerTurn {
     pub fn reset(&mut self) {
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
         self.draws.iter_mut().for_each(|v| *v = 0);
+        self.spells_cast.iter_mut().for_each(|v| *v = 0);
+        self.life_lost.iter_mut().for_each(|v| *v = false);
     }
 }
 
@@ -207,6 +215,9 @@ pub struct GameState {
     pub turn: TurnInfo,
     /// Timestamp at which the current turn began (summoning sickness).
     pub turn_start_timestamp: u64,
+    /// Journal sequence at the start of the current turn (per-turn event
+    /// scans: "lost life this turn", …).
+    pub turn_start_seq: u64,
     /// Combat phase state.
     pub combat: crate::combat::CombatState,
     /// Per-turn counters for conditional triggers (Esper Sentinel, Orcish
@@ -283,6 +294,7 @@ impl GameState {
                 .collect(),
             turn: TurnInfo::new(PlayerId::new(0)),
             turn_start_timestamp: 0,
+            turn_start_seq: 0,
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
             delayed: Vec::new(),
@@ -940,6 +952,10 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::Attacking => h.u8(19),
         F::MatchesChosenTypeOfSource => h.u8(20),
         F::AttachedToBySource => h.u8(25),
+        F::ToughnessAtMost(n) => {
+            h.u8(26);
+            h.i16(*n);
+        }
         F::HasKeyword(k) => {
             h.u8(21);
             h.u128(k.bits());

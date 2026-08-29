@@ -65,6 +65,8 @@ pub enum Filter {
     CmcAtMost(u32),
     /// Converted mana cost at least N.
     CmcAtLeast(u32),
+    /// Toughness at most N (Recruiter of the Guard).
+    ToughnessAtMost(i16),
     /// Is in the given zone (cross-zone effects like Maskwood Nexus).
     InZone(ZoneRef),
 }

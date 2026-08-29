@@ -43,6 +43,9 @@ pub enum ActivationCondition {
     /// An opponent has at least N cards in their graveyard (Sheoldred's
     /// flip condition).
     OpponentGraveyardCountAtLeast(u8),
+    /// The source has at least N counters of a kind (Luminarch
+    /// Ascension's quest counters).
+    CountersOnSelf(crate::effect::CounterKind, u8),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -67,6 +70,14 @@ pub enum Trigger {
     DealsCombatDamageToPlayer(&'static Filter),
     /// The source becomes tapped (City of Brass).
     BecomesTapped(&'static Filter),
+    /// The controller casts their Nth spell this turn (Storm of
+    /// Saruman's second-spell trigger).
+    NthSpellCast {
+        /// Which spell number.
+        n: u8,
+        /// The spell filter.
+        filter: &'static Filter,
+    },
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
     /// A player draws a card except the first one they draw each turn

@@ -1,7 +1,8 @@
 //! Recruiter of the Guard — {2}{W} — Creature — Human Soldier
 //! Oracle: When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.
-//! Set: MH3 #266 — Modern Horizons 3 | Scryfall ID: 8e4c6ba1-1abc-478f-9b7c-97e9e3c92fb0 | Oracle ID: d521a329-a53a-4962-810a-2abed80df260
-// IMPLEMENTED — ETB optional tutor for small creatures (reveal is M3).
+//! Set: CN2 #90 — Conspiracy: Take the Crown | Scryfall ID: 8e4c6ba1-1abc-478f-9b7c-97e9e3c92fb0 | Oracle ID: d521a329-a53a-4962-810a-2abed80df260
+// IMPLEMENTED — ETB tutor with the real toughness filter
+// (Filter::ToughnessAtMost).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
@@ -14,9 +15,9 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static SMALL_CREATURE: Filter = Filter::And(&[
+static TOUGH_CREATURE: Filter = Filter::And(&[
     Filter::HasType(TypeSet::CREATURE),
-    Filter::CmcAtMost(2), // toughness ≤ 2 — engine lacks a toughness filter;
+    Filter::ToughnessAtMost(2),
 ]);
 
 pub static CARD: CardDef = CardDef {
@@ -47,14 +48,12 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "toughness filter is approximated by CMC≤2 until a stat filter lands (M2.S8)",
-    ),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
         once_per_turn: false,
         effects: &[Effect::SearchLibrary {
-            filter: &SMALL_CREATURE,
+            filter: &TOUGH_CREATURE,
             dest: SearchDest::Hand,
             tapped: false,
             shuffle: true,

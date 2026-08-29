@@ -95,7 +95,7 @@ impl<L: CardLookup> Engine<L> {
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                             continue;
                         }
-                        if !self.check_activation_condition(player, *condition) {
+                        if !self.check_activation_condition(player, id, *condition) {
                             continue;
                         }
                         if self.can_afford(player, id, cost) {
@@ -187,6 +187,7 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn check_activation_condition(
         &self,
         player: PlayerId,
+        source: ObjectId,
         condition: baylee_cards_dsl::ActivationCondition,
     ) -> bool {
         match condition {
@@ -216,6 +217,10 @@ impl<L: CardLookup> Engine<L> {
                             >= min as usize
                     })
             }
+            baylee_cards_dsl::ActivationCondition::CountersOnSelf(kind, min) => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.counters.get(kind) >= u16::from(min)),
         }
     }
 
@@ -433,7 +438,7 @@ impl<L: CardLookup> Engine<L> {
                     condition,
                     ..
                 } => {
-                    if !self.check_activation_condition(player, *condition) {
+                    if !self.check_activation_condition(player, source, *condition) {
                         return Err(EngineError::IllegalAction("activation condition not met"));
                     }
                     (card.index, *cost, *effects, *target, *mana_ability, *zone)

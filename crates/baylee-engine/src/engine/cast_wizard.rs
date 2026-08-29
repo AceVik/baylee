@@ -705,6 +705,14 @@ impl<L: CardLookup> Engine<L> {
         {
             *v = v.saturating_add(1);
         }
+        if let Some(v) = self
+            .state
+            .per_turn
+            .spells_cast
+            .get_mut(player.get() as usize)
+        {
+            *v = v.saturating_add(1);
+        }
         self.state.journal.record(GameEvent::SpellCast {
             object: card,
             player,

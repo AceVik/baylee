@@ -45,9 +45,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "token isn't legendary + gains haste (token modification, M2.S7c+)",
-    ),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::StepBegin {
@@ -55,7 +53,13 @@ pub static CARD: CardDef = CardDef {
                 whose: baylee_cards_dsl::PlayerRel::You,
             },
             once_per_turn: false,
-            effects: &[Effect::CreateTokenCopyOfEquipped { kicked_bonus: 0 }],
+            effects: &[Effect::CreateTokenCopyOfEquipped {
+                kicked_bonus: 0,
+                mods: &[
+                    baylee_cards_dsl::CopyMod::RemoveSupertype(SupertypeSet::LEGENDARY),
+                    baylee_cards_dsl::CopyMod::AddKeyword(KeywordSet::HASTE),
+                ],
+            }],
             targets: None,
         },
         AbilityDef::Activated {

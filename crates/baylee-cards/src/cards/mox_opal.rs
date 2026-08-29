@@ -50,9 +50,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "metalcraft activation restriction (activation conditions, own milestone)",
-    ),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::ActivatedConditional {
         cost: Cost::TAP,
         effects: &[Effect::AddManaChoice {

@@ -55,6 +55,7 @@ pub fn matches(
         Filter::HasKeyword(k) => obj.characteristics().keywords.contains(*k),
         Filter::CmcAtMost(n) => obj.characteristics().mana_cost.cmc() <= *n,
         Filter::CmcAtLeast(n) => obj.characteristics().mana_cost.cmc() >= *n,
+        Filter::ToughnessAtMost(n) => obj.characteristics().toughness.is_some_and(|t| t <= *n),
         Filter::InZone(z) => {
             use baylee_cards_dsl::ZoneRef;
             match z {

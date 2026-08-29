@@ -376,6 +376,11 @@ pub enum Effect {
     /// Remove all counters from all permanents; the source enters with
     /// that many +1/+1 counters (Thief of Blood).
     DrainAllCountersIntoSelf,
+    /// Branch: you didn't lose life this turn (Luminarch Ascension).
+    IfNotLostLifeThisTurn {
+        /// Effects when the condition holds.
+        then: &'static [Effect],
+    },
     /// Branch: you control a `filter`-matching permanent with the
     /// greatest cmc among `filter`-matching permanents (or tied; Padeem).
     IfControlGreatestCmc {
@@ -592,6 +597,8 @@ pub enum Effect {
     CreateTokenCopyOfEquipped {
         /// Extra copies when the spell was kicked.
         kicked_bonus: u8,
+        /// Copy modifications ("isn't legendary", "gains haste").
+        mods: &'static [crate::ability::CopyMod],
     },
     /// Create a token that's a copy of the first creature token you
     /// control (populate; no-op if none).

@@ -142,6 +142,12 @@ static WARD1_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
         mana: 1,
         effect: &WARD_COUNTER,
     }];
+static WARD3_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::PlayerMayPayOr {
+        player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
+        mana: 3,
+        effect: &WARD_COUNTER,
+    }];
 
 /// The object an event is about, if any.
 fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
@@ -212,9 +218,10 @@ fn collect_for_objects(
             let Some(synthetic) = (match mana {
                 1 => Some(WARD1_PAY_OR_COUNTER),
                 2 => Some(WARD2_PAY_OR_COUNTER),
+                3 => Some(WARD3_PAY_OR_COUNTER),
                 _ => None,
             }) else {
-                continue; // unsupported ward cost (colored/generic>2)
+                continue; // unsupported ward cost (colored/generic>3)
             };
             for entry in events {
                 let (target_obj, caster) = match &entry.event {

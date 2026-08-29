@@ -3,15 +3,12 @@
 //! Oracle: At the beginning of combat on your turn, populate. (Create a token that's a copy of a creature token you control.)
 //! Oracle: Whenever a creature token you control enters, put a +1/+1 counter on this creature.
 //! Set: EOC #25 — Edge of Eternities Commander | Scryfall ID: c58ff93f-7135-40af-92ce-358da48694dc | Oracle ID: fe8fc442-ed17-40b2-8624-69f2eed3f9be
-// PARTIAL — flying + counter on creature-token ETBs implemented. Populate
-// approximated: creates a token copy of one of your creature tokens when
-// one exists (populate's choose-a-token and token-only restriction are
-// noted; currently no-op without a creature token).
+// IMPLEMENTED — populate (token-only copy) + token-ETB growth.
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
     AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Effect, FaceDef, Filter,
-    KeywordSet, PartnerKind, StepKind, Trigger,
+    KeywordSet, PartnerKind, StepKind, TargetReq, TargetSpec, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
@@ -19,10 +16,10 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static YOUR_CREATURE_ETB: Filter = Filter::And(&[
-    Filter::ControlledByYou,
+static CREATURE_TOKEN_YOU_CONTROL: Filter = Filter::And(&[
+    Filter::IsToken,
     Filter::HasType(TypeSet::CREATURE),
-    Filter::Another,
+    Filter::ControlledByYou,
 ]);
 
 pub static CARD: CardDef = CardDef {
@@ -53,9 +50,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::FLYING,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "populate chooses a creature token (token-only target, M2+); approximated as copy-of-first-creature-token",
-    ),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::StepBegin {
@@ -63,11 +58,19 @@ pub static CARD: CardDef = CardDef {
                 whose: baylee_cards_dsl::PlayerRel::You,
             },
             once_per_turn: false,
-            effects: &[Effect::CreateTokenCopyOfFirstToken],
-            targets: None,
+            effects: &[Effect::CreateTokenCopyOf {
+                target: Some(TargetSpec::Object(&CREATURE_TOKEN_YOU_CONTROL)),
+                kicked_bonus: 0,
+            }],
+            targets: Some(TargetReq {
+                spec: TargetSpec::Object(&CREATURE_TOKEN_YOU_CONTROL),
+                min: 0,
+                max: 1,
+                count_is_x: false,
+            }),
         },
         AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&YOUR_CREATURE_ETB),
+            trigger: Trigger::EntersBattlefield(&CREATURE_TOKEN_YOU_CONTROL),
             once_per_turn: false,
             effects: &[Effect::AddCounter {
                 kind: CounterKind::P1P1,
