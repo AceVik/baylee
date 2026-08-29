@@ -915,7 +915,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         }
         F::HasSubtype(s) => {
             h.u8(9);
-            h.u16(s.get().into());
+            h.u16(s.get());
         }
         F::HasColor(c) => {
             h.u8(10);

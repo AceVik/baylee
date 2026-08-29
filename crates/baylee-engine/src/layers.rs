@@ -130,7 +130,7 @@ fn apply(
     controller: &mut PlayerId,
     fx: &ContinuousEffect,
     state: &GameState,
-    obj: &GameObject,
+    _obj: &GameObject,
 ) {
     match &fx.modifier {
         Modifier::BecomeCopyOf(id) => {

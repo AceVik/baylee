@@ -137,8 +137,6 @@ pub fn amount(
     }
 }
 
-/// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
-#[must_use]
 /// Protection (CR 702.16): does `object` have protection from a filter
 /// that `source` matches? Checked for damage, targeting, and blocking.
 #[must_use]
