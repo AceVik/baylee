@@ -26,9 +26,6 @@ fn ondu_cleric() -> CardIndex {
 fn jace() -> CardIndex {
     card_index("7f77a84e-5a4b-4834-aefa-3cecc175ae8e")
 }
-fn teferi() -> CardIndex {
-    card_index("ae7604bb-4818-45a3-960c-cf3d83f15964")
-}
 
 fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {

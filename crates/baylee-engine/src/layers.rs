@@ -160,10 +160,10 @@ fn apply(
         Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),
         Modifier::RemoveKeyword(k) => c.keywords = c.keywords.difference(*k),
         Modifier::LoseKeywords => c.keywords = KeywordSet::EMPTY,
-        Modifier::LegendRuleOff => {} // handled by the SBA, not characteristics
-        Modifier::CantActivateArtifacts | Modifier::OpponentsCastAsSorcery => {
-            // handled by legality checks, not characteristics
-        }
+        // Handled by SBAs/legality checks, not by characteristics.
+        Modifier::LegendRuleOff
+        | Modifier::CantActivateArtifacts
+        | Modifier::OpponentsCastAsSorcery => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;
