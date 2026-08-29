@@ -259,7 +259,7 @@ fn deal_damage_to_object(
     });
 }
 
-/// True if the source object may not deal damage (PreventDamageFromIt).
+/// True if the source object may not deal damage (`PreventDamageFromIt`).
 fn prevent_from(state: &GameState, source: ObjectId) -> bool {
     state.effects.iter().any(|fx| {
         matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageFromIt)
@@ -267,7 +267,7 @@ fn prevent_from(state: &GameState, source: ObjectId) -> bool {
     })
 }
 
-/// True if the target object may not be dealt damage (PreventDamageToIt).
+/// True if the target object may not be dealt damage (`PreventDamageToIt`).
 fn prevent_to(state: &GameState, target: ObjectId) -> bool {
     state.effects.iter().any(|fx| {
         matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageToIt)
