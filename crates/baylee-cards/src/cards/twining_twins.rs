@@ -1,15 +1,17 @@
-//! Twining Twins // Swift Spiral — {2}{U} — Creature — Faerie Wizard // Instant — Adventure
-//! Oracle: Flash. When Twining Twins enters, choose one —
-//! Oracle: • This creature gains flying until end of turn.
-//! Oracle: • Put a +1/+1 counter on target creature you control.
+//! Twining Twins // Swift Spiral — {2}{U}{U} — Creature — Faerie Wizard // Instant — Adventure
+//! Oracle: Twining Twins — Flying, vigilance, ward {1}. 4/4.
+//! Oracle: Swift Spiral {1}{W} — Instant — Adventure: Exile target nontoken creature. Return it to the battlefield under its owner's control at the beginning of the next end step.
 //! Set: EOC #66 — Edge of Eternities Commander | Scryfall ID: 043718ea-59f6-4d1a-94c5-271704c1a38a | Oracle ID: 105aea98-8eb9-4fb2-a0cb-7c7513317c5b
-// PARTIAL — flash body + modal ETB implemented; the Adventure back face
-// (Swift Spiral) needs Adventure casting (M2.S8+).
+// IMPLEMENTED — flying/vigilance/ward 4/4 front + the adventure back
+// (cast Swift Spiral, exile on resolution, cast Twining Twins from
+// exile later — CR 715).
+// NOTE: data corrected against Scryfall (the stub header had a modal
+// ETB from a different card).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Duration, Effect, FaceDef,
-    Filter, KeywordSet, Layer, Modifier, PartnerKind, SpellMode, TargetReq, TargetSpec, Trigger,
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetReq, TargetSpec,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
@@ -17,66 +19,71 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static FLY_EFFECTS: &[Effect] = &[Effect::CreateContinuousEffect {
-    layer: Layer::Ability,
-    filter: &Filter::This,
-    modifier: Modifier::AddKeyword(KeywordSet::FLYING),
-    duration: Duration::UntilEndOfTurn,
+static NONTOKEN_CREATURE: Filter = Filter::And(&[
+    Filter::HasType(TypeSet::CREATURE),
+    Filter::Not(&Filter::IsToken),
+]);
+static BACK_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
+    effects: &[Effect::ExileAndReturnAtEndStep],
+    targets: Some(TargetReq::one(TargetSpec::Object(&NONTOKEN_CREATURE))),
 }];
-static COUNTER_EFFECTS: &[Effect] = &[Effect::AddCounter {
-    kind: CounterKind::P1P1,
-    amount: Amount::Fixed(1),
-}];
-static YOUR_CREATURE: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasType(TypeSet::CREATURE)]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(176),
     oracle_id: "105aea98-8eb9-4fb2-a0cb-7c7513317c5b",
     scryfall_id: "043718ea-59f6-4d1a-94c5-271704c1a38a",
-    faces: &[FaceDef {
-        name: "Twining Twins",
-        mana_cost: baylee_core::mana!("{2}{U}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[creature::FAERIE, creature::WIZARD],
-        power: Some(2),
-        toughness: Some(2),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::FLASH,
+    faces: &[
+        FaceDef {
+            name: "Twining Twins",
+            mana_cost: baylee_core::mana!("{2}{U}{U}"),
+            types: TypeSet::CREATURE,
+            supertypes: SupertypeSet::EMPTY,
+            subtypes: &[creature::FAERIE, creature::WIZARD],
+            power: Some(4),
+            toughness: Some(4),
+            loyalty: None,
+            alternative_costs: &[],
+            additional_costs: &[],
+            mandatory_additional_costs: &[],
+            enter_modifiers: &[],
+            abilities: &[],
+            castable_from_hand: true,
+            miracle: None,
+            delve: false,
+            convoke: false,
+            cost_reduction: None,
+            disturb: false,
+            adventure: false,
+        },
+        FaceDef {
+            name: "Swift Spiral",
+            mana_cost: baylee_core::mana!("{1}{W}"),
+            types: TypeSet::INSTANT,
+            supertypes: SupertypeSet::EMPTY,
+            subtypes: &[],
+            power: None,
+            toughness: None,
+            loyalty: None,
+            alternative_costs: &[],
+            additional_costs: &[],
+            mandatory_additional_costs: &[],
+            enter_modifiers: &[],
+            abilities: BACK_ABILITIES,
+            castable_from_hand: true,
+            miracle: None,
+            delve: false,
+            convoke: false,
+            cost_reduction: None,
+            disturb: false,
+            adventure: true,
+        },
+    ],
+    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
+    keywords: KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("Adventure back face (M2.S8+)"),
-    abilities: &[AbilityDef::ModalTriggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        modes: &[
-            SpellMode {
-                effects: FLY_EFFECTS,
-                target: None,
-                cost_override: None,
-            },
-            SpellMode {
-                effects: COUNTER_EFFECTS,
-                target: Some(TargetSpec::Object(&YOUR_CREATURE)),
-                cost_override: None,
-            },
-        ],
-        once_per_turn: false,
-    }],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Ward { mana: 1 }],
 };
 
 #[cfg(test)]
