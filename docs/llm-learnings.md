@@ -155,6 +155,28 @@ Open milestones discovered tonight:
   printings (Sheoldred × 2 in the pool).
 - Coverage now: **161 Implemented, 33 Partial, 0 Unimplemented**.
 
+## 2026-08-29 — quick-win sweep after E2 (roadmap paying off)
+
+- After E2's GrantActivated machinery, many "partial" notes collapsed in
+  one sweep: Chromatic Lantern + Great Divide Guide (mana grants),
+  Luminarch Ascension (CountersOnSelf condition), Storm of Saruman
+  (NthSpellCast + ward {3}), Nesting Dovehawk (populate via IsToken
+  targets), Helm of the Host (token-copy mods on CreateTokenCopyOfEquipped),
+  Recruiter of the Guard (ToughnessAtMost filter), Emeritus of Woe (MDFC
+  back-face spell), Elspeth + Teferi (UntilYourNextTurn duration +
+  SorceriesHaveFlash), Force of Negation (CounterTargetSpellToExile),
+  Karmic Guide (Echo via DelayedAction::PayCostOrSacrifice + protection),
+  Doubling Season (ETB loyalty placement now honors counter-doubling).
+- **175 Implemented, 19 Partial, 0 Unimplemented.**
+- Remaining real milestones: E3 disturb/graveyard-casting (Mirrorhall),
+  E4 classes (Wizard Class), E5 mana provenance (Cavern, Path of
+  Ancestry, Jasmine Dragon), plus M3/M4 protocol items (target re-choice,
+  outside-game, presentation) and small riders.
+- Coverage-staleness gotcha: `Coverage::Partial` strings linger after the
+  machinery lands — grep stale Partials after every engine milestone
+  (multi-line literals evade single-line edits; the listing loop catches
+  them).
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
