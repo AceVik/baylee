@@ -133,6 +133,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing a creature type as a permanent enters (Roaming Throne).
+    ChooseSubtype {
+        /// The entering permanent.
+        object: ObjectId,
+    },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.

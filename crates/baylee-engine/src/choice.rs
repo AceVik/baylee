@@ -83,6 +83,13 @@ pub enum Pending {
         /// Maximum to choose.
         max: u8,
     },
+    /// Choose a creature type ("the chosen type" as this enters).
+    ChooseSubtype {
+        /// Choosing player.
+        player: PlayerId,
+        /// All creature types (ids 0..=349).
+        options: Vec<baylee_core::ids::SubtypeId>,
+    },
     /// Choose a mana color (choice-restricted mana abilities).
     ChooseColor {
         /// Choosing player.
@@ -261,6 +268,8 @@ pub enum PlayerAction {
     },
     /// Choose a mana color.
     ChooseColor(baylee_core::mana::ManaColor),
+    /// Choose a creature type (Roaming Throne & co.).
+    ChooseSubtype(baylee_core::ids::SubtypeId),
     /// Choose a cast option (index into `ChooseCastMode::options`).
     ChooseMode(usize),
     /// Choose a number (X values).

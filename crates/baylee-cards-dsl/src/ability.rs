@@ -110,6 +110,13 @@ pub enum AbilityDef {
         /// Fires at most once each turn (Jin-Gitaxias).
         once_per_turn: bool,
     },
+    /// Ward {N}: "whenever this becomes the target of a spell or ability
+    /// an opponent controls, counter it unless that player pays {N}".
+    /// Engine-level keyword trigger (synthetic effects, like prowess).
+    Ward {
+        /// Generic mana to pay.
+        mana: u16,
+    },
     /// Static/continuous ability (layers, CR 613).
     Static(crate::static_ability::StaticAbility),
     /// A replacement or trigger-modification rule (CR 614; Doubling

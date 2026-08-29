@@ -277,6 +277,9 @@ pub struct GameObject {
     pub chosen_player: Option<PlayerId>,
     /// The chosen spell mode (modal spells / overload).
     pub mode_index: Option<u8>,
+    /// The creature type chosen as this entered ("the chosen type" —
+    /// Roaming Throne, Reflections of Littjara, Cavern of Souls).
+    pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
     /// Whether the spell was cast from the hand (rebound condition).
@@ -316,6 +319,7 @@ impl GameObject {
             alt_cast: false,
             chosen_player: None,
             mode_index: None,
+            chosen_subtype: None,
             cast_from_hand: true,
         }
     }

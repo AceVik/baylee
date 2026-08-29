@@ -2,15 +2,22 @@
 //! Oracle: As this enchantment enters, choose a creature type.
 //! Oracle: Whenever you cast a spell of the chosen type, copy that spell. (A copy of a permanent spell becomes a token.)
 //! Set: TDC #164 — Tarkir: Dragonstorm Commander | Scryfall ID: 578a1846-8c1a-4013-b669-1d3f4ddbbaa3 | Oracle ID: c3fdfb94-2d10-4743-864c-a59fdd57d8b7
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — choose-a-type + cast-triggered spell copy implemented; the
+// "a copy of a permanent spell becomes a token" rule is a copy-machinery
+// refinement (copies enter as real permanents today).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, EnterModifier, FaceDef, Filter,
+    KeywordSet, PartnerKind, TargetReq, TargetSpec, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOUR_SPELL_OF_CHOSEN_TYPE: Filter =
+    Filter::And(&[Filter::ControlledByYou, Filter::MatchesChosenTypeOfSource]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(129),
@@ -28,17 +35,22 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
-        enter_modifiers: &[],
+        enter_modifiers: &[EnterModifier::ChooseSubtype],
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial(
+        "copies of permanent spells resolve as permanents, not tokens (copy refinement)",
+    ),
+    abilities: &[AbilityDef::Triggered {
+        trigger: Trigger::SpellCast(&YOUR_SPELL_OF_CHOSEN_TYPE),
+        once_per_turn: false,
+        effects: &[Effect::CopyTargetSpell],
+        targets: Some(TargetReq::one(TargetSpec::EventObject)),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

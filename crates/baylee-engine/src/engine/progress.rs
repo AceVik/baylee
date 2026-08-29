@@ -229,6 +229,15 @@ impl<L: CardLookup> Engine<L> {
                             changed = true;
                         }
                     }
+                    EnterModifier::ChooseSubtype => {
+                        self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
+                        self.pending = Pending::ChooseSubtype {
+                            player: controller,
+                            options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+                        };
+                        self.awaiting_answer = true;
+                        return true; // one choice at a time
+                    }
                     EnterModifier::TappedOrPayLife(amount) => {
                         let amount = *amount;
                         // Unpayable → tapped without a choice.
@@ -594,6 +603,9 @@ impl<L: CardLookup> Engine<L> {
                         .state
                         .object(t.source)
                         .map_or(NameRef::new(0), |o| o.base.name);
+                    // The event object doubles as the implicit target
+                    // (prowess: itself; ward: the targeting spell).
+                    let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
                     let id = self.state.arena.insert_with(|id| {
                         GameObject::new_ability_on_stack(
                             id,
@@ -603,7 +615,7 @@ impl<L: CardLookup> Engine<L> {
                                 index: u32::MAX,
                                 source: t.source,
                             },
-                            SmallVec::new(),
+                            targets,
                             name,
                         )
                     });

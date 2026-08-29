@@ -106,6 +106,9 @@ pub enum EnterModifier {
     TappedUnless(&'static Filter),
     /// "You may pay N life; if you don't, this enters tapped" (shocklands).
     TappedOrPayLife(u16),
+    /// "As this enters, choose a creature type" (Roaming Throne,
+    /// Reflections of Littjara, Cavern of Souls).
+    ChooseSubtype,
 }
 
 /// Simple keyword abilities as a bitset.

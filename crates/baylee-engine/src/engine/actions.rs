@@ -284,6 +284,34 @@ impl<L: CardLookup> Engine<L> {
                             self.apply_copy_choice(object, target);
                         }
                     }
+                    PlanKind::ChooseSubtype { .. } => {
+                        unreachable!("subtype plans are answered via ChooseSubtype")
+                    }
+                }
+                Ok(())
+            }
+            (
+                Pending::ChooseSubtype { player: p, options },
+                PlayerAction::ChooseSubtype(subtype),
+            ) if *p == player => {
+                if !options.contains(&subtype) {
+                    return Err(EngineError::IllegalAction("not a creature type"));
+                }
+                let Some(PlanKind::ChooseSubtype { object }) = self.pending_plan.take() else {
+                    return Err(EngineError::IllegalAction("no subtype choice pending"));
+                };
+                if let Some(obj) = self.state.object_mut(object) {
+                    obj.chosen_subtype = Some(subtype);
+                    // "This creature is the chosen type in addition to its
+                    // other types" (Roaming Throne) — creatures gain the
+                    // chosen subtype in their base characteristics.
+                    if obj
+                        .characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                    {
+                        obj.base.subtypes.insert(subtype);
+                    }
                 }
                 Ok(())
             }

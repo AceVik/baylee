@@ -85,6 +85,23 @@ static PROWESS_PUMP: &[baylee_cards_dsl::Effect] =
         duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
     }];
 
+/// Ward {2} fallback: counter the targeting spell/ability (the implicit
+/// first target).
+static WARD_COUNTER: baylee_cards_dsl::Effect =
+    baylee_cards_dsl::Effect::CounterTargetSpellOrAbility;
+static WARD2_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::PlayerMayPayOr {
+        player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
+        mana: 2,
+        effect: &WARD_COUNTER,
+    }];
+static WARD1_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::PlayerMayPayOr {
+        player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
+        mana: 1,
+        effect: &WARD_COUNTER,
+    }];
+
 /// The object an event is about, if any.
 fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
     match event {
@@ -141,6 +158,43 @@ fn collect_for_objects(
                         once_per_turn: false,
                     });
                     break;
+                }
+            }
+        }
+        // Ward {N} (engine-level keyword trigger, CR 702.21): an
+        // opponent's spell or ability targets this permanent.
+        for ability in def.abilities {
+            let AbilityDef::Ward { mana } = ability else {
+                continue;
+            };
+            let Some(synthetic) = (match mana {
+                1 => Some(WARD1_PAY_OR_COUNTER),
+                2 => Some(WARD2_PAY_OR_COUNTER),
+                _ => None,
+            }) else {
+                continue; // unsupported ward cost (colored/generic>2)
+            };
+            for entry in events {
+                let (target_obj, caster) = match &entry.event {
+                    GameEvent::SpellCast { object, player } => (*object, Some(*player)),
+                    GameEvent::AbilityTriggered {
+                        object, controller, ..
+                    } => (*object, Some(*controller)),
+                    _ => continue,
+                };
+                let targets_this = state
+                    .object(target_obj)
+                    .is_some_and(|o| o.targets.contains(&permanent));
+                if targets_this && caster != Some(obj.controller) {
+                    triggers.push(PendingTrigger {
+                        source: permanent,
+                        ability_index: u32::MAX,
+                        controller: obj.controller,
+                        timestamp: obj.timestamp,
+                        event_object: Some(target_obj),
+                        synthetic_effects: Some(synthetic),
+                        once_per_turn: false,
+                    });
                 }
             }
         }

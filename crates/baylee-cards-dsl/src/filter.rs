@@ -49,6 +49,9 @@ pub enum Filter {
     Untapped,
     /// Currently attacking (in combat).
     Attacking,
+    /// Has the subtype the SOURCE object chose as it entered ("the chosen
+    /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
+    MatchesChosenTypeOfSource,
     /// Has this keyword.
     HasKeyword(KeywordSet),
     /// Converted mana cost at most N.

@@ -42,6 +42,10 @@ pub fn matches(
             .attackers
             .iter()
             .any(|info| info.creature == obj.id),
+        Filter::MatchesChosenTypeOfSource => state
+            .object(this)
+            .and_then(|src| src.chosen_subtype)
+            .is_some_and(|s| obj.characteristics().subtypes.contains(s)),
         Filter::HasKeyword(k) => obj.characteristics().keywords.contains(*k),
         Filter::CmcAtMost(n) => obj.characteristics().mana_cost.cmc() <= *n,
         Filter::CmcAtLeast(n) => obj.characteristics().mana_cost.cmc() >= *n,
