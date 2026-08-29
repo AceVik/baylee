@@ -313,6 +313,8 @@ pub enum Rider {
     /// Cast via flashback: exile instead of the graveyard on resolution
     /// (CR 702.34).
     Flashback,
+    /// Can't be countered (Cavern of Souls mana rider).
+    Uncounterable,
 }
 
 /// Riders attached to an object.

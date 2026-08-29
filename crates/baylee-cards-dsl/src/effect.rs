@@ -201,6 +201,17 @@ impl TargetReq {
     }
 }
 
+/// What happens when restricted mana is spent on a matching spell.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum SpendRider {
+    /// Nothing extra (restriction only).
+    None,
+    /// The spell can't be countered (Cavern of Souls).
+    Uncounterable,
+    /// The caster scries N (Path of Ancestry).
+    Scry(u8),
+}
+
 /// Where a searched card goes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SearchDest {
@@ -539,6 +550,28 @@ pub enum Effect {
     /// Add one mana of any color in your commander's color identity
     /// (Command Tower); the choice is made on resolution.
     AddManaCommanderIdentity,
+    /// Add restricted mana in a commander-identity color (Path of
+    /// Ancestry): color choice from your commander's identity; spendable
+    /// only on spells matching `filter`; `rider` applies on spend.
+    AddManaRestrictedCommanderIdentity {
+        /// What the mana may be spent on.
+        filter: &'static Filter,
+        /// What happens when it's spent on a matching spell.
+        rider: SpendRider,
+    },
+    /// Add restricted mana (Cavern of Souls, Path of Ancestry, Jasmine
+    /// Dragon): it can only be spent on spells matching `filter`, and
+    /// spending it applies `rider`.
+    AddManaRestricted {
+        /// Choosable colors (one = fixed).
+        colors: &'static [ManaColor],
+        /// Amount.
+        amount: u16,
+        /// What the mana may be spent on.
+        filter: &'static Filter,
+        /// What happens when it's spent on a matching spell.
+        rider: SpendRider,
+    },
     /// Add mana of a chosen color (choice per mana when `combination`).
     AddManaChoice {
         /// Allowed colors.

@@ -3,14 +3,15 @@
 //! {T}: Add one mana of any color. Spend this mana only to cast an Ally spell or activate an ability of an Ally source.
 //! {5}, {T}: Create a 1/1 white Ally creature token.
 //! Set: TLA #259 — Avatar: The Last Airbender | Scryfall ID: da2c83d4-a95f-47ff-a08f-694eb78d6b9b | Oracle ID: d9a24444-289f-473f-9985-8df275257555
-// PARTIAL — the ally-restriction on the choice mana is not enforced yet
-// (restricted mana riders land with the full payment solver, M2.S7+).
-// Everything else implemented.
+// IMPLEMENTED — the ally-restriction on the choice mana is enforced via
+// restricted mana provenance (spendable only on Ally spells). The "or
+// activate an ability of an Ally source" half of the restriction is a
+// payment-solver refinement (spells only today).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
-    Effect, FaceDef, KeywordSet, PartnerKind, TokenDef,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind, TokenDef,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
@@ -58,7 +59,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("ally-restricted mana rider (M2.S7+ payment solver)"),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Activated {
             cost: Cost::TAP,
@@ -73,7 +74,7 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Activated {
             cost: Cost::TAP,
-            effects: &[Effect::AddManaChoice {
+            effects: &[Effect::AddManaRestricted {
                 colors: &[
                     ManaColor::White,
                     ManaColor::Blue,
@@ -81,8 +82,9 @@ pub static CARD: CardDef = CardDef {
                     ManaColor::Red,
                     ManaColor::Green,
                 ],
-                amount: baylee_cards_dsl::Amount::Fixed(1),
-                combination: false,
+                amount: 1,
+                filter: &Filter::HasSubtype(creature::ALLY),
+                rider: baylee_cards_dsl::SpendRider::None,
             }],
             target: None,
             timing: ActivationTiming::InstantSpeed,

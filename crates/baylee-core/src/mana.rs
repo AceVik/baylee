@@ -671,6 +671,32 @@ impl ManaPool {
     pub fn restricted(&self) -> &[RestrictedMana] {
         &self.restricted
     }
+
+    /// Removes and returns the restricted entry with the given id.
+    pub fn take_restricted(&mut self, id: u32) -> Option<RestrictedMana> {
+        let pos = self.restricted.iter().position(|m| m.restriction.0 == id)?;
+        Some(self.restricted.remove(pos))
+    }
+}
+
+impl ManaCost {
+    /// A cost of one symbol.
+    #[must_use]
+    pub fn from_symbol(symbol: ManaSymbol) -> Self {
+        let mut out = Self::ZERO;
+        out.push_sorted(symbol);
+        out
+    }
+
+    /// A generic-only cost `{n}`.
+    #[must_use]
+    pub fn from_symbol_generic(n: u32) -> Self {
+        let mut out = Self::ZERO;
+        if n > 0 {
+            out.push_sorted(ManaSymbol::Generic(n));
+        }
+        out
+    }
 }
 
 #[cfg(test)]

@@ -52,6 +52,20 @@ pub fn matches(
             .object(this)
             .and_then(|src| src.attached_to)
             .is_some_and(|attached| attached == obj.id),
+        Filter::SharesSubtypeWithCommander => {
+            let obj_subs = &obj.characteristics().subtypes;
+            state
+                .zones
+                .list(ZoneLocation::Command(you))
+                .iter()
+                .filter_map(|id| state.object(*id))
+                .any(|commander| {
+                    let cmd_subs = &commander.characteristics().subtypes;
+                    (0..baylee_core::generated::subtypes::COUNT)
+                        .map(baylee_core::ids::SubtypeId::new)
+                        .any(|s| obj_subs.contains(s) && cmd_subs.contains(s))
+                })
+        }
         Filter::HasKeyword(k) => obj.characteristics().keywords.contains(*k),
         Filter::CmcAtMost(n) => obj.characteristics().mana_cost.cmc() <= *n,
         Filter::CmcAtLeast(n) => obj.characteristics().mana_cost.cmc() >= *n,

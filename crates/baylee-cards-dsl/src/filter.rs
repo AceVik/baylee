@@ -56,6 +56,9 @@ pub enum Filter {
     /// Has the subtype the SOURCE object chose as it entered ("the chosen
     /// type" — Roaming Throne, Reflections of Littjara, Cavern of Souls).
     MatchesChosenTypeOfSource,
+    /// Shares at least one creature subtype with your commander (Path of
+    /// Ancestry's scry rider).
+    SharesSubtypeWithCommander,
     /// The object the SOURCE is attached to (equipment/auras): matches the
     /// creature the source is attached to.
     AttachedToBySource,

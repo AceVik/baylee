@@ -238,6 +238,18 @@ pub struct GameState {
     /// Queued extra turns (CR 500.7); the front player takes the next
     /// turn instead of the normal successor.
     pub extra_turns: std::collections::VecDeque<PlayerId>,
+    /// Restriction-id → (source, spell filter, spend rider) for
+    /// restricted mana in players' pools (Cavern, Path of Ancestry).
+    pub restriction_info: rustc_hash::FxHashMap<
+        u32,
+        (
+            ObjectId,
+            &'static baylee_cards_dsl::Filter,
+            baylee_cards_dsl::SpendRider,
+        ),
+    >,
+    /// Next restriction id to hand out (0 = unrestricted sentinel).
+    pub next_restriction_id: u32,
     /// The monarch designation (CR 718), if any.
     pub monarch: Option<PlayerId>,
     /// The player who took the first turn (Surgical Metamorph & co.).
@@ -307,6 +319,8 @@ impl GameState {
             delayed: Vec::new(),
             pending_miracle: std::collections::VecDeque::new(),
             extra_turns: std::collections::VecDeque::new(),
+            restriction_info: rustc_hash::FxHashMap::default(),
+            next_restriction_id: 1,
             monarch: None,
             starting_player: PlayerId::new(0),
             ability_fires: rustc_hash::FxHashMap::default(),
@@ -895,6 +909,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Plotted => h.u8(5),
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
+            Rider::Uncounterable => h.u8(8),
         }
     }
 }
@@ -959,6 +974,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::Attacking => h.u8(19),
         F::MatchesChosenTypeOfSource => h.u8(20),
         F::AttachedToBySource => h.u8(25),
+        F::SharesSubtypeWithCommander => h.u8(27),
         F::ToughnessAtMost(n) => {
             h.u8(26);
             h.i16(*n);

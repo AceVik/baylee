@@ -3,10 +3,9 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: {T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type, and that spell can't be countered.
 //! Set: LCI #269 — The Lost Caverns of Ixalan | Scryfall ID: 3aad15a2-8a1b-4460-9b06-e85863081878 | Oracle ID: 89ca686a-7c72-4d8f-9290-e89635624a83
-// PARTIAL — choose-a-type, {C}, and any-color mana implemented. The
-// "spend only on a chosen-type creature spell, and that spell can't be
-// countered" rider needs mana-source tracking (restricted-mana riders,
-// own milestone).
+// IMPLEMENTED — choose-a-type, {C}, and the restricted any-color mana:
+// it pays only for creature spells of the chosen type and makes them
+// uncounterable (mana provenance + Uncounterable rider).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
@@ -25,6 +24,10 @@ static ANY_COLOR: &[ManaColor] = &[
     ManaColor::Red,
     ManaColor::Green,
 ];
+static CHOSEN_TYPE_CREATURE_SPELL: Filter = Filter::And(&[
+    Filter::HasType(TypeSet::CREATURE),
+    Filter::MatchesChosenTypeOfSource,
+]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(17),
@@ -55,9 +58,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "restricted/uncounterable mana rider (mana-source tracking, own milestone)",
-    ),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Activated {
             cost: Cost::TAP,
@@ -72,10 +73,11 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Activated {
             cost: Cost::TAP,
-            effects: &[Effect::AddManaChoice {
+            effects: &[Effect::AddManaRestricted {
                 colors: ANY_COLOR,
-                amount: Amount::Fixed(1),
-                combination: false,
+                amount: 1,
+                filter: &CHOSEN_TYPE_CREATURE_SPELL,
+                rider: baylee_cards_dsl::SpendRider::Uncounterable,
             }],
             target: None,
             timing: ActivationTiming::InstantSpeed,

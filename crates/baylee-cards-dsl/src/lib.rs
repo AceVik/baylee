@@ -18,7 +18,8 @@ pub use ability::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetReq, TargetSpec, TokenDef, ZoneSel,
+    Amount, CounterKind, Effect, PlayerRel, SearchDest, SpendRider, TargetReq, TargetSpec,
+    TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility};

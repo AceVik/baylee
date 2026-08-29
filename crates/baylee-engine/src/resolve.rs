@@ -120,6 +120,27 @@ pub enum AwaitingOp {
     /// One mana of a color in your commander's color identity
     /// (Command Tower).
     CommanderMana,
+    /// Restricted mana with dynamic (commander-identity) color options
+    /// (Path of Ancestry).
+    RestrictedManaColors {
+        /// Amount.
+        amount: u16,
+        /// Spend restriction filter.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Spend rider.
+        rider: baylee_cards_dsl::SpendRider,
+    },
+    /// Restricted mana with a color choice (Cavern of Souls & co.).
+    RestrictedMana {
+        /// Choosable colors.
+        colors: &'static [ManaColor],
+        /// Amount.
+        amount: u16,
+        /// Spend restriction filter.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Spend rider.
+        rider: baylee_cards_dsl::SpendRider,
+    },
     /// A mana color choice (choice-restricted mana abilities).
     ManaChoice {
         /// Allowed colors.
@@ -217,6 +238,49 @@ pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: Man
             player: res.controller,
             color,
             amount: 1,
+            source: Some(res.source),
+        });
+        res.pc += 1;
+        return run(state, res);
+    }
+    let restricted = match res.awaiting.take() {
+        Some(
+            AwaitingOp::RestrictedMana {
+                amount,
+                filter,
+                rider,
+                ..
+            }
+            | AwaitingOp::RestrictedManaColors {
+                amount,
+                filter,
+                rider,
+            },
+        ) => Some((amount, filter, rider)),
+        other => {
+            res.awaiting = other;
+            None
+        }
+    };
+    if let Some((amount, filter, rider)) = restricted {
+        let you = res.controller;
+        let id = state.next_restriction_id;
+        state.next_restriction_id += 1;
+        state
+            .restriction_info
+            .insert(id, (res.source, filter, rider));
+        state.players[you.get() as usize].mana_pool.add_restricted(
+            baylee_core::mana::RestrictedMana {
+                color,
+                amount,
+                flags: baylee_core::mana::ManaFlags::default(),
+                restriction: baylee_core::mana::RestrictionId(id),
+            },
+        );
+        state.journal.record(GameEvent::ManaProduced {
+            player: you,
+            color,
+            amount,
             source: Some(res.source),
         });
         res.pc += 1;
@@ -566,6 +630,8 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         }
         AwaitingOp::ManaChoice { .. }
         | AwaitingOp::CommanderMana
+        | AwaitingOp::RestrictedMana { .. }
+        | AwaitingOp::RestrictedManaColors { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
@@ -589,6 +655,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddManaChoice { .. }
         | Effect::AddManaCommanderIdentity
+        | Effect::AddManaRestricted { .. }
+        | Effect::AddManaRestrictedCommanderIdentity { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
@@ -790,6 +858,83 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::SearchLibrary,
+            })
+        }
+        Effect::AddManaRestricted {
+            colors,
+            amount,
+            filter,
+            rider,
+        } => {
+            let register = |state: &mut GameState, color: ManaColor| {
+                let id = state.next_restriction_id;
+                state.next_restriction_id += 1;
+                state
+                    .restriction_info
+                    .insert(id, (res.source, filter, rider));
+                state.players[you.get() as usize].mana_pool.add_restricted(
+                    baylee_core::mana::RestrictedMana {
+                        color,
+                        amount,
+                        flags: baylee_core::mana::ManaFlags::default(),
+                        restriction: baylee_core::mana::RestrictionId(id),
+                    },
+                );
+            };
+            if colors.len() == 1 {
+                register(state, colors[0]);
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::RestrictedMana {
+                colors,
+                amount,
+                filter,
+                rider,
+            });
+            Some(Pending::ChooseColor {
+                player: you,
+                options: colors.to_vec(),
+            })
+        }
+        Effect::AddManaRestrictedCommanderIdentity { filter, rider } => {
+            // Commander-identity colors, restricted + rider (Path of
+            // Ancestry).
+            let mut colors = ColorSet::EMPTY;
+            for id in state.zones.list(ZoneLocation::Command(you)) {
+                if let Some(obj) = state.object(*id) {
+                    colors = colors.union(obj.characteristics().color_identity);
+                }
+            }
+            let options: Vec<ManaColor> = [
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ]
+            .into_iter()
+            .filter(|c| {
+                colors.contains(match c {
+                    ManaColor::White => baylee_core::color::Color::White,
+                    ManaColor::Blue => baylee_core::color::Color::Blue,
+                    ManaColor::Black => baylee_core::color::Color::Black,
+                    ManaColor::Red => baylee_core::color::Color::Red,
+                    ManaColor::Green => baylee_core::color::Color::Green,
+                    ManaColor::Colorless => return false,
+                })
+            })
+            .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::RestrictedManaColors {
+                amount: 1,
+                filter,
+                rider,
+            });
+            Some(Pending::ChooseColor {
+                player: you,
+                options,
             })
         }
         Effect::AddManaCommanderIdentity => {
@@ -2328,7 +2473,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CounterTargetSpellOrAbility => {
-            if let Some(&target_id) = res.targets.first() {
+            if let Some(&target_id) = res.targets.first()
+                && !state
+                    .object(target_id)
+                    .is_some_and(|o| o.riders.contains(&crate::object::Rider::Uncounterable))
+            {
                 let kind = state.object(target_id).map(|o| o.kind);
                 if kind == Some(ObjectKind::AbilityOnStack) {
                     state
@@ -2355,7 +2504,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CounterTargetSpellToExile => {
-            if let Some(&target_id) = res.targets.first() {
+            if let Some(&target_id) = res.targets.first()
+                && !state
+                    .object(target_id)
+                    .is_some_and(|o| o.riders.contains(&crate::object::Rider::Uncounterable))
+            {
                 state
                     .journal
                     .record(GameEvent::SpellCountered { object: target_id });
@@ -2373,7 +2526,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CounterTargetSpell => {
-            if let Some(&target_id) = res.targets.first() {
+            if let Some(&target_id) = res.targets.first()
+                && !state
+                    .object(target_id)
+                    .is_some_and(|o| o.riders.contains(&crate::object::Rider::Uncounterable))
+            {
                 state
                     .journal
                     .record(GameEvent::SpellCountered { object: target_id });
@@ -2458,6 +2615,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddManaChoice { .. }
         | Effect::AddManaCommanderIdentity
+        | Effect::AddManaRestricted { .. }
+        | Effect::AddManaRestrictedCommanderIdentity { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
