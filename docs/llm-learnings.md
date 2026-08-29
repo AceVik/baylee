@@ -102,6 +102,31 @@ Open milestones discovered tonight:
 - `tail -1` on cargo commands masks clippy failures in shell chains —
   check clippy output directly before committing.
 
+## 2026-08-29 — mechanics roadmap + E1 (bundled small hooks)
+
+- `docs/mechanics-roadmap.md` now inventories all mechanic families
+  (A: supported, B: 12 remaining engine hooks, C: family taxonomy +
+  batch order, C4: explicit long tail). Process rule: a card needing a
+  missing family STARTS A FAMILY MILESTONE, never a single-card hack.
+- E1 bundled all S-sized hooks in one iteration (the anti-pattern of
+  one-hook-per-card is what the roadmap kills): `ActivatedConditional`
+  (activation preconditions), `CostReduction` on FaceDef (with
+  `state.starting_player`), `Trigger::BecomesTapped`,
+  `Effect::IfControlGreatestCmc` (comparative conditions),
+  `Effect::CreateEmblem` + `obj.emblem_abilities` + command-zone trigger
+  scan (emblem triggers route through a DEDICATED push path —
+  `push_ability_to_stack` requires card-backed sources; resolution falls
+  back to `emblem_abilities` before the card lookup), `PlayerHexproof`
+  (filtered in the wizard's ChoosePlayer stage).
+- 8 partials upgraded: Mox Opal, Bleachbone Verge, Surgical Metamorph,
+  City of Brass, Padeem, Venser −8, Everybody Lives!, Reflections of
+  Littjara (token-copies were already correct).
+- Coverage now: **159 Implemented, 35 Partial, 0 Unimplemented**.
+- Token-efficiency note: E1 = 7 hooks + 8 cards in ONE iteration — the
+  roadmap-driven batch shape works.
+- DSL gotcha: inserting a variant ABOVE another variant's doc comment
+  steals the comment (missing-docs error for the next variant).
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
