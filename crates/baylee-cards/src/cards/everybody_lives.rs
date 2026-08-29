@@ -1,9 +1,9 @@
 //! Everybody Lives! — {1}{W} — Instant
 //! Oracle: All creatures gain hexproof and indestructible until end of turn. Players gain hexproof until end of turn. Players can't lose life this turn and players can't lose the game or win the game this turn.
 //! Set: WHO #18 — Doctor Who | Scryfall ID: 9dab0052-7f0c-4b56-847f-20552666a271 | Oracle ID: 39213de3-6a4a-4879-a7f9-70f45013765e
-// PARTIAL — creature hexproof+indestructible EOT, no-life-loss, and
-// no-lose/no-win suppression implemented. "Players gain hexproof"
-// (player-targeting prevention) is a protocol/rules M2+ item.
+// IMPLEMENTED — creature hexproof+indestructible EOT, no-life-loss,
+// no-lose/no-win suppression, and player hexproof (ChoosePlayer filters
+// hexproofed players out).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
@@ -40,12 +40,13 @@ pub static CARD: CardDef = CardDef {
         miracle: None,
         delve: false,
         convoke: false,
+        cost_reduction: None,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("players gain hexproof (player-target prevention, M2+)"),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
         effects: &[
             Effect::CreateContinuousEffect {
@@ -64,6 +65,12 @@ pub static CARD: CardDef = CardDef {
                 layer: Layer::Text,
                 filter: &Filter::Any,
                 modifier: Modifier::PlayersCantLose,
+                duration: Duration::UntilEndOfTurn,
+            },
+            Effect::CreateContinuousEffect {
+                layer: Layer::Text,
+                filter: &Filter::Any,
+                modifier: Modifier::PlayerHexproof,
                 duration: Duration::UntilEndOfTurn,
             },
         ],

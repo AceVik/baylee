@@ -350,6 +350,14 @@ pub enum Effect {
     /// Remove all counters from all permanents; the source enters with
     /// that many +1/+1 counters (Thief of Blood).
     DrainAllCountersIntoSelf,
+    /// Branch: you control a `filter`-matching permanent with the
+    /// greatest cmc among `filter`-matching permanents (or tied; Padeem).
+    IfControlGreatestCmc {
+        /// The comparison class.
+        filter: &'static Filter,
+        /// Effects when the condition holds.
+        then: &'static [Effect],
+    },
     /// Branch on the event object's power (Tribute to the World Tree):
     /// `then` when power >= `n`, else `otherwise`.
     IfEventPowerAtLeast {
@@ -639,6 +647,12 @@ pub enum Effect {
     PayCostOrLoseLater {
         /// The mana cost to pay at your next upkeep.
         cost: ManaCost,
+    },
+    /// The controller gets an emblem with the given abilities
+    /// (planeswalker ultimates).
+    CreateEmblem {
+        /// The emblem's abilities.
+        abilities: &'static [crate::ability::AbilityDef],
     },
     /// You become the monarch (Palace Jailer).
     BecomeMonarch,

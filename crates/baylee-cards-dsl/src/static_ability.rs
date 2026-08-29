@@ -109,6 +109,9 @@ pub enum Modifier {
     /// The affected card (in a graveyard) may be cast for its mana cost;
     /// exile it afterwards (flashback grant, Snapcaster Mage).
     GrantsFlashback,
+    /// The controller can't be targeted by spells or abilities (player
+    /// hexproof, Everybody Lives!).
+    PlayerHexproof,
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

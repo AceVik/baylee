@@ -2,14 +2,13 @@
 //! Oracle: Artifacts you control have hexproof. (They can't be the targets of spells or abilities your opponents control.)
 //! Oracle: At the beginning of your upkeep, if you control the artifact with the greatest mana value or tied for the greatest mana value, draw a card.
 //! Set: CMM #109 — Commander Masters | Scryfall ID: 00a4aef8-64fc-4e9d-adac-ef4c85d40b4a | Oracle ID: 0c7ba712-6a99-4d2f-9242-a2163a11f69c
-// PARTIAL — hexproof grant implemented; the "greatest mana value among
-// artifacts" upkeep condition needs comparative conditions (own
-// milestone).
+// IMPLEMENTED — hexproof grant + the greatest-cmc upkeep draw
+// (IfControlGreatestCmc).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, FaceDef, Filter, KeywordSet, Layer, Modifier,
-    PartnerKind, StaticAbility,
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, Layer,
+    Modifier, PartnerKind, StaticAbility, StepKind, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
@@ -39,20 +38,35 @@ pub static CARD: CardDef = CardDef {
         miracle: None,
         delve: false,
         convoke: false,
+        cost_reduction: None,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "upkeep greatest-cmc condition (comparative conditions, own milestone)",
-    ),
-    abilities: &[AbilityDef::Static(StaticAbility {
-        layer: Layer::Ability,
-        filter: Filter::And(&[Filter::HasType(TypeSet::ARTIFACT), Filter::ControlledByYou]),
-        modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
-        cross_zone: false,
-    })],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Triggered {
+            trigger: Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: baylee_cards_dsl::PlayerRel::You,
+            },
+            once_per_turn: false,
+            effects: &[Effect::IfControlGreatestCmc {
+                filter: &Filter::HasType(TypeSet::ARTIFACT),
+                then: &[Effect::DrawCards {
+                    amount: baylee_cards_dsl::Amount::Fixed(1),
+                }],
+            }],
+            targets: None,
+        },
+        AbilityDef::Static(StaticAbility {
+            layer: Layer::Ability,
+            filter: Filter::And(&[Filter::HasType(TypeSet::ARTIFACT), Filter::ControlledByYou]),
+            modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
+            cross_zone: false,
+        }),
+    ],
 };
 
 #[cfg(test)]

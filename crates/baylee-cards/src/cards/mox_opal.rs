@@ -1,14 +1,13 @@
 //! Mox Opal — {0} — Legendary Artifact
 //! Oracle: Metalcraft — {T}: Add one mana of any color. Activate only if you control three or more artifacts.
 //! Set: 2XM #275 — Double Masters | Scryfall ID: 56001a36-126b-4c08-af98-a6cc4d84210e | Oracle ID: de2440de-e948-4811-903c-0bbe376ff64d
-// PARTIAL — the mana ability works unconditionally; the metalcraft
-// activation restriction (activate only with 3+ artifacts) needs
-// activation conditions (own milestone).
+// IMPLEMENTED — metalcraft: the mana ability activates only with 3+
+// artifacts under your control (ActivationCondition::ControlCount).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, Amount, CardDef,
+    CommanderRule, Cost, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
@@ -45,6 +44,7 @@ pub static CARD: CardDef = CardDef {
         miracle: None,
         delve: false,
         convoke: false,
+        cost_reduction: None,
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
@@ -53,7 +53,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Partial(
         "metalcraft activation restriction (activation conditions, own milestone)",
     ),
-    abilities: &[AbilityDef::Activated {
+    abilities: &[AbilityDef::ActivatedConditional {
         cost: Cost::TAP,
         effects: &[Effect::AddManaChoice {
             colors: ANY_COLOR,
@@ -64,6 +64,7 @@ pub static CARD: CardDef = CardDef {
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,
         zone: ActivationZone::Battlefield,
+        condition: ActivationCondition::ControlCount(&Filter::HasType(TypeSet::ARTIFACT), 3),
     }],
 };
 

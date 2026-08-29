@@ -49,6 +49,47 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         true,
         &mut triggers,
     );
+    // Emblems (command zone, CR 114.2): their triggered abilities fire
+    // from the command zone.
+    for seat in 0..state.players.len() {
+        let p = PlayerId::new(seat as u8);
+        for &emblem in state.zones.list(ZoneLocation::Command(p)) {
+            let Some(obj) = state.object(emblem) else {
+                continue;
+            };
+            let Some(abilities) = obj.emblem_abilities else {
+                continue;
+            };
+            for (index, ability) in abilities.iter().enumerate() {
+                let AbilityDef::Triggered {
+                    trigger,
+                    once_per_turn,
+                    ..
+                } = ability
+                else {
+                    continue;
+                };
+                for entry in events {
+                    if matches(trigger, &entry.event, state, emblem, obj.controller) {
+                        let times = trigger_count(state, trigger, emblem, obj.controller);
+                        let event_object = event_object_of(&entry.event);
+                        for _ in 0..times {
+                            triggers.push(PendingTrigger {
+                                source: emblem,
+                                ability_index: index as u32,
+                                controller: obj.controller,
+                                timestamp: obj.timestamp,
+                                event_object,
+                                synthetic_effects: None,
+                                once_per_turn: *once_per_turn,
+                            });
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
     // LTB/Dies triggers look back in time (CR 603.10): the source is no
     // longer on the battlefield when they fire.
     for seat in 0..state.players.len() {
@@ -341,6 +382,12 @@ fn matches(
         ) => state
             .object(*damage_source)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => {
+            *object == source
+                && state
+                    .object(*object)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         (
             Trigger::Dies(filter),
             GameEvent::ZoneChanged {

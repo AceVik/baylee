@@ -377,6 +377,8 @@ pub struct GameObject {
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     /// Which face of the card is active (MDFC/split; 0 = front).
     pub face_index: u8,
+    /// Abilities of an emblem object (not card-backed; command zone).
+    pub emblem_abilities: Option<&'static [baylee_cards_dsl::AbilityDef]>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
     /// Whether the spell was cast from the hand (rebound condition).
@@ -418,6 +420,7 @@ impl GameObject {
             mode_index: None,
             chosen_subtype: None,
             face_index: 0,
+            emblem_abilities: None,
             cast_from_hand: true,
         }
     }

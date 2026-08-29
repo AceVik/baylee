@@ -30,6 +30,13 @@ pub enum CostPart {
     PayLifeX,
 }
 
+/// A conditional cost reduction printed on a card (Surgical Metamorph).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CostReduction {
+    /// Costs {N} less if you weren't the starting player.
+    NotStartingPlayer(u32),
+}
+
 /// When an alternative cost may be used.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum AltCondition {

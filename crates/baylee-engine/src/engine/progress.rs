@@ -637,6 +637,9 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(t.source)
                 .and_then(|o| {
+                    if let Some(emblem) = o.emblem_abilities {
+                        return Some(emblem);
+                    }
                     let face = o.face_index as usize;
                     o.card
                         .and_then(|c| self.lookup.card(c.index))
@@ -771,16 +774,31 @@ impl<L: CardLookup> Engine<L> {
         if kind == Some(ObjectKind::AbilityOnStack) {
             let obj = self.state.object(top).expect("stack object exists");
             let loc = obj.ability.expect("ability object has a location");
-            let def = self.lookup.card(loc.card).expect("ability card exists");
+            // Emblem abilities resolve from the source object (no card).
+            let emblem_abilities = self
+                .state
+                .object(loc.source)
+                .and_then(|o| o.emblem_abilities);
+            let def = if emblem_abilities.is_none() {
+                Some(self.lookup.card(loc.card).expect("ability card exists"))
+            } else {
+                None
+            };
             let face = self
                 .state
                 .object(loc.source)
                 .map_or(0, |o| o.face_index as usize);
-            let effects = if loc.index == u32::MAX {
+            let effects = if let Some(abilities) = emblem_abilities {
+                match abilities.get(loc.index as usize) {
+                    Some(AbilityDef::Triggered { effects, .. }) => *effects,
+                    _ => panic!("emblem ability index out of range"),
+                }
+            } else if loc.index == u32::MAX {
                 // Synthetic keyword trigger (prowess, ward): effects live
                 // in the side map, resolved below.
                 &[][..]
             } else {
+                let def = def.expect("non-emblem ability has a card");
                 match def.abilities_for_face(face).get(loc.index as usize) {
                     Some(
                         AbilityDef::Activated { effects, .. }

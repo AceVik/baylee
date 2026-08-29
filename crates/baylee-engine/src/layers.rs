@@ -181,7 +181,8 @@ fn apply(
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)
-        | Modifier::GrantsFlashback => {}
+        | Modifier::GrantsFlashback
+        | Modifier::PlayerHexproof => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

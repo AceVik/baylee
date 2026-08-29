@@ -35,6 +35,7 @@ pub static CARD: CardDef = CardDef {
         miracle: Some(baylee_core::mana!("{1}{U}")),
         delve: false,
         convoke: false,
+        cost_reduction: None,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,

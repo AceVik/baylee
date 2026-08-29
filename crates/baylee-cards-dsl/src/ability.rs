@@ -35,6 +35,13 @@ pub enum StepKind {
     End,
 }
 
+/// A precondition for activating an ability (metalcraft, verge lands).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ActivationCondition {
+    /// You control at least N permanents matching the filter.
+    ControlCount(&'static Filter, u8),
+}
+
 /// Trigger conditions for triggered abilities.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Trigger {
@@ -55,6 +62,8 @@ pub enum Trigger {
     /// A source matching the filter deals combat damage to a player
     /// (Sword of Hearth and Home: the equipped creature).
     DealsCombatDamageToPlayer(&'static Filter),
+    /// The source becomes tapped (City of Brass).
+    BecomesTapped(&'static Filter),
     /// A player draws a card.
     Draws(crate::effect::PlayerRel),
     /// A player draws a card except the first one they draw each turn
@@ -122,6 +131,25 @@ pub enum AbilityDef {
     Ward {
         /// Generic mana to pay.
         mana: u16,
+    },
+    /// Static/continuous ability (layers, CR 613).
+    /// An activated ability with a precondition (Mox Opal's metalcraft,
+    /// Bleachbone Verge's Plains/Swamp check).
+    ActivatedConditional {
+        /// The cost.
+        cost: crate::cost::Cost,
+        /// Effect operations.
+        effects: &'static [crate::effect::Effect],
+        /// Target requirement.
+        target: Option<crate::effect::TargetSpec>,
+        /// Instant/sorcery timing.
+        timing: ActivationTiming,
+        /// Whether this is a mana ability.
+        mana_ability: bool,
+        /// Where it may be activated.
+        zone: ActivationZone,
+        /// The precondition.
+        condition: ActivationCondition,
     },
     /// Static/continuous ability (layers, CR 613).
     Static(crate::static_ability::StaticAbility),

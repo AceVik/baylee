@@ -13,10 +13,10 @@ pub mod filter;
 pub mod static_ability;
 
 pub use ability::{
-    AbilityDef, ActivationTiming, ActivationZone, CopyMod, SpellMode, StepKind, Trigger,
-    TriggerEventKind,
+    AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, CopyMod, SpellMode,
+    StepKind, Trigger, TriggerEventKind,
 };
-pub use cost::{AltCondition, AlternativeCost, Cost, CostPart};
+pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, CounterKind, Effect, PlayerRel, SearchDest, TargetReq, TargetSpec, TokenDef, ZoneSel,
 };
@@ -128,6 +128,8 @@ pub struct FaceDef {
     /// Convoke (CR 702.51): each creature tapped while casting pays for
     /// {1} (colored-mana option is a payment refinement).
     pub convoke: bool,
+    /// A conditional cost reduction printed on the card.
+    pub cost_reduction: Option<crate::cost::CostReduction>,
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).

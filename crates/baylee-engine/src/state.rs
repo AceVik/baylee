@@ -222,6 +222,8 @@ pub struct GameState {
     pub extra_turns: std::collections::VecDeque<PlayerId>,
     /// The monarch designation (CR 718), if any.
     pub monarch: Option<PlayerId>,
+    /// The player who took the first turn (Surgical Metamorph & co.).
+    pub starting_player: PlayerId,
     /// Per-turn fire counts for once-per-turn triggers (reset each turn).
     pub ability_fires: rustc_hash::FxHashMap<(ObjectId, u32), u32>,
     /// Seeded randomness.
@@ -287,6 +289,7 @@ impl GameState {
             pending_miracle: std::collections::VecDeque::new(),
             extra_turns: std::collections::VecDeque::new(),
             monarch: None,
+            starting_player: PlayerId::new(0),
             ability_fires: rustc_hash::FxHashMap::default(),
             rng: GameRng::new(preset.seed),
             journal: Journal::default(),
@@ -388,7 +391,8 @@ impl GameState {
         Ok(id)
     }
 
-    fn create_bare(
+    /// Creates a card-less object (tokens, emblems).
+    pub fn create_bare(
         &mut self,
         owner: PlayerId,
         kind: ObjectKind,
@@ -1000,6 +1004,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
             h.u32(id.slot());
         }
         M::GrantsFlashback => h.u8(25),
+        M::PlayerHexproof => h.u8(26),
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

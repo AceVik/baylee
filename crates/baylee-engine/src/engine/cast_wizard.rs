@@ -184,12 +184,22 @@ impl<L: CardLookup> Engine<L> {
         let face = &def.faces[0];
         let pool = &self.state.players[player.get() as usize].mana_pool;
         let mut options = Vec::new();
+        // Conditional cost reduction printed on the card (Surgical
+        // Metamorph & co.).
+        let normal_cost = match face.cost_reduction {
+            Some(baylee_cards_dsl::CostReduction::NotStartingPlayer(n))
+                if player != self.state.starting_player =>
+            {
+                face.mana_cost.with_less_generic(n)
+            }
+            _ => face.mana_cost,
+        };
         // Normal cost (X probed with 0; the real check happens at payment).
-        if mana_pay::can_pay(pool, &face.mana_cost.with_x(0)) {
+        if mana_pay::can_pay(pool, &normal_cost.with_x(0)) {
             options.push(CastModeDesc {
                 index: 0,
                 kind: CastModeKind::Normal,
-                cost: face.mana_cost,
+                cost: normal_cost,
             });
         }
         // Alternative costs (pitch, evoke, conditional free).
@@ -352,7 +362,17 @@ impl<L: CardLookup> Engine<L> {
                     .state
                     .players
                     .iter()
-                    .filter(|p| !p.has_lost)
+                    .filter(|p| {
+                        !p.has_lost
+                            // Player hexproof (Everybody Lives!): can't be
+                            // targeted by spells/abilities.
+                            && !self.state.effects.iter().any(|fx| {
+                                matches!(
+                                    fx.modifier,
+                                    baylee_cards_dsl::Modifier::PlayerHexproof
+                                ) && fx.controller == p.id
+                            })
+                    })
                     .map(|p| p.id)
                     .collect();
                 self.pending = Pending::ChoosePlayer {

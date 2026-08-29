@@ -3,14 +3,14 @@
 //! Oracle: −1: Creatures can't be blocked this turn.
 //! Oracle: −8: You get an emblem with "Whenever you cast a spell, exile target permanent."
 //! Set: DDI #1 — Duel Decks: Venser vs. Koth | Scryfall ID: 8f61a0ea-c2e8-4571-9669-19abd8bbc874 | Oracle ID: a8bf8ff8-d924-4fd2-b5ed-05b38f55325a
-// PARTIAL — +2 (blink at next end step) and −1 (unblockable turn)
-// implemented; the −8 emblem (emblem creation + command-zone cast
-// trigger) is its own milestone.
+// IMPLEMENTED — all three loyalty abilities, including the −8 emblem
+// (emblem objects carry abilities; the command zone is scanned for
+// triggers).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
     AbilityDef, CardDef, CommanderRule, Coverage, Duration, Effect, FaceDef, Filter, KeywordSet,
-    Layer, Modifier, PartnerKind, TargetSpec,
+    Layer, Modifier, PartnerKind, TargetSpec, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, planeswalker};
@@ -46,14 +46,13 @@ pub static CARD: CardDef = CardDef {
         miracle: None,
         delve: false,
         convoke: false,
+        cost_reduction: None,
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "-8 emblem (emblem creation + command-zone cast trigger, own milestone)",
-    ),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Loyalty {
             cost: 2,
@@ -70,8 +69,28 @@ pub static CARD: CardDef = CardDef {
             }],
             target: None,
         },
+        AbilityDef::Loyalty {
+            cost: -8,
+            effects: &[Effect::CreateEmblem {
+                abilities: EMBLEM_ABILITIES,
+            }],
+            target: None,
+        },
     ],
 };
+
+static ANY_PERMANENT: Filter = Filter::Any;
+static YOUR_SPELL: Filter = Filter::ControlledByYou;
+static EMBLEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Triggered {
+    trigger: Trigger::SpellCast(&YOUR_SPELL),
+    once_per_turn: false,
+    effects: &[Effect::Exile {
+        target: TargetSpec::Object(&ANY_PERMANENT),
+    }],
+    targets: Some(baylee_cards_dsl::TargetReq::one(TargetSpec::Object(
+        &ANY_PERMANENT,
+    ))),
+}];
 
 #[cfg(test)]
 mod tests {}

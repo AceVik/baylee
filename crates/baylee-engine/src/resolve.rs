@@ -1385,6 +1385,50 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::IfControlGreatestCmc { filter, then } => {
+            // Greatest cmc among filter-matching permanents; condition
+            // holds when you control one of them (Padeem).
+            let mut greatest = 0u32;
+            let mut holds = false;
+            for id in state.zones.list(ZoneLocation::Battlefield) {
+                let Some(obj) = state.object(*id) else {
+                    continue;
+                };
+                if !eval::matches(filter, state, obj, you, res.source) {
+                    continue;
+                }
+                let cmc = obj.characteristics().mana_cost.cmc();
+                if cmc > greatest {
+                    greatest = cmc;
+                    holds = obj.controller == you;
+                } else if cmc == greatest && obj.controller == you {
+                    holds = true;
+                }
+            }
+            if holds {
+                let mut nested = Resolution {
+                    source: res.source,
+                    on_stack: res.on_stack,
+                    controller: res.controller,
+                    effects: flatten(then),
+                    pc: 0,
+                    targets: res.targets.clone(),
+                    event_object: res.event_object,
+                    x: res.x,
+                    chosen_player: res.chosen_player,
+                    awaiting: None,
+                };
+                match run(state, &mut nested) {
+                    Flow::Complete => {}
+                    Flow::Wait(pending) => {
+                        res.awaiting = nested.awaiting;
+                        res.effects.splice(res.pc..res.pc, nested.effects);
+                        return Some(pending);
+                    }
+                }
+            }
+            None
+        }
         Effect::IfEventPowerAtLeast { n, then, otherwise } => {
             let power = res
                 .event_object
@@ -1943,6 +1987,17 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::TakeExtraTurn => {
             state.extra_turns.push_back(you);
+            None
+        }
+        Effect::CreateEmblem { abilities } => {
+            let name = state
+                .object(res.source)
+                .map(|o| o.base.name)
+                .unwrap_or_else(|| state.names.intern("emblem"));
+            let id = state.create_bare(you, ObjectKind::Emblem, name, ZoneLocation::Command(you));
+            if let Some(obj) = state.object_mut(id) {
+                obj.emblem_abilities = Some(abilities);
+            }
             None
         }
         Effect::GrantFlashback => {

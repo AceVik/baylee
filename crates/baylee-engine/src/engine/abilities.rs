@@ -82,6 +82,26 @@ impl<L: CardLookup> Engine<L> {
                             legal.abilities.push((id, i as u32));
                         }
                     }
+                    AbilityDef::ActivatedConditional {
+                        cost,
+                        timing,
+                        zone,
+                        condition,
+                        ..
+                    } => {
+                        if *zone != ActivationZone::Battlefield {
+                            continue;
+                        }
+                        if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if !self.check_activation_condition(player, *condition) {
+                            continue;
+                        }
+                        if self.can_afford(player, id, cost) {
+                            legal.abilities.push((id, i as u32));
+                        }
+                    }
                     AbilityDef::Loyalty { cost, .. } => {
                         // Loyalty abilities: sorcery timing, once per turn
                         // per walker, enough loyalty for negative costs.
@@ -134,6 +154,31 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         legal
+    }
+
+    /// Precondition check for `ActivatedConditional` abilities (B1).
+    pub(crate) fn check_activation_condition(
+        &self,
+        player: PlayerId,
+        condition: baylee_cards_dsl::ActivationCondition,
+    ) -> bool {
+        match condition {
+            baylee_cards_dsl::ActivationCondition::ControlCount(filter, min) => {
+                let count = self
+                    .state
+                    .zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .filter(|id| {
+                        self.state.object(**id).is_some_and(|o| {
+                            o.controller == player
+                                && crate::eval::matches(filter, &self.state, o, player, **id)
+                        })
+                    })
+                    .count();
+                count >= min as usize
+            }
+        }
     }
 
     pub(crate) fn can_afford(&self, player: PlayerId, source: ObjectId, cost: &Cost) -> bool {
@@ -222,21 +267,35 @@ impl<L: CardLookup> Engine<L> {
                     "activated abilities of artifacts can't be activated (Karn)",
                 ));
             }
-            let AbilityDef::Activated {
-                cost,
-                effects,
-                target,
-                mana_ability,
-                zone,
-                ..
-            } = def
+            match def
                 .abilities
                 .get(ability_index as usize)
                 .ok_or(EngineError::IllegalAction("no such ability"))?
-            else {
-                return Err(EngineError::IllegalAction("not an activated ability"));
-            };
-            (card.index, *cost, *effects, *target, *mana_ability, *zone)
+            {
+                AbilityDef::Activated {
+                    cost,
+                    effects,
+                    target,
+                    mana_ability,
+                    zone,
+                    ..
+                } => (card.index, *cost, *effects, *target, *mana_ability, *zone),
+                AbilityDef::ActivatedConditional {
+                    cost,
+                    effects,
+                    target,
+                    mana_ability,
+                    zone,
+                    condition,
+                    ..
+                } => {
+                    if !self.check_activation_condition(player, *condition) {
+                        return Err(EngineError::IllegalAction("activation condition not met"));
+                    }
+                    (card.index, *cost, *effects, *target, *mana_ability, *zone)
+                }
+                _ => return Err(EngineError::IllegalAction("not an activated ability")),
+            }
         };
         // Zone validation (battlefield abilities vs. hand abilities).
         let in_right_zone = match zone {
@@ -600,6 +659,45 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         Ok(())
+    }
+
+    /// Pushes an emblem's triggered ability onto the stack (command-zone
+    /// source, not card-backed).
+    pub(crate) fn push_emblem_ability_to_stack(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        targets: SmallVec<[ObjectId; 2]>,
+    ) {
+        let name = self
+            .state
+            .object(source)
+            .map_or(NameRef::new(0), |o| o.base.name);
+        let id = self.state.arena.insert_with(|id| {
+            GameObject::new_ability_on_stack(
+                id,
+                controller,
+                AbilityLoc {
+                    // Sentinel: resolution reads `emblem_abilities` from
+                    // the source instead of a card definition.
+                    card: baylee_core::ids::CardIndex::new(0),
+                    index: ability_index,
+                    source,
+                },
+                targets,
+                name,
+            )
+        });
+        self.state
+            .zones
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+        self.state.journal.record(GameEvent::AbilityTriggered {
+            object: id,
+            source,
+            ability_index,
+            controller,
+        });
     }
 
     pub(crate) fn push_ability_to_stack(

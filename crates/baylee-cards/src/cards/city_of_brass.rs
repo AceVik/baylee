@@ -2,13 +2,13 @@
 //! Oracle: Whenever this land becomes tapped, it deals 1 damage to you.
 //! Oracle: {T}: Add one mana of any color.
 //! Set: TMC #62 — Teenage Mutant Ninja Turtles Eternal | Scryfall ID: c21565d0-fc40-4d89-9b27-87c03385e0af | Oracle ID: f25351e3-539b-4bbc-b92d-6480acf4d722
-// PARTIAL — any-color mana implemented; the becomes-tapped damage
-// trigger needs a tap event/trigger kind (own milestone).
+// IMPLEMENTED — any-color mana + becomes-tapped damage trigger
+// (Trigger::BecomesTapped).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind, TargetSpec, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
@@ -45,24 +45,36 @@ pub static CARD: CardDef = CardDef {
         miracle: None,
         delve: false,
         convoke: false,
+        cost_reduction: None,
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("becomes-tapped damage trigger (tap event kind, own milestone)"),
-    abilities: &[AbilityDef::Activated {
-        cost: Cost::TAP,
-        effects: &[Effect::AddManaChoice {
-            colors: ANY_COLOR,
-            amount: Amount::Fixed(1),
-            combination: false,
-        }],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: true,
-        zone: ActivationZone::Battlefield,
-    }],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Triggered {
+            trigger: Trigger::BecomesTapped(&Filter::This),
+            once_per_turn: false,
+            effects: &[Effect::DealDamage {
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+                target: TargetSpec::Player(baylee_cards_dsl::PlayerRel::You),
+            }],
+            targets: None,
+        },
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddManaChoice {
+                colors: ANY_COLOR,
+                amount: Amount::Fixed(1),
+                combination: false,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+    ],
 };
 
 #[cfg(test)]
