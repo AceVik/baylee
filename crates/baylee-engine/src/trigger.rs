@@ -116,6 +116,7 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
 /// Scans a set of objects for triggered abilities matching the events.
 /// `all_kinds` = every trigger kind (battlefield scan); `false` = only
 /// LTB/Dies (off-battlefield scan, CR 603.10).
+#[allow(clippy::too_many_lines)]
 fn collect_for_objects(
     state: &GameState,
     lookup: &impl CardLookup,
