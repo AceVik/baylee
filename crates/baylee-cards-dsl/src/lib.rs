@@ -65,6 +65,24 @@ impl CardDef {
     pub const fn is_implemented(&self) -> bool {
         matches!(self.coverage, Coverage::Implemented)
     }
+
+    /// Abilities of a face. Face 0 uses the face's own list when
+    /// non-empty, else the card-level list (single-face convention).
+    /// Back faces (MDFC) use ONLY their own list — they never inherit
+    /// the front's abilities.
+    #[must_use]
+    pub fn abilities_for_face(&self, face: usize) -> &'static [crate::ability::AbilityDef] {
+        if face == 0 {
+            let face_abilities = self.faces[0].abilities;
+            if face_abilities.is_empty() {
+                self.abilities
+            } else {
+                face_abilities
+            }
+        } else {
+            self.faces[face.min(self.faces.len() - 1)].abilities
+        }
+    }
 }
 
 /// One face of a card.
@@ -95,6 +113,12 @@ pub struct FaceDef {
     pub mandatory_additional_costs: &'static [crate::cost::CostPart],
     /// As-it-enters-the-battlefield modifiers (taplands, shocklands).
     pub enter_modifiers: &'static [EnterModifier],
+    /// Per-face abilities (MDFC backs; face 0 falls back to the
+    /// card-level list when empty).
+    pub abilities: &'static [crate::ability::AbilityDef],
+    /// Whether this face can be cast from the hand (false for disturb
+    /// backs — they are cast from the graveyard instead).
+    pub castable_from_hand: bool,
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).

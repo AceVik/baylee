@@ -107,7 +107,11 @@ impl Characteristics {
             }
         }
         // Mana abilities on the card.
-        for ability in def.abilities {
+        let all_abilities = def
+            .abilities
+            .iter()
+            .chain(def.faces.iter().flat_map(|f| f.abilities.iter()));
+        for ability in all_abilities {
             let baylee_cards_dsl::AbilityDef::Activated {
                 mana_ability: true,
                 effects,
@@ -368,6 +372,8 @@ pub struct GameObject {
     /// The creature type chosen as this entered ("the chosen type" —
     /// Roaming Throne, Reflections of Littjara, Cavern of Souls).
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Which face of the card is active (MDFC/split; 0 = front).
+    pub face_index: u8,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
     /// Whether the spell was cast from the hand (rebound condition).
@@ -408,6 +414,7 @@ impl GameObject {
             chosen_player: None,
             mode_index: None,
             chosen_subtype: None,
+            face_index: 0,
             cast_from_hand: true,
         }
     }

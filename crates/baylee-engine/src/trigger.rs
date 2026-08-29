@@ -164,7 +164,7 @@ fn collect_for_objects(
         }
         // Ward {N} (engine-level keyword trigger, CR 702.21): an
         // opponent's spell or ability targets this permanent.
-        for ability in def.abilities {
+        for ability in def.abilities_for_face(obj.face_index as usize) {
             let AbilityDef::Ward { mana } = ability else {
                 continue;
             };
@@ -199,7 +199,11 @@ fn collect_for_objects(
                 }
             }
         }
-        for (index, ability) in def.abilities.iter().enumerate() {
+        for (index, ability) in def
+            .abilities_for_face(obj.face_index as usize)
+            .iter()
+            .enumerate()
+        {
             let AbilityDef::Triggered {
                 trigger,
                 once_per_turn,

@@ -274,10 +274,14 @@ impl<L: CardLookup> Engine<L> {
             let Some(def) = self.lookup.card(card.index) else {
                 return false;
             };
-            let Some(spec) = def.abilities.iter().find_map(|a| match a {
-                AbilityDef::CopyOnEnter { target, .. } => Some(*target),
-                _ => None,
-            }) else {
+            let Some(spec) = def
+                .abilities_for_face(obj.face_index as usize)
+                .iter()
+                .find_map(|a| match a {
+                    AbilityDef::CopyOnEnter { target, .. } => Some(*target),
+                    _ => None,
+                })
+            else {
                 return false;
             };
             (spec, obj.controller)
@@ -308,7 +312,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(def) = self.lookup.card(card.index) else {
                 return;
             };
-            def.abilities
+            def.abilities_for_face(obj.face_index as usize)
                 .iter()
                 .find_map(|a| match a {
                     AbilityDef::CopyOnEnter { mods, .. } => Some(mods.to_vec()),
@@ -382,7 +386,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(def) = self.lookup.card(card.index) else {
                 continue;
             };
-            for ability in def.abilities {
+            for ability in def.abilities_for_face(obj.face_index as usize) {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
@@ -429,7 +433,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(def) = self.lookup.card(card.index) else {
                 continue;
             };
-            for ability in def.abilities {
+            for ability in def.abilities_for_face(obj.face_index as usize) {
                 let AbilityDef::Replacement(rule) = ability else {
                     continue;
                 };
@@ -500,9 +504,13 @@ impl<L: CardLookup> Engine<L> {
                 && let Some(modes) = self
                     .state
                     .object(t.source)
-                    .and_then(|o| o.card)
-                    .and_then(|c| self.lookup.card(c.index))
-                    .and_then(|def| def.abilities.get(t.ability_index as usize))
+                    .and_then(|o| {
+                        let face = o.face_index as usize;
+                        o.card
+                            .and_then(|c| self.lookup.card(c.index))
+                            .map(|def| def.abilities_for_face(face))
+                    })
+                    .and_then(|abilities| abilities.get(t.ability_index as usize))
                     .and_then(|a| match a {
                         AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
                         _ => None,
@@ -531,9 +539,13 @@ impl<L: CardLookup> Engine<L> {
             let req = self
                 .state
                 .object(t.source)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .and_then(|def| def.abilities.get(t.ability_index as usize))
+                .and_then(|o| {
+                    let face = o.face_index as usize;
+                    o.card
+                        .and_then(|c| self.lookup.card(c.index))
+                        .map(|def| def.abilities_for_face(face))
+                })
+                .and_then(|abilities| abilities.get(t.ability_index as usize))
                 .and_then(|a| match a {
                     AbilityDef::Triggered { targets, .. } => *targets,
                     _ => None,
@@ -663,7 +675,11 @@ impl<L: CardLookup> Engine<L> {
             let obj = self.state.object(top).expect("stack object exists");
             let loc = obj.ability.expect("ability object has a location");
             let def = self.lookup.card(loc.card).expect("ability card exists");
-            let effects = match def.abilities.get(loc.index as usize) {
+            let face = self
+                .state
+                .object(loc.source)
+                .map_or(0, |o| o.face_index as usize);
+            let effects = match def.abilities_for_face(face).get(loc.index as usize) {
                 Some(
                     AbilityDef::Activated { effects, .. }
                     | AbilityDef::Triggered { effects, .. }
@@ -734,22 +750,27 @@ impl<L: CardLookup> Engine<L> {
         let spell_fx = self
             .state
             .object(top)
-            .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))
-            .and_then(|def| {
-                def.abilities.iter().find_map(|a| match a {
+            .and_then(|o| {
+                let face = o.face_index as usize;
+                o.card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .map(|def| def.abilities_for_face(face))
+            })
+            .and_then(|abilities| {
+                abilities.iter().find_map(|a| match a {
                     AbilityDef::Spell { effects, .. } if !effects.is_empty() => Some(*effects),
                     _ => None,
                 })
             })
             .or_else(|| {
                 let mode_index = self.state.object(top)?.mode_index?;
+                let face = self.state.object(top)?.face_index as usize;
                 let def = self
                     .state
                     .object(top)
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))?;
-                def.abilities.iter().find_map(|a| match a {
+                def.abilities_for_face(face).iter().find_map(|a| match a {
                     AbilityDef::ModalSpell { modes } => {
                         modes.get(mode_index as usize).map(|m| m.effects)
                     }

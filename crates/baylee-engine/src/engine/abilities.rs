@@ -19,7 +19,15 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(card) else {
                 continue;
             };
-            if obj.characteristics().types.contains(TypeSet::LAND)
+            let any_face_is_land = if obj.characteristics().types.contains(TypeSet::LAND) {
+                true
+            } else {
+                // MDFC: a back land face is playable (CR 712.4a).
+                obj.card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .is_some_and(|def| def.faces.iter().any(|f| f.types.contains(TypeSet::LAND)))
+            };
+            if any_face_is_land
                 && sorcery_timing
                 && self.state.players[player.get() as usize].lands_played_this_turn == 0
             {
@@ -44,7 +52,11 @@ impl<L: CardLookup> Engine<L> {
             let Some(def) = self.lookup.card(card.index) else {
                 continue;
             };
-            for (i, ability) in def.abilities.iter().enumerate() {
+            for (i, ability) in def
+                .abilities_for_face(obj.face_index as usize)
+                .iter()
+                .enumerate()
+            {
                 match ability {
                     AbilityDef::Activated {
                         cost, timing, zone, ..
@@ -84,7 +96,11 @@ impl<L: CardLookup> Engine<L> {
             let Some(def) = self.lookup.card(card_ref.index) else {
                 continue;
             };
-            for (i, ability) in def.abilities.iter().enumerate() {
+            for (i, ability) in def
+                .abilities_for_face(obj.face_index as usize)
+                .iter()
+                .enumerate()
+            {
                 match ability {
                     AbilityDef::Activated {
                         cost, timing, zone, ..
@@ -156,9 +172,13 @@ impl<L: CardLookup> Engine<L> {
         if let Some(AbilityDef::Loyalty { cost, .. }) = self
             .state
             .object(source)
-            .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))
-            .and_then(|def| def.abilities.get(ability_index as usize))
+            .and_then(|o| {
+                let face = o.face_index as usize;
+                o.card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .map(|def| def.abilities_for_face(face))
+            })
+            .and_then(|abilities| abilities.get(ability_index as usize))
         {
             return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
         }

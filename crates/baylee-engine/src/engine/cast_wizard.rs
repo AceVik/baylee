@@ -157,6 +157,19 @@ impl<L: CardLookup> Engine<L> {
                 cost: alt.cost.mana,
             });
         }
+        // MDFC: castable non-front faces (non-land backs, CR 712.4).
+        for (i, back) in def.faces.iter().enumerate().skip(1) {
+            if back.types.contains(baylee_core::types::TypeSet::LAND) || !back.castable_from_hand {
+                continue; // land faces are played; disturb backs come from the graveyard
+            }
+            if mana_pay::can_pay(pool, &back.mana_cost.with_x(0)) {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u8,
+                    kind: CastModeKind::Face(i),
+                    cost: back.mana_cost,
+                });
+            }
+        }
         // Modal spells (overload & friends): one option per mode.
         for ability in def.abilities {
             let AbilityDef::ModalSpell { modes } = ability else {
@@ -353,11 +366,12 @@ impl<L: CardLookup> Engine<L> {
             .expect("wizard card exists")
             .card
             .expect("wizard card is card-backed");
-        &self
-            .lookup
-            .card(card.index)
-            .expect("wizard card known")
-            .faces[0]
+        let def = self.lookup.card(card.index).expect("wizard card known");
+        let face_index = match wizard.option {
+            Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
+            _ => 0,
+        };
+        &def.faces[face_index]
     }
 
     fn wizard_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
@@ -367,14 +381,19 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
             .expect("wizard card known");
+        let face_index = match wizard.option {
+            Some(CastModeKind::Face(i)) => i.min(def.faces.len() - 1),
+            _ => 0,
+        };
+        let abilities = def.abilities_for_face(face_index);
         match wizard.option {
-            Some(CastModeKind::Mode(i)) => def.abilities.iter().find_map(|a| match a {
+            Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
                 AbilityDef::ModalSpell { modes } => modes
                     .get(i)
                     .and_then(|m: &SpellMode| m.target.map(TargetReq::one)),
                 _ => None,
             }),
-            _ => def.abilities.iter().find_map(|a| match a {
+            _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { targets, .. } => *targets,
                 _ => None,
             }),
@@ -496,6 +515,16 @@ impl<L: CardLookup> Engine<L> {
                 Some(CastModeKind::Mode(i)) => Some(i.try_into().expect("mode index fits u8")),
                 _ => None,
             };
+        }
+        // MDFC back-face cast: the object becomes its chosen face (CR 712.4).
+        if let Some(CastModeKind::Face(i)) = wizard.option {
+            let def = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .expect("wizard card known");
+            self.state.switch_face(card, def, i);
         }
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;

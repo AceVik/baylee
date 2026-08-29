@@ -89,6 +89,47 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.lands.contains(&card) {
                     return Err(EngineError::IllegalAction("land not playable now"));
                 }
+                // MDFC: which land face is played (CR 712.4a)?
+                let land_faces: Vec<usize> = self
+                    .state
+                    .object(card)
+                    .and_then(|o| o.card)
+                    .and_then(|c| self.lookup.card(c.index))
+                    .map(|def| {
+                        def.faces
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, f)| f.types.contains(baylee_core::types::TypeSet::LAND))
+                            .map(|(i, _)| i)
+                            .collect()
+                    })
+                    .unwrap_or_else(|| vec![0]);
+                if land_faces.len() > 1 {
+                    // Both faces are lands (pathways): choose.
+                    let options = land_faces
+                        .iter()
+                        .map(|&i| crate::choice::CastModeDesc {
+                            index: i as u8,
+                            kind: crate::choice::CastModeKind::PlayLandFace(i),
+                            cost: baylee_core::mana::ManaCost::ZERO,
+                        })
+                        .collect();
+                    self.pending_plan = Some(PlanKind::PlayLandFace { card });
+                    self.pending = Pending::ChooseCastMode { player, options };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+                if let Some(&face) = land_faces.first()
+                    && face > 0
+                {
+                    let def = self
+                        .state
+                        .object(card)
+                        .and_then(|o| o.card)
+                        .and_then(|c| self.lookup.card(c.index))
+                        .expect("land card known");
+                    self.state.switch_face(card, def, face);
+                }
                 casting::play_land(&mut self.state, player, card)?;
                 self.after_action(player);
                 Ok(())
@@ -104,6 +145,19 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
+                // MDFC land-face choice (pathways).
+                if let Some(PlanKind::PlayLandFace { card }) = self.pending_plan.take() {
+                    let def = self
+                        .state
+                        .object(card)
+                        .and_then(|o| o.card)
+                        .and_then(|c| self.lookup.card(c.index))
+                        .expect("land card known");
+                    self.state.switch_face(card, def, index as usize);
+                    casting::play_land(&mut self.state, player, card)?;
+                    self.after_action(player);
+                    return Ok(());
+                }
                 // Modal trigger mode choice.
                 if let Some(PlanKind::ModalTrigger {
                     source,
@@ -248,9 +302,13 @@ impl<L: CardLookup> Engine<L> {
                         if matches!(
                             self.state
                                 .object(source)
-                                .and_then(|o| o.card)
-                                .and_then(|c| self.lookup.card(c.index))
-                                .and_then(|def| def.abilities.get(ability_index as usize)),
+                                .and_then(|o| {
+                                    let face = o.face_index as usize;
+                                    o.card
+                                        .and_then(|c| self.lookup.card(c.index))
+                                        .map(|def| def.abilities_for_face(face))
+                                })
+                                .and_then(|abilities| abilities.get(ability_index as usize)),
                             Some(AbilityDef::Loyalty { .. })
                         ) {
                             self.finish_loyalty_activation(player, source, ability_index, targets)?;
@@ -286,6 +344,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                     PlanKind::ChooseSubtype { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")
+                    }
+                    PlanKind::PlayLandFace { .. } => {
+                        unreachable!("land-face plans are answered via ChooseMode")
                     }
                 }
                 Ok(())

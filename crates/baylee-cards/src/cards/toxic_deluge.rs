@@ -34,6 +34,8 @@ pub static CARD: CardDef = CardDef {
         additional_costs: &[],
         mandatory_additional_costs: &[CostPart::PayLifeX],
         enter_modifiers: &[],
+        abilities: &[],
+        castable_from_hand: true,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::EMPTY,

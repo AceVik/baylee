@@ -427,6 +427,21 @@ impl GameState {
 
     /// Recomputes characteristic caches when the effect set changed.
     ///
+    /// Switches an object to another face of its card (MDFC cast/land
+    /// play, CR 712.4): rebuilds base characteristics from the face and
+    /// invalidates the layered projection cache.
+    pub fn switch_face(&mut self, id: ObjectId, def: &CardDef, face: usize) {
+        let face = face.min(def.faces.len() - 1);
+        let name = self.names.intern(def.faces[face].name);
+        let base = crate::object::Characteristics::from_face(def, face, name);
+        if let Some(obj) = self.object_mut(id) {
+            obj.face_index = face as u8;
+            obj.base = base.clone();
+            obj.cache.generation = u64::MAX;
+            obj.cache.value = base;
+        }
+    }
+
     /// Hot path: one generation compare. When stale, permanents and stack
     /// objects are re-projected through the layer system (CR 613).
     ///

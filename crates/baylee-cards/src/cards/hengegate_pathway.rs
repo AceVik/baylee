@@ -1,16 +1,30 @@
 //! Hengegate Pathway // Mistgate Pathway — (no cost) — Land // Land
-//! Set: KHM #260 — Kaldheim | Scryfall ID: 7ef37cb3-d803-47d7-8a01-9c803aa2eadc | Oracle ID: 461b3f2f-fcee-4160-abfa-061f8b6a784f
-//! Face: Hengegate Pathway —  — Land
-//! Face: Mistgate Pathway —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+//! Oracle: Hengegate Pathway: {T}: Add {W}. // Mistgate Pathway: {T}: Add {U}.
+//! Set: ZNR #261 — Zendikar Rising | Scryfall ID: 7ef37cb3-d803-47d7-8a01-9c803aa2eadc | Oracle ID: 461b3f2f-fcee-4160-abfa-061f8b6a784f
+// IMPLEMENTED — MDFC land-face choice on play (CR 712.4a) + per-face
+// mana abilities.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
+    FaceDef, Filter, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static BACK_MANA: &[AbilityDef] = &[AbilityDef::Activated {
+    cost: Cost::TAP,
+    effects: &[Effect::AddMana {
+        color: ManaColor::Blue,
+        amount: 1,
+    }],
+    target: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: true,
+    zone: ActivationZone::Battlefield,
+}];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(69),
@@ -30,6 +44,8 @@ pub static CARD: CardDef = CardDef {
             additional_costs: &[],
             mandatory_additional_costs: &[],
             enter_modifiers: &[],
+            abilities: &[],
+            castable_from_hand: true,
         },
         FaceDef {
             name: "Mistgate Pathway",
@@ -44,17 +60,27 @@ pub static CARD: CardDef = CardDef {
             additional_costs: &[],
             mandatory_additional_costs: &[],
             enter_modifiers: &[],
+            abilities: BACK_MANA,
+            castable_from_hand: true,
         },
     ],
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
+    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddMana {
+            color: ManaColor::White,
+            amount: 1,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

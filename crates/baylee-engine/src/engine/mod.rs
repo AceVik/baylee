@@ -138,6 +138,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing which land face of an MDFC to play (pathways).
+    PlayLandFace {
+        /// The card being played.
+        card: ObjectId,
+    },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.
@@ -282,6 +287,8 @@ mod progress;
 
 #[cfg(test)]
 mod m2_tests;
+#[cfg(test)]
+mod mdfc_tests;
 #[cfg(test)]
 mod s3_tests;
 #[cfg(test)]

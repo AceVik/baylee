@@ -158,6 +158,10 @@ pub enum CastModeKind {
     Alternative(usize),
     /// A spell mode (overload and friends).
     Mode(usize),
+    /// Cast a non-front face of an MDFC (The True Scriptures; CR 712.4).
+    Face(usize),
+    /// Play a specific land face of an MDFC (pathways; CR 712.4a).
+    PlayLandFace(usize),
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
