@@ -55,8 +55,10 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                         _ => HoldUp::None,
                     },
                 }),
-                Some(v1::seat_controller::Kind::HumanUserId(_)) | None => SeatController::Open,
-                Some(v1::seat_controller::Kind::Open(_)) => SeatController::Open,
+                Some(
+                    v1::seat_controller::Kind::HumanUserId(_) | v1::seat_controller::Kind::Open(_),
+                )
+                | None => SeatController::Open,
             };
             let deck = s
                 .deck
