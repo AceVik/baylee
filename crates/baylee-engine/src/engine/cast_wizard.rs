@@ -882,14 +882,12 @@ fn reduce_one(cost: &ManaCost, color: ManaColor) -> ManaCost {
             consumed = true;
             continue;
         }
-        if !consumed && matches!(s, baylee_core::mana::ManaSymbol::Generic(_)) {
-            if let baylee_core::mana::ManaSymbol::Generic(amount) = s {
-                consumed = true;
-                if amount > 1 {
-                    out = out.combine(&ManaCost::from_symbol_generic(amount - 1));
-                }
-                continue;
+        if !consumed && let baylee_core::mana::ManaSymbol::Generic(amount) = s {
+            consumed = true;
+            if amount > 1 {
+                out = out.combine(&ManaCost::from_symbol_generic(amount - 1));
             }
+            continue;
         }
         out = out.combine(&ManaCost::from_symbol(s));
     }
