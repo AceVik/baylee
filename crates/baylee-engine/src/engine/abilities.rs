@@ -144,6 +144,7 @@ impl<L: CardLookup> Engine<L> {
 
     // ---------------------------------------------------- S3: abilities
 
+    #[allow(clippy::too_many_lines)] // activation is a staged checklist; extraction would obscure it
     pub(crate) fn start_activation(
         &mut self,
         player: PlayerId,
@@ -338,6 +339,7 @@ impl<L: CardLookup> Engine<L> {
 
     /// Activates a planeswalker loyalty ability: applies the loyalty cost
     /// and puts the ability on the stack (CR 606.2-606.4).
+    #[allow(clippy::too_many_lines)] // loyalty activation is a staged checklist
     pub(crate) fn start_loyalty_activation(
         &mut self,
         player: PlayerId,
