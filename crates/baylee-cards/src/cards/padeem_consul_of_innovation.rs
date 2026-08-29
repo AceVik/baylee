@@ -17,9 +17,6 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static ARTIFACTS_YOU_CONTROL: Filter =
-    Filter::And(&[Filter::HasType(TypeSet::ARTIFACT), Filter::ControlledByYou]);
-
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(108),
     oracle_id: "0c7ba712-6a99-4d2f-9242-a2163a11f69c",
