@@ -258,6 +258,19 @@ impl<L: CardLookup> Engine<L> {
     /// Drives the wizard forward until it needs an answer or finishes.
     #[allow(clippy::too_many_lines)] // the wizard is a flat stage machine; extraction would obscure it
     pub(crate) fn advance_cast_wizard(&mut self) -> Result<(), EngineError> {
+        let result = self.advance_cast_wizard_inner();
+        if result.is_err() {
+            // A cast that fails mid-wizard (payment, late target legality)
+            // fizzles cleanly: drop the wizard and resume the game instead
+            // of leaving a consumed choice pending.
+            self.cast_wizard = None;
+            self.awaiting_answer = false;
+            self.run_until_choice();
+        }
+        result
+    }
+
+    fn advance_cast_wizard_inner(&mut self) -> Result<(), EngineError> {
         let Some(wizard) = self.cast_wizard.clone() else {
             return Ok(());
         };

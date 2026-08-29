@@ -502,7 +502,10 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
-        | Effect::ReorderTopLibrary { .. } => exec_choice(state, res, op),
+        | Effect::ReorderTopLibrary { .. }
+        | Effect::AddManaChoice { .. }
+        | Effect::AddManaCommanderIdentity
+        | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
 }

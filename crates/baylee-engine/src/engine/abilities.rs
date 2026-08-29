@@ -304,7 +304,9 @@ impl<L: CardLookup> Engine<L> {
             return Ok(());
         }
         if mana_ability {
-            // Mana abilities resolve immediately, without the stack (CR 605.3b).
+            // Mana abilities resolve immediately, without the stack
+            // (CR 605.3b). Choice-mana abilities (any-color lands, Command
+            // Tower) suspend on the color choice like any resolution.
             let mut res = Resolution {
                 source,
                 on_stack: source,
@@ -317,10 +319,15 @@ impl<L: CardLookup> Engine<L> {
                 event_object: None,
                 awaiting: None,
             };
-            debug_assert!(matches!(
-                resolve::run(&mut self.state, &mut res),
-                resolve::Flow::Complete
-            ));
+            match resolve::run(&mut self.state, &mut res) {
+                resolve::Flow::Complete => {}
+                resolve::Flow::Wait(pending) => {
+                    self.resolution = Some(res);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+            }
         } else {
             self.push_ability_to_stack(player, source, ability_index, targets)?;
         }

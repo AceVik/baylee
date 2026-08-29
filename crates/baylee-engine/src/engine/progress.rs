@@ -776,20 +776,31 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(loc.source)
                 .map_or(0, |o| o.face_index as usize);
-            let effects = match def.abilities_for_face(face).get(loc.index as usize) {
-                Some(
-                    AbilityDef::Activated { effects, .. }
-                    | AbilityDef::Triggered { effects, .. }
-                    | AbilityDef::Loyalty { effects, .. },
-                ) => *effects,
-                Some(AbilityDef::ModalTriggered { modes, .. }) => {
-                    let idx = obj.mode_index.map_or(0, |i| i as usize);
-                    modes
-                        .get(idx)
-                        .map(|m| m.effects)
-                        .expect("modal trigger mode exists")
+            let effects = if loc.index == u32::MAX {
+                // Synthetic keyword trigger (prowess, ward): effects live
+                // in the side map, resolved below.
+                &[][..]
+            } else {
+                match def.abilities_for_face(face).get(loc.index as usize) {
+                    Some(
+                        AbilityDef::Activated { effects, .. }
+                        | AbilityDef::Triggered { effects, .. }
+                        | AbilityDef::Loyalty { effects, .. },
+                    ) => *effects,
+                    Some(AbilityDef::ModalTriggered { modes, .. }) => {
+                        let idx = obj.mode_index.map_or(0, |i| i as usize);
+                        modes
+                            .get(idx)
+                            .map(|m| m.effects)
+                            .expect("modal trigger mode exists")
+                    }
+                    other => panic!(
+                        "ability object references non-resolvable ability: {} index {} face {}",
+                        def.name(),
+                        loc.index,
+                        face
+                    ),
                 }
-                _ => panic!("ability object references non-resolvable ability"),
             };
             if loc.index == u32::MAX {
                 // Synthetic keyword trigger (prowess & co.): effects live in

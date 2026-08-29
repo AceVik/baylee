@@ -9,5 +9,7 @@ description = "Heuristic AI controllers with difficulty profiles"
 workspace = true
 
 [dependencies]
+baylee-cards.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
+uuid.workspace = true
