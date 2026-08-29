@@ -45,20 +45,33 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             };
             for (i, ability) in def.abilities.iter().enumerate() {
-                let AbilityDef::Activated {
-                    cost, timing, zone, ..
-                } = ability
-                else {
-                    continue;
-                };
-                if *zone != ActivationZone::Battlefield {
-                    continue; // hand-zone abilities are scanned below
-                }
-                if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
-                    continue;
-                }
-                if self.can_afford(player, id, cost) {
-                    legal.abilities.push((id, i as u32));
+                match ability {
+                    AbilityDef::Activated {
+                        cost, timing, zone, ..
+                    } => {
+                        if *zone != ActivationZone::Battlefield {
+                            continue; // hand-zone abilities are scanned below
+                        }
+                        if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if self.can_afford(player, id, cost) {
+                            legal.abilities.push((id, i as u32));
+                        }
+                    }
+                    AbilityDef::Loyalty { cost, .. } => {
+                        // Loyalty abilities: sorcery timing, once per turn
+                        // per walker, enough loyalty for negative costs.
+                        if !sorcery_timing || self.loyalty_used_this_turn.contains(&id) {
+                            continue;
+                        }
+                        let loyalty = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
+                        if *cost < 0 && loyalty < (-*cost) as u16 {
+                            continue;
+                        }
+                        legal.abilities.push((id, i as u32));
+                    }
+                    _ => {}
                 }
             }
         }
@@ -138,6 +151,16 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
+        // Loyalty abilities route to their own activation path first.
+        if let Some(AbilityDef::Loyalty { cost, .. }) = self
+            .state
+            .object(source)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .and_then(|def| def.abilities.get(ability_index as usize))
+        {
+            return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
+        }
         let (card_index, cost, effects, target, mana_ability, zone) = {
             let obj = self
                 .state
@@ -150,6 +173,22 @@ impl<L: CardLookup> Engine<L> {
                 .lookup
                 .card(card.index)
                 .ok_or(EngineError::IllegalAction("unknown card"))?;
+            // Karn's lock: opponents can't activate artifact abilities.
+            if obj
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::ARTIFACT)
+                && self.state.effects.iter().any(|fx| {
+                    matches!(
+                        fx.modifier,
+                        baylee_cards_dsl::Modifier::CantActivateArtifacts
+                    ) && fx.controller != obj.controller
+                })
+            {
+                return Err(EngineError::IllegalAction(
+                    "activated abilities of artifacts can't be activated (Karn)",
+                ));
+            }
             let AbilityDef::Activated {
                 cost,
                 effects,
@@ -183,6 +222,7 @@ impl<L: CardLookup> Engine<L> {
             ));
         }
         let _ = card_index;
+        let _ = zone;
         // Targets (chosen first unless already provided).
         if targets.is_empty()
             && let Some(spec) = target
@@ -208,6 +248,28 @@ impl<L: CardLookup> Engine<L> {
             return Err(EngineError::IllegalAction("cannot pay the cost"));
         }
         self.pay_cost(player, source, &cost)?;
+        // Targets are chosen after the cost is paid (CR 602.1b); the
+        // target-choice plan completes via finish_activation.
+        if targets.is_empty()
+            && let Some(spec) = target
+        {
+            let options = eval::target_options(&spec, &self.state, player, source);
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no legal targets"));
+            }
+            self.pending_plan = Some(PlanKind::ActivateAbility {
+                source,
+                ability_index,
+            });
+            self.pending = Pending::ChooseTargets {
+                player,
+                options,
+                min: 1,
+                max: 1,
+            };
+            self.awaiting_answer = true;
+            return Ok(());
+        }
         if mana_ability {
             // Mana abilities resolve immediately, without the stack (CR 605.3b).
             let mut res = Resolution {
@@ -229,6 +291,183 @@ impl<L: CardLookup> Engine<L> {
             self.push_ability_to_stack(player, source, ability_index, targets)?;
         }
         self.after_action(player);
+        Ok(())
+    }
+
+    /// Completes a loyalty activation after targeting: pushes the ability
+    /// to the stack without re-paying (cost was paid at activation).
+    pub(crate) fn finish_loyalty_activation(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        targets: SmallVec<[ObjectId; 2]>,
+    ) -> Result<(), EngineError> {
+        let card_index = self
+            .state
+            .object(source)
+            .and_then(|o| o.card)
+            .map(|c| c.index)
+            .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
+        let loc = AbilityLoc {
+            card: card_index,
+            index: ability_index,
+            source,
+        };
+        let name = self
+            .state
+            .object(source)
+            .map_or(NameRef::new(0), |o| o.base.name);
+        let id = self.state.arena.insert_with(|id| {
+            let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, name);
+            obj.chosen_player = self.loyalty_player_choice.take();
+            obj
+        });
+        self.state
+            .zones
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+        self.state.journal.record(GameEvent::AbilityTriggered {
+            object: id,
+            source,
+            ability_index,
+            controller: player,
+        });
+        self.after_action(player);
+        Ok(())
+    }
+
+    /// Activates a planeswalker loyalty ability: applies the loyalty cost
+    /// and puts the ability on the stack (CR 606.2-606.4).
+    pub(crate) fn start_loyalty_activation(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        targets: SmallVec<[ObjectId; 2]>,
+        cost: i8,
+    ) -> Result<(), EngineError> {
+        if self.loyalty_used_this_turn.contains(&source) {
+            return Err(EngineError::IllegalAction("loyalty already used this turn"));
+        }
+        let (card_index, effects, target) = {
+            let obj = self
+                .state
+                .object(source)
+                .ok_or(EngineError::IllegalAction("no such permanent"))?;
+            let card = obj
+                .card
+                .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
+            let def = self
+                .lookup
+                .card(card.index)
+                .ok_or(EngineError::IllegalAction("unknown card"))?;
+            let AbilityDef::Loyalty {
+                effects, target, ..
+            } = def
+                .abilities
+                .get(ability_index as usize)
+                .ok_or(EngineError::IllegalAction("no such ability"))?
+            else {
+                return Err(EngineError::IllegalAction("not a loyalty ability"));
+            };
+            (card.index, *effects, *target)
+        };
+        // Loyalty cost is paid at activation (CR 606.3) — after checking
+        // that required targets exist, before targeting.
+        let old = self.state.object(source).map_or(0, |o| {
+            o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
+        });
+        if cost < 0 && old < (-cost) as u16 {
+            return Err(EngineError::IllegalAction("not enough loyalty"));
+        }
+        if let Some(spec) = target {
+            if !matches!(spec, baylee_cards_dsl::TargetSpec::AnyPlayer) {
+                let options = eval::target_options(&spec, &self.state, player, source);
+                if options.is_empty() {
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+            }
+        }
+        let new = if cost >= 0 {
+            old.saturating_add(cost as u16)
+        } else {
+            old - (-cost) as u16
+        };
+        {
+            let obj = self.state.object_mut(source).expect("walker exists");
+            obj.counters
+                .set(baylee_cards_dsl::CounterKind::Loyalty, new);
+        }
+        self.state.journal.record(GameEvent::CounterChanged {
+            object: source,
+            kind: baylee_cards_dsl::CounterKind::Loyalty,
+            old,
+            new,
+        });
+        self.loyalty_used_this_turn.push(source);
+        // Targets first if required.
+        if targets.is_empty()
+            && let Some(spec) = target
+        {
+            if matches!(spec, baylee_cards_dsl::TargetSpec::AnyPlayer) {
+                let options: Vec<PlayerId> = self
+                    .state
+                    .players
+                    .iter()
+                    .filter(|p| !p.has_lost)
+                    .map(|p| p.id)
+                    .collect();
+                self.pending_plan = Some(PlanKind::LoyaltyPlayer {
+                    source,
+                    ability_index,
+                });
+                self.pending = Pending::ChoosePlayer { player, options };
+                self.awaiting_answer = true;
+                return Ok(());
+            }
+            let options = eval::target_options(&spec, &self.state, player, source);
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no legal targets"));
+            }
+            self.pending_plan = Some(PlanKind::ActivateAbility {
+                source,
+                ability_index,
+            });
+            self.pending = Pending::ChooseTargets {
+                player,
+                options,
+                min: 1,
+                max: 1,
+            };
+            self.awaiting_answer = true;
+            return Ok(());
+        }
+        // The ability goes on the stack.
+        let loc = AbilityLoc {
+            card: card_index,
+            index: ability_index,
+            source,
+        };
+        let name = self
+            .state
+            .object(source)
+            .map_or(NameRef::new(0), |o| o.base.name);
+        let id = self.state.arena.insert_with(|id| {
+            let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, name);
+            obj.chosen_player = self.loyalty_player_choice.take();
+            obj
+        });
+        self.state
+            .zones
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+        self.state.journal.record(GameEvent::AbilityTriggered {
+            object: id,
+            source,
+            ability_index,
+            controller: player,
+        });
+        self.after_action(player);
+        let _ = effects;
         Ok(())
     }
 

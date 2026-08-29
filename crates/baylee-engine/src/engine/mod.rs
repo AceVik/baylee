@@ -74,6 +74,8 @@ pub struct Engine<L: CardLookup> {
     mulligan_player: usize,
     /// Combat declaration progress.
     combat_declared: CombatDeclared,
+    /// Planeswalkers that already used a loyalty ability this turn.
+    loyalty_used_this_turn: Vec<ObjectId>,
     /// `true` while the current pending request is unanswered — the
     /// progression machine must never overwrite a fresh pending.
     awaiting_answer: bool,
@@ -83,6 +85,8 @@ pub struct Engine<L: CardLookup> {
     trigger_scan_seq: u64,
     /// A cast/activation waiting for its target choice.
     pending_plan: Option<PlanKind>,
+    /// A player chosen for a pending loyalty `AnyPlayer` target.
+    loyalty_player_choice: Option<PlayerId>,
     /// Journal seq up to which as-it-enters modifiers were applied.
     entry_scan_seq: u64,
     /// Delayed actions queued by upkeep processing.
@@ -127,6 +131,13 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// A loyalty ability waiting for its target player.
+    LoyaltyPlayer {
+        /// The walker.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -153,10 +164,12 @@ impl<L: CardLookup> Engine<L> {
             priority_holder: None,
             resolve_next: false,
             combat_declared: CombatDeclared::None,
+            loyalty_used_this_turn: Vec::new(),
             awaiting_answer: true,
             resolution: None,
             trigger_scan_seq,
             pending_plan: None,
+            loyalty_player_choice: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
             cast_wizard: None,
@@ -270,3 +283,5 @@ mod s7c_tests;
 mod tests;
 #[cfg(test)]
 mod w1_tests;
+#[cfg(test)]
+mod walker_tests;

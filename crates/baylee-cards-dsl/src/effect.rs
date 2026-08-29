@@ -295,6 +295,31 @@ pub enum Effect {
         /// How many.
         amount: Amount,
     },
+    /// A relative player scries N (Jace's +2).
+    ScryFor {
+        /// Who.
+        player: PlayerRel,
+        /// How many.
+        amount: Amount,
+    },
+    /// Exile all cards from a player's library, then they shuffle their
+    /// hand into their library (Jace's ultimate).
+    ExileLibraryAndShuffleHand {
+        /// Who.
+        player: PlayerRel,
+    },
+    /// All objects matching a filter get P/T set to computed values until
+    /// a duration ends (Karn's animation).
+    SetPTFilter {
+        /// Which objects.
+        filter: &'static Filter,
+        /// New power (may be computed, e.g. `TargetCmc`).
+        power: Amount,
+        /// New toughness.
+        toughness: Amount,
+        /// How long.
+        duration: crate::static_ability::Duration,
+    },
     /// Mill cards.
     Mill {
         /// How many.

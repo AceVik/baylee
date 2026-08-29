@@ -4,15 +4,39 @@
 //! Oracle: 0: Put a +1/+1 counter on each creature you control. Those creatures gain flying until your next turn.
 //! Oracle: −3: Destroy target creature an opponent controls with mana value 3 or greater.
 //! Set: TDM #11 — Tarkir: Dragonstorm | Scryfall ID: 73a065e3-b530-4e62-ab3c-4f6f908184ec | Oracle ID: f78af825-023a-42e9-8374-5c52303a1417
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — token doubling, +1 token, −3 destroy implemented; 0's flying-
+// until-next-turn needs UntilYourNextTurn duration (M2+).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Effect, FaceDef, Filter,
+    KeywordSet, PartnerKind, ReplacementRule, TargetReq, TargetSpec, TokenDef,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature, planeswalker};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static YOURS: Filter = Filter::ControlledByYou;
+static BIG_ENEMY_CREATURE: Filter = Filter::And(&[
+    Filter::ControlledByOpponent,
+    Filter::HasType(TypeSet::CREATURE),
+    Filter::CmcAtLeast(3),
+]);
+static YOUR_CREATURES: Filter =
+    Filter::And(&[Filter::ControlledByYou, Filter::HasType(TypeSet::CREATURE)]);
+
+static SOLDIER: TokenDef = TokenDef {
+    name: "Soldier",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::EMPTY,
+    subtypes: &[creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::EMPTY,
+};
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(40),
@@ -23,7 +47,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{3}{W}{W}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[subtypes::planeswalker::ELSPETH],
+        subtypes: &[planeswalker::ELSPETH],
         power: None,
         toughness: None,
         loyalty: Some(5),
@@ -34,13 +58,36 @@ pub static CARD: CardDef = CardDef {
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
+    commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial("0's flying until your next turn (UntilYourNextTurn, M2+)"),
+    abilities: &[
+        AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
+            controller_filter: &YOURS,
+        }),
+        AbilityDef::Loyalty {
+            cost: 1,
+            effects: &[Effect::CreateToken { token: &SOLDIER }],
+            target: None,
+        },
+        AbilityDef::Loyalty {
+            cost: 0,
+            effects: &[Effect::AddCounterFilter {
+                filter: &YOUR_CREATURES,
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            }],
+            target: None,
+        },
+        AbilityDef::Loyalty {
+            cost: -3,
+            effects: &[Effect::Destroy {
+                target: TargetSpec::Object(&BIG_ENEMY_CREATURE),
+            }],
+            target: Some(TargetSpec::Object(&BIG_ENEMY_CREATURE)),
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

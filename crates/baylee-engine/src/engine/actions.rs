@@ -125,6 +125,20 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChoosePlayer { player: p, .. }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
             {
+                // Loyalty ability target player.
+                if let Some(PlanKind::LoyaltyPlayer {
+                    source,
+                    ability_index,
+                }) = self.pending_plan.take()
+                {
+                    self.loyalty_player_choice = Some(chosen);
+                    return self.finish_loyalty_activation(
+                        player,
+                        source,
+                        ability_index,
+                        SmallVec::new(),
+                    );
+                }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 wizard.chosen_player = Some(chosen);
                 wizard.stage = cast_wizard::WizardStage::Kicker;
@@ -207,7 +221,20 @@ impl<L: CardLookup> Engine<L> {
                         source,
                         ability_index,
                     } => {
-                        self.start_activation(player, source, ability_index, targets)?;
+                        // Loyalty abilities complete via their own finish path
+                        // (no guard, no re-payment).
+                        if matches!(
+                            self.state
+                                .object(source)
+                                .and_then(|o| o.card)
+                                .and_then(|c| self.lookup.card(c.index))
+                                .and_then(|def| def.abilities.get(ability_index as usize)),
+                            Some(AbilityDef::Loyalty { .. })
+                        ) {
+                            self.finish_loyalty_activation(player, source, ability_index, targets)?;
+                        } else {
+                            self.start_activation(player, source, ability_index, targets)?;
+                        }
                     }
                     PlanKind::Trigger {
                         source,
@@ -223,6 +250,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                     PlanKind::DelayedPay { .. } => {
                         unreachable!("delayed-pay plans are answered via YesNo")
+                    }
+                    PlanKind::LoyaltyPlayer { .. } => {
+                        unreachable!("loyalty-player plans are answered via ChoosePlayer")
                     }
                     PlanKind::CopyOnEnter { object } => {
                         if let Some(&target) = targets.first() {

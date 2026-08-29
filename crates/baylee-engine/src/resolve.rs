@@ -372,6 +372,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
     match op {
         Effect::SearchLibrary { .. }
         | Effect::Scry { .. }
+        | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
@@ -423,8 +424,39 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 prompt: ChoicePrompt::SearchLibrary,
             })
         }
+        Effect::ScryFor { player, amount } => {
+            let players = match player {
+                PlayerRel::Chosen => res.chosen_player.into_iter().collect::<Vec<_>>(),
+                other => eval::players(other, state, you),
+            };
+            let Some(player) = players.first().copied() else {
+                return None;
+            };
+            let n = eval::amount(&amount, state, player, res.source, res.x) as usize;
+            let looked: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(player))
+                .iter()
+                .rev()
+                .take(n)
+                .copied()
+                .collect();
+            if looked.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::Scry {
+                looked: looked.len() as u8,
+            });
+            return Some(Pending::ChooseCards {
+                player,
+                options: looked,
+                min: 0,
+                max: n as u8,
+                prompt: ChoicePrompt::ScryBottom,
+            });
+        }
         Effect::Scry { amount } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
+            let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
             let looked: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -1139,6 +1171,31 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             );
             None
         }
+        Effect::SetPTFilter {
+            filter,
+            power,
+            toughness,
+            duration,
+        } => {
+            let signed = |a: &Amount| -> i16 {
+                let v = amount2(a, state, you, res.source, res.x, &res.targets) as i16;
+                if matches!(a, Amount::NegX) { -v } else { v }
+            };
+            let p = signed(&power);
+            let t = signed(&toughness);
+            let ts = state.next_timestamp();
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(res.source),
+                controller: you,
+                layer: baylee_cards_dsl::Layer::PtSet,
+                timestamp: ts,
+                duration,
+                filter: crate::effects::EffectFilter::Dsl(filter),
+                modifier: baylee_cards_dsl::Modifier::SetPT(p, t),
+            });
+            None
+        }
         Effect::PumpFilter {
             filter,
             power,
@@ -1289,15 +1346,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 }
                 _ => {
                     if let Some(&target_id) = res.targets.first() {
-                        if let Some(obj) = state.object_mut(target_id) {
-                            obj.damage = obj.damage.saturating_add(n.max(0) as u16);
-                        }
-                        state.journal.record(GameEvent::DamageDealt {
-                            source: Some(res.source),
-                            target: DamageTarget::Object(target_id),
-                            amount: n.max(0) as u16,
-                            is_combat: false,
-                        });
+                        deal_to_object_with_loyalty(state, target_id, n, res.source);
                     }
                 }
             }
@@ -1332,6 +1381,30 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+            }
+            None
+        }
+        Effect::ExileLibraryAndShuffleHand { player } => {
+            for player in eval::players(player, state, you) {
+                let lib: Vec<ObjectId> = state.zones.list(ZoneLocation::Library(player)).clone();
+                for card in lib {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Exile(player),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+                let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(player)).clone();
+                for card in hand {
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Library(player),
+                        ZonePosition::Bottom,
+                        Cause::Effect,
+                    );
+                }
+                state.shuffle_library(player);
             }
             None
         }
@@ -1372,6 +1445,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)
         Effect::SearchLibrary { .. }
         | Effect::Scry { .. }
+        | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
@@ -1450,6 +1524,42 @@ fn gain_life(state: &mut GameState, player: PlayerId, n: i32) {
         old,
         new,
         cause: Cause::Effect,
+    });
+}
+
+fn deal_to_object_with_loyalty(state: &mut GameState, target: ObjectId, n: i16, source: ObjectId) {
+    if n <= 0 {
+        return;
+    }
+    let is_walker = state.object(target).is_some_and(|o| {
+        o.characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::PLANESWALKER)
+    });
+    if is_walker {
+        // Damage to a planeswalker removes loyalty counters (CR 306.8).
+        let old = state.object(target).map_or(0, |o| {
+            o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
+        });
+        let new = old.saturating_sub(n as u16);
+        if let Some(obj) = state.object_mut(target) {
+            obj.counters
+                .set(baylee_cards_dsl::CounterKind::Loyalty, new);
+        }
+        state.journal.record(GameEvent::CounterChanged {
+            object: target,
+            kind: baylee_cards_dsl::CounterKind::Loyalty,
+            old,
+            new,
+        });
+    } else if let Some(obj) = state.object_mut(target) {
+        obj.damage = obj.damage.saturating_add(n as u16);
+    }
+    state.journal.record(GameEvent::DamageDealt {
+        source: Some(source),
+        target: DamageTarget::Object(target),
+        amount: n as u16,
+        is_combat: false,
     });
 }
 

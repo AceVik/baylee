@@ -820,6 +820,8 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         }
         M::LoseKeywords => h.u8(9),
         M::LegendRuleOff => h.u8(14),
+        M::CantActivateArtifacts => h.u8(15),
+        M::OpponentsCastAsSorcery => h.u8(16),
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

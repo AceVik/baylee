@@ -54,9 +54,16 @@ pub fn can_cast(
         return Err(CastError::BadTiming);
     }
     // Timing (CR 601.3): permanents and sorceries are sorcery-speed;
-    // instants (flash later) are any-time.
+    // instants (flash later) are any-time. Teferi's restriction forces
+    // sorcery-speed timing on everything for opponents.
+    let teferi_lock = state.effects.iter().any(|fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
+        ) && fx.controller != player
+    });
     let is_instant = c.types.contains(TypeSet::INSTANT);
-    if !is_instant {
+    if teferi_lock || !is_instant {
         let main_phase = matches!(state.turn.phase, Phase::FirstMain | Phase::SecondMain);
         if !main_phase || state.turn.active != player || !state.zones.stack_is_empty() {
             return Err(CastError::BadTiming);

@@ -79,6 +79,12 @@ pub enum Modifier {
     LoseKeywords,
     /// The legend rule doesn't apply to the effect's controller (Sakashima).
     LegendRuleOff,
+    /// Activated abilities of artifacts the effect's opponents control
+    /// can't be activated (Karn).
+    CantActivateArtifacts,
+    /// The effect's opponents can cast spells only as though they were
+    /// sorceries (Teferi).
+    OpponentsCastAsSorcery,
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

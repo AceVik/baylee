@@ -159,6 +159,39 @@ impl<L: CardLookup> Engine<L> {
         self.entry_scan_seq = self.state.journal.last_seq();
         let mut changed = false;
         for (id, controller) in events {
+            // Planeswalkers enter with their printed loyalty counters
+            // (CR 306.5b).
+            if let Some(loyalty) = self
+                .state
+                .object(id)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .and_then(|def| {
+                    let face = &def.faces[0];
+                    if face
+                        .types
+                        .contains(baylee_core::types::TypeSet::PLANESWALKER)
+                    {
+                        face.loyalty
+                    } else {
+                        None
+                    }
+                })
+            {
+                if let Some(obj) = self.state.object_mut(id) {
+                    let old = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
+                    let new = obj
+                        .counters
+                        .add(baylee_cards_dsl::CounterKind::Loyalty, loyalty);
+                    self.state.journal.record(GameEvent::CounterChanged {
+                        object: id,
+                        kind: baylee_cards_dsl::CounterKind::Loyalty,
+                        old,
+                        new,
+                    });
+                    changed = true;
+                }
+            }
             // Clone-on-enter: offer the copy choice before anything else
             // for this permanent (CR 614.4).
             if self.check_copy_on_enter(id) {
@@ -507,7 +540,9 @@ impl<L: CardLookup> Engine<L> {
             let def = self.lookup.card(loc.card).expect("ability card exists");
             let effects = match def.abilities.get(loc.index as usize) {
                 Some(
-                    AbilityDef::Activated { effects, .. } | AbilityDef::Triggered { effects, .. },
+                    AbilityDef::Activated { effects, .. }
+                    | AbilityDef::Triggered { effects, .. }
+                    | AbilityDef::Loyalty { effects, .. },
                 ) => *effects,
                 _ => panic!("ability object references non-resolvable ability"),
             };
@@ -519,7 +554,7 @@ impl<L: CardLookup> Engine<L> {
                 pc: 0,
                 targets: obj.targets.clone(),
                 x: None,
-                chosen_player: None,
+                chosen_player: obj.chosen_player,
                 awaiting: None,
             };
             match resolve::run(&mut self.state, &mut res) {
@@ -667,6 +702,7 @@ impl<L: CardLookup> Engine<L> {
         self.state.turn_start_timestamp = self.state.timestamp;
         self.state.per_turn.reset();
         self.state.ability_fires.clear();
+        self.loyalty_used_this_turn.clear();
         let active = self.state.turn.active;
         self.state.players[active.get() as usize].lands_played_this_turn = 0;
         self.state.turn.phase = Phase::Beginning;
