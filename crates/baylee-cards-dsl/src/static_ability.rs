@@ -112,6 +112,26 @@ pub enum Modifier {
     /// The controller can't be targeted by spells or abilities (player
     /// hexproof, Everybody Lives!).
     PlayerHexproof,
+    /// The affected object gains an activated ability (Urza's Saga
+    /// chapters, Chromatic Lantern-style grants).
+    GrantActivated {
+        /// Ability cost.
+        cost: crate::cost::Cost,
+        /// Ability effects.
+        effects: &'static [crate::effect::Effect],
+        /// Whether it's a mana ability.
+        mana_ability: bool,
+    },
+    /// The affected object gets +P/+T for each filter-matching permanent
+    /// its controller controls (Construct tokens, "for each artifact").
+    ModifyPTPerCount {
+        /// What to count.
+        filter: &'static crate::Filter,
+        /// Power per match.
+        p: i16,
+        /// Toughness per match.
+        t: i16,
+    },
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

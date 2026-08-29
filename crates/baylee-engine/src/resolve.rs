@@ -84,6 +84,24 @@ pub enum AwaitingOp {
         /// The spell on the stack whose target changes.
         spell: ObjectId,
     },
+    /// After `DiscardForPlayers`: discard the chosen cards, then ask the
+    /// next remaining player.
+    DiscardChain {
+        /// The player currently discarding.
+        player: PlayerId,
+        /// Cards each player must discard.
+        count: u8,
+        /// Players still to choose.
+        remaining: Vec<PlayerId>,
+    },
+    /// After `DestroyChosenForPlayers`: destroy the chosen permanent
+    /// (respects indestructible), then ask the next remaining player.
+    DestroyChosen {
+        /// What may be destroyed.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Players still to choose.
+        remaining: Vec<PlayerId>,
+    },
     /// After `SacrificeFilter`: sacrifice the chosen permanent, then ask
     /// the next remaining player.
     SacrificeFilter {
@@ -426,6 +444,72 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             {
                 obj.targets.clear();
                 obj.targets.push(new_target);
+            }
+        }
+        AwaitingOp::DiscardChain {
+            player,
+            count,
+            remaining,
+        } => {
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Graveyard(player),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            let mut remaining = remaining;
+            while let Some(player) = remaining.first().copied() {
+                remaining.remove(0);
+                let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(player)).clone();
+                if hand.is_empty() {
+                    continue;
+                }
+                let n = (count as usize).min(hand.len()) as u8;
+                res.awaiting = Some(AwaitingOp::DiscardChain {
+                    player,
+                    count,
+                    remaining,
+                });
+                return Flow::Wait(Pending::ChooseCards {
+                    player,
+                    options: hand,
+                    min: n,
+                    max: n,
+                    prompt: ChoicePrompt::Generic,
+                });
+            }
+        }
+        AwaitingOp::DestroyChosen { filter, remaining } => {
+            if let Some(&victim) = chosen.first() {
+                crate::sba::destroy(state, victim);
+            }
+            let mut remaining = remaining;
+            while let Some(player) = remaining.first().copied() {
+                remaining.remove(0);
+                let options: Vec<ObjectId> = state
+                    .zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .filter(|id| {
+                        state.object(**id).is_some_and(|o| {
+                            o.controller == player
+                                && eval::matches(filter, state, o, res.controller, res.source)
+                        })
+                    })
+                    .copied()
+                    .collect();
+                if !options.is_empty() {
+                    res.awaiting = Some(AwaitingOp::DestroyChosen { filter, remaining });
+                    return Flow::Wait(Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 0,
+                        max: 1,
+                        prompt: ChoicePrompt::Generic,
+                    });
+                }
             }
         }
         AwaitingOp::SacrificeFilter { filter, remaining } => {
@@ -1334,6 +1418,26 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             state.set_monarch(you);
             None
         }
+        Effect::CreateTokenPtPerCount {
+            token,
+            filter,
+            p,
+            t,
+        } => {
+            let id = create_one_token(state, you, token);
+            let ts = state.next_timestamp();
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(id),
+                controller: you,
+                layer: baylee_cards_dsl::Layer::PtModify,
+                timestamp: ts,
+                duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
+                filter: crate::effects::EffectFilter::ObjectIs(id),
+                modifier: baylee_cards_dsl::Modifier::ModifyPTPerCount { filter, p, t },
+            });
+            None
+        }
         Effect::CreateToken { token } => {
             // Token-creation replacements (Doubling Season, CR 614.1).
             let mut count = 1u32;
@@ -1826,6 +1930,120 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             });
             None
         }
+        Effect::DestroyChosenForPlayers { who, filter } => {
+            // Same per-player choice chain as SacrificeFilter, destroying
+            // instead (The True Scriptures I).
+            let mut players = eval::players(who, state, you);
+            players.retain(|p| {
+                state
+                    .zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .any(|id| {
+                        state.object(*id).is_some_and(|o| {
+                            o.controller == *p && eval::matches(filter, state, o, you, res.source)
+                        })
+                    })
+            });
+            let player = players.first().copied()?;
+            players.remove(0);
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state.object(**id).is_some_and(|o| {
+                        o.controller == player && eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .copied()
+                .collect();
+            res.awaiting = Some(AwaitingOp::DestroyChosen {
+                filter,
+                remaining: players,
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
+        Effect::DiscardForPlayers { who, count } => {
+            let players = eval::players(who, state, you);
+            let mut remaining: Vec<PlayerId> = players
+                .iter()
+                .copied()
+                .filter(|p| !state.zones.list(ZoneLocation::Hand(*p)).is_empty())
+                .collect();
+            let player = remaining.first().copied()?;
+            remaining.remove(0);
+            let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(player)).clone();
+            let n = (count as usize).min(hand.len()) as u8;
+            res.awaiting = Some(AwaitingOp::DiscardChain {
+                player,
+                count,
+                remaining,
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options: hand,
+                min: n,
+                max: n,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
+        Effect::AllGraveyardCreaturesToBattlefield => {
+            for seat in 0..state.players.len() {
+                let p = PlayerId::new(seat as u8);
+                for &card in &state.zones.list(ZoneLocation::Graveyard(p)).clone() {
+                    let is_creature = state.object(card).is_some_and(|o| {
+                        o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                    });
+                    if is_creature {
+                        let _ = state.move_object(
+                            card,
+                            ZoneLocation::Battlefield,
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        );
+                        if let Some(obj) = state.object_mut(card) {
+                            obj.controller = you;
+                        }
+                    }
+                }
+            }
+            None
+        }
+        Effect::ExileSelfReturnAsFace { face } => {
+            let owner = state.object(res.source).map_or(you, |o| o.owner);
+            if let Some(obj) = state.object_mut(res.source) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = state.move_object(
+                res.source,
+                ZoneLocation::Exile(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            let _ = state.move_object(
+                res.source,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            if let Some(obj) = state.object_mut(res.source) {
+                obj.kind = ObjectKind::Permanent;
+                obj.controller = owner;
+                // The face switch needs the card definition (lookup);
+                // finish_resolution applies it.
+                obj.pending_face_change = Some(face);
+            }
+            None
+        }
         Effect::SacrificeFilter { who, filter } => {
             let mut players = eval::players(who, state, you);
             players.retain(|p| {
@@ -2177,7 +2395,7 @@ fn create_one_token(
     state: &mut GameState,
     controller: PlayerId,
     token: &baylee_cards_dsl::TokenDef,
-) {
+) -> ObjectId {
     let name = state.names.intern(token.name);
     let base = Characteristics {
         name,
@@ -2206,6 +2424,7 @@ fn create_one_token(
     if let Some(obj) = state.object_mut(id) {
         obj.zone = crate::zone::Zone::Battlefield;
     }
+    id
 }
 
 fn change_controller(state: &mut GameState, target: ObjectId, new_controller: PlayerId) {

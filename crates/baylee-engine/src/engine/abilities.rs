@@ -117,6 +117,33 @@ impl<L: CardLookup> Engine<L> {
                     _ => {}
                 }
             }
+            // Granted abilities (Urza's Saga chapters): the first granted
+            // ability surfaces as synthetic index u32::MAX.
+            for fx in self.state.effects.iter() {
+                let baylee_cards_dsl::Modifier::GrantActivated {
+                    cost, mana_ability, ..
+                } = &fx.modifier
+                else {
+                    continue;
+                };
+                let applies = match &fx.filter {
+                    crate::effects::EffectFilter::ObjectIs(target) => *target == id,
+                    crate::effects::EffectFilter::Dsl(filter) => crate::eval::matches(
+                        filter,
+                        &self.state,
+                        obj,
+                        fx.controller,
+                        fx.source.unwrap_or(id),
+                    ),
+                };
+                if applies && self.can_afford(player, id, cost) {
+                    legal.abilities.push((id, u32::MAX));
+                    if *mana_ability {
+                        legal.mana_abilities.push(id);
+                    }
+                    break; // one synthetic slot per permanent
+                }
+            }
         }
         // Hand-zone activations (cycling) and suspensions.
         for &card in self.state.zones.list(ZoneLocation::Hand(player)) {
@@ -178,6 +205,17 @@ impl<L: CardLookup> Engine<L> {
                     .count();
                 count >= min as usize
             }
+            baylee_cards_dsl::ActivationCondition::OpponentGraveyardCountAtLeast(min) => {
+                (0..self.state.players.len())
+                    .filter(|i| *i != player.get() as usize)
+                    .any(|i| {
+                        self.state
+                            .zones
+                            .list(ZoneLocation::Graveyard(PlayerId::new(i as u8)))
+                            .len()
+                            >= min as usize
+                    })
+            }
         }
     }
 
@@ -217,6 +255,108 @@ impl<L: CardLookup> Engine<L> {
 
     // ---------------------------------------------------- S3: abilities
 
+    /// Activates a granted ability (Urza's Saga's Construct chapter):
+    /// pays the cost, then pushes the granted effects via the synthetic
+    /// side map (or resolves immediately for mana abilities).
+    fn start_granted_activation(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        targets: SmallVec<[ObjectId; 2]>,
+    ) -> Result<(), EngineError> {
+        let (cost, effects, mana_ability) = {
+            let obj = self
+                .state
+                .object(source)
+                .ok_or(EngineError::IllegalAction("no such permanent"))?;
+            self.state
+                .effects
+                .iter()
+                .find_map(|fx| {
+                    let baylee_cards_dsl::Modifier::GrantActivated {
+                        cost,
+                        effects,
+                        mana_ability,
+                    } = &fx.modifier
+                    else {
+                        return None;
+                    };
+                    let applies = match &fx.filter {
+                        crate::effects::EffectFilter::ObjectIs(id) => *id == source,
+                        crate::effects::EffectFilter::Dsl(filter) => crate::eval::matches(
+                            filter,
+                            &self.state,
+                            obj,
+                            fx.controller,
+                            fx.source.unwrap_or(source),
+                        ),
+                    };
+                    applies.then_some((*cost, *effects, *mana_ability))
+                })
+                .ok_or(EngineError::IllegalAction("no granted ability"))?
+        };
+        self.pay_cost(player, source, &cost)?;
+        if mana_ability {
+            let mut res = crate::resolve::Resolution {
+                source,
+                on_stack: source,
+                controller: player,
+                effects: crate::resolve::flatten(effects),
+                pc: 0,
+                targets,
+                x: None,
+                chosen_player: None,
+                event_object: None,
+                awaiting: None,
+            };
+            match crate::resolve::run(&mut self.state, &mut res) {
+                crate::resolve::Flow::Complete => {}
+                crate::resolve::Flow::Wait(pending) => {
+                    self.resolution = Some(res);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+            }
+        } else {
+            let name = self
+                .state
+                .object(source)
+                .map_or(NameRef::new(0), |o| o.base.name);
+            let card = self
+                .state
+                .object(source)
+                .and_then(|o| o.card)
+                .map(|c| c.index)
+                .ok_or(EngineError::IllegalAction("source not card-backed"))?;
+            let id = self.state.arena.insert_with(|id| {
+                GameObject::new_ability_on_stack(
+                    id,
+                    player,
+                    crate::object::AbilityLoc {
+                        card,
+                        index: u32::MAX,
+                        source,
+                    },
+                    targets,
+                    name,
+                )
+            });
+            self.synthetic_fx.insert(id, effects);
+            self.state
+                .zones
+                .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+            self.state.journal.record(GameEvent::AbilityTriggered {
+                object: id,
+                source,
+                ability_index: u32::MAX,
+                controller: player,
+            });
+        }
+        self.after_action(player);
+        Ok(())
+    }
+
     #[allow(clippy::too_many_lines)] // activation is a staged checklist; extraction would obscure it
     pub(crate) fn start_activation(
         &mut self,
@@ -225,6 +365,10 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
+        // Granted abilities (synthetic index): resolve via the side map.
+        if ability_index == u32::MAX {
+            return self.start_granted_activation(player, source, targets);
+        }
         // Loyalty abilities route to their own activation path first.
         if let Some(AbilityDef::Loyalty { cost, .. }) = self
             .state

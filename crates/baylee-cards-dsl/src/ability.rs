@@ -40,6 +40,9 @@ pub enum StepKind {
 pub enum ActivationCondition {
     /// You control at least N permanents matching the filter.
     ControlCount(&'static Filter, u8),
+    /// An opponent has at least N cards in their graveyard (Sheoldred's
+    /// flip condition).
+    OpponentGraveyardCountAtLeast(u8),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -150,6 +153,16 @@ pub enum AbilityDef {
         zone: ActivationZone,
         /// The precondition.
         condition: ActivationCondition,
+    },
+    /// One chapter of a saga (CR 714): triggers when the corresponding
+    /// lore counter is added.
+    SagaChapter {
+        /// Chapter number (1-based).
+        chapter: u8,
+        /// Effect operations.
+        effects: &'static [crate::effect::Effect],
+        /// Target requirement.
+        target: Option<crate::effect::TargetSpec>,
     },
     /// Static/continuous ability (layers, CR 613).
     Static(crate::static_ability::StaticAbility),

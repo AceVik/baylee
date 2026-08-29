@@ -379,6 +379,9 @@ pub struct GameObject {
     pub face_index: u8,
     /// Abilities of an emblem object (not card-backed; command zone).
     pub emblem_abilities: Option<&'static [baylee_cards_dsl::AbilityDef]>,
+    /// A face switch queued by a resolution (transform); the engine
+    /// applies it after the resolution completes.
+    pub pending_face_change: Option<u8>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
     /// Whether the spell was cast from the hand (rebound condition).
@@ -421,6 +424,7 @@ impl GameObject {
             chosen_subtype: None,
             face_index: 0,
             emblem_abilities: None,
+            pending_face_change: None,
             cast_from_hand: true,
         }
     }

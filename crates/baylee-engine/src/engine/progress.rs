@@ -192,6 +192,42 @@ impl<L: CardLookup> Engine<L> {
         self.entry_scan_seq = self.state.journal.last_seq();
         let mut changed = false;
         for (id, controller) in events {
+            // Sagas enter with a lore counter, triggering chapter I
+            // (CR 714.2a/b).
+            let chapter_one = self.state.object(id).and_then(|o| {
+                let face = o.face_index as usize;
+                o.card.and_then(|c| {
+                    self.lookup.card(c.index).and_then(|def| {
+                        def.abilities_for_face(face)
+                            .iter()
+                            .enumerate()
+                            .find_map(|(i, a)| match a {
+                                baylee_cards_dsl::AbilityDef::SagaChapter {
+                                    chapter: 1, ..
+                                } => Some(i as u32),
+                                _ => None,
+                            })
+                    })
+                })
+            });
+            if let Some(ability_index) = chapter_one {
+                let ts = self.state.next_timestamp();
+                if let Some(obj) = self.state.object_mut(id) {
+                    obj.counters.add(baylee_cards_dsl::CounterKind::Lore, 1);
+                    obj.timestamp = ts;
+                }
+                self.trigger_queue
+                    .push_back(crate::trigger::PendingTrigger {
+                        source: id,
+                        ability_index,
+                        controller,
+                        timestamp: ts,
+                        event_object: None,
+                        synthetic_effects: None,
+                        once_per_turn: false,
+                    });
+                changed = true;
+            }
             // Planeswalkers enter with their printed loyalty counters
             // (CR 306.5b).
             if let Some(loyalty) = self
@@ -648,10 +684,12 @@ impl<L: CardLookup> Engine<L> {
                 .and_then(|abilities| abilities.get(t.ability_index as usize))
                 .and_then(|a| match a {
                     AbilityDef::Triggered { targets, .. } => *targets,
+                    AbilityDef::SagaChapter { target, .. } => {
+                        target.map(baylee_cards_dsl::TargetReq::one)
+                    }
                     _ => None,
                 });
             if let Some(req) = req {
-                // EventObject targeting is implicit — no player choice.
                 if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
                     let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
                     self.trigger_queue.pop_front();
@@ -829,7 +867,8 @@ impl<L: CardLookup> Engine<L> {
                     Some(
                         AbilityDef::Activated { effects, .. }
                         | AbilityDef::Triggered { effects, .. }
-                        | AbilityDef::Loyalty { effects, .. },
+                        | AbilityDef::Loyalty { effects, .. }
+                        | AbilityDef::SagaChapter { effects, .. },
                     ) => *effects,
                     Some(AbilityDef::ModalTriggered { modes, .. }) => {
                         let idx = obj.mode_index.map_or(0, |i| i as usize);
@@ -956,18 +995,87 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Applies a face switch queued by a resolution effect (transforms).
+    pub(crate) fn apply_pending_face_changes(&mut self) {
+        let pending: Vec<(ObjectId, u8)> = self
+            .state
+            .arena
+            .iter()
+            .filter_map(|(id, o)| o.pending_face_change.map(|f| (id, f)))
+            .collect();
+        for (id, face) in pending {
+            if let Some(obj) = self.state.object_mut(id) {
+                obj.pending_face_change = None;
+            }
+            if let Some(def) = self
+                .state
+                .object(id)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+            {
+                self.state.switch_face(id, def, face as usize);
+            }
+        }
+    }
+
     pub(crate) fn finish_resolution(&mut self, res: &Resolution) {
         if self
             .state
             .object(res.on_stack)
             .is_some_and(|o| o.kind == ObjectKind::AbilityOnStack)
         {
+            // Sagas (CR 714.4): when a chapter ability has resolved and
+            // the source's lore counters cover its final chapter,
+            // sacrifice it.
+            let source = res.source;
+            let is_chapter = self
+                .state
+                .object(source)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .is_some_and(|def| {
+                    let face = self
+                        .state
+                        .object(source)
+                        .map_or(0, |o| o.face_index as usize);
+                    let max = def
+                        .abilities_for_face(face)
+                        .iter()
+                        .filter_map(|a| match a {
+                            baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. } => {
+                                Some(*chapter)
+                            }
+                            _ => None,
+                        })
+                        .max()
+                        .unwrap_or(0);
+                    max > 0
+                        && self.state.object(source).is_some_and(|o| {
+                            o.counters.get(baylee_cards_dsl::CounterKind::Lore) >= u16::from(max)
+                        })
+                });
             // Abilities on the stack simply cease to exist (CR 608.2k).
             self.state.zones.remove(res.on_stack, ZoneLocation::Stack);
             let _ = self.state.arena.remove(res.on_stack);
+            if is_chapter {
+                let owner = self
+                    .state
+                    .object(source)
+                    .map_or(res.controller, |o| o.owner);
+                if let Some(obj) = self.state.object_mut(source) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = self.state.move_object(
+                    source,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                );
+            }
         } else {
             self.finalize_spell(res.on_stack);
         }
+        self.apply_pending_face_changes();
     }
 
     pub(crate) fn finalize_spell(&mut self, spell: ObjectId) {
@@ -1149,6 +1257,54 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// After the draw step, each saga the active player controls gets a
+    /// lore counter, triggering its next chapter (CR 714.2b).
+    pub(crate) fn saga_draw_step_counters(&mut self) {
+        let active = self.state.turn.active;
+        for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
+            let Some(obj) = self.state.object(id) else {
+                continue;
+            };
+            if obj.controller != active {
+                continue;
+            }
+            let next_chapter = obj.counters.get(baylee_cards_dsl::CounterKind::Lore) + 1;
+            let hit = obj.card.and_then(|c| {
+                let face = obj.face_index as usize;
+                self.lookup.card(c.index).and_then(|def| {
+                    def.abilities_for_face(face)
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, a)| match a {
+                            baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. }
+                                if u16::from(*chapter) == next_chapter =>
+                            {
+                                Some(i as u32)
+                            }
+                            _ => None,
+                        })
+                })
+            });
+            if let Some(ability_index) = hit {
+                let ts = self.state.next_timestamp();
+                if let Some(obj) = self.state.object_mut(id) {
+                    obj.counters.add(baylee_cards_dsl::CounterKind::Lore, 1);
+                    obj.timestamp = ts;
+                }
+                self.trigger_queue
+                    .push_back(crate::trigger::PendingTrigger {
+                        source: id,
+                        ability_index,
+                        controller: active,
+                        timestamp: ts,
+                        event_object: None,
+                        synthetic_effects: None,
+                        once_per_turn: false,
+                    });
+            }
+        }
+    }
+
     /// Queues delayed actions that fire at the beginning of the end step
     /// (Venser +2's returned permanents) — fires for ANY controller, not
     /// just the active player.
@@ -1252,6 +1408,7 @@ impl<L: CardLookup> Engine<L> {
             }
             (Phase::FirstMain, Step::Main) => {
                 self.queue_first_main_delayed();
+                self.saga_draw_step_counters();
                 (Phase::Combat, Step::CombatBegin)
             }
             (Phase::SecondMain, Step::Main) => {

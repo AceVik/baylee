@@ -1008,6 +1008,16 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         }
         M::GrantsFlashback => h.u8(25),
         M::PlayerHexproof => h.u8(26),
+        M::GrantActivated { mana_ability, .. } => {
+            h.u8(27);
+            h.u8(u8::from(*mana_ability));
+        }
+        M::ModifyPTPerCount { filter, p, t } => {
+            h.u8(28);
+            filter_hash(h, filter);
+            h.i16(*p);
+            h.i16(*t);
+        }
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

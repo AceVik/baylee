@@ -339,6 +339,32 @@ pub enum Effect {
     /// Drake); if no exchange happens (no/illegal target), sacrifice the
     /// source.
     ExchangeControlOrSacrifice,
+    /// For each player in `who`, that player chooses up to one matching
+    /// permanent they control and it is destroyed (The True
+    /// Scriptures I).
+    DestroyChosenForPlayers {
+        /// Who chooses.
+        who: PlayerRel,
+        /// What may be destroyed.
+        filter: &'static Filter,
+    },
+    /// Each player in `who` discards `count` cards (their choice).
+    DiscardForPlayers {
+        /// Who discards.
+        who: PlayerRel,
+        /// How many cards.
+        count: u8,
+    },
+    /// Put all creature cards from all graveyards onto the battlefield
+    /// under your control (The True Scriptures III).
+    AllGraveyardCreaturesToBattlefield,
+    /// Exile the source, then return it to the battlefield under its
+    /// owner's control as the given face (transform; Sheoldred's flip,
+    /// saga final chapters).
+    ExileSelfReturnAsFace {
+        /// The face to return as (0 = front).
+        face: u8,
+    },
     /// Each player in `who` sacrifices a permanent they control matching
     /// the filter (their choice; Sheoldred's Edict).
     SacrificeFilter {
@@ -511,6 +537,19 @@ pub enum Effect {
         amount: Amount,
         /// Whether each mana may be a different color (filter lands).
         combination: bool,
+    },
+    /// Create a token that gets +P/+T for each filter-matching permanent
+    /// you control (Urza's Saga's Construct; registered as its own
+    /// continuous effect).
+    CreateTokenPtPerCount {
+        /// The token.
+        token: &'static TokenDef,
+        /// What to count.
+        filter: &'static Filter,
+        /// Power per match.
+        p: i16,
+        /// Toughness per match.
+        t: i16,
     },
     /// Create a token under your control.
     CreateToken {

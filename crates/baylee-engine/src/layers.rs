@@ -140,6 +140,25 @@ fn apply(
                 *c = target.characteristics().clone();
             }
         }
+        Modifier::ModifyPTPerCount { filter, p, t } => {
+            let count = state
+                .zones
+                .list(crate::zone::ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state.object(**id).is_some_and(|o| {
+                        o.controller == fx.controller
+                            && crate::eval::matches(filter, state, o, fx.controller, **id)
+                    })
+                })
+                .count() as i16;
+            if let Some(pow) = &mut c.power {
+                *pow += count * p;
+            }
+            if let Some(tou) = &mut c.toughness {
+                *tou += count * t;
+            }
+        }
         Modifier::AddType(t) => c.types = c.types.union(*t),
         Modifier::RemoveType(t) => c.types = c.types.difference(*t),
         Modifier::AddSubtype(s) => c.subtypes.insert(*s),
@@ -182,7 +201,8 @@ fn apply(
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)
         | Modifier::GrantsFlashback
-        | Modifier::PlayerHexproof => {}
+        | Modifier::PlayerHexproof
+        | Modifier::GrantActivated { .. } => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

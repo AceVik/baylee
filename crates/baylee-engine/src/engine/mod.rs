@@ -309,6 +309,8 @@ mod s7b_tests;
 #[cfg(test)]
 mod s7c_tests;
 #[cfg(test)]
+mod saga_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod w1_tests;
