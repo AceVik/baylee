@@ -11,12 +11,14 @@ workspace = true
 [dependencies]
 baylee-ai.workspace = true
 baylee-cards.workspace = true
+baylee-cards-dsl.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
 baylee-protocol.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 prost.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true

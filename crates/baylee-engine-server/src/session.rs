@@ -62,11 +62,13 @@ impl Session {
             let pending = self.engine.pending().clone();
             let Some(player) = pending_player(&pending) else {
                 if let Pending::GameOver(result) = pending {
+                    out.push(view_envelope(self.seq, &self.engine, self.human_seat));
                     out.push(choice_envelope(self.seq, &Pending::GameOver(result)));
                 }
                 return out;
             };
             if player == self.human_seat {
+                out.push(view_envelope(self.seq, &self.engine, self.human_seat));
                 out.push(choice_envelope(self.seq, &pending));
                 return out;
             }
@@ -119,6 +121,21 @@ fn pending_player(pending: &Pending) -> Option<baylee_core::ids::PlayerId> {
         | Pending::OrderObjects { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,
+    }
+}
+
+fn view_envelope(
+    seq: u64,
+    engine: &Engine<RegistryLookup>,
+    seat: baylee_core::ids::PlayerId,
+) -> Envelope {
+    let view = crate::view::player_view(engine.state(), seat);
+    Envelope {
+        msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+            game_id: String::new(),
+            seq,
+            view_json: serde_json::to_vec(&view).unwrap_or_default(),
+        })),
     }
 }
 

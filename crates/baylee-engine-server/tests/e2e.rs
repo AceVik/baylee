@@ -52,6 +52,7 @@ async fn create_game_and_answer_first_choice() {
     .expect("send create");
 
     let mut saw_game_created = false;
+    let mut saw_view = false;
     let mut first_pending: Option<Pending> = None;
     for _ in 0..10 {
         let Some(frame) = ws.next().await else { break };
@@ -62,6 +63,15 @@ async fn create_game_and_answer_first_choice() {
         let env = Envelope::decode(frame.into_data()).expect("decode");
         match env.msg {
             Some(v1::envelope::Msg::GameCreated(_)) => saw_game_created = true,
+            Some(v1::envelope::Msg::StateDelta(delta)) => {
+                // Hidden information: the view exists and carries only
+                // the viewing seat's own hand contents.
+                let view: serde_json::Value =
+                    serde_json::from_slice(&delta.view_json).expect("view json");
+                saw_view = true;
+                assert!(view.get("seats").is_some(), "view has seat lines");
+                assert!(view.get("hand").is_some(), "view has the own hand");
+            }
             Some(v1::envelope::Msg::ChoiceRequest(req)) => {
                 first_pending = serde_json::from_slice(&req.pending_json).ok();
                 break;
@@ -70,6 +80,7 @@ async fn create_game_and_answer_first_choice() {
         }
     }
     assert!(saw_game_created, "server acknowledged the game");
+    assert!(saw_view, "server sent a hidden-info-filtered view");
     let pending = first_pending.expect("server requested a choice");
 
     // Answer it; the game must advance with another choice (or game over).

@@ -8,6 +8,7 @@
 //! pure transport: decode frames → session → encode frames.
 
 mod session;
+mod view;
 
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::PlayerAction;
