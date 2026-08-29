@@ -20,9 +20,6 @@ fn card_index(oracle_id: &str) -> CardIndex {
 fn island() -> CardIndex {
     card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
 }
-fn plains() -> CardIndex {
-    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
-}
 fn ondu_cleric() -> CardIndex {
     card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
 }
@@ -78,6 +75,7 @@ fn keep_mulligans(engine: &mut Engine<RegistryLookup>) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // scenario script
 fn clone_enters_as_copy_of_target() {
     let mut engine = Engine::new(
         &preset(
