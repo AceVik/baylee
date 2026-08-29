@@ -265,12 +265,33 @@ impl<L: CardLookup> Engine<L> {
                         None
                     }
                 })
-                && let Some(obj) = self.state.object_mut(id)
             {
+                // Counter-placement replacements (Doubling Season doubles
+                // loyalty counters on ETB too, CR 614.16).
+                let mut amount = loyalty;
+                {
+                    let obj = self.state.object(id).expect("walker exists");
+                    for entry in &self.state.replacement_rules {
+                        if let baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement {
+                            object_filter,
+                        } = entry.rule
+                            && crate::eval::matches(
+                                object_filter,
+                                &self.state,
+                                obj,
+                                entry.controller,
+                                entry.source,
+                            )
+                        {
+                            amount = amount.saturating_mul(2);
+                        }
+                    }
+                }
+                let obj = self.state.object_mut(id).expect("walker exists");
                 let old = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
                 let new = obj
                     .counters
-                    .add(baylee_cards_dsl::CounterKind::Loyalty, loyalty);
+                    .add(baylee_cards_dsl::CounterKind::Loyalty, amount);
                 self.state.journal.record(GameEvent::CounterChanged {
                     object: id,
                     kind: baylee_cards_dsl::CounterKind::Loyalty,

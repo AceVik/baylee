@@ -46,7 +46,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("planeswalker ETB-loyalty doubling lands with walkers (M2.S7)"),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
             controller_filter: &YOURS,
