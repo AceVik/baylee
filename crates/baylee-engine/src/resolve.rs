@@ -1990,10 +1990,10 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CreateEmblem { abilities } => {
-            let name = state
-                .object(res.source)
-                .map(|o| o.base.name)
-                .unwrap_or_else(|| state.names.intern("emblem"));
+            let name = match state.object(res.source) {
+                Some(o) => o.base.name,
+                None => state.names.intern("emblem"),
+            };
             let id = state.create_bare(you, ObjectKind::Emblem, name, ZoneLocation::Command(you));
             if let Some(obj) = state.object_mut(id) {
                 obj.emblem_abilities = Some(abilities);

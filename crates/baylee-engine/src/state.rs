@@ -392,6 +392,9 @@ impl GameState {
     }
 
     /// Creates a card-less object (tokens, emblems).
+    ///
+    /// # Panics
+    /// On zone insertion failure (internal invariant).
     pub fn create_bare(
         &mut self,
         owner: PlayerId,

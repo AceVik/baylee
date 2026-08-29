@@ -660,12 +660,25 @@ impl<L: CardLookup> Engine<L> {
                             .ability_fires
                             .insert((t.source, t.ability_index), 1);
                     }
-                    let _ = self.push_ability_to_stack(
-                        t.controller,
-                        t.source,
-                        t.ability_index,
-                        targets,
-                    );
+                    if self
+                        .state
+                        .object(t.source)
+                        .is_some_and(|o| o.emblem_abilities.is_some())
+                    {
+                        self.push_emblem_ability_to_stack(
+                            t.controller,
+                            t.source,
+                            t.ability_index,
+                            targets,
+                        );
+                    } else {
+                        let _ = self.push_ability_to_stack(
+                            t.controller,
+                            t.source,
+                            t.ability_index,
+                            targets,
+                        );
+                    }
                     if let Some(event_object) = t.event_object {
                         let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
                         if let Some(top) = top
@@ -743,12 +756,25 @@ impl<L: CardLookup> Engine<L> {
                     });
                 }
             } else {
-                let _ = self.push_ability_to_stack(
-                    t.controller,
-                    t.source,
-                    t.ability_index,
-                    SmallVec::new(),
-                );
+                if self
+                    .state
+                    .object(t.source)
+                    .is_some_and(|o| o.emblem_abilities.is_some())
+                {
+                    self.push_emblem_ability_to_stack(
+                        t.controller,
+                        t.source,
+                        t.ability_index,
+                        SmallVec::new(),
+                    );
+                } else {
+                    let _ = self.push_ability_to_stack(
+                        t.controller,
+                        t.source,
+                        t.ability_index,
+                        SmallVec::new(),
+                    );
+                }
                 // Carry the event object onto the fresh stack object.
                 if let Some(event_object) = t.event_object {
                     let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
