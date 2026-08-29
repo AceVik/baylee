@@ -312,6 +312,10 @@ pub enum Effect {
         /// What the new target must match.
         new_filter: &'static Filter,
     },
+    /// Exchange control of the source and the first target (Gilded
+    /// Drake); if no exchange happens (no/illegal target), sacrifice the
+    /// source.
+    ExchangeControlOrSacrifice,
     /// Search your library for a matching card (server-side filtered).
     SearchLibrary {
         /// What to find.

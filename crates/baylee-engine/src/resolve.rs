@@ -1280,6 +1280,31 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::ExchangeControlOrSacrifice => {
+            let exchange = res.targets.first().copied().filter(|t| {
+                state.object(*t).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.controller != you
+                })
+            });
+            if let Some(target) = exchange {
+                let their_controller = state.object(target).map_or(you, |o| o.controller);
+                change_controller(state, target, you);
+                change_controller(state, res.source, their_controller);
+            } else {
+                // No exchange: sacrifice the source (Gilded Drake).
+                let owner = state.object(res.source).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(res.source) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    res.source,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         Effect::ChangeController { new_controller } => {
             if let Some(&target_id) = res.targets.first() {
                 // Control-change ops always favor the effect's controller

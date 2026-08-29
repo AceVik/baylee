@@ -1,15 +1,27 @@
 //! Mox Opal — {0} — Legendary Artifact
 //! Oracle: Metalcraft — {T}: Add one mana of any color. Activate only if you control three or more artifacts.
 //! Set: 2XM #275 — Double Masters | Scryfall ID: 56001a36-126b-4c08-af98-a6cc4d84210e | Oracle ID: de2440de-e948-4811-903c-0bbe376ff64d
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the mana ability works unconditionally; the metalcraft
+// activation restriction (activate only with 3+ artifacts) needs
+// activation conditions (own milestone).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_COLOR: &[ManaColor] = &[
+    ManaColor::White,
+    ManaColor::Blue,
+    ManaColor::Black,
+    ManaColor::Red,
+    ManaColor::Green,
+];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(98),
@@ -17,7 +29,7 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "56001a36-126b-4c08-af98-a6cc4d84210e",
     faces: &[FaceDef {
         name: "Mox Opal",
-        mana_cost: baylee_core::mana!("{0}"),
+        mana_cost: ManaCost::ZERO,
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[],
@@ -33,11 +45,22 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial(
+        "metalcraft activation restriction (activation conditions, own milestone)",
+    ),
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddManaChoice {
+            colors: ANY_COLOR,
+            amount: Amount::Fixed(1),
+            combination: false,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

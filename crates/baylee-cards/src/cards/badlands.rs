@@ -1,15 +1,21 @@
-//! Badlands — (no cost) — Land — Swamp Mountain
+//! Badlands — (no cost) — Land — SWAMP MOUNTAIN
 //! Oracle: ({T}: Add {B} or {R}.)
 //! Set: VMA #291 — Vintage Masters | Scryfall ID: 73403d04-fe97-4830-8b80-16dd1a1a6cc1 | Oracle ID: 13ff3222-91cb-4796-a34e-899ed817694c
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — two-color mana choice.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, land};
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static COLORS: &[ManaColor] = &[ManaColor::Black, ManaColor::Red];
+static SUBS: &[baylee_core::ids::SubtypeId] = &[land::SWAMP, land::MOUNTAIN];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(9),
@@ -20,7 +26,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
+        subtypes: SUBS,
         power: None,
         toughness: None,
         loyalty: None,
@@ -33,11 +39,20 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddManaChoice {
+            colors: COLORS,
+            amount: Amount::Fixed(1),
+            combination: false,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

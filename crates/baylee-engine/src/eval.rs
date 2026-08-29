@@ -32,6 +32,7 @@ pub fn matches(
         Filter::HasSubtype(s) => obj.characteristics().subtypes.contains(*s),
         Filter::HasColor(c) => obj.characteristics().colors.intersects(*c),
         Filter::IsColorless => obj.characteristics().colors.is_colorless(),
+        Filter::Monocolored => obj.characteristics().colors.len() == 1,
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => obj.controller != you,
         Filter::OwnedByYou => obj.owner == you,

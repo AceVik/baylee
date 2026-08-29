@@ -37,6 +37,8 @@ pub enum Filter {
     HasColor(ColorSet),
     /// Is colorless.
     IsColorless,
+    /// Exactly one color (Vanishing Verse).
+    Monocolored,
     /// Controlled by `you`.
     ControlledByYou,
     /// Controlled by an opponent of `you`.

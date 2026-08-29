@@ -1,15 +1,19 @@
 //! Vanishing Verse — {W}{B} — Instant
 //! Oracle: Exile target monocolored permanent.
 //! Set: SOC #335 — Secrets of Strixhaven Commander | Scryfall ID: 8a475868-a335-45e7-9d59-9dc4c2cea1ae | Oracle ID: 5b8f0cdf-572d-4025-b930-79291f7c35be
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — monocolored exile removal.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetReq, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static MONOCOLORED_PERMANENT: Filter = Filter::Monocolored;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(180),
@@ -29,15 +33,18 @@ pub static CARD: CardDef = CardDef {
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
+    color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Spell {
+        effects: &[Effect::Exile {
+            target: TargetSpec::Object(&MONOCOLORED_PERMANENT),
+        }],
+        targets: Some(TargetReq::one(TargetSpec::Object(&MONOCOLORED_PERMANENT))),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}
