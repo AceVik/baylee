@@ -8,9 +8,15 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    SearchDest, Trigger,
+    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
+    Effect, FaceDef, Filter, KeywordSet, PartnerKind, SearchDest, Trigger,
 };
+
+static ALLIES_YOU_CONTROL: Filter = Filter::And(&[
+    Filter::HasSubtype(creature::ALLY),
+    Filter::HasType(TypeSet::CREATURE),
+    Filter::ControlledByYou,
+]);
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
@@ -58,19 +64,37 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("activated {WUBRG} pump needs Amount-driven modifiers (M2.S7)"),
-    abilities: &[AbilityDef::Triggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        once_per_turn: false,
-        effects: &[Effect::SearchLibrary {
-            filter: &ALLY_CARD,
-            dest: SearchDest::Hand,
-            tapped: false,
-            shuffle: true,
-            optional: true,
-        }],
-        targets: None,
-    }],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Triggered {
+            trigger: Trigger::EntersBattlefield(&Filter::This),
+            once_per_turn: false,
+            effects: &[Effect::SearchLibrary {
+                filter: &ALLY_CARD,
+                dest: SearchDest::Hand,
+                tapped: false,
+                shuffle: true,
+                optional: true,
+            }],
+            targets: None,
+        },
+        AbilityDef::Activated {
+            cost: Cost {
+                mana: baylee_core::mana!("{W}{U}{B}{R}{G}"),
+                parts: &[],
+            },
+            effects: &[Effect::PumpFilter {
+                filter: &ALLIES_YOU_CONTROL,
+                power: Amount::DistinctColorsAmong(&ALLIES_YOU_CONTROL),
+                toughness: Amount::DistinctColorsAmong(&ALLIES_YOU_CONTROL),
+                duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: false,
+            zone: ActivationZone::Battlefield,
+        },
+    ],
 };
 
 #[cfg(test)]

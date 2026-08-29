@@ -129,6 +129,17 @@ pub fn amount(
                     .copied()
                     .unwrap_or(0)
         }
+        Amount::DistinctColorsAmong(filter) => {
+            let mut colors = baylee_core::color::ColorSet::EMPTY;
+            for id in state.zones.list(ZoneLocation::Battlefield) {
+                if let Some(obj) = state.object(*id)
+                    && matches(filter, state, obj, you, this)
+                {
+                    colors = colors.union(obj.characteristics().colors);
+                }
+            }
+            u32::from(colors.len())
+        }
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {

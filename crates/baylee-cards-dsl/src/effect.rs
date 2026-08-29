@@ -75,6 +75,9 @@ pub enum Amount {
     /// The value of X plus the controller's commander-cast count
     /// (Commander's Insight).
     XPlusCommanderCasts,
+    /// Number of distinct colors among battlefield objects matching the
+    /// filter (General Tazri).
+    DistinctColorsAmong(&'static Filter),
     /// A fixed negative value (-N at use sites).
     NegXFixed(u32),
     /// The power of the first target (last known characteristics).
