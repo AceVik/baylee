@@ -119,6 +119,44 @@ message Error {
   string message = 2;
 }
 
+// ------------------------------------------------------------- v1 gameplay
+// Complex engine structures (pending choices, actions, views) travel as
+// serde_json payloads inside protobuf framing — the wire contract stays
+// binary while the choice taxonomy evolves without proto churn.
+
+message CreateGame {
+  GamePresetMsg preset = 1;
+}
+
+message GameCreated {
+  string game_id = 1;
+  uint32 your_seat = 2;
+}
+
+// Server → client: a choice is requested from your seat.
+message ChoiceRequest {
+  string game_id = 1;
+  uint64 seq = 2;
+  // serde_json-encoded engine Pending.
+  bytes pending_json = 3;
+}
+
+// Client → server: the seat's answer.
+message PlayerActionMsg {
+  string game_id = 1;
+  string seat_token = 2;
+  // serde_json-encoded engine PlayerAction.
+  bytes action_json = 3;
+}
+
+// Server → client: a state view after actions (journal seq for resync).
+message StateDelta {
+  string game_id = 1;
+  uint64 seq = 2;
+  // serde_json-encoded compact view (turn, phase, zones counts, log tail).
+  bytes view_json = 3;
+}
+
 message Envelope {
   oneof msg {
     Hello hello = 1;
@@ -128,5 +166,10 @@ message Envelope {
     GamePresetMsg preset = 5;
     Heartbeat heartbeat = 6;
     Error error = 7;
+    CreateGame create_game = 8;
+    GameCreated game_created = 9;
+    ChoiceRequest choice_request = 10;
+    PlayerActionMsg player_action = 11;
+    StateDelta state_delta = 12;
   }
 }

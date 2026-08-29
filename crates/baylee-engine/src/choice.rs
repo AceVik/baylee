@@ -8,7 +8,7 @@ use crate::win::GameResult;
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// What the game is currently waiting for.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Pending {
     /// A mulligan decision (London; first is free per house rules).
     Mulligan {
@@ -139,7 +139,7 @@ pub enum Pending {
 }
 
 /// One legal way to cast a spell (CR 601.2b).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CastModeDesc {
     /// Option index (answered via `PlayerAction::ChooseMode`).
     pub index: u8,
@@ -150,7 +150,7 @@ pub struct CastModeDesc {
 }
 
 /// The kind of a cast option.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CastModeKind {
     /// Printed cost.
     Normal,
@@ -167,7 +167,7 @@ pub enum CastModeKind {
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ChoicePrompt {
     /// Library search (tutor/fetch).
     SearchLibrary,
@@ -180,7 +180,7 @@ pub enum ChoicePrompt {
 }
 
 /// What a [`Pending::YesNo`] asks.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
     /// "You may pay N life; if you don't, this enters tapped" (shocklands).
     PayLifeOrEnterTapped {
@@ -204,7 +204,7 @@ pub enum YesNoPrompt {
 }
 
 /// Everything a player may legally do with priority (precomputed).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct LegalActions {
     /// Passing is always legal.
     pub can_pass: bool,
@@ -222,7 +222,7 @@ pub struct LegalActions {
 }
 
 /// A player's answer to a [`Pending`] request.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum PlayerAction {
     /// Keep the current hand (mulligan).
     MulliganKeep,

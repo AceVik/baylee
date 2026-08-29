@@ -17,6 +17,8 @@ baylee-engine = { path = "crates/baylee-engine" }
 baylee-cards-dsl = { path = "crates/baylee-cards-dsl" }
 baylee-cards = { path = "crates/baylee-cards" }
 baylee-cards-codegen = { path = "crates/baylee-cards-codegen" }
+baylee-ai = { path = "crates/baylee-ai" }
+baylee-engine-server = { path = "crates/baylee-engine-server" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -28,6 +30,7 @@ prost = "0.13"
 prost-build = "0.13"
 protoc-bin-vendored = "3"
 bytes = "1"
+futures-util = "0.3"
 rustc-hash = "2"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rand_chacha = "0.9"
