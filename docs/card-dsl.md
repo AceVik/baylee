@@ -54,7 +54,17 @@ Rules:
 - `AbilityDef::Loyalty { cost: i8, effects, target }`
 - `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }`
 - `AbilityDef::ModalSpell { modes: &[SpellMode] }` — overload & friends
+- `AbilityDef::ModalTriggered { trigger, modes, once_per_turn }` — "choose
+  one/up to one" ETB triggers (decline = an empty mode)
+- `AbilityDef::Ward { mana }` — engine-level synthetic trigger (like
+  prowess), supports ward {1}/{2}
 - `AbilityDef::Suspend { counters }`
+
+### As-it-enters modifiers (`FaceDef::enter_modifiers`)
+
+`Tapped`, `TappedUnless(filter)`, `TappedOrPayLife(n)`, `ChooseSubtype`
+(Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
+on `obj.chosen_subtype`; creatures also gain the subtype in their base).
 
 ### Triggers
 
@@ -63,34 +73,53 @@ Rules:
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
 `EntersBattlefieldEvoked`, `StepBegin { step, whose }`.
 
+### Target specs (`TargetSpec`)
+
+`Object(filter)`, `Spell(filter)`, `StackOrBattlefield(filter)`,
+`CardInGraveyard(filter, rel)`, `ThisObject`, `EventObject` (implicit —
+the object the trigger was about), `AbilityOnStack(filter)`,
+`SpellOrAbility(filter)` (Ertai), `Player(rel)`, `AnyPlayer`.
+
 ### Filters (composable data)
 
 `Any`, `This`, `Another`, `And(&[..])`, `Or(&[..])`, `Not(&..)`,
 `HasType`, `LacksType`, `HasSupertype`, `HasSubtype`, `HasColor`,
-`IsColorless`, `ControlledByYou`, `ControlledByOpponent`, `OwnedByYou`,
-`Tapped`, `Untapped`, `HasKeyword`, `CmcAtMost`, `CmcAtLeast`,
-`InZone(ZoneRef)` (incl. `NotBattlefield` for cross-zone effects).
+`IsColorless`, `Monocolored`, `IsToken`, `ControlledByYou`,
+`ControlledByOpponent`, `OwnedByYou`, `Tapped`, `Untapped`, `Attacking`,
+`HasKeyword`, `CmcAtMost`, `CmcAtLeast`, `MatchesChosenTypeOfSource`
+(Roaming Throne & co.), `InZone(ZoneRef)` (incl. `NotBattlefield` for
+cross-zone effects).
 
 ### Effects (ops)
 
-Life/draw: `GainLife`, `GainLifeFor`, `LoseLife`, `DrawCards`, `DrawCardsFor`,
-`Scry`, `ScryFor`, `Mill`, `RearrangeTopLibrary`/`ReorderTopLibrary`.
+Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
+`DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
+`RearrangeTopLibrary`/`ReorderTopLibrary`.
 Combat/damage: `DealDamage`, `DealDamageToTargetController`.
 Removal: `Destroy`, `DestroyAll`, `Exile`, `CounterTargetSpell`,
-`ReturnToHand`, `ReturnAllToHand`.
+`CounterTargetAbility`, `CounterTargetSpellOrAbility`,
+`TargetSourceLosesAbilities`, `SacrificeFilter`, `ReturnToHand`,
+`ReturnAllToHand`, `RedirectTarget` (Misdirection).
 Zones: `SearchLibrary`, `OptionalBasicLandSearchFor`, `GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
-`PutSourceOnTopOfLibrary`.
+`PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
+Interlude), `BottomCardFromHand`.
 Continuous: `CreateContinuousEffect` (any layer+filter+modifier+duration),
 `PumpFilter`, `SetPTFilter`, `ChangeController`, `AllCreaturesToOwner`,
-`PhaseOut`, `AttachSelf`.
-Tokens/copy: `CreateToken`, `CreateTokenForTargetController`,
+`ExchangeControlOrSacrifice` (Gilded Drake), `PhaseOut`, `AttachSelf`.
+Tokens/copy: `CreateToken`, `CreateTokenN`, `CreateTokenForTargetController`,
 `CreateTokenFromLinked`, `CreateTokenCopyOf`, `CreateTokenCopyOfEquipped`,
-`CopyTargetSpell`, `Amass`.
+`CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `Amass`.
 Costs/taxes: `PlayerMayPayOr`, `AddCounter`, `AddCounterFilter`,
-`AddMana`, `AddManaChoice` (Amount-driven), `AddManaDynamic`,
-`SacrificeSelf`, `PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
+`DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`, `AddManaChoice`
+(Amount-driven), `AddManaDynamic`, `AddManaCommanderIdentity` (Command
+Tower), `AddManaLandColor` (Exotic Orchard/Reflecting Pool),
+`DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
+`PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
+Conditional: `IfEventPowerAtLeast` (Tribute to the World Tree).
+Utility: `UntapTarget`, `NegXFixed` (amount), `CreateTokenCopyOfFirstToken`,
+`BecomeMonarch`, `Sequence(&[..])`.
 Modal/sequence: `Sequence(&[..])`.
 
 ### Modifiers (layer effects)
@@ -98,7 +127,13 @@ Modal/sequence: `Sequence(&[..])`.
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
 `AllBasicLandTypes`, `AddColor`, `SetColor`, `AddKeyword`, `RemoveKeyword`,
 `LoseKeywords`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
-`CantActivateArtifacts`, `OpponentsCastAsSorcery`.
+`CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
+`CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
+`OpponentsCantSearch`, `NoMaxHandSize`.
+
+New `Modifier` variants must be added to THREE places: the
+"handled elsewhere" arm in `layers.rs`, the modifier hash in
+`state.rs`, and whatever system enforces them (SBAs, combat, casting).
 
 ## Worked examples
 
@@ -156,12 +191,30 @@ abilities: &[AbilityDef::Static(StaticAbility {
   `PlayerRel::Opponent` (heads-up auto-resolve) + `Partial` note for MP.
 - Target re-choice for spell copies (protocol M3).
 - Sideboard / outside-the-game access (Karn's wish, companion) — gateway M4.
-- MDFC face choice at cast (pathways, Glasspool Mimic) — M2.S8+.
+- MDFC face choice at cast (pathways, Glasspool Mimic, Mirrorhall Mimic,
+  Sheoldred) — 6 acceptance cards blocked.
+- Miracle (Banishing Stroke, Entreat the Dead, Metamorphosis Fanatic,
+  Temporal Mastery) — needs draw-event + first-drawn tracking.
+- Activation conditions (Mox Opal metalcraft, Bleachbone Verge) — abilities
+  currently activate unconditionally (`Partial` note).
+- Mana-source tracking / restricted mana riders (Cavern of Souls
+  uncounterable, Path of Ancestry scry) — pool mana has no provenance.
+- Search takeover (Opposition Agent's real hijack; approximated as a lock).
+- Tap events (City of Brass's becomes-tapped trigger).
+- Comparative conditions (Padeem's greatest-cmc upkeep).
+- Ability-granting statics (Chromatic Lantern's land grant; also blocks
+  Urza's Saga ch. I/II).
 - Emblems with triggered abilities (Venser −8) — engine supports emblem
   objects; trigger scan for command zone is pending.
-- Protection from colors (Mother of Runes style).
-- Day/night, dungeons, initiative, battles, sagas (Urza's Saga), classes
-  (Wizard Class), stickers/attractions, subgames, ante.
+- Protection from colors (Mother of Runes style, Tower of the Magistrate).
+- Grant-flashback (Snapcaster), until-EOT copies that become permanents
+  (Cursed Mirror), convoke (Clever Concealment), delve (Dig Through Time),
+  dream-halls/sacrifice-reanimation loops (Recurring Nightmare),
+  end-step-blink engines (Soulherder), equip-protection (Sword of Hearth
+  and Home), permanent-spell copies resolving as tokens (Reflections of
+  Littjara rider), player hexproof (Everybody Lives! rider).
+- Day/night, dungeons, initiative, battles, sagas (Urza's Saga chapters),
+  classes (Wizard Class levels), stickers/attractions, subgames, ante.
 
 When you hit one of these: implement everything expressible, then
 `Coverage::Partial("…")` + `// NOT SUPPORTED:` on the specific line.

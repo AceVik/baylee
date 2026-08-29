@@ -85,8 +85,22 @@ Open milestones discovered tonight:
   `--cards "A,B"` restricts to a list; default = all unimplemented
   acceptance cards.
 - `cargo run -p xtask -- validate` enforces conventions (194 conform).
-- Coverage: 104 Implemented, 30 Partial, 60 Unimplemented (was 92/19/83
-  at freeze).
+- Coverage: 137 Implemented, 38 Partial, 19 Unimplemented (was 92/19/83
+  at freeze). The 19 remaining unimplemented cards cluster into six
+  subsystem milestones: MDFC face casting (6), miracle (4), grants
+  (flashback/until-EOT-copy, 3), protection from colors (2), convoke +
+  delve (2), misc engines (Recurring Nightmare, Soulherder).
+- 2026-08-29 second night batch added: choose-subtype machinery
+  (`EnterModifier::ChooseSubtype`, `Pending::ChooseSubtype`,
+  `obj.chosen_subtype`, `Filter::MatchesChosenTypeOfSource`),
+  `AbilityDef::Ward` (synthetic trigger like prowess; ward {1}/{2}
+  statics), `color_identity` + `produced_colors`/`produced_colorless` on
+  `Characteristics` (precomputed at creation because resolve has no
+  lookup access), `Filter::{Attacking,Monocolored,IsToken}`,
+  `Effect::{SacrificeFilter, DrainAllCountersIntoSelf,
+  IfEventPowerAtLeast, AddManaLandColor, AddManaCommanderIdentity,
+  ExchangeControlOrSacrifice, GainLifeDoubleX}`, `Modifier::
+  {OpponentsCantSearch, NoMaxHandSize}`.
 - Batch order: local model implements a card → `cargo check -p baylee-cards`
   → `cargo test -p baylee-cards <slug>` → `xtask validate`. Failures retry
   once with compiler output, then escalate. One local model at a time
