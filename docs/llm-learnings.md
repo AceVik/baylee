@@ -177,6 +177,34 @@ Open milestones discovered tonight:
   (multi-line literals evade single-line edits; the listing loop catches
   them).
 
+## 2026-08-29 — E3+E4+E5 in one bundle (180/14/0)
+
+- **E3 disturb**: `FaceDef.disturb` + graveyard face-casting; disturb
+  reuses the Flashback rider for exile-on-resolution (identical rule
+  shape). Mirrorhall Mimic Implemented.
+- **E4 classes**: `CounterKind::Level`, `CountersOnSelfExactly`,
+  `Modifier::GrantTriggered` — granted TRIGGERED abilities scan
+  continuous effects (like GrantActivated for activated ones) and carry
+  `synthetic_target` through the trigger queue with a ChooseTargets plan
+  (PlanKind::SyntheticTriggerTarget → push_synthetic_trigger_with_targets).
+  Wizard Class (all 3 levels) Implemented.
+- **E5 mana provenance**: the pre-existing `RestrictedMana` pool entries
+  finally got wired: `restriction_info` side table (id → source, filter,
+  SpendRider), `Effect::AddManaRestricted[CommanderIdentity]`, spell-aware
+  payment in finish_cast (matching entries pay first, riders apply,
+  refund on failure), `Rider::Uncounterable` checked in all counter ops,
+  `Filter::SharesSubtypeWithCommander`. Cavern of Souls (uncounterable),
+  Path of Ancestry (scry rider), Jasmine Dragon Tea Shop (Ally-only)
+  Implemented.
+- **180 Implemented, 14 Partial, 0 Unimplemented (93%)**.
+- Remaining partials: M3/M4 protocol items (target re-choice, outside-game,
+  presentation, MP direction, commander-cast count) + riders (Spark Double
+  walker-copy loyalty, Mycosynth mana-any-color, Twining Twins adventure,
+  Spirit Water assist, Inspirit station, copy mods, Opposition Agent
+  search takeover).
+- Edit gotcha: an edit that "fails" may have partially applied — grep
+  before retrying (duplicate impl blocks happened twice today).
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
