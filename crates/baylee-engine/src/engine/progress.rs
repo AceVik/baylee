@@ -794,7 +794,7 @@ impl<L: CardLookup> Engine<L> {
                             .map(|m| m.effects)
                             .expect("modal trigger mode exists")
                     }
-                    other => panic!(
+                    _ => panic!(
                         "ability object references non-resolvable ability: {} index {} face {}",
                         def.name(),
                         loc.index,

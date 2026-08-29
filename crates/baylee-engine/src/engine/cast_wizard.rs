@@ -270,6 +270,7 @@ impl<L: CardLookup> Engine<L> {
         result
     }
 
+    #[allow(clippy::too_many_lines)]
     fn advance_cast_wizard_inner(&mut self) -> Result<(), EngineError> {
         let Some(wizard) = self.cast_wizard.clone() else {
             return Ok(());
