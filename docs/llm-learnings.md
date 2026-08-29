@@ -76,6 +76,32 @@ Open milestones discovered tonight:
 - **Player hexproof** ("players gain hexproof", Everybody Lives!): player
   targeting prevention — needs protocol/rules work (M2+).
 
+## 2026-08-29 — M3 start: baylee-ai + self-play soak
+
+- `baylee-ai`: `HeuristicAgent` (greedy 1-ply, full pending taxonomy),
+  `decks` loader (acceptance parser moved `baylee-cards-codegen` →
+  `baylee-core` so runtime crates can use it), `play_game` driver with
+  hash-based loop detection (key = state hash + player + turn + phase +
+  step + pending kind — engine-side fields like pass counters are NOT in
+  the snapshot hash, and the pending kind matters: priority-after-declare
+  is rules-correct, CR 506.2).
+- **Self-play found 4 real engine bugs that 59 green unit tests missed:**
+  1. `resolve::exec` router missed 3 choice ops (AddManaChoice,
+     AddManaCommanderIdentity, PayLifeOrEnterTapped) → latent
+     `unreachable!` crash; only real gameplay reached them.
+  2. Choice-mana abilities (any-color lands) hit a `debug_assert`
+     expecting immediate resolution — they suspend like any resolution.
+  3. Synthetic triggers (prowess/ward, index `u32::MAX`) crashed in the
+     def-lookup BEFORE the synthetic branch — order matters.
+  4. Wizard failures (payment/late target legality) left a consumed
+     pending → infinite re-ask loop. Wizards now fizzle cleanly and resume.
+- Lesson: unit tests verify mechanics in isolation; the soak is the
+  integration net. Run it after every engine change.
+- AI v1 deliberately does NOT activate non-mana abilities (free no-op
+  ability spam loops) and checks pool before miracle yes/no.
+- `tail -1` on cargo commands masks clippy failures in shell chains —
+  check clippy output directly before committing.
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
