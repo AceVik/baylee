@@ -76,6 +76,7 @@ fn keep_mulligans(engine: &mut Engine<RegistryLookup>) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // scenario script — step-by-step readability
 fn first_draw_of_turn_offers_miracle_and_casts_at_miracle_cost() {
     // p0: island on the battlefield, Brainstorm in hand; the deck is all
     // Temporal Mastery, so the first Brainstorm draw is the miracle card.
