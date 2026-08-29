@@ -652,10 +652,10 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 return None;
             }
             res.awaiting = Some(AwaitingOp::CommanderMana);
-            return Some(Pending::ChooseColor {
+            Some(Pending::ChooseColor {
                 player: you,
                 options,
-            });
+            })
         }
         Effect::AddManaChoice {
             colors,
