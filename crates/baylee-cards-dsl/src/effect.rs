@@ -282,6 +282,11 @@ pub enum Effect {
         /// What.
         target: TargetSpec,
     },
+    /// Untap each target.
+    UntapTarget,
+    /// Exile each target; return it to the battlefield under its owner's
+    /// control at the beginning of the next end step (Venser +2).
+    ExileAndReturnAtEndStep,
     /// Counter a spell on the stack.
     CounterTargetSpell,
     /// Counter an activated or triggered ability on the stack (Tishana's

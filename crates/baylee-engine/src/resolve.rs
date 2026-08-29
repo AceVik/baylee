@@ -1575,6 +1575,31 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::UntapTarget => {
+            for &target in &res.targets {
+                if let Some(obj) = state.object_mut(target) {
+                    obj.status.remove(crate::object::Status::TAPPED);
+                }
+            }
+            None
+        }
+        Effect::ExileAndReturnAtEndStep => {
+            for &target in &res.targets {
+                let owner = state.object(target).map_or(you, |o| o.owner);
+                let _ = state.move_object(
+                    target,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                );
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::NextEndStep,
+                    action: crate::state::DelayedAction::ReturnToBattlefield { card: target },
+                });
+            }
+            None
+        }
         Effect::CounterTargetSpell => {
             if let Some(&target_id) = res.targets.first() {
                 state

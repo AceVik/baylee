@@ -214,6 +214,9 @@ fn deal_damage_to_player(
     if amount <= 0 {
         return;
     }
+    if prevent_from(state, source) {
+        return;
+    }
     let p = &mut state.players[player.get() as usize];
     let old = p.life;
     p.life -= i32::from(amount);
@@ -242,6 +245,9 @@ fn deal_damage_to_object(
     if amount <= 0 {
         return;
     }
+    if prevent_from(state, source) || prevent_to(state, target) {
+        return;
+    }
     if let Some(obj) = state.object_mut(target) {
         obj.damage = obj.damage.saturating_add(amount as u16);
     }
@@ -251,6 +257,22 @@ fn deal_damage_to_object(
         amount: amount as u16,
         is_combat,
     });
+}
+
+/// True if the source object may not deal damage (PreventDamageFromIt).
+fn prevent_from(state: &GameState, source: ObjectId) -> bool {
+    state.effects.iter().any(|fx| {
+        matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageFromIt)
+            && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == source)
+    })
+}
+
+/// True if the target object may not be dealt damage (PreventDamageToIt).
+fn prevent_to(state: &GameState, target: ObjectId) -> bool {
+    state.effects.iter().any(|fx| {
+        matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageToIt)
+            && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == target)
+    })
 }
 
 fn gain_life(state: &mut GameState, player: PlayerId, amount: i16) {

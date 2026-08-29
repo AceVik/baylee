@@ -103,6 +103,8 @@ pub enum DelayedWhen {
     NextUpkeep,
     /// At the controller's next first main phase (Mana Drain).
     NextFirstMain,
+    /// At the beginning of the next end step (Venser +2).
+    NextEndStep,
     /// At the controller's next cleanup.
     NextCleanup,
 }
@@ -127,6 +129,12 @@ pub enum DelayedAction {
         color: baylee_core::mana::ManaColor,
         /// Amount.
         amount: u16,
+    },
+    /// Return an exiled card to the battlefield under its owner's control
+    /// (Venser +2).
+    ReturnToBattlefield {
+        /// The card in exile.
+        card: ObjectId,
     },
 }
 
@@ -878,6 +886,8 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::OpponentsCastAsSorcery => h.u8(16),
         M::PlayersCantLose => h.u8(17),
         M::CantLoseLife => h.u8(18),
+        M::PreventDamageToIt => h.u8(19),
+        M::PreventDamageFromIt => h.u8(20),
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

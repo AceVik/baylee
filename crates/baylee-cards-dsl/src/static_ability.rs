@@ -89,6 +89,12 @@ pub enum Modifier {
     PlayersCantLose,
     /// The controller can't lose life this turn (Everybody Lives!).
     CantLoseLife,
+    /// Prevent all damage that would be dealt TO the affected object
+    /// (Maze of Ith).
+    PreventDamageToIt,
+    /// Prevent all damage that would be dealt BY the affected object
+    /// (Maze of Ith).
+    PreventDamageFromIt,
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

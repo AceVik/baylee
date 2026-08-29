@@ -165,7 +165,9 @@ fn apply(
         | Modifier::CantActivateArtifacts
         | Modifier::OpponentsCastAsSorcery
         | Modifier::PlayersCantLose
-        | Modifier::CantLoseLife => {}
+        | Modifier::CantLoseLife
+        | Modifier::PreventDamageToIt
+        | Modifier::PreventDamageFromIt => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

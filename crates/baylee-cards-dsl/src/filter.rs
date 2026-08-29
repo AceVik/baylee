@@ -47,6 +47,8 @@ pub enum Filter {
     Tapped,
     /// Currently untapped.
     Untapped,
+    /// Currently attacking (in combat).
+    Attacking,
     /// Has this keyword.
     HasKeyword(KeywordSet),
     /// Converted mana cost at most N.

@@ -942,6 +942,24 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Queues delayed actions that fire at the beginning of the end step
+    /// (Venser +2's returned permanents) — fires for ANY controller, not
+    /// just the active player.
+    pub(crate) fn queue_end_step_delayed(&mut self) {
+        let mut i = 0;
+        while i < self.state.delayed.len() {
+            if matches!(
+                self.state.delayed[i].when,
+                crate::state::DelayedWhen::NextEndStep
+            ) {
+                let trigger = self.state.delayed.remove(i);
+                self.delayed_queue.push_back(trigger.action);
+            } else {
+                i += 1;
+            }
+        }
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
     pub(crate) fn process_delayed(&mut self) -> bool {
@@ -956,6 +974,21 @@ impl<L: CardLookup> Engine<L> {
                     .map_or(self.state.turn.active, |o| o.owner);
                 let _ = self.start_free_cast(owner, card);
                 self.awaiting_answer
+            }
+            crate::state::DelayedAction::ReturnToBattlefield { card } => {
+                if self
+                    .state
+                    .object(card)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+                {
+                    let _ = self.state.move_object(
+                        card,
+                        ZoneLocation::Battlefield,
+                        ZonePosition::Top,
+                        crate::event::Cause::Effect,
+                    );
+                }
+                false
             }
             crate::state::DelayedAction::AddMana { color, amount } => {
                 let active = self.state.turn.active;
@@ -1014,7 +1047,10 @@ impl<L: CardLookup> Engine<L> {
                 self.queue_first_main_delayed();
                 (Phase::Combat, Step::CombatBegin)
             }
-            (Phase::SecondMain, Step::Main) => (Phase::Ending, Step::End),
+            (Phase::SecondMain, Step::Main) => {
+                self.queue_end_step_delayed();
+                (Phase::Ending, Step::End)
+            }
             (_, Step::CombatBegin) => (Phase::Combat, Step::DeclareAttackers),
             (_, Step::DeclareAttackers) => (Phase::Combat, Step::DeclareBlockers),
             (_, Step::DeclareBlockers) => {

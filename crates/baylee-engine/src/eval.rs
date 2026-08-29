@@ -37,6 +37,11 @@ pub fn matches(
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
+        Filter::Attacking => state
+            .combat
+            .attackers
+            .iter()
+            .any(|info| info.creature == obj.id),
         Filter::HasKeyword(k) => obj.characteristics().keywords.contains(*k),
         Filter::CmcAtMost(n) => obj.characteristics().mana_cost.cmc() <= *n,
         Filter::CmcAtLeast(n) => obj.characteristics().mana_cost.cmc() >= *n,
