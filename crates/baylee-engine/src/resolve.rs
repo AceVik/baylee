@@ -1561,7 +1561,6 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::ReorderTopLibrary { .. }
-        | Effect::BottomCardFromHand { .. }
         | Effect::AddManaChoice { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")

@@ -478,6 +478,7 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    #[allow(clippy::too_many_lines)] // the trigger queue processor is a flat state machine
     pub(crate) fn collect_triggers(&mut self) {
         if self.trigger_queue.is_empty() {
             let found = trigger::collect(&self.state, &self.lookup, self.trigger_scan_seq);
@@ -546,10 +547,10 @@ impl<L: CardLookup> Engine<L> {
                     );
                     if let Some(event_object) = t.event_object {
                         let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
-                        if let Some(top) = top {
-                            if let Some(obj) = self.state.object_mut(top) {
-                                obj.event_object = Some(event_object);
-                            }
+                        if let Some(top) = top
+                            && let Some(obj) = self.state.object_mut(top)
+                        {
+                            obj.event_object = Some(event_object);
                         }
                     }
                     continue;
@@ -627,10 +628,10 @@ impl<L: CardLookup> Engine<L> {
                 // Carry the event object onto the fresh stack object.
                 if let Some(event_object) = t.event_object {
                     let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
-                    if let Some(top) = top {
-                        if let Some(obj) = self.state.object_mut(top) {
-                            obj.event_object = Some(event_object);
-                        }
+                    if let Some(top) = top
+                        && let Some(obj) = self.state.object_mut(top)
+                    {
+                        obj.event_object = Some(event_object);
                     }
                 }
             }
