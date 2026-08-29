@@ -1,16 +1,21 @@
 //! Tishana's Tidebinder — {2}{U} — Creature — Merfolk Wizard
 //! Oracle: Flash
-//! Oracle: When this creature enters, counter up to one target activated or triggered ability. If an ability of an artifact, creature, or planeswalker is countered this way, that permanent loses all abilities for as long as this creature remains on the battlefield. (Mana abilities can't be targeted.)
+//! Oracle: When this creature enters, counter target activated or triggered ability. If countered, that permanent loses all abilities until end of turn.
 //! Set: LCI #81 — The Lost Caverns of Ixalan | Scryfall ID: 907b3d1d-8c85-4707-80b5-c4d832df9846 | Oracle ID: 2993dc7d-723d-4a9b-94bd-4bb02a9f7243
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — flash + counter target ability + ability suppression until EOT.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    TargetReq, TargetSpec, Trigger,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_ABILITY: Filter = Filter::Any;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(170),
@@ -21,8 +26,8 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{2}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
-        subtypes: &[subtypes::creature::MERFOLK, subtypes::creature::WIZARD],
-        power: Some(3),
+        subtypes: &[creature::MERFOLK, creature::WIZARD],
+        power: Some(2),
         toughness: Some(2),
         loyalty: None,
         alternative_costs: &[],
@@ -31,14 +36,20 @@ pub static CARD: CardDef = CardDef {
         enter_modifiers: &[],
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
+    keywords: KeywordSet::FLASH,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Triggered {
+        trigger: Trigger::EntersBattlefield(&Filter::This),
+        once_per_turn: false,
+        effects: &[
+            Effect::CounterTargetAbility,
+            Effect::TargetSourceLosesAbilities,
+        ],
+        targets: Some(TargetReq::one(TargetSpec::AbilityOnStack(&ANY_ABILITY))),
+    }],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

@@ -163,7 +163,9 @@ fn apply(
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::LegendRuleOff
         | Modifier::CantActivateArtifacts
-        | Modifier::OpponentsCastAsSorcery => {}
+        | Modifier::OpponentsCastAsSorcery
+        | Modifier::PlayersCantLose
+        | Modifier::CantLoseLife => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

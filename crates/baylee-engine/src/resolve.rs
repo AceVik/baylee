@@ -79,6 +79,11 @@ pub enum AwaitingOp {
         /// Whose hand.
         player: PlayerId,
     },
+    /// After `RedirectTarget`: set the spell's target to the chosen one.
+    RedirectNewTarget {
+        /// The spell on the stack whose target changes.
+        spell: ObjectId,
+    },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
     /// A mana color choice (choice-restricted mana abilities).
@@ -284,6 +289,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
 /// # Panics
 /// When called without a suspended operation (engine invariant).
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
@@ -361,6 +367,14 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     ZonePosition::Bottom,
                     Cause::Effect,
                 );
+            }
+        }
+        AwaitingOp::RedirectNewTarget { spell } => {
+            if let Some(&new_target) = chosen.first()
+                && let Some(obj) = state.object_mut(spell)
+            {
+                obj.targets.clear();
+                obj.targets.push(new_target);
             }
         }
         AwaitingOp::ReorderTopLibrary => {
@@ -1395,6 +1409,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::LoseLife { amount, target } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
             for player in eval::players(target, state, you) {
+                // Everybody Lives: the controller can't lose life this turn.
+                let cant = state.effects.iter().any(|fx| {
+                    matches!(fx.modifier, baylee_cards_dsl::Modifier::CantLoseLife)
+                        && fx.controller == you
+                });
+                if cant {
+                    continue;
+                }
                 let p = &mut state.players[player.get() as usize];
                 let old = p.life;
                 p.life -= n;
@@ -1474,6 +1496,82 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::Destroy { .. } => {
             if let Some(&target_id) = res.targets.first() {
                 sba::destroy(state, target_id);
+            }
+            None
+        }
+        Effect::CounterTargetAbility => {
+            if let Some(&target_id) = res.targets.first() {
+                state
+                    .journal
+                    .record(GameEvent::SpellCountered { object: target_id });
+                // Abilities on the stack cease to exist when countered.
+                state.zones.remove(target_id, ZoneLocation::Stack);
+                let _ = state.arena.remove(target_id);
+            }
+            None
+        }
+        Effect::TargetSourceLosesAbilities => {
+            if let Some(&target_id) = res.targets.first() {
+                let source = state
+                    .object(target_id)
+                    .and_then(|o| o.ability.map(|a| a.source));
+                if let Some(src) = source {
+                    let ts = state.next_timestamp();
+                    state.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(res.source),
+                        controller: you,
+                        layer: baylee_cards_dsl::Layer::Ability,
+                        timestamp: ts,
+                        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                        filter: crate::effects::EffectFilter::ObjectIs(src),
+                        modifier: baylee_cards_dsl::Modifier::LoseKeywords,
+                    });
+                }
+            }
+            None
+        }
+        Effect::DelayedManaAtNextFirstMain { color } => {
+            let cmc = res
+                .targets
+                .first()
+                .and_then(|t| state.object(*t))
+                .map_or(0, |o| o.characteristics().mana_cost.cmc());
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::NextFirstMain,
+                action: crate::state::DelayedAction::AddMana {
+                    color,
+                    amount: cmc as u16,
+                },
+            });
+            None
+        }
+        Effect::RedirectTarget { new_filter } => {
+            // The new target is chosen at resolution (CR 115.7): ask the
+            // controller for any object matching the filter.
+            if let Some(&spell_id) = res.targets.first() {
+                let options: Vec<ObjectId> = state
+                    .zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .filter(|id| {
+                        state
+                            .object(**id)
+                            .is_some_and(|o| eval::matches(new_filter, state, o, you, res.source))
+                    })
+                    .copied()
+                    .collect();
+                if options.is_empty() {
+                    return None;
+                }
+                res.awaiting = Some(AwaitingOp::RedirectNewTarget { spell: spell_id });
+                return Some(Pending::ChooseTargets {
+                    player: you,
+                    options,
+                    min: 1,
+                    max: 1,
+                });
             }
             None
         }

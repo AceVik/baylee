@@ -85,6 +85,10 @@ pub enum Modifier {
     /// The effect's opponents can cast spells only as though they were
     /// sorceries (Teferi).
     OpponentsCastAsSorcery,
+    /// Players can't lose the game this turn (Everybody Lives!).
+    PlayersCantLose,
+    /// The controller can't lose life this turn (Everybody Lives!).
+    CantLoseLife,
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

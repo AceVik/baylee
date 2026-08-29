@@ -923,6 +923,25 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Queues delayed actions that fire at the first main phase (Mana
+    /// Drain's mana).
+    pub(crate) fn queue_first_main_delayed(&mut self) {
+        let active = self.state.turn.active;
+        let mut i = 0;
+        while i < self.state.delayed.len() {
+            let fire = matches!(
+                self.state.delayed[i].when,
+                crate::state::DelayedWhen::NextFirstMain
+            ) && self.state.delayed[i].controller == active;
+            if fire {
+                let trigger = self.state.delayed.remove(i);
+                self.delayed_queue.push_back(trigger.action);
+            } else {
+                i += 1;
+            }
+        }
+    }
+
     /// Processes one queued delayed action; returns `true` when a pending
     /// choice was produced.
     pub(crate) fn process_delayed(&mut self) -> bool {
@@ -937,6 +956,19 @@ impl<L: CardLookup> Engine<L> {
                     .map_or(self.state.turn.active, |o| o.owner);
                 let _ = self.start_free_cast(owner, card);
                 self.awaiting_answer
+            }
+            crate::state::DelayedAction::AddMana { color, amount } => {
+                let active = self.state.turn.active;
+                self.state.players[active.get() as usize]
+                    .mana_pool
+                    .add(color, amount);
+                self.state.journal.record(GameEvent::ManaProduced {
+                    player: active,
+                    color,
+                    amount,
+                    source: None,
+                });
+                false
             }
             crate::state::DelayedAction::PayCostOrLose { cost } => {
                 let active = self.state.turn.active;
@@ -978,7 +1010,10 @@ impl<L: CardLookup> Engine<L> {
                 }
                 (Phase::FirstMain, Step::Main)
             }
-            (Phase::FirstMain, Step::Main) => (Phase::Combat, Step::CombatBegin),
+            (Phase::FirstMain, Step::Main) => {
+                self.queue_first_main_delayed();
+                (Phase::Combat, Step::CombatBegin)
+            }
             (Phase::SecondMain, Step::Main) => (Phase::Ending, Step::End),
             (_, Step::CombatBegin) => (Phase::Combat, Step::DeclareAttackers),
             (_, Step::DeclareAttackers) => (Phase::Combat, Step::DeclareBlockers),

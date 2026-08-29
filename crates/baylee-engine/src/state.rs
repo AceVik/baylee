@@ -101,6 +101,8 @@ pub struct DelayedTrigger {
 pub enum DelayedWhen {
     /// At the controller's next upkeep.
     NextUpkeep,
+    /// At the controller's next first main phase (Mana Drain).
+    NextFirstMain,
     /// At the controller's next cleanup.
     NextCleanup,
 }
@@ -118,6 +120,13 @@ pub enum DelayedAction {
     PayCostOrLose {
         /// The mana cost to pay.
         cost: baylee_core::mana::ManaCost,
+    },
+    /// Add mana (Mana Drain's next-main-phase mana).
+    AddMana {
+        /// Color.
+        color: baylee_core::mana::ManaColor,
+        /// Amount.
+        amount: u16,
     },
 }
 
@@ -867,6 +876,8 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::LegendRuleOff => h.u8(14),
         M::CantActivateArtifacts => h.u8(15),
         M::OpponentsCastAsSorcery => h.u8(16),
+        M::PlayersCantLose => h.u8(17),
+        M::CantLoseLife => h.u8(18),
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

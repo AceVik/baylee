@@ -128,6 +128,8 @@ pub enum TargetSpec {
     CardInGraveyard(&'static Filter, PlayerRel),
     /// The source object.
     ThisObject,
+    /// An activated/triggered ability on the stack (Tishana's Tidebinder).
+    AbilityOnStack(&'static Filter),
     /// The object the triggering event was about (Wartime Protestors'
     /// "that creature").
     EventObject,
@@ -282,6 +284,24 @@ pub enum Effect {
     },
     /// Counter a spell on the stack.
     CounterTargetSpell,
+    /// Counter an activated or triggered ability on the stack (Tishana's
+    /// Tidebinder).
+    CounterTargetAbility,
+    /// The source of the first target (an ability) loses all abilities
+    /// until end of turn.
+    TargetSourceLosesAbilities,
+    /// Register delayed mana at the controller's next first main phase
+    /// (Mana Drain): colorless mana equal to the first target's cmc.
+    DelayedManaAtNextFirstMain {
+        /// Color of the mana.
+        color: ManaColor,
+    },
+    /// Change the target of the first target (a spell on the stack) to a
+    /// new target matching the given filter (Misdirection).
+    RedirectTarget {
+        /// What the new target must match.
+        new_filter: &'static Filter,
+    },
     /// Search your library for a matching card (server-side filtered).
     SearchLibrary {
         /// What to find.

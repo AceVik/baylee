@@ -26,7 +26,15 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
     let mut outcome = SbaOutcome::default();
 
     // --- Player losses (CR 704.5a-c) -----------------------------------
+    // Everybody Lives: no losses while the effect is active.
+    let cant_lose = state
+        .effects
+        .iter()
+        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayersCantLose));
     for player in 0..state.players.len() {
+        if cant_lose {
+            break;
+        }
         let p = PlayerId::new(player as u8);
         let (life, poison, empty_draw, has_lost) = {
             let pl = &state.players[player];
