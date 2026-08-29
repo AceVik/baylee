@@ -7,13 +7,16 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// A registered account.
+/// A registered account. The username is the e-mail address; the
+/// display name is shown to other players.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Account {
     /// Account id (`UUIDv7`).
     pub id: String,
-    /// Login name (validated).
-    pub name: String,
+    /// Login e-mail (lowercased, unique).
+    pub email: String,
+    /// Display name shown in the lobby (unique, case-insensitively).
+    pub display_name: String,
     /// Argon2id PHC password hash.
     pub password_hash: String,
     /// Created at (unix seconds).
@@ -79,10 +82,20 @@ impl Store {
         std::fs::rename(&tmp, path)
     }
 
-    /// Find an account by login name.
+    /// Find an account by login e-mail (case-insensitive).
     #[must_use]
-    pub fn account_by_name(&self, name: &str) -> Option<&Account> {
-        self.accounts.values().find(|a| a.name == name)
+    pub fn account_by_email(&self, email: &str) -> Option<&Account> {
+        self.accounts
+            .values()
+            .find(|a| a.email.eq_ignore_ascii_case(email))
+    }
+
+    /// Find an account by display name (case-insensitive).
+    #[must_use]
+    pub fn account_by_display_name(&self, display_name: &str) -> Option<&Account> {
+        self.accounts
+            .values()
+            .find(|a| a.display_name.eq_ignore_ascii_case(display_name))
     }
 
     /// Resolve a bearer token to its account id when valid (sliding

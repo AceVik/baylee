@@ -29,6 +29,9 @@ pub struct LobbySeat {
     /// The deck the seat plays.
     #[allow(dead_code)]
     pub deck_name: String,
+    /// The seat's full deck (present for human seats; used to build the
+    /// preset when the game starts).
+    pub deck: Option<crate::store::Deck>,
 }
 
 /// A lobby game.
@@ -51,7 +54,13 @@ pub struct LobbyGame {
 impl LobbyGame {
     /// A waiting game with the first seat taken.
     #[must_use]
-    pub fn waiting(id: String, account_id: String, deck_name: String, created_at: u64) -> Self {
+    pub fn waiting(
+        id: String,
+        account_id: String,
+        deck_name: String,
+        deck: crate::store::Deck,
+        created_at: u64,
+    ) -> Self {
         Self {
             id,
             state: LobbyState::Waiting,
@@ -61,12 +70,14 @@ impl LobbyGame {
                     account_id: Some(account_id),
                     seat_token_hash: None,
                     deck_name,
+                    deck: Some(deck),
                 },
                 LobbySeat {
                     seat: 1,
                     account_id: None,
                     seat_token_hash: None,
                     deck_name: String::new(),
+                    deck: None,
                 },
             ],
             preset: None,

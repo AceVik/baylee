@@ -15,7 +15,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
-use axum::routing::{get, post, put};
+use axum::routing::{get, post};
 use baylee_protocol::v1::{self, Envelope};
 use lobby::{Lobby, LobbyGame, LobbyState};
 use prost::Message as _;
@@ -30,6 +30,8 @@ struct AppState {
     limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
     store_path: PathBuf,
+    /// Registration toggle (`BAYLEE_REGISTRATION=off` to disable).
+    registration_enabled: bool,
 }
 
 type Shared = Arc<AppState>;
@@ -47,14 +49,21 @@ async fn main() {
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         lobby: Mutex::new(Lobby::default()),
         store_path,
+        registration_enabled: std::env::var("BAYLEE_REGISTRATION")
+            .map_or(true, |v| !matches!(v.as_str(), "off" | "0" | "false")),
     });
 
     let app = Router::new()
+        .route("/auth/config", get(auth_config))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
         .route("/auth/logout", post(logout))
+        .route("/me", get(me))
         .route("/decks", get(list_decks).post(create_deck))
-        .route("/decks/{id}", put(update_deck).delete(delete_deck))
+        .route(
+            "/decks/{id}",
+            get(get_deck).put(update_deck).delete(delete_deck),
+        )
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/games/{id}/ws", get(game_ws))
@@ -70,8 +79,15 @@ async fn main() {
 // ------------------------------------------------------------------- auth
 
 #[derive(Deserialize)]
+struct RegisterBody {
+    email: String,
+    display_name: String,
+    password: String,
+}
+
+#[derive(Deserialize)]
 struct Credentials {
-    name: String,
+    email: String,
     password: String,
 }
 
@@ -96,34 +112,54 @@ fn client_ip(headers: &HeaderMap) -> String {
         .to_string()
 }
 
+/// Public auth configuration (clients check this before offering
+/// registration).
+async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "registration_enabled": state.registration_enabled,
+    }))
+}
+
 async fn register(
     State(state): State<Shared>,
     headers: HeaderMap,
-    Json(creds): Json<Credentials>,
+    Json(body): Json<RegisterBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    if !state.registration_enabled {
+        return Err(err(StatusCode::FORBIDDEN, "registration is disabled"));
+    }
     if !state.limiter.allow(&client_ip(&headers)) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
-    if !auth::valid_name(&creds.name) {
-        return Err(err(StatusCode::BAD_REQUEST, "invalid name"));
+    if !auth::valid_email(&body.email) {
+        return Err(err(StatusCode::BAD_REQUEST, "invalid e-mail"));
     }
-    if !auth::valid_password(&creds.name, &creds.password) {
+    if !auth::valid_display_name(&body.display_name) {
+        return Err(err(StatusCode::BAD_REQUEST, "invalid display name"));
+    }
+    if !auth::valid_password(&body.email, &body.display_name, &body.password) {
         return Err(err(StatusCode::BAD_REQUEST, "invalid password"));
     }
     let mut store = state.store.lock().expect("store poisoned");
-    if store.account_by_name(&creds.name).is_some() {
-        return Err(err(StatusCode::CONFLICT, "name taken"));
+    // Anti-enumeration: identical success response whether or not the
+    // e-mail/display name was free. Only on genuine availability is an
+    // account actually created. (E-mail verification would hook in here.)
+    let email_taken = store.account_by_email(&body.email).is_some();
+    let name_taken = store.account_by_display_name(&body.display_name).is_some();
+    if !email_taken && !name_taken {
+        let email = body.email.to_lowercase();
+        let account = Account {
+            id: auth::new_id(),
+            email,
+            display_name: body.display_name,
+            password_hash: auth::hash_password(&body.password),
+            created_at: auth::now_secs(),
+        };
+        let id = account.id.clone();
+        store.accounts.insert(id, account);
+        let _ = store.save(&state.store_path);
     }
-    let account = Account {
-        id: auth::new_id(),
-        name: creds.name,
-        password_hash: auth::hash_password(&creds.password),
-        created_at: auth::now_secs(),
-    };
-    let id = account.id.clone();
-    store.accounts.insert(id.clone(), account);
-    let _ = store.save(&state.store_path);
-    Ok(Json(serde_json::json!({ "account_id": id })))
+    Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 async fn login(
@@ -137,7 +173,7 @@ async fn login(
     let mut store = state.store.lock().expect("store poisoned");
     // Identical work for unknown users (dummy verify) and real ones.
     let (account_id, ok) = {
-        let account = store.account_by_name(&creds.name);
+        let account = store.account_by_email(&creds.email);
         let ok = auth::verify_password(account.map(|a| a.password_hash.as_str()), &creds.password);
         (account.map(|a| a.id.clone()), ok)
     };
@@ -193,6 +229,24 @@ async fn logout(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// The authenticated account's profile.
+async fn me(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    let store = state.store.lock().expect("store poisoned");
+    let account = store
+        .accounts
+        .get(&account_id)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "account gone"))?;
+    Ok(Json(serde_json::json!({
+        "id": account.id,
+        "email": account.email,
+        "display_name": account.display_name,
+    })))
+}
+
 // ------------------------------------------------------------------ decks
 
 #[derive(Deserialize)]
@@ -245,6 +299,28 @@ async fn list_decks(
         })
         .collect();
     Ok(Json(serde_json::json!(decks)))
+}
+
+async fn get_deck(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    let store = state.store.lock().expect("store poisoned");
+    let deck = store
+        .decks
+        .get(&id)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
+    if deck.account_id != account_id {
+        return Err(err(StatusCode::FORBIDDEN, "not your deck"));
+    }
+    Ok(Json(serde_json::json!({
+        "id": deck.id,
+        "name": deck.name,
+        "cards": deck.cards,
+        "commander": deck.commander,
+    })))
 }
 
 async fn create_deck(
@@ -329,20 +405,8 @@ struct CreateGameBody {
     mode: String,
 }
 
-fn deck_to_preset(
-    deck: &Deck,
-    opponent_ai: bool,
-    seed: u64,
-) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
-    let text = std::fs::read_to_string("data/acceptance-decks.txt")
-        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "deck data missing"))?;
-    let ai_deck = if opponent_ai {
-        baylee_ai::decks::load_acceptance(&text, "Victory")
-            .map_err(|_e| err(StatusCode::INTERNAL_SERVER_ERROR, "house deck missing"))
-    } else {
-        baylee_ai::decks::load_acceptance(&text, "Victory")
-            .map_err(|_e| err(StatusCode::INTERNAL_SERVER_ERROR, "house deck missing"))
-    }?;
+/// Builds a `LoadedDeck` from a stored deck (card lines "N Card Name").
+fn loaded_deck(deck: &Deck) -> Result<baylee_ai::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)> {
     let mut main = Vec::new();
     for line in &deck.cards {
         let Some((count, name)) = line.split_once(' ') else {
@@ -358,12 +422,35 @@ fn deck_to_preset(
             main.push(index);
         }
     }
-    let player_deck = baylee_ai::decks::LoadedDeck {
+    Ok(baylee_ai::decks::LoadedDeck {
         name: deck.name.clone(),
         main,
         commanders: vec![],
-    };
-    Ok(baylee_ai::decks::preset_for(seed, &player_deck, &ai_deck))
+    })
+}
+
+/// Preset for a human-vs-human game from both seats' decks.
+fn hvh_preset(
+    a: &Deck,
+    b: &Deck,
+    seed: u64,
+) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
+    let da = loaded_deck(a)?;
+    let db = loaded_deck(b)?;
+    Ok(baylee_ai::decks::preset_for(seed, &da, &db))
+}
+
+/// Preset for a human-vs-AI game (house AI plays Victory).
+fn ai_preset(
+    deck: &Deck,
+    seed: u64,
+) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
+    let text = std::fs::read_to_string("data/acceptance-decks.txt")
+        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "deck data missing"))?;
+    let house = baylee_ai::decks::load_acceptance(&text, "Victory")
+        .map_err(|_e| err(StatusCode::INTERNAL_SERVER_ERROR, "house deck missing"))?;
+    let player = loaded_deck(deck)?;
+    Ok(baylee_ai::decks::preset_for(seed, &player, &house))
 }
 
 async fn create_game(
@@ -388,7 +475,7 @@ async fn create_game(
     let mut lobby = state.lobby.lock().expect("lobby poisoned");
     match body.mode.as_str() {
         "ai" => {
-            let mut preset = deck_to_preset(&deck, true, 1)?;
+            let mut preset = ai_preset(&deck, 1)?;
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
             let session = baylee_gamehost::Session::new(&preset)
                 .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "game failed to start"))?;
@@ -401,12 +488,14 @@ async fn create_game(
                         account_id: Some(account_id.clone()),
                         seat_token_hash: Some(auth::token_hash(&seat_token)),
                         deck_name,
+                        deck: Some(deck.clone()),
                     },
                     lobby::LobbySeat {
                         seat: 1,
                         account_id: None,
                         seat_token_hash: None,
                         deck_name: "house AI".to_string(),
+                        deck: None,
                     },
                 ],
                 preset: Some(preset),
@@ -416,8 +505,13 @@ async fn create_game(
             lobby.games.insert(game_id.clone(), game);
         }
         "open" => {
-            let mut game =
-                LobbyGame::waiting(game_id.clone(), account_id, deck_name, auth::now_secs());
+            let mut game = LobbyGame::waiting(
+                game_id.clone(),
+                account_id,
+                deck_name,
+                deck.clone(),
+                auth::now_secs(),
+            );
             game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
             lobby.games.insert(game_id.clone(), game);
         }
@@ -467,9 +561,14 @@ async fn join_game(
         account_id: Some(account_id),
         seat_token_hash: Some(auth::token_hash(&seat_token)),
         deck_name,
+        deck: Some(deck.clone()),
     };
-    // Both seats filled: build the preset and start the session.
-    let preset = deck_to_preset(&deck, true, 2)?;
+    // Both seats filled: build the preset from BOTH players' decks.
+    let creator_deck = game.seats[0]
+        .deck
+        .clone()
+        .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "creator deck missing"))?;
+    let preset = hvh_preset(&creator_deck, &deck, 2)?;
     game.preset = Some(preset.clone());
     game.session = Some(
         baylee_gamehost::Session::new(&preset)

@@ -148,23 +148,141 @@ impl RateLimiter {
     }
 }
 
-/// Input validation for account names.
+/// E-mail validation: practical shape (local@domain.tld), bounded
+/// length, no whitespace. Full RFC 5322 is intentionally not attempted.
 #[must_use]
-pub fn valid_name(name: &str) -> bool {
+pub fn valid_email(email: &str) -> bool {
+    if email.len() > 254 || email.chars().any(char::is_whitespace) {
+        return false;
+    }
+    let Some((local, domain)) = email.rsplit_once('@') else {
+        return false;
+    };
+    if local.is_empty() || local.len() > 64 {
+        return false;
+    }
+    if domain.len() > 253 || !domain.contains('.') {
+        return false;
+    }
+    let mut parts = domain.split('.');
+    let host = parts.next().unwrap_or("");
+    let tld = parts.next_back().unwrap_or("");
+    !host.is_empty() && tld.len() >= 2
+}
+
+/// Display-name validation (shown to other players).
+#[must_use]
+pub fn valid_display_name(name: &str) -> bool {
     (3..=32).contains(&name.len())
         && name
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-/// Input validation for passwords (basic hygiene, not a strength meter).
+/// Input validation for passwords (hygiene, not a strength meter):
+/// length, not the e-mail/display name, and not a top common password.
 #[must_use]
-pub fn valid_password(name: &str, password: &str) -> bool {
-    password.len() >= 8 && password.len() <= 256 && !password.eq_ignore_ascii_case(name)
+pub fn valid_password(email: &str, display_name: &str, password: &str) -> bool {
+    const COMMON: &[&str] = &[
+        "password",
+        "password1",
+        "12345678",
+        "123456789",
+        "1234567890",
+        "qwerty123",
+        "letmein123",
+        "iloveyou",
+        "dragon123",
+        "master123",
+        "monkey123",
+        "abc12345",
+    ];
+    if !(10..=256).contains(&password.len()) {
+        return false;
+    }
+    let local = email.split('@').next().unwrap_or("");
+    if !local.is_empty() && password.eq_ignore_ascii_case(local) {
+        return false;
+    }
+    if password.eq_ignore_ascii_case(display_name) {
+        return false;
+    }
+    !COMMON.iter().any(|c| password.eq_ignore_ascii_case(c))
 }
 
 /// A fresh `UUIDv7` for entity ids.
 #[must_use]
 pub fn new_id() -> String {
     Uuid::now_v7().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn email_validation_accepts_and_rejects() {
+        assert!(valid_email("player@example.com"));
+        assert!(valid_email("a.b-c_d@sub.domain.org"));
+        assert!(!valid_email("not-an-email"));
+        assert!(!valid_email("@example.com"));
+        assert!(!valid_email("player@"));
+        assert!(!valid_email("player@localhost"));
+        assert!(!valid_email("player@example.c"));
+        assert!(!valid_email("play er@example.com"));
+        assert!(!valid_email(&format!("{}@example.com", "x".repeat(65))));
+    }
+
+    #[test]
+    fn display_name_validation() {
+        assert!(valid_display_name("Alice"));
+        assert!(valid_display_name("player_one-99"));
+        assert!(!valid_display_name("ab"));
+        assert!(!valid_display_name("has space"));
+        assert!(!valid_display_name("emoji🎉"));
+    }
+
+    #[test]
+    fn password_rules() {
+        assert!(valid_password("a@b.co", "alice", "a-very-fine-password"));
+        assert!(!valid_password("a@b.co", "alice", "short"));
+        assert!(!valid_password("alice@b.co", "alice", "Alice"));
+        assert!(!valid_password("a@b.co", "alice", "alice"));
+        assert!(!valid_password("a@b.co", "alice", "password"));
+    }
+
+    #[test]
+    fn hash_and_verify_roundtrip() {
+        let hash = hash_password("a-very-fine-password");
+        assert!(hash.starts_with("$argon2id$"));
+        assert!(verify_password(Some(&hash), "a-very-fine-password"));
+        assert!(!verify_password(Some(&hash), "wrong-password-xx"));
+    }
+
+    #[test]
+    fn unknown_user_verifies_against_dummy_without_leaking() {
+        // Unknown e-mail: dummy-hash path returns false (and costs the
+        // same work, so timing doesn't leak account existence).
+        assert!(!verify_password(None, "a-very-fine-password"));
+    }
+
+    #[test]
+    fn tokens_are_random_and_hashed() {
+        let a = new_token();
+        let b = new_token();
+        assert_eq!(a.len(), 64);
+        assert_ne!(a, b);
+        assert_ne!(token_hash(&a), a);
+        assert!(ct_eq(&a, &a));
+        assert!(!ct_eq(&a, &b));
+    }
+
+    #[test]
+    fn rate_limiter_windows() {
+        let limiter = RateLimiter::new(Duration::from_secs(60), 2);
+        assert!(limiter.allow("1.2.3.4"));
+        assert!(limiter.allow("1.2.3.4"));
+        assert!(!limiter.allow("1.2.3.4"));
+        assert!(limiter.allow("5.6.7.8"));
+    }
 }
