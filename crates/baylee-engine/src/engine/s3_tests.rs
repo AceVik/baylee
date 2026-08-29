@@ -259,6 +259,21 @@ fn cleric_rally_gains_life_on_ally_etbs() {
                     .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
                     .unwrap();
             }
+            Pending::DiscardChoice { player, count } => {
+                let hand: Vec<_> = engine
+                    .state()
+                    .zones
+                    .list(crate::zone::ZoneLocation::Hand(player))
+                    .clone();
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: hand[..count as usize].to_vec(),
+                        },
+                    )
+                    .unwrap();
+            }
             Pending::GameOver(_) => panic!("game should not end"),
             other => panic!("unexpected: {other:?}"),
         }
@@ -267,10 +282,12 @@ fn cleric_rally_gains_life_on_ally_etbs() {
             guard < 400,
             "no progress; cleric={cleric_cast} druid={druid_cast}"
         );
-        if druid_cast && engine.state().players[0].life == life_start + 2 {
+        // Real Ondu Cleric text: gain life equal to the number of Allies
+        // you control — cleric ETB: 1 Ally (+1), druid ETB: 2 Allies (+2).
+        if druid_cast && engine.state().players[0].life == life_start + 3 {
             break;
         }
     }
     assert!(cleric_cast && druid_cast);
-    assert_eq!(engine.state().players[0].life, life_start + 2);
+    assert_eq!(engine.state().players[0].life, life_start + 3);
 }

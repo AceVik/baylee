@@ -26,6 +26,9 @@ fn plains() -> CardIndex {
 fn island() -> CardIndex {
     card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
 }
+fn swamp() -> CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
 fn profane_tutor() -> CardIndex {
     card_index("27a1f42c-0b86-4609-9609-1fa9cab7e7c9")
 }
@@ -88,26 +91,47 @@ fn keep_mulligans(engine: &mut Engine<RegistryLookup>) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // scenario script
 fn suspend_countdown_casts_for_free_at_zero() {
     let mut engine = Engine::new(
-        &preset(
-            51,
-            vec![profane_tutor(), island(), island()],
-            vec![],
-            vec![],
-        ),
+        &preset(51, vec![profane_tutor(), island(), swamp()], vec![], vec![]),
         RegistryLookup,
     )
     .unwrap();
     keep_mulligans(&mut engine);
     let p0 = PlayerId::new(0);
 
-    // Suspend the tutor (sorcery timing, p0's main phase).
+    // Suspend the tutor (sorcery timing, p0's main phase) — the suspend
+    // cost {1}{B} needs mana: play an island and tap it first.
     let mut guard = 0;
     loop {
         match engine.pending().clone() {
             Pending::Priority { player, legal } if player == p0 => {
-                if !legal.suspendable.is_empty() {
+                if !legal.lands.is_empty() {
+                    engine
+                        .apply(
+                            player,
+                            PlayerAction::PlayLand {
+                                card: legal.lands[0],
+                            },
+                        )
+                        .unwrap();
+                    continue;
+                }
+                if !legal.mana_abilities.is_empty() {
+                    engine
+                        .apply(
+                            player,
+                            PlayerAction::ActivateManaAbility {
+                                source: legal.mana_abilities[0],
+                            },
+                        )
+                        .unwrap();
+                    continue;
+                }
+                // {1}{B} needs two mana: wait for the second land.
+                if !legal.suspendable.is_empty() && engine.state().players[0].mana_pool.total() >= 2
+                {
                     let card = legal.suspendable[0];
                     engine
                         .apply(player, PlayerAction::Suspend { card })
@@ -129,10 +153,17 @@ fn suspend_countdown_casts_for_free_at_zero() {
                     .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
                     .unwrap();
             }
-            other => panic!("unexpected: {other:?}"),
+            other => panic!(
+                "unexpected: {other:?} (turn {}, step {:?}, pool {})",
+                engine.state().turn.number,
+                engine.state().turn.step,
+                engine.state().players[0].mana_pool.total()
+            ),
         }
         guard += 1;
-        assert!(guard < 30, "tutor never suspended");
+        // Turn 2 belongs to p1 (no sorcery timing): the suspend window
+        // re-opens on p0's turn 3.
+        assert!(guard < 400, "tutor never suspended");
     }
     // The tutor is in exile with 2 time counters.
     let exile = engine.state().zones.list(ZoneLocation::Exile(p0)).clone();
