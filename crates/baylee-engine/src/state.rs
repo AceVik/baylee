@@ -123,6 +123,13 @@ pub enum DelayedAction {
         /// The mana cost to pay.
         cost: baylee_core::mana::ManaCost,
     },
+    /// Pay a cost or sacrifice the permanent (echo).
+    PayCostOrSacrifice {
+        /// The mana cost to pay.
+        cost: baylee_core::mana::ManaCost,
+        /// The permanent to sacrifice when not paid.
+        card: ObjectId,
+    },
     /// Add mana (Mana Drain's next-main-phase mana).
     AddMana {
         /// Color.
@@ -1024,6 +1031,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         }
         M::GrantsFlashback => h.u8(25),
         M::PlayerHexproof => h.u8(26),
+        M::SorceriesHaveFlash => h.u8(29),
         M::GrantActivated { mana_ability, .. } => {
             h.u8(27);
             h.u8(u8::from(*mana_ability));

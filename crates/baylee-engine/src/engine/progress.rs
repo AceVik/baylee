@@ -192,6 +192,25 @@ impl<L: CardLookup> Engine<L> {
         self.entry_scan_seq = self.state.journal.last_seq();
         let mut changed = false;
         for (id, controller) in events {
+            // Echo (CR 702.30): register the pay-or-sacrifice choice at
+            // the controller's next upkeep.
+            if let Some(cost) = self.state.object(id).and_then(|o| {
+                let face = o.face_index as usize;
+                o.card.and_then(|c| {
+                    self.lookup.card(c.index).and_then(|def| {
+                        def.abilities_for_face(face).iter().find_map(|a| match a {
+                            baylee_cards_dsl::AbilityDef::Echo { cost } => Some(*cost),
+                            _ => None,
+                        })
+                    })
+                })
+            }) {
+                self.state.delayed.push(crate::state::DelayedTrigger {
+                    controller,
+                    when: crate::state::DelayedWhen::NextUpkeep,
+                    action: crate::state::DelayedAction::PayCostOrSacrifice { cost, card: id },
+                });
+            }
             // Sagas enter with a lore counter, triggering chapter I
             // (CR 714.2a/b).
             let chapter_one = self.state.object(id).and_then(|o| {
@@ -1167,6 +1186,13 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state.turn_start_timestamp = self.state.timestamp;
         self.state.turn_start_seq = self.state.journal.last_seq();
+        // "Until your next turn" effects end as their controller's turn
+        // begins (Elspeth's flying, Teferi's sorcery-flash).
+        let new_active = self.state.turn.active;
+        self.state.effects.remove_where(|fx| {
+            matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextTurn)
+                && fx.controller == new_active
+        });
         self.state.per_turn.reset();
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();
@@ -1366,6 +1392,32 @@ impl<L: CardLookup> Engine<L> {
                     source: None,
                 });
                 false
+            }
+            crate::state::DelayedAction::PayCostOrSacrifice { cost, card } => {
+                let active = self.state.turn.active;
+                let can_pay =
+                    mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
+                if !can_pay {
+                    // Echo with an empty pool: sacrifice immediately.
+                    let owner = self.state.object(card).map_or(active, |o| o.owner);
+                    if let Some(obj) = self.state.object_mut(card) {
+                        obj.kind = ObjectKind::Card;
+                    }
+                    let _ = self.state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        crate::event::Cause::Effect,
+                    );
+                    return false;
+                }
+                self.pending_plan = Some(PlanKind::DelayedPaySacrifice { cost, card });
+                self.pending = Pending::YesNo {
+                    player: active,
+                    prompt: YesNoPrompt::Generic,
+                };
+                self.awaiting_answer = true;
+                true
             }
             crate::state::DelayedAction::PayCostOrLose { cost } => {
                 let active = self.state.turn.active;

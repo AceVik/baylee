@@ -175,6 +175,12 @@ pub enum AbilityDef {
         /// Target requirement.
         target: Option<crate::effect::TargetSpec>,
     },
+    /// Echo (CR 702.30): at your next upkeep after this enters, pay the
+    /// cost or sacrifice it.
+    Echo {
+        /// The echo cost.
+        cost: baylee_core::mana::ManaCost,
+    },
     /// Static/continuous ability (layers, CR 613).
     Static(crate::static_ability::StaticAbility),
     /// A replacement or trigger-modification rule (CR 614; Doubling

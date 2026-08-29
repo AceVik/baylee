@@ -1,7 +1,8 @@
 use super::{
     AbilityDef, AttackerInfo, BlockerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError,
-    GameEvent, LossReason, ObjectId, Pending, PlanKind, PlayerAction, PlayerId, SmallVec, Status,
-    Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay, resolve, sba,
+    GameEvent, LossReason, ObjectId, ObjectKind, Pending, PlanKind, PlayerAction, PlayerId,
+    SmallVec, Status, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay,
+    resolve, sba,
 };
 
 impl<L: CardLookup> Engine<L> {
@@ -344,7 +345,7 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")
                     }
-                    PlanKind::DelayedPay { .. } => {
+                    PlanKind::DelayedPay { .. } | PlanKind::DelayedPaySacrifice { .. } => {
                         unreachable!("delayed-pay plans are answered via YesNo")
                     }
                     PlanKind::LoyaltyPlayer { .. } => {
@@ -443,6 +444,35 @@ impl<L: CardLookup> Engine<L> {
                         ));
                     } else {
                         sba::eliminate_player(&mut self.state, player, LossReason::Life);
+                    }
+                    return Ok(());
+                }
+                // Echo: pay the echo cost or sacrifice the permanent.
+                if matches!(
+                    self.pending_plan,
+                    Some(PlanKind::DelayedPaySacrifice { .. })
+                ) {
+                    let Some(PlanKind::DelayedPaySacrifice { cost, card }) =
+                        self.pending_plan.take()
+                    else {
+                        unreachable!()
+                    };
+                    if answer {
+                        debug_assert!(mana_pay::pay(
+                            &mut self.state.players[player.get() as usize].mana_pool,
+                            &cost,
+                        ));
+                    } else {
+                        let owner = self.state.object(card).map_or(player, |o| o.owner);
+                        if let Some(obj) = self.state.object_mut(card) {
+                            obj.kind = ObjectKind::Card;
+                        }
+                        let _ = self.state.move_object(
+                            card,
+                            ZoneLocation::Graveyard(owner),
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        );
                     }
                     return Ok(());
                 }

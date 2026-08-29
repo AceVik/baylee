@@ -53,9 +53,9 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("countered spell should go to exile (counter destination, M2.S7+)"),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
-        effects: &[Effect::CounterTargetSpell],
+        effects: &[Effect::CounterTargetSpellToExile],
         targets: Some(TargetReq::one(TargetSpec::Spell(&NONCREATURE_SPELL))),
     }],
 };

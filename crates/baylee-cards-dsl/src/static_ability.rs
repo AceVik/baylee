@@ -112,6 +112,9 @@ pub enum Modifier {
     /// The controller can't be targeted by spells or abilities (player
     /// hexproof, Everybody Lives!).
     PlayerHexproof,
+    /// The controller may cast sorcery spells as though they had flash
+    /// (Teferi, Time Raveler +1).
+    SorceriesHaveFlash,
     /// The affected object gains an activated ability (Urza's Saga
     /// chapters, Chromatic Lantern-style grants).
     GrantActivated {
@@ -169,6 +172,9 @@ pub enum Duration {
     UntilEndOfCombat,
     /// Indefinitely (emblems, boss effects).
     Indefinitely,
+    /// Until the start of the effect controller's next turn (Elspeth's
+    /// flying, Teferi's sorcery-flash).
+    UntilYourNextTurn,
 }
 
 /// Replacement rules and trigger modification (CR 614; Doubling Season,

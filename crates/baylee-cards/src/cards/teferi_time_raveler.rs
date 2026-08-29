@@ -50,7 +50,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("+1 sorcery-flash until your next turn (UntilYourNextTurn, M2+)"),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,
@@ -58,6 +58,16 @@ pub static CARD: CardDef = CardDef {
             modifier: Modifier::OpponentsCastAsSorcery,
             cross_zone: false,
         }),
+        AbilityDef::Loyalty {
+            cost: 1,
+            effects: &[Effect::CreateContinuousEffect {
+                layer: Layer::Text,
+                filter: &Filter::Any,
+                modifier: Modifier::SorceriesHaveFlash,
+                duration: baylee_cards_dsl::Duration::UntilYourNextTurn,
+            }],
+            target: None,
+        },
         AbilityDef::Loyalty {
             cost: -3,
             effects: &[

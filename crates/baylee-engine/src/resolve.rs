@@ -2354,6 +2354,24 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::CounterTargetSpellToExile => {
+            if let Some(&target_id) = res.targets.first() {
+                state
+                    .journal
+                    .record(GameEvent::SpellCountered { object: target_id });
+                let owner = state.object(target_id).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(target_id) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            None
+        }
         Effect::CounterTargetSpell => {
             if let Some(&target_id) = res.targets.first() {
                 state

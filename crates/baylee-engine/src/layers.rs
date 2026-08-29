@@ -202,7 +202,8 @@ fn apply(
         | Modifier::ProtectionFrom(_)
         | Modifier::GrantsFlashback
         | Modifier::PlayerHexproof
-        | Modifier::GrantActivated { .. } => {}
+        | Modifier::GrantActivated { .. }
+        | Modifier::SorceriesHaveFlash => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

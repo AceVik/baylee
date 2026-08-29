@@ -3,14 +3,16 @@
 //! Oracle: Echo {3}{W}{W} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)
 //! Oracle: When this creature enters, return target creature card from your graveyard to the battlefield.
 //! Set: SOC #151 — Secrets of Strixhaven Commander | Scryfall ID: b26d50dd-54a1-43ce-9884-3999f698d97b | Oracle ID: 8c31fec9-e4b3-4761-990e-7be38eb05604
-// PARTIAL — flying + ETB reanimation implemented. NOT SUPPORTED yet: echo
-// (delayed upkeep payment, M2.S7b) and protection from black (M2.S6+).
+// IMPLEMENTED — flying, protection from black, echo {3}{W}{W} (delayed
+// upkeep pay-or-sacrifice), ETB reanimation.
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    PlayerRel, TargetReq, TargetSpec, Trigger,
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, Layer,
+    Modifier, PartnerKind, PlayerRel, StaticAbility, TargetReq, TargetSpec, Trigger,
 };
+
+static BLACK_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Black]));
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
 use baylee_core::ids::CardIndex;
@@ -47,18 +49,29 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::FLYING,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("echo (M2.S7b), protection from black (M2.S6+)"),
-    abilities: &[AbilityDef::Triggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        once_per_turn: false,
-        effects: &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&CREATURE_GY, PlayerRel::You),
-        }],
-        targets: Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &CREATURE_GY,
-            PlayerRel::You,
-        ))),
-    }],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Echo {
+            cost: baylee_core::mana!("{3}{W}{W}"),
+        },
+        AbilityDef::Static(StaticAbility {
+            layer: Layer::Text,
+            filter: Filter::This,
+            modifier: Modifier::ProtectionFrom(&BLACK_F),
+            cross_zone: false,
+        }),
+        AbilityDef::Triggered {
+            trigger: Trigger::EntersBattlefield(&Filter::This),
+            once_per_turn: false,
+            effects: &[Effect::GraveyardToBattlefield {
+                target: TargetSpec::CardInGraveyard(&CREATURE_GY, PlayerRel::You),
+            }],
+            targets: Some(TargetReq::one(TargetSpec::CardInGraveyard(
+                &CREATURE_GY,
+                PlayerRel::You,
+            ))),
+        },
+    ],
 };
 
 #[cfg(test)]

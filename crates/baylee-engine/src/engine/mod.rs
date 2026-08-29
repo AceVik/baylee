@@ -128,6 +128,13 @@ enum PlanKind {
         /// The mana cost to pay.
         cost: baylee_core::mana::ManaCost,
     },
+    /// A delayed pay-or-sacrifice decision (echo).
+    DelayedPaySacrifice {
+        /// The mana cost to pay.
+        cost: baylee_core::mana::ManaCost,
+        /// The permanent sacrificed when not paid.
+        card: ObjectId,
+    },
     /// A clone choosing what to copy as it enters.
     CopyOnEnter {
         /// The entering permanent.

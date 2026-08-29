@@ -9,8 +9,9 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Effect, FaceDef, Filter,
-    KeywordSet, PartnerKind, ReplacementRule, TargetReq, TargetSpec, TokenDef,
+    AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Duration, Effect, FaceDef,
+    Filter, KeywordSet, Layer, Modifier, PartnerKind, ReplacementRule, TargetReq, TargetSpec,
+    TokenDef,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature, planeswalker};
@@ -66,7 +67,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("0's flying until your next turn (UntilYourNextTurn, M2+)"),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
             controller_filter: &YOURS,
@@ -78,11 +79,19 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Loyalty {
             cost: 0,
-            effects: &[Effect::AddCounterFilter {
-                filter: &YOUR_CREATURES,
-                kind: CounterKind::P1P1,
-                amount: Amount::Fixed(1),
-            }],
+            effects: &[
+                Effect::AddCounterFilter {
+                    filter: &YOUR_CREATURES,
+                    kind: CounterKind::P1P1,
+                    amount: Amount::Fixed(1),
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Ability,
+                    filter: &YOUR_CREATURES,
+                    modifier: Modifier::AddKeyword(KeywordSet::FLYING),
+                    duration: Duration::UntilYourNextTurn,
+                },
+            ],
             target: None,
         },
         AbilityDef::Loyalty {
