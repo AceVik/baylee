@@ -244,18 +244,25 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.suspendable.contains(&card) {
                     return Err(EngineError::IllegalAction("card cannot be suspended"));
                 }
-                let counters = self
+                let (counters, cost) = self
                     .state
                     .object(card)
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))
                     .and_then(|def| {
                         def.abilities.iter().find_map(|a| match a {
-                            AbilityDef::Suspend { counters } => Some(*counters),
+                            AbilityDef::Suspend { counters, cost } => Some((*counters, *cost)),
                             _ => None,
                         })
                     })
                     .ok_or(EngineError::IllegalAction("not a suspend card"))?;
+                // Suspending costs the printed suspend cost (CR 702.62).
+                if !mana_pay::pay(
+                    &mut self.state.players[player.get() as usize].mana_pool,
+                    &cost,
+                ) {
+                    return Err(EngineError::IllegalAction("cannot pay the suspend cost"));
+                }
                 let owner = self.state.object(card).map_or(player, |o| o.owner);
                 {
                     let obj = self.state.object_mut(card).expect("validated");

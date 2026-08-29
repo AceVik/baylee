@@ -17,17 +17,8 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static BIRD: TokenDef = TokenDef {
-    name: "Bird",
-    colors: ColorSet::from_slice(&[Color::White]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::BIRD],
-    power: Some(1),
-    toughness: Some(1),
-    keywords: KeywordSet::FLYING,
-};
-static TOKEN_EFFECTS: &[Effect] = &[Effect::CreateToken { token: &BIRD }];
+use crate::tokens::BIRD_1_1_WHITE_FLYING as BIRD_TOKEN;
+static TOKEN_EFFECTS: &[Effect] = &[Effect::CreateToken { token: &BIRD_TOKEN }];
 static BOUNCE_TARGET: Filter = Filter::And(&[Filter::LacksType(TypeSet::LAND), Filter::Another]);
 static BOUNCE_EFFECTS: &[Effect] = &[Effect::ReturnToHand {
     target: TargetSpec::Object(&BOUNCE_TARGET),

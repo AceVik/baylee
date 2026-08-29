@@ -31,16 +31,7 @@ static NEXUS_FILTER: Filter = Filter::And(&[
     ]),
 ]);
 
-static SHAPESHIFTER_TOKEN: TokenDef = TokenDef {
-    name: "Shapeshifter",
-    colors: ColorSet::from_slice(&[Color::Blue]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::SHAPESHIFTER],
-    power: Some(2),
-    toughness: Some(2),
-    keywords: KeywordSet::CHANGELING,
-};
+use crate::tokens::SHAPESHIFTER_2_2_BLUE_CHANGELING as SHAPESHIFTER_TOKEN;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(92),

@@ -88,6 +88,7 @@ pub struct Characteristics {
 impl Characteristics {
     /// Builds the base characteristics from a card definition face.
     #[must_use]
+    #[allow(clippy::too_many_lines)] // the color scan is one flat table
     pub fn from_face(def: &CardDef, face: usize, name: NameRef) -> Self {
         let f = &def.faces[face.min(def.faces.len() - 1)];
         let subtypes = SubtypeSet::from_slice(f.subtypes);
@@ -120,48 +121,43 @@ impl Characteristics {
             else {
                 continue;
             };
+            let add_color = |produced: &mut ColorSet,
+                             produced_colorless: &mut bool,
+                             c: &baylee_core::mana::ManaColor| {
+                match c {
+                    baylee_core::mana::ManaColor::Colorless => *produced_colorless = true,
+                    baylee_core::mana::ManaColor::White => {
+                        *produced = produced.union(ColorSet::of(Color::White));
+                    }
+                    baylee_core::mana::ManaColor::Blue => {
+                        *produced = produced.union(ColorSet::of(Color::Blue));
+                    }
+                    baylee_core::mana::ManaColor::Black => {
+                        *produced = produced.union(ColorSet::of(Color::Black));
+                    }
+                    baylee_core::mana::ManaColor::Red => {
+                        *produced = produced.union(ColorSet::of(Color::Red));
+                    }
+                    baylee_core::mana::ManaColor::Green => {
+                        *produced = produced.union(ColorSet::of(Color::Green));
+                    }
+                }
+            };
             for effect in *effects {
                 match effect {
-                    baylee_cards_dsl::Effect::AddMana { color, .. } => match color {
-                        baylee_core::mana::ManaColor::Colorless => produced_colorless = true,
-                        c => {
-                            let col = match c {
-                                baylee_core::mana::ManaColor::White => Color::White,
-                                baylee_core::mana::ManaColor::Blue => Color::Blue,
-                                baylee_core::mana::ManaColor::Black => Color::Black,
-                                baylee_core::mana::ManaColor::Red => Color::Red,
-                                baylee_core::mana::ManaColor::Green => Color::Green,
-                                baylee_core::mana::ManaColor::Colorless => unreachable!(),
-                            };
-                            produced = produced.union(ColorSet::of(col));
-                        }
-                    },
-                    baylee_cards_dsl::Effect::AddManaChoice { colors, .. } => {
+                    baylee_cards_dsl::Effect::AddMana { color, .. } => {
+                        add_color(&mut produced, &mut produced_colorless, color);
+                    }
+                    baylee_cards_dsl::Effect::AddManaChoice { colors, .. }
+                    | baylee_cards_dsl::Effect::AddManaRestricted { colors, .. } => {
                         for c in *colors {
-                            match c {
-                                baylee_core::mana::ManaColor::Colorless => {
-                                    produced_colorless = true;
-                                }
-                                baylee_core::mana::ManaColor::White => {
-                                    produced = produced.union(ColorSet::of(Color::White));
-                                }
-                                baylee_core::mana::ManaColor::Blue => {
-                                    produced = produced.union(ColorSet::of(Color::Blue));
-                                }
-                                baylee_core::mana::ManaColor::Black => {
-                                    produced = produced.union(ColorSet::of(Color::Black));
-                                }
-                                baylee_core::mana::ManaColor::Red => {
-                                    produced = produced.union(ColorSet::of(Color::Red));
-                                }
-                                baylee_core::mana::ManaColor::Green => {
-                                    produced = produced.union(ColorSet::of(Color::Green));
-                                }
-                            }
+                            add_color(&mut produced, &mut produced_colorless, c);
                         }
                     }
-                    // "Any color" families (Command Tower, orchard/pool).
+                    // "Any color" families (Command Tower, orchard/pool,
+                    // commander-identity restricted mana).
                     baylee_cards_dsl::Effect::AddManaCommanderIdentity
+                    | baylee_cards_dsl::Effect::AddManaRestrictedCommanderIdentity { .. }
                     | baylee_cards_dsl::Effect::AddManaLandColor { .. } => {
                         produced = produced.union(ColorSet::from_slice(&[
                             Color::White,
@@ -315,6 +311,8 @@ pub enum Rider {
     Flashback,
     /// Can't be countered (Cavern of Souls mana rider).
     Uncounterable,
+    /// The permanent has the prepared marker (Emeritus of Woe & co.).
+    Prepared,
     /// May be played from exile by the given player, spending mana of
     /// any color (Opposition Agent's search takeover).
     PlayableFromExileFor(PlayerId),

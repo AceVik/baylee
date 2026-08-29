@@ -156,6 +156,9 @@ pub struct PerTurn {
     pub spells_cast: Vec<u32>,
     /// Whether each player lost life this turn (Luminarch Ascension).
     pub life_lost: Vec<bool>,
+    /// Creatures that died this turn, all players (Emeritus of Woe's
+    /// re-prepare condition).
+    pub creatures_died: u32,
 }
 
 impl PerTurn {
@@ -166,6 +169,7 @@ impl PerTurn {
             noncreature_spells: vec![0; players],
             spells_cast: vec![0; players],
             life_lost: vec![false; players],
+            creatures_died: 0,
             draws: vec![0; players],
         }
     }
@@ -176,6 +180,7 @@ impl PerTurn {
         self.draws.iter_mut().for_each(|v| *v = 0);
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
         self.life_lost.iter_mut().for_each(|v| *v = false);
+        self.creatures_died = 0;
     }
 }
 
@@ -631,6 +636,18 @@ impl GameState {
             obj.version = obj.version.wrapping_add(1);
         }
         self.zones.insert(id, to, pos);
+        // Creature deaths this turn (Emeritus of Woe's re-prepare).
+        if from_zone == crate::zone::Zone::Battlefield && to.zone() == crate::zone::Zone::Graveyard
+        {
+            let is_creature = self.object(id).is_some_and(|o| {
+                o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+            });
+            if is_creature {
+                self.per_turn.creatures_died = self.per_turn.creatures_died.saturating_add(1);
+            }
+        }
         self.journal.record(GameEvent::ZoneChanged {
             object: id,
             from: from_zone,
@@ -918,6 +935,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(9);
                 h.u8(p.get());
             }
+            Rider::Prepared => h.u8(10),
         }
     }
 }

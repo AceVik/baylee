@@ -18,16 +18,7 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static ANGEL: TokenDef = TokenDef {
-    name: "Angel",
-    colors: ColorSet::from_slice(&[Color::White]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::ANGEL],
-    power: Some(4),
-    toughness: Some(4),
-    keywords: KeywordSet::FLYING,
-};
+use crate::tokens::ANGEL_4_4_WHITE_FLYING as ANGEL;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(88),

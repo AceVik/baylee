@@ -50,7 +50,7 @@ pub static CARD: CardDef = CardDef {
         disturb: false,
         adventure: false,
     }],
-    color_identity: ColorSet::EMPTY,
+    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,

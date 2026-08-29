@@ -7,21 +7,13 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind, TargetSpec, Trigger,
+    ALL_MANA_COLORS, AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule,
+    Cost, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind, TargetSpec, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
-
-static ANY_COLOR: &[ManaColor] = &[
-    ManaColor::White,
-    ManaColor::Blue,
-    ManaColor::Black,
-    ManaColor::Red,
-    ManaColor::Green,
-];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(20),
@@ -67,7 +59,7 @@ pub static CARD: CardDef = CardDef {
         AbilityDef::Activated {
             cost: Cost::TAP,
             effects: &[Effect::AddManaChoice {
-                colors: ANY_COLOR,
+                colors: ALL_MANA_COLORS,
                 amount: Amount::Fixed(1),
                 combination: false,
             }],

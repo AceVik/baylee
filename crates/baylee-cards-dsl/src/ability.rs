@@ -177,6 +177,13 @@ pub enum AbilityDef {
         /// Target requirement.
         target: Option<crate::effect::TargetSpec>,
     },
+    /// Prepared: while this permanent has the prepared marker, you may
+    /// cast a copy of the linked spell card; doing so removes the marker
+    /// (Emeritus of Woe & co.).
+    Prepared {
+        /// The linked spell card.
+        card: baylee_core::ids::CardIndex,
+    },
     /// Echo (CR 702.30): at your next upkeep after this enters, pay the
     /// cost or sacrifice it.
     Echo {
@@ -199,6 +206,8 @@ pub enum AbilityDef {
     Suspend {
         /// Time counters.
         counters: u8,
+        /// The cost to suspend the card (`Suspend N—{C}`).
+        cost: baylee_core::mana::ManaCost,
     },
     /// "As ~ enters, you may have it become a copy of … until end of
     /// turn" (Cursed Mirror). Choice is made as it enters; the copy is a

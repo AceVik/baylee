@@ -121,6 +121,7 @@ pub fn amount(
     match amount {
         Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
         Amount::X | Amount::NegX => x.unwrap_or(0),
+        Amount::DoubleX => x.unwrap_or(0).saturating_mul(2),
         Amount::XPlusCommanderCasts => {
             x.unwrap_or(0)
                 + state

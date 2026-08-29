@@ -56,7 +56,7 @@ pub static CARD: CardDef = CardDef {
         targets: Some(TargetReq {
             spec: TargetSpec::Object(&YOUR_NONLAND_PERMANENTS),
             min: 0,
-            max: 255,
+            max: u8::MAX,
             count_is_x: false,
         }),
     }],

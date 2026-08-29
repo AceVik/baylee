@@ -63,7 +63,7 @@ pub static CARD: CardDef = CardDef {
         effects: &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
             dest: SearchDest::Battlefield,
-            tapped: true,
+            tapped: false,
             shuffle: true,
             optional: false,
         }],

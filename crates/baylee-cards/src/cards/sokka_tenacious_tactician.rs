@@ -27,16 +27,7 @@ static NONCREATURE_SPELL: Filter = Filter::And(&[
     Filter::LacksType(TypeSet::CREATURE),
 ]);
 
-static ALLY_TOKEN: TokenDef = TokenDef {
-    name: "Ally",
-    colors: ColorSet::from_slice(&[Color::White]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::ALLY],
-    power: Some(1),
-    toughness: Some(1),
-    keywords: KeywordSet::EMPTY,
-};
+use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(149),

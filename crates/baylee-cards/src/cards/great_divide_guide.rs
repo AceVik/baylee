@@ -6,8 +6,9 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, Layer, Modifier, PartnerKind, StaticAbility,
+    ALL_MANA_COLORS, ANY_COLOR_MANA, AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef,
+    CommanderRule, Cost, Coverage, Effect, FaceDef, Filter, KeywordSet, Layer, Modifier,
+    PartnerKind, StaticAbility,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
@@ -15,18 +16,6 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static ANY_COLOR: &[ManaColor] = &[
-    ManaColor::White,
-    ManaColor::Blue,
-    ManaColor::Black,
-    ManaColor::Red,
-    ManaColor::Green,
-];
-static ANY_COLOR_MANA: &[Effect] = &[Effect::AddManaChoice {
-    colors: ANY_COLOR,
-    amount: Amount::Fixed(1),
-    combination: false,
-}];
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(62),
     oracle_id: "79e69a91-d580-47fb-be76-1e32c50d2fa0",

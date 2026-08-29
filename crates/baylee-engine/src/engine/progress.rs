@@ -337,6 +337,13 @@ impl<L: CardLookup> Engine<L> {
                             changed = true;
                         }
                     }
+                    EnterModifier::Prepared => {
+                        if let Some(obj) = self.state.object_mut(id)
+                            && !obj.riders.contains(&crate::object::Rider::Prepared)
+                        {
+                            obj.riders.push(crate::object::Rider::Prepared);
+                        }
+                    }
                     EnterModifier::ChooseSubtype => {
                         self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
                         self.pending = Pending::ChooseSubtype {
@@ -1489,6 +1496,14 @@ impl<L: CardLookup> Engine<L> {
                     .object(card)
                     .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
                 {
+                    // End-step blink returns (Eerie Interlude, Swift
+                    // Spiral): under the OWNER's control.
+                    let owner = self.state.object(card).map(|o| o.owner);
+                    if let Some(obj) = self.state.object_mut(card)
+                        && let Some(owner) = owner
+                    {
+                        obj.controller = owner;
+                    }
                     let _ = self.state.move_object(
                         card,
                         ZoneLocation::Battlefield,

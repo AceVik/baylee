@@ -19,16 +19,7 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static ALLY_TOKEN: TokenDef = TokenDef {
-    name: "Ally",
-    colors: ColorSet::from_slice(&[Color::White]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::ALLY],
-    power: Some(1),
-    toughness: Some(1),
-    keywords: KeywordSet::EMPTY,
-};
+use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(77),

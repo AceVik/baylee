@@ -2,7 +2,9 @@
 //! Oracle: Destroy target creature. A creature destroyed this way can't be regenerated.
 //! Oracle: Overload {2}{W}{W} (You may cast this spell for its overload cost. If you do, change "target" in its text to "each.")
 //! Set: LCC #191 — The Lost Caverns of Ixalan Commander | Scryfall ID: 84056124-1a6f-4274-bee2-74cf0debddb5 | Oracle ID: b01d61cc-9844-4191-86a0-f2db6d42d6e5
-// IMPLEMENTED — single-target destroy or overloaded wrath.
+// IMPLEMENTED — single-target destroy or overloaded wrath. ("A creature
+// destroyed this way can't be regenerated" is vacuous: the engine has no
+// regeneration mechanic yet; noted for the roadmap's regeneration family.)
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{

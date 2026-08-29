@@ -12,6 +12,24 @@ pub mod effect;
 pub mod filter;
 pub mod static_ability;
 
+/// All five mana colors (choice-mana abilities: Cavern of Souls, City
+/// of Brass, Moxen, …).
+pub const ALL_MANA_COLORS: &[baylee_core::mana::ManaColor] = &[
+    baylee_core::mana::ManaColor::White,
+    baylee_core::mana::ManaColor::Blue,
+    baylee_core::mana::ManaColor::Black,
+    baylee_core::mana::ManaColor::Red,
+    baylee_core::mana::ManaColor::Green,
+];
+
+/// The reusable "add one mana of any color" effect (Chromatic Lantern,
+/// City of Brass, Great Divide Guide).
+pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::AddManaChoice {
+    colors: ALL_MANA_COLORS,
+    amount: crate::effect::Amount::Fixed(1),
+    combination: false,
+}];
+
 pub use ability::{
     AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, CopyMod, SpellMode,
     StepKind, Trigger, TriggerEventKind,
@@ -153,6 +171,8 @@ pub enum EnterModifier {
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,
+    /// Enters with the prepared marker (Emeritus of Woe).
+    Prepared,
 }
 
 /// Simple keyword abilities as a bitset.

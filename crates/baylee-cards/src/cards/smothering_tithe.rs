@@ -14,17 +14,10 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static TREASURE: TokenDef = TokenDef {
-    name: "Treasure",
-    colors: ColorSet::EMPTY,
-    types: TypeSet::ARTIFACT,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[artifact::TREASURE],
-    power: None,
-    toughness: None,
-    keywords: KeywordSet::EMPTY,
+use crate::tokens::TREASURE as TREASURE_TOKEN;
+static MAKE_TREASURE: Effect = Effect::CreateToken {
+    token: &TREASURE_TOKEN,
 };
-static MAKE_TREASURE: Effect = Effect::CreateToken { token: &TREASURE };
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(147),

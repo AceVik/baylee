@@ -41,7 +41,7 @@ pub static CARD: CardDef = CardDef {
         disturb: false,
         adventure: false,
     }],
-    color_identity: ColorSet::EMPTY,
+    color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
@@ -62,9 +62,11 @@ pub static CARD: CardDef = CardDef {
             trigger: Trigger::EntersBattlefield(&Filter::This),
             once_per_turn: false,
             effects: &[Effect::ExileGraveyard {
-                player: PlayerRel::Opponent,
+                player: PlayerRel::Chosen,
             }],
-            targets: None,
+            targets: Some(baylee_cards_dsl::TargetReq::one(
+                baylee_cards_dsl::TargetSpec::AnyPlayer,
+            )),
         },
     ],
 };

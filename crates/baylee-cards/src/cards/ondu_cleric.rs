@@ -1,5 +1,5 @@
 //! Ondu Cleric — {1}{W} — Creature — Human Cleric Ally
-//! Oracle: Whenever Ondu Cleric or another Ally enters the battlefield under your control, you gain 1 life.
+//! Oracle: Whenever this creature or another Ally you control enters, you may gain life equal to the number of Allies you control.
 //! Set: ZEN #30 — Zendikar | Scryfall ID: ced43447-fefc-482a-b8fa-33b9616aa532 | Oracle ID: f4232466-dd6a-49bf-be6c-95905c3ded17
 // IMPLEMENTED — rally: ETB of self or another Ally you control → gain 1 life.
 #![allow(unused_imports, missing_docs)]
@@ -19,6 +19,8 @@ static ALLY_ETB: Filter = Filter::And(&[
     Filter::ControlledByYou,
     Filter::Or(&[Filter::This, Filter::HasSubtype(creature::ALLY)]),
 ]);
+static ALLIES_YOU_CONTROL: Filter =
+    Filter::And(&[Filter::HasSubtype(creature::ALLY), Filter::ControlledByYou]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(104),
@@ -59,7 +61,10 @@ pub static CARD: CardDef = CardDef {
         trigger: Trigger::EntersBattlefield(&ALLY_ETB),
         once_per_turn: false,
         effects: &[Effect::GainLife {
-            amount: Amount::Fixed(1),
+            amount: Amount::CountOf {
+                filter: &ALLIES_YOU_CONTROL,
+                zone: baylee_cards_dsl::ZoneSel::Battlefield,
+            },
         }],
         targets: None,
     }],

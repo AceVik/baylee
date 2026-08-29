@@ -33,7 +33,7 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "4533d155-5c56-41a5-9d76-2d1414ac47c9",
     faces: &[FaceDef {
         name: "Earth King's Lieutenant",
-        mana_cost: baylee_core::mana!("{3}{G}"),
+        mana_cost: baylee_core::mana!("{1}{G}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::HUMAN, creature::SOLDIER, creature::ALLY],

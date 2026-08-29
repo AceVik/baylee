@@ -15,14 +15,14 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static NONLAND_OPPONENT: Filter = Filter::And(&[
-    Filter::ControlledByOpponent,
+static NOT_MINE: Filter = Filter::And(&[
+    Filter::Not(&Filter::ControlledByYou),
     Filter::LacksType(TypeSet::LAND),
 ]);
 static NONLAND: Filter = Filter::LacksType(TypeSet::LAND);
 
 static NORMAL_EFFECTS: &[Effect] = &[Effect::ReturnToHand {
-    target: TargetSpec::Object(&NONLAND_OPPONENT),
+    target: TargetSpec::Object(&NOT_MINE),
 }];
 static OVERLOAD_EFFECTS: &[Effect] = &[Effect::ReturnAllToHand {
     filter: &NONLAND,
@@ -64,7 +64,7 @@ pub static CARD: CardDef = CardDef {
         modes: &[
             SpellMode {
                 effects: NORMAL_EFFECTS,
-                target: Some(TargetSpec::Object(&NONLAND_OPPONENT)),
+                target: Some(TargetSpec::Object(&NOT_MINE)),
                 cost_override: None,
             },
             SpellMode {

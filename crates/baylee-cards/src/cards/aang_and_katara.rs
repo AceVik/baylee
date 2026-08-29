@@ -23,16 +23,7 @@ static TAPPED_ARTIFACTS_CREATURES: Filter = Filter::And(&[
     ]),
 ]);
 
-static ALLY_TOKEN: TokenDef = TokenDef {
-    name: "Ally",
-    colors: ColorSet::from_slice(&[Color::White]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::ALLY],
-    power: Some(1),
-    toughness: Some(1),
-    keywords: KeywordSet::EMPTY,
-};
+use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(0),
@@ -40,7 +31,7 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "f333ea01-124f-4125-87ab-609be40e774c",
     faces: &[FaceDef {
         name: "Aang and Katara",
-        mana_cost: baylee_core::mana!("{1}{G}{W}{U}"),
+        mana_cost: baylee_core::mana!("{3}{G}{W}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::HUMAN, creature::AVATAR, creature::ALLY],

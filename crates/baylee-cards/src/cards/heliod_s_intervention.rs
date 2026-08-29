@@ -7,8 +7,8 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    SpellMode, TargetReq, TargetSpec,
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    PartnerKind, PlayerRel, SpellMode, TargetReq, TargetSpec,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
@@ -61,8 +61,11 @@ pub static CARD: CardDef = CardDef {
                 cost_override: None,
             },
             SpellMode {
-                effects: &[Effect::GainLifeDoubleX],
-                target: None,
+                effects: &[Effect::GainLifeFor {
+                    amount: Amount::DoubleX,
+                    who: PlayerRel::Chosen,
+                }],
+                target: Some(TargetSpec::AnyPlayer),
                 cost_override: None,
             },
         ],

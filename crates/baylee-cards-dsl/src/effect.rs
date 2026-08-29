@@ -75,6 +75,8 @@ pub enum Amount {
     /// The value of X plus the controller's commander-cast count
     /// (Commander's Insight).
     XPlusCommanderCasts,
+    /// Twice X (Heliod's Intervention).
+    DoubleX,
     /// Number of distinct colors among battlefield objects matching the
     /// filter (General Tazri).
     DistinctColorsAmong(&'static Filter),
@@ -409,6 +411,17 @@ pub enum Effect {
         then: &'static [Effect],
         /// Effects otherwise.
         otherwise: &'static [Effect],
+    },
+    /// The source gains the prepared marker (Emeritus of Woe's
+    /// re-prepare trigger).
+    BecomePrepared,
+    /// Branch when at least N creatures died this turn (Emeritus of
+    /// Woe's re-prepare condition).
+    IfCreaturesDiedAtLeast {
+        /// Threshold.
+        n: u32,
+        /// Effects when the condition holds.
+        then: &'static [Effect],
     },
     /// Branch: you didn't lose life this turn (Luminarch Ascension).
     IfNotLostLifeThisTurn {

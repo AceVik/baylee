@@ -13,7 +13,7 @@ use baylee_cards_dsl::{
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, land};
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 pub static CARD: CardDef = CardDef {
@@ -46,24 +46,39 @@ pub static CARD: CardDef = CardDef {
         disturb: false,
         adventure: false,
     }],
-    color_identity: ColorSet::EMPTY,
+    color_identity: ColorSet::from_slice(&[Color::White, Color::Black, Color::Green]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Activated {
-        cost: Cost {
-            mana: baylee_core::mana!("{2}"),
-            parts: &[CostPart::DiscardSelf],
+    abilities: &[
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddManaChoice {
+                colors: &[ManaColor::White, ManaColor::Black, ManaColor::Green],
+                amount: Amount::Fixed(1),
+                combination: false,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
         },
-        effects: &[Effect::DrawCards {
-            amount: Amount::Fixed(1),
-        }],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: false,
-        zone: ActivationZone::Hand,
-    }],
+        // Cycling {2} (hand-zone ability: discard to draw).
+        AbilityDef::Activated {
+            cost: Cost {
+                mana: baylee_core::mana!("{2}"),
+                parts: &[CostPart::DiscardSelf],
+            },
+            effects: &[Effect::DrawCards {
+                amount: Amount::Fixed(1),
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: false,
+            zone: ActivationZone::Hand,
+        },
+    ],
 };
 
 #[cfg(test)]

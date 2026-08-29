@@ -16,16 +16,7 @@ use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 static CREATURE_F: Filter = Filter::HasType(TypeSet::CREATURE);
-static SHAPESHIFTER: TokenDef = TokenDef {
-    name: "Shapeshifter",
-    colors: ColorSet::EMPTY,
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::SHAPESHIFTER],
-    power: Some(1),
-    toughness: Some(1),
-    keywords: KeywordSet::CHANGELING,
-};
+use crate::tokens::SHAPESHIFTER_1_1_CHANGELING as SHAPESHIFTER_TOKEN;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(26),
@@ -64,7 +55,7 @@ pub static CARD: CardDef = CardDef {
                 target: TargetSpec::Object(&CREATURE_F),
             },
             Effect::CreateTokenForTargetController {
-                token: &SHAPESHIFTER,
+                token: &SHAPESHIFTER_TOKEN,
             },
         ],
         targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),

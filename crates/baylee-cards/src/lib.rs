@@ -12,6 +12,8 @@ use baylee_core::ids::CardIndex;
 pub mod cards;
 /// Generated: registry tables.
 pub mod generated;
+/// Central named token definitions (referenced by card files).
+pub mod tokens;
 
 pub use baylee_cards_dsl as dsl;
 

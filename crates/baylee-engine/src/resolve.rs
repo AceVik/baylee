@@ -84,6 +84,9 @@ pub enum AwaitingOp {
         /// The spell on the stack whose target changes.
         spell: ObjectId,
     },
+    /// After `DigRest`: the unpicked cards go to the bottom in the
+    /// player's chosen order.
+    DigBottom,
     /// After a taken-over search: the found card goes to exile playable
     /// by the agent (Opposition Agent).
     SearchTakeover {
@@ -487,15 +490,35 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     Cause::Effect,
                 );
             }
-            for card in rest {
-                if !chosen.contains(&card) {
-                    let _ = state.move_object(
-                        card,
-                        ZoneLocation::Library(res.controller),
-                        ZonePosition::Bottom,
-                        Cause::Effect,
-                    );
-                }
+            // "The rest on the bottom in any order": the player chooses
+            // the order (OrderObjects pending when there's a choice).
+            let remaining: Vec<ObjectId> =
+                rest.into_iter().filter(|c| !chosen.contains(c)).collect();
+            if remaining.len() > 1 {
+                res.awaiting = Some(AwaitingOp::DigBottom);
+                return Flow::Wait(Pending::OrderObjects {
+                    player: res.controller,
+                    objects: remaining,
+                });
+            }
+            for card in remaining {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+        }
+        AwaitingOp::DigBottom => {
+            // Chosen order: first listed goes to the bottom first.
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
             }
         }
         AwaitingOp::BottomFromHand { player } => {
@@ -1111,6 +1134,10 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 );
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Permanent;
+                    // Blink returns under its OWNER's control (Eerie
+                    // Interlude, Momentary Blink family, CR 610.1 note:
+                    // "return … under its owner's control").
+                    obj.controller = owner;
                 }
                 let _ = state.move_object(
                     target_id,
@@ -1749,6 +1776,39 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     res.awaiting = nested.awaiting;
                     res.effects.splice(res.pc..res.pc, nested.effects);
                     return Some(pending);
+                }
+            }
+            None
+        }
+        Effect::BecomePrepared => {
+            if let Some(obj) = state.object_mut(res.source)
+                && !obj.riders.contains(&crate::object::Rider::Prepared)
+            {
+                obj.riders.push(crate::object::Rider::Prepared);
+            }
+            None
+        }
+        Effect::IfCreaturesDiedAtLeast { n, then } => {
+            if state.per_turn.creatures_died >= n {
+                let mut nested = Resolution {
+                    source: res.source,
+                    on_stack: res.on_stack,
+                    controller: res.controller,
+                    effects: flatten(then),
+                    pc: 0,
+                    targets: res.targets.clone(),
+                    event_object: res.event_object,
+                    x: res.x,
+                    chosen_player: res.chosen_player,
+                    awaiting: None,
+                };
+                match run(state, &mut nested) {
+                    Flow::Complete => {}
+                    Flow::Wait(pending) => {
+                        res.awaiting = nested.awaiting;
+                        res.effects.splice(res.pc..res.pc, nested.effects);
+                        return Some(pending);
+                    }
                 }
             }
             None

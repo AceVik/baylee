@@ -1,8 +1,8 @@
 use super::{
     AbilityDef, AbilityLoc, ActivationTiming, CardLookup, Cause, Cost, CostPart, Engine,
-    EngineError, GameEvent, GameObject, LegalActions, NameRef, ObjectId, Pending, Phase, PlanKind,
-    PlayerId, Resolution, SmallVec, Status, TypeSet, Zone, ZoneLocation, ZonePosition, casting,
-    eval, mana_pay, resolve,
+    EngineError, GameEvent, GameObject, LegalActions, NameRef, ObjectId, ObjectKind, Pending,
+    Phase, PlanKind, PlayerId, Resolution, SmallVec, Status, TypeSet, Zone, ZoneLocation,
+    ZonePosition, casting, eval, mana_pay, resolve,
 };
 use baylee_cards_dsl::ActivationZone;
 
@@ -137,6 +137,31 @@ impl<L: CardLookup> Engine<L> {
                         legal.abilities.push((id, i as u32));
                     }
                     _ => {}
+                }
+            }
+            // Prepared (Emeritus of Woe): a prepared permanent may cast
+            // a copy of its linked spell — synthetic index u32::MAX - 1.
+            if obj.riders.contains(&crate::object::Rider::Prepared) {
+                let linked = obj.card.and_then(|c| {
+                    let face = obj.face_index as usize;
+                    self.lookup.card(c.index).and_then(|def| {
+                        def.abilities_for_face(face).iter().find_map(|a| match a {
+                            AbilityDef::Prepared { card } => Some(*card),
+                            _ => None,
+                        })
+                    })
+                });
+                if let Some(linked_card) = linked {
+                    let affordable = self.lookup.card(linked_card).is_some_and(|spell_def| {
+                        let cost = &spell_def.faces[0].mana_cost;
+                        mana_pay::can_pay(
+                            &self.state.players[player.get() as usize].mana_pool,
+                            cost,
+                        )
+                    });
+                    if affordable {
+                        legal.abilities.push((id, u32::MAX - 1));
+                    }
                 }
             }
             // Granted abilities (Urza's Saga chapters): the first granted
@@ -286,6 +311,66 @@ impl<L: CardLookup> Engine<L> {
 
     // ---------------------------------------------------- S3: abilities
 
+    /// Prepared cast (Emeritus of Woe): pays the linked spell's cost,
+    /// puts a copy of it on the stack, and removes the prepared marker.
+    fn start_prepared_cast(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+    ) -> Result<(), EngineError> {
+        let linked_card = self
+            .state
+            .object(source)
+            .and_then(|o| o.card)
+            .and_then(|c| {
+                let face = self
+                    .state
+                    .object(source)
+                    .map_or(0, |o| o.face_index as usize);
+                self.lookup.card(c.index).and_then(|def| {
+                    def.abilities_for_face(face).iter().find_map(|a| match a {
+                        AbilityDef::Prepared { card } => Some(*card),
+                        _ => None,
+                    })
+                })
+            })
+            .ok_or(EngineError::IllegalAction("no prepared spell"))?;
+        let spell_def = self
+            .lookup
+            .card(linked_card)
+            .ok_or(EngineError::IllegalAction("unknown linked card"))?;
+        let face = &spell_def.faces[0];
+        if !mana_pay::pay(
+            &mut self.state.players[player.get() as usize].mana_pool,
+            &face.mana_cost,
+        ) {
+            return Err(EngineError::IllegalAction("cannot pay the spell's cost"));
+        }
+        // Unprepare the source.
+        if let Some(obj) = self.state.object_mut(source) {
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::Prepared));
+        }
+        // The copy of the linked spell (card-less → token spell).
+        let name = self.state.names.intern(face.name);
+        let base = crate::object::Characteristics::from_face(spell_def, 0, name);
+        let ts = self.state.next_timestamp();
+        let id = self.state.arena.insert_with(|oid| {
+            let mut obj = GameObject::new_bare(oid, player, ObjectKind::Spell, base);
+            obj.timestamp = ts;
+            obj.cast_from_hand = false;
+            obj
+        });
+        self.state
+            .zones
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+        self.state
+            .journal
+            .record(GameEvent::SpellCast { object: id, player });
+        self.after_action(player);
+        Ok(())
+    }
+
     /// Activates a granted ability (Urza's Saga's Construct chapter):
     /// pays the cost, then pushes the granted effects via the synthetic
     /// side map (or resolves immediately for mana abilities).
@@ -396,6 +481,11 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
+        // Prepared cast (synthetic index u32::MAX - 1): pay the linked
+        // spell's cost, put a copy on the stack, unprepare the source.
+        if ability_index == u32::MAX - 1 {
+            return self.start_prepared_cast(player, source);
+        }
         // Granted abilities (synthetic index): resolve via the side map.
         if ability_index == u32::MAX {
             return self.start_granted_activation(player, source, targets);

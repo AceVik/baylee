@@ -28,16 +28,7 @@ static BIG_ENEMY_CREATURE: Filter = Filter::And(&[
 static YOUR_CREATURES: Filter =
     Filter::And(&[Filter::ControlledByYou, Filter::HasType(TypeSet::CREATURE)]);
 
-static SOLDIER: TokenDef = TokenDef {
-    name: "Soldier",
-    colors: ColorSet::from_slice(&[Color::White]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::SOLDIER],
-    power: Some(1),
-    toughness: Some(1),
-    keywords: KeywordSet::EMPTY,
-};
+use crate::tokens::SOLDIER_1_1_WHITE as SOLDIER;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(40),
@@ -67,7 +58,7 @@ pub static CARD: CardDef = CardDef {
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::Legendary,
+    commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[

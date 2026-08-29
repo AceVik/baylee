@@ -16,16 +16,7 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 
 static CREATURE_F: Filter = Filter::HasType(TypeSet::CREATURE);
 
-static BOAR: TokenDef = TokenDef {
-    name: "Boar",
-    colors: ColorSet::from_slice(&[Color::Green]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::BOAR],
-    power: Some(2),
-    toughness: Some(2),
-    keywords: KeywordSet::EMPTY,
-};
+use crate::tokens::BOAR_2_2_GREEN as BOAR_TOKEN;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(27),
@@ -59,7 +50,7 @@ pub static CARD: CardDef = CardDef {
     partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
-        effects: &[Effect::ExileTargetsCreateTokens { token: &BOAR }],
+        effects: &[Effect::ExileTargetsCreateTokens { token: &BOAR_TOKEN }],
         targets: Some(TargetReq::x_targets(TargetSpec::Object(&CREATURE_F))),
     }],
 };

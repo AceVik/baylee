@@ -9,21 +9,14 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
+    ALL_MANA_COLORS, AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule,
+    Cost, Coverage, Effect, EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static ANY_COLOR: &[ManaColor] = &[
-    ManaColor::White,
-    ManaColor::Blue,
-    ManaColor::Black,
-    ManaColor::Red,
-    ManaColor::Green,
-];
 static CHOSEN_TYPE_CREATURE_SPELL: Filter = Filter::And(&[
     Filter::HasType(TypeSet::CREATURE),
     Filter::MatchesChosenTypeOfSource,
@@ -75,7 +68,7 @@ pub static CARD: CardDef = CardDef {
         AbilityDef::Activated {
             cost: Cost::TAP,
             effects: &[Effect::AddManaRestricted {
-                colors: ANY_COLOR,
+                colors: ALL_MANA_COLORS,
                 amount: 1,
                 filter: &CHOSEN_TYPE_CREATURE_SPELL,
                 rider: baylee_cards_dsl::SpendRider::Uncounterable,

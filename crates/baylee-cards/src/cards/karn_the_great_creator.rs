@@ -3,6 +3,9 @@
 //! Oracle: +1: Until your next turn, up to one target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value.
 //! Oracle: −2: You may reveal an artifact card you own from outside the game or choose a face-up artifact card you own in exile. Put that card into your hand.
 //! Set: RVR #1 — Ravnica Remastered | Scryfall ID: deb3721d-fba1-444f-8b31-1cd10c94c4a0 | Oracle ID: a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1
+// NOTE: the static artifact lock and the +1 animate are correct; the −2
+// (outside-the-game wish) needs sideboard access (M4 gateway) and stays
+// the only gap.
 // PARTIAL — artifact lock + +1 animation implemented; −2 needs sideboard
 // (outside-the-game) support (M3 lobby/preset).
 #![allow(unused_imports, missing_docs)]

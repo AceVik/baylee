@@ -15,13 +15,21 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static YOUR_NONCREATURE_SPELL: Filter = Filter::And(&[
+static YOUR_AIS_SPELL: Filter = Filter::And(&[
     Filter::ControlledByYou,
-    Filter::LacksType(TypeSet::CREATURE),
+    Filter::Or(&[
+        Filter::HasType(TypeSet::ARTIFACT),
+        Filter::HasType(TypeSet::INSTANT),
+        Filter::HasType(TypeSet::SORCERY),
+    ]),
 ]);
-static OPPONENT_NONCREATURE_SPELL: Filter = Filter::And(&[
+static OPPONENT_AIS_SPELL: Filter = Filter::And(&[
     Filter::ControlledByOpponent,
-    Filter::LacksType(TypeSet::CREATURE),
+    Filter::Or(&[
+        Filter::HasType(TypeSet::ARTIFACT),
+        Filter::HasType(TypeSet::INSTANT),
+        Filter::HasType(TypeSet::SORCERY),
+    ]),
 ]);
 
 pub static CARD: CardDef = CardDef {
@@ -57,16 +65,20 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Partial("target re-choice for the copy (protocol M3)"),
     abilities: &[
         AbilityDef::Triggered {
-            trigger: Trigger::SpellCast(&YOUR_NONCREATURE_SPELL),
+            trigger: Trigger::SpellCast(&YOUR_AIS_SPELL),
             once_per_turn: true,
             effects: &[Effect::CopyTargetSpell { mods: &[] }],
-            targets: None,
+            targets: Some(baylee_cards_dsl::TargetReq::one(
+                baylee_cards_dsl::TargetSpec::EventObject,
+            )),
         },
         AbilityDef::Triggered {
-            trigger: Trigger::SpellCast(&OPPONENT_NONCREATURE_SPELL),
+            trigger: Trigger::SpellCast(&OPPONENT_AIS_SPELL),
             once_per_turn: true,
             effects: &[Effect::CounterTargetSpell],
-            targets: None,
+            targets: Some(baylee_cards_dsl::TargetReq::one(
+                baylee_cards_dsl::TargetSpec::EventObject,
+            )),
         },
     ],
 };

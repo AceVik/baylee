@@ -48,7 +48,10 @@ pub static CARD: CardDef = CardDef {
     partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Suspend { counters: 2 },
+        AbilityDef::Suspend {
+            counters: 2,
+            cost: baylee_core::mana!("{1}{B}"),
+        },
         AbilityDef::Spell {
             effects: &[Effect::SearchLibrary {
                 filter: &ANY_CARD,
