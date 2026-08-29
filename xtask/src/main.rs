@@ -45,6 +45,27 @@ enum Cmd {
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
     },
+    /// Prepare per-card task packages for LLM implementation batches.
+    CardBatch {
+        /// Only these cards (comma-separated names); default: all
+        /// unimplemented acceptance cards.
+        #[arg(long)]
+        cards: Option<String>,
+        /// Output directory for task packages.
+        #[arg(long, default_value = "target/card-batch")]
+        out: PathBuf,
+        /// Path to the forge-reference cardsfolder.
+        #[arg(
+            long,
+            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
+        )]
+        forge: PathBuf,
+        /// Directory for cached Scryfall responses.
+        #[arg(long, default_value = "data/scryfall-cache")]
+        cache: PathBuf,
+    },
+    /// Validate card-file conventions (header, coverage, tests).
+    Validate,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -60,6 +81,13 @@ fn main() -> anyhow::Result<()> {
             cache,
         } => codegen(&root, check, &forge, &cache),
         Cmd::Explain { name, forge, cache } => explain(&root, &name, &forge, &cache),
+        Cmd::CardBatch {
+            cards,
+            out,
+            forge,
+            cache,
+        } => card_batch(&root, cards.as_deref(), &out, &forge, &cache),
+        Cmd::Validate => validate(&root),
     }
 }
 
@@ -209,6 +237,144 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
         );
     }
     println!("codegen complete");
+    Ok(())
+}
+
+fn exemplar_for(type_line: &str) -> &'static str {
+    if type_line.contains("Planeswalker") {
+        return "jace_the_mind_sculptor";
+    }
+    if type_line.contains("Creature") {
+        return "ondu_cleric";
+    }
+    if type_line.contains("Instant") {
+        return "force_of_will";
+    }
+    if type_line.contains("Sorcery") {
+        return "demonic_tutor";
+    }
+    if type_line.contains("Enchantment") {
+        return "rhystic_study";
+    }
+    if type_line.contains("Artifact") {
+        return "sol_ring";
+    }
+    "polluted_delta"
+}
+
+/// Builds per-card task packages (stub + forge script + exemplar + prompt).
+fn card_batch(
+    root: &Path,
+    cards: Option<&str>,
+    out: &Path,
+    forge_dir: &Path,
+    cache: &Path,
+) -> anyhow::Result<()> {
+    let agent = ureq::Agent::new_with_defaults();
+    let cache = root.join(cache);
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let names = acceptance::unique_names(&rows);
+    let forge_index: BTreeMap<String, String> = serde_json::from_str(
+        &fs::read_to_string(root.join("data/forge_index.json")).unwrap_or_default(),
+    )?;
+    let wanted: Vec<String> = if let Some(list) = cards {
+        list.split(',').map(|s| s.trim().to_string()).collect()
+    } else {
+        names
+            .iter()
+            .filter(|name| {
+                let slug = baylee_cards_codegen::stubgen::slug(name);
+                let path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
+                fs::read_to_string(&path)
+                    .map(|c| c.contains("Coverage::Unimplemented"))
+                    .unwrap_or(false)
+            })
+            .cloned()
+            .collect()
+    };
+    println!("preparing {} card task package(s) in {}", wanted.len(), out.display());
+    for name in &wanted {
+        let slug = baylee_cards_codegen::stubgen::slug(name);
+        let dir = out.join(&slug);
+        fs::create_dir_all(&dir)?;
+        // 1. Current stub.
+        let stub_path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
+        let stub = fs::read_to_string(&stub_path)?;
+        fs::write(dir.join("STUB.rs"), &stub)?;
+        // 2. Forge script (ground truth).
+        if let Some(rel) = forge_index.get(name) {
+            let script = root.join(forge_dir).join(rel);
+            if script.exists() {
+                fs::write(dir.join("FORGE.txt"), fs::read_to_string(script)?)?;
+            }
+        }
+        // 3. Scryfall JSON (metadata).
+        let card = scryfall::fetch_named(name, &agent, &cache)?;
+        fs::write(dir.join("SCRYFALL.json"), serde_json::to_string_pretty(&card)?)?;
+        // 4. Exemplar by type.
+        let type_line = card.type_line.as_deref().unwrap_or("");
+        let exemplar = exemplar_for(type_line);
+        let exemplar_path = root.join(format!("crates/baylee-cards/src/cards/{exemplar}.rs"));
+        if exemplar_path.exists() {
+            fs::write(
+                dir.join("EXEMPLAR.rs"),
+                fs::read_to_string(exemplar_path)?,
+            )?;
+        }
+        // 5. Prompt.
+        let prompt = format!(
+            "# Implement `{name}` for baylee\n\n\
+             Follow crates/baylee-cards/AGENTS.md and docs/card-dsl.md exactly.\n\n\
+             - STUB.rs: the generated stub to complete (edit it into the final card).\n\
+             - FORGE.txt: the forge-reference script (rules ground truth).\n\
+             - SCRYFALL.json: card metadata.\n\
+             - EXEMPLAR.rs: an implemented card of the same type — match its style.\n\n\
+             Rules: preserve index/oracle_id/scryfall_id/faces data; implement every\n\
+             oracle sentence or use Coverage::Partial + NOT SUPPORTED comments;\n\
+             write tests; `cargo check -p baylee-cards` and `cargo test -p baylee-cards`\n\
+             must pass. Output: the complete final contents of crates/baylee-cards/src/cards/{slug}.rs\n",
+        );
+        fs::write(dir.join("PROMPT.md"), prompt)?;
+    }
+    Ok(())
+}
+
+/// Validates card-file conventions across the registry.
+fn validate(root: &Path) -> anyhow::Result<()> {
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let names = acceptance::unique_names(&rows);
+    let mut problems = 0usize;
+    for name in &names {
+        let slug = baylee_cards_codegen::stubgen::slug(name);
+        let path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
+        let content = match fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => {
+                println!("MISSING FILE: {slug}");
+                problems += 1;
+                continue;
+            }
+        };
+        for check in [
+            ("header name", content.contains("//!")),
+            ("set line", content.contains("Set:")),
+            ("scryfall id", content.contains("Scryfall ID:")),
+            ("oracle id", content.contains("Oracle ID:")),
+            ("coverage flag", content.contains("coverage: Coverage::")),
+            ("tests module", content.contains("mod tests")),
+        ] {
+            if !check.1 {
+                println!("{slug}: missing {}", check.0);
+                problems += 1;
+            }
+        }
+    }
+    if problems > 0 {
+        anyhow::bail!("{problems} convention problem(s) found");
+    }
+    println!("validate: {} cards conform", names.len());
     Ok(())
 }
 

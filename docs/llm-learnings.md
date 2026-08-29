@@ -23,3 +23,18 @@ time). Maintained by the orchestrator; entries dated, newest first.
 ## Prompt learnings
 
 (append after each batch: error class → prompt rule that prevents it)
+
+## State after M2.S8 (2026-08-29)
+
+- DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
+  `crates/baylee-cards/AGENTS.md`.
+- `cargo run -p xtask -- card-batch` prepares per-card task packages in
+  `target/card-batch/<slug>/` (STUB + FORGE + SCRYFALL + EXEMPLAR + PROMPT).
+  `--cards "A,B"` restricts to a list; default = all unimplemented
+  acceptance cards (83 at freeze).
+- `cargo run -p xtask -- validate` enforces conventions (194 conform).
+- Coverage at freeze: 92 Implemented, 19 Partial, 83 Unimplemented.
+- Batch order: local model implements a card → `cargo check -p baylee-cards`
+  → `cargo test -p baylee-cards <slug>` → `xtask validate`. Failures retry
+  once with compiler output, then escalate. One local model at a time
+  (M1 Max 64 GB).
