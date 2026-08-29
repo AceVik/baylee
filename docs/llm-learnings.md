@@ -261,6 +261,24 @@ Open milestones discovered tonight:
   `JoinGame`), `PrintRef::new` takes `u16` (wire uses `u32` → cast).
 - e2e covers: create → answer → advance → second client joins by id.
 
+## 2026-08-29 — 191/3/0: engine card scope essentially complete
+
+- Final engine batch: Commander's Insight (commander_casts tracking in
+  finish_cast + Amount::XPlusCommanderCasts), Aminatou −6
+  (Effect::ControlRotation — heads-up swap of all nonland permanents),
+  Vendilion Clique (presentation is protocol, engine choice was already
+  complete), Inspirit (station: TapTarget + AddType/Keyword-
+  IfCountersAtLeast conditional statics + modal counter trigger),
+  Opposition Agent (REAL takeover: Modifier::SearchTakeover redirects the
+  search choice to the agent's controller, finds go to exile with
+  Rider::PlayableFromExileFor + wild payment on takeover casts),
+  General Tazri (Amount::DistinctColorsAmong).
+- **191 Implemented, 3 Partial, 0 Unimplemented.** The 3: Jin-Gitaxias
+  and Storm of Saruman (copy target re-choice, protocol v2), Karn
+  (outside-the-game, M4 gateway sideboards). No engine blockers remain.
+- M4-core game manager shipped alongside: multi-game hosting, real
+  client presets via `preset::from_proto`, JoinGame re-attach.
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
