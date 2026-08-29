@@ -162,6 +162,8 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
     })
 }
 
+/// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
+#[must_use]
 pub fn target_options(
     spec: &TargetSpec,
     state: &GameState,

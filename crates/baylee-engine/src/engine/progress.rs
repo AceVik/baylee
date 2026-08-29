@@ -337,6 +337,7 @@ impl<L: CardLookup> Engine<L> {
     /// replaced by the target's base, with the card's modifications. For
     /// `CopyOnEnterUntilEot` (Cursed Mirror), the copy is a layer-1
     /// continuous effect with `UntilEndOfTurn` duration instead.
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
         let (mods, until_eot): (Vec<baylee_cards_dsl::CopyMod>, bool) = {
             let Some(obj) = self.state.object(id) else {
