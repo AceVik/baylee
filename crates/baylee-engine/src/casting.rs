@@ -46,16 +46,23 @@ pub fn can_cast(
 ) -> Result<(), CastError> {
     let obj = state.object(card).ok_or(CastError::NotInHand)?;
     let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
+    let in_own_graveyard = obj.zone == Zone::Graveyard && obj.zone_owner == Some(player);
     // Flashback (CR 702.34): a granted card may be cast from its owner's
     // graveyard.
-    let flashback_ok = !in_hand
-        && obj.zone == Zone::Graveyard
-        && obj.zone_owner == Some(player)
-        && state.effects.iter().any(|fx| {
+    let flashback_ok =
+        !in_hand && in_own_graveyard && state.effects.iter().any(|fx| {
             matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsFlashback)
                 && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == card)
         });
-    if !in_hand && !flashback_ok {
+    // Disturb (CR 702.112): a face with disturb is castable from the
+    // owner's graveyard.
+    let disturb_ok = !in_hand
+        && in_own_graveyard
+        && obj
+            .card
+            .and_then(|c| lookup.card(c.index))
+            .is_some_and(|def| def.faces.iter().any(|f| f.disturb));
+    if !in_hand && !flashback_ok && !disturb_ok {
         return Err(CastError::NotInHand);
     }
     let c = obj.characteristics();

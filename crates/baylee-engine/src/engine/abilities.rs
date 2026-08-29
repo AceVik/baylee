@@ -44,7 +44,16 @@ impl<L: CardLookup> Engine<L> {
                 matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsFlashback)
                     && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == card)
             });
-            if granted && casting::can_cast(&self.state, &self.lookup, player, card).is_ok() {
+            // Disturb: a face with disturb is castable from the graveyard.
+            let disturb = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .is_some_and(|def| def.faces.iter().any(|f| f.disturb));
+            if (granted || disturb)
+                && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+            {
                 legal.castable.push(card);
             }
         }

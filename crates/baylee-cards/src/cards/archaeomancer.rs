@@ -42,6 +42,7 @@ pub static CARD: CardDef = CardDef {
         delve: false,
         convoke: false,
         cost_reduction: None,
+        disturb: false,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,

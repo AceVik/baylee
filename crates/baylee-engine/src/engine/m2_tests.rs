@@ -42,6 +42,7 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
         delve: false,
         convoke: false,
         cost_reduction: None,
+        disturb: false,
     }
 }
 

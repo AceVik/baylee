@@ -40,6 +40,7 @@ pub static CARD: CardDef = CardDef {
             delve: false,
             convoke: false,
             cost_reduction: None,
+            disturb: false,
         },
         FaceDef {
             name: "Demonic Tutor",
@@ -60,6 +61,7 @@ pub static CARD: CardDef = CardDef {
             delve: false,
             convoke: false,
             cost_reduction: None,
+            disturb: false,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Black]),

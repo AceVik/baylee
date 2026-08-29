@@ -87,6 +87,7 @@ impl CardDef {
 
 /// One face of a card.
 #[derive(Debug)]
+#[allow(clippy::struct_excessive_bools)] // card faces accumulate boolean rule markers
 pub struct FaceDef {
     /// Face name.
     pub name: &'static str,
@@ -130,6 +131,9 @@ pub struct FaceDef {
     pub convoke: bool,
     /// A conditional cost reduction printed on the card.
     pub cost_reduction: Option<crate::cost::CostReduction>,
+    /// Disturb (CR 702.112): this face may be cast from the graveyard
+    /// for its mana cost; exile it after.
+    pub disturb: bool,
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).

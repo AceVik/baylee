@@ -1,8 +1,10 @@
 //! Mirrorhall Mimic // Ghastly Mimicry — {3}{U} — Creature — Spirit // Enchantment — Aura
 //! Oracle: You may have Mirrorhall Mimic enter the battlefield as a copy of any creature on the battlefield, except it's a Spirit in addition to its other types. Disturb {5}{U}. // Enchant creature. Enchanted creature is a copy of Mirrorhall Mimic, except it's a Spirit in addition to its other types.
 //! Set: VOW #68 — Innistrad: Crimson Vow | Scryfall ID: 823ad188-bd56-476d-9853-bed90bfad582 | Oracle ID: 5768fe50-a134-492c-a725-5ed02610c39f
-// PARTIAL — the clone front is implemented. Disturb (casting the back
-// face from the graveyard) needs graveyard face-casting (own milestone).
+// IMPLEMENTED — clone front + disturb (cast Ghastly Mimicry from the
+// graveyard, exile on resolution).
+// NOTE: Ghastly Mimicry's aura effect ("enchanted creature is a copy of
+// Mirrorhall Mimic") is an aura-attachment rules item (M3+).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
@@ -41,6 +43,7 @@ pub static CARD: CardDef = CardDef {
             delve: false,
             convoke: false,
             cost_reduction: None,
+            disturb: false,
         },
         FaceDef {
             name: "Ghastly Mimicry",
@@ -61,13 +64,14 @@ pub static CARD: CardDef = CardDef {
             delve: false,
             convoke: false,
             cost_reduction: None,
+            disturb: true,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("disturb (graveyard back-face casting, own milestone)"),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::CopyOnEnter {
         target: TargetSpec::Object(&ANY_CREATURE),
         mods: &[CopyMod::AddSubtype(creature::SPIRIT)],

@@ -184,6 +184,24 @@ impl<L: CardLookup> Engine<L> {
         let face = &def.faces[0];
         let pool = &self.state.players[player.get() as usize].mana_pool;
         let mut options = Vec::new();
+        // Disturb casts come from the graveyard: no normal-cost option.
+        let disturb_cast = self
+            .state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+            && def.faces.iter().any(|f| f.disturb);
+        if disturb_cast {
+            for (i, back) in def.faces.iter().enumerate().skip(1) {
+                if back.disturb && mana_pay::can_pay(pool, &back.mana_cost.with_x(0)) {
+                    options.push(CastModeDesc {
+                        index: (options.len()) as u8,
+                        kind: CastModeKind::Face(i),
+                        cost: back.mana_cost,
+                    });
+                }
+            }
+            return Ok(options);
+        }
         // Conditional cost reduction printed on the card (Surgical
         // Metamorph & co.).
         let normal_cost = match face.cost_reduction {

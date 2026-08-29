@@ -50,6 +50,7 @@ pub static CARD: CardDef = CardDef {
             delve: false,
             convoke: false,
             cost_reduction: None,
+            disturb: false,
         },
         FaceDef {
             name: "Grimclimb Pathway",
@@ -70,6 +71,7 @@ pub static CARD: CardDef = CardDef {
             delve: false,
             convoke: false,
             cost_reduction: None,
+            disturb: false,
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),
