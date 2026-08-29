@@ -137,6 +137,7 @@ impl<L: CardLookup> Engine<L> {
     /// Applies as-it-enters-the-battlefield modifiers to permanents that
     /// entered since the last scan (CR 614.1c/d; taplands, shocklands).
     /// Returns whether anything changed (for legal-list recomputation).
+    #[allow(clippy::too_many_lines)] // the entry-modifier table is naturally flat
     pub(crate) fn apply_enter_modifiers(&mut self) -> bool {
         use baylee_cards_dsl::EnterModifier;
         let events: Vec<(ObjectId, PlayerId)> = self

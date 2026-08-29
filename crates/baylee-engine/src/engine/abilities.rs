@@ -382,12 +382,12 @@ impl<L: CardLookup> Engine<L> {
         if cost < 0 && old < (-cost) as u16 {
             return Err(EngineError::IllegalAction("not enough loyalty"));
         }
-        if let Some(spec) = target {
-            if !matches!(spec, baylee_cards_dsl::TargetSpec::AnyPlayer) {
-                let options = eval::target_options(&spec, &self.state, player, source);
-                if options.is_empty() {
-                    return Err(EngineError::IllegalAction("no legal targets"));
-                }
+        if let Some(spec) = target
+            && !matches!(spec, baylee_cards_dsl::TargetSpec::AnyPlayer)
+        {
+            let options = eval::target_options(&spec, &self.state, player, source);
+            if options.is_empty() {
+                return Err(EngineError::IllegalAction("no legal targets"));
             }
         }
         let new = if cost >= 0 {
