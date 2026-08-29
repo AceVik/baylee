@@ -7,6 +7,7 @@ use super::{
 use baylee_cards_dsl::ActivationZone;
 
 impl<L: CardLookup> Engine<L> {
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn compute_legal(&self, player: PlayerId) -> LegalActions {
         let mut legal = LegalActions {
             can_pass: true,

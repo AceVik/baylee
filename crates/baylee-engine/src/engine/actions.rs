@@ -95,15 +95,19 @@ impl<L: CardLookup> Engine<L> {
                     .object(card)
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))
-                    .map(|def| {
-                        def.faces
-                            .iter()
-                            .enumerate()
-                            .filter(|(_, f)| f.types.contains(baylee_core::types::TypeSet::LAND))
-                            .map(|(i, _)| i)
-                            .collect()
-                    })
-                    .unwrap_or_else(|| vec![0]);
+                    .map_or_else(
+                        || vec![0],
+                        |def| {
+                            def.faces
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, f)| {
+                                    f.types.contains(baylee_core::types::TypeSet::LAND)
+                                })
+                                .map(|(i, _)| i)
+                                .collect()
+                        },
+                    );
                 if land_faces.len() > 1 {
                     // Both faces are lands (pathways): choose.
                     let options = land_faces
@@ -153,7 +157,7 @@ impl<L: CardLookup> Engine<L> {
                         .and_then(|o| o.card)
                         .and_then(|c| self.lookup.card(c.index))
                         .expect("land card known");
-                    self.state.switch_face(card, def, index as usize);
+                    self.state.switch_face(card, def, index);
                     casting::play_land(&mut self.state, player, card)?;
                     self.after_action(player);
                     return Ok(());
