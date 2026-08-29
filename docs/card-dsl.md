@@ -187,14 +187,18 @@ abilities: &[AbilityDef::Static(StaticAbility {
 
 ## Explicitly not supported yet (M3+)
 
+Landed since the freeze (no longer blockers): MDFC face casting, miracle,
+delve, convoke, flashback grants, protection (damage/target/block),
+until-EOT layer-1 copies, extra turns, lifelink counters, search locks,
+no-max-hand-size, damage prevention, choose-a-type, ward, monarch.
+
 - Multiplayer player-choice for targeted triggers (protocol M3) — use
   `PlayerRel::Opponent` (heads-up auto-resolve) + `Partial` note for MP.
 - Target re-choice for spell copies (protocol M3).
 - Sideboard / outside-the-game access (Karn's wish, companion) — gateway M4.
-- MDFC face choice at cast (pathways, Glasspool Mimic, Mirrorhall Mimic,
-  Sheoldred) — 6 acceptance cards blocked.
-- Miracle (Banishing Stroke, Entreat the Dead, Metamorphosis Fanatic,
-  Temporal Mastery) — needs draw-event + first-drawn tracking.
+- Sagas (Urza's Saga chapters, The True Scriptures): lore counters,
+  chapter triggers, granted abilities, sacrifice after the last chapter.
+- Disturb (Mirrorhall Mimic's back): graveyard face-casting.
 - Activation conditions (Mox Opal metalcraft, Bleachbone Verge) — abilities
   currently activate unconditionally (`Partial` note).
 - Mana-source tracking / restricted mana riders (Cavern of Souls
@@ -206,15 +210,12 @@ abilities: &[AbilityDef::Static(StaticAbility {
   Urza's Saga ch. I/II).
 - Emblems with triggered abilities (Venser −8) — engine supports emblem
   objects; trigger scan for command zone is pending.
-- Protection from colors (Mother of Runes style, Tower of the Magistrate).
-- Grant-flashback (Snapcaster), until-EOT copies that become permanents
-  (Cursed Mirror), convoke (Clever Concealment), delve (Dig Through Time),
-  dream-halls/sacrifice-reanimation loops (Recurring Nightmare),
-  end-step-blink engines (Soulherder), equip-protection (Sword of Hearth
-  and Home), permanent-spell copies resolving as tokens (Reflections of
-  Littjara rider), player hexproof (Everybody Lives! rider).
-- Day/night, dungeons, initiative, battles, sagas (Urza's Saga chapters),
-  classes (Wizard Class levels), stickers/attractions, subgames, ante.
+- Cost reducers (Surgical Metamorph's not-starting-player {1} less).
+- Permanent-spell copies resolving as tokens (Reflections of Littjara
+  rider).
+- Player hexproof (Everybody Lives! rider).
+- Day/night, dungeons, initiative, battles, classes (Wizard Class levels),
+  stickers/attractions, subgames, ante.
 
 When you hit one of these: implement everything expressible, then
 `Coverage::Partial("…")` + `// NOT SUPPORTED:` on the specific line.

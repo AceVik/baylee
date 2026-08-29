@@ -85,11 +85,30 @@ Open milestones discovered tonight:
   `--cards "A,B"` restricts to a list; default = all unimplemented
   acceptance cards.
 - `cargo run -p xtask -- validate` enforces conventions (194 conform).
-- Coverage: 137 Implemented, 38 Partial, 19 Unimplemented (was 92/19/83
-  at freeze). The 19 remaining unimplemented cards cluster into six
-  subsystem milestones: MDFC face casting (6), miracle (4), grants
-  (flashback/until-EOT-copy, 3), protection from colors (2), convoke +
-  delve (2), misc engines (Recurring Nightmare, Soulherder).
+- Coverage: **153 Implemented, 41 Partial, 0 Unimplemented** (was 92/19/83
+  at freeze) — M2.5 acceptance coverage COMPLETE. All six subsystem
+  milestones landed on 2026-08-29: MDFC (per-face abilities,
+  `FaceDef.abilities` + `abilities_for_face`, `face_index`,
+  `CastModeKind::Face/PlayLandFace`), miracle (`FaceDef.miracle`,
+  `pending_miracle`, `CastModeKind::Miracle`, extra turns, lifelink
+  counters), flashback grants (`Modifier::GrantsFlashback` +
+  `Rider::Flashback`), protection (`Modifier::ProtectionFrom` at
+  damage/target/block), until-EOT layer-1 copies
+  (`Modifier::BecomeCopyOf` + `AbilityDef::CopyOnEnterUntilEot`),
+  delve/convoke (`FaceDef.delve/convoke` + wizard payment reductions,
+  `ManaCost::with_less_generic`).
+- Key DSL lesson: card-level `abilities` = FRONT face only;
+  `abilities_for_face(0)` falls back to card-level, back faces NEVER
+  inherit (Sheoldred's saga must not inherit the front's triggers).
+- FaceDef grew 4 fields post-freeze (`abilities`, `castable_from_hand`,
+  `miracle`, `delve`, `convoke`) — all bulk-inserted via perl across 194
+  files; mechanical multi-file literal edits are safe when the anchor
+  line is uniform.
+- Remaining partials (41) cluster into: sagas, emblems (command-zone
+  trigger scan), ability-granting statics, activation conditions,
+  mana-source provenance, search takeover, tap events, comparative
+  conditions, cost reducers, disturb, player hexproof, token-spell-copies,
+  colored convoke mana.
 - 2026-08-29 second night batch added: choose-subtype machinery
   (`EnterModifier::ChooseSubtype`, `Pending::ChooseSubtype`,
   `obj.chosen_subtype`, `Filter::MatchesChosenTypeOfSource`),
