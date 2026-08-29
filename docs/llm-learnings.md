@@ -247,6 +247,20 @@ Open milestones discovered tonight:
   (outside-game), Opposition Agent (search takeover), Vendilion Clique
   (presentation) — all protocol/gateway items, no engine blockers.
 
+## 2026-08-29 — M4-core: game manager
+
+- Multi-game hosting: `Games = Arc<Mutex<HashMap<Uuid, Session>>>` in
+  the transport; one `Session` per connection-bound human seat, AI seats
+  auto-driven inside the session.
+- `CreateGame` now honors client presets: `preset::from_proto` converts
+  the v0 `GamePresetMsg` to the core `GamePreset` (formats, house rules,
+  seats, decks, prints); no preset = dev acceptance duel.
+- `JoinGame { game_id }` re-attaches to a live game (v1: resends view +
+  pending; full seq-resume is protocol v2).
+- prost naming gotchas: oneof fields snake_case (`Msg::Join` for
+  `JoinGame`), `PrintRef::new` takes `u16` (wire uses `u32` → cast).
+- e2e covers: create → answer → advance → second client joins by id.
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
