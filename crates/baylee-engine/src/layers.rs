@@ -125,6 +125,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
     }
 }
 
+#[allow(clippy::too_many_lines)] // the modifier vocabulary is one flat table
 fn apply(
     c: &mut Characteristics,
     controller: &mut PlayerId,
