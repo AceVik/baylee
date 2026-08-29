@@ -1767,9 +1767,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         })
                     })
             });
-            let Some(player) = players.first().copied() else {
-                return None;
-            };
+            let player = players.first().copied()?;
             players.remove(0);
             let options: Vec<ObjectId> = state
                 .zones
