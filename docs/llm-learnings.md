@@ -127,6 +127,34 @@ Open milestones discovered tonight:
 - DSL gotcha: inserting a variant ABOVE another variant's doc comment
   steals the comment (missing-docs error for the next variant).
 
+## 2026-08-29 — E2 sagas (+ data-correction catch)
+
+- Saga machinery (CR 714): lore counter + chapter trigger on ETB
+  (apply_enter_modifiers) and after each draw step
+  (saga_draw_step_counters at the FirstMain→Combat transition); chapter
+  abilities are `AbilityDef::SagaChapter { chapter, effects, target }`
+  reusing the whole trigger/target/resolution machinery; sacrifice after
+  the final chapter in finish_resolution (counters >= max chapter).
+- `Modifier::GrantActivated { cost, effects, mana_ability }` — granted
+  abilities enumerate as synthetic index u32::MAX in compute_legal and
+  resolve through the synthetic side map (`start_granted_activation`).
+- `Modifier::ModifyPTPerCount { filter, p, t }` (layer 7c) +
+  `Effect::CreateTokenPtPerCount` (Urza's Saga Construct).
+- Per-player chains: `DestroyChosenForPlayers` (uses `sba::destroy` —
+  respects indestructible, unlike the sacrifice path) and
+  `DiscardForPlayers` (DiscardChain tracks the CHOOSING player for the
+  graveyard, not the controller).
+- `Effect::ExileSelfReturnAsFace { face }` — transform via
+  `obj.pending_face_change` applied in finish_resolution (resolve has no
+  lookup; face switches need the def).
+- **Data catch**: the sheoldred.rs stub header had the WRONG oracle text
+  (the Apocalypse's draw triggers). The real MOM Sheoldred: 4/5 menace,
+  ETB edict, {4}{B} flip (sorcery, opponent gy >= 8 — new
+  `ActivationCondition::OpponentGraveyardCountAtLeast`). Lesson: verify
+  stub headers against Scryfall for cards that share names with other
+  printings (Sheoldred × 2 in the pool).
+- Coverage now: **161 Implemented, 33 Partial, 0 Unimplemented**.
+
 ## State after M2.S8 (2026-08-29)
 
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
