@@ -100,7 +100,7 @@ async fn create_game_and_answer_first_choice() {
         let env = Envelope::decode(frame.into_data()).expect("decode");
         if matches!(
             env.msg,
-            Some(v1::envelope::Msg::ChoiceRequest(_)) | Some(v1::envelope::Msg::GameCreated(_))
+            Some(v1::envelope::Msg::ChoiceRequest(_) | v1::envelope::Msg::GameCreated(_))
         ) {
             advanced = true;
             break;
