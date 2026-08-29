@@ -889,6 +889,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::CantLoseLife => h.u8(18),
         M::PreventDamageToIt => h.u8(19),
         M::PreventDamageFromIt => h.u8(20),
+        M::OpponentsCantSearch => h.u8(21),
         M::ModifyPT(p, t) => {
             h.u8(10);
             h.i16(*p);

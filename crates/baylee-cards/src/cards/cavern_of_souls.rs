@@ -3,15 +3,28 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: {T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type, and that spell can't be countered.
 //! Set: LCI #269 — The Lost Caverns of Ixalan | Scryfall ID: 3aad15a2-8a1b-4460-9b06-e85863081878 | Oracle ID: 89ca686a-7c72-4d8f-9290-e89635624a83
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — choose-a-type, {C}, and any-color mana implemented. The
+// "spend only on a chosen-type creature spell, and that spell can't be
+// countered" rider needs mana-source tracking (restricted-mana riders,
+// own milestone).
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
+    Effect, EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_COLOR: &[ManaColor] = &[
+    ManaColor::White,
+    ManaColor::Blue,
+    ManaColor::Black,
+    ManaColor::Red,
+    ManaColor::Green,
+];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(17),
@@ -29,17 +42,41 @@ pub static CARD: CardDef = CardDef {
         alternative_costs: &[],
         additional_costs: &[],
         mandatory_additional_costs: &[],
-        enter_modifiers: &[],
+        enter_modifiers: &[EnterModifier::ChooseSubtype],
     }],
     color_identity: ColorSet::EMPTY,
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Partial(
+        "restricted/uncounterable mana rider (mana-source tracking, own milestone)",
+    ),
+    abilities: &[
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddMana {
+                color: ManaColor::Colorless,
+                amount: 1,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddManaChoice {
+                colors: ANY_COLOR,
+                amount: Amount::Fixed(1),
+                combination: false,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

@@ -2,15 +2,21 @@
 //! Oracle: Spells and abilities your opponents control can't cause their controller to search their library.
 //! Oracle: −1: Target player mills four cards. Then exile each opponent's graveyard.
 //! Set: WAR #228 — War of the Spark | Scryfall ID: f2df3258-c053-48a8-974f-d80899b2cd93 | Oracle ID: 93723b12-db34-4047-885e-8606415b1553
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — search suppression (OpponentsCantSearch checked in the
+// search ops) + the mill/exile-graveyards loyalty ability.
 #![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
+    Layer, Modifier, PartnerKind, PlayerRel, StaticAbility, TargetSpec,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes;
+use baylee_core::generated::subtypes::{self, planeswalker};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
+
+static ANY_PLAYER_F: Filter = Filter::Any;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(8),
@@ -21,7 +27,7 @@ pub static CARD: CardDef = CardDef {
         mana_cost: baylee_core::mana!("{1}{U/B}{U/B}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[subtypes::planeswalker::ASHIOK],
+        subtypes: &[planeswalker::ASHIOK],
         power: None,
         toughness: None,
         loyalty: Some(5),
@@ -30,15 +36,33 @@ pub static CARD: CardDef = CardDef {
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
     }],
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black]),
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Unimplemented,
-    abilities: &[],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Static(StaticAbility {
+            layer: Layer::Text,
+            filter: Filter::Any,
+            modifier: Modifier::OpponentsCantSearch,
+            cross_zone: false,
+        }),
+        AbilityDef::Loyalty {
+            cost: -1,
+            effects: &[
+                Effect::Mill {
+                    amount: Amount::Fixed(4),
+                    target: PlayerRel::ControllerOfTarget,
+                },
+                Effect::ExileGraveyard {
+                    player: PlayerRel::EachOpponent,
+                },
+            ],
+            target: Some(TargetSpec::AnyPlayer),
+        },
+    ],
 };
 
 #[cfg(test)]
-mod tests {
-    // TODO(card): implement abilities + tests, see docs/card-dsl.md.
-}
+mod tests {}

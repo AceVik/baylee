@@ -95,6 +95,9 @@ pub enum Modifier {
     /// Prevent all damage that would be dealt BY the affected object
     /// (Maze of Ith).
     PreventDamageFromIt,
+    /// The effect's opponents can't search libraries (Ashiok, Dream
+    /// Render).
+    OpponentsCantSearch,
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.

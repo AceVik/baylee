@@ -445,6 +445,13 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             shuffle,
             optional,
         } => {
+            // Ashiok, Dream Render: opponents can't search libraries.
+            if state.effects.iter().any(|fx| {
+                matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
+                    && fx.controller != you
+            }) {
+                return None;
+            }
             let options: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -584,6 +591,13 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             })
         }
         Effect::OptionalBasicLandSearchFor { player } => {
+            // Ashiok, Dream Render: opponents can't search libraries.
+            if state.effects.iter().any(|fx| {
+                matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
+                    && fx.controller != you
+            }) {
+                return None;
+            }
             let player = eval::players(player, state, you).first().copied()?;
             let options: Vec<ObjectId> = state
                 .zones
