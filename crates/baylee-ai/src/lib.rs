@@ -28,6 +28,9 @@ pub mod decks;
 /// state (the engine's seeded RNG does all randomness).
 #[derive(Clone, Debug)]
 pub struct HeuristicAgent {
+    /// Difficulty knobs (lookahead, temperature, mulligan skill); the v1
+    /// greedy policy reads them once evaluation lands.
+    #[allow(dead_code)]
     profile: AIProfile,
 }
 
@@ -40,6 +43,7 @@ impl HeuristicAgent {
 
     /// Picks an action for the current pending choice of `player`.
     #[must_use]
+    #[allow(clippy::too_many_lines)] // the pending taxonomy is one flat table
     pub fn act<L: CardLookup>(&self, engine: &Engine<L>, player: PlayerId) -> PlayerAction {
         match engine.pending().clone() {
             Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
@@ -154,13 +158,8 @@ impl HeuristicAgent {
             },
             Pending::ChooseCards {
                 options, min, max, ..
-            } => {
-                let n = if max <= 2 { max } else { min };
-                PlayerAction::ChooseObjects {
-                    objects: options[..(n as usize).min(options.len())].to_vec(),
-                }
             }
-            Pending::ChooseTargets {
+            | Pending::ChooseTargets {
                 options, min, max, ..
             } => {
                 let n = if max <= 2 { max } else { min };
@@ -200,8 +199,7 @@ impl HeuristicAgent {
                 YesNoPrompt::Miracle { .. } => {
                     PlayerAction::YesNo(mana_available(engine.state(), player) >= 2)
                 }
-                YesNoPrompt::Kicker => PlayerAction::YesNo(false),
-                YesNoPrompt::PayTax { .. } => PlayerAction::YesNo(false),
+                YesNoPrompt::Kicker | YesNoPrompt::PayTax { .. } => PlayerAction::YesNo(false),
                 YesNoPrompt::Generic => PlayerAction::YesNo(true),
             },
             Pending::GameOver(_) => PlayerAction::PassPriority, // unreachable in the driver
@@ -232,6 +230,10 @@ struct LoopKey {
 /// An AI cast that fails late legality checks (e.g. "not enough legal
 /// targets" discovered only in the wizard) falls back to passing; any
 /// other error is an engine bug and panics.
+///
+/// # Panics
+/// On engine-internal invariant violations (an illegal action that is not
+/// a late legality miss).
 pub fn play_game<L: CardLookup>(
     lookup: L,
     preset: &GamePreset,
@@ -248,7 +250,7 @@ pub fn play_game<L: CardLookup>(
         let player_for_hash = pending_player(&pending);
         let key = LoopKey {
             state: engine.state().snapshot_hash(),
-            player: player_for_hash.map_or(255, |p| p.get()),
+            player: player_for_hash.map_or(255, PlayerId::get),
             turn: engine.state().turn.number,
             phase: engine.state().turn.phase,
             step: engine.state().turn.step,
@@ -268,16 +270,13 @@ pub fn play_game<L: CardLookup>(
             if msg.contains("cannot pay") {
                 continue;
             }
-            match &pending {
-                Pending::Priority { .. } => {
-                    engine
-                        .apply(player, PlayerAction::PassPriority)
-                        .expect("passing is always legal");
-                }
-                _ => {
-                    let _ = msg; // late legality miss at a non-priority choice
-                    return None;
-                }
+            if let Pending::Priority { .. } = &pending {
+                engine
+                    .apply(player, PlayerAction::PassPriority)
+                    .expect("passing is always legal");
+            } else {
+                let _ = msg; // late legality miss at a non-priority choice
+                return None;
             }
         }
     }
