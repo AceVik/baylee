@@ -3,9 +3,11 @@
 //! Oracle: You control your opponents while they're searching their libraries.
 //! Oracle: While an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.
 //! Set: CMR #141 — Commander Legends | Scryfall ID: 086f97e9-8b62-44f3-b467-149c2ac5ca78 | Oracle ID: 1f438b8f-fe23-4f3b-ab2e-f6c33676c462
-// PARTIAL — flash body + a search-lock approximation (opponents can't
-// search at all). The real "you control their searches and may play
-// the exiled cards" hijack needs search takeover (own milestone).
+// IMPLEMENTED — flash body + the search takeover: while an opponent
+// searches, you choose their finds, the cards go to exile, and you may
+// play them from exile spending any color of mana. (The "you control
+// them while searching" nuance of ALSO making their choice for them is
+// covered by the takeover choice.)
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
@@ -48,13 +50,11 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::FLASH,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "search hijack approximated as a search lock (search takeover, own milestone)",
-    ),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Static(StaticAbility {
         layer: Layer::Text,
         filter: Filter::Any,
-        modifier: Modifier::OpponentsCantSearch,
+        modifier: Modifier::SearchTakeover,
         cross_zone: false,
     })],
 };

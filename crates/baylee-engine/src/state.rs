@@ -250,6 +250,9 @@ pub struct GameState {
     >,
     /// Next restriction id to hand out (0 = unrestricted sentinel).
     pub next_restriction_id: u32,
+    /// Times each player cast a commander from the command zone this
+    /// game (Commander's Insight).
+    pub commander_casts: Vec<u32>,
     /// The monarch designation (CR 718), if any.
     pub monarch: Option<PlayerId>,
     /// The player who took the first turn (Surgical Metamorph & co.).
@@ -321,6 +324,7 @@ impl GameState {
             extra_turns: std::collections::VecDeque::new(),
             restriction_info: rustc_hash::FxHashMap::default(),
             next_restriction_id: 1,
+            commander_casts: vec![0; preset.seats.len()],
             monarch: None,
             starting_player: PlayerId::new(0),
             ability_fires: rustc_hash::FxHashMap::default(),
@@ -910,6 +914,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
             Rider::Uncounterable => h.u8(8),
+            Rider::PlayableFromExileFor(p) => {
+                h.u8(9);
+                h.u8(p.get());
+            }
         }
     }
 }
@@ -1050,6 +1058,15 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::SorceriesHaveFlash => h.u8(29),
         M::GrantTriggered { .. } => h.u8(30),
         M::ManaIsAnyColor => h.u8(31),
+        M::SearchTakeover => h.u8(34),
+        M::AddTypeIfCountersAtLeast { at_least, .. } => {
+            h.u8(32);
+            h.u8(*at_least);
+        }
+        M::AddKeywordIfCountersAtLeast { at_least, .. } => {
+            h.u8(33);
+            h.u8(*at_least);
+        }
         M::GrantActivated { mana_ability, .. } => {
             h.u8(27);
             h.u8(u8::from(*mana_ability));

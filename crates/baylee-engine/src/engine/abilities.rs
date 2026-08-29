@@ -38,13 +38,16 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
-        // Adventure: cards on an adventure are castable from exile.
+        // Adventure + Opposition Agent: cards castable from exile.
         for &card in self.state.zones.list(ZoneLocation::Exile(player)) {
-            let on_adventure = self
-                .state
-                .object(card)
-                .is_some_and(|o| o.riders.contains(&crate::object::Rider::Adventure));
-            if on_adventure && casting::can_cast(&self.state, &self.lookup, player, card).is_ok() {
+            let exiled_castable = self.state.object(card).is_some_and(|o| {
+                o.riders.contains(&crate::object::Rider::Adventure)
+                    || o.riders
+                        .iter()
+                        .any(|r| matches!(r, crate::object::Rider::PlayableFromExileFor(p) if *p == player))
+            });
+            if exiled_castable && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+            {
                 legal.castable.push(card);
             }
         }

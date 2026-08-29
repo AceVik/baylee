@@ -118,6 +118,30 @@ pub enum Modifier {
     /// Players may spend mana as though it were mana of any color
     /// (Mycosynth Lattice).
     ManaIsAnyColor,
+    /// While an opponent searches their library, the effect's controller
+    /// makes the search choices and the found cards go to exile playable
+    /// by them (Opposition Agent).
+    SearchTakeover,
+    /// The affected object gains types while it has at least N counters
+    /// of a kind (station's "artifact creature at 8+").
+    AddTypeIfCountersAtLeast {
+        /// Counter kind.
+        kind: crate::effect::CounterKind,
+        /// Threshold.
+        at_least: u8,
+        /// Types granted.
+        types: baylee_core::types::TypeSet,
+    },
+    /// The affected object gains keywords while it has at least N
+    /// counters of a kind (station's "8+ | Flying").
+    AddKeywordIfCountersAtLeast {
+        /// Counter kind.
+        kind: crate::effect::CounterKind,
+        /// Threshold.
+        at_least: u8,
+        /// Keywords granted.
+        keywords: crate::KeywordSet,
+    },
     /// The affected object gains an activated ability (Urza's Saga
     /// chapters, Chromatic Lantern-style grants).
     GrantActivated {

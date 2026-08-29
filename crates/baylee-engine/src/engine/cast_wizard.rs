@@ -731,6 +731,16 @@ impl<L: CardLookup> Engine<L> {
                 _ => None,
             };
         }
+        // Commander-cast tracking (Commander's Insight): casts from the
+        // command zone count.
+        if self
+            .state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Command)
+            && let Some(v) = self.state.commander_casts.get_mut(player.get() as usize)
+        {
+            *v = v.saturating_add(1);
+        }
         // MDFC back-face cast: the object becomes its chosen face (CR 712.4).
         if let Some(CastModeKind::Face(i)) = wizard.option {
             let def = self

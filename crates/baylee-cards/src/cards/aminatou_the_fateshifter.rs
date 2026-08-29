@@ -50,7 +50,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::ExplicitlyAllowed,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("−6 control rotation (multiplayer direction, M2+)"),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Loyalty {
             cost: 1,
@@ -68,6 +68,11 @@ pub static CARD: CardDef = CardDef {
                 target: TargetSpec::Object(&OWNED_PERMANENT),
             }],
             target: Some(TargetSpec::Object(&OWNED_PERMANENT)),
+        },
+        AbilityDef::Loyalty {
+            cost: -6,
+            effects: &[Effect::ControlRotation],
+            target: None,
         },
     ],
 };

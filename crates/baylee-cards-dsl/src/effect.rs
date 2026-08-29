@@ -72,6 +72,9 @@ pub enum Amount {
     /// The negated value of X (Toxic Deluge's `-X/-X`; evaluated as a
     /// negative at use sites).
     NegX,
+    /// The value of X plus the controller's commander-cast count
+    /// (Commander's Insight).
+    XPlusCommanderCasts,
     /// A fixed negative value (-N at use sites).
     NegXFixed(u32),
     /// The power of the first target (last known characteristics).
@@ -320,6 +323,8 @@ pub enum Effect {
     TakeExtraTurn,
     /// Exile the source object (Temporal Mastery's self-exile rider).
     ExileSource,
+    /// Tap each target.
+    TapTarget,
     /// Untap each target.
     UntapTarget,
     /// Exile each target; return it to the battlefield under its owner's
@@ -717,6 +722,9 @@ pub enum Effect {
     /// Each player gains control of all creatures they own (Homeward
     /// Path).
     AllCreaturesToOwner,
+    /// Control rotation (Aminatou −6, heads-up): each nonland permanent
+    /// except the source changes controller to the other player.
+    ControlRotation,
     /// Phase a target permanent out (Clever Concealment).
     PhaseOut {
         /// What phases out (first target when set, else the source).

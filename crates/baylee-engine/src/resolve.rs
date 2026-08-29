@@ -84,6 +84,12 @@ pub enum AwaitingOp {
         /// The spell on the stack whose target changes.
         spell: ObjectId,
     },
+    /// After a taken-over search: the found card goes to exile playable
+    /// by the agent (Opposition Agent).
+    SearchTakeover {
+        /// The player taking the search over.
+        agent: PlayerId,
+    },
     /// After `DiscardForPlayers`: discard the chosen cards, then ask the
     /// next remaining player.
     DiscardChain {
@@ -510,6 +516,20 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 obj.targets.push(new_target);
             }
         }
+        AwaitingOp::SearchTakeover { agent } => {
+            for &card in chosen {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Exile(agent),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                if let Some(obj) = state.object_mut(card) {
+                    obj.riders
+                        .push(crate::object::Rider::PlayableFromExileFor(agent));
+                }
+            }
+        }
         AwaitingOp::DiscardChain {
             player,
             count,
@@ -681,6 +701,17 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             }) {
                 return None;
             }
+            // Opposition Agent: an opponent of the searching player takes
+            // the search over — they choose, and the find goes to exile
+            // playable by them.
+            let takeover = state
+                .effects
+                .iter()
+                .find(|fx| {
+                    matches!(fx.modifier, baylee_cards_dsl::Modifier::SearchTakeover)
+                        && fx.controller != you
+                })
+                .map(|fx| fx.controller);
             let options: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -698,6 +729,16 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                     state.shuffle_library(you);
                 }
                 return None;
+            }
+            if let Some(agent) = takeover {
+                res.awaiting = Some(AwaitingOp::SearchTakeover { agent });
+                return Some(Pending::ChooseCards {
+                    player: agent,
+                    options,
+                    min: u8::from(!optional),
+                    max: 1,
+                    prompt: ChoicePrompt::SearchLibrary,
+                });
             }
             res.awaiting = Some(AwaitingOp::SearchLibrary {
                 dest,
@@ -1855,6 +1896,28 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::ControlRotation => {
+            // Aminatou −6 (heads-up): every nonland permanent swaps to
+            // the other player (the direction choice is multiplayer-only).
+            for &id in &state.zones.list(ZoneLocation::Battlefield).clone() {
+                if id == res.source {
+                    continue;
+                }
+                let Some(obj) = state.object(id) else {
+                    continue;
+                };
+                if obj
+                    .characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::LAND)
+                {
+                    continue;
+                }
+                let other = PlayerId::new(1 - obj.controller.get());
+                change_controller(state, id, other);
+            }
+            None
+        }
         Effect::AllCreaturesToOwner => {
             let creatures: Vec<ObjectId> = state
                 .zones
@@ -2503,6 +2566,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 ZonePosition::Top,
                 Cause::Effect,
             );
+            None
+        }
+        Effect::TapTarget => {
+            for &target in &res.targets {
+                if let Some(obj) = state.object_mut(target) {
+                    obj.status.insert(crate::object::Status::TAPPED);
+                }
+            }
             None
         }
         Effect::UntapTarget => {

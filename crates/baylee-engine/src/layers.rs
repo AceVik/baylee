@@ -130,7 +130,7 @@ fn apply(
     controller: &mut PlayerId,
     fx: &ContinuousEffect,
     state: &GameState,
-    _obj: &GameObject,
+    obj: &GameObject,
 ) {
     match &fx.modifier {
         Modifier::BecomeCopyOf(id) => {
@@ -157,6 +157,24 @@ fn apply(
             }
             if let Some(tou) = &mut c.toughness {
                 *tou += count * t;
+            }
+        }
+        Modifier::AddTypeIfCountersAtLeast {
+            kind,
+            at_least,
+            types,
+        } => {
+            if obj.counters.get(*kind) >= u16::from(*at_least) {
+                c.types = c.types.union(*types);
+            }
+        }
+        Modifier::AddKeywordIfCountersAtLeast {
+            kind,
+            at_least,
+            keywords,
+        } => {
+            if obj.counters.get(*kind) >= u16::from(*at_least) {
+                c.keywords = c.keywords.union(*keywords);
             }
         }
         Modifier::AddType(t) => c.types = c.types.union(*t),
@@ -205,7 +223,8 @@ fn apply(
         | Modifier::GrantActivated { .. }
         | Modifier::SorceriesHaveFlash
         | Modifier::GrantTriggered { .. }
-        | Modifier::ManaIsAnyColor => {}
+        | Modifier::ManaIsAnyColor
+        | Modifier::SearchTakeover => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power += p;

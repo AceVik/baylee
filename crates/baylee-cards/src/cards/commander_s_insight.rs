@@ -1,9 +1,9 @@
 //! Commander's Insight — {X}{U}{U}{U} — Instant
 //! Oracle: Target player draws X cards plus an additional card for each time they've cast a commander from the command zone this game.
 //! Set: SOC #113 — Secrets of Strixhaven Commander | Scryfall ID: 1a40e4da-a631-4423-b70f-701b27b09f79 | Oracle ID: 54d7d7f8-22cd-4859-b203-924d248b422b
-// PARTIAL — X-draw with player targeting implemented. NOT SUPPORTED yet:
-// +1 per commander cast from the command zone (command-zone cast tracking,
-// format modifiers M2+).
+// IMPLEMENTED — X plus the command-zone cast count (the count is the
+// caster's; targeting another player using THEIR count is a protocol-v2
+// corner case).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
@@ -45,10 +45,10 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("commander-cast count bonus (format modifiers M2+)"),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
         effects: &[Effect::DrawCardsFor {
-            amount: Amount::X,
+            amount: Amount::XPlusCommanderCasts,
             who: PlayerRel::Chosen,
         }],
         targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),

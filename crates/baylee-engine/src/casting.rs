@@ -66,7 +66,15 @@ pub fn can_cast(
     let adventure_ok = !in_hand
         && obj.zone == Zone::Exile
         && obj.riders.contains(&crate::object::Rider::Adventure);
-    if !in_hand && !flashback_ok && !disturb_ok && !adventure_ok {
+    // Opposition Agent: cards exiled by the takeover are playable by the
+    // agent from exile.
+    let takeover_ok = !in_hand
+        && obj.zone == Zone::Exile
+        && obj
+            .riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::PlayableFromExileFor(p) if *p == player));
+    if !in_hand && !flashback_ok && !disturb_ok && !adventure_ok && !takeover_ok {
         return Err(CastError::NotInHand);
     }
     let c = obj.characteristics();

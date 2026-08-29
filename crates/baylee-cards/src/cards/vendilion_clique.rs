@@ -3,9 +3,9 @@
 //! Oracle: Flying
 //! Oracle: When Vendilion Clique enters, look at target player's hand. You may choose a nonland card from it. If you do, that player reveals the chosen card, puts it on the bottom of their library, then draws a card.
 //! Set: SLD #110 — Secret Lair Drop | Scryfall ID: cd702cf1-10ca-4448-9fb1-b6de635e839c | Oracle ID: 244d4807-0802-41bc-9460-55ac38a28a72
-// PARTIAL — flash/flying + hand-attack implemented (choose a nonland card
-// from the target player's hand, bottom it, draw). The look/reveal
-// presentation is a protocol M3 item; heads-up the target is the opponent.
+// IMPLEMENTED — flash/flying + hand-attack (choose a nonland card from
+// the target player's hand, bottom it, draw). The hand reveal is a
+// protocol presentation item; the choice itself is engine-complete.
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
@@ -50,7 +50,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::FLASH.union(KeywordSet::FLYING),
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("look/reveal presentation (M3); target player choice for MP (M3)"),
+    coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
         once_per_turn: false,

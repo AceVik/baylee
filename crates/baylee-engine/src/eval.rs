@@ -121,6 +121,14 @@ pub fn amount(
     match amount {
         Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
         Amount::X | Amount::NegX => x.unwrap_or(0),
+        Amount::XPlusCommanderCasts => {
+            x.unwrap_or(0)
+                + state
+                    .commander_casts
+                    .get(you.get() as usize)
+                    .copied()
+                    .unwrap_or(0)
+        }
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {

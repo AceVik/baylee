@@ -315,6 +315,9 @@ pub enum Rider {
     Flashback,
     /// Can't be countered (Cavern of Souls mana rider).
     Uncounterable,
+    /// May be played from exile by the given player, spending mana of
+    /// any color (Opposition Agent's search takeover).
+    PlayableFromExileFor(PlayerId),
 }
 
 /// Riders attached to an object.
