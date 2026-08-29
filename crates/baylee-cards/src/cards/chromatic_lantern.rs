@@ -2,14 +2,13 @@
 //! Oracle: Lands you control have "{T}: Add one mana of any color."
 //! Oracle: {T}: Add one mana of any color.
 //! Set: MBC #73 — Mystery Booster Commander Edition | Scryfall ID: 9b29492a-8bdd-4806-8d1b-3058ed277cc1 | Oracle ID: 539f5396-d99a-417d-a84c-dff7930b5900
-// PARTIAL — its own any-color mana ability works; the "lands you
-// control have ..." grant needs ability-granting statics (own
-// milestone).
+// IMPLEMENTED — its own any-color mana + the lands-you-control grant
+// (GrantActivated static).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind,
+    Effect, FaceDef, Filter, KeywordSet, Layer, Modifier, PartnerKind, StaticAbility,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
@@ -52,22 +51,38 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial(
-        "lands-you-control mana grant (ability-granting statics, own milestone)",
-    ),
-    abilities: &[AbilityDef::Activated {
-        cost: Cost::TAP,
-        effects: &[Effect::AddManaChoice {
-            colors: ANY_COLOR,
-            amount: Amount::Fixed(1),
-            combination: false,
-        }],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: true,
-        zone: ActivationZone::Battlefield,
-    }],
+    coverage: Coverage::Implemented,
+    abilities: &[
+        AbilityDef::Static(StaticAbility {
+            layer: Layer::Ability,
+            filter: Filter::And(&[Filter::HasType(TypeSet::LAND), Filter::ControlledByYou]),
+            modifier: Modifier::GrantActivated {
+                cost: Cost::TAP,
+                effects: ANY_COLOR_MANA,
+                mana_ability: true,
+            },
+            cross_zone: false,
+        }),
+        AbilityDef::Activated {
+            cost: Cost::TAP,
+            effects: &[Effect::AddManaChoice {
+                colors: ANY_COLOR,
+                amount: Amount::Fixed(1),
+                combination: false,
+            }],
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: true,
+            zone: ActivationZone::Battlefield,
+        },
+    ],
 };
+
+static ANY_COLOR_MANA: &[Effect] = &[Effect::AddManaChoice {
+    colors: ANY_COLOR,
+    amount: Amount::Fixed(1),
+    combination: false,
+}];
 
 #[cfg(test)]
 mod tests {}
