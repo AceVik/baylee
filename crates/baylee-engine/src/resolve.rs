@@ -997,7 +997,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // Copy the spell on the stack under your control (same targets;
             // target re-choice is a protocol M3 item).
             if let Some(&target_id) = res.targets.first() {
-                let (card, mut base, targets) = {
+                let (card, base, targets) = {
                     let Some(obj) = state.object(target_id) else {
                         return None;
                     };
