@@ -16,6 +16,12 @@ The Forge rules engine (https://github.com/Card-Forge/forge, GPL-3.0) may be
 used during development as a read-only rules reference. No Forge source code
 or data files are copied into this repository.
 
+Bundled fonts (crates/baylee-client/assets/fonts/): the Inter font family
+(https://rsms.me/inter/), licensed under the SIL Open Font License 1.1; and
+Font Awesome Free 6.7.2 (https://fontawesome.com), icons licensed under
+CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Neither font is a
+Wizards of the Coast asset.
+
 baylee source code is licensed under the GNU Affero General Public License
 v3.0 only (see LICENSE). The project is free and non-commercial; no feature
 will ever be placed behind payment.

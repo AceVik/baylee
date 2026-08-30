@@ -200,7 +200,7 @@ impl Plugin for DuelPlugin {
                 Update,
                 (DuelSet::Sync, DuelSet::Input, DuelSet::Present).chain(),
             )
-            .add_systems(Startup, textures::setup)
+            .add_systems(Startup, (textures::setup, hud::setup_fonts))
             .add_systems(
                 Update,
                 (handle_commands, poll_host, run_autopilot, flush_outbox)

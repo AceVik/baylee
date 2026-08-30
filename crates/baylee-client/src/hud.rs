@@ -23,6 +23,61 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_view::{GameStatic, PlayerView};
 use bevy::prelude::*;
 
+/// The two UI fonts: Inter for text, Font Awesome Solid for icons.
+/// Bundled OFL/CC-BY fonts (see NOTICE) — the default font has neither
+/// the weight range nor the icon glyphs.
+#[derive(Resource, Clone)]
+pub struct UiFonts {
+    /// Text font (Inter, variable weight).
+    pub text: Handle<Font>,
+    /// Icon font (Font Awesome 6 Free, solid).
+    pub icons: Handle<Font>,
+}
+
+/// Loads the bundled fonts at startup.
+pub fn setup_fonts(mut commands: Commands, assets: Res<AssetServer>) {
+    commands.insert_resource(UiFonts {
+        text: assets.load("fonts/Inter.ttf"),
+        icons: assets.load("fonts/fa-solid-900.ttf"),
+    });
+}
+
+/// A text-font handle at a size.
+fn tf(fonts: &UiFonts, size: f32) -> TextFont {
+    TextFont {
+        font: bevy::text::FontSource::Handle(fonts.text.clone()),
+        font_size: bevy::text::FontSize::Px(size),
+        ..default()
+    }
+}
+
+/// An icon-font handle at a size.
+fn icon_tf(fonts: &UiFonts, size: f32) -> TextFont {
+    TextFont {
+        font: bevy::text::FontSource::Handle(fonts.icons.clone()),
+        font_size: bevy::text::FontSize::Px(size),
+        ..default()
+    }
+}
+
+// Font Awesome glyph codepoints used across the overlay (fa-solid-900).
+mod glyph {
+    /// Heart (life total).
+    pub const HEART: char = '\u{f004}';
+    /// Hand (cards in hand).
+    pub const HAND: char = '\u{f256}';
+    /// Layer group (library).
+    pub const LIBRARY: char = '\u{f5fd}';
+    /// Skull (graveyard).
+    pub const SKULL: char = '\u{f54c}';
+    /// Ban (exile).
+    pub const EXILE: char = '\u{f05e}';
+    /// Forward one step (next phase).
+    pub const STEP: char = '\u{f051}';
+    /// Fast-forward (end turn).
+    pub const FAST: char = '\u{f050}';
+}
+
 /// Root of the overlay.
 #[derive(Component)]
 pub struct HudRoot;
@@ -183,6 +238,7 @@ pub fn sync_overlay(
     mut textures: ResMut<CardTextures>,
     assets: Res<AssetServer>,
     windows: Query<&Window>,
+    fonts: Res<UiFonts>,
 ) {
     let seq = duel.board.as_ref().map(|b| b.seq);
     let prompt = duel
@@ -259,13 +315,20 @@ pub fn sync_overlay(
         ))
         .id();
     for seat in view.seats.iter().filter(|s| s.player != view.seat) {
-        let tab = spawn_player_tab(&mut commands, view, duel.statics.as_ref(), seat, focus);
+        let tab = spawn_player_tab(
+            &mut commands,
+            view,
+            duel.statics.as_ref(),
+            seat,
+            focus,
+            &fonts,
+        );
         commands.entity(tabs).add_child(tab);
     }
     commands.entity(root).add_child(tabs);
 
-    // ---- left: the phase rail ------------------------------------------
-    let rail = spawn_phase_rail(&mut commands, view, &orders, autopilot);
+    // ---- right: the phase rail ------------------------------------------
+    let rail = spawn_phase_rail(&mut commands, view, &orders, autopilot, &fonts);
     commands.entity(root).add_child(rail);
 
     // ---- prompt bar (choice headline), floating above the hand bar -----
@@ -276,14 +339,14 @@ pub fn sync_overlay(
                 Node {
                     position_type: PositionType::Absolute,
                     bottom: px(HAND_CARD_H + 30.0),
-                    right: px(12),
+                    right: px(64),
                     padding: UiRect::axes(px(14), px(8)),
                     ..default()
                 },
                 BackgroundColor(palette::PANEL),
                 children![(
                     Text::new(text),
-                    TextFont::from_font_size(18.0),
+                    tf(&fonts, 18.0),
                     TextColor(if waiting {
                         palette::MUTED
                     } else {
@@ -347,7 +410,7 @@ pub fn sync_overlay(
                         ),
                         (
                             Text::new(card.name.clone()),
-                            TextFont::from_font_size(15.0),
+                            tf(&fonts, 15.0),
                             TextColor(palette::INK),
                         ),
                     ],
@@ -357,21 +420,23 @@ pub fn sync_overlay(
         }
     }
 
-    // ---- the stack (right side, when non-empty) -------------------------
+    // ---- the stack (left of the rail, when non-empty) --------------------
     if !board.stack.is_empty() {
-        let stack = spawn_stack_panel(&mut commands, board);
+        let stack = spawn_stack_panel(&mut commands, board, &fonts);
         commands.entity(root).add_child(stack);
     }
 }
 
 /// One player tab: name, life, zone counts; active highlighted, lost
 /// grayed out, team color at the border.
+#[allow(clippy::too_many_lines)] // the icon+number spans are naturally flat
 fn spawn_player_tab(
     commands: &mut Commands,
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &baylee_view::SeatView,
     focus: Option<PlayerId>,
+    fonts: &UiFonts,
 ) -> Entity {
     let player = seat.player;
     let name = statics.map_or_else(
@@ -394,12 +459,17 @@ fn spawn_player_tab(
     let border_px = if is_active || is_focused { 2.0 } else { 1.0 };
 
     let marker = if has_priority { "▶ " } else { "" };
+    let counts_color = if seat.has_lost {
+        palette::DEAD
+    } else {
+        palette::MUTED
+    };
     commands
         .spawn((
             PlayerTab { player },
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: px(1),
+                row_gap: px(2),
                 padding: UiRect::axes(px(10), px(5)),
                 border: UiRect::all(px(border_px)),
                 ..default()
@@ -412,54 +482,129 @@ fn spawn_player_tab(
             }),
             children![
                 (
-                    Text::new(format!("{marker}{name} [{}]", seat.life)),
-                    TextFont::from_font_size(14.0),
-                    TextColor(if seat.has_lost {
-                        palette::DEAD
-                    } else if seat.life <= 5 {
-                        palette::DANGER
-                    } else {
-                        ink
-                    }),
+                    // Name and life: name in text font, life with a heart icon.
+                    Text::new(format!("{marker}{name} ")),
+                    tf(fonts, 14.0),
+                    TextColor(if seat.has_lost { palette::DEAD } else { ink }),
+                    children![
+                        (
+                            TextSpan::new(glyph::HEART.to_string()),
+                            icon_tf(fonts, 11.0),
+                            TextColor(if seat.life <= 5 {
+                                palette::DANGER
+                            } else {
+                                palette::ACCENT
+                            }),
+                        ),
+                        (
+                            TextSpan::new(format!(" {}", seat.life)),
+                            tf(fonts, 14.0),
+                            TextColor(if seat.has_lost {
+                                palette::DEAD
+                            } else if seat.life <= 5 {
+                                palette::DANGER
+                            } else {
+                                ink
+                            }),
+                        ),
+                    ],
                 ),
                 (
-                    Text::new(format!(
-                        "✋{} 📚{} 🪦{} ⛔{}",
-                        seat.hand_count, seat.library_count, seat.graveyard_count, exile_count
-                    )),
-                    TextFont::from_font_size(11.0),
-                    TextColor(if seat.has_lost {
-                        palette::DEAD
-                    } else {
-                        palette::MUTED
-                    }),
+                    // Zone counts as icon + number pairs.
+                    Text::new(""),
+                    tf(fonts, 11.0),
+                    TextColor(counts_color),
+                    children![
+                        (
+                            TextSpan::new(glyph::HAND.to_string()),
+                            icon_tf(fonts, 10.0),
+                            TextColor(counts_color),
+                        ),
+                        (
+                            TextSpan::new(format!(" {}  ", seat.hand_count)),
+                            tf(fonts, 11.0),
+                            TextColor(counts_color),
+                        ),
+                        (
+                            TextSpan::new(glyph::LIBRARY.to_string()),
+                            icon_tf(fonts, 10.0),
+                            TextColor(counts_color),
+                        ),
+                        (
+                            TextSpan::new(format!(" {}  ", seat.library_count)),
+                            tf(fonts, 11.0),
+                            TextColor(counts_color),
+                        ),
+                        (
+                            TextSpan::new(glyph::SKULL.to_string()),
+                            icon_tf(fonts, 10.0),
+                            TextColor(counts_color),
+                        ),
+                        (
+                            TextSpan::new(format!(" {}  ", seat.graveyard_count)),
+                            tf(fonts, 11.0),
+                            TextColor(counts_color),
+                        ),
+                        (
+                            TextSpan::new(glyph::EXILE.to_string()),
+                            icon_tf(fonts, 10.0),
+                            TextColor(counts_color),
+                        ),
+                        (
+                            TextSpan::new(format!(" {exile_count}")),
+                            tf(fonts, 11.0),
+                            TextColor(counts_color),
+                        ),
+                    ],
                 ),
             ],
         ))
         .id()
 }
 
-/// The phase rail: local seat line, five phase buttons with their
-/// standing order, and the two autopilot buttons at the foot.
+/// Icon and the short rail label for a rail row.
+fn row_visual(row: RailRow) -> (char, &'static str) {
+    match row {
+        RailRow::Untap => ('\u{f185}', "UNT"),
+        RailRow::Upkeep => ('\u{f0ad}', "UPK"),
+        RailRow::Draw => ('\u{f063}', "DRW"),
+        RailRow::Main1 => ('\u{f024}', "M1"),
+        RailRow::CombatBegin => ('\u{f71d}', "CBT"),
+        RailRow::Attackers => ('\u{f70c}', "ATK"),
+        RailRow::Blockers => ('\u{f3ed}', "BLK"),
+        RailRow::Damage => ('\u{f6e2}', "DMG"),
+        RailRow::CombatEnd => ('\u{f11e}', "EOC"),
+        RailRow::Main2 => ('\u{f024}', "M2"),
+        RailRow::EndStep => ('\u{f253}', "END"),
+        RailRow::Cleanup => ('\u{f51a}', "CLN"),
+    }
+}
+
+/// The phase rail: pinned to the right edge, full height minus the hand
+/// bar. Every step is one narrow icon button with its standing order;
+/// the two autopilot buttons sit at the foot.
 #[allow(clippy::too_many_lines)] // one rail, three sections
 fn spawn_phase_rail(
     commands: &mut Commands,
     view: &PlayerView,
     orders: &baylee_client_core::automation::PhaseOrders,
     autopilot: Option<AutoPilot>,
+    fonts: &UiFonts,
 ) -> Entity {
     let rail = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: px(8),
-                top: px(64),
-                bottom: px(HAND_CARD_H + 30.0),
-                width: px(104),
+                right: px(0),
+                top: px(0),
+                bottom: px(HAND_CARD_H + 20.0),
+                width: px(56),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::SpaceBetween,
+                padding: UiRect::axes(px(4), px(6)),
                 ..default()
             },
+            BackgroundColor(palette::PANEL),
             Pickable::IGNORE,
         ))
         .id();
@@ -470,6 +615,7 @@ fn spawn_phase_rail(
             Node {
                 flex_direction: FlexDirection::Column,
                 row_gap: px(3),
+                align_items: AlignItems::Center,
                 ..default()
             },
             Pickable::IGNORE,
@@ -480,24 +626,41 @@ fn spawn_phase_rail(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::axes(px(8), px(5)),
+                align_items: AlignItems::Center,
+                padding: UiRect::axes(px(4), px(4)),
+                row_gap: px(1),
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
             children![
                 (
                     Text::new(format!("T{}", view.turn)),
-                    TextFont::from_font_size(13.0),
+                    tf(fonts, 11.0),
                     TextColor(palette::MUTED),
                 ),
                 (
-                    Text::new(format!("You · {local_life}")),
-                    TextFont::from_font_size(14.0),
-                    TextColor(if local_life <= 5 {
-                        palette::DANGER
-                    } else {
-                        palette::INK
-                    }),
+                    Text::new("You "),
+                    tf(fonts, 12.0),
+                    TextColor(palette::MUTED),
+                    children![
+                        (
+                            TextSpan::new(glyph::HEART.to_string()),
+                            icon_tf(fonts, 10.0),
+                            TextColor(if local_life <= 5 {
+                                palette::DANGER
+                            } else {
+                                palette::ACCENT
+                            }),
+                        ),
+                        (
+                            TextSpan::new(format!(" {local_life}")),
+                            tf(fonts, 12.0),
+                            TextColor(if local_life <= 5 {
+                                palette::DANGER
+                            } else {
+                                palette::INK
+                            }),
+                        ),
+                    ],
                 ),
             ],
         ))
@@ -508,12 +671,16 @@ fn spawn_phase_rail(
     for (row, skipped) in orders.rows() {
         let is_current = row == current_row;
         let is_selected = orders.selected() == Some(row);
+        let (icon, short) = row_visual(row);
         let button = commands
             .spawn((
                 PhaseButton { row },
                 Node {
-                    padding: UiRect::axes(px(6), px(2)),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::axes(px(2), px(2)),
                     border: UiRect::all(px(if is_selected || is_current { 2.0 } else { 1.0 })),
+                    width: percent(100),
                     ..default()
                 },
                 BackgroundColor(if skipped {
@@ -528,15 +695,26 @@ fn spawn_phase_rail(
                 } else {
                     palette::PANEL
                 }),
-                children![(
-                    Text::new(row.name()),
-                    TextFont::from_font_size(11.0),
-                    TextColor(if is_current {
-                        palette::INK
-                    } else {
-                        palette::MUTED
-                    }),
-                )],
+                children![
+                    (
+                        Text::new(icon.to_string()),
+                        icon_tf(fonts, 12.0),
+                        TextColor(if is_current {
+                            palette::INK
+                        } else {
+                            palette::MUTED
+                        }),
+                    ),
+                    (
+                        Text::new(short),
+                        tf(fonts, 8.5),
+                        TextColor(if is_current {
+                            palette::INK
+                        } else {
+                            palette::MUTED
+                        }),
+                    ),
+                ],
             ))
             .id();
         commands.entity(top).add_child(button);
@@ -554,15 +732,15 @@ fn spawn_phase_rail(
             Pickable::IGNORE,
         ))
         .id();
-    for (kind, label, engaged) in [
+    for (kind, icon, engaged) in [
         (
             RailButton::NextPhase,
-            "Next ▶",
+            glyph::STEP,
             matches!(autopilot, Some(AutoPilot::ToNextPhase { .. })),
         ),
         (
             RailButton::EndTurn,
-            "End ⏭",
+            glyph::FAST,
             matches!(autopilot, Some(AutoPilot::ToNextTurn { .. })),
         ),
     ] {
@@ -570,9 +748,10 @@ fn spawn_phase_rail(
             .spawn((
                 kind,
                 Node {
-                    padding: UiRect::axes(px(8), px(6)),
+                    padding: UiRect::axes(px(4), px(5)),
                     border: UiRect::all(px(1)),
                     justify_content: JustifyContent::Center,
+                    width: percent(100),
                     ..default()
                 },
                 BackgroundColor(palette::PANEL_LIT),
@@ -582,8 +761,8 @@ fn spawn_phase_rail(
                     palette::PANEL
                 }),
                 children![(
-                    Text::new(label),
-                    TextFont::from_font_size(12.0),
+                    Text::new(icon.to_string()),
+                    icon_tf(fonts, 13.0),
                     TextColor(if engaged {
                         palette::ACCENT
                     } else {
@@ -723,13 +902,17 @@ pub fn apply_hand_scroll(
     }
 }
 
-/// The stack, next-to-resolve at the top.
-fn spawn_stack_panel(commands: &mut Commands, board: &baylee_client_core::BoardModel) -> Entity {
+/// The stack, next-to-resolve at the top; pinned left of the phase rail.
+fn spawn_stack_panel(
+    commands: &mut Commands,
+    board: &baylee_client_core::BoardModel,
+    fonts: &UiFonts,
+) -> Entity {
     let panel = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                right: px(12),
+                right: px(64),
                 top: percent(28),
                 width: px(220),
                 flex_direction: FlexDirection::Column,
@@ -745,7 +928,7 @@ fn spawn_stack_panel(commands: &mut Commands, board: &baylee_client_core::BoardM
     let title = commands
         .spawn((
             Text::new(format!("Stack ({})", board.stack.len())),
-            TextFont::from_font_size(13.0),
+            tf(fonts, 13.0),
             TextColor(palette::MUTED),
         ))
         .id();
@@ -760,7 +943,7 @@ fn spawn_stack_panel(commands: &mut Commands, board: &baylee_client_core::BoardM
         let entity = commands
             .spawn((
                 Text::new(label),
-                TextFont::from_font_size(14.0),
+                tf(fonts, 14.0),
                 TextColor(if item.depth == 0 {
                     palette::ACCENT
                 } else {

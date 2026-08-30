@@ -20,16 +20,26 @@ fn main() {
     };
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "baylee".to_string(),
-                // Works as a desktop window and as a browser canvas; on mobile
-                // the platform decides and this is ignored.
-                fit_canvas_to_parent: true,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "baylee".to_string(),
+                        // Works as a desktop window and as a browser canvas; on
+                        // mobile the platform decides and this is ignored.
+                        fit_canvas_to_parent: true,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(bevy::asset::AssetPlugin {
+                    // Natively the fonts live in the crate's assets dir (run
+                    // from the repo root or anywhere else); trunk copies that
+                    // dir to `dist/assets`, the browser's asset root.
+                    file_path: asset_root().to_string(),
+                    ..default()
+                }),
+        )
         .add_plugins(DuelPlugin {
             config: DuelConfig::default(),
         })
@@ -40,6 +50,24 @@ fn main() {
 
 fn open_duel(mut commands: MessageWriter<DuelCommand>) {
     commands.write(DuelCommand::Open);
+}
+
+/// Where the asset server looks: the crate's assets dir natively (first
+/// existing candidate), plain `assets` in the browser bundle.
+fn asset_root() -> &'static str {
+    if cfg!(target_arch = "wasm32") {
+        return "assets";
+    }
+    for candidate in [
+        "crates/baylee-client/assets",
+        "../crates/baylee-client/assets",
+        concat!(env!("CARGO_MANIFEST_DIR"), "/assets"),
+    ] {
+        if std::path::Path::new(candidate).is_dir() {
+            return candidate;
+        }
+    }
+    "assets"
 }
 
 /// The demo duel from the acceptance decks.
