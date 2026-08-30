@@ -12,9 +12,9 @@
 
 use argon2::Argon2;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use parking_lot::Mutex;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
@@ -42,13 +42,14 @@ pub fn hash_password(password: &str) -> String {
 /// against a fixed dummy hash to equalize timing.
 #[must_use]
 pub fn verify_password(stored: Option<&str>, password: &str) -> bool {
-    // Pre-computed Argon2id hash of "dummy-password" — verifying against
-    // it costs the same as a real verify, so unknown users and real users
-    // take the same time.
-    const DUMMY: &str = "$argon2id$v=19$m=65536,t=3,p=1$\
-        c2FsdHNhbHRzYWx0c2FsdA$\
-        +pN/Z0b6aD1gOB7IXSaUtBzPBJ4YcEb6fsY/QJVLzEQ";
-    let phc = stored.unwrap_or(DUMMY);
+    // Argon2id hash of a fixed password, computed once with the *same*
+    // parameters as real hashes (`Argon2::default()` in `hash_password`).
+    // A hard-coded literal drifted out of sync once already (m=65536,t=3
+    // vs. m=19456,t=2) and made unknown users measurably *slower* than
+    // real ones — the exact leak the dummy is supposed to close.
+    static DUMMY: std::sync::LazyLock<String> =
+        std::sync::LazyLock::new(|| hash_password("dummy-password"));
+    let phc = stored.unwrap_or(&DUMMY);
     let Ok(parsed) = PasswordHash::new(phc) else {
         return false;
     };
@@ -129,6 +130,9 @@ pub fn now_secs() -> u64 {
 pub struct RateLimiter {
     /// ip → attempt timestamps within the window.
     hits: Mutex<HashMap<String, Vec<Instant>>>,
+    /// Last time dead entries were swept (bounds the map's growth —
+    /// unique attacker IPs must not grow it without limit).
+    last_sweep: Mutex<Instant>,
     window: Duration,
     max_attempts: usize,
 }
@@ -139,6 +143,7 @@ impl RateLimiter {
     pub fn new(window: Duration, max_attempts: usize) -> Self {
         Self {
             hits: Mutex::new(HashMap::new()),
+            last_sweep: Mutex::new(Instant::now()),
             window,
             max_attempts,
         }
@@ -146,8 +151,18 @@ impl RateLimiter {
 
     /// True when the attempt is allowed (and recorded).
     pub fn allow(&self, ip: &str) -> bool {
-        let mut hits = self.hits.lock().expect("rate limiter poisoned");
+        let mut hits = self.hits.lock();
         let now = Instant::now();
+        // Periodically drop entries with no hits inside the window.
+        let mut last = self.last_sweep.lock();
+        if now.duration_since(*last) >= self.window {
+            hits.retain(|_, v| {
+                v.retain(|t| now.duration_since(*t) < self.window);
+                !v.is_empty()
+            });
+            *last = now;
+        }
+        drop(last);
         let entry = hits.entry(ip.to_string()).or_default();
         entry.retain(|t| now.duration_since(*t) < self.window);
         if entry.len() >= self.max_attempts {

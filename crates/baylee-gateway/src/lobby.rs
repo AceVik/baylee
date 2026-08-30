@@ -4,7 +4,9 @@
 
 use baylee_core::preset::GamePreset;
 use baylee_gamehost::Session;
+use baylee_protocol::v1::Envelope;
 use std::collections::HashMap;
+use tokio::sync::broadcast;
 
 /// Lobby state of a game.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
@@ -46,9 +48,16 @@ pub struct LobbyGame {
     pub preset: Option<GamePreset>,
     /// The hosted game session (present when `Playing`).
     pub session: Option<Session>,
-    /// Spectator-facing log seq (protocol v2).
-    #[allow(dead_code)]
+    /// Per-game update fan-out: every routed `(seat, envelope)` the session
+    /// produces is broadcast here, so every connected seat socket receives
+    /// its own messages — not just the seat that happened to act (human-vs-
+    /// human depends on this; filtering per-socket used to drop the
+    /// opponent's envelopes entirely).
+    pub updates: broadcast::Sender<(u8, Envelope)>,
+    /// When the game was created (unix seconds).
     pub created_at: u64,
+    /// When the game ended (unix seconds), for the cleanup grace period.
+    pub finished_at: Option<u64>,
 }
 
 impl LobbyGame {
@@ -82,7 +91,30 @@ impl LobbyGame {
             ],
             preset: None,
             session: None,
+            updates: broadcast::channel(256).0,
             created_at,
+            finished_at: None,
+        }
+    }
+
+    /// A running game (both seats decided, session live).
+    #[must_use]
+    pub fn playing(
+        id: String,
+        seats: Vec<LobbySeat>,
+        preset: GamePreset,
+        session: Session,
+        created_at: u64,
+    ) -> Self {
+        Self {
+            id,
+            state: LobbyState::Playing,
+            seats,
+            preset: Some(preset),
+            session: Some(session),
+            updates: broadcast::channel(256).0,
+            created_at,
+            finished_at: None,
         }
     }
 }

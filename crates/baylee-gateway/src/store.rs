@@ -52,7 +52,7 @@ pub struct Deck {
 }
 
 /// The whole store.
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Store {
     /// Accounts by id.
     pub accounts: HashMap<String, Account>,

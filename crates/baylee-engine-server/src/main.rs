@@ -49,11 +49,10 @@ async fn main() {
 }
 
 fn tracing_subscriber_init() {
-    // Minimal stderr logging without pulling tracing-subscriber's fmt
-    // feature matrix into the dependency tree.
-    if std::env::var("RUST_LOG").is_ok() {
-        eprintln!("baylee-engine-server: logging enabled");
-    }
+    // Without a subscriber every `tracing::` call is a silent no-op.
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 }
 
 /// All live games on this server (v1: process-local; federation is a

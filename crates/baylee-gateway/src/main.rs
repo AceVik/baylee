@@ -12,17 +12,21 @@ mod store;
 
 use axum::Router;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, Query, State};
+use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
 use axum::routing::{get, post};
+use baylee_engine::choice::Pending;
 use baylee_protocol::v1::{self, Envelope};
-use lobby::{Lobby, LobbyGame, LobbyState};
+use lobby::{Lobby, LobbyGame, LobbySeat, LobbyState};
+use parking_lot::Mutex;
 use prost::Message as _;
 use serde::{Deserialize, Serialize};
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use store::{Account, Deck, Store, StoredToken};
+use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
 struct AppState {
@@ -30,28 +34,56 @@ struct AppState {
     limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
     store_path: PathBuf,
+    /// Signals the background writer that the store needs persisting
+    /// (debounced — serializing the whole store must stay out of the
+    /// request path).
+    save_tx: tokio::sync::mpsc::UnboundedSender<()>,
     /// Registration toggle (`BAYLEE_REGISTRATION=off` to disable).
     registration_enabled: bool,
+    /// Proxies whose `X-Forwarded-For` header may be trusted for rate
+    /// limiting (`BAYLEE_TRUSTED_PROXIES`, comma-separated IPs). Empty =
+    /// the header is never trusted; anyone can set it, so trusting it
+    /// blindly disables the brute-force defense.
+    trusted_proxies: Vec<IpAddr>,
+}
+
+impl AppState {
+    /// Ask the background writer to persist the store (cheap, debounced).
+    fn request_save(&self) {
+        let _ = self.save_tx.send(());
+    }
 }
 
 type Shared = Arc<AppState>;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
     let port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(28766);
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
+    let (save_tx, save_rx) = tokio::sync::mpsc::unbounded_channel();
     let state = Arc::new(AppState {
         store: Mutex::new(Store::load(&store_path)),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         lobby: Mutex::new(Lobby::default()),
         store_path,
+        save_tx,
         registration_enabled: std::env::var("BAYLEE_REGISTRATION")
             .map_or(true, |v| !matches!(v.as_str(), "off" | "0" | "false")),
+        trusted_proxies: std::env::var("BAYLEE_TRUSTED_PROXIES")
+            .unwrap_or_default()
+            .split(',')
+            .filter_map(|s| s.trim().parse::<IpAddr>().ok())
+            .collect(),
     });
+    spawn_store_writer(state.clone(), save_rx);
+    spawn_cleanup(state.clone());
 
     let app = Router::new()
         .route("/auth/config", get(auth_config))
@@ -73,7 +105,77 @@ async fn main() {
         .await
         .expect("bind gateway port");
     tracing::info!(port, "baylee-gateway listening");
-    axum::serve(listener, app).await.expect("gateway serves");
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .expect("gateway serves");
+}
+
+/// Persists the store outside the request path: mutation handlers send a
+/// dirty signal, this task debounces bursts and writes one snapshot.
+fn spawn_store_writer(state: Shared, mut rx: tokio::sync::mpsc::UnboundedReceiver<()>) {
+    tokio::spawn(async move {
+        while rx.recv().await.is_some() {
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            while rx.try_recv().is_ok() {}
+            let snapshot = state.store.lock().clone();
+            let path = state.store_path.clone();
+            let written = tokio::task::spawn_blocking(move || snapshot.save(&path)).await;
+            if let Ok(Err(e)) = written {
+                tracing::warn!(%e, "store write failed");
+            }
+        }
+    });
+}
+
+/// Periodically reclaims finished games (after a grace period), stale
+/// waiting lobbies, and expired tokens — all three grew without bound.
+fn spawn_cleanup(state: Shared) {
+    /// How long a finished game stays joinable for reconnect/review.
+    const OVER_GRACE_SECS: u64 = 3600;
+    /// How long an unattended waiting lobby stays open.
+    const WAITING_TIMEOUT_SECS: u64 = 2 * 3600;
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(600));
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            let now = auth::now_secs();
+            {
+                let mut lobby = state.lobby.lock();
+                // Flip live sessions that reached game over.
+                for game in lobby.games.values_mut() {
+                    if game.state == LobbyState::Playing
+                        && game
+                            .session
+                            .as_ref()
+                            .is_some_and(|s| matches!(s.pending(), Pending::GameOver(_)))
+                    {
+                        game.state = LobbyState::Over;
+                        game.finished_at = Some(now);
+                    }
+                }
+                lobby.games.retain(|_, g| match g.state {
+                    LobbyState::Waiting => now.saturating_sub(g.created_at) < WAITING_TIMEOUT_SECS,
+                    LobbyState::Over => g
+                        .finished_at
+                        .is_none_or(|t| now.saturating_sub(t) < OVER_GRACE_SECS),
+                    LobbyState::Playing => true,
+                });
+            }
+            let purged = {
+                let mut store = state.store.lock();
+                let before = store.tokens.len();
+                store.tokens.retain(|_, t| t.expires_at > now);
+                before - store.tokens.len()
+            };
+            if purged > 0 {
+                state.request_save();
+            }
+        }
+    });
 }
 
 // ------------------------------------------------------------------- auth
@@ -100,16 +202,20 @@ fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody
     (status, Json(ErrorBody { error: message }))
 }
 
-fn client_ip(headers: &HeaderMap) -> String {
-    // Behind a TLS-terminating proxy, the real client ip is forwarded;
-    // never trusted for auth decisions, only for rate limiting.
-    headers
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
-        .unwrap_or("unknown")
-        .trim()
-        .to_string()
+/// The IP a rate limit is keyed on: the real peer address, unless the
+/// peer itself is a configured trusted proxy — only then is its
+/// `X-Forwarded-For` honored. Trusting the header unconditionally let any
+/// client rotate it per request and disable the limiter entirely.
+fn rate_limit_ip(state: &AppState, peer: IpAddr, headers: &HeaderMap) -> String {
+    if state.trusted_proxies.contains(&peer)
+        && let Some(forwarded) = headers
+            .get("x-forwarded-for")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.split(',').next())
+    {
+        return forwarded.trim().to_string();
+    }
+    peer.to_string()
 }
 
 /// Public auth configuration (clients check this before offering
@@ -122,13 +228,17 @@ async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
 
 async fn register(
     State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<RegisterBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     if !state.registration_enabled {
         return Err(err(StatusCode::FORBIDDEN, "registration is disabled"));
     }
-    if !state.limiter.allow(&client_ip(&headers)) {
+    if !state
+        .limiter
+        .allow(&rate_limit_ip(&state, addr.ip(), &headers))
+    {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
     if !auth::valid_email(&body.email) {
@@ -140,10 +250,15 @@ async fn register(
     if !auth::valid_password(&body.email, &body.display_name, &body.password) {
         return Err(err(StatusCode::BAD_REQUEST, "invalid password"));
     }
-    let mut store = state.store.lock().expect("store poisoned");
-    // Anti-enumeration: identical success response whether or not the
-    // e-mail/display name was free. Only on genuine availability is an
-    // account actually created. (E-mail verification would hook in here.)
+    // Anti-enumeration: identical response AND identical work whether or
+    // not the e-mail/display name was free — hashing always (~100 ms),
+    // so timing can't tell "taken" (fast reject) from "created".
+    // Argon2 is deliberately expensive and runs off the async worker.
+    let password = body.password.clone();
+    let password_hash = tokio::task::spawn_blocking(move || auth::hash_password(&password))
+        .await
+        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
+    let mut store = state.store.lock();
     let email_taken = store.account_by_email(&body.email).is_some();
     let name_taken = store.account_by_display_name(&body.display_name).is_some();
     if !email_taken && !name_taken {
@@ -152,31 +267,43 @@ async fn register(
             id: auth::new_id(),
             email,
             display_name: body.display_name,
-            password_hash: auth::hash_password(&body.password),
+            password_hash,
             created_at: auth::now_secs(),
         };
         let id = account.id.clone();
         store.accounts.insert(id, account);
-        let _ = store.save(&state.store_path);
+        state.request_save();
     }
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 async fn login(
     State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(creds): Json<Credentials>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    if !state.limiter.allow(&client_ip(&headers)) {
+    if !state
+        .limiter
+        .allow(&rate_limit_ip(&state, addr.ip(), &headers))
+    {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
-    let mut store = state.store.lock().expect("store poisoned");
-    // Identical work for unknown users (dummy verify) and real ones.
-    let (account_id, ok) = {
-        let account = store.account_by_email(&creds.email);
-        let ok = auth::verify_password(account.map(|a| a.password_hash.as_str()), &creds.password);
-        (account.map(|a| a.id.clone()), ok)
+    // Fetch the hash under a short lock; the expensive verify runs off
+    // the async worker and outside the store lock.
+    let account = {
+        let store = state.store.lock();
+        store
+            .account_by_email(&creds.email)
+            .map(|a| (a.id.clone(), a.password_hash.clone()))
     };
+    let (account_id, stored_hash) = account.unzip();
+    let password = creds.password.clone();
+    let ok = tokio::task::spawn_blocking(move || {
+        auth::verify_password(stored_hash.as_deref(), &password)
+    })
+    .await
+    .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "verify failed"))?;
     let Some(account_id) = account_id else {
         return Err(err(StatusCode::UNAUTHORIZED, "invalid credentials"));
     };
@@ -184,6 +311,7 @@ async fn login(
         return Err(err(StatusCode::UNAUTHORIZED, "invalid credentials"));
     }
     let issued = auth::IssuedToken::new();
+    let mut store = state.store.lock();
     store.tokens.insert(
         auth::token_hash(&issued.token),
         StoredToken {
@@ -192,7 +320,7 @@ async fn login(
             expires_at: issued.expires_at,
         },
     );
-    let _ = store.save(&state.store_path);
+    state.request_save();
     Ok(Json(serde_json::json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
@@ -206,11 +334,11 @@ fn authed(state: &Shared, headers: &HeaderMap) -> Result<String, (StatusCode, Js
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    let mut store = state.store.lock().expect("store poisoned");
+    let mut store = state.store.lock();
     let account_id = store
         .resolve_token(token, auth::now_secs())
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
-    let _ = store.save(&state.store_path);
+    state.request_save();
     Ok(account_id)
 }
 
@@ -223,9 +351,9 @@ async fn logout(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    let mut store = state.store.lock().expect("store poisoned");
+    let mut store = state.store.lock();
     store.tokens.remove(&auth::token_hash(token));
-    let _ = store.save(&state.store_path);
+    state.request_save();
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -235,7 +363,7 @@ async fn me(
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
-    let store = state.store.lock().expect("store poisoned");
+    let store = state.store.lock();
     let account = store
         .accounts
         .get(&account_id)
@@ -330,7 +458,7 @@ async fn list_decks(
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
-    let store = state.store.lock().expect("store poisoned");
+    let store = state.store.lock();
     let decks: Vec<_> = store
         .decks
         .values()
@@ -353,7 +481,7 @@ async fn get_deck(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
-    let store = state.store.lock().expect("store poisoned");
+    let store = state.store.lock();
     let deck = store
         .decks
         .get(&id)
@@ -376,7 +504,7 @@ async fn create_deck(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
     validate_deck(&body)?;
-    let mut store = state.store.lock().expect("store poisoned");
+    let mut store = state.store.lock();
     let deck = Deck {
         id: auth::new_id(),
         account_id,
@@ -387,7 +515,7 @@ async fn create_deck(
     };
     let id = deck.id.clone();
     store.decks.insert(id.clone(), deck);
-    let _ = store.save(&state.store_path);
+    state.request_save();
     Ok(Json(serde_json::json!({ "deck_id": id })))
 }
 
@@ -399,7 +527,7 @@ async fn update_deck(
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
     validate_deck(&body)?;
-    let mut store = state.store.lock().expect("store poisoned");
+    let mut store = state.store.lock();
     let deck = store
         .decks
         .get_mut(&id)
@@ -411,7 +539,7 @@ async fn update_deck(
     deck.cards = body.cards;
     deck.commander = body.commander;
     deck.updated_at = auth::now_secs();
-    let _ = store.save(&state.store_path);
+    state.request_save();
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -421,7 +549,7 @@ async fn delete_deck(
     Path(id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
-    let mut store = state.store.lock().expect("store poisoned");
+    let mut store = state.store.lock();
     match store.decks.get(&id) {
         Some(deck) if deck.account_id == account_id => {
             store.decks.remove(&id);
@@ -429,7 +557,7 @@ async fn delete_deck(
         Some(_) => return Err(err(StatusCode::FORBIDDEN, "not your deck")),
         None => return Err(err(StatusCode::NOT_FOUND, "no such deck")),
     }
-    let _ = store.save(&state.store_path);
+    state.request_save();
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -440,7 +568,7 @@ async fn list_games(
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let _ = authed(&state, &headers)?;
-    let lobby = state.lobby.lock().expect("lobby poisoned");
+    let lobby = state.lobby.lock();
     Ok(Json(serde_json::json!(lobby.list())))
 }
 
@@ -499,7 +627,7 @@ async fn create_game(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
     let (deck_name, deck) = {
-        let store = state.store.lock().expect("store poisoned");
+        let store = state.store.lock();
         let deck = store
             .decks
             .get(&body.deck_id)
@@ -511,25 +639,24 @@ async fn create_game(
     };
     let game_id = auth::new_id();
     let seat_token = auth::new_token();
-    let mut lobby = state.lobby.lock().expect("lobby poisoned");
+    let mut lobby = state.lobby.lock();
     match body.mode.as_str() {
         "ai" => {
             let mut preset = ai_preset(&deck, auth::new_game_seed())?;
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
             let session = baylee_gamehost::Session::new(&preset)
                 .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "game failed to start"))?;
-            let game = LobbyGame {
-                id: game_id.clone(),
-                state: LobbyState::Playing,
-                seats: vec![
-                    lobby::LobbySeat {
+            let game = LobbyGame::playing(
+                game_id.clone(),
+                vec![
+                    LobbySeat {
                         seat: 0,
                         account_id: Some(account_id.clone()),
                         seat_token_hash: Some(auth::token_hash(&seat_token)),
                         deck_name,
                         deck: Some(deck.clone()),
                     },
-                    lobby::LobbySeat {
+                    LobbySeat {
                         seat: 1,
                         account_id: None,
                         seat_token_hash: None,
@@ -537,10 +664,10 @@ async fn create_game(
                         deck: None,
                     },
                 ],
-                preset: Some(preset),
-                session: Some(session),
-                created_at: auth::now_secs(),
-            };
+                preset,
+                session,
+                auth::now_secs(),
+            );
             lobby.games.insert(game_id.clone(), game);
         }
         "open" => {
@@ -576,7 +703,7 @@ async fn join_game(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
     let (deck_name, deck) = {
-        let store = state.store.lock().expect("store poisoned");
+        let store = state.store.lock();
         let deck = store
             .decks
             .get(&body.deck_id)
@@ -586,7 +713,7 @@ async fn join_game(
         }
         (deck.name.clone(), deck.clone())
     };
-    let mut lobby = state.lobby.lock().expect("lobby poisoned");
+    let mut lobby = state.lobby.lock();
     let game = lobby
         .games
         .get_mut(&id)
@@ -607,7 +734,13 @@ async fn join_game(
         .deck
         .clone()
         .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "creator deck missing"))?;
-    let preset = hvh_preset(&creator_deck, &deck, auth::new_game_seed())?;
+    let mut preset = hvh_preset(&creator_deck, &deck, auth::new_game_seed())?;
+    // The deck helper presets every seat as AI; here BOTH chairs belong
+    // to humans, or the game would silently play itself (and the humans
+    // would never be asked).
+    for seat in &mut preset.seats {
+        seat.controller = baylee_core::preset::SeatController::Open;
+    }
     game.preset = Some(preset.clone());
     game.session = Some(
         baylee_gamehost::Session::new(&preset)
@@ -635,7 +768,7 @@ async fn game_ws(
     ws: WebSocketUpgrade,
 ) -> Result<axum::response::Response, (StatusCode, Json<ErrorBody>)> {
     let seat = {
-        let lobby = state.lobby.lock().expect("lobby poisoned");
+        let lobby = state.lobby.lock();
         let game = lobby
             .games
             .get(&id)
@@ -654,64 +787,116 @@ async fn game_ws(
     Ok(ws.on_upgrade(move |socket| run_game_socket(state, id, seat, socket)))
 }
 
-async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket: WebSocket) {
-    let player = baylee_core::ids::PlayerId::new(seat as u8);
-    // Initial pump: send everything addressed to this seat.
-    let initial: Vec<Envelope> = {
-        let mut lobby = state.lobby.lock().expect("lobby poisoned");
-        let Some(game) = lobby.games.get_mut(&game_id) else {
-            return;
-        };
-        let Some(session) = game.session.as_mut() else {
-            return;
-        };
-        session
-            .pump()
-            .into_iter()
-            .filter(|(p, _)| *p == player)
-            .map(|(_, env)| env)
-            .collect()
+/// Pumps (or acts) the session under a panic boundary and broadcasts
+/// every routed envelope to all seat subscribers. A panicking rules path
+/// kills ONE game (marked over) instead of the process.
+///
+/// Returns false when the game is gone or panicked — the socket closes.
+fn drive_session<F>(state: &Shared, game_id: &str, step: F) -> bool
+where
+    F: FnOnce(
+        &mut baylee_gamehost::Session,
+        &mut dyn FnMut(baylee_core::ids::PlayerId, Envelope),
+    ) -> Result<(), String>,
+{
+    let mut lobby = state.lobby.lock();
+    let Some(game) = lobby.games.get_mut(game_id) else {
+        return false;
     };
-    for env in initial {
-        if send_envelope(&mut socket, env).await.is_err() {
-            return;
+    let Some(session) = game.session.as_mut() else {
+        return false;
+    };
+    let updates = game.updates.clone();
+    let mut emit = |p: baylee_core::ids::PlayerId, env: Envelope| {
+        // No receivers is fine (AI seats, seats without a live socket).
+        let _ = updates.send((p.get(), env));
+    };
+    let result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| step(session, &mut emit)));
+    match result {
+        Ok(Ok(())) => {
+            if matches!(session.pending(), Pending::GameOver(_)) {
+                game.state = LobbyState::Over;
+                game.finished_at = Some(auth::now_secs());
+            }
+            true
+        }
+        Ok(Err(_)) => true, // illegal action etc. — the game lives on
+        Err(_) => {
+            tracing::error!(game_id, "rules engine panicked; game closed");
+            game.state = LobbyState::Over;
+            game.finished_at = Some(auth::now_secs());
+            false
         }
     }
-    while let Some(Ok(frame)) = futures_util::StreamExt::next(&mut socket).await {
-        let Message::Binary(data) = frame else {
-            continue;
+}
+
+async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket: WebSocket) {
+    let player = baylee_core::ids::PlayerId::new(seat as u8);
+    // Subscribe BEFORE the initial pump so this socket can't miss its own
+    // first view; every envelope addressed to this seat arrives here,
+    // including the ones produced by the opponent's actions.
+    let mut rx = {
+        let lobby = state.lobby.lock();
+        let Some(game) = lobby.games.get(&game_id) else {
+            return;
         };
-        let Ok(envelope) = Envelope::decode(data) else {
-            continue;
-        };
-        let Some(v1::envelope::Msg::PlayerAction(action_msg)) = envelope.msg else {
-            continue;
-        };
-        let Ok(action) =
-            serde_json::from_slice::<baylee_engine::choice::PlayerAction>(&action_msg.action_json)
-        else {
-            continue;
-        };
-        let replies: Vec<Envelope> = {
-            let mut lobby = state.lobby.lock().expect("lobby poisoned");
-            let Some(game) = lobby.games.get_mut(&game_id) else {
-                return;
-            };
-            let Some(session) = game.session.as_mut() else {
-                return;
-            };
-            match session.act(player, action) {
-                Ok(routed) => routed
-                    .into_iter()
-                    .filter(|(p, _)| *p == player)
-                    .map(|(_, env)| env)
-                    .collect(),
-                Err(_) => continue,
+        game.updates.subscribe()
+    };
+    if !drive_session(&state, &game_id, |session, emit| {
+        for (p, env) in session.pump() {
+            emit(p, env);
+        }
+        Ok(())
+    }) {
+        return;
+    }
+    loop {
+        tokio::select! {
+            frame = futures_util::StreamExt::next(&mut socket) => {
+                match frame {
+                    Some(Ok(Message::Binary(data))) => {
+                        let Ok(envelope) = Envelope::decode(data) else {
+                            continue;
+                        };
+                        let Some(v1::envelope::Msg::PlayerAction(action_msg)) = envelope.msg else {
+                            continue;
+                        };
+                        let Ok(action) =
+                            serde_json::from_slice::<baylee_engine::choice::PlayerAction>(
+                                &action_msg.action_json,
+                            )
+                        else {
+                            continue;
+                        };
+                        if !drive_session(&state, &game_id, |session, emit| {
+                            let routed = session.act(player, action)?;
+                            for (p, env) in routed {
+                                emit(p, env);
+                            }
+                            Ok(())
+                        }) {
+                            return;
+                        }
+                    }
+                    // Pings are answered by axum; ignore other frame kinds.
+                    Some(Ok(_)) => {}
+                    Some(Err(_)) | None => return,
+                }
             }
-        };
-        for env in replies {
-            if send_envelope(&mut socket, env).await.is_err() {
-                return;
+            update = rx.recv() => {
+                match update {
+                    Ok((p, env)) => {
+                        if p == player.get() && send_envelope(&mut socket, env).await.is_err() {
+                            return;
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        tracing::warn!(game_id, seat, n, "seat socket lagged; closing");
+                        return;
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+                }
             }
         }
     }
