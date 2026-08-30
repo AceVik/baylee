@@ -15,7 +15,7 @@
 use crate::Duel;
 use crate::hud::{
     HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton, PlayerTab, PreviewResize,
-    RailButton,
+    PromptAction, PromptButton, RailButton,
 };
 use crate::settings::ClientSettings;
 use crate::table::CardVisual;
@@ -375,6 +375,7 @@ pub fn pointer(
     rail_buttons: Query<&RailButton>,
     menu_buttons: Query<&MenuButton>,
     knobs: Query<&OverlayKnob>,
+    prompt_buttons: Query<&PromptButton>,
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
     mut rig: ResMut<crate::table::CameraRig>,
@@ -411,6 +412,31 @@ pub fn pointer(
                 MenuAction::Concede => duel.submit(PlayerAction::Concede),
                 // Draw offers need mutual agreement — a protocol item.
                 MenuAction::OfferDraw => {}
+            }
+            continue;
+        }
+        if let Some(button) = find_in_lineage(e, &prompt_buttons, &parents) {
+            let action = match button.action {
+                PromptAction::Yes => duel
+                    .interaction
+                    .as_ref()
+                    .and_then(|i| i.answer_yes_no(true)),
+                PromptAction::No => duel
+                    .interaction
+                    .as_ref()
+                    .and_then(|i| i.answer_yes_no(false)),
+                PromptAction::Keep => duel
+                    .interaction
+                    .as_ref()
+                    .and_then(|i| i.answer_mulligan(true)),
+                PromptAction::Mulligan => duel
+                    .interaction
+                    .as_ref()
+                    .and_then(|i| i.answer_mulligan(false)),
+                PromptAction::Confirm => duel.interaction.as_ref().and_then(Interaction::confirm),
+            };
+            if let Some(action) = action {
+                duel.submit(action);
             }
             continue;
         }

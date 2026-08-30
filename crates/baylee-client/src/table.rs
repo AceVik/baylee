@@ -100,14 +100,15 @@ impl CameraRig {
     }
 }
 
-/// Turns the rig into the camera transform (fixed downward pitch; the
-/// rig decides the rest).
+/// Turns the rig into the camera transform: a frontal, 90° top-down look
+/// at the battlefield canvas (a hair of tilt keeps the up-vector
+/// stable); the rig decides target, zoom, and azimuth.
 pub fn apply_camera_rig(rig: Res<CameraRig>, mut cams: Query<&mut Transform, With<TableCamera>>) {
     if !rig.is_changed() {
         return;
     }
-    let horizontal = rig.distance * 0.66;
-    let height = rig.distance * 0.75;
+    let horizontal = rig.distance * 0.02;
+    let height = rig.distance;
     let offset = Vec3::new(
         rig.yaw.sin() * horizontal,
         height,
@@ -139,10 +140,10 @@ pub struct SceneIndex {
     blank: Option<Handle<StandardMaterial>>,
 }
 
-/// A card's corner radius (~8% of the width — a little rounder than a
-/// physical Magic card, matching the UI cards; the white corners of the
-/// printed image are never visible because the mesh itself is rounded).
-pub const CARD_CORNER: f32 = CARD_WIDTH * 0.08;
+/// A card's corner radius (~10% of the width — clearly rounded, matching
+/// the UI cards; the white corners of the printed image are never
+/// visible because the mesh itself is rounded).
+pub const CARD_CORNER: f32 = CARD_WIDTH * 0.10;
 
 /// A rounded-rectangle card mesh: the flat card quad with its corners
 /// clipped, UV-mapped exactly like Bevy's `Rectangle` (uv.x left→right,

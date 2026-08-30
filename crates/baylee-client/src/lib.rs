@@ -205,6 +205,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::SceneIndex>()
             .init_resource::<table::CameraRig>()
             .init_resource::<hud::HudRevision>()
+            .init_resource::<textures::Preload>()
             .add_message::<DuelCommand>()
             .add_message::<DuelReport>()
             .configure_sets(
@@ -238,6 +239,7 @@ impl Plugin for DuelPlugin {
                     hud::sync_overlay,
                     hud::apply_hand_scroll,
                     hud::animate_overlay,
+                    textures::drive_preloads,
                 )
                     .in_set(DuelSet::Present)
                     .run_if(not(in_state(DuelPhase::Closed))),

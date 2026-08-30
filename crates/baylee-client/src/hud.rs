@@ -152,6 +152,28 @@ pub struct OverlayKnob;
 #[derive(Component)]
 pub struct PreviewResize;
 
+/// An answer button under the prompt headline.
+#[derive(Component)]
+pub struct PromptButton {
+    /// Which answer the button sends.
+    pub action: PromptAction,
+}
+
+/// What a prompt button answers.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PromptAction {
+    /// Yes.
+    Yes,
+    /// No.
+    No,
+    /// Keep the hand.
+    Keep,
+    /// Take the mulligan.
+    Mulligan,
+    /// Confirm / pass / OK.
+    Confirm,
+}
+
 /// The scrolling strip inside the hand bar.
 #[derive(Component)]
 pub struct HandStrip;
@@ -285,16 +307,16 @@ fn btn_radius() -> BorderRadius {
     BorderRadius::all(px(6))
 }
 
-/// A card's corner radius for a given rendered width (~8%: a little
-/// rounder than a physical Magic card, which reads better on screen).
+/// A card's corner radius for a given rendered width (~10%: clearly
+/// rounded, reads as a card, not a tile).
 fn card_radius(width: f32) -> BorderRadius {
-    BorderRadius::all(px(width * 0.08))
+    BorderRadius::all(px(width * 0.10))
 }
 
-/// The preview's corner radius — rounder again than the cards on the
-/// table, so the tooltip reads as a preview, not as another card.
+/// The preview's corner radius — a touch rounder than a physical card
+/// (~8%), subtler than the cards on the table.
 fn preview_radius(width: f32) -> BorderRadius {
-    BorderRadius::all(px(width * 0.12))
+    BorderRadius::all(px(width * 0.08))
 }
 
 /// One color per team, so allied seats read as one side at a glance.
@@ -480,30 +502,99 @@ pub fn sync_overlay(
     );
     commands.entity(root).add_child(rail);
 
-    // ---- prompt bar (choice headline), floating above the hand bar -----
+    // ---- prompt bar (choice headline + answer buttons), above the hand,
+    // padded clear of the phase rail ---------------------------------------
     if let Some(text) = prompt {
         let waiting = !duel.is_my_turn_to_act();
         let bar = commands
             .spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    bottom: px(HAND_CARD_H + 30.0),
-                    right: px(64),
+                    bottom: px(HAND_BAR_H + 10.0),
+                    right: px(RAIL_W + 12.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(6),
                     padding: UiRect::axes(px(14), px(8)),
+                    border_radius: btn_radius(),
                     ..default()
                 },
                 BackgroundColor(palette::PANEL),
-                children![(
-                    Text::new(text),
-                    tf(&fonts, 18.0),
-                    TextColor(if waiting {
-                        palette::MUTED
-                    } else {
-                        palette::ACCENT
-                    }),
-                )],
+                soft_shadow(),
             ))
             .id();
+        let headline = commands
+            .spawn((
+                Text::new(text),
+                tf(&fonts, 18.0),
+                TextColor(if waiting {
+                    palette::MUTED
+                } else {
+                    palette::ACCENT
+                }),
+            ))
+            .id();
+        commands.entity(bar).add_child(headline);
+
+        // Answer buttons, matching the pending choice.
+        let answers: &[(PromptAction, &str)] = if waiting {
+            &[]
+        } else {
+            match duel
+                .interaction
+                .as_ref()
+                .map(baylee_client_core::Interaction::pending)
+            {
+                Some(baylee_engine::choice::Pending::Mulligan { .. }) => &[
+                    (PromptAction::Keep, "Keep"),
+                    (PromptAction::Mulligan, "Mulligan"),
+                ],
+                Some(baylee_engine::choice::Pending::YesNo { .. }) => {
+                    &[(PromptAction::Yes, "Yes"), (PromptAction::No, "No")]
+                }
+                Some(_)
+                    if duel
+                        .interaction
+                        .as_ref()
+                        .is_some_and(baylee_client_core::Interaction::can_confirm) =>
+                {
+                    &[(PromptAction::Confirm, "OK")]
+                }
+                _ => &[],
+            }
+        };
+        if !answers.is_empty() {
+            let row = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: px(6),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            for (action, label) in answers {
+                let button = commands
+                    .spawn((
+                        PromptButton { action: *action },
+                        Node {
+                            padding: UiRect::axes(px(12), px(5)),
+                            border_radius: btn_radius(),
+                            ..default()
+                        },
+                        BackgroundColor(palette::ACCENT),
+                        soft_shadow(),
+                        children![(
+                            Text::new(*label),
+                            tf(&fonts, 13.0),
+                            TextColor(palette::PANEL),
+                        )],
+                    ))
+                    .id();
+                commands.entity(row).add_child(button);
+            }
+            commands.entity(bar).add_child(row);
+        }
         commands.entity(root).add_child(bar);
     }
 
@@ -526,6 +617,7 @@ pub fn sync_overlay(
             hovered,
             &selected,
             layout,
+            duel.hand_scroll,
             &mut textures,
             &assets,
             &fonts,
@@ -627,6 +719,8 @@ pub fn sync_overlay(
             hovered,
             &selected,
             duel.overlay_closed,
+            duel.overlay_t,
+            window_h,
             &mut textures,
             &assets,
             &fonts,
@@ -837,8 +931,8 @@ fn spawn_phase_rail(
         + 2.0 * 30.0 + 4.0      // autopilot buttons + gap
         + 12.0; // rail padding
     let row_h = ((available - reserved) / 24.0).clamp(16.0, 30.0);
-    let icon_size = (row_h * 0.48).clamp(9.0, 14.0);
-    let label_size = (row_h * 0.34).clamp(7.0, 10.0);
+    let icon_size = (row_h * 0.42).clamp(8.0, 12.0);
+    let label_size = (row_h * 0.30).clamp(6.5, 9.0);
     let show_label = row_h >= 21.0;
 
     let current = RailRow::current(view.phase, view.step);
@@ -1058,6 +1152,7 @@ fn spawn_hand_bar(
     hovered: Option<ObjectId>,
     selected: &[ObjectId],
     layout: HandLayout,
+    scroll: f32,
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
@@ -1085,9 +1180,12 @@ fn spawn_hand_bar(
             HandStrip,
             Node {
                 position_type: PositionType::Absolute,
-                left: px(10),
+                left: px(0),
                 top: px(10),
                 height: px(HAND_CARD_H),
+                // Spawn already at the current scroll offset — starting at
+                // zero and correcting next frame is the hand's flicker.
+                margin: UiRect::left(px(10.0 - scroll)),
                 ..default()
             },
             Pickable::IGNORE,
@@ -1330,23 +1428,32 @@ fn spawn_own_board_overlay(
     hovered: Option<ObjectId>,
     selected: &[ObjectId],
     closed: bool,
+    overlay_t: f32,
+    window_h: f32,
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
 ) -> Entity {
+    // Spawn already at the current slide position — spawning open and
+    // correcting next frame is the battlefield's flicker.
+    let open_top = TAB_H;
+    let closed_top = window_h - HAND_BAR_H - 14.0;
+    let initial_top = open_top + (closed_top - open_top) * overlay_t;
     let panel = commands
         .spawn((
             OwnBoardOverlay,
             Node {
                 position_type: PositionType::Absolute,
                 left: px(0),
-                right: px(RAIL_W),      // 100% minus the phase rail
-                top: px(TAB_H),         // animate_overlay owns this
+                right: px(RAIL_W), // 100% minus the phase rail
+                top: px(initial_top),
                 bottom: px(HAND_BAR_H), // 100% minus tabs and the hand bar
                 flex_direction: FlexDirection::Column,
                 row_gap: px(6),
+                // No knob row: the knob floats on the panel's edge, only
+                // the button itself is visible.
                 padding: UiRect {
-                    top: px(20),
+                    top: px(0),
                     bottom: px(8),
                     left: px(12),
                     right: px(12),

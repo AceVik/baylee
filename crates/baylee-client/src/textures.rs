@@ -146,6 +146,92 @@ impl CardTextures {
     }
 }
 
+/// Background image warming: up to 15 loads in flight, priority-ordered
+/// (hand → command zones → battlefield → the rest of the print table,
+/// deterministically shuffled). Anything the renderer asks for directly
+/// jumps the queue by loading immediately — this only fills ahead.
+#[derive(Resource, Default)]
+pub struct Preload {
+    started: bool,
+    in_flight: Vec<Handle<Image>>,
+    queue: std::collections::VecDeque<ImageKey>,
+}
+
+/// How many image loads may be in flight at once.
+const PRELOAD_PARALLEL: usize = 15;
+
+/// Builds and drains the preload queue.
+pub fn drive_preloads(
+    mut preload: ResMut<Preload>,
+    duel: Res<crate::Duel>,
+    mut textures: ResMut<CardTextures>,
+    assets: Res<AssetServer>,
+) {
+    if !preload.started {
+        let (Some(statics), Some(view)) = (duel.statics.as_ref(), duel.view.as_ref()) else {
+            return;
+        };
+        preload.started = true;
+        let mut queue = std::collections::VecDeque::new();
+        // P1: the local hand, every command zone, the whole battlefield —
+        // everything a player sees in the first minute.
+        for h in &view.hand {
+            queue.push_back(ImageKey::new(h.card.print, h.card.face, ArtSize::Small));
+        }
+        for cmds in &view.command {
+            for o in cmds {
+                if let Some(c) = o.card {
+                    queue.push_back(ImageKey::new(c.print, c.face, ArtSize::Small));
+                }
+            }
+        }
+        for o in &view.battlefield {
+            if let Some(c) = o.card {
+                queue.push_back(ImageKey::new(c.print, c.face, ArtSize::Small));
+            }
+        }
+        let seen: bevy::platform::collections::HashSet<ImageKey> = queue.iter().copied().collect();
+        // P2: the rest of the print table, deterministically shuffled
+        // (xorshift*, fixed seed — same order on every client).
+        let mut rest: Vec<ImageKey> = (0..statics.prints.len())
+            .map(|i| ImageKey::new(baylee_core::ids::PrintRef::new(i as u16), 0, ArtSize::Small))
+            .filter(|k| !seen.contains(k))
+            .collect();
+        let mut s = 0x9e37_79b9_7f4a_7c15u64;
+        for i in (1..rest.len()).rev() {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            let j = (s % (i as u64 + 1)) as usize;
+            rest.swap(i, j);
+        }
+        for key in rest {
+            queue.push_back(key);
+        }
+        preload.queue = queue;
+    }
+
+    // Retire finished loads.
+    preload.in_flight.retain(|h| {
+        !matches!(
+            assets.get_load_state(h),
+            Some(bevy::asset::LoadState::Loaded | bevy::asset::LoadState::Failed(_))
+        )
+    });
+
+    // Keep the pipe full.
+    let Some(statics) = duel.statics.as_ref() else {
+        return;
+    };
+    while preload.in_flight.len() < PRELOAD_PARALLEL {
+        let Some(key) = preload.queue.pop_front() else {
+            break;
+        };
+        let handle = textures.get(key, statics, &assets);
+        preload.in_flight.push(handle);
+    }
+}
+
 /// A 1×1 texture of a solid colour, used for placeholders and table felt.
 fn solid_texture(rgba: [u8; 4]) -> Image {
     Image::new_fill(
