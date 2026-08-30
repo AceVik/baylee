@@ -17,10 +17,10 @@
 
 use crate::Duel;
 use crate::textures::CardTextures;
-use baylee_client_core::automation::{self, AutoPilot};
+use baylee_client_core::automation::{AutoPilot, RailRow};
 use baylee_client_core::images::{ArtSize, ImageKey};
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_view::{GameStatic, Phase, PlayerView};
+use baylee_view::{GameStatic, PlayerView};
 use bevy::prelude::*;
 
 /// Root of the overlay.
@@ -42,11 +42,11 @@ pub struct PlayerTab {
     pub player: PlayerId,
 }
 
-/// A phase button on the rail: click toggles its standing order.
+/// A phase/step button on the rail: click toggles its standing order.
 #[derive(Component)]
 pub struct PhaseButton {
-    /// The phase this button controls.
-    pub phase: Phase,
+    /// The rail row (step) this button controls.
+    pub row: RailRow,
 }
 
 /// One of the two autopilot buttons at the rail's foot.
@@ -464,12 +464,12 @@ fn spawn_phase_rail(
         ))
         .id();
 
-    // Top: turn + local life, then the phase buttons.
+    // Top: turn + local life, then the phase/step buttons.
     let top = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: px(6),
+                row_gap: px(3),
                 ..default()
             },
             Pickable::IGNORE,
@@ -504,14 +504,15 @@ fn spawn_phase_rail(
         .id();
     commands.entity(top).add_child(header);
 
-    for (phase, skipped) in orders.rows() {
-        let is_current = view.phase == phase;
-        let is_selected = orders.selected() == Some(phase);
+    let current_row = RailRow::current(view.phase, view.step);
+    for (row, skipped) in orders.rows() {
+        let is_current = row == current_row;
+        let is_selected = orders.selected() == Some(row);
         let button = commands
             .spawn((
-                PhaseButton { phase },
+                PhaseButton { row },
                 Node {
-                    padding: UiRect::axes(px(8), px(5)),
+                    padding: UiRect::axes(px(6), px(2)),
                     border: UiRect::all(px(if is_selected || is_current { 2.0 } else { 1.0 })),
                     ..default()
                 },
@@ -528,8 +529,8 @@ fn spawn_phase_rail(
                     palette::PANEL
                 }),
                 children![(
-                    Text::new(automation::phase_name(phase)),
-                    TextFont::from_font_size(12.0),
+                    Text::new(row.name()),
+                    TextFont::from_font_size(11.0),
                     TextColor(if is_current {
                         palette::INK
                     } else {

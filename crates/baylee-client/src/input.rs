@@ -104,8 +104,8 @@ pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
             activate_card(&mut duel, object);
             return;
         }
-        if let Some(phase) = duel.orders.selected() {
-            duel.orders.toggle(phase);
+        if let Some(row) = duel.orders.selected() {
+            duel.orders.toggle(row);
             return;
         }
         if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
@@ -307,7 +307,7 @@ pub fn pointer(
             continue;
         }
         if let Ok(button) = phase_buttons.get(click.entity) {
-            duel.orders.toggle(button.phase);
+            duel.orders.toggle(button.row);
             continue;
         }
         if let Ok(button) = rail_buttons.get(click.entity) {

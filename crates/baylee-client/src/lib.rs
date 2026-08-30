@@ -293,7 +293,7 @@ fn poll_host(
 /// Applies the standing orders and the autopilot: hands control back at
 /// the boundary, and never makes a real decision for the player.
 fn run_autopilot(mut duel: ResMut<Duel>) {
-    let Some((phase, turn)) = duel.view.as_ref().map(|v| (v.phase, v.turn)) else {
+    let Some((phase, step, turn)) = duel.view.as_ref().map(|v| (v.phase, v.step, v.turn)) else {
         return;
     };
     if let Some(pilot) = duel.autopilot
@@ -309,6 +309,7 @@ fn run_autopilot(mut duel: ResMut<Duel>) {
             interaction.pending(),
             interaction.is_mine(),
             phase,
+            step,
             &duel.orders,
             duel.autopilot.as_ref(),
         )

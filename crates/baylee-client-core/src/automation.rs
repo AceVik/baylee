@@ -5,42 +5,108 @@
 //! view's phase — the renderer only has to draw the answers.
 
 use baylee_engine::choice::Pending;
-use baylee_view::Phase;
+use baylee_view::{Phase, Step};
 
-/// The phase rail's rows, in turn order.
-pub const RAIL_PHASES: [Phase; 5] = [
-    Phase::Beginning,
-    Phase::FirstMain,
-    Phase::Combat,
-    Phase::SecondMain,
-    Phase::Ending,
+/// One row of the phase rail: every step of a Magic turn, in order
+/// (CR 500.1). The two main phases share `Step::Main` and are told apart
+/// by their phase; the two combat damage steps share one row.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RailRow {
+    /// Untap step (no priority in rules — informational).
+    Untap,
+    /// Upkeep step.
+    Upkeep,
+    /// Draw step.
+    Draw,
+    /// Precombat main phase.
+    Main1,
+    /// Beginning of combat step.
+    CombatBegin,
+    /// Declare attackers step.
+    Attackers,
+    /// Declare blockers step.
+    Blockers,
+    /// Combat damage steps (first-strike and regular share the row).
+    Damage,
+    /// End of combat step.
+    CombatEnd,
+    /// Postcombat main phase.
+    Main2,
+    /// End step.
+    EndStep,
+    /// Cleanup step (no priority in rules — informational).
+    Cleanup,
+}
+
+/// The rail's rows, in turn order.
+pub const RAIL_ROWS: [RailRow; 12] = [
+    RailRow::Untap,
+    RailRow::Upkeep,
+    RailRow::Draw,
+    RailRow::Main1,
+    RailRow::CombatBegin,
+    RailRow::Attackers,
+    RailRow::Blockers,
+    RailRow::Damage,
+    RailRow::CombatEnd,
+    RailRow::Main2,
+    RailRow::EndStep,
+    RailRow::Cleanup,
 ];
 
-/// The rail label for a phase.
-#[must_use]
-pub const fn phase_name(phase: Phase) -> &'static str {
-    match phase {
-        Phase::Beginning => "Begin",
-        Phase::FirstMain => "Main 1",
-        Phase::Combat => "Combat",
-        Phase::SecondMain => "Main 2",
-        Phase::Ending => "End",
+impl RailRow {
+    /// The rail label.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Untap => "Untap",
+            Self::Upkeep => "Upkeep",
+            Self::Draw => "Draw",
+            Self::Main1 => "Main 1",
+            Self::CombatBegin => "Begin Combat",
+            Self::Attackers => "Attackers",
+            Self::Blockers => "Blockers",
+            Self::Damage => "Damage",
+            Self::CombatEnd => "End of Combat",
+            Self::Main2 => "Main 2",
+            Self::EndStep => "End Step",
+            Self::Cleanup => "Cleanup",
+        }
+    }
+
+    /// The row a (phase, step) pair belongs to.
+    #[must_use]
+    pub const fn current(phase: Phase, step: Step) -> Self {
+        match (phase, step) {
+            (Phase::Beginning, Step::Untap) => Self::Untap,
+            (Phase::Beginning, Step::Upkeep) => Self::Upkeep,
+            (Phase::Beginning, _) => Self::Draw,
+            (Phase::FirstMain, _) => Self::Main1,
+            (Phase::Combat, Step::DeclareAttackers) => Self::Attackers,
+            (Phase::Combat, Step::DeclareBlockers) => Self::Blockers,
+            (Phase::Combat, Step::CombatDamageFirst | Step::CombatDamage) => Self::Damage,
+            (Phase::Combat, Step::CombatEnd) => Self::CombatEnd,
+            (Phase::Combat, _) => Self::CombatBegin,
+            (Phase::SecondMain, _) => Self::Main2,
+            (Phase::Ending, Step::Cleanup) => Self::Cleanup,
+            (Phase::Ending, _) => Self::EndStep,
+        }
+    }
+
+    /// Index in [`RAIL_ROWS`].
+    ///
+    /// # Panics
+    /// Never, in practice: every row is on the rail.
+    #[must_use]
+    pub fn index(self) -> usize {
+        RAIL_ROWS
+            .iter()
+            .position(|r| *r == self)
+            .expect("every row is on the rail")
     }
 }
 
-/// Index of a phase in [`RAIL_PHASES`].
-///
-/// # Panics
-/// Never, in practice: every `Phase` variant is on the rail.
-#[must_use]
-pub fn phase_index(phase: Phase) -> usize {
-    RAIL_PHASES
-        .iter()
-        .position(|p| *p == phase)
-        .expect("every phase is on the rail")
-}
-
-/// Per-phase standing orders: green means "I want priority here", red
+/// Per-step standing orders: green means "I want priority here", red
 /// means "skip — take no action and move on".
 ///
 /// Everything defaults to green, which is the honest default: a client
@@ -49,27 +115,33 @@ pub fn phase_index(phase: Phase) -> usize {
 #[derive(Clone, Debug, Default)]
 pub struct PhaseOrders {
     /// `true` = red (skip) at that rail index.
-    skip: [bool; 5],
+    skip: [bool; 12],
     /// The keyboard-selected rail row (for Shift+W/S + Space toggling).
-    selected: Option<Phase>,
+    selected: Option<RailRow>,
 }
 
 impl PhaseOrders {
-    /// Toggles a phase between green (priority) and red (skip).
-    pub fn toggle(&mut self, phase: Phase) {
-        let i = phase_index(phase);
+    /// Toggles a row between green (priority) and red (skip).
+    pub fn toggle(&mut self, row: RailRow) {
+        let i = row.index();
         self.skip[i] = !self.skip[i];
     }
 
-    /// Whether the phase is red (skip).
+    /// Whether a row is red (skip).
     #[must_use]
-    pub fn is_skipped(&self, phase: Phase) -> bool {
-        self.skip[phase_index(phase)]
+    pub fn is_skipped(&self, row: RailRow) -> bool {
+        self.skip[row.index()]
+    }
+
+    /// Whether the given (phase, step) falls on a red row.
+    #[must_use]
+    pub fn is_skipped_at(&self, phase: Phase, step: Step) -> bool {
+        self.is_skipped(RailRow::current(phase, step))
     }
 
     /// The keyboard-selected rail row, if any.
     #[must_use]
-    pub const fn selected(&self) -> Option<Phase> {
+    pub const fn selected(&self) -> Option<RailRow> {
         self.selected
     }
 
@@ -83,16 +155,14 @@ impl PhaseOrders {
     pub fn move_selection(&mut self, delta: i32) {
         let next = match self.selected {
             None => 0,
-            Some(phase) => {
-                (phase_index(phase) as i32 + delta).rem_euclid(RAIL_PHASES.len() as i32) as usize
-            }
+            Some(row) => (row.index() as i32 + delta).rem_euclid(RAIL_ROWS.len() as i32) as usize,
         };
-        self.selected = Some(RAIL_PHASES[next]);
+        self.selected = Some(RAIL_ROWS[next]);
     }
 
-    /// The rail as (phase, skipped) pairs, for drawing.
-    pub fn rows(&self) -> impl Iterator<Item = (Phase, bool)> + '_ {
-        RAIL_PHASES.into_iter().map(|p| (p, self.is_skipped(p)))
+    /// The rail as (row, skipped) pairs, for drawing.
+    pub fn rows(&self) -> impl Iterator<Item = (RailRow, bool)> + '_ {
+        RAIL_ROWS.into_iter().map(|r| (r, self.is_skipped(r)))
     }
 }
 
@@ -139,10 +209,10 @@ pub enum AutoAnswer {
 }
 
 /// The standing-order decision: given the pending choice and who it is
-/// for, the view's phase, the per-phase orders, and an optional autopilot,
-/// what is answered automatically?
+/// for, the view's (phase, step), the per-step orders, and an optional
+/// autopilot, what is answered automatically?
 ///
-/// The rule of thumb: a red phase means "I do nothing here" (pass, no
+/// The rule of thumb: a red row means "I do nothing here" (pass, no
 /// attackers, no blockers), the autopilot means "fast-forward to the
 /// boundary, but never make a real decision for me".
 #[must_use]
@@ -150,13 +220,14 @@ pub fn auto_answer(
     pending: &Pending,
     mine: bool,
     phase: Phase,
+    step: Step,
     orders: &PhaseOrders,
     pilot: Option<&AutoPilot>,
 ) -> AutoAnswer {
     if !mine {
         return AutoAnswer::None;
     }
-    let skipped = orders.is_skipped(phase);
+    let skipped = orders.is_skipped_at(phase, step);
     match pending {
         Pending::Priority { .. } if skipped || pilot.is_some() => AutoAnswer::Pass,
         Pending::ChooseAttackers { .. }
@@ -192,19 +263,35 @@ mod tests {
     #[test]
     fn everything_is_green_by_default_so_nothing_is_auto_answered() {
         let orders = PhaseOrders::default();
-        for (phase, skipped) in orders.rows() {
-            assert!(!skipped, "{phase:?} must default to green");
+        for (row, skipped) in orders.rows() {
+            assert!(!skipped, "{row:?} must default to green");
         }
-        let answer = auto_answer(&priority_pending(), true, Phase::FirstMain, &orders, None);
+        let answer = auto_answer(
+            &priority_pending(),
+            true,
+            Phase::FirstMain,
+            Step::Main,
+            &orders,
+            None,
+        );
         assert_eq!(answer, AutoAnswer::None);
     }
 
     #[test]
-    fn a_red_phase_passes_and_stays_out_of_combat() {
+    fn a_red_row_passes_and_stays_out_of_combat() {
         let mut orders = PhaseOrders::default();
-        orders.toggle(Phase::Combat);
+        orders.toggle(RailRow::Attackers);
+        orders.toggle(RailRow::Blockers);
+        orders.toggle(RailRow::Damage);
         assert_eq!(
-            auto_answer(&priority_pending(), true, Phase::Combat, &orders, None),
+            auto_answer(
+                &priority_pending(),
+                true,
+                Phase::Combat,
+                Step::CombatDamage,
+                &orders,
+                None,
+            ),
             AutoAnswer::Pass
         );
         assert_eq!(
@@ -214,6 +301,7 @@ mod tests {
                 },
                 true,
                 Phase::Combat,
+                Step::DeclareAttackers,
                 &orders,
                 None,
             ),
@@ -227,15 +315,89 @@ mod tests {
                 },
                 true,
                 Phase::Combat,
+                Step::DeclareBlockers,
                 &orders,
                 None,
             ),
             AutoAnswer::DeclareNoBlockers
         );
-        // …but a green phase is untouched.
+        // …but a green row in the same phase is untouched.
         assert_eq!(
-            auto_answer(&priority_pending(), true, Phase::FirstMain, &orders, None),
+            auto_answer(
+                &priority_pending(),
+                true,
+                Phase::Combat,
+                Step::CombatBegin,
+                &orders,
+                None,
+            ),
             AutoAnswer::None
+        );
+        // …and so is everything in Main 1.
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                true,
+                Phase::FirstMain,
+                Step::Main,
+                &orders,
+                None,
+            ),
+            AutoAnswer::None
+        );
+    }
+
+    #[test]
+    fn the_rail_maps_every_step_to_its_row() {
+        assert_eq!(
+            RailRow::current(Phase::Beginning, Step::Untap),
+            RailRow::Untap
+        );
+        assert_eq!(
+            RailRow::current(Phase::Beginning, Step::Upkeep),
+            RailRow::Upkeep
+        );
+        assert_eq!(
+            RailRow::current(Phase::Beginning, Step::Draw),
+            RailRow::Draw
+        );
+        assert_eq!(
+            RailRow::current(Phase::FirstMain, Step::Main),
+            RailRow::Main1
+        );
+        assert_eq!(
+            RailRow::current(Phase::Combat, Step::CombatBegin),
+            RailRow::CombatBegin
+        );
+        assert_eq!(
+            RailRow::current(Phase::Combat, Step::DeclareAttackers),
+            RailRow::Attackers
+        );
+        assert_eq!(
+            RailRow::current(Phase::Combat, Step::DeclareBlockers),
+            RailRow::Blockers
+        );
+        assert_eq!(
+            RailRow::current(Phase::Combat, Step::CombatDamageFirst),
+            RailRow::Damage,
+            "first-strike damage shares the damage row"
+        );
+        assert_eq!(
+            RailRow::current(Phase::Combat, Step::CombatDamage),
+            RailRow::Damage
+        );
+        assert_eq!(
+            RailRow::current(Phase::Combat, Step::CombatEnd),
+            RailRow::CombatEnd
+        );
+        assert_eq!(
+            RailRow::current(Phase::SecondMain, Step::Main),
+            RailRow::Main2
+        );
+        assert_eq!(RailRow::current(Phase::Ending, Step::End), RailRow::EndStep);
+        assert_eq!(
+            RailRow::current(Phase::Ending, Step::Cleanup),
+            RailRow::Cleanup
         );
     }
 
@@ -250,6 +412,7 @@ mod tests {
                 &priority_pending(),
                 true,
                 Phase::FirstMain,
+                Step::Main,
                 &orders,
                 Some(&pilot)
             ),
@@ -263,6 +426,7 @@ mod tests {
                 },
                 true,
                 Phase::Combat,
+                Step::DeclareAttackers,
                 &orders,
                 Some(&pilot),
             ),
@@ -277,6 +441,7 @@ mod tests {
                 },
                 true,
                 Phase::Combat,
+                Step::DeclareAttackers,
                 &orders,
                 Some(&end_turn),
             ),
@@ -297,13 +462,13 @@ mod tests {
         let mut orders = PhaseOrders::default();
         assert_eq!(orders.selected(), None);
         orders.move_selection(-1);
-        assert_eq!(orders.selected(), Some(Phase::Beginning));
+        assert_eq!(orders.selected(), Some(RailRow::Untap));
         orders.move_selection(-1);
-        assert_eq!(orders.selected(), Some(Phase::Ending), "wraps upward");
+        assert_eq!(orders.selected(), Some(RailRow::Cleanup), "wraps upward");
         orders.move_selection(1);
-        assert_eq!(orders.selected(), Some(Phase::Beginning));
-        orders.move_selection(1);
-        assert_eq!(orders.selected(), Some(Phase::FirstMain));
+        assert_eq!(orders.selected(), Some(RailRow::Untap));
+        orders.move_selection(4);
+        assert_eq!(orders.selected(), Some(RailRow::CombatBegin));
         orders.clear_selection();
         assert_eq!(orders.selected(), None);
     }
@@ -311,7 +476,7 @@ mod tests {
     #[test]
     fn nothing_is_answered_for_someone_elses_choice() {
         let mut orders = PhaseOrders::default();
-        orders.toggle(Phase::FirstMain);
+        orders.toggle(RailRow::Main1);
         let pilot = AutoPilot::ToNextPhase {
             from: Phase::FirstMain,
         };
@@ -320,6 +485,7 @@ mod tests {
                 &priority_pending(),
                 false,
                 Phase::FirstMain,
+                Step::Main,
                 &orders,
                 Some(&pilot)
             ),
