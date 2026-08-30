@@ -25,11 +25,14 @@ Zones: tutors (SearchLibrary with destinations), graveyard recursion,
 linked exile (Fiend Hunter), blink (immediate + end-step), phase-out,
 bottom-of-library, reorder-top, scry, mill, bottom-from-hand.
 
-Continuous/replacement: full layer system (copy, control, text, type,
-color, ability, P/T CDA/set/modify, counters), keyword/P-T/type/color
-mods, cross-zone filters (Maskwood), token doubling, counter doubling,
-trigger multipliers/suppressors, ETB tap/pay-life/choose-subtype
-modifiers.
+Continuous/replacement: layer system (copy, text, type, color, ability,
+P/T CDA/set/modify, counters), keyword/P-T/type/color mods, cross-zone
+filters (Maskwood), token doubling, counter doubling, trigger
+multipliers/suppressors, ETB tap/pay-life/choose-subtype modifiers.
+**Layer 2 (control as a continuous effect) is NOT done** — control
+change/exchange exists only as a one-shot resolution effect
+(`change_controller`); there is no `Modifier` for it and `recompute`
+discards layer 2. Track here, not under "already supported".
 
 Triggers: ETB, LTB, dies, spellcast, draws (incl. except-first), attacks,
 becomes-target, exiled-from-battlefield, combat-damage-to-player,

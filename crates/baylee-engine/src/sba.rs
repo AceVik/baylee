@@ -126,8 +126,12 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
         if legend_off {
             continue;
         }
-        let mut by_name: rustc_hash::FxHashMap<u32, Vec<baylee_core::ids::ObjectId>> =
-            rustc_hash::FxHashMap::default();
+        // Group by name in battlefield (zone) order — no HashMap: hash
+        // iteration order is build/platform-dependent, and this loop
+        // decides WHICH choice a player sees first when two legend pairs
+        // coexist, so it is part of the determinism contract.
+        let mut names: Vec<u32> = Vec::new();
+        let mut groups: Vec<Vec<baylee_core::ids::ObjectId>> = Vec::new();
         for &id in state.zones.list(ZoneLocation::Battlefield) {
             let Some(obj) = state.object(id) else {
                 continue;
@@ -139,13 +143,16 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
                     .contains(SupertypeSet::LEGENDARY)
                 && obj.kind == ObjectKind::Permanent
             {
-                by_name
-                    .entry(obj.characteristics().name.get())
-                    .or_default()
-                    .push(id);
+                let name = obj.characteristics().name.get();
+                if let Some(i) = names.iter().position(|&n| n == name) {
+                    groups[i].push(id);
+                } else {
+                    names.push(name);
+                    groups.push(vec![id]);
+                }
             }
         }
-        for (_, mut group) in by_name {
+        for mut group in groups {
             if group.len() > 1 {
                 group.sort(); // deterministic option order (oldest slot first)
                 outcome.legend_choice = Some((player, group));
@@ -242,4 +249,104 @@ pub fn eliminate_player(state: &mut GameState, player: PlayerId, reason: LossRea
         .collect();
     state.combat.attackers = attackers;
     state.combat.blockers = blockers;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::CardLookup;
+    use baylee_core::ids::{CardIndex, PrintRef};
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, FormatId, GamePreset, HouseRules, PrintInfo, SeatController, SeatSpec,
+    };
+
+    struct RegistryLookup;
+    impl CardLookup for RegistryLookup {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn card_index(oracle_id: &str) -> CardIndex {
+        baylee_cards::by_oracle_id(oracle_id)
+            .expect("registry contains the card")
+            .index
+    }
+
+    fn forest() -> CardIndex {
+        card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+    }
+    fn elesh_norn() -> CardIndex {
+        card_index("5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f")
+    }
+    fn mox_opal() -> CardIndex {
+        card_index("de2440de-e948-4811-903c-0bbe376ff64d")
+    }
+
+    fn entry(card: CardIndex) -> DeckEntry {
+        DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        }
+    }
+
+    /// Seat 0 controls two legend pairs at once: 2× Elesh Norn and
+    /// 2× Mox Opal (Elesh Norn enters the battlefield list first).
+    fn two_legend_pairs_preset(seed: u64) -> GamePreset {
+        let deck: Vec<DeckEntry> = (0..60).map(|_| entry(forest())).collect();
+        let mk = |bf: Vec<CardIndex>| SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            deck: deck.clone(),
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: bf.into_iter().map(entry).collect(),
+            emblems: vec![],
+            team: None,
+        };
+        GamePreset {
+            format: FormatId::Freeform,
+            seed,
+            dev_mode: false,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: baylee_core::preset::Finish::Normal,
+            }],
+            seats: vec![
+                mk(vec![elesh_norn(), elesh_norn(), mox_opal(), mox_opal()]),
+                mk(vec![]),
+            ],
+        }
+    }
+
+    /// With two legend pairs coexisting, the FIRST choice a player sees
+    /// must be deterministic — it used to depend on hash iteration order.
+    #[test]
+    fn legend_choice_is_deterministic_with_two_pairs() {
+        let mut first: Option<Vec<baylee_core::ids::ObjectId>> = None;
+        for seed in [7, 42, 1337] {
+            let mut state = GameState::from_preset(&two_legend_pairs_preset(seed), &RegistryLookup)
+                .expect("game starts");
+            let outcome = run(&mut state);
+            let (player, group) = outcome.legend_choice.expect("a legend choice is due");
+            assert_eq!(player, PlayerId::new(0));
+            assert_eq!(group.len(), 2, "one pair is offered, not all four");
+            // The offered pair is the Elesh Norns (first in zone order):
+            // both objects carry her card index.
+            for id in &group {
+                let obj = state.object(*id).expect("offered object exists");
+                assert_eq!(
+                    obj.card.map(|c| c.index),
+                    Some(elesh_norn()),
+                    "the first pair in battlefield order is offered first"
+                );
+            }
+            if let Some(prev) = &first {
+                assert_eq!(*prev, group, "same choice across seeds and runs");
+            }
+            first = Some(group);
+        }
+    }
 }

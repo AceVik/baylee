@@ -539,9 +539,13 @@ impl GameState {
             let Some(obj) = self.object(id) else {
                 continue;
             };
-            let value = crate::layers::recompute(self, obj);
+            let projection = crate::layers::recompute(self, obj);
             let obj = self.object_mut(id).expect("zone object exists");
-            obj.cache = crate::object::CachedChar { generation, value };
+            obj.cache = crate::object::CachedChar {
+                generation,
+                value: projection.characteristics,
+                projected_controller: projection.controller,
+            };
         }
         self.characteristics_generation = generation;
     }

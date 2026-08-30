@@ -197,6 +197,10 @@ pub struct CachedChar {
     pub generation: u64,
     /// Cached value.
     pub value: Characteristics,
+    /// Projected controller (layer 2). No control modifier exists yet, so
+    /// this equals `controller` today — cached so layer-2 control effects
+    /// have a place to land when the modifier vocabulary grows.
+    pub projected_controller: PlayerId,
 }
 
 pub use baylee_cards_dsl::CounterKind;
@@ -406,6 +410,7 @@ impl GameObject {
             cache: CachedChar {
                 generation: u64::MAX,
                 value: base.clone(),
+                projected_controller: owner,
             },
             base,
             counters: Counters::default(),
