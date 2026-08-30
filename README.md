@@ -20,6 +20,9 @@ and `AGENTS.md` for build/test commands.
 | `baylee-cards-codegen` | Scryfall/catalog/forge-reference code generation |
 | `baylee-ai` | Heuristic AI controllers (difficulty profiles) |
 | `baylee-engine-server` | Binary: one process per game, WS transport |
+| `baylee-view` | Per-seat wire view (projected characteristics, hidden-info filtered) |
+| `baylee-client-core` | Renderer-agnostic client brain: layout, board model, interaction, image policy |
+| `baylee-client` | Bevy 2.5D duel client (native + browser); see `docs/client.md` |
 
 ## Legal
 

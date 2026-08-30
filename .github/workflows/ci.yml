@@ -36,6 +36,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --all-targets
 
+  # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
+  # payment from every release build), so the suite also runs in release.
+  test-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace --all-targets --release
+
   codegen-check:
     runs-on: ubuntu-latest
     steps:

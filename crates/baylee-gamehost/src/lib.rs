@@ -12,5 +12,6 @@ pub mod preset;
 pub mod session;
 pub mod view;
 
+pub use baylee_view::{GameStatic, PlayerView, SeatIdentity};
 pub use session::{RegistryLookup, SeatKind, Session};
-pub use view::{PlayerView, player_view};
+pub use view::{game_static, player_view};

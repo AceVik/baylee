@@ -15,6 +15,7 @@ baylee-cards-dsl.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
 baylee-protocol.workspace = true
+baylee-view.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true

@@ -1,0 +1,21 @@
+[package]
+name = "baylee-client-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Renderer-agnostic client brain: table layout, board model, interaction state machine, image cache policy."
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+baylee-engine.workspace = true
+baylee-view.workspace = true
+glam.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+baylee-cards-dsl.workspace = true

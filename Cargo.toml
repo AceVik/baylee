@@ -13,6 +13,9 @@ license = "AGPL-3.0-only"
 [workspace.dependencies]
 baylee-core = { path = "crates/baylee-core" }
 baylee-protocol = { path = "crates/baylee-protocol" }
+baylee-view = { path = "crates/baylee-view" }
+baylee-client-core = { path = "crates/baylee-client-core" }
+baylee-client = { path = "crates/baylee-client" }
 baylee-engine = { path = "crates/baylee-engine" }
 baylee-cards-dsl = { path = "crates/baylee-cards-dsl" }
 baylee-cards = { path = "crates/baylee-cards" }
@@ -34,6 +37,7 @@ protoc-bin-vendored = "3"
 bytes = "1"
 futures-util = "0.3"
 rustc-hash = "2"
+glam = "0.32"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rand_chacha = "0.9"
 rand_core = "0.9"
@@ -50,6 +54,18 @@ sha2 = "0.10"
 subtle = "2"
 tokio-tungstenite = "0.26"
 criterion = { version = "0.5", features = ["html_reports"] }
+bevy = { version = "0.19", default-features = false, features = [
+    "std", "async_executor", "multi_threaded",
+    "bevy_asset", "bevy_log", "bevy_state", "reflect_auto_register",
+    "bevy_winit", "default_font", "custom_cursor",
+    "ui_bevy_render", "bevy_ui_widgets",
+    "bevy_pbr", "bevy_light", "bevy_anti_alias", "tonemapping_luts", "zstd_rust",
+    "picking",
+    "png", "jpeg", "webp",
+    "https", "web_asset_cache",
+    "keyboard", "mouse", "touch", "gestures",
+    "x11", "wayland", "webgl2",
+] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -57,6 +73,10 @@ missing_docs = "warn"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
+# `debug_assert!` is not evaluated in release — a mutating call inside it
+# silently disappears from production builds (this hid "mana is never paid
+# in release" once already).
+debug_assert_with_mut_call = "warn"
 # Game math uses deliberate narrowing casts everywhere; noisy without value.
 cast_possible_truncation = "allow"
 cast_possible_wrap = "allow"

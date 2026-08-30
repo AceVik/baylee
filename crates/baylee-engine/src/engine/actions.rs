@@ -194,18 +194,34 @@ impl<L: CardLookup> Engine<L> {
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
-            (Pending::ChooseNumber { player: p, .. }, PlayerAction::ChooseNumber(n))
-                if *p == player =>
-            {
+            (
+                Pending::ChooseNumber {
+                    player: p,
+                    min,
+                    max,
+                },
+                PlayerAction::ChooseNumber(n),
+            ) if *p == player => {
+                // The choice contract: the answer must stay inside the
+                // offered range — an unchecked X overflows costs, life
+                // payments, and token counts downstream.
+                if n < *min || n > *max {
+                    return Err(EngineError::IllegalAction(
+                        "number outside the offered range",
+                    ));
+                }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 wizard.x = n;
                 wizard.stage = cast_wizard::WizardStage::Targets;
                 self.cast_wizard = Some(wizard);
                 self.advance_cast_wizard()
             }
-            (Pending::ChoosePlayer { player: p, .. }, PlayerAction::ChoosePlayer(chosen))
+            (Pending::ChoosePlayer { player: p, options }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
             {
+                if !options.contains(&chosen) {
+                    return Err(EngineError::IllegalAction("player not among the options"));
+                }
                 // Loyalty ability target player.
                 if let Some(PlanKind::LoyaltyPlayer {
                     source,
@@ -426,9 +442,24 @@ impl<L: CardLookup> Engine<L> {
                 }
                 Ok(())
             }
-            (Pending::OrderObjects { player: p, .. }, PlayerAction::OrderObjects { objects })
-                if *p == player =>
-            {
+            (
+                Pending::OrderObjects {
+                    player: p,
+                    objects: offered,
+                },
+                PlayerAction::OrderObjects { objects },
+            ) if *p == player => {
+                // The answer must be a permutation of the offered objects —
+                // anything else would duplicate or vanish cards.
+                let mut answer = objects.clone();
+                let mut expected = offered.clone();
+                answer.sort_unstable();
+                expected.sort_unstable();
+                if answer != expected {
+                    return Err(EngineError::IllegalAction(
+                        "not a permutation of the offered objects",
+                    ));
+                }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume(&mut self.state, &mut res, &objects) {
                     resolve::Flow::Wait(pending) => {
@@ -448,12 +479,15 @@ impl<L: CardLookup> Engine<L> {
                     let Some(PlanKind::DelayedPay { cost }) = self.pending_plan.take() else {
                         unreachable!()
                     };
-                    if answer {
-                        debug_assert!(mana_pay::pay(
+                    // `pay` mutates the pool — never hide the call behind
+                    // `debug_assert!`, which is not evaluated in release.
+                    let paid = answer
+                        && mana_pay::pay(
                             &mut self.state.players[player.get() as usize].mana_pool,
                             &cost,
-                        ));
-                    } else {
+                        );
+                    debug_assert!(!answer || paid, "pact cost was offered as payable");
+                    if !paid {
                         sba::eliminate_player(&mut self.state, player, LossReason::Life);
                     }
                     return Ok(());
@@ -468,12 +502,13 @@ impl<L: CardLookup> Engine<L> {
                     else {
                         unreachable!()
                     };
-                    if answer {
-                        debug_assert!(mana_pay::pay(
+                    let paid = answer
+                        && mana_pay::pay(
                             &mut self.state.players[player.get() as usize].mana_pool,
                             &cost,
-                        ));
-                    } else {
+                        );
+                    debug_assert!(!answer || paid, "echo cost was offered as payable");
+                    if !paid {
                         let owner = self.state.object(card).map_or(player, |o| o.owner);
                         if let Some(obj) = self.state.object_mut(card) {
                             obj.kind = ObjectKind::Card;

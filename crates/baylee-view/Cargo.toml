@@ -1,0 +1,17 @@
+[package]
+name = "baylee-view"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Per-seat, hidden-information-filtered game view: the wire contract between host and client."
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

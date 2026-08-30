@@ -562,3 +562,86 @@ fn toxic_deluge_pays_x_life_and_debuffs() {
             })
     );
 }
+
+/// Regression: an out-of-range X must be rejected against the offered
+/// min/max — an unchecked X of `4_000_000_000` used to wrap `as i32`
+/// negative and *gain* the caster ~294M life on Toxic Deluge.
+#[test]
+fn toxic_deluge_rejects_x_outside_the_offered_range() {
+    let mut engine = Engine::new(
+        &preset(
+            34,
+            vec![toxic_deluge()],
+            vec![swamp(), swamp(), swamp()],
+            vec![],
+            vec![ondu_cleric()],
+        ),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let life_start = engine.state().players[0].life;
+
+    // Walk to p0's main phase first (deluge is sorcery-speed).
+    let mut guard = 0;
+    while !matches!(engine.state().turn.phase, Phase::FirstMain) || engine.state().turn.active != p0
+    {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        guard += 1;
+        assert!(guard < 20);
+    }
+
+    let mut guard = 0;
+    loop {
+        match engine.pending().clone() {
+            Pending::Priority { player, legal } if player == p0 => {
+                if !legal.mana_abilities.is_empty() {
+                    let sources = legal.mana_abilities.clone();
+                    for source in sources {
+                        engine
+                            .apply(player, PlayerAction::ActivateManaAbility { source })
+                            .unwrap();
+                    }
+                    continue;
+                }
+                let deluge = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
+                engine
+                    .apply(player, PlayerAction::CastSpell { card: deluge })
+                    .unwrap();
+                let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+                    panic!("expected X choice, got {:?}", engine.pending())
+                };
+                assert!(
+                    engine
+                        .apply(p0, PlayerAction::ChooseNumber(max + 1))
+                        .is_err(),
+                    "above the offered range must be rejected"
+                );
+                assert!(
+                    engine
+                        .apply(p0, PlayerAction::ChooseNumber(4_000_000_000))
+                        .is_err(),
+                    "the historical wrap-around value must be rejected"
+                );
+                assert!(
+                    engine.apply(p0, PlayerAction::ChooseNumber(min)).is_ok(),
+                    "a value inside the range still works"
+                );
+                break;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 40);
+    }
+    // The rejected answers changed nothing, and the accepted X = 0 costs
+    // no life.
+    assert_eq!(engine.state().players[0].life, life_start);
+}

@@ -256,6 +256,59 @@ struct DeckBody {
     commander: Option<String>,
 }
 
+/// Hard cap on the expanded card count of one deck. Comfortably above
+/// every legal format size (100 for commander), far below anything that
+/// could strain memory at game start.
+const MAX_DECK_CARDS: u32 = 250;
+
+/// One parsed deck line: how many of which card.
+struct ParsedLine {
+    count: u32,
+    index: baylee_core::ids::CardIndex,
+}
+
+/// Parses and validates "N Card Name" lines. Shared by `validate_deck` and
+/// `loaded_deck` so a deck can never pass one and explode the other:
+/// counts are parsed here (1–4, unlimited for basic lands) and the
+/// expanded total is capped at [`MAX_DECK_CARDS`].
+fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Json<ErrorBody>)> {
+    let mut out = Vec::with_capacity(lines.len());
+    let mut total: u32 = 0;
+    for line in lines {
+        let Some((count, name)) = line.split_once(' ') else {
+            return Err(err(StatusCode::BAD_REQUEST, "malformed card line"));
+        };
+        let Ok(count) = count.trim().parse::<u32>() else {
+            return Err(err(StatusCode::BAD_REQUEST, "malformed card count"));
+        };
+        let Some(index) = baylee_ai::decks::by_name(name.trim()) else {
+            return Err(err(StatusCode::BAD_REQUEST, "unknown card"));
+        };
+        let basic_land = baylee_cards::by_index(index).is_some_and(|def| {
+            def.faces[0]
+                .supertypes
+                .contains(baylee_core::types::SupertypeSet::BASIC)
+                && def.faces[0]
+                    .types
+                    .contains(baylee_core::types::TypeSet::LAND)
+        });
+        if count == 0 || (!basic_land && count > 4) {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "invalid card count (1-4, unlimited for basic lands)",
+            ));
+        }
+        total = total
+            .checked_add(count)
+            .ok_or_else(|| err(StatusCode::BAD_REQUEST, "deck too large"))?;
+        if total > MAX_DECK_CARDS {
+            return Err(err(StatusCode::BAD_REQUEST, "deck too large"));
+        }
+        out.push(ParsedLine { count, index });
+    }
+    Ok(out)
+}
+
 fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     if body.name.is_empty() || body.name.len() > 64 {
         return Err(err(StatusCode::BAD_REQUEST, "invalid deck name"));
@@ -263,14 +316,7 @@ fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     if body.cards.is_empty() || body.cards.len() > 250 {
         return Err(err(StatusCode::BAD_REQUEST, "invalid card list"));
     }
-    for line in &body.cards {
-        let Some((_, name)) = line.split_once(' ') else {
-            return Err(err(StatusCode::BAD_REQUEST, "malformed card line"));
-        };
-        if baylee_ai::decks::by_name(name.trim()).is_none() {
-            return Err(err(StatusCode::BAD_REQUEST, "unknown card"));
-        }
-    }
+    parse_deck_lines(&body.cards)?;
     if let Some(c) = &body.commander
         && baylee_ai::decks::by_name(c).is_none()
     {
@@ -406,20 +452,13 @@ struct CreateGameBody {
 }
 
 /// Builds a `LoadedDeck` from a stored deck (card lines "N Card Name").
+/// Uses the same parser as validation, so counts are already bounded.
 fn loaded_deck(deck: &Deck) -> Result<baylee_ai::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)> {
+    let parsed = parse_deck_lines(&deck.cards)?;
     let mut main = Vec::new();
-    for line in &deck.cards {
-        let Some((count, name)) = line.split_once(' ') else {
-            continue;
-        };
-        let Ok(count) = count.trim().parse::<u32>() else {
-            continue;
-        };
-        let Some(index) = baylee_ai::decks::by_name(name.trim()) else {
-            return Err(err(StatusCode::BAD_REQUEST, "unknown card in deck"));
-        };
-        for _ in 0..count {
-            main.push(index);
+    for line in parsed {
+        for _ in 0..line.count {
+            main.push(line.index);
         }
     }
     Ok(baylee_ai::decks::LoadedDeck {
@@ -475,7 +514,7 @@ async fn create_game(
     let mut lobby = state.lobby.lock().expect("lobby poisoned");
     match body.mode.as_str() {
         "ai" => {
-            let mut preset = ai_preset(&deck, 1)?;
+            let mut preset = ai_preset(&deck, auth::new_game_seed())?;
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
             let session = baylee_gamehost::Session::new(&preset)
                 .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "game failed to start"))?;
@@ -568,7 +607,7 @@ async fn join_game(
         .deck
         .clone()
         .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "creator deck missing"))?;
-    let preset = hvh_preset(&creator_deck, &deck, 2)?;
+    let preset = hvh_preset(&creator_deck, &deck, auth::new_game_seed())?;
     game.preset = Some(preset.clone());
     game.session = Some(
         baylee_gamehost::Session::new(&preset)

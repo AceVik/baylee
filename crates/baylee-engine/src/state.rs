@@ -9,7 +9,7 @@ use crate::zone::{Zone, ZoneLocation, ZonePosition, Zones};
 use baylee_cards_dsl::CardDef;
 use baylee_core::ids::{CardIndex, NameRef, ObjectId, PlayerId};
 use baylee_core::mana::{ManaColor, ManaPool, ManaSymbol};
-use baylee_core::preset::{FormatId, GamePreset, PresetError, SeatController};
+use baylee_core::preset::{FormatId, GamePreset, PresetError};
 use rustc_hash::FxHashMap;
 use xxhash_rust::xxh3::Xxh3;
 
@@ -349,7 +349,17 @@ impl GameState {
 
         for (i, seat) in preset.seats.iter().enumerate() {
             let player = PlayerId::new(i as u8);
-            if matches!(seat.controller, SeatController::Open) {
+            // An `Open` seat is a human chair that no account has claimed yet,
+            // not an absent player — every hosted game marks its human seat
+            // `Open`, and that seat still needs a library and an opening hand.
+            // Only a chair with nothing to set up is genuinely unoccupied,
+            // which is the case `GamePreset::validate` allows an empty deck
+            // for.
+            let unoccupied = seat.deck.is_empty()
+                && seat.starting_battlefield.is_empty()
+                && seat.starting_hand.is_none()
+                && seat.emblems.is_empty();
+            if unoccupied {
                 continue;
             }
             // Emblems first (they exist from turn 0, CR 114.2).
@@ -1246,6 +1256,43 @@ mod tests {
         // 60-card deck minus 7 opening cards.
         assert_eq!(lib_a.len(), 53);
         assert_eq!(a.zones.list(ZoneLocation::Hand(PlayerId::new(0))).len(), 7);
+    }
+
+    /// Regression: every hosted game marks its human seat `Open` (the gateway
+    /// and the dev server both do), and setup used to skip those seats
+    /// entirely — the human started with no library, no opening hand, and lost
+    /// to an empty draw on turn one.
+    #[test]
+    fn an_open_seat_is_dealt_in_like_any_other() {
+        let mut preset = make_preset(7);
+        preset.seats[0].controller = baylee_core::preset::SeatController::Open;
+        let state = GameState::from_preset(&preset, &RegistryLookup).expect("game starts");
+
+        let human = PlayerId::new(0);
+        assert_eq!(
+            state.zones.list(ZoneLocation::Hand(human)).len(),
+            7,
+            "an unclaimed human chair still gets an opening hand"
+        );
+        assert_eq!(state.zones.list(ZoneLocation::Library(human)).len(), 53);
+
+        // And the seat opposite is unaffected.
+        let other = PlayerId::new(1);
+        assert_eq!(state.zones.list(ZoneLocation::Hand(other)).len(), 7);
+    }
+
+    /// The case an empty deck on an `Open` seat is actually for: a chair in a
+    /// lobby that nobody has sat down in yet.
+    #[test]
+    fn a_genuinely_empty_chair_is_still_skipped() {
+        let mut preset = make_preset(7);
+        preset.seats[0].controller = baylee_core::preset::SeatController::Open;
+        preset.seats[0].deck.clear();
+        let state = GameState::from_preset(&preset, &RegistryLookup).expect("game starts");
+
+        let empty = PlayerId::new(0);
+        assert!(state.zones.list(ZoneLocation::Library(empty)).is_empty());
+        assert!(state.zones.list(ZoneLocation::Hand(empty)).is_empty());
     }
 
     #[test]

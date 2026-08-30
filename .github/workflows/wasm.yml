@@ -21,4 +21,7 @@ jobs:
           cargo check
           -p baylee-core
           -p baylee-protocol
+          -p baylee-view
+          -p baylee-client-core
+          -p baylee-client
           --target wasm32-unknown-unknown

@@ -90,7 +90,7 @@ impl Session {
             let Some(player) = pending_player(&pending) else {
                 if let Pending::GameOver(_) = &pending {
                     for seat in self.human_seats() {
-                        out.push((seat, view_envelope(self.seq, &self.engine, seat)));
+                        out.push((seat, view_envelope(self.seq, &self.engine, seat, None)));
                         out.push((seat, choice_envelope(self.seq, &pending)));
                     }
                 }
@@ -98,8 +98,9 @@ impl Session {
             };
             let is_human = matches!(self.seats.get(player.get() as usize), Some(SeatKind::Human));
             if is_human {
+                let priority = priority_holder(&pending);
                 for seat in self.human_seats() {
-                    out.push((seat, view_envelope(self.seq, &self.engine, seat)));
+                    out.push((seat, view_envelope(self.seq, &self.engine, seat, priority)));
                 }
                 out.push((player, choice_envelope(self.seq, &pending)));
                 return out;
@@ -164,8 +165,24 @@ fn pending_player(pending: &Pending) -> Option<PlayerId> {
     }
 }
 
-fn view_envelope(seq: u64, engine: &Engine<RegistryLookup>, seat: PlayerId) -> Envelope {
-    let view = crate::view::player_view(engine.state(), seat);
+/// The seat holding priority, if the game is currently offering it.
+///
+/// Priority is not stored on the state; it only exists as the pending choice,
+/// so a view has to be told about it rather than deriving it.
+fn priority_holder(pending: &Pending) -> Option<PlayerId> {
+    match pending {
+        Pending::Priority { player, .. } => Some(*player),
+        _ => None,
+    }
+}
+
+fn view_envelope(
+    seq: u64,
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    priority: Option<PlayerId>,
+) -> Envelope {
+    let view = crate::view::player_view(engine.state(), seat, priority, seq);
     Envelope {
         msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
             game_id: String::new(),

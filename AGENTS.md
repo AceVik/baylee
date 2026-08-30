@@ -11,6 +11,9 @@
 - Codegen reproducibility check (CI): `cargo run -p xtask -- codegen --check`
 - Explain a card (Scryfall data + forge-reference script side by side):
   `cargo run -p xtask -- explain --name "Force of Will"`
+- Run the Bevy duel client (vs AI): `cargo run -p baylee-client`
+  (design: `docs/client.md`; renderer-agnostic logic lives in
+  `baylee-client-core`, the wire view in `baylee-view`)
 
 ## Conventions
 

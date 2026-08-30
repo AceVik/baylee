@@ -372,11 +372,16 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
     else {
         panic!("resume_tax_choice on non-tax choice");
     };
-    if paid {
-        debug_assert!(mana_pay::pay(
+    // `pay` mutates the pool — never hide the call behind `debug_assert!`,
+    // which is not evaluated in release. A failed payment takes the
+    // not-paid fallback, exactly as if the player had declined.
+    let actually_paid = paid
+        && mana_pay::pay(
             &mut state.players[player.get() as usize].mana_pool,
             &baylee_core::mana::ManaCost::parse(&format!("{{{mana}}}")),
-        ));
+        );
+    debug_assert!(!paid || actually_paid, "tax was offered as payable");
+    if actually_paid {
         res.pc += 1;
         return run(state, res);
     }

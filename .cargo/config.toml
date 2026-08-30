@@ -1,0 +1,8 @@
+# WebAssembly needs an explicit entropy backend: `getrandom` refuses to guess
+# on wasm32-unknown-unknown, because a wrong guess would be a silently weak
+# RNG rather than a build error. The browser's Web Crypto API is the backend.
+#
+# Both halves are required — the cfg flag here and the `wasm_js` feature on the
+# dependency (see crates/baylee-client/Cargo.toml).
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

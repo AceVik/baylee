@@ -222,7 +222,11 @@ pub struct LegalActions {
 }
 
 /// A player's answer to a [`Pending`] request.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+///
+/// Comparable so that callers can assert on an answer without formatting it:
+/// clients build actions from user input and test that they built the right
+/// one, and a host can deduplicate a resent action after a reconnect.
+#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum PlayerAction {
     /// Keep the current hand (mulligan).
     MulliganKeep,

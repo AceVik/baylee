@@ -73,6 +73,16 @@ pub fn new_token() -> String {
     hex_lower(&bytes)
 }
 
+/// A fresh seed for one game's shuffle, from the OS CSPRNG. Determinism
+/// lives inside a game (seeded RNG); the seed itself must differ per game
+/// or every match starts with the same library order.
+#[must_use]
+pub fn new_game_seed() -> u64 {
+    let mut bytes = [0u8; 8];
+    getrandom::fill(&mut bytes).expect("OS RNG available");
+    u64::from_le_bytes(bytes)
+}
+
 /// Constant-time string equality.
 #[must_use]
 pub fn ct_eq(a: &str, b: &str) -> bool {

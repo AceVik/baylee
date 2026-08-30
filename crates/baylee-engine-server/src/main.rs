@@ -17,6 +17,12 @@ use prost::Message;
 /// Default port (dev).
 const DEFAULT_PORT: u16 = 28765;
 
+/// Default bind address: loopback only. This is a dev harness with no
+/// authentication — `Join` hands out full seat-0 views and every action
+/// runs as seat 0 — so it must not be reachable from the network unless
+/// the operator explicitly says so (`BAYLEE_BIND=0.0.0.0`).
+const DEFAULT_BIND: &str = "127.0.0.1";
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber_init();
@@ -24,7 +30,8 @@ async fn main() {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(DEFAULT_PORT);
-    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+    let bind = std::env::var("BAYLEE_BIND").unwrap_or_else(|_| DEFAULT_BIND.to_string());
+    let listener = tokio::net::TcpListener::bind((bind.as_str(), port))
         .await
         .expect("bind websocket port");
     tracing::info!(port, "baylee-engine-server listening");

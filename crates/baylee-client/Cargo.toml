@@ -1,0 +1,34 @@
+[package]
+name = "baylee-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Bevy 2.5D duel client: table renderer, HUD, input, and card image cache."
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-ai.workspace = true
+baylee-cards.workspace = true
+baylee-client-core.workspace = true
+baylee-core.workspace = true
+baylee-engine.workspace = true
+baylee-gamehost.workspace = true
+baylee-protocol.workspace = true
+baylee-view.workspace = true
+bevy.workspace = true
+prost.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true
+
+[[bin]]
+name = "baylee-client"
+path = "src/main.rs"
+
+# Browser builds: entropy comes from Web Crypto (see .cargo/config.toml).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }
