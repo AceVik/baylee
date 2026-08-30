@@ -73,6 +73,16 @@ it, installs a host, and sends `DuelCommand::Open`; the duel takes the screen
 and returns it on `Close`, reporting through `DuelReport`. `DuelSet::{Sync,
 Input, Present}` let the host application order its own systems around it.
 
+## In the browser
+
+`trunk serve index.html --release` from `crates/baylee-client/` serves the
+client on <http://127.0.0.1:8080> (solo duel vs the house AI; card art streams
+from the Scryfall CDN on first use, so the first minute needs a network
+connection). Build for deployment with `trunk build index.html --release` and
+host the resulting `dist/` statically. Two notes: always build `--release`
+(a dev-profile wasm is ~350 MB vs ~36 MB optimized), and the acceptance deck
+file is embedded with `include_str!` because a browser has no filesystem.
+
 ## Verification
 
 - `cargo test -p baylee-client --test duel_flow` plays real games headlessly

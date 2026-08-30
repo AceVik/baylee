@@ -19,6 +19,7 @@ baylee-gamehost.workspace = true
 baylee-protocol.workspace = true
 baylee-view.workspace = true
 bevy.workspace = true
+getrandom.workspace = true
 prost.workspace = true
 serde_json.workspace = true
 

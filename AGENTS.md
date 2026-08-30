@@ -14,6 +14,8 @@
 - Run the Bevy duel client (vs AI): `cargo run -p baylee-client`
   (design: `docs/client.md`; renderer-agnostic logic lives in
   `baylee-client-core`, the wire view in `baylee-view`)
+- Run the client in a browser: `trunk serve index.html --release` from
+  `crates/baylee-client/` (always `--release` — a dev wasm is ~350 MB)
 
 ## Conventions
 

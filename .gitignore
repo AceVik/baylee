@@ -3,3 +3,5 @@
 .DS_Store
 /data/scryfall-cache/*.part
 .idea/
+# trunk default output (browser build of baylee-client)
+dist/

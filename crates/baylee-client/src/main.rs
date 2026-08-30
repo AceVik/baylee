@@ -46,8 +46,11 @@ fn open_duel(mut commands: MessageWriter<DuelCommand>) {
 ///
 /// The deck file is looked for next to the working directory first and then
 /// beside the source tree, so `cargo run` from anywhere in the workspace works
-/// and so does a binary run from the repository root.
+/// and so does a binary run from the repository root. The final fallback is
+/// the copy embedded at build time — a browser has no filesystem at all.
 fn acceptance_duel() -> Option<baylee_core::preset::GamePreset> {
+    /// Embedded copy of the deck file (the only source in a browser build).
+    const EMBEDDED: &str = include_str!("../../../data/acceptance-decks.txt");
     const CANDIDATES: [&str; 3] = [
         "data/acceptance-decks.txt",
         "../data/acceptance-decks.txt",
@@ -58,17 +61,21 @@ fn acceptance_duel() -> Option<baylee_core::preset::GamePreset> {
     ];
     let text = CANDIDATES
         .iter()
-        .find_map(|path| std::fs::read_to_string(path).ok())?;
+        .find_map(|path| std::fs::read_to_string(path).ok())
+        .unwrap_or_else(|| EMBEDDED.to_string());
     baylee_client::host::demo_duel(&text, rand_seed())
 }
 
 /// A fresh shuffle per launch.
 ///
 /// The engine is deterministic given a seed, which is what makes replays work;
-/// that is a reason to *record* the seed, never a reason to reuse one.
+/// that is a reason to *record* the seed, never a reason to reuse one. The
+/// seed comes from the platform CSPRNG (Web Crypto in the browser) —
+/// `std::time` panics on wasm32, so it is not an option here.
 fn rand_seed() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0x5eed_1234, |d| d.as_nanos() as u64)
+    let mut bytes = [0u8; 8];
+    match getrandom::fill(&mut bytes) {
+        Ok(()) => u64::from_le_bytes(bytes),
+        Err(_) => 0x5eed_1234,
+    }
 }
