@@ -229,17 +229,19 @@ pub fn keyboard(
 
 /// Drags on the preview's resize handle, and the resize shortcut
 /// (Command/Alt + Shift + Up/Down). The size is persisted.
+#[allow(clippy::too_many_arguments)] // events + queries + state, all needed
 pub fn preview_resize(
     keys: Res<ButtonInput<KeyCode>>,
     mut downs: MessageReader<Pointer<Press>>,
     mut ups: MessageReader<Pointer<Release>>,
     resize: Query<&PreviewResize>,
+    parents: Query<&ChildOf>,
     mut motions: MessageReader<MouseMotion>,
     mut duel: ResMut<Duel>,
     mut settings: ResMut<ClientSettings>,
 ) {
     for down in downs.read() {
-        if resize.get(down.entity).is_ok() {
+        if find_in_lineage(down.entity, &resize, &parents).is_some() {
             duel.resize_drag = true;
         }
     }
@@ -431,28 +433,29 @@ pub fn pointer(
 
 /// Tracks the card under the pointer — the same cursor the WASD keys
 /// move, so mouse and keyboard never fight over two highlights.
+/// Like clicks, hover resolves through the entity's ancestors: the
+/// card's image covers the whole card, and the event lands on it first.
 pub fn pointer_hover(
     mut overs: MessageReader<Pointer<Over>>,
     mut outs: MessageReader<Pointer<Out>>,
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
+    parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
 ) {
     for over in overs.read() {
-        if let Ok(v) = cards.get(over.entity) {
+        if let Some(v) = find_in_lineage(over.entity, &cards, &parents) {
             duel.hovered = Some(v.object);
-        } else if let Ok(h) = hand_cards.get(over.entity) {
+        } else if let Some(h) = find_in_lineage(over.entity, &hand_cards, &parents) {
             duel.hovered = Some(h.object);
         }
     }
     for out in outs.read() {
-        if cards
-            .get(out.entity)
-            .is_ok_and(|v| duel.hovered == Some(v.object))
-            || hand_cards
-                .get(out.entity)
-                .is_ok_and(|h| duel.hovered == Some(h.object))
-        {
+        let is_current = find_in_lineage(out.entity, &cards, &parents)
+            .is_some_and(|v| duel.hovered == Some(v.object))
+            || find_in_lineage(out.entity, &hand_cards, &parents)
+                .is_some_and(|h| duel.hovered == Some(h.object));
+        if is_current {
             duel.hovered = None;
         }
     }
