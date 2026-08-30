@@ -1,0 +1,21 @@
+; Godot project for the baylee duel client.
+;
+; The Rust half is `crates/baylee-client-godot`, loaded through
+; `baylee.gdextension`. Build it before opening this project:
+;   cargo build -p baylee-client-godot
+
+config_version=5
+
+[application]
+config/name="baylee"
+config/description="Duel client — Godot front end over the Rust rules engine."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=800
+
+[rendering]
+renderer/rendering_method="mobile"

@@ -39,6 +39,12 @@ const CARD_LIFT: f32 = 0.01;
 const STACK_LIFT: f32 = 0.006;
 /// How many cards of a group are drawn behind the representative.
 const MAX_STACK_DEPTH: usize = 4;
+/// Lift and scale for the card under the cursor (subtle — a glance, not a jump).
+const HOVER_LIFT: f32 = 0.12;
+const HOVER_SCALE: f32 = 1.05;
+/// Lift and scale for a card chosen for the pending choice (clearly "in").
+const SELECTED_LIFT: f32 = 0.22;
+const SELECTED_SCALE: f32 = 1.07;
 
 /// Marks everything spawned for the duel, so closing it is one despawn.
 #[derive(Component)]
@@ -205,6 +211,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
 
 /// Brings the scene in line with the board model.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)] // the diff loop is one coherent pass
 pub fn sync_scene(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -229,6 +236,15 @@ pub fn sync_scene(
     let wanted = placements(&duel);
     let mut live: HashSet<ObjectId> = HashSet::new();
 
+    // Selection state, read once: the keyboard/mouse cursor and the cards
+    // already chosen for the pending choice.
+    let hovered = duel.hovered;
+    let selected: HashSet<ObjectId> = duel
+        .interaction
+        .as_ref()
+        .map(|i| i.selected().iter().copied().collect())
+        .unwrap_or_default();
+
     for placement in &wanted {
         live.insert(placement.object);
 
@@ -251,7 +267,17 @@ pub fn sync_scene(
             None => blank.clone().unwrap_or_default(),
         };
 
-        let transform = card_transform(&placement.slot, placement.position, placement.tapped, 0.0);
+        let mut transform =
+            card_transform(&placement.slot, placement.position, placement.tapped, 0.0);
+        // Hover (cursor) lifts the card a touch; a chosen card stays raised
+        // until the choice is answered. Selected wins over hovered.
+        if selected.contains(&placement.object) {
+            transform.translation.y += SELECTED_LIFT;
+            transform.scale *= SELECTED_SCALE;
+        } else if hovered == Some(placement.object) {
+            transform.translation.y += HOVER_LIFT;
+            transform.scale *= HOVER_SCALE;
+        }
 
         if let Some(&entity) = index.cards.get(&placement.object) {
             // Existing card: update in place. Touching only what changed is

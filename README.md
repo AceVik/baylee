@@ -25,6 +25,7 @@ markers: **[Implemented]** = code exists, **[Spec]** = design target only.
 | `baylee-view` | Per-seat wire view (projected characteristics, hidden-info filtered) |
 | `baylee-client-core` | Renderer-agnostic client brain: layout, board model, interaction, image policy |
 | `baylee-client` | Bevy 2.5D duel client (native + browser); see `docs/client.md` |
+| `baylee-client-godot` | Godot 4 duel client (GDExtension); see `docs/client-godot.md` |
 
 ## Legal
 

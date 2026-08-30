@@ -180,6 +180,12 @@ pub fn image_url(entry: &PrintEntry, face: Face, size: ArtSize) -> Option<String
     if !id.contains('-') || id.len() < 32 {
         return None;
     }
+    // The nil UUID is well-formed and always wrong: it is what a preset carries
+    // when it has no real print table, and every card in such a game shares it.
+    // Letting it through costs one guaranteed 404 per card on the board.
+    if id.chars().all(|c| c == '0' || c == '-') {
+        return None;
+    }
     Some(format!(
         "{CDN}/{}/{}/{a}/{b}/{id}.jpg",
         size.path_segment(),
@@ -421,6 +427,24 @@ mod tests {
         assert_eq!(foil.treatment, FinishTreatment::Foil);
         // Same size and face, different printings: different files.
         assert_ne!(foil.url, plain.url);
+    }
+
+    #[test]
+    fn the_nil_uuid_is_not_a_printing() {
+        // A preset with no real print table carries `Uuid::nil()`, and every
+        // card in the game points at it — so this is one 404 per card, not one
+        // per game.
+        let mut s = statics();
+        s.prints.push(PrintEntry {
+            scryfall_id: "00000000-0000-0000-0000-000000000000".into(),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        });
+        let nil = key(3, ArtSize::Small);
+        assert!(
+            resolve(&s, nil).is_none(),
+            "the renderer must draw a card back rather than fetch a certain 404"
+        );
     }
 
     #[test]

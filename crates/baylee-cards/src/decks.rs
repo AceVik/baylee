@@ -61,36 +61,54 @@ pub fn load_acceptance(text: &str, deck_name: &str) -> Result<LoadedDeck, String
     })
 }
 
+/// The print-table entry for a card: the registry's reference printing,
+/// deduplicated. Clients key artwork off this — a table of nil UUIDs (the
+/// previous placeholder) is why no card image ever loaded.
+fn print_ref_for(prints: &mut Vec<PrintInfo>, card: CardIndex) -> PrintRef {
+    let id = by_index(card).map_or_else(uuid::Uuid::nil, |def| {
+        uuid::Uuid::parse_str(def.scryfall_id).unwrap_or_default()
+    });
+    if let Some(pos) = prints.iter().position(|p| p.scryfall_id == id) {
+        return PrintRef::new(pos as u16);
+    }
+    prints.push(PrintInfo {
+        scryfall_id: id,
+        lang: "EN".into(),
+        finish: Finish::Normal,
+    });
+    PrintRef::new((prints.len() - 1) as u16)
+}
+
 /// Builds a two-player preset from two loaded decks.
 #[must_use]
 pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
-    let mk = |deck: &LoadedDeck| SeatSpec {
-        controller: SeatController::Ai(AIProfile::default()),
-        deck: deck
-            .main
+    let mut prints: Vec<PrintInfo> = Vec::new();
+    let mut entries = |deck: &LoadedDeck| {
+        deck.main
             .iter()
             .map(|card| DeckEntry {
                 card: *card,
-                print: PrintRef::new(0),
+                print: print_ref_for(&mut prints, *card),
             })
-            .collect(),
+            .collect()
+    };
+    let seat = |entries: Vec<DeckEntry>| SeatSpec {
+        controller: SeatController::Ai(AIProfile::default()),
+        deck: entries,
         starting_life: None,
         starting_hand: None,
         starting_battlefield: vec![],
         emblems: vec![],
         team: None,
     };
+    let seats = vec![seat(entries(a)), seat(entries(b))];
     GamePreset {
         format: FormatId::Freeform,
         seed,
         dev_mode: false,
         house_rules: HouseRules::default(),
         modifiers: vec![],
-        prints: vec![PrintInfo {
-            scryfall_id: uuid::Uuid::nil(),
-            lang: "EN".into(),
-            finish: Finish::Normal,
-        }],
-        seats: vec![mk(a), mk(b)],
+        prints,
+        seats,
     }
 }

@@ -12,17 +12,30 @@
 
 use crate::Duel;
 use baylee_client_core::board::{SeatPod, ThreatSummary};
+use baylee_view::{Phase, PlayerView, Step};
 use bevy::prelude::*;
 
 /// Root of the overlay.
 #[derive(Component)]
 pub struct HudRoot;
 
+/// A hand card on the overlay: the 2D counterpart of [`crate::table::CardVisual`],
+/// so clicks and hover treat hand and battlefield the same way.
+#[derive(Component)]
+pub struct HandCardVisual {
+    /// The object the card represents and that input reports.
+    pub object: baylee_core::ids::ObjectId,
+}
+
 /// Which snapshot the overlay currently shows.
 #[derive(Resource, Default)]
 pub struct HudRevision {
     seq: Option<u64>,
     prompt: Option<String>,
+    /// Cursor position and choice selection — they change without a new
+    /// snapshot (hover is per-frame, selection never leaves the client).
+    hovered: Option<baylee_core::ids::ObjectId>,
+    selected: Vec<baylee_core::ids::ObjectId>,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -41,9 +54,12 @@ mod palette {
     pub const DANGER: Color = Color::srgb(0.91, 0.47, 0.42);
     /// The active seat's marker.
     pub const ACTIVE: Color = Color::srgb(0.84, 0.64, 0.31);
+    /// Hover/selection background: one step lighter than the panel.
+    pub const HOVER_BG: Color = Color::srgba(0.10, 0.13, 0.16, 0.92);
 }
 
 /// Rebuilds the overlay when the snapshot changes.
+#[allow(clippy::too_many_lines)] // one retained-UI rebuild, sectioned by comments
 pub fn sync_overlay(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -56,12 +72,25 @@ pub fn sync_overlay(
         .as_ref()
         .map(|i| i.prompt().headline())
         .or_else(|| duel.last_error.clone());
+    let hovered = duel.hovered;
+    let selected: Vec<baylee_core::ids::ObjectId> = duel
+        .interaction
+        .as_ref()
+        .map(|i| i.selected().to_vec())
+        .unwrap_or_default();
 
-    if revision.seq == seq && revision.prompt == prompt && !existing.is_empty() {
+    if revision.seq == seq
+        && revision.prompt == prompt
+        && revision.hovered == hovered
+        && revision.selected == selected
+        && !existing.is_empty()
+    {
         return;
     }
     revision.seq = seq;
     revision.prompt.clone_from(&prompt);
+    revision.hovered = hovered;
+    revision.selected.clone_from(&selected);
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -98,10 +127,20 @@ pub fn sync_overlay(
         ))
         .id();
     for pod in board.pods.iter().filter(|p| !p.is_local) {
-        let seat = spawn_seat_bar(&mut commands, pod, duel.focus == Some(pod.player));
+        let name = duel.statics.as_ref().map_or_else(
+            || format!("Seat {}", pod.player),
+            |s| s.seat_name(pod.player).to_string(),
+        );
+        let seat = spawn_seat_bar(&mut commands, pod, &name, duel.focus == Some(pod.player));
         commands.entity(top).add_child(seat);
     }
     commands.entity(root).add_child(top);
+
+    // ---- turn indicator: one slim centered bar (turn · active · phase)
+    if let Some(view) = duel.view.as_ref() {
+        let bar = spawn_turn_bar(&mut commands, view, duel.statics.as_ref(), duel.seat());
+        commands.entity(root).add_child(bar);
+    }
 
     // ---- bottom: prompt, then the local seat line
     let bottom = commands
@@ -140,11 +179,15 @@ pub fn sync_overlay(
     }
 
     if let Some(pod) = board.pods.iter().find(|p| p.is_local) {
-        let seat = spawn_seat_bar(&mut commands, pod, false);
+        let name = duel.statics.as_ref().map_or_else(
+            || format!("Seat {}", pod.player),
+            |s| s.seat_name(pod.player).to_string(),
+        );
+        let seat = spawn_seat_bar(&mut commands, pod, &name, false);
         commands.entity(bottom).add_child(seat);
     }
 
-    let hand = spawn_hand_strip(&mut commands, board);
+    let hand = spawn_hand_strip(&mut commands, board, hovered, &selected);
     commands.entity(bottom).add_child(hand);
     commands.entity(root).add_child(bottom);
 
@@ -154,8 +197,104 @@ pub fn sync_overlay(
     }
 }
 
+/// The slim centered turn bar: turn number, whose turn it is, the current
+/// phase/step, and a priority marker. One line, always in the same place —
+/// the piece of game state a player checks most often.
+fn spawn_turn_bar(
+    commands: &mut Commands,
+    view: &PlayerView,
+    statics: Option<&baylee_view::GameStatic>,
+    local: Option<baylee_core::ids::PlayerId>,
+) -> Entity {
+    let yours = local == Some(view.active);
+    let active_name = statics.map_or_else(
+        || format!("Seat {}", view.active),
+        |s| s.seat_name(view.active).to_string(),
+    );
+    let priority_marker = match (view.priority, local) {
+        (Some(p), Some(l)) if p == l => " · ▶ you",
+        _ => "",
+    };
+    let label = format!(
+        "T{} · {} · {}{}",
+        view.turn,
+        active_name,
+        phase_label(view),
+        priority_marker,
+    );
+
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(10),
+                left: percent(50),
+                // Slim fixed-width bar, pulled back by half its width to
+                // center it; content is one short line.
+                width: px(280),
+                margin: UiRect::left(px(-140)),
+                padding: UiRect::axes(px(10), px(4)),
+                flex_direction: FlexDirection::Row,
+                column_gap: px(8),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BackgroundColor(palette::PANEL),
+            Pickable::IGNORE,
+            children![
+                (
+                    Node {
+                        width: px(8),
+                        height: px(8),
+                        border_radius: BorderRadius::all(px(4)),
+                        ..default()
+                    },
+                    BackgroundColor(if yours {
+                        palette::ACCENT
+                    } else {
+                        palette::ACTIVE
+                    }),
+                ),
+                (
+                    Text::new(label),
+                    TextFont::from_font_size(13.0),
+                    TextColor(if yours { palette::ACCENT } else { palette::INK }),
+                ),
+            ],
+        ))
+        .id()
+}
+
+/// A compact, player-facing name for the current phase/step.
+#[must_use]
+pub fn phase_label(view: &PlayerView) -> &'static str {
+    match view.phase {
+        Phase::Beginning => match view.step {
+            Step::Untap => "Untap",
+            Step::Upkeep => "Upkeep",
+            Step::Draw => "Draw",
+            _ => "Beginning",
+        },
+        Phase::FirstMain => "Main 1",
+        Phase::Combat => match view.step {
+            Step::CombatBegin => "Combat · Begin",
+            Step::DeclareAttackers => "Attackers",
+            Step::DeclareBlockers => "Blockers",
+            Step::CombatDamageFirst | Step::CombatDamage => "Damage",
+            Step::CombatEnd => "Combat · End",
+            _ => "Combat",
+        },
+        Phase::SecondMain => "Main 2",
+        Phase::Ending => match view.step {
+            Step::Cleanup => "Cleanup",
+            _ => "End Step",
+        },
+    }
+}
+
 /// One seat's line: life, the threat read, and its token chips.
-fn spawn_seat_bar(commands: &mut Commands, pod: &SeatPod, focused: bool) -> Entity {
+fn spawn_seat_bar(commands: &mut Commands, pod: &SeatPod, name: &str, focused: bool) -> Entity {
     let border = if pod.has_priority {
         palette::ACCENT
     } else if pod.is_active {
@@ -195,7 +334,7 @@ fn spawn_seat_bar(commands: &mut Commands, pod: &SeatPod, focused: bool) -> Enti
             },
             children![
                 (
-                    Text::new(format!("Seat {}", pod.player)),
+                    Text::new(name.to_string()),
                     TextFont::from_font_size(14.0),
                     TextColor(palette::MUTED),
                 ),
@@ -242,8 +381,15 @@ pub fn threat_line(threat: &ThreatSummary) -> String {
     )
 }
 
-/// The local hand, playable cards first.
-fn spawn_hand_strip(commands: &mut Commands, board: &baylee_client_core::BoardModel) -> Entity {
+/// The local hand, playable cards first. Cards are interactive: clicking
+/// (or hovering + E) plays a playable card or selects it for the pending
+/// choice, exactly like a card on the table.
+fn spawn_hand_strip(
+    commands: &mut Commands,
+    board: &baylee_client_core::BoardModel,
+    hovered: Option<baylee_core::ids::ObjectId>,
+    selected: &[baylee_core::ids::ObjectId],
+) -> Entity {
     let strip = commands
         .spawn((
             Node {
@@ -256,22 +402,31 @@ fn spawn_hand_strip(commands: &mut Commands, board: &baylee_client_core::BoardMo
         .id();
 
     for card in &board.hand {
+        let is_selected = selected.contains(&card.id);
+        let is_hovered = hovered == Some(card.id);
+        let (border, border_px, background) = if is_selected {
+            (palette::ACCENT, 2.0, palette::HOVER_BG)
+        } else if is_hovered {
+            (palette::ACCENT, 1.0, palette::HOVER_BG)
+        } else if card.playable {
+            (palette::ACCENT, 1.0, palette::PANEL)
+        } else {
+            (palette::PANEL, 1.0, palette::PANEL)
+        };
         let entity = commands
             .spawn((
+                HandCardVisual { object: card.id },
                 Node {
                     padding: UiRect::axes(px(8), px(5)),
+                    border: UiRect::all(px(border_px)),
                     ..default()
                 },
-                BackgroundColor(palette::PANEL),
-                BorderColor::all(if card.playable {
-                    palette::ACCENT
-                } else {
-                    palette::PANEL
-                }),
+                BackgroundColor(background),
+                BorderColor::all(border),
                 children![(
                     Text::new(card.name.clone()),
                     TextFont::from_font_size(13.0),
-                    TextColor(if card.playable {
+                    TextColor(if card.playable || is_hovered || is_selected {
                         palette::INK
                     } else {
                         palette::MUTED

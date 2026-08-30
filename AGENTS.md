@@ -16,6 +16,9 @@
   `baylee-client-core`, the wire view in `baylee-view`)
 - Run the client in a browser: `trunk serve index.html --release` from
   `crates/baylee-client/` (always `--release` — a dev wasm is ~350 MB)
+- Run the Godot duel client: `cargo build -p baylee-client-godot`
+  then `godot --path godot` (design: `docs/client-godot.md`). Godot loads
+  the library at startup — rebuild, then Project -> Reload Current Project.
 
 ## Conventions
 

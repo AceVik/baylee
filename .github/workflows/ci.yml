@@ -75,7 +75,12 @@ jobs:
         with:
           toolchain: "1.88"
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --workspace --all-targets
+      # baylee-client-godot is excluded on purpose: gdext 0.5 requires 1.94,
+      # and the engine/gateway MSRV promise is the thing this job protects.
+      # Its own build is covered by the stable clippy and test jobs.
+      - run: >-
+          cargo check --workspace --all-targets
+          --exclude baylee-client-godot
 
   deny:
     runs-on: ubuntu-latest

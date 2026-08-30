@@ -202,7 +202,7 @@ impl Plugin for DuelPlugin {
             )
             .add_systems(
                 Update,
-                (input::keyboard, input::pointer)
+                (input::keyboard, input::pointer, input::pointer_hover)
                     .in_set(DuelSet::Input)
                     .run_if(in_state(DuelPhase::Playing)),
             )

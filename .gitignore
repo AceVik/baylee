@@ -5,3 +5,8 @@
 .idea/
 # trunk default output (browser build of baylee-client)
 dist/
+
+# Godot's import cache and export output; regenerated on open, never reviewed.
+/godot/.godot/
+/godot/export_presets.cfg
+/godot/build/

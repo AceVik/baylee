@@ -1,0 +1,24 @@
+; Godot loads the Rust client through this file.
+; Note: this is a Godot ConfigFile — comments start with ';', never '#'.
+; A '#' line here is a parse error that silently drops the entries after it.
+
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.7
+; Godot can swap the library back in after a rebuild without a restart. It
+; still has to be told to: Project -> Reload Current Project.
+reloadable = true
+
+[libraries]
+; Paths are relative to this file. `cargo build` writes into the workspace
+; target dir one level up. `--profile godot-release` is the release build that
+; keeps unwinding, so gdext can still turn a panic into a Godot error rather
+; than killing the process.
+macos.debug = "res://../target/debug/libbaylee_client_godot.dylib"
+macos.release = "res://../target/godot-release/libbaylee_client_godot.dylib"
+macos.debug.arm64 = "res://../target/debug/libbaylee_client_godot.dylib"
+macos.release.arm64 = "res://../target/godot-release/libbaylee_client_godot.dylib"
+linux.debug.x86_64 = "res://../target/debug/libbaylee_client_godot.so"
+linux.release.x86_64 = "res://../target/godot-release/libbaylee_client_godot.so"
+windows.debug.x86_64 = "res://../target/debug/baylee_client_godot.dll"
+windows.release.x86_64 = "res://../target/godot-release/baylee_client_godot.dll"

@@ -10,12 +10,51 @@
 //! engine did not offer. No input handler decides legality by itself.
 
 use crate::Duel;
+use crate::hud::HandCardVisual;
 use crate::table::CardVisual;
 use baylee_client_core::interaction::Interaction;
+use baylee_core::ids::ObjectId;
 use bevy::prelude::*;
+
+/// The one way a card becomes an action: play it when the engine offers
+/// that, otherwise select it for the pending choice. Clicks and the
+/// keyboard cursor both end here, so they can never disagree.
+pub fn activate_card(duel: &mut Duel, object: ObjectId) {
+    if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
+        duel.submit(action);
+        return;
+    }
+    if let Some(i) = duel.interaction.as_mut() {
+        i.toggle(object);
+    }
+}
 
 /// Keyboard handling, following `docs/keyboard-map.md`.
 pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
+    // WASD moves the card cursor across the table grid (hand row at the
+    // bottom, then the local board, then the opponents), E activates the
+    // card under it — the same thing a click would do.
+    let cursor_move = if keys.just_pressed(KeyCode::KeyA) {
+        Some((0, -1))
+    } else if keys.just_pressed(KeyCode::KeyD) {
+        Some((0, 1))
+    } else if keys.just_pressed(KeyCode::KeyW) {
+        Some((1, 0))
+    } else if keys.just_pressed(KeyCode::KeyS) {
+        Some((-1, 0))
+    } else {
+        None
+    };
+    if let Some((d_row, d_col)) = cursor_move {
+        move_cursor(&mut duel, d_row, d_col);
+    }
+    if keys.just_pressed(KeyCode::KeyE)
+        && let Some(object) = duel.hovered
+    {
+        activate_card(&mut duel, object);
+        return;
+    }
+
     if duel.interaction.is_none() {
         return;
     }
@@ -98,6 +137,64 @@ pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
     }
 }
 
+/// The selectable cards as a row grid: hand at the bottom, then each
+/// seat's lanes from the local seat outward. Row order matches the
+/// visual layout, so W/S moves the way the eye expects.
+fn cursor_grid(duel: &Duel) -> Vec<Vec<ObjectId>> {
+    let Some(board) = duel.board.as_ref() else {
+        return Vec::new();
+    };
+    let mut rows: Vec<Vec<ObjectId>> = Vec::new();
+    let hand: Vec<ObjectId> = board.hand.iter().map(|c| c.id).collect();
+    if !hand.is_empty() {
+        rows.push(hand);
+    }
+    for pod in board
+        .pods
+        .iter()
+        .filter(|p| p.is_local)
+        .chain(board.pods.iter().filter(|p| !p.is_local))
+    {
+        for lane in &pod.lanes {
+            let row: Vec<ObjectId> = lane.groups.iter().map(|g| g.representative).collect();
+            if !row.is_empty() {
+                rows.push(row);
+            }
+        }
+    }
+    rows
+}
+
+/// Moves the card cursor; wraps inside a row and clamps the column when
+/// changing rows. With no cursor yet, starts at the first hand card.
+fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
+    let grid = cursor_grid(duel);
+    if grid.is_empty() {
+        return;
+    }
+    let Some(current) = duel.hovered else {
+        duel.hovered = Some(grid[0][0]);
+        return;
+    };
+    let Some((mut row, mut col)) = grid.iter().enumerate().find_map(|(r, row)| {
+        row.iter()
+            .position(|&id| id == current)
+            .map(|c| (r as i32, c as i32))
+    }) else {
+        duel.hovered = Some(grid[0][0]);
+        return;
+    };
+    if d_col != 0 {
+        let len = grid[row as usize].len() as i32;
+        col = (col + d_col).rem_euclid(len);
+    }
+    if d_row != 0 {
+        row = (row + d_row).rem_euclid(grid.len() as i32);
+        col = col.min(grid[row as usize].len() as i32 - 1);
+    }
+    duel.hovered = Some(grid[row as usize][col as usize]);
+}
+
 /// Moves the inspection focus to the next opponent.
 fn cycle_focus(duel: &mut Duel) {
     let Some(board) = duel.board.as_ref() else {
@@ -134,33 +231,56 @@ fn cycle_focus(duel: &mut Duel) {
 pub fn pointer(
     clicks: MessageReader<Pointer<Click>>,
     cards: Query<&CardVisual>,
+    hand_cards: Query<&HandCardVisual>,
     duel: ResMut<Duel>,
 ) {
-    handle_clicks(clicks, &cards, duel);
+    handle_clicks(clicks, &cards, &hand_cards, duel);
 }
 
 fn handle_clicks(
     mut clicks: MessageReader<Pointer<Click>>,
     cards: &Query<&CardVisual>,
+    hand_cards: &Query<&HandCardVisual>,
     mut duel: ResMut<Duel>,
 ) {
     for click in clicks.read() {
-        let Ok(visual) = cards.get(click.entity) else {
+        let object = cards
+            .get(click.entity)
+            .map(|v| v.object)
+            .ok()
+            .or_else(|| hand_cards.get(click.entity).map(|h| h.object).ok());
+        let Some(object) = object else {
             continue;
         };
-        let object = visual.object;
+        activate_card(&mut duel, object);
+    }
+}
 
-        // While holding priority a click plays the card, when the engine said
-        // it is playable.
-        if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
-            duel.submit(action);
-            continue;
+/// Tracks the card under the pointer — the same cursor the WASD keys
+/// move, so mouse and keyboard never fight over two highlights.
+pub fn pointer_hover(
+    mut overs: MessageReader<Pointer<Over>>,
+    mut outs: MessageReader<Pointer<Out>>,
+    cards: Query<&CardVisual>,
+    hand_cards: Query<&HandCardVisual>,
+    mut duel: ResMut<Duel>,
+) {
+    for over in overs.read() {
+        if let Ok(v) = cards.get(over.entity) {
+            duel.hovered = Some(v.object);
+        } else if let Ok(h) = hand_cards.get(over.entity) {
+            duel.hovered = Some(h.object);
         }
-
-        // Otherwise it is a selection for the pending choice; the interaction
-        // rejects anything that was not offered.
-        if let Some(i) = duel.interaction.as_mut() {
-            i.toggle(object);
+    }
+    for out in outs.read() {
+        if cards
+            .get(out.entity)
+            .is_ok_and(|v| duel.hovered == Some(v.object))
+            || hand_cards
+                .get(out.entity)
+                .is_ok_and(|h| duel.hovered == Some(h.object))
+        {
+            duel.hovered = None;
         }
     }
 }
