@@ -23,13 +23,17 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "baylee".to_string(),
-                        // A regular decorated window: the system close /
-                        // minimize buttons stay available. (Borderless
-                        // fullscreen hides them and was rejected.)
-                        fit_canvas_to_parent: true,
-                        ..default()
+                    primary_window: Some({
+                        let mut window = Window {
+                            title: "baylee".to_string(),
+                            // A regular decorated window: the system close /
+                            // minimize buttons stay available.
+                            fit_canvas_to_parent: true,
+                            ..default()
+                        };
+                        // Starts maximized (decorations kept).
+                        window.set_maximized(true);
+                        window
                     }),
                     ..default()
                 })

@@ -320,12 +320,17 @@ fn run_autopilot(mut duel: ResMut<Duel>) {
         duel.autopilot = None;
     }
     let answer = {
+        let Some(view) = duel.view.as_ref() else {
+            return;
+        };
+        let active_is_mine = hud::same_team(duel.statics.as_ref(), view.active, view.seat);
         let Some(interaction) = duel.interaction.as_ref() else {
             return;
         };
         automation::auto_answer(
             interaction.pending(),
             interaction.is_mine(),
+            active_is_mine,
             phase,
             step,
             &duel.orders,

@@ -136,8 +136,8 @@ pub fn keyboard(
             activate_card(&mut duel, object);
             return;
         }
-        if let Some(row) = duel.orders.selected() {
-            duel.orders.toggle(row);
+        if let Some((side, row)) = duel.orders.selected() {
+            duel.orders.toggle(side, row);
             return;
         }
         if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
@@ -397,7 +397,7 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &phase_buttons, &parents) {
-            duel.orders.toggle(button.row);
+            duel.orders.toggle(button.side, button.row);
             continue;
         }
         if find_in_lineage(e, &knobs, &parents).is_some() {
@@ -475,6 +475,11 @@ pub fn camera_controls(
     mut duel: ResMut<Duel>,
     mut rig: ResMut<crate::table::CameraRig>,
 ) {
+    // The canvas is not navigable while the own-board battlefield covers
+    // it (the "battlefield bar" is in front).
+    if !duel.overlay_closed {
+        return;
+    }
     let meta = keys.pressed(KeyCode::SuperLeft)
         || keys.pressed(KeyCode::SuperRight)
         || keys.pressed(KeyCode::AltLeft)
