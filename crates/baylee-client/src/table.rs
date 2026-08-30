@@ -139,10 +139,10 @@ pub struct SceneIndex {
     blank: Option<Handle<StandardMaterial>>,
 }
 
-/// A card's corner radius, matched to a physical Magic card (~3.2 mm on
-/// 63 mm ≈ 5% of the width) — the white corners of the printed image are
-/// never visible because the mesh itself is rounded.
-pub const CARD_CORNER: f32 = CARD_WIDTH * 0.05;
+/// A card's corner radius (~8% of the width — a little rounder than a
+/// physical Magic card, matching the UI cards; the white corners of the
+/// printed image are never visible because the mesh itself is rounded).
+pub const CARD_CORNER: f32 = CARD_WIDTH * 0.08;
 
 /// A rounded-rectangle card mesh: the flat card quad with its corners
 /// clipped, UV-mapped exactly like Bevy's `Rectangle` (uv.x left→right,

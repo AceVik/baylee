@@ -39,6 +39,7 @@
 pub mod host;
 pub mod hud;
 pub mod input;
+pub mod settings;
 pub mod table;
 pub mod textures;
 
@@ -125,6 +126,8 @@ pub struct Duel {
     /// Slide position of the own-board overlay: 0.0 = raised (open),
     /// 1.0 = down (closed). Animated towards `overlay_closed`.
     pub overlay_t: f32,
+    /// Whether the preview resize handle is being dragged.
+    pub resize_drag: bool,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -195,6 +198,7 @@ impl Plugin for DuelPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<DuelPhase>()
             .insert_resource(self.config.clone())
+            .insert_resource(settings::ClientSettings::load())
             .init_resource::<Duel>()
             // Both are written by systems that run every frame; a missing
             // resource here is a panic at the table, not a compile error.
@@ -221,6 +225,7 @@ impl Plugin for DuelPlugin {
                     input::pointer,
                     input::pointer_hover,
                     input::camera_controls,
+                    input::preview_resize,
                 )
                     .in_set(DuelSet::Input)
                     .run_if(in_state(DuelPhase::Playing)),

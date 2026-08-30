@@ -14,15 +14,35 @@
 
 use crate::Duel;
 use crate::hud::{
-    HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton, PlayerTab, RailButton,
+    HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton, PlayerTab, PreviewResize,
+    RailButton,
 };
+use crate::settings::ClientSettings;
 use crate::table::CardVisual;
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::interaction::Interaction;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::PlayerAction;
-use bevy::input::mouse::MouseWheel;
+use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
+
+/// Finds a component on the clicked entity or one of its ancestors —
+/// a click on a button's icon or text belongs to the button.
+fn find_in_lineage<'a, T: Component>(
+    entity: Entity,
+    query: &'a Query<&T>,
+    parents: &Query<&ChildOf>,
+) -> Option<&'a T> {
+    let mut current = Some(entity);
+    for _ in 0..6 {
+        let e = current?;
+        if let Ok(found) = query.get(e) {
+            return Some(found);
+        }
+        current = parents.get(e).ok().map(ChildOf::parent);
+    }
+    None
+}
 
 /// The one way a card becomes an action: play it when the engine offers
 /// that, otherwise select it for the pending choice. Clicks and the
@@ -194,12 +214,66 @@ pub fn keyboard(
         i.set_number(next);
     }
 
-    // Cancel: a selected phase button first, then a half-built selection.
+    // Cancel: an open preview first, then a selected phase button, then a
+    // half-built selection.
     if keys.just_pressed(KeyCode::Escape) {
-        if duel.orders.selected().is_some() {
+        if duel.hovered.is_some() {
+            duel.hovered = None;
+        } else if duel.orders.selected().is_some() {
             duel.orders.clear_selection();
         } else if let Some(i) = duel.interaction.as_mut() {
             i.cancel();
+        }
+    }
+}
+
+/// Drags on the preview's resize handle, and the resize shortcut
+/// (Command/Alt + Shift + Up/Down). The size is persisted.
+pub fn preview_resize(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut downs: MessageReader<Pointer<Press>>,
+    mut ups: MessageReader<Pointer<Release>>,
+    resize: Query<&PreviewResize>,
+    mut motions: MessageReader<MouseMotion>,
+    mut duel: ResMut<Duel>,
+    mut settings: ResMut<ClientSettings>,
+) {
+    for down in downs.read() {
+        if resize.get(down.entity).is_ok() {
+            duel.resize_drag = true;
+        }
+    }
+    let mut ended = false;
+    for _up in ups.read() {
+        ended |= duel.resize_drag;
+        duel.resize_drag = false;
+    }
+    if duel.resize_drag {
+        let dx: f32 = motions.read().map(|m| m.delta.x).sum();
+        if dx != 0.0 {
+            settings.preview_scale = (settings.preview_scale + dx * 0.004).clamp(0.5, 1.75);
+        }
+    } else {
+        motions.clear();
+    }
+    if ended {
+        settings.save();
+    }
+
+    // Command/Alt + Shift + Up/Down resizes too.
+    let meta = keys.pressed(KeyCode::SuperLeft)
+        || keys.pressed(KeyCode::SuperRight)
+        || keys.pressed(KeyCode::AltLeft)
+        || keys.pressed(KeyCode::AltRight);
+    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    if meta && shift {
+        if keys.just_pressed(KeyCode::ArrowUp) {
+            settings.preview_scale = (settings.preview_scale + 0.05).clamp(0.5, 1.75);
+            settings.save();
+        }
+        if keys.just_pressed(KeyCode::ArrowDown) {
+            settings.preview_scale = (settings.preview_scale - 0.05).clamp(0.5, 1.75);
+            settings.save();
         }
     }
 }
@@ -299,20 +373,20 @@ pub fn pointer(
     rail_buttons: Query<&RailButton>,
     menu_buttons: Query<&MenuButton>,
     knobs: Query<&OverlayKnob>,
+    parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
     mut rig: ResMut<crate::table::CameraRig>,
 ) {
     for click in clicks.read() {
-        if let Some(object) = cards
-            .get(click.entity)
+        let e = click.entity;
+        if let Some(object) = find_in_lineage(e, &cards, &parents)
             .map(|v| v.object)
-            .ok()
-            .or_else(|| hand_cards.get(click.entity).map(|h| h.object).ok())
+            .or_else(|| find_in_lineage(e, &hand_cards, &parents).map(|h| h.object))
         {
             activate_card(&mut duel, object);
             continue;
         }
-        if let Ok(tab) = tabs.get(click.entity) {
+        if let Some(tab) = find_in_lineage(e, &tabs, &parents) {
             // Your own tab (or the already-focused one) brings the camera
             // home; any other opponent's tab frames their pod.
             if duel.seat() == Some(tab.player) || duel.focus == Some(tab.player) {
@@ -322,15 +396,15 @@ pub fn pointer(
             }
             continue;
         }
-        if let Ok(button) = phase_buttons.get(click.entity) {
+        if let Some(button) = find_in_lineage(e, &phase_buttons, &parents) {
             duel.orders.toggle(button.row);
             continue;
         }
-        if knobs.get(click.entity).is_ok() {
+        if find_in_lineage(e, &knobs, &parents).is_some() {
             duel.overlay_closed = !duel.overlay_closed;
             continue;
         }
-        if let Ok(button) = menu_buttons.get(click.entity) {
+        if let Some(button) = find_in_lineage(e, &menu_buttons, &parents) {
             match button.action {
                 MenuAction::Concede => duel.submit(PlayerAction::Concede),
                 // Draw offers need mutual agreement — a protocol item.
@@ -338,7 +412,7 @@ pub fn pointer(
             }
             continue;
         }
-        if let Ok(button) = rail_buttons.get(click.entity) {
+        if let Some(button) = find_in_lineage(e, &rail_buttons, &parents) {
             let Some(view) = duel.view.as_ref() else {
                 continue;
             };
@@ -348,7 +422,10 @@ pub fn pointer(
                     from_turn: view.turn,
                 },
             });
+            continue;
         }
+        // A click on nothing interactive closes the card preview.
+        duel.hovered = None;
     }
 }
 
@@ -398,7 +475,11 @@ pub fn camera_controls(
     mut duel: ResMut<Duel>,
     mut rig: ResMut<crate::table::CameraRig>,
 ) {
-    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    let meta = keys.pressed(KeyCode::SuperLeft)
+        || keys.pressed(KeyCode::SuperRight)
+        || keys.pressed(KeyCode::AltLeft)
+        || keys.pressed(KeyCode::AltRight);
+    let shift = (keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight)) && !meta;
 
     // Screen-relative directions on the table plane.
     let right = Vec2::new(rig.yaw.cos(), -rig.yaw.sin());
@@ -441,7 +522,7 @@ pub fn camera_controls(
         dy += motion.delta.y;
     }
     let drag_scale = rig.distance / 600.0;
-    if buttons.pressed(MouseButton::Left) {
+    if buttons.pressed(MouseButton::Left) && !duel.resize_drag {
         rig.target -= right * dx * drag_scale;
         rig.target -= forward * dy * drag_scale;
     }

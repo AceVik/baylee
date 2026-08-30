@@ -76,6 +76,14 @@ mod glyph {
     pub const STEP: char = '\u{f051}';
     /// Fast-forward (end turn).
     pub const FAST: char = '\u{f050}';
+    /// Skull and crossbones (poison counters).
+    pub const POISON: char = '\u{f714}';
+    /// Bolt (energy counters).
+    pub const ENERGY: char = '\u{f0e7}';
+    /// Caret down (speech-bubble tail).
+    pub const CARET_DOWN: char = '\u{f0d7}';
+    /// Expand (resize handle).
+    pub const EXPAND: char = '\u{f065}';
 }
 
 /// Root of the overlay.
@@ -137,6 +145,10 @@ pub struct OwnBoardOverlay;
 /// The knob on the overlay's top edge: click toggles it open/closed.
 #[derive(Component)]
 pub struct OverlayKnob;
+
+/// The card preview's resize handle (bottom-right corner).
+#[derive(Component)]
+pub struct PreviewResize;
 
 /// The scrolling strip inside the hand bar.
 #[derive(Component)]
@@ -212,6 +224,8 @@ pub struct HudRevision {
     focus: Option<PlayerId>,
     /// The own-board overlay's open/closed state (knob arrow).
     overlay_closed: bool,
+    /// Preview size (resized via handle or shortcut).
+    preview_scale: f32,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -269,10 +283,16 @@ fn btn_radius() -> BorderRadius {
     BorderRadius::all(px(6))
 }
 
-/// A card's corner radius for a given rendered width, matched to a
-/// physical Magic card (~3.2 mm on 63 mm ≈ 5%).
+/// A card's corner radius for a given rendered width (~8%: a little
+/// rounder than a physical Magic card, which reads better on screen).
 fn card_radius(width: f32) -> BorderRadius {
-    BorderRadius::all(px(width * 0.05))
+    BorderRadius::all(px(width * 0.08))
+}
+
+/// The preview's corner radius — rounder again than the cards on the
+/// table, so the tooltip reads as a preview, not as another card.
+fn preview_radius(width: f32) -> BorderRadius {
+    BorderRadius::all(px(width * 0.12))
 }
 
 /// One color per team, so allied seats read as one side at a glance.
@@ -301,6 +321,7 @@ pub fn sync_overlay(
     assets: Res<AssetServer>,
     windows: Query<&Window>,
     fonts: Res<UiFonts>,
+    settings: Res<crate::settings::ClientSettings>,
 ) {
     let seq = duel.board.as_ref().map(|b| b.seq);
     let prompt = duel
@@ -318,6 +339,7 @@ pub fn sync_overlay(
     let autopilot = duel.autopilot;
     let focus = duel.focus;
     let overlay_closed = duel.overlay_closed;
+    let preview_scale = settings.preview_scale;
 
     if revision.seq == seq
         && revision.prompt == prompt
@@ -330,6 +352,7 @@ pub fn sync_overlay(
         && revision.autopilot == autopilot
         && revision.focus == focus
         && revision.overlay_closed == overlay_closed
+        && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
         && !existing.is_empty()
     {
         return;
@@ -342,6 +365,7 @@ pub fn sync_overlay(
     revision.autopilot = autopilot;
     revision.focus = focus;
     revision.overlay_closed = overlay_closed;
+    revision.preview_scale = preview_scale;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -500,49 +524,89 @@ pub fn sync_overlay(
         );
         commands.entity(root).add_child(hand_bar);
 
-        // ---- hover tooltip: the hovered hand card, readable -------------
-        if let Some(card) = board.hand.iter().find(|c| Some(c.id) == hovered) {
+        // ---- card preview: a speech-bubble tooltip over the hovered
+        // card (hand, own battlefield, or command zone). No title text —
+        // the image is big enough to read.
+        if let Some((art, anchor)) = preview_anchor(board, view, hovered, layout, duel.hand_scroll)
+        {
+            let scale = settings.preview_scale.clamp(0.5, 1.75);
+            let img_w = 308.0 * scale;
+            let img_h = img_w * 88.0 / 63.0;
+            let panel_w = img_w + 12.0;
+            let win_w = windows.single().map_or(1200.0, Window::width);
+            let anchor = anchor.unwrap_or(win_w / 2.0);
+            // Always fully in the viewport.
+            let left = (anchor - panel_w / 2.0).clamp(8.0, (win_w - panel_w - 8.0).max(8.0));
             let key = ImageKey {
                 size: ArtSize::Normal,
-                ..card.art
+                ..art
             };
             let image = textures.get(key, statics, &assets);
             let tooltip = commands
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        bottom: px(HAND_CARD_H + 40.0),
-                        left: percent(50),
-                        margin: UiRect::left(px(-160)),
+                        bottom: px(HAND_BAR_H + 10.0),
+                        left: px(left),
                         padding: UiRect::all(px(6)),
-                        flex_direction: FlexDirection::Column,
-                        row_gap: px(4),
-                        align_items: AlignItems::Center,
-                        border_radius: card_radius(308.0),
+                        border_radius: preview_radius(img_w),
                         overflow: Overflow::clip(),
                         ..default()
                     },
                     BackgroundColor(palette::PANEL_LIT),
+                    overlay_shadow(),
                     ZIndex(10),
                     Pickable::IGNORE,
                     children![
                         (
                             ImageNode::new(image),
                             Node {
-                                width: px(308),
-                                height: px(308.0 * 88.0 / 63.0),
+                                width: px(img_w),
+                                height: px(img_h),
                                 ..default()
                             },
                         ),
                         (
-                            Text::new(card.name.clone()),
-                            tf(&fonts, 15.0),
-                            TextColor(palette::INK),
+                            // Resize handle, bottom right.
+                            PreviewResize,
+                            Node {
+                                position_type: PositionType::Absolute,
+                                right: px(4),
+                                bottom: px(4),
+                                padding: UiRect::all(px(4)),
+                                border_radius: btn_radius(),
+                                ..default()
+                            },
+                            BackgroundColor(palette::PANEL),
+                            children![(
+                                Text::new(glyph::EXPAND.to_string()),
+                                icon_tf(&fonts, 11.0),
+                                TextColor(palette::MUTED),
+                            )],
                         ),
                     ],
                 ))
                 .id();
             commands.entity(root).add_child(tooltip);
+
+            // The speech-bubble tail, pointing at the hovered card.
+            let tail = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        bottom: px(HAND_BAR_H + 2.0),
+                        left: px(anchor - 9.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                    children![(
+                        Text::new(glyph::CARET_DOWN.to_string()),
+                        icon_tf(&fonts, 18.0),
+                        TextColor(palette::PANEL_LIT),
+                    )],
+                ))
+                .id();
+            commands.entity(root).add_child(tail);
         }
     }
 
@@ -612,7 +676,7 @@ fn spawn_player_tab(
     } else {
         palette::MUTED
     };
-    commands
+    let tab = commands
         .spawn((
             PlayerTab { player },
             Node {
@@ -632,86 +696,72 @@ fn spawn_player_tab(
                 team_color(team)
             }),
             soft_shadow(),
-            children![
-                (
-                    // Name and life: name in text font, life with a heart icon.
-                    Text::new(format!("{marker}{display} ")),
-                    tf(fonts, 14.0),
-                    TextColor(if seat.has_lost { palette::DEAD } else { ink }),
-                    children![
-                        (
-                            TextSpan::new(glyph::HEART.to_string()),
-                            icon_tf(fonts, 11.0),
-                            TextColor(if seat.life <= 5 {
-                                palette::DANGER
-                            } else {
-                                palette::ACCENT
-                            }),
-                        ),
-                        (
-                            TextSpan::new(format!(" {}", seat.life)),
-                            tf(fonts, 14.0),
-                            TextColor(if seat.has_lost {
-                                palette::DEAD
-                            } else if seat.life <= 5 {
-                                palette::DANGER
-                            } else {
-                                ink
-                            }),
-                        ),
-                    ],
-                ),
-                (
-                    // Zone counts as icon + number pairs.
-                    Text::new(""),
-                    tf(fonts, 11.0),
-                    TextColor(counts_color),
-                    children![
-                        (
-                            TextSpan::new(glyph::HAND.to_string()),
-                            icon_tf(fonts, 10.0),
-                            TextColor(counts_color),
-                        ),
-                        (
-                            TextSpan::new(format!(" {}  ", seat.hand_count)),
-                            tf(fonts, 11.0),
-                            TextColor(counts_color),
-                        ),
-                        (
-                            TextSpan::new(glyph::LIBRARY.to_string()),
-                            icon_tf(fonts, 10.0),
-                            TextColor(counts_color),
-                        ),
-                        (
-                            TextSpan::new(format!(" {}  ", seat.library_count)),
-                            tf(fonts, 11.0),
-                            TextColor(counts_color),
-                        ),
-                        (
-                            TextSpan::new(glyph::SKULL.to_string()),
-                            icon_tf(fonts, 10.0),
-                            TextColor(counts_color),
-                        ),
-                        (
-                            TextSpan::new(format!(" {}  ", seat.graveyard_count)),
-                            tf(fonts, 11.0),
-                            TextColor(counts_color),
-                        ),
-                        (
-                            TextSpan::new(glyph::EXILE.to_string()),
-                            icon_tf(fonts, 10.0),
-                            TextColor(counts_color),
-                        ),
-                        (
-                            TextSpan::new(format!(" {exile_count}")),
-                            tf(fonts, 11.0),
-                            TextColor(counts_color),
-                        ),
-                    ],
-                ),
-            ],
+            children![(
+                // Name and life: name in text font, life with a heart icon.
+                Text::new(format!("{marker}{display} ")),
+                tf(fonts, 14.0),
+                TextColor(if seat.has_lost { palette::DEAD } else { ink }),
+                children![
+                    (
+                        TextSpan::new(glyph::HEART.to_string()),
+                        icon_tf(fonts, 11.0),
+                        TextColor(if seat.life <= 5 {
+                            palette::DANGER
+                        } else {
+                            palette::ACCENT
+                        }),
+                    ),
+                    (
+                        TextSpan::new(format!(" {}", seat.life)),
+                        tf(fonts, 14.0),
+                        TextColor(if seat.has_lost {
+                            palette::DEAD
+                        } else if seat.life <= 5 {
+                            palette::DANGER
+                        } else {
+                            ink
+                        }),
+                    ),
+                ],
+            ),],
         ))
-        .id()
+        .id();
+
+    // Zone counts as icon + number pairs, with experience counters
+    // (poison, energy) appearing only when a player actually has them.
+    let counts = commands
+        .spawn((Text::new(""), tf(fonts, 11.0), TextColor(counts_color)))
+        .id();
+    commands.entity(tab).add_child(counts);
+    let mut span = |icon: char, value: String| {
+        let icon_span = commands
+            .spawn((
+                TextSpan::new(icon.to_string()),
+                icon_tf(fonts, 10.0),
+                TextColor(counts_color),
+            ))
+            .id();
+        let value_span = commands
+            .spawn((
+                TextSpan::new(value),
+                tf(fonts, 11.0),
+                TextColor(counts_color),
+            ))
+            .id();
+        commands.entity(counts).add_child(icon_span);
+        commands.entity(counts).add_child(value_span);
+    };
+    span(glyph::HAND, format!(" {}  ", seat.hand_count));
+    span(glyph::LIBRARY, format!(" {}  ", seat.library_count));
+    span(glyph::SKULL, format!(" {}  ", seat.graveyard_count));
+    span(glyph::EXILE, format!(" {exile_count}"));
+    if seat.poison > 0 {
+        span(glyph::POISON, format!(" {}", seat.poison));
+    }
+    if seat.energy > 0 {
+        span(glyph::ENERGY, format!(" {}", seat.energy));
+    }
+    tab
 }
 
 /// Icon and the short rail label for a rail row.
@@ -748,7 +798,7 @@ fn spawn_phase_rail(
             Node {
                 position_type: PositionType::Absolute,
                 right: px(0),
-                top: px(0),
+                top: px(TAB_H),
                 bottom: px(HAND_CARD_H + 20.0),
                 width: px(56),
                 flex_direction: FlexDirection::Column,
@@ -830,8 +880,9 @@ fn spawn_phase_rail(
                 Node {
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
-                    padding: UiRect::axes(px(2), px(2)),
+                    padding: UiRect::axes(px(2), px(3)),
                     border: UiRect::all(px(if is_selected || is_current { 2.0 } else { 1.0 })),
+                    border_radius: btn_radius(),
                     width: percent(100),
                     ..default()
                 },
@@ -850,7 +901,7 @@ fn spawn_phase_rail(
                 children![
                     (
                         Text::new(icon.to_string()),
-                        icon_tf(fonts, 12.0),
+                        icon_tf(fonts, 14.0),
                         TextColor(if is_current {
                             palette::INK
                         } else {
@@ -859,7 +910,7 @@ fn spawn_phase_rail(
                     ),
                     (
                         Text::new(short),
-                        tf(fonts, 8.5),
+                        tf(fonts, 10.0),
                         TextColor(if is_current {
                             palette::INK
                         } else {
@@ -970,8 +1021,8 @@ fn spawn_hand_bar(
             HandStrip,
             Node {
                 position_type: PositionType::Absolute,
-                left: px(0),
-                top: px(0),
+                left: px(10),
+                top: px(10),
                 height: px(HAND_CARD_H),
                 ..default()
             },
@@ -1053,8 +1104,8 @@ fn spawn_hand_bar(
             .spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    right: px(8),
-                    bottom: px(6),
+                    right: px(10),
+                    bottom: px(10),
                     flex_direction: FlexDirection::Row,
                     column_gap: px(6),
                     padding: UiRect::all(px(6)),
@@ -1150,11 +1201,48 @@ pub fn apply_hand_scroll(
     duel.hand_scroll = duel.hand_scroll.clamp(0.0, max_scroll);
 
     for mut node in &mut strips {
-        let wanted = UiRect::left(px(-duel.hand_scroll));
+        let wanted = UiRect::left(px(10.0 - duel.hand_scroll));
         if node.margin != wanted {
             node.margin = wanted;
         }
     }
+}
+
+/// Which card the preview shows and where its anchor (the bubble's tail
+/// target) sits horizontally: hand cards anchor at their strip position;
+/// everything else anchors at the screen's centre (`None`). Art comes
+/// from the hand, the battlefield lanes, or the command zone.
+fn preview_anchor(
+    board: &baylee_client_core::BoardModel,
+    view: &PlayerView,
+    hovered: Option<ObjectId>,
+    layout: HandLayout,
+    scroll: f32,
+) -> Option<(ImageKey, Option<f32>)> {
+    let h = hovered?;
+    if let Some(i) = board.hand.iter().position(|c| c.id == h) {
+        let x = 10.0 + i as f32 * layout.step - scroll + HAND_CARD_W / 2.0;
+        return Some((board.hand[i].art, Some(x)));
+    }
+    for pod in &board.pods {
+        for lane in &pod.lanes {
+            for group in &lane.groups {
+                if group.representative == h {
+                    return group.art.map(|art| (art, None));
+                }
+            }
+        }
+    }
+    if let Some(cmd) = view
+        .command
+        .get(view.seat.get() as usize)
+        .and_then(|cmds| cmds.iter().find(|c| c.id == h))
+    {
+        return cmd
+            .card
+            .map(|c| (ImageKey::new(c.print, c.face, ArtSize::Normal), None));
+    }
+    None
 }
 
 /// Card width in the own-board overlay.
