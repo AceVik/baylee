@@ -8,12 +8,17 @@
 //! Both paths converge on the same place: they build a [`PlayerAction`] through
 //! [`baylee_client_core::interaction::Interaction`], which refuses anything the
 //! engine did not offer. No input handler decides legality by itself.
+//!
+//! `Space` is "the click", with a fixed precedence: the card under the
+//! cursor, then the selected phase button, then confirm/pass.
 
 use crate::Duel;
-use crate::hud::HandCardVisual;
+use crate::hud::{HandCardVisual, PhaseButton, PlayerTab, RailButton};
 use crate::table::CardVisual;
+use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::interaction::Interaction;
 use baylee_core::ids::ObjectId;
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 /// The one way a card becomes an action: play it when the engine offers
@@ -30,23 +35,61 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
 }
 
 /// Keyboard handling, following `docs/keyboard-map.md`.
+#[allow(clippy::too_many_lines)] // one key map, kept in one place on purpose
 pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
-    // WASD moves the card cursor across the table grid (hand row at the
-    // bottom, then the local board, then the opponents), E activates the
-    // card under it — the same thing a click would do.
-    let cursor_move = if keys.just_pressed(KeyCode::KeyA) {
-        Some((0, -1))
-    } else if keys.just_pressed(KeyCode::KeyD) {
-        Some((0, 1))
-    } else if keys.just_pressed(KeyCode::KeyW) {
-        Some((1, 0))
-    } else if keys.just_pressed(KeyCode::KeyS) {
-        Some((-1, 0))
-    } else {
-        None
-    };
-    if let Some((d_row, d_col)) = cursor_move {
-        move_cursor(&mut duel, d_row, d_col);
+    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+
+    // ---- seat inspection: Shift+1..9 focuses the nth opponent ----------
+    let digits = [
+        KeyCode::Digit1,
+        KeyCode::Digit2,
+        KeyCode::Digit3,
+        KeyCode::Digit4,
+        KeyCode::Digit5,
+        KeyCode::Digit6,
+        KeyCode::Digit7,
+        KeyCode::Digit8,
+        KeyCode::Digit9,
+    ];
+    if shift {
+        for (i, key) in digits.iter().enumerate() {
+            if keys.just_pressed(*key) {
+                focus_nth_opponent(&mut duel, i);
+            }
+        }
+    }
+
+    // ---- phase rail: Shift+W/S selects, Space toggles ------------------
+    if shift && keys.just_pressed(KeyCode::KeyW) {
+        duel.orders.move_selection(-1);
+    }
+    if shift && keys.just_pressed(KeyCode::KeyS) {
+        duel.orders.move_selection(1);
+    }
+
+    // ---- TAB: fast-forward to the next phase ----------------------------
+    if keys.just_pressed(KeyCode::Tab)
+        && let Some(view) = duel.view.as_ref()
+    {
+        duel.autopilot = Some(AutoPilot::ToNextPhase { from: view.phase });
+    }
+
+    // ---- WASD moves the card cursor, E activates it ---------------------
+    if !shift {
+        let cursor_move = if keys.just_pressed(KeyCode::KeyA) {
+            Some((0, -1))
+        } else if keys.just_pressed(KeyCode::KeyD) {
+            Some((0, 1))
+        } else if keys.just_pressed(KeyCode::KeyW) {
+            Some((1, 0))
+        } else if keys.just_pressed(KeyCode::KeyS) {
+            Some((-1, 0))
+        } else {
+            None
+        };
+        if let Some((d_row, d_col)) = cursor_move {
+            move_cursor(&mut duel, d_row, d_col);
+        }
     }
     if keys.just_pressed(KeyCode::KeyE)
         && let Some(object) = duel.hovered
@@ -55,12 +98,28 @@ pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
         return;
     }
 
+    // ---- Space is "the click": card, then phase toggle, then pass -------
+    if keys.just_pressed(KeyCode::Space) {
+        if let Some(object) = duel.hovered {
+            activate_card(&mut duel, object);
+            return;
+        }
+        if let Some(phase) = duel.orders.selected() {
+            duel.orders.toggle(phase);
+            return;
+        }
+        if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
+            duel.submit(action);
+            return;
+        }
+    }
+
     if duel.interaction.is_none() {
         return;
     }
 
-    // Confirm / pass priority.
-    if (keys.just_pressed(KeyCode::Space) || keys.just_pressed(KeyCode::Enter))
+    // Confirm / pass priority (Enter never toggles anything else).
+    if keys.just_pressed(KeyCode::Enter)
         && let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm)
     {
         duel.submit(action);
@@ -123,18 +182,36 @@ pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
         i.set_number(next);
     }
 
-    // Cancel clears a half-built selection without answering.
-    if keys.just_pressed(KeyCode::Escape)
-        && let Some(i) = duel.interaction.as_mut()
-    {
-        i.cancel();
+    // Cancel: a selected phase button first, then a half-built selection.
+    if keys.just_pressed(KeyCode::Escape) {
+        if duel.orders.selected().is_some() {
+            duel.orders.clear_selection();
+        } else if let Some(i) = duel.interaction.as_mut() {
+            i.cancel();
+        }
     }
+}
 
-    // Cycle the focused opponent, so an eight-seat table is navigable without
-    // hunting for a small pod with the pointer.
-    if keys.just_pressed(KeyCode::Tab) {
-        cycle_focus(&mut duel);
-    }
+/// Focuses the nth opponent's board (or toggles back to your own).
+fn focus_nth_opponent(duel: &mut Duel, index: usize) {
+    let Some(board) = duel.board.as_ref() else {
+        return;
+    };
+    let opponents: Vec<_> = board
+        .pods
+        .iter()
+        .filter(|p| !p.is_local)
+        .map(|p| p.player)
+        .collect();
+    let Some(&player) = opponents.get(index) else {
+        return;
+    };
+    duel.focus = if duel.focus == Some(player) {
+        None
+    } else {
+        Some(player)
+    };
+    crate::rebuild_board(duel);
 }
 
 /// The selectable cards as a row grid: hand at the bottom, then each
@@ -195,64 +272,55 @@ fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
     duel.hovered = Some(grid[row as usize][col as usize]);
 }
 
-/// Moves the inspection focus to the next opponent.
-fn cycle_focus(duel: &mut Duel) {
-    let Some(board) = duel.board.as_ref() else {
-        return;
-    };
-    let opponents: Vec<_> = board
-        .pods
-        .iter()
-        .filter(|p| !p.is_local)
-        .map(|p| p.player)
-        .collect();
-    if opponents.is_empty() {
-        return;
-    }
-    duel.focus = match duel.focus {
-        None => Some(opponents[0]),
-        Some(current) => {
-            let index = opponents.iter().position(|p| *p == current);
-            match index {
-                Some(i) if i + 1 < opponents.len() => Some(opponents[i + 1]),
-                // Cycling past the last opponent returns to your own board.
-                _ => None,
-            }
-        }
-    };
-}
-
-/// Pointer handling: clicking a card.
+/// Pointer handling: clicking a card, a player tab, or a rail button.
 ///
 /// A click means "this object", and what that does depends entirely on the
 /// pending choice: it selects a target, declares an attacker, or plays a card.
 /// Resolving that here rather than in the renderer keeps one place where a
 /// click becomes an action.
 pub fn pointer(
-    clicks: MessageReader<Pointer<Click>>,
+    mut clicks: MessageReader<Pointer<Click>>,
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
-    duel: ResMut<Duel>,
-) {
-    handle_clicks(clicks, &cards, &hand_cards, duel);
-}
-
-fn handle_clicks(
-    mut clicks: MessageReader<Pointer<Click>>,
-    cards: &Query<&CardVisual>,
-    hand_cards: &Query<&HandCardVisual>,
+    tabs: Query<&PlayerTab>,
+    phase_buttons: Query<&PhaseButton>,
+    rail_buttons: Query<&RailButton>,
     mut duel: ResMut<Duel>,
 ) {
     for click in clicks.read() {
-        let object = cards
+        if let Some(object) = cards
             .get(click.entity)
             .map(|v| v.object)
             .ok()
-            .or_else(|| hand_cards.get(click.entity).map(|h| h.object).ok());
-        let Some(object) = object else {
+            .or_else(|| hand_cards.get(click.entity).map(|h| h.object).ok())
+        {
+            activate_card(&mut duel, object);
             continue;
-        };
-        activate_card(&mut duel, object);
+        }
+        if let Ok(tab) = tabs.get(click.entity) {
+            duel.focus = if duel.focus == Some(tab.player) {
+                None
+            } else {
+                Some(tab.player)
+            };
+            crate::rebuild_board(&mut duel);
+            continue;
+        }
+        if let Ok(button) = phase_buttons.get(click.entity) {
+            duel.orders.toggle(button.phase);
+            continue;
+        }
+        if let Ok(button) = rail_buttons.get(click.entity) {
+            let Some(view) = duel.view.as_ref() else {
+                continue;
+            };
+            duel.autopilot = Some(match button {
+                RailButton::NextPhase => AutoPilot::ToNextPhase { from: view.phase },
+                RailButton::EndTurn => AutoPilot::ToNextTurn {
+                    from_turn: view.turn,
+                },
+            });
+        }
     }
 }
 
@@ -282,6 +350,13 @@ pub fn pointer_hover(
         {
             duel.hovered = None;
         }
+    }
+}
+
+/// Mouse wheel scrolls the hand bar horizontally.
+pub fn hand_wheel(mut wheels: MessageReader<MouseWheel>, mut duel: ResMut<Duel>) {
+    for wheel in wheels.read() {
+        duel.hand_scroll = (duel.hand_scroll - wheel.y * 60.0).max(0.0);
     }
 }
 

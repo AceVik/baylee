@@ -5,6 +5,8 @@
 .idea/
 # trunk default output (browser build of baylee-client)
 dist/
+# Bevy's on-disk web asset cache (Scryfall images, fetched at runtime)
+.web-asset-cache/
 
 # Godot's import cache and export output; regenerated on open, never reviewed.
 /godot/.godot/

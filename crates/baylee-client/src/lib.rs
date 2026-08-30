@@ -42,6 +42,7 @@ pub mod input;
 pub mod table;
 pub mod textures;
 
+use baylee_client_core::automation::{self, AutoPilot, PhaseOrders};
 use baylee_client_core::board::BoardModel;
 use baylee_client_core::interaction::{CombatCandidates, Interaction};
 use baylee_client_core::layout::TableLayout;
@@ -112,6 +113,12 @@ pub struct Duel {
     pub focus: Option<PlayerId>,
     /// The card the pointer or keyboard cursor is on.
     pub hovered: Option<ObjectId>,
+    /// Per-phase standing orders (green = take priority, red = skip).
+    pub orders: PhaseOrders,
+    /// The engaged autopilot, if any ("next phase" / "end turn").
+    pub autopilot: Option<AutoPilot>,
+    /// Hand bar scroll offset in pixels.
+    pub hand_scroll: f32,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -196,19 +203,24 @@ impl Plugin for DuelPlugin {
             .add_systems(Startup, textures::setup)
             .add_systems(
                 Update,
-                (handle_commands, poll_host, flush_outbox)
+                (handle_commands, poll_host, run_autopilot, flush_outbox)
                     .chain()
                     .in_set(DuelSet::Sync),
             )
             .add_systems(
                 Update,
-                (input::keyboard, input::pointer, input::pointer_hover)
+                (
+                    input::keyboard,
+                    input::pointer,
+                    input::pointer_hover,
+                    input::hand_wheel,
+                )
                     .in_set(DuelSet::Input)
                     .run_if(in_state(DuelPhase::Playing)),
             )
             .add_systems(
                 Update,
-                (table::sync_scene, hud::sync_overlay)
+                (table::sync_scene, hud::sync_overlay, hud::apply_hand_scroll)
                     .in_set(DuelSet::Present)
                     .run_if(not(in_state(DuelPhase::Closed))),
             )
@@ -278,6 +290,42 @@ fn poll_host(
     }
 }
 
+/// Applies the standing orders and the autopilot: hands control back at
+/// the boundary, and never makes a real decision for the player.
+fn run_autopilot(mut duel: ResMut<Duel>) {
+    let Some((phase, turn)) = duel.view.as_ref().map(|v| (v.phase, v.turn)) else {
+        return;
+    };
+    if let Some(pilot) = duel.autopilot
+        && pilot.reached(phase, turn)
+    {
+        duel.autopilot = None;
+    }
+    let answer = {
+        let Some(interaction) = duel.interaction.as_ref() else {
+            return;
+        };
+        automation::auto_answer(
+            interaction.pending(),
+            interaction.is_mine(),
+            phase,
+            &duel.orders,
+            duel.autopilot.as_ref(),
+        )
+    };
+    let action = match answer {
+        automation::AutoAnswer::None => return,
+        automation::AutoAnswer::Pass => PlayerAction::PassPriority,
+        automation::AutoAnswer::DeclareNoAttackers => {
+            PlayerAction::DeclareAttackers { attackers: vec![] }
+        }
+        automation::AutoAnswer::DeclareNoBlockers => {
+            PlayerAction::DeclareBlockers { blockers: vec![] }
+        }
+    };
+    duel.submit(action);
+}
+
 /// Sends everything the player has queued.
 fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
     let Some(mut host) = host else {
@@ -294,7 +342,7 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
 }
 
 /// Rebuilds the render model from the current view.
-fn rebuild_board(duel: &mut Duel) {
+pub(crate) fn rebuild_board(duel: &mut Duel) {
     let Some(view) = duel.view.as_ref() else {
         return;
     };

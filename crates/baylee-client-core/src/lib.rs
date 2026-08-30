@@ -35,6 +35,7 @@
 // loses a whole number, so the conversions are exact in practice.
 #![allow(clippy::cast_precision_loss)]
 
+pub mod automation;
 pub mod board;
 pub mod images;
 pub mod interaction;
@@ -43,6 +44,7 @@ pub mod layout;
 #[cfg(test)]
 pub(crate) mod test_support;
 
+pub use automation::{AutoAnswer, AutoPilot, PhaseOrders};
 pub use board::{BoardModel, CardGroup, Lane, SeatPod, StackItem, ThreatSummary, TokenChip};
 pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
 pub use interaction::{Interaction, Prompt, SelectionOutcome};
