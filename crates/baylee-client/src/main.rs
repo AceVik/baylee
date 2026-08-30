@@ -25,12 +25,9 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "baylee".to_string(),
-                        // Fullscreen window (borderless): the game is the
-                        // screen. On mobile/the browser the platform decides
-                        // and this is ignored; fit_canvas_to_parent covers it.
-                        mode: bevy::window::WindowMode::BorderlessFullscreen(
-                            bevy::window::MonitorSelection::Current,
-                        ),
+                        // A regular decorated window: the system close /
+                        // minimize buttons stay available. (Borderless
+                        // fullscreen hides them and was rejected.)
                         fit_canvas_to_parent: true,
                         ..default()
                     }),
@@ -56,22 +53,17 @@ fn open_duel(mut commands: MessageWriter<DuelCommand>) {
     commands.write(DuelCommand::Open);
 }
 
-/// Where the asset server looks: the crate's assets dir natively (first
-/// existing candidate), plain `assets` in the browser bundle.
+/// Where the asset server looks. Relative paths resolve against the
+/// executable's directory (target/...), not the working directory — so
+/// natively the crate's assets dir is baked in as an absolute path at
+/// build time. Trunk copies the same dir to `dist/assets`, the browser's
+/// asset root.
 fn asset_root() -> &'static str {
     if cfg!(target_arch = "wasm32") {
-        return "assets";
+        "assets"
+    } else {
+        concat!(env!("CARGO_MANIFEST_DIR"), "/assets")
     }
-    for candidate in [
-        "crates/baylee-client/assets",
-        "../crates/baylee-client/assets",
-        concat!(env!("CARGO_MANIFEST_DIR"), "/assets"),
-    ] {
-        if std::path::Path::new(candidate).is_dir() {
-            return candidate;
-        }
-    }
-    "assets"
 }
 
 /// The demo duel from the acceptance decks.

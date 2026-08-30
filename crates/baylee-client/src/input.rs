@@ -39,7 +39,11 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
 
 /// Keyboard handling, following `docs/keyboard-map.md`.
 #[allow(clippy::too_many_lines)] // one key map, kept in one place on purpose
-pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
+pub fn keyboard(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut duel: ResMut<Duel>,
+    mut rig: ResMut<crate::table::CameraRig>,
+) {
     let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
 
     // ---- seat inspection: Shift+1..9 focuses the nth opponent ----------
@@ -57,7 +61,7 @@ pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
     if shift {
         for (i, key) in digits.iter().enumerate() {
             if keys.just_pressed(*key) {
-                focus_nth_opponent(&mut duel, i);
+                focus_nth_opponent(&mut duel, &mut rig, i);
             }
         }
     }
@@ -201,7 +205,7 @@ pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
 }
 
 /// Focuses the nth opponent's board (or toggles back to your own).
-fn focus_nth_opponent(duel: &mut Duel, index: usize) {
+fn focus_nth_opponent(duel: &mut Duel, rig: &mut crate::table::CameraRig, index: usize) {
     let Some(board) = duel.board.as_ref() else {
         return;
     };
@@ -214,12 +218,11 @@ fn focus_nth_opponent(duel: &mut Duel, index: usize) {
     let Some(&player) = opponents.get(index) else {
         return;
     };
-    duel.focus = if duel.focus == Some(player) {
-        None
+    if duel.focus == Some(player) {
+        navigate_home(duel, rig);
     } else {
-        Some(player)
-    };
-    crate::rebuild_board(duel);
+        navigate_to_player(duel, rig, player);
+    }
 }
 
 /// The selectable cards as a row grid: hand at the bottom, then each
@@ -297,6 +300,7 @@ pub fn pointer(
     menu_buttons: Query<&MenuButton>,
     knobs: Query<&OverlayKnob>,
     mut duel: ResMut<Duel>,
+    mut rig: ResMut<crate::table::CameraRig>,
 ) {
     for click in clicks.read() {
         if let Some(object) = cards
@@ -309,16 +313,13 @@ pub fn pointer(
             continue;
         }
         if let Ok(tab) = tabs.get(click.entity) {
-            // Your own tab has nothing to inspect — the overlay IS you.
-            if duel.seat() == Some(tab.player) {
-                continue;
-            }
-            duel.focus = if duel.focus == Some(tab.player) {
-                None
+            // Your own tab (or the already-focused one) brings the camera
+            // home; any other opponent's tab frames their pod.
+            if duel.seat() == Some(tab.player) || duel.focus == Some(tab.player) {
+                navigate_home(&mut duel, &mut rig);
             } else {
-                Some(tab.player)
-            };
-            crate::rebuild_board(&mut duel);
+                navigate_to_player(&mut duel, &mut rig, tab.player);
+            }
             continue;
         }
         if let Ok(button) = phase_buttons.get(click.entity) {
@@ -380,11 +381,128 @@ pub fn pointer_hover(
     }
 }
 
-/// Mouse wheel scrolls the hand bar horizontally.
-pub fn hand_wheel(mut wheels: MessageReader<MouseWheel>, mut duel: ResMut<Duel>) {
-    for wheel in wheels.read() {
-        duel.hand_scroll = (duel.hand_scroll - wheel.y * 60.0).max(0.0);
+/// The battlefield canvas camera: arrows pan, Shift+Up/Down zooms,
+/// Shift+Left/Right rotates, left-drag pans, right-drag rotates, the
+/// wheel zooms (over the hand bar it scrolls the hand instead), and the
+/// touch gestures do what fingers do (pan/pinch/rotate).
+#[allow(clippy::too_many_arguments)]
+pub fn camera_controls(
+    keys: Res<ButtonInput<KeyCode>>,
+    buttons: Res<ButtonInput<MouseButton>>,
+    mut motions: MessageReader<bevy::input::mouse::MouseMotion>,
+    mut wheels: MessageReader<MouseWheel>,
+    mut pans: MessageReader<bevy::input::gestures::PanGesture>,
+    mut pinches: MessageReader<bevy::input::gestures::PinchGesture>,
+    mut rotates: MessageReader<bevy::input::gestures::RotationGesture>,
+    windows: Query<&Window>,
+    mut duel: ResMut<Duel>,
+    mut rig: ResMut<crate::table::CameraRig>,
+) {
+    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+
+    // Screen-relative directions on the table plane.
+    let right = Vec2::new(rig.yaw.cos(), -rig.yaw.sin());
+    let forward = Vec2::new(-rig.yaw.sin(), -rig.yaw.cos());
+
+    // ---- keyboard: pan / zoom / rotate ----------------------------------
+    let pan_step = rig.distance * 0.02;
+    if shift {
+        if keys.pressed(KeyCode::ArrowUp) {
+            rig.distance = (rig.distance * 0.985).max(crate::table::CameraRig::MIN_DISTANCE);
+        }
+        if keys.pressed(KeyCode::ArrowDown) {
+            rig.distance = (rig.distance * 1.015).min(crate::table::CameraRig::MAX_DISTANCE);
+        }
+        if keys.pressed(KeyCode::ArrowLeft) {
+            rig.yaw += 0.015;
+        }
+        if keys.pressed(KeyCode::ArrowRight) {
+            rig.yaw -= 0.015;
+        }
+    } else {
+        if keys.pressed(KeyCode::ArrowLeft) {
+            rig.target -= right * pan_step;
+        }
+        if keys.pressed(KeyCode::ArrowRight) {
+            rig.target += right * pan_step;
+        }
+        if keys.pressed(KeyCode::ArrowUp) {
+            rig.target += forward * pan_step;
+        }
+        if keys.pressed(KeyCode::ArrowDown) {
+            rig.target -= forward * pan_step;
+        }
     }
+
+    // ---- mouse: left-drag pans, right-drag rotates -----------------------
+    let (mut dx, mut dy) = (0.0, 0.0);
+    for motion in motions.read() {
+        dx += motion.delta.x;
+        dy += motion.delta.y;
+    }
+    let drag_scale = rig.distance / 600.0;
+    if buttons.pressed(MouseButton::Left) {
+        rig.target -= right * dx * drag_scale;
+        rig.target -= forward * dy * drag_scale;
+    }
+    if buttons.pressed(MouseButton::Right) {
+        rig.yaw -= dx * 0.004;
+    }
+
+    // ---- wheel: zoom, unless the pointer is over the hand bar ------------
+    let over_hand = windows.single().ok().and_then(|w| {
+        w.cursor_position()
+            .map(|p| p.y > w.height() - (crate::hud::HAND_CARD_H + 20.0))
+    }) == Some(true);
+    for wheel in wheels.read() {
+        if over_hand {
+            duel.hand_scroll = (duel.hand_scroll - wheel.y * 60.0).max(0.0);
+        } else {
+            rig.distance = (rig.distance * (1.0 - wheel.y * 0.08)).clamp(
+                crate::table::CameraRig::MIN_DISTANCE,
+                crate::table::CameraRig::MAX_DISTANCE,
+            );
+        }
+    }
+
+    // ---- touch gestures ---------------------------------------------------
+    for pan in pans.read() {
+        rig.target -= right * pan.0.x * drag_scale;
+        rig.target -= forward * pan.0.y * drag_scale;
+    }
+    for pinch in pinches.read() {
+        rig.distance = (rig.distance / (1.0 + pinch.0 * 0.5)).clamp(
+            crate::table::CameraRig::MIN_DISTANCE,
+            crate::table::CameraRig::MAX_DISTANCE,
+        );
+    }
+    for rotate in rotates.read() {
+        rig.yaw += rotate.0;
+    }
+}
+
+/// Navigates the camera to a seat's pod, framing it in the free canvas
+/// area (clear of the own-board overlay), cards upright. Also marks the
+/// seat as the layout's focus so its pod is enlarged.
+pub fn navigate_to_player(
+    duel: &mut Duel,
+    rig: &mut crate::table::CameraRig,
+    player: baylee_core::ids::PlayerId,
+) {
+    let Some(slot) = duel.layout.as_ref().and_then(|l| l.slot(player).copied()) else {
+        return;
+    };
+    let world = Vec2::new(slot.center.x, -slot.center.y);
+    *rig = crate::table::CameraRig::framing(&slot, world);
+    duel.focus = Some(player);
+    crate::rebuild_board(duel);
+}
+
+/// Returns the camera to the default view behind the local seat.
+pub fn navigate_home(duel: &mut Duel, rig: &mut crate::table::CameraRig) {
+    *rig = crate::table::CameraRig::default();
+    duel.focus = None;
+    crate::rebuild_board(duel);
 }
 
 #[cfg(test)]

@@ -475,21 +475,28 @@ pub fn sync_overlay(
         commands.entity(root).add_child(bar);
     }
 
-    // ---- bottom: the hand bar -------------------------------------------
+    // ---- bottom: the hand bar (always on top) + commander zone ----------
     if let Some(statics) = duel.statics.as_ref() {
+        let commanders = view
+            .command
+            .get(view.seat.get() as usize)
+            .map_or(&[][..], Vec::as_slice);
+        let cmdr_width = if commanders.is_empty() { 0.0 } else { 110.0 };
         let available = windows
             .single()
-            .map_or(1200.0, |w| (w.width() - 20.0).max(0.0));
+            .map_or(1200.0, |w| (w.width() - 20.0 - cmdr_width).max(0.0));
         let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
         let hand_bar = spawn_hand_bar(
             &mut commands,
             board,
+            view,
             statics,
             hovered,
             &selected,
             layout,
             &mut textures,
             &assets,
+            &fonts,
         );
         commands.entity(root).add_child(hand_bar);
 
@@ -923,17 +930,22 @@ fn spawn_phase_rail(
     rail
 }
 
-/// The hand bar: a clipping container with the scrolling strip inside.
+/// The hand bar: a clipping container with the scrolling strip inside,
+/// the commander zone pinned to its right end. Always on top of the
+/// own-board overlay.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)] // strip + commander zone are one flat build
 fn spawn_hand_bar(
     commands: &mut Commands,
     board: &baylee_client_core::BoardModel,
+    view: &PlayerView,
     statics: &GameStatic,
     hovered: Option<ObjectId>,
     selected: &[ObjectId],
     layout: HandLayout,
     textures: &mut CardTextures,
     assets: &AssetServer,
+    fonts: &UiFonts,
 ) -> Entity {
     let bar = commands
         .spawn((
@@ -942,12 +954,13 @@ fn spawn_hand_bar(
                 bottom: px(0),
                 left: px(0),
                 right: px(0),
-                height: px(HAND_CARD_H + 20.0),
+                height: px(HAND_BAR_H),
                 padding: UiRect::axes(px(10), px(10)),
                 overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(palette::PANEL),
+            ZIndex(2),
             Pickable::IGNORE,
         ))
         .id();
@@ -1025,6 +1038,86 @@ fn spawn_hand_bar(
         commands.entity(strip).add_child(entity);
     }
     commands.entity(bar).add_child(strip);
+
+    // ---- commander zone (right end): the command zone with the cast
+    // counter above the card. Commander format only — hidden otherwise.
+    let commanders = view
+        .command
+        .get(view.seat.get() as usize)
+        .map_or(&[][..], Vec::as_slice);
+    if !commanders.is_empty() {
+        let casts = view
+            .seat(view.seat)
+            .map_or(&[][..], |s| s.commander_casts.as_slice());
+        let zone = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: px(8),
+                    bottom: px(6),
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(6),
+                    padding: UiRect::all(px(6)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(palette::PANEL_LIT),
+                soft_shadow(),
+                Pickable::IGNORE,
+            ))
+            .id();
+        for (i, cmd) in commanders.iter().enumerate() {
+            let times_cast = casts.get(i).copied().unwrap_or(0);
+            let image = match cmd
+                .card
+                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
+            {
+                Some(k) => textures.get(k, statics, assets),
+                None => textures.card_back(),
+            };
+            let card = commands
+                .spawn((
+                    HandCardVisual { object: cmd.id },
+                    Node {
+                        width: px(OVERLAY_CARD_W * 0.75),
+                        height: px(OVERLAY_CARD_H * 0.75),
+                        border_radius: card_radius(OVERLAY_CARD_W * 0.75),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    soft_shadow(),
+                    children![
+                        (
+                            ImageNode::new(image),
+                            Node {
+                                width: percent(100),
+                                height: percent(100),
+                                ..default()
+                            },
+                        ),
+                        (
+                            // Cast counter, floating above the card's top.
+                            Text::new(format!("×{times_cast}")),
+                            tf(fonts, 12.0),
+                            TextColor(palette::ACCENT),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                top: px(-6),
+                                left: percent(50),
+                                margin: UiRect::left(px(-10)),
+                                padding: UiRect::axes(px(4), px(1)),
+                                border_radius: btn_radius(),
+                                ..default()
+                            },
+                            BackgroundColor(palette::PANEL),
+                        ),
+                    ],
+                ))
+                .id();
+            commands.entity(zone).add_child(card);
+        }
+        commands.entity(bar).add_child(zone);
+    }
     bar
 }
 
@@ -1068,8 +1161,10 @@ pub fn apply_hand_scroll(
 pub const OVERLAY_CARD_W: f32 = 86.0;
 /// Card height in the own-board overlay (63:88).
 pub const OVERLAY_CARD_H: f32 = OVERLAY_CARD_W * 88.0 / 63.0;
-/// Total overlay height: three lane rows plus gaps and padding.
-pub const OVERLAY_H: f32 = OVERLAY_CARD_H * 3.0 + 46.0;
+/// Height of the tab bar at the top (the overlay starts below it).
+pub const TAB_H: f32 = 48.0;
+/// The hand bar's height, including its padding.
+pub const HAND_BAR_H: f32 = HAND_CARD_H + 20.0;
 
 /// The own-board overlay: the local player's battlefield as big rounded
 /// cards in three lanes, floating above the shared ellipse canvas, with a
@@ -1094,19 +1189,22 @@ fn spawn_own_board_overlay(
                 position_type: PositionType::Absolute,
                 left: px(0),
                 right: px(0),
-                bottom: px(HAND_CARD_H + 20.0), // animate_overlay owns this
-                height: px(OVERLAY_H),
+                top: px(TAB_H), // animate_overlay owns this
+                bottom: px(0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(6),
+                // The hand is always on top: the battlefield slides under
+                // it, so its content clears the hand bar's height.
                 padding: UiRect {
                     top: px(20),
-                    bottom: px(8),
+                    bottom: px(HAND_BAR_H + 8.0),
                     left: px(12),
                     right: px(12),
                 },
                 ..default()
             },
             BackgroundColor(palette::PANEL),
+            ZIndex(1),
             overlay_shadow(),
             Pickable::IGNORE,
         ))
@@ -1228,28 +1326,34 @@ fn spawn_own_board_overlay(
 }
 
 /// Slides the own-board overlay between its raised and its down position.
-/// The knob stays peeking above the hand bar when the panel is down, so
-/// there is always a way back.
+/// Raised: pinned under the tab bar. Down: slid beneath the hand (which
+/// stays on top), with only the knob peeking above the hand bar so there
+/// is always a way back.
 pub fn animate_overlay(
     time: Res<Time>,
     mut duel: ResMut<Duel>,
+    windows: Query<&Window>,
     mut panels: Query<&mut Node, With<OwnBoardOverlay>>,
 ) {
     let target = if duel.overlay_closed { 1.0 } else { 0.0 };
-    if (duel.overlay_t - target).abs() < f32::EPSILON {
-        return; // already settled
-    }
-    let step = time.delta_secs() * 5.0;
-    duel.overlay_t = if (target - duel.overlay_t).abs() <= step {
-        target
-    } else {
-        duel.overlay_t + (target - duel.overlay_t).signum() * step
+    let Ok(window) = windows.single() else {
+        return;
     };
-    let open_bottom = HAND_CARD_H + 20.0;
-    let hidden_bottom = open_bottom - (OVERLAY_H - 16.0);
-    let bottom = open_bottom + (hidden_bottom - open_bottom) * duel.overlay_t;
+    // The `top` is recomputed every frame, so window resizes stay honest
+    // even when the animation has settled.
+    if (duel.overlay_t - target).abs() >= f32::EPSILON {
+        let step = time.delta_secs() * 5.0;
+        duel.overlay_t = if (target - duel.overlay_t).abs() <= step {
+            target
+        } else {
+            duel.overlay_t + (target - duel.overlay_t).signum() * step
+        };
+    }
+    let open_top = TAB_H;
+    let closed_top = window.height() - HAND_BAR_H - 14.0;
+    let top = open_top + (closed_top - open_top) * duel.overlay_t;
     for mut node in &mut panels {
-        node.bottom = px(bottom);
+        node.top = px(top);
     }
 }
 

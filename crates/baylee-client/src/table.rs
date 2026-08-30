@@ -56,6 +56,69 @@ pub struct DuelStage;
 #[derive(Component)]
 pub struct TableCamera;
 
+/// The table camera's state: where it looks, from how far, at which
+/// azimuth. Input systems move this; [`apply_camera_rig`] turns it into a
+/// transform, so navigation (tabs, keys, drag, gestures) all ends up in
+/// one place.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct CameraRig {
+    /// Look-at point in world space (x/z).
+    pub target: Vec2,
+    /// Distance from the target (zoom).
+    pub distance: f32,
+    /// Azimuth around the target (0 = behind the local seat).
+    pub yaw: f32,
+}
+
+impl Default for CameraRig {
+    fn default() -> Self {
+        Self {
+            target: Vec2::ZERO,
+            distance: 20.0,
+            yaw: 0.0,
+        }
+    }
+}
+
+impl CameraRig {
+    /// Zoom limits.
+    pub const MIN_DISTANCE: f32 = 7.0;
+    /// Zoom limits.
+    pub const MAX_DISTANCE: f32 = 46.0;
+
+    /// Moves the rig so `pod` (a seat's table-space centre) fills the free
+    /// canvas area: camera outside the ellipse looking inward, cards
+    /// upright with their bottoms toward the screen bottom, the pod
+    /// shifted clear of the own-board overlay.
+    #[must_use]
+    pub fn framing(slot: &SeatSlot, world_center: Vec2) -> Self {
+        Self {
+            target: world_center * 0.72,
+            distance: (slot.half_extent.length() * 2.6).clamp(9.0, Self::MAX_DISTANCE),
+            yaw: world_center.y.atan2(world_center.x) + std::f32::consts::FRAC_PI_2,
+        }
+    }
+}
+
+/// Turns the rig into the camera transform (fixed downward pitch; the
+/// rig decides the rest).
+pub fn apply_camera_rig(rig: Res<CameraRig>, mut cams: Query<&mut Transform, With<TableCamera>>) {
+    if !rig.is_changed() {
+        return;
+    }
+    let horizontal = rig.distance * 0.66;
+    let height = rig.distance * 0.75;
+    let offset = Vec3::new(
+        rig.yaw.sin() * horizontal,
+        height,
+        rig.yaw.cos() * horizontal,
+    );
+    let target = Vec3::new(rig.target.x, 0.0, rig.target.y);
+    for mut transform in &mut cams {
+        *transform = Transform::from_translation(target + offset).looking_at(target, Vec3::Y);
+    }
+}
+
 /// A drawn card, and the group it stands for.
 #[derive(Component)]
 pub struct CardVisual {
@@ -141,10 +204,9 @@ pub fn spawn_stage(
         DuelStage,
         TableCamera,
         Camera3d::default(),
-        // Looking down the table from behind the local seat. The angle is
-        // shallow enough that opponent pods stay readable but steep enough
-        // that the near seat's own board is not foreshortened away.
-        Transform::from_xyz(0.0, 15.0, 13.0).looking_at(Vec3::new(0.0, 0.0, -1.0), Vec3::Y),
+        // Looking down the table from behind the local seat (the default
+        // rig; apply_camera_rig owns the transform from here on).
+        Transform::from_xyz(0.0, 15.0, 13.2).looking_at(Vec3::ZERO, Vec3::Y),
         Projection::Perspective(PerspectiveProjection {
             fov: 0.7,
             ..default()

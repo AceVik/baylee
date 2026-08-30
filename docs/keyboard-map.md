@@ -10,8 +10,11 @@ Binding defaults (rebindable, persisted per account):
 | Cancel: phase selection, then half-built selection | `Esc` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select) | `E` | implemented |
-| Inspect an opponent's board (toggle) | `Shift+1..9` | implemented |
+| Inspect an opponent's board (camera frames the pod) | `Shift+1..9` | implemented |
 | Slide the own-board overlay down/up | `X` (or the knob) | implemented |
+| Battlefield camera: pan | arrows, left-drag, touch-drag | implemented |
+| Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
+| Battlefield camera: rotate | `Shift+←/→`, right-drag, rotate gesture | implemented |
 | Select a phase/step button (the rail's keyboard cursor) | `Shift+W` / `Shift+S` | implemented |
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Number choices (X) | arrows | implemented |

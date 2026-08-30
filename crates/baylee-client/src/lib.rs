@@ -199,6 +199,7 @@ impl Plugin for DuelPlugin {
             // Both are written by systems that run every frame; a missing
             // resource here is a panic at the table, not a compile error.
             .init_resource::<table::SceneIndex>()
+            .init_resource::<table::CameraRig>()
             .init_resource::<hud::HudRevision>()
             .add_message::<DuelCommand>()
             .add_message::<DuelReport>()
@@ -219,7 +220,7 @@ impl Plugin for DuelPlugin {
                     input::keyboard,
                     input::pointer,
                     input::pointer_hover,
-                    input::hand_wheel,
+                    input::camera_controls,
                 )
                     .in_set(DuelSet::Input)
                     .run_if(in_state(DuelPhase::Playing)),
@@ -228,6 +229,7 @@ impl Plugin for DuelPlugin {
                 Update,
                 (
                     table::sync_scene,
+                    table::apply_camera_rig,
                     hud::sync_overlay,
                     hud::apply_hand_scroll,
                     hud::animate_overlay,
