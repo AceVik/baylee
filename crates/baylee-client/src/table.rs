@@ -26,7 +26,9 @@ use baylee_client_core::board::CardGroup;
 use baylee_client_core::images::ImageKey;
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH, SeatSlot, pack_lane};
 use baylee_core::ids::ObjectId;
+use bevy::asset::RenderAssetUsages;
 use bevy::light::NotShadowCaster;
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
@@ -74,6 +76,53 @@ pub struct SceneIndex {
     blank: Option<Handle<StandardMaterial>>,
 }
 
+/// A card's corner radius, matched to a physical Magic card (~3.2 mm on
+/// 63 mm ≈ 5% of the width) — the white corners of the printed image are
+/// never visible because the mesh itself is rounded.
+pub const CARD_CORNER: f32 = CARD_WIDTH * 0.05;
+
+/// A rounded-rectangle card mesh: the flat card quad with its corners
+/// clipped, UV-mapped exactly like Bevy's `Rectangle` (uv.x left→right,
+/// uv.y top→bottom of the printed face).
+fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
+    const SEGMENTS: usize = 4; // per corner — plenty at card scale
+    let (hw, hh, r) = (width / 2.0, height / 2.0, radius);
+    // Corner arc centres in CCW order: top-left, bottom-left, bottom-right,
+    // top-right, with their angle ranges (CCW from +Z).
+    let corners: [([f32; 2], f32); 4] = [
+        ([-hw + r, hh - r], 90.0),
+        ([-hw + r, -hh + r], 180.0),
+        ([hw - r, -hh + r], 270.0),
+        ([hw - r, hh - r], 360.0),
+    ];
+    let mut positions: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0]];
+    let mut uvs: Vec<[f32; 2]> = vec![[0.5, 0.5]];
+    for ([cx, cy], end_deg) in corners {
+        let start_deg = end_deg - 90.0;
+        for i in 0..=SEGMENTS {
+            let a = (start_deg + (end_deg - start_deg) * i as f32 / SEGMENTS as f32).to_radians();
+            let (x, y) = (cx + r * a.cos(), cy + r * a.sin());
+            positions.push([x, y, 0.0]);
+            // Same mapping as Rectangle: [hw,hh]→[1,0], [-hw,-hh]→[0,1].
+            uvs.push([f32::midpoint(x / hw, 1.0), (1.0 - y / hh) * 0.5]);
+        }
+    }
+    let m = positions.len() - 1;
+    let mut indices = Vec::with_capacity(m * 3);
+    for i in 1..m {
+        indices.extend_from_slice(&[0, i as u32 + 1, i as u32]);
+    }
+    indices.extend_from_slice(&[0, 1, m as u32]);
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_indices(Indices::U32(indices))
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; m + 1])
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+}
+
 /// Builds the stage: camera, light, and felt.
 pub fn spawn_stage(
     mut commands: Commands,
@@ -81,7 +130,7 @@ pub fn spawn_stage(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut index: ResMut<SceneIndex>,
 ) {
-    index.quad = Some(meshes.add(Rectangle::new(CARD_WIDTH, CARD_HEIGHT)));
+    index.quad = Some(meshes.add(rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER)));
     index.blank = Some(materials.add(StandardMaterial {
         base_color: Color::srgb(0.12, 0.14, 0.18),
         unlit: true,

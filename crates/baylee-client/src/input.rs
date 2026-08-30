@@ -13,11 +13,14 @@
 //! cursor, then the selected phase button, then confirm/pass.
 
 use crate::Duel;
-use crate::hud::{HandCardVisual, PhaseButton, PlayerTab, RailButton};
+use crate::hud::{
+    HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton, PlayerTab, RailButton,
+};
 use crate::table::CardVisual;
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::interaction::Interaction;
 use baylee_core::ids::ObjectId;
+use baylee_engine::choice::PlayerAction;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
@@ -72,6 +75,11 @@ pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
         && let Some(view) = duel.view.as_ref()
     {
         duel.autopilot = Some(AutoPilot::ToNextPhase { from: view.phase });
+    }
+
+    // ---- X: slide the own-board overlay down/up --------------------------
+    if keys.just_pressed(KeyCode::KeyX) {
+        duel.overlay_closed = !duel.overlay_closed;
     }
 
     // ---- WASD moves the card cursor, E activates it ---------------------
@@ -278,6 +286,7 @@ fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
 /// pending choice: it selects a target, declares an attacker, or plays a card.
 /// Resolving that here rather than in the renderer keeps one place where a
 /// click becomes an action.
+#[allow(clippy::too_many_arguments)] // one query per clickable widget kind
 pub fn pointer(
     mut clicks: MessageReader<Pointer<Click>>,
     cards: Query<&CardVisual>,
@@ -285,6 +294,8 @@ pub fn pointer(
     tabs: Query<&PlayerTab>,
     phase_buttons: Query<&PhaseButton>,
     rail_buttons: Query<&RailButton>,
+    menu_buttons: Query<&MenuButton>,
+    knobs: Query<&OverlayKnob>,
     mut duel: ResMut<Duel>,
 ) {
     for click in clicks.read() {
@@ -298,6 +309,10 @@ pub fn pointer(
             continue;
         }
         if let Ok(tab) = tabs.get(click.entity) {
+            // Your own tab has nothing to inspect — the overlay IS you.
+            if duel.seat() == Some(tab.player) {
+                continue;
+            }
             duel.focus = if duel.focus == Some(tab.player) {
                 None
             } else {
@@ -308,6 +323,18 @@ pub fn pointer(
         }
         if let Ok(button) = phase_buttons.get(click.entity) {
             duel.orders.toggle(button.row);
+            continue;
+        }
+        if knobs.get(click.entity).is_ok() {
+            duel.overlay_closed = !duel.overlay_closed;
+            continue;
+        }
+        if let Ok(button) = menu_buttons.get(click.entity) {
+            match button.action {
+                MenuAction::Concede => duel.submit(PlayerAction::Concede),
+                // Draw offers need mutual agreement — a protocol item.
+                MenuAction::OfferDraw => {}
+            }
             continue;
         }
         if let Ok(button) = rail_buttons.get(click.entity) {

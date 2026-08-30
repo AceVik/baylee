@@ -119,6 +119,12 @@ pub struct Duel {
     pub autopilot: Option<AutoPilot>,
     /// Hand bar scroll offset in pixels.
     pub hand_scroll: f32,
+    /// Whether the own-board overlay is slid down (hidden). Defaults to
+    /// false — the overlay starts raised.
+    pub overlay_closed: bool,
+    /// Slide position of the own-board overlay: 0.0 = raised (open),
+    /// 1.0 = down (closed). Animated towards `overlay_closed`.
+    pub overlay_t: f32,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -220,7 +226,12 @@ impl Plugin for DuelPlugin {
             )
             .add_systems(
                 Update,
-                (table::sync_scene, hud::sync_overlay, hud::apply_hand_scroll)
+                (
+                    table::sync_scene,
+                    hud::sync_overlay,
+                    hud::apply_hand_scroll,
+                    hud::animate_overlay,
+                )
                     .in_set(DuelSet::Present)
                     .run_if(not(in_state(DuelPhase::Closed))),
             )

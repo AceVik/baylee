@@ -25,8 +25,12 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "baylee".to_string(),
-                        // Works as a desktop window and as a browser canvas; on
-                        // mobile the platform decides and this is ignored.
+                        // Fullscreen window (borderless): the game is the
+                        // screen. On mobile/the browser the platform decides
+                        // and this is ignored; fit_canvas_to_parent covers it.
+                        mode: bevy::window::WindowMode::BorderlessFullscreen(
+                            bevy::window::MonitorSelection::Current,
+                        ),
                         fit_canvas_to_parent: true,
                         ..default()
                     }),

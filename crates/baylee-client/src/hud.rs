@@ -113,6 +113,31 @@ pub enum RailButton {
     EndTurn,
 }
 
+/// A game-menu button at the tab bar's right end.
+#[derive(Component)]
+pub struct MenuButton {
+    /// What the button does.
+    pub action: MenuAction,
+}
+
+/// What a menu button does.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum MenuAction {
+    /// Leave the game (sends the engine's own concession).
+    Concede,
+    /// Offer a draw — needs mutual agreement, a protocol item; shown
+    /// disabled until it exists.
+    OfferDraw,
+}
+
+/// The sliding own-board overlay (the panel, positioned by animation).
+#[derive(Component)]
+pub struct OwnBoardOverlay;
+
+/// The knob on the overlay's top edge: click toggles it open/closed.
+#[derive(Component)]
+pub struct OverlayKnob;
+
 /// The scrolling strip inside the hand bar.
 #[derive(Component)]
 pub struct HandStrip;
@@ -185,6 +210,8 @@ pub struct HudRevision {
     orders: Option<baylee_client_core::automation::PhaseOrders>,
     autopilot: Option<AutoPilot>,
     focus: Option<PlayerId>,
+    /// The own-board overlay's open/closed state (knob arrow).
+    overlay_closed: bool,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -211,6 +238,41 @@ mod palette {
     pub const ORDER_GO: Color = Color::srgba(0.16, 0.35, 0.22, 0.95);
     /// Standing order "skip" (red).
     pub const ORDER_SKIP: Color = Color::srgba(0.40, 0.15, 0.15, 0.95);
+    /// Soft shadow under raised elements.
+    pub const SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
+}
+
+/// The soft radius + shadow every button and panel shares.
+fn soft_shadow() -> BoxShadow {
+    BoxShadow::new(
+        palette::SHADOW,
+        Val::Px(0.0),
+        Val::Px(2.0),
+        Val::Px(0.0),
+        Val::Px(6.0),
+    )
+}
+
+/// An upward shadow for the own-board overlay.
+fn overlay_shadow() -> BoxShadow {
+    BoxShadow::new(
+        palette::SHADOW,
+        Val::Px(0.0),
+        Val::Px(-4.0),
+        Val::Px(0.0),
+        Val::Px(14.0),
+    )
+}
+
+/// The soft corner radius for buttons and tabs.
+fn btn_radius() -> BorderRadius {
+    BorderRadius::all(px(6))
+}
+
+/// A card's corner radius for a given rendered width, matched to a
+/// physical Magic card (~3.2 mm on 63 mm ≈ 5%).
+fn card_radius(width: f32) -> BorderRadius {
+    BorderRadius::all(px(width * 0.05))
 }
 
 /// One color per team, so allied seats read as one side at a glance.
@@ -255,6 +317,7 @@ pub fn sync_overlay(
     let orders = duel.orders.clone();
     let autopilot = duel.autopilot;
     let focus = duel.focus;
+    let overlay_closed = duel.overlay_closed;
 
     if revision.seq == seq
         && revision.prompt == prompt
@@ -266,6 +329,7 @@ pub fn sync_overlay(
             .is_some_and(|o| o.rows().eq(orders.rows()) && o.selected() == orders.selected())
         && revision.autopilot == autopilot
         && revision.focus == focus
+        && revision.overlay_closed == overlay_closed
         && !existing.is_empty()
     {
         return;
@@ -277,6 +341,7 @@ pub fn sync_overlay(
     revision.orders = Some(orders.clone());
     revision.autopilot = autopilot;
     revision.focus = focus;
+    revision.overlay_closed = overlay_closed;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -298,23 +363,35 @@ pub fn sync_overlay(
         ))
         .id();
 
-    // ---- top: player tabs (every seat but the local one) ---------------
+    // ---- top: the full-width tab bar — ALL players left, menu right ----
     let tabs = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                top: px(8),
-                left: px(8),
-                right: px(8),
+                top: px(0),
+                left: px(0),
+                right: px(0),
                 flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::axes(px(8), px(6)),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let players_row = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
                 column_gap: px(8),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    for seat in view.seats.iter().filter(|s| s.player != view.seat) {
+    for seat in &view.seats {
         let tab = spawn_player_tab(
             &mut commands,
             view,
@@ -323,8 +400,48 @@ pub fn sync_overlay(
             focus,
             &fonts,
         );
-        commands.entity(tabs).add_child(tab);
+        commands.entity(players_row).add_child(tab);
     }
+    commands.entity(tabs).add_child(players_row);
+
+    let menu_row = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(8),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for (action, label, enabled) in [
+        (MenuAction::OfferDraw, "Remis", false),
+        (MenuAction::Concede, "Aufgeben", true),
+    ] {
+        let button = commands
+            .spawn((
+                MenuButton { action },
+                Node {
+                    padding: UiRect::axes(px(12), px(6)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(if enabled {
+                    palette::PANEL_LIT
+                } else {
+                    palette::PANEL
+                }),
+                soft_shadow(),
+                children![(
+                    Text::new(label),
+                    tf(&fonts, 13.0),
+                    TextColor(if enabled { palette::INK } else { palette::DEAD }),
+                )],
+            ))
+            .id();
+        commands.entity(menu_row).add_child(button);
+    }
+    commands.entity(tabs).add_child(menu_row);
     commands.entity(root).add_child(tabs);
 
     // ---- right: the phase rail ------------------------------------------
@@ -394,6 +511,8 @@ pub fn sync_overlay(
                         flex_direction: FlexDirection::Column,
                         row_gap: px(4),
                         align_items: AlignItems::Center,
+                        border_radius: card_radius(308.0),
+                        overflow: Overflow::clip(),
                         ..default()
                     },
                     BackgroundColor(palette::PANEL_LIT),
@@ -418,6 +537,22 @@ pub fn sync_overlay(
                 .id();
             commands.entity(root).add_child(tooltip);
         }
+    }
+
+    // ---- the own-board overlay (sliding layer over the ellipse) --------
+    if let Some(statics) = duel.statics.as_ref() {
+        let overlay = spawn_own_board_overlay(
+            &mut commands,
+            board,
+            statics,
+            hovered,
+            &selected,
+            duel.overlay_closed,
+            &mut textures,
+            &assets,
+            &fonts,
+        );
+        commands.entity(root).add_child(overlay);
     }
 
     // ---- the stack (left of the rail, when non-empty) --------------------
@@ -449,6 +584,7 @@ fn spawn_player_tab(
     let is_focused = focus == Some(player);
     let has_priority = view.priority == Some(player);
 
+    let is_local = seat.player == view.seat;
     let (background, ink) = if seat.has_lost {
         (palette::PANEL, palette::DEAD)
     } else if is_active {
@@ -459,6 +595,11 @@ fn spawn_player_tab(
     let border_px = if is_active || is_focused { 2.0 } else { 1.0 };
 
     let marker = if has_priority { "▶ " } else { "" };
+    let display = if is_local {
+        format!("You ({name})")
+    } else {
+        name.clone()
+    };
     let counts_color = if seat.has_lost {
         palette::DEAD
     } else {
@@ -472,18 +613,22 @@ fn spawn_player_tab(
                 row_gap: px(2),
                 padding: UiRect::axes(px(10), px(5)),
                 border: UiRect::all(px(border_px)),
+                border_radius: btn_radius(),
                 ..default()
             },
             BackgroundColor(background),
             BorderColor::all(if is_active {
                 palette::ACTIVE
+            } else if is_local {
+                palette::ACCENT
             } else {
                 team_color(team)
             }),
+            soft_shadow(),
             children![
                 (
                     // Name and life: name in text font, life with a heart icon.
-                    Text::new(format!("{marker}{name} ")),
+                    Text::new(format!("{marker}{display} ")),
                     tf(fonts, 14.0),
                     TextColor(if seat.has_lost { palette::DEAD } else { ink }),
                     children![
@@ -824,14 +969,30 @@ fn spawn_hand_bar(
     for (i, card) in board.hand.iter().enumerate() {
         let is_selected = selected.contains(&card.id);
         let is_hovered = hovered == Some(card.id);
-        let (border, border_px) = if is_selected {
-            (palette::ACCENT, 3.0)
-        } else if is_hovered {
-            (palette::ACCENT, 2.0)
-        } else if card.playable {
-            (palette::ACCENT, 1.0)
+        // No border: the card is rounded like a real one; hover/selection
+        // read as a soft accent glow instead of a frame.
+        let shadow = if is_selected {
+            BoxShadow::new(
+                palette::ACCENT,
+                Val::Px(0.0),
+                Val::Px(0.0),
+                Val::Px(2.0),
+                Val::Px(10.0),
+            )
+        } else if is_hovered || card.playable {
+            BoxShadow::new(
+                if is_hovered {
+                    palette::ACCENT
+                } else {
+                    palette::SHADOW
+                },
+                Val::Px(0.0),
+                Val::Px(0.0),
+                Val::Px(0.0),
+                Val::Px(if is_hovered { 8.0 } else { 5.0 }),
+            )
         } else {
-            (palette::PANEL_LIT, 1.0)
+            soft_shadow()
         };
         let image = textures.get(card.art, statics, assets);
         // Positioned by the layout rule; the strip's margin carries the
@@ -846,10 +1007,11 @@ fn spawn_hand_bar(
                     top: px(0),
                     width: px(HAND_CARD_W),
                     height: px(HAND_CARD_H),
-                    border: UiRect::all(px(border_px)),
+                    border_radius: card_radius(HAND_CARD_W),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
-                BorderColor::all(border),
+                shadow,
                 children![(
                     ImageNode::new(image),
                     Node {
@@ -899,6 +1061,195 @@ pub fn apply_hand_scroll(
         if node.margin != wanted {
             node.margin = wanted;
         }
+    }
+}
+
+/// Card width in the own-board overlay.
+pub const OVERLAY_CARD_W: f32 = 86.0;
+/// Card height in the own-board overlay (63:88).
+pub const OVERLAY_CARD_H: f32 = OVERLAY_CARD_W * 88.0 / 63.0;
+/// Total overlay height: three lane rows plus gaps and padding.
+pub const OVERLAY_H: f32 = OVERLAY_CARD_H * 3.0 + 46.0;
+
+/// The own-board overlay: the local player's battlefield as big rounded
+/// cards in three lanes, floating above the shared ellipse canvas, with a
+/// shadow upwards. Slides down/up (X key or the knob on its top edge).
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)] // panel + knob + lanes are one flat build
+fn spawn_own_board_overlay(
+    commands: &mut Commands,
+    board: &baylee_client_core::BoardModel,
+    statics: &GameStatic,
+    hovered: Option<ObjectId>,
+    selected: &[ObjectId],
+    closed: bool,
+    textures: &mut CardTextures,
+    assets: &AssetServer,
+    fonts: &UiFonts,
+) -> Entity {
+    let panel = commands
+        .spawn((
+            OwnBoardOverlay,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(0),
+                bottom: px(HAND_CARD_H + 20.0), // animate_overlay owns this
+                height: px(OVERLAY_H),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                padding: UiRect {
+                    top: px(20),
+                    bottom: px(8),
+                    left: px(12),
+                    right: px(12),
+                },
+                ..default()
+            },
+            BackgroundColor(palette::PANEL),
+            overlay_shadow(),
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    // The knob: shallow, centered on the top edge, integrated into the
+    // border; the arrow shows the direction the panel will move.
+    let knob = commands
+        .spawn((
+            OverlayKnob,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(-7),
+                left: percent(50),
+                margin: UiRect::left(px(-36)),
+                width: px(72),
+                height: px(14),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius {
+                    top_left: px(7),
+                    top_right: px(7),
+                    ..default()
+                },
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            children![(
+                Text::new((if closed { '\u{f077}' } else { '\u{f078}' }).to_string()),
+                icon_tf(fonts, 9.0),
+                TextColor(palette::MUTED),
+            )],
+        ))
+        .id();
+    commands.entity(panel).add_child(knob);
+
+    let Some(pod) = board.pods.iter().find(|p| p.is_local) else {
+        return panel;
+    };
+    for lane in &pod.lanes {
+        if lane.groups.is_empty() {
+            continue;
+        }
+        let row = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(6),
+                    height: px(OVERLAY_CARD_H),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        for group in &lane.groups {
+            let Some(art) = group.art else {
+                continue;
+            };
+            let is_selected = group.members.iter().any(|m| selected.contains(m));
+            let is_hovered = hovered == Some(group.representative);
+            let shadow = if is_selected || is_hovered {
+                BoxShadow::new(
+                    palette::ACCENT,
+                    Val::Px(0.0),
+                    Val::Px(0.0),
+                    Val::Px(0.0),
+                    Val::Px(8.0),
+                )
+            } else {
+                soft_shadow()
+            };
+            let image = textures.get(art, statics, assets);
+            let card = commands
+                .spawn((
+                    HandCardVisual {
+                        object: group.representative,
+                    },
+                    Node {
+                        width: px(OVERLAY_CARD_W),
+                        height: px(OVERLAY_CARD_H),
+                        border_radius: card_radius(OVERLAY_CARD_W),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    shadow,
+                    children![
+                        (
+                            ImageNode::new(image),
+                            Node {
+                                width: percent(100),
+                                height: percent(100),
+                                ..default()
+                            },
+                        ),
+                        (
+                            // Count chip for grouped stacks.
+                            Text::new(if group.count() > 1 {
+                                format!("×{}", group.count())
+                            } else {
+                                String::new()
+                            }),
+                            tf(fonts, 12.0),
+                            TextColor(palette::INK),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                right: px(3),
+                                bottom: px(2),
+                                ..default()
+                            },
+                        ),
+                    ],
+                ))
+                .id();
+            commands.entity(row).add_child(card);
+        }
+        commands.entity(panel).add_child(row);
+    }
+    panel
+}
+
+/// Slides the own-board overlay between its raised and its down position.
+/// The knob stays peeking above the hand bar when the panel is down, so
+/// there is always a way back.
+pub fn animate_overlay(
+    time: Res<Time>,
+    mut duel: ResMut<Duel>,
+    mut panels: Query<&mut Node, With<OwnBoardOverlay>>,
+) {
+    let target = if duel.overlay_closed { 1.0 } else { 0.0 };
+    if (duel.overlay_t - target).abs() < f32::EPSILON {
+        return; // already settled
+    }
+    let step = time.delta_secs() * 5.0;
+    duel.overlay_t = if (target - duel.overlay_t).abs() <= step {
+        target
+    } else {
+        duel.overlay_t + (target - duel.overlay_t).signum() * step
+    };
+    let open_bottom = HAND_CARD_H + 20.0;
+    let hidden_bottom = open_bottom - (OVERLAY_H - 16.0);
+    let bottom = open_bottom + (hidden_bottom - open_bottom) * duel.overlay_t;
+    for mut node in &mut panels {
+        node.bottom = px(bottom);
     }
 }
 

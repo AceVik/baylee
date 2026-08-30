@@ -130,9 +130,11 @@ impl TableLayout {
     /// Lays out `seats` (in turn order starting with the local seat) on a ring
     /// sized for a viewport of the given aspect ratio.
     ///
-    /// `focus` optionally names an opponent whose board is being inspected;
-    /// that pod is enlarged at the expense of the other opponents, never at the
-    /// expense of the local seat.
+    /// The ellipse is divided **evenly** across every seat, local included —
+    /// the local player's own board is presented magnified by the sliding
+    /// own-board overlay, not by a bigger sector. `focus` optionally names
+    /// an opponent whose board is being inspected; that pod is enlarged at
+    /// the expense of the other seats.
     ///
     /// # Panics
     /// Never — an empty seat list produces an empty layout.
@@ -147,24 +149,12 @@ impl TableLayout {
             };
         }
 
-        // Space is distributed by weight, not evenly: the local seat gets a
-        // fixed large share because it is where the player acts, and the rest
-        // is split between opponents with a bonus for the focused one.
-        let opponents = n.saturating_sub(1);
+        // Even shares, with a focus bonus borrowed from everyone else.
         let weights: Vec<f32> = seats
             .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                if i == 0 {
-                    LOCAL_WEIGHT
-                } else if focus == Some(*p) {
-                    FOCUS_WEIGHT
-                } else {
-                    1.0
-                }
-            })
+            .map(|p| if focus == Some(*p) { FOCUS_WEIGHT } else { 1.0 })
             .collect();
-        let opponent_weight: f32 = weights[1..].iter().sum::<f32>().max(1.0);
+        let total: f32 = weights.iter().sum();
 
         let slots = seats
             .iter()
@@ -174,23 +164,10 @@ impl TableLayout {
                 let (sin, cos) = angle.sin_cos();
                 // Angle 0 is the near edge; y grows away from the local seat.
                 let center = Vec2::new(radius.x * sin, -radius.y * cos);
-                let is_local = i == 0;
 
-                // The local pod is sized on its own terms; an opponent takes
-                // a share of the opponent budget, normalised so that equal
-                // opponents get equal room.
-                let share = if is_local || opponents == 0 {
-                    1.0
-                } else {
-                    (weights[i] / opponent_weight) * opponents as f32
-                };
-
-                let base = if is_local {
-                    Vec2::new(radius.x * 0.62, radius.y * 0.42)
-                } else {
-                    let per_opponent = (core::f32::consts::TAU / n as f32).min(1.6);
-                    Vec2::new(radius.x * 0.30 * per_opponent.max(0.55), radius.y * 0.26)
-                };
+                let share = weights[i] / total * n as f32;
+                let per_seat = (core::f32::consts::TAU / n as f32).min(1.6);
+                let base = Vec2::new(radius.x * 0.30 * per_seat.max(0.55), radius.y * 0.26);
 
                 SeatSlot {
                     player,
@@ -201,7 +178,7 @@ impl TableLayout {
                     // seat opposite is rotated a half turn.
                     facing: angle,
                     half_extent: base * share.clamp(0.55, 2.0).sqrt(),
-                    is_local,
+                    is_local: i == 0,
                 }
             })
             .collect();
@@ -222,9 +199,7 @@ impl TableLayout {
     }
 }
 
-/// The local seat always gets this many opponents' worth of space.
-const LOCAL_WEIGHT: f32 = 1.0;
-/// A focused opponent counts as this many ordinary opponents.
+/// A focused opponent counts as this many ordinary seats.
 const FOCUS_WEIGHT: f32 = 2.6;
 
 /// How a lane packed its cards.
@@ -355,32 +330,24 @@ mod tests {
     }
 
     #[test]
-    fn the_local_pod_is_the_largest_at_every_table_size() {
+    fn the_ellipse_is_divided_evenly_across_all_seats() {
         for n in 2..=8u8 {
             let layout = TableLayout::new(&seats(n), 1.78, None);
-            let local_area = layout.slots[0].half_extent.x * layout.slots[0].half_extent.y;
+            let expected = layout.slots[0].half_extent;
             for slot in &layout.slots[1..] {
-                let area = slot.half_extent.x * slot.half_extent.y;
-                assert!(
-                    local_area > area,
-                    "local pod must dominate at {n} seats ({local_area} vs {area})"
+                assert_eq!(
+                    slot.half_extent, expected,
+                    "every seat gets the same sector at {n} seats"
                 );
             }
         }
     }
 
     #[test]
-    fn focusing_an_opponent_borrows_space_from_the_other_opponents_only() {
+    fn focusing_an_opponent_enlarges_it_at_everyone_elses_expense() {
         let players = seats(4);
         let plain = TableLayout::new(&players, 1.78, None);
         let focused = TableLayout::new(&players, 1.78, Some(PlayerId::new(2)));
-
-        let plain_local = plain.slots[0].half_extent;
-        let focused_local = focused.slots[0].half_extent;
-        assert_eq!(
-            plain_local, focused_local,
-            "the local pod never shrinks to make room for an opponent"
-        );
 
         let target = focused.slot(PlayerId::new(2)).expect("focused slot");
         let before = plain.slot(PlayerId::new(2)).expect("plain slot");

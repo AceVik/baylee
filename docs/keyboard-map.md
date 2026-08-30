@@ -11,6 +11,7 @@ Binding defaults (rebindable, persisted per account):
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select) | `E` | implemented |
 | Inspect an opponent's board (toggle) | `Shift+1..9` | implemented |
+| Slide the own-board overlay down/up | `X` (or the knob) | implemented |
 | Select a phase/step button (the rail's keyboard cursor) | `Shift+W` / `Shift+S` | implemented |
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Number choices (X) | arrows | implemented |
