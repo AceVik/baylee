@@ -5,7 +5,9 @@ members = ["crates/*", "xtask"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+# MSRV: let-chains (stabilized in 1.88) are used across the engine and the
+# gateway. CI builds against exactly this version so the number stays true.
+rust-version = "1.88"
 license = "AGPL-3.0-only"
 
 # Dependency policy: newest stable, pinned here once for the whole workspace.
@@ -41,7 +43,6 @@ glam = "0.32"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rand_chacha = "0.9"
 rand_core = "0.9"
-rhai = "1"
 clap = { version = "4", features = ["derive"] }
 ureq = { version = "3", features = ["json"] }
 heck = "0.5"

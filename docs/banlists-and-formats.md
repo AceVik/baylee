@@ -1,5 +1,10 @@
 # Banlists & Formats
 
+**Status: [Spec].** No banlist, format-legality, singleton, or color-
+identity check exists in the gateway today — deck validation is
+registry-membership + count rules only. This document is the design
+target, not a description of shipped behavior.
+
 Legality lives entirely in the gateway; the engine enforces game rules only.
 
 - `banlists(id, name, format, builtin, updated_at)` +

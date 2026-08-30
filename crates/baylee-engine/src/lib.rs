@@ -48,12 +48,6 @@ pub mod sba;
 /// Game results and win/lose evaluation.
 pub mod win;
 
-/// Propose → replacement rewrite → apply → collect triggers → journal (M1.S1).
-pub mod pipeline {}
-
-/// Replacement effect registry and application, CR 614–616 (M2.S6).
-pub mod replacement {}
-
 /// Triggered abilities: collection and APNAP ordering.
 pub mod trigger;
 
@@ -69,29 +63,8 @@ pub mod layers;
 /// `ContinuousEffect`, `EffectTable`, modifiers, durations.
 pub mod effects;
 
-/// Precomputed legal actions incl. filtered searches (M1.S3).
-pub mod legality {}
-
-/// `Cost`, `CostPart`, alternative/additional costs, cost modifiers (M1.S2).
-pub mod cost {}
-
-/// `CastPermission`, `PendingCast`, `DelayedTrigger`, `ExileRider` (M2.S7).
-pub mod unusual {}
-
-/// Copy objects/spells/tokens; copiable-values model (M2.S7).
-pub mod copy {}
-
-/// `FormatModifier` trait + commander/multiplayer modules (M2).
-pub mod format {}
-
-/// Server-side standing orders / reaction macros (M2+).
-pub mod automation {}
-
-/// Developer-mode commands through the same event pipeline (M1+).
-pub mod dev {}
-
-/// True endless-loop detection via snapshot-hash repetition (M1.S2).
-pub mod loop_detect {}
-
-/// Rhai `ScriptedModifier` for custom game modes (M2+).
-pub mod script {}
+// NOTE: the roadmap items (pipeline formalization, replacement registry,
+// legality precompute, cost model, unusual casting, copy machinery, format
+// modifiers, automation, dev mode, loop detection, scripted modifiers)
+// live in docs/mechanics-roadmap.md. They deliberately have no empty
+// module stubs here — a stub with a doc comment reads as shipped code.

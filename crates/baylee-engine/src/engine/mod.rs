@@ -303,6 +303,8 @@ mod cast_wizard;
 mod progress;
 
 #[cfg(test)]
+mod card_tests;
+#[cfg(test)]
 mod m2_tests;
 #[cfg(test)]
 mod mdfc_tests;
@@ -322,6 +324,8 @@ mod s7b_tests;
 mod s7c_tests;
 #[cfg(test)]
 mod saga_tests;
+#[cfg(test)]
+pub(crate) mod testkit;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

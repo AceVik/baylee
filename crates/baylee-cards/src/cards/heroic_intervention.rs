@@ -1,6 +1,6 @@
 //! Heroic Intervention — {1}{G} — Instant
 //! Oracle: Permanents you control gain hexproof and indestructible until end of turn.
-//! Set: FDN #211 — Foundations | Scryfall ID: 24882fa2-3fe9-4c1b-aa3d-0e6488b9db27 | Oracle ID: 24882fa2-3fe9-4c1b-aa3d-0e6488b9db27
+//! Set: FDN #211 — Foundations | Scryfall ID: e32c67d1-187f-40df-b3b3-6036f5c92834 | Oracle ID: 24882fa2-3fe9-4c1b-aa3d-0e6488b9db27
 // IMPLEMENTED — team hexproof + indestructible until end of turn (layer 6).
 #![allow(unused_imports, missing_docs)]
 

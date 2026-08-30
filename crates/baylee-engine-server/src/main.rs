@@ -185,9 +185,9 @@ fn acceptance_duel_preset() -> GamePreset {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/acceptance-decks.txt"),
     )
     .expect("acceptance deck file");
-    let allytifact = baylee_ai::decks::load_acceptance(&text, "Allytifact").expect("Allytifact");
-    let victory = baylee_ai::decks::load_acceptance(&text, "Victory").expect("Victory");
-    let mut preset = baylee_ai::decks::preset_for(1, &allytifact, &victory);
+    let allytifact = baylee_cards::decks::load_acceptance(&text, "Allytifact").expect("Allytifact");
+    let victory = baylee_cards::decks::load_acceptance(&text, "Victory").expect("Victory");
+    let mut preset = baylee_cards::decks::preset_for(1, &allytifact, &victory);
     // Seat 0 is the connecting human.
     preset.seats[0].controller = baylee_core::preset::SeatController::Open;
     preset

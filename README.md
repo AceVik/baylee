@@ -5,8 +5,10 @@ Rust: a deterministic rules engine (one process per game, up to 8 players),
 a gateway service (accounts, decks, lobbies, image cache), and WASM clients
 (Leptos lobby, Bevy 2.5D game table).
 
-**Status: M0 — foundations.** See `docs/architecture.md` for the master plan
-and `AGENTS.md` for build/test commands.
+**Status: M4 shipped** (gateway: accounts, decks, lobby, hosted games) +
+M5 game client (Bevy, vs-AI). See `docs/architecture.md` for the master plan
+and `AGENTS.md` for build/test commands. Docs carry per-section status
+markers: **[Implemented]** = code exists, **[Spec]** = design target only.
 
 ## Workspace layout
 

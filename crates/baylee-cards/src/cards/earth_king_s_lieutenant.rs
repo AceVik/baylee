@@ -1,8 +1,8 @@
-//! Earth King's Lieutenant — {3}{G} — Creature — Human Soldier Ally
+//! Earth King's Lieutenant — {G}{W} — Creature — Human Soldier Ally
 //! Oracle: Trample
 //! Oracle: When this creature enters, put a +1/+1 counter on each other Ally creature you control.
 //! Oracle: Whenever another Ally you control enters, put a +1/+1 counter on this creature.
-//! Set: TLA #174 — Avatar: The Last Airbender | Scryfall ID: 4533d155-5c56-41a5-9d76-2d1414ac47c9 | Oracle ID: 9da9248d-1201-447f-b6c2-2b64af4f71c4
+//! Set: TLA #217 — Avatar: The Last Airbender | Scryfall ID: 4533d155-5c56-41a5-9d76-2d1414ac47c9 | Oracle ID: 9da9248d-1201-447f-b6c2-2b64af4f71c4
 // IMPLEMENTED — trample + ETB team counters + rally counter on self.
 #![allow(unused_imports, missing_docs)]
 
@@ -33,12 +33,12 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "4533d155-5c56-41a5-9d76-2d1414ac47c9",
     faces: &[FaceDef {
         name: "Earth King's Lieutenant",
-        mana_cost: baylee_core::mana!("{1}{G}"),
+        mana_cost: baylee_core::mana!("{G}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::HUMAN, creature::SOLDIER, creature::ALLY],
-        power: Some(3),
-        toughness: Some(3),
+        power: Some(1),
+        toughness: Some(1),
         loyalty: None,
         alternative_costs: &[],
         additional_costs: &[],
@@ -53,7 +53,7 @@ pub static CARD: CardDef = CardDef {
         disturb: false,
         adventure: false,
     }],
-    color_identity: ColorSet::from_slice(&[Color::Green]),
+    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
     keywords: KeywordSet::TRAMPLE,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,

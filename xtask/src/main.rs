@@ -342,6 +342,96 @@ fn card_batch(
     Ok(())
 }
 
+/// Extracts the first `"`-quoted value after `key` (e.g. `name: "…"`).
+fn quoted_value<'a>(content: &'a str, key: &str) -> Option<&'a str> {
+    let start = content.find(key)? + key.len();
+    let rest = &content[start..];
+    let end = rest.find('"')?;
+    Some(&rest[..end])
+}
+
+/// All `mana_cost:` literals in the file (one per face), normalized:
+/// `{0}` and `ManaCost::ZERO` are the same thing.
+fn code_costs(content: &str) -> Vec<String> {
+    let mut costs = Vec::new();
+    let mut rest = content;
+    while let Some(pos) = rest.find("mana_cost: ") {
+        rest = &rest[pos + "mana_cost: ".len()..];
+        if rest.starts_with("ManaCost::ZERO") {
+            costs.push("(no cost)".to_string());
+        } else if rest.starts_with("baylee_core::mana!(\"") {
+            rest = &rest["baylee_core::mana!(\"".len()..];
+            if let Some(end) = rest.find('"') {
+                let lit = &rest[..end];
+                costs.push(if lit == "{0}" {
+                    "(no cost)".to_string()
+                } else {
+                    lit.to_string()
+                });
+            }
+        }
+    }
+    costs
+}
+
+/// Compares the mandatory human-readable header against the `CardDef`
+/// data — the header is the safety net against generation drift, and it
+/// is only a net if something checks it (two cost fixes once shipped
+/// with stale headers).
+fn check_header_matches_code(slug: &str, content: &str, problems: &mut usize) {
+    // First header line: `//! <Name> — <cost or "(no cost)"> — <types>`.
+    let Some(header) = content.lines().find(|l| l.starts_with("//! ")) else {
+        println!("{slug}: no header line");
+        *problems += 1;
+        return;
+    };
+    let header = &header[4..];
+    let mut parts = header.splitn(3, " — ");
+    let (head_name, head_cost) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
+
+    // The first face's name (token statics can appear before CARD, so
+    // anchor on the `faces` field). MDFC headers read "Front // Back":
+    // either side may headline the file's first face.
+    let code_name = content
+        .find("faces: &[")
+        .and_then(|pos| quoted_value(&content[pos..], "name: \""));
+    if let Some(code_name) = code_name {
+        let matches = head_name.split(" // ").any(|side| side == code_name);
+        if !matches {
+            println!("{slug}: header name {head_name:?} != code name {code_name:?}");
+            *problems += 1;
+        }
+    }
+    // The header cost must be one of the faces' costs.
+    let costs = code_costs(content);
+    let head_cost_norm = if head_cost == "{0}" {
+        "(no cost)"
+    } else {
+        head_cost
+    };
+    if !costs.is_empty() && !costs.iter().any(|c| c == head_cost_norm) {
+        println!("{slug}: header cost {head_cost:?} matches none of the code costs {costs:?}");
+        *problems += 1;
+    }
+    for (label, key) in [
+        ("Scryfall ID", "scryfall_id: \""),
+        ("Oracle ID", "oracle_id: \""),
+    ] {
+        let header_has = content
+            .lines()
+            .find(|l| l.starts_with("//!") && l.contains(label))
+            .and_then(|l| l.split(&format!("{label}: ")).nth(1))
+            .map(|v| v.split([' ', '|']).next().unwrap_or("").trim());
+        let code_value = quoted_value(content, key);
+        if let (Some(h), Some(c)) = (header_has, code_value)
+            && h != c
+        {
+            println!("{slug}: header {label} {h:?} != code {c:?}");
+            *problems += 1;
+        }
+    }
+}
+
 /// Validates card-file conventions across the registry.
 fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
@@ -369,6 +459,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
                 problems += 1;
             }
         }
+        check_header_matches_code(&slug, &content, &mut problems);
     }
     if problems > 0 {
         anyhow::bail!("{problems} convention problem(s) found");

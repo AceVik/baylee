@@ -21,9 +21,6 @@ use baylee_engine::engine::Engine;
 use baylee_engine::state::{CardLookup, GameState};
 use baylee_engine::win::GameResult;
 
-/// Deck loading from the acceptance suite (name → registry resolution).
-pub mod decks;
-
 /// A greedy one-ply heuristic controller. Deterministic given the same
 /// state (the engine's seeded RNG does all randomness).
 #[derive(Clone, Debug)]
@@ -63,8 +60,14 @@ impl HeuristicAgent {
                     })
                     .collect();
                 hand.sort_by_key(|(cmc, _)| u32::MAX - cmc);
+                // `count` comes from the engine and fits the hand today;
+                // take() stays panic-free if that ever changes.
                 PlayerAction::ChooseObjects {
-                    objects: hand[..count as usize].iter().map(|(_, id)| *id).collect(),
+                    objects: hand
+                        .iter()
+                        .take(count as usize)
+                        .map(|(_, id)| *id)
+                        .collect(),
                 }
             }
             Pending::Priority { legal, .. } => {
@@ -76,8 +79,6 @@ impl HeuristicAgent {
                 //    or while unspent mana could matter (simple: always
                 //    tap before casting, never float into the pass).
                 if !legal.castable.is_empty() && !legal.mana_abilities.is_empty() {
-                    let pool_cmc: u32 = 0; // already-paid mana can't pay twice
-                    let _ = pool_cmc;
                     let best_unpaid = legal.castable.iter().any(|id| {
                         engine.state().object(*id).is_some_and(|o| {
                             o.characteristics().mana_cost.cmc()
@@ -150,7 +151,11 @@ impl HeuristicAgent {
                     .collect();
                 hand.sort_by_key(|(cmc, _)| u32::MAX - cmc);
                 PlayerAction::ChooseObjects {
-                    objects: hand[..count as usize].iter().map(|(_, id)| *id).collect(),
+                    objects: hand
+                        .iter()
+                        .take(count as usize)
+                        .map(|(_, id)| *id)
+                        .collect(),
                 }
             }
             Pending::LegendChoice { options, .. } => PlayerAction::ChooseObjects {
@@ -331,8 +336,10 @@ mod tests {
     #[test]
     fn self_play_acceptance_decks_terminates_without_panics() {
         let text = acceptance_text();
-        let allytifact = decks::load_acceptance(&text, "Allytifact").expect("Allytifact loads");
-        let victory = decks::load_acceptance(&text, "Victory").expect("Victory loads");
+        let allytifact =
+            baylee_cards::decks::load_acceptance(&text, "Allytifact").expect("Allytifact loads");
+        let victory =
+            baylee_cards::decks::load_acceptance(&text, "Victory").expect("Victory loads");
         let agents = [
             HeuristicAgent::new(AIProfile::default()),
             HeuristicAgent::new(AIProfile::default()),
@@ -344,7 +351,7 @@ mod tests {
             } else {
                 (&victory, &allytifact)
             };
-            let preset = decks::preset_for(seed, a, b);
+            let preset = baylee_cards::decks::preset_for(seed, a, b);
             if play_game(RegistryLookup, &preset, &agents, 20_000).is_some() {
                 finished += 1;
             }

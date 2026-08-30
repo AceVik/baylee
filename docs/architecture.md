@@ -17,9 +17,12 @@ Master plan (Blueprint v1.3). baylee is a cargo workspace:
 - **baylee-protocol** — protobuf WS messages; per-player filtered views;
   every card carries `{object_id, card_index, print_ref}`.
 - **baylee-engine-server** — one process per game (up to 8 human/AI seats).
-- **baylee-gateway** (M4) — axum + SeaORM 2 + PostgreSQL 18: auth, catalog
-  search, decks/validation, banlists, lobbies, image proxy/cache, process
-  supervisor with verbatim WS routing.
+- **baylee-gateway** (M4) — [Implemented today]: axum + JSON-file store
+  (parking_lot mutex, debounced background writer): auth (Argon2id,
+  hashed bearer tokens), decks/validation, lobbies, hosted games with
+  per-seat WS routing. [Spec target]: SeaORM 2 + PostgreSQL 18, catalog
+  search, banlists, image proxy/cache, process supervisor. The move goes
+  via SQLite first (see docs/protocol.md roadmap).
 - **frontends** (M5) — Leptos lobby, Bevy 2.5D game client (WASM + native +
   mobile), reusable `ui-widgets` / `client-presentation` split (MMO-ready).
 

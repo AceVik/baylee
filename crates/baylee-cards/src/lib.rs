@@ -10,6 +10,9 @@ use baylee_core::ids::CardIndex;
 
 /// Generated: one module per card.
 pub mod cards;
+/// Deck parsing and name resolution against the registry (acceptance
+/// deck format, `"N Card Name"` lines, preset assembly).
+pub mod decks;
 /// Generated: registry tables.
 pub mod generated;
 /// Central named token definitions (referenced by card files).

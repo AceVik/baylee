@@ -1,7 +1,7 @@
 //! Deck loading: acceptance-suite text format → registry-resolved
 //! presets. Used by self-play tests and the local play harness.
 
-use baylee_cards::by_index;
+use crate::by_index;
 use baylee_core::acceptance::{Zone, parse_decks};
 use baylee_core::ids::{CardIndex, PrintRef};
 use baylee_core::preset::{
@@ -24,9 +24,9 @@ pub struct LoadedDeck {
 /// acceptance pool is small).
 #[must_use]
 pub fn by_name(name: &str) -> Option<CardIndex> {
-    (0..baylee_cards::count())
+    (0..crate::count())
         .map(|i| by_index(CardIndex::new(i as u32)))
-        .zip(0..baylee_cards::count())
+        .zip(0..crate::count())
         .find_map(|(def, i)| match def {
             Some(def) if def.name() == name => Some(CardIndex::new(i as u32)),
             _ => None,

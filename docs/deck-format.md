@@ -1,5 +1,10 @@
 # Deck Import/Export Format
 
+**Status: [Spec].** The gateway today accepts simple `"N Card Name"` lines
+(registry-validated, counts 1–4, basics unlimited, ≤250 cards total).
+Nothing below — zones, print metadata, the fallback chain — is
+implemented yet; it is the design target for the catalog milestone.
+
 Canonical JSON plus an MTGO/Arena-style text format. All per-card metadata
 is optional on import; export always writes complete metadata.
 

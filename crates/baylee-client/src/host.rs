@@ -156,9 +156,9 @@ impl DuelHost for LocalHost {
 /// browser.
 #[must_use]
 pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
-    let player = baylee_ai::decks::load_acceptance(deck_file, "Allytifact").ok()?;
-    let house = baylee_ai::decks::load_acceptance(deck_file, "Victory").ok()?;
-    let mut preset = baylee_ai::decks::preset_for(seed, &player, &house);
+    let player = baylee_cards::decks::load_acceptance(deck_file, "Allytifact").ok()?;
+    let house = baylee_cards::decks::load_acceptance(deck_file, "Victory").ok()?;
+    let mut preset = baylee_cards::decks::preset_for(seed, &player, &house);
     // Seat 0 is the person at the keyboard.
     preset.seats.first_mut()?.controller = baylee_core::preset::SeatController::Open;
     Some(preset)

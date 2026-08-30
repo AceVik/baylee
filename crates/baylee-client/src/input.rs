@@ -21,78 +21,74 @@ pub fn keyboard(keys: Res<ButtonInput<KeyCode>>, mut duel: ResMut<Duel>) {
     }
 
     // Confirm / pass priority.
-    if keys.just_pressed(KeyCode::Space) || keys.just_pressed(KeyCode::Enter) {
-        if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
-            duel.submit(action);
-            return;
-        }
+    if (keys.just_pressed(KeyCode::Space) || keys.just_pressed(KeyCode::Enter))
+        && let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm)
+    {
+        duel.submit(action);
+        return;
     }
 
     // Mulligan: keep or take.
-    if keys.just_pressed(KeyCode::KeyK) {
-        if let Some(action) = duel
+    if keys.just_pressed(KeyCode::KeyK)
+        && let Some(action) = duel
             .interaction
             .as_ref()
             .and_then(|i| i.answer_mulligan(true))
-        {
-            duel.submit(action);
-            return;
-        }
+    {
+        duel.submit(action);
+        return;
     }
-    if keys.just_pressed(KeyCode::KeyB) {
-        if let Some(action) = duel
+    if keys.just_pressed(KeyCode::KeyB)
+        && let Some(action) = duel
             .interaction
             .as_ref()
             .and_then(|i| i.answer_mulligan(false))
-        {
-            duel.submit(action);
-            return;
-        }
+    {
+        duel.submit(action);
+        return;
     }
 
     // Yes / no.
-    if keys.just_pressed(KeyCode::KeyY) {
-        if let Some(action) = duel
+    if keys.just_pressed(KeyCode::KeyY)
+        && let Some(action) = duel
             .interaction
             .as_ref()
             .and_then(|i| i.answer_yes_no(true))
-        {
-            duel.submit(action);
-            return;
-        }
+    {
+        duel.submit(action);
+        return;
     }
-    if keys.just_pressed(KeyCode::KeyN) {
-        if let Some(action) = duel
+    if keys.just_pressed(KeyCode::KeyN)
+        && let Some(action) = duel
             .interaction
             .as_ref()
             .and_then(|i| i.answer_yes_no(false))
-        {
-            duel.submit(action);
-            return;
-        }
+    {
+        duel.submit(action);
+        return;
     }
 
     // Number choices: arrows step, and the value is clamped to the offered
     // range by the interaction, so a player can hold a key without producing
     // something the engine would reject.
-    if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::ArrowRight) {
-        if let Some(i) = duel.interaction.as_mut() {
-            let next = i.number().saturating_add(1);
-            i.set_number(next);
-        }
+    if (keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::ArrowRight))
+        && let Some(i) = duel.interaction.as_mut()
+    {
+        let next = i.number().saturating_add(1);
+        i.set_number(next);
     }
-    if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::ArrowLeft) {
-        if let Some(i) = duel.interaction.as_mut() {
-            let next = i.number().saturating_sub(1);
-            i.set_number(next);
-        }
+    if (keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::ArrowLeft))
+        && let Some(i) = duel.interaction.as_mut()
+    {
+        let next = i.number().saturating_sub(1);
+        i.set_number(next);
     }
 
     // Cancel clears a half-built selection without answering.
-    if keys.just_pressed(KeyCode::Escape) {
-        if let Some(i) = duel.interaction.as_mut() {
-            i.cancel();
-        }
+    if keys.just_pressed(KeyCode::Escape)
+        && let Some(i) = duel.interaction.as_mut()
+    {
+        i.cancel();
     }
 
     // Cycle the focused opponent, so an eight-seat table is navigable without

@@ -54,6 +54,29 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo run -p xtask -- codegen --check
 
+  # Benches run in CI so they never silently rot; the numbers land in the
+  # job log for comparison against docs/perf-baseline.md (manual check —
+  # runner timing is too noisy for a hard 10% gate).
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo bench -p baylee-engine -- --quick
+
+  # The declared MSRV is a promise; stable-only CI would never notice it
+  # drifting (let-chains needed 1.88 while Cargo.toml claimed 1.85).
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --all-targets
+
   deny:
     runs-on: ubuntu-latest
     steps:

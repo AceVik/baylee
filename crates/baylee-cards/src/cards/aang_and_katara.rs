@@ -1,6 +1,6 @@
-//! Aang and Katara — {1}{G}{W}{U} — Legendary Creature — Human Avatar Ally
+//! Aang and Katara — {3}{G}{W}{U} — Legendary Creature — Human Avatar Ally
 //! Oracle: Whenever Aang and Katara enter or attack, create X 1/1 white Ally creature tokens, where X is the number of tapped artifacts and/or creatures you control.
-//! Set: TLA #192 — Avatar: The Last Airbender | Scryfall ID: f333ea01-124f-4125-87ab-609be40e774c | Oracle ID: 481c3e14-b670-4fab-aa9f-6ce5b514096d
+//! Set: TLE #69 — Avatar: The Last Airbender Eternal | Scryfall ID: f333ea01-124f-4125-87ab-609be40e774c | Oracle ID: 481c3e14-b670-4fab-aa9f-6ce5b514096d
 // IMPLEMENTED — ETB/attack Ally token engine.
 #![allow(unused_imports, missing_docs)]
 

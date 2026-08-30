@@ -409,7 +409,7 @@ fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Js
         let Ok(count) = count.trim().parse::<u32>() else {
             return Err(err(StatusCode::BAD_REQUEST, "malformed card count"));
         };
-        let Some(index) = baylee_ai::decks::by_name(name.trim()) else {
+        let Some(index) = baylee_cards::decks::by_name(name.trim()) else {
             return Err(err(StatusCode::BAD_REQUEST, "unknown card"));
         };
         let basic_land = baylee_cards::by_index(index).is_some_and(|def| {
@@ -446,7 +446,7 @@ fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     }
     parse_deck_lines(&body.cards)?;
     if let Some(c) = &body.commander
-        && baylee_ai::decks::by_name(c).is_none()
+        && baylee_cards::decks::by_name(c).is_none()
     {
         return Err(err(StatusCode::BAD_REQUEST, "unknown commander"));
     }
@@ -581,7 +581,9 @@ struct CreateGameBody {
 
 /// Builds a `LoadedDeck` from a stored deck (card lines "N Card Name").
 /// Uses the same parser as validation, so counts are already bounded.
-fn loaded_deck(deck: &Deck) -> Result<baylee_ai::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)> {
+fn loaded_deck(
+    deck: &Deck,
+) -> Result<baylee_cards::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)> {
     let parsed = parse_deck_lines(&deck.cards)?;
     let mut main = Vec::new();
     for line in parsed {
@@ -589,7 +591,7 @@ fn loaded_deck(deck: &Deck) -> Result<baylee_ai::decks::LoadedDeck, (StatusCode,
             main.push(line.index);
         }
     }
-    Ok(baylee_ai::decks::LoadedDeck {
+    Ok(baylee_cards::decks::LoadedDeck {
         name: deck.name.clone(),
         main,
         commanders: vec![],
@@ -604,7 +606,7 @@ fn hvh_preset(
 ) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
     let da = loaded_deck(a)?;
     let db = loaded_deck(b)?;
-    Ok(baylee_ai::decks::preset_for(seed, &da, &db))
+    Ok(baylee_cards::decks::preset_for(seed, &da, &db))
 }
 
 /// Preset for a human-vs-AI game (house AI plays Victory).
@@ -614,10 +616,10 @@ fn ai_preset(
 ) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
     let text = std::fs::read_to_string("data/acceptance-decks.txt")
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "deck data missing"))?;
-    let house = baylee_ai::decks::load_acceptance(&text, "Victory")
+    let house = baylee_cards::decks::load_acceptance(&text, "Victory")
         .map_err(|_e| err(StatusCode::INTERNAL_SERVER_ERROR, "house deck missing"))?;
     let player = loaded_deck(deck)?;
-    Ok(baylee_ai::decks::preset_for(seed, &player, &house))
+    Ok(baylee_cards::decks::preset_for(seed, &player, &house))
 }
 
 async fn create_game(
