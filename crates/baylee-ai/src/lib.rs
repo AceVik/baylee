@@ -15,7 +15,7 @@
 
 use baylee_core::ids::{ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
-use baylee_core::preset::GamePreset;
+use baylee_core::preset::{GamePreset, Politics};
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};
 use baylee_engine::engine::Engine;
 use baylee_engine::state::{CardLookup, GameState};
@@ -25,9 +25,9 @@ use baylee_engine::win::GameResult;
 /// state (the engine's seeded RNG does all randomness).
 #[derive(Clone, Debug)]
 pub struct HeuristicAgent {
-    /// Difficulty knobs (lookahead, temperature, mulligan skill); the v1
-    /// greedy policy reads them once evaluation lands.
-    #[allow(dead_code)]
+    /// Difficulty knobs. `politics` steers who this seat attacks; the
+    /// evaluation knobs (lookahead, temperature, mulligan skill, hold-up)
+    /// are still read by nobody and wait on the evaluator.
     profile: AIProfile,
 }
 
@@ -36,6 +36,41 @@ impl HeuristicAgent {
     #[must_use]
     pub fn new(profile: AIProfile) -> Self {
         Self { profile }
+    }
+
+    /// Who this seat swings at, per its politics profile.
+    ///
+    /// In a duel every policy picks the only opponent, so this only starts
+    /// to matter at three seats and up — where always taking
+    /// `defenders.first()` meant one player absorbed every attack in the game
+    /// purely for sitting in the lowest seat.
+    fn pick_defender(&self, state: &GameState, me: PlayerId, defenders: &[PlayerId]) -> PlayerId {
+        let life = |p: &PlayerId| state.players[p.get() as usize].life;
+        match self.profile.politics {
+            // Spread the aggression around without breaking determinism: the
+            // journal position is the seed, so the same game always replays
+            // the same way. `std::random` here would be a replay bug.
+            Politics::Random => {
+                let n = state
+                    .journal
+                    .last_seq()
+                    .wrapping_add(u64::from(me.get()))
+                    .wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                defenders[(n >> 33) as usize % defenders.len()]
+            }
+            // Whoever is closest to winning the race; their board breaks ties.
+            Politics::AttackLeader => *defenders
+                .iter()
+                .max_by_key(|p| (life(p), board_pressure(state, **p)))
+                .unwrap_or(&defenders[0]),
+            // Archenemy: the biggest board is the threat, however low their
+            // life has dropped — a player on 2 life with an empty board is
+            // not what loses this game.
+            Politics::Archenemy => *defenders
+                .iter()
+                .max_by_key(|p| (board_pressure(state, **p), life(p)))
+                .unwrap_or(&defenders[0]),
+        }
     }
 
     /// Picks an action for the current pending choice of `player`.
@@ -120,9 +155,10 @@ impl HeuristicAgent {
                     .filter(|p| p.id != player && !p.has_lost)
                     .map(|p| p.id)
                     .collect();
-                let Some(&defender) = defenders.first() else {
+                if defenders.is_empty() {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
-                };
+                }
+                let defender = self.pick_defender(engine.state(), player, &defenders);
                 let attackers: Vec<(ObjectId, PlayerId)> = engine
                     .state()
                     .zones
@@ -215,6 +251,20 @@ impl HeuristicAgent {
             Pending::GameOver(_) => PlayerAction::PassPriority, // unreachable in the driver
         }
     }
+}
+
+/// How much a player's board threatens: a point per permanent plus its
+/// power, which reads an army of small creatures and one huge one as
+/// comparably dangerous.
+fn board_pressure(state: &GameState, player: PlayerId) -> i32 {
+    state
+        .zones
+        .list(baylee_engine::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter_map(|id| state.object(*id))
+        .filter(|o| o.controller == player)
+        .map(|o| 1 + i32::from(o.characteristics().power.unwrap_or(0)))
+        .sum()
 }
 
 /// Rough mana available in the pool (cmc units).
@@ -326,6 +376,109 @@ mod tests {
         fn card(&self, index: CardIndex) -> Option<&'static baylee_cards::dsl::CardDef> {
             baylee_cards::by_index(index)
         }
+    }
+
+    fn island() -> CardIndex {
+        baylee_cards::by_oracle_id("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+            .expect("island")
+            .index
+    }
+    fn ondu_cleric() -> CardIndex {
+        baylee_cards::by_oracle_id("f4232466-dd6a-49bf-be6c-95905c3ded17")
+            .expect("cleric")
+            .index
+    }
+
+    /// Three seats: one opponent ahead on life with nothing out, one on the
+    /// back foot with a board. The two policies should disagree about them.
+    fn three_seat_engine() -> baylee_engine::engine::Engine<RegistryLookup> {
+        use baylee_core::ids::PrintRef;
+        use baylee_core::preset::{
+            DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
+            SeatSpec,
+        };
+        let deck: Vec<DeckEntry> = (0..60)
+            .map(|_| DeckEntry {
+                card: island(),
+                print: PrintRef::new(0),
+            })
+            .collect();
+        let seat = |life: i32, board: usize| SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            deck: deck.clone(),
+            starting_life: Some(life),
+            starting_hand: None,
+            starting_battlefield: (0..board)
+                .map(|_| DeckEntry {
+                    card: ondu_cleric(),
+                    print: PrintRef::new(0),
+                })
+                .collect(),
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 3,
+            dev_mode: false,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: Finish::Normal,
+            }],
+            // seat 0 is us; seat 1 is ahead on life; seat 2 has the board.
+            seats: vec![seat(40, 0), seat(40, 0), seat(5, 3)],
+        };
+        baylee_engine::engine::Engine::new(&preset, RegistryLookup).expect("engine builds")
+    }
+
+    /// The two threat policies read the same table differently: one goes for
+    /// the player who is winning the race, the other for the biggest board.
+    #[test]
+    fn politics_decides_who_gets_attacked() {
+        let engine = three_seat_engine();
+        let me = PlayerId::new(0);
+        let defenders = [PlayerId::new(1), PlayerId::new(2)];
+
+        let leader = HeuristicAgent::new(AIProfile {
+            politics: Politics::AttackLeader,
+            ..AIProfile::default()
+        });
+        assert_eq!(
+            leader.pick_defender(engine.state(), me, &defenders),
+            PlayerId::new(1),
+            "attack-leader goes for the player on 40 life"
+        );
+
+        let archenemy = HeuristicAgent::new(AIProfile {
+            politics: Politics::Archenemy,
+            ..AIProfile::default()
+        });
+        assert_eq!(
+            archenemy.pick_defender(engine.state(), me, &defenders),
+            PlayerId::new(2),
+            "archenemy goes for the board, not the life total"
+        );
+    }
+
+    /// "Random" must still be a function of the game state — a real RNG here
+    /// would make replays and the soak diverge.
+    #[test]
+    fn random_politics_stays_deterministic() {
+        let engine = three_seat_engine();
+        let me = PlayerId::new(0);
+        let defenders = [PlayerId::new(1), PlayerId::new(2)];
+        let agent = HeuristicAgent::new(AIProfile {
+            politics: Politics::Random,
+            ..AIProfile::default()
+        });
+        let first = agent.pick_defender(engine.state(), me, &defenders);
+        for _ in 0..10 {
+            assert_eq!(agent.pick_defender(engine.state(), me, &defenders), first);
+        }
+        assert!(defenders.contains(&first));
     }
 
     fn acceptance_text() -> String {
