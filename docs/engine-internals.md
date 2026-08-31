@@ -31,11 +31,37 @@ override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
 
 ## Loop detection
-A real endless loop = identical snapshot hash repeats inside a
-decision-free segment. Large-but-finite stacks (100k triggers) are never
-flagged (state strictly changes per resolution). Policy (house rule):
-`RunOnceThenBreak` (default) or `CompRulesDraw`. Choice-involving loops:
-3 identical `(state, action)` repetitions → warn, then force a break.
+A real endless loop is a *repeat*, not a long run. Every mandatory loop in
+Magic goes through the stack, so the players are asked every time round and
+passing is all they can do: the detector therefore watches the situation as
+each answer arrives (`Engine::apply`), with a second watch inside the
+decision-free segment (`run_machine`) purely as a hang guard.
+
+`GameState::loop_signature` is what it compares — the rules-visible
+situation, blind to object identity and timestamps. `snapshot_hash` cannot
+be used: slots are never recycled and timestamps only go up, so a genuine
+loop never hashes the same twice.
+
+`loops::LoopWatch` runs Brent's cycle-finding algorithm over that stream:
+one stored value, no history buffer. Nothing is hashed for the first 4096
+answers, and only every 256th after that — sampling leaves an eventually
+periodic sequence eventually periodic, so the cycle is still found. A first
+match is put on probation and re-checked one period later, so a coincidence
+is not a loop.
+
+Large-but-finite piles of work (the ally deck's thousand rally triggers) are
+never flagged: every iteration consumes something, so the situation changes
+every time round.
+
+Policy (house rule): `RunOnceThenBreak` (default) withholds the triggers
+feeding the loop — in `collect_triggers` and again where a trigger whose
+target was already chosen would reach the stack — until the stack has
+drained. The loop's effect has happened once and then stops; play continues,
+and a card that starts the loop again next upkeep is broken again next
+upkeep. A loop detected while a break is still in force means the break did
+not take (it is driven by replacement effects or SBAs, not triggers), and
+that falls back to `CompRulesDraw`: CR 104.4b, the game is a draw. Every
+detection is journalled as `LoopDetected { period, broken }`.
 
 ## Custom modes (Rhai)
 `ScriptedModifier` implements `FormatModifier` via a sandboxed Rhai script

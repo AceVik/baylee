@@ -420,6 +420,15 @@ impl<L: CardLookup> Engine<L> {
                     } => {
                         // Consume the queued trigger before stacking it.
                         self.trigger_queue.pop_front();
+                        if self.breaking_loop {
+                            // The house rule broke an endless loop: the
+                            // trigger feeding it is answered but never
+                            // reaches the stack. A trigger whose target was
+                            // already chosen has to be dropped here as well
+                            // as in `collect_triggers` -- the choice is what
+                            // put it beyond that gate.
+                            return Ok(());
+                        }
                         let controller = self.state.object(source).map_or(player, |o| o.controller);
                         self.push_ability_to_stack(controller, source, ability_index, targets)?;
                     }

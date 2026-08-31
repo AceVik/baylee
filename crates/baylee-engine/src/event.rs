@@ -235,6 +235,16 @@ pub enum GameEvent {
         /// Whether it is now phased out.
         phased_out: bool,
     },
+    /// A decision-free segment was found to repeat itself: a real endless
+    /// loop rather than a large-but-finite pile of work (house rule, see
+    /// [`crate::loops`]).
+    LoopDetected {
+        /// Length of the repeat, in sampled machine iterations.
+        period: u64,
+        /// `true` when the engine broke the loop and play continued;
+        /// `false` when the game ended in a draw instead (CR 104.4b).
+        broken: bool,
+    },
     /// The game ended with a winner.
     GameWon {
         /// The winner (`None` = draw).

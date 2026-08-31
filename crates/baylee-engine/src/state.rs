@@ -857,6 +857,105 @@ impl GameState {
         }
         h.finish()
     }
+
+    /// A hash of the *rules-visible situation*, blind to object identity and
+    /// to time.
+    ///
+    /// [`Self::snapshot_hash`] answers "is this the same game state?" — it is
+    /// what resync and replay compare, and it deliberately hashes object
+    /// slots, generations and timestamps. That makes it useless for the
+    /// question the loop detector asks. Slots are never recycled and
+    /// timestamps only go up, so a permanent that dies and comes back is a
+    /// different object at a later time: a genuine endless loop never hashes
+    /// the same twice.
+    ///
+    /// This hashes what a player would see instead — who is where, with what
+    /// characteristics, counters, damage and status — and reduces every
+    /// object reference (attachments, targets, combat, an ability's source)
+    /// to a position in a canonical ordering of the zones, so that a
+    /// re-created permanent looks like the one it replaced.
+    ///
+    /// The turn *number* is left out for the same reason: a loop that spans a
+    /// turn boundary would otherwise look different every time round.
+    ///
+    /// See [`crate::loops`] for how the detector uses it.
+    #[must_use]
+    pub fn loop_signature(&self) -> u64 {
+        let zones = self.signature_zones();
+
+        // Canonical position of every object, so references can be hashed
+        // without their ids. Sorted by slot for a binary search; slots are
+        // unique, so the mapping is exact.
+        let mut by_slot: Vec<(u32, u32)> = Vec::new();
+        for loc in &zones {
+            for id in self.zones.list(*loc) {
+                let position = by_slot.len() as u32;
+                by_slot.push((id.slot(), position));
+            }
+        }
+        by_slot.sort_unstable_by_key(|(slot, _)| *slot);
+        let position = |id: ObjectId| -> u32 {
+            by_slot
+                .binary_search_by_key(&id.slot(), |(slot, _)| *slot)
+                .map_or(u32::MAX, |i| by_slot[i].1)
+        };
+
+        let mut h = Hasher::new();
+        h.u8(self.turn.active.get());
+        h.u8(self.turn.phase as u8);
+        h.u8(self.turn.step as u8);
+        h.u8(self.monarch.map_or(255, PlayerId::get));
+        h.usize(self.players.len());
+        for p in &self.players {
+            h.u8(p.id.get());
+            h.i32(p.life);
+            h.u16(p.poison);
+            h.u16(p.energy);
+            h.i8(p.hand_modifier);
+            h.boolean(p.has_lost);
+            for color in ManaColor::ALL {
+                h.u16(p.mana_pool.available(color));
+            }
+        }
+        for loc in &zones {
+            let list = self.zones.list(*loc);
+            h.usize(list.len());
+            for id in list {
+                match self.object(*id) {
+                    Some(obj) => hash_object_situation(&mut h, obj, &position),
+                    None => h.u8(0),
+                }
+            }
+        }
+        h.usize(self.combat.attackers.len());
+        for a in &self.combat.attackers {
+            h.u32(position(a.creature));
+            h.u8(a.defending.get());
+        }
+        h.usize(self.combat.blockers.len());
+        for b in &self.combat.blockers {
+            h.u32(position(b.blocker));
+            h.u32(position(b.attacker));
+        }
+        h.finish()
+    }
+
+    /// Every zone, in a fixed order — the canonical ordering object
+    /// positions in [`Self::loop_signature`] are taken from.
+    fn signature_zones(&self) -> Vec<ZoneLocation> {
+        let mut locs = Vec::with_capacity(2 + self.players.len() * 6);
+        locs.push(ZoneLocation::Battlefield);
+        locs.push(ZoneLocation::Stack);
+        for p in &self.players {
+            locs.push(ZoneLocation::Library(p.id));
+            locs.push(ZoneLocation::Hand(p.id));
+            locs.push(ZoneLocation::Graveyard(p.id));
+            locs.push(ZoneLocation::Exile(p.id));
+            locs.push(ZoneLocation::Command(p.id));
+            locs.push(ZoneLocation::OutsideGame(p.id));
+        }
+        locs
+    }
 }
 
 struct Hasher {
@@ -919,6 +1018,65 @@ fn hash_zone(h: &mut Hasher, list: &[ObjectId]) {
     for id in list {
         h.u32(id.slot());
         h.u8(id.generation());
+    }
+}
+
+/// Hashes one object as a *situation*: everything a player could observe
+/// about it, with object references reduced to canonical positions.
+///
+/// The identity fields `hash_object` includes — slot, generation — are
+/// exactly what has to be left out here; see
+/// [`GameState::loop_signature`].
+fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(ObjectId) -> u32) {
+    h.u8(1);
+    h.u8(obj.owner.get());
+    h.u8(obj.controller.get());
+    h.u8(obj.zone as u8);
+    h.u8(obj.zone_owner.map_or(255, PlayerId::get));
+    h.u8(obj.kind as u8);
+    h.u8(obj.face_index);
+    match &obj.card {
+        Some(c) => {
+            h.u8(1);
+            h.u32(c.index.get());
+        }
+        None => h.u8(0),
+    }
+    let b = &obj.base;
+    h.u32(b.name.get());
+    hash_mana_cost(h, &b.mana_cost);
+    h.u8(b.colors.bits());
+    h.u16(b.types.bits());
+    h.u8(b.supertypes.bits());
+    for word in b.subtypes.words() {
+        h.u64(*word);
+    }
+    h.u128(b.keywords.bits());
+    h.option_u32(b.power.map(|v| v as u32));
+    h.option_u32(b.toughness.map(|v| v as u32));
+    h.option_u32(b.loyalty.map(u32::from));
+    let counters: Vec<_> = obj.counters.iter().collect();
+    h.usize(counters.len());
+    for (kind, n) in counters {
+        h.u8(counter_tag(kind));
+        h.u16(n);
+    }
+    h.u16(obj.damage);
+    h.boolean(obj.deathtouched);
+    h.u8(obj.status.bits());
+    h.option_u32(obj.attached_to.map(position));
+    h.usize(obj.targets.len());
+    for t in &obj.targets {
+        h.u32(position(*t));
+    }
+    match &obj.ability {
+        Some(loc) => {
+            h.u8(1);
+            h.u32(loc.card.get());
+            h.u32(loc.index);
+            h.u32(position(loc.source));
+        }
+        None => h.u8(0),
     }
 }
 

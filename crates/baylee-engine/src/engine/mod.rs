@@ -57,6 +57,10 @@ enum CombatDeclared {
 }
 
 /// A deterministic, self-contained game of Magic.
+// The driver genuinely is a set of independent latches (a pending answer,
+// a queued resolution, an agreed draw, a broken loop); folding them into an
+// enum would make each one lie about the others.
+#[allow(clippy::struct_excessive_bools)]
 pub struct Engine<L: CardLookup> {
     lookup: L,
     state: GameState,
@@ -102,6 +106,16 @@ pub struct Engine<L: CardLookup> {
     /// Per-seat automation: when to offer priority, which yes/no
     /// questions to answer without asking (see `choice::Automation`).
     automation: Vec<crate::choice::SeatAutomation>,
+    /// A loop was broken and its fuel is being withheld (house rule
+    /// `RunOnceThenBreak`). Lasts one answer.
+    breaking_loop: bool,
+    /// Watches the situation as answers arrive, which is where a mandatory
+    /// loop shows up: every loop in Magic runs through the stack, so the
+    /// players are asked every time round.
+    action_loops: crate::loops::LoopWatch,
+    /// How many endless loops this game has broken. Diagnostic only: the
+    /// journal carries the authoritative `LoopDetected` entries.
+    loops_broken: u32,
 }
 
 /// A distinguishing tag per priority-hold shape, including its payload —
@@ -217,6 +231,9 @@ impl<L: CardLookup> Engine<L> {
             lookup,
             mulligans: vec![0; state.players.len()],
             automation: vec![crate::choice::SeatAutomation::default(); state.players.len()],
+            breaking_loop: false,
+            action_loops: crate::loops::LoopWatch::default(),
+            loops_broken: 0,
             mulligan_player: 0,
             house_rules: preset.house_rules.clone(),
             state,
@@ -284,10 +301,13 @@ impl<L: CardLookup> Engine<L> {
         }
         extra = extra.wrapping_mul(31).wrapping_add(u64::from(self.passes));
         // Automation decides which decisions the engine takes on a seat's
-        // behalf, so two engines that differ in it will diverge from here
-        // on. The loop detector compares these hashes to decide whether a
-        // segment repeated; leaving automation out would let it call a
-        // segment identical that is about to behave differently.
+        // behalf, and how many loops it has already broken decides whether
+        // the next one is broken or drawn. Two engines that differ in
+        // either will diverge from here on, so a resync that compared only
+        // the board would call them identical while they are not.
+        extra = extra
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(self.loops_broken));
         for seat in &self.automation {
             extra = extra
                 .wrapping_mul(31)
@@ -312,6 +332,32 @@ impl<L: CardLookup> Engine<L> {
     pub fn apply(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
         if matches!(self.pending, Pending::GameOver(_)) {
             return Err(EngineError::GameOver);
+        }
+        // A game that has started repeating itself keeps asking the same
+        // questions forever, and no answer breaks it — every mandatory loop
+        // in Magic runs *through* the stack, so the players are asked every
+        // time round and passing is all they can do. Watching the situation
+        // as each answer arrives is therefore where a real endless loop can
+        // be told apart from a large-but-finite pile of work: the ally
+        // deck's thousand rally triggers change the situation every time
+        // round, a loop returns to it. See `crate::loops`.
+        //
+        // Trigger suppression from an earlier break lasts until the stack
+        // has actually drained. Stopping after one answer is not enough:
+        // the trigger that feeds the loop is only collected once whatever
+        // is on the stack resolves, which is several answers later.
+        if self.state.zones.stack_is_empty() && self.trigger_queue.is_empty() {
+            self.breaking_loop = false;
+        }
+        let signature = self.action_loops.wants_sample().then(|| {
+            self.state.loop_signature()
+                ^ u64::from(player.get()).rotate_left(37)
+                ^ u64::from(self.passes).rotate_left(53)
+        });
+        if let Some(period) = self.action_loops.step(signature)
+            && self.on_loop_detected(period)
+        {
+            return Ok(());
         }
         // Automation settings change who gets interrupted, not the game.
         // They are answered in place: whatever was pending stays pending,
@@ -374,6 +420,8 @@ mod automation_tests;
 mod card_tests;
 #[cfg(test)]
 mod draw_tests;
+#[cfg(test)]
+mod loop_tests;
 #[cfg(test)]
 mod m2_tests;
 #[cfg(test)]

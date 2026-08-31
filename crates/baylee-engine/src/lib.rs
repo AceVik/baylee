@@ -63,6 +63,9 @@ pub mod layers;
 /// `ContinuousEffect`, `EffectTable`, modifiers, durations.
 pub mod effects;
 
+/// Endless-loop detection for decision-free segments (house rule).
+pub mod loops;
+
 // NOTE: the roadmap items (pipeline formalization, replacement registry,
 // legality precompute, cost model, unusual casting, copy machinery, format
 // modifiers, automation, dev mode, loop detection, scripted modifiers)
