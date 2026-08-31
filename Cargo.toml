@@ -18,7 +18,6 @@ baylee-protocol = { path = "crates/baylee-protocol" }
 baylee-view = { path = "crates/baylee-view" }
 baylee-client-core = { path = "crates/baylee-client-core" }
 baylee-client = { path = "crates/baylee-client" }
-baylee-client-godot = { path = "crates/baylee-client-godot" }
 baylee-engine = { path = "crates/baylee-engine" }
 baylee-cards-dsl = { path = "crates/baylee-cards-dsl" }
 baylee-cards = { path = "crates/baylee-cards" }
@@ -71,11 +70,6 @@ bevy = { version = "0.19", default-features = false, features = [
     "x11", "wayland", "webgl2",
 ] }
 
-# Godot 4 bindings for the GDExtension client. `api-4-7` selects the
-# prebuilt bindings matching Godot 4.7 — no local Godot binary is needed to
-# build, which is what keeps this crate buildable in CI.
-godot = { version = "0.5.5", features = ["api-4-7"] }
-
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
@@ -98,12 +92,3 @@ similar_names = "allow"
 lto = "thin"
 codegen-units = 1
 panic = "abort"
-
-# The workspace releases with `panic = "abort"`, which is right for the
-# engine and the servers but wrong for a GDExtension: gdext catches panics
-# at the FFI boundary and reports them to Godot as errors, and `abort`
-# turns any Rust panic into an instant kill of the whole editor instead.
-# Release the extension with `--profile godot-release`.
-[profile.godot-release]
-inherits = "release"
-panic = "unwind"
