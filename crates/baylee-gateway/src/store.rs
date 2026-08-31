@@ -51,6 +51,26 @@ pub struct Deck {
     pub updated_at: u64,
 }
 
+/// A remembered answer to one optional ability, replayed into every game
+/// the account sits down to.
+///
+/// The engine addresses standing answers by `AbilityRef { card, index }`,
+/// a handle that says nothing about a particular game — which is exactly
+/// what makes it storable here. "Always gain the life from Ondu Cleric's
+/// rally trigger" is a preference about a *card*, so it belongs to the
+/// account and not to the table.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StandingAnswer {
+    /// Registry index of the card the ability is printed on.
+    pub card: u32,
+    /// Index into that card's ability list (`AbilityRef::index`); the
+    /// reserved values above `AbilityRef::FIRST_RESERVED` name the
+    /// abilities that are not listed on the card.
+    pub ability: u32,
+    /// What to answer without asking.
+    pub yes: bool,
+}
+
 /// The whole store.
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Store {
@@ -60,6 +80,10 @@ pub struct Store {
     pub tokens: HashMap<String, StoredToken>,
     /// Decks by id.
     pub decks: HashMap<String, Deck>,
+    /// Standing answers by account id. Defaulted so a store written
+    /// before this existed still loads.
+    #[serde(default)]
+    pub automation: HashMap<String, Vec<StandingAnswer>>,
 }
 
 impl Store {

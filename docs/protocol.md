@@ -31,6 +31,27 @@ including through a zone change, because a printing that silently reset to
 entry 0 would be invisible in every other test — the game would play
 perfectly and show the wrong art.
 
+## Remembered answers (`/automation`)
+
+A seat can tell the engine "always say yes to this ability" — that is
+`PlayerAction::SetStandingAnswer`, addressed by `AbilityRef { card, index }`.
+The handle names a *card's* ability and nothing about the table it is set at,
+which is what makes it a preference the gateway can keep:
+
+- `GET /automation` → `{ "answers": [{ "card", "ability", "yes" }, …] }`
+- `PUT /automation` replaces the list (at most 512 entries; card indices are
+  checked against the registry, duplicates collapsed, order normalised).
+
+The list is replayed into a seat as `SetStandingAnswer` actions when its
+socket opens — before the first pump, so a question the player never wanted
+to see is already covered when the opening hand arrives. Setting a standing
+answer is not a game action (the pending question stays exactly as it was),
+so a reconnect simply restates what the seat already has.
+
+Storing a handle the registry does not know is refused rather than kept: it
+could never fire, and it would fail silently — the seat would just be asked a
+question it believed it had answered for good.
+
 ## v0 (M0)
 Transport handshake + preset transfer:
 `Hello{protocol_version, card_pool_hash}` / `HelloAck`, `JoinGame`,

@@ -97,6 +97,7 @@ async fn main() {
             get(get_deck).put(update_deck).delete(delete_deck),
         )
         .route("/lobby/games", get(list_games).post(create_game))
+        .route("/automation", get(list_automation).put(set_automation))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/games/{id}/ws", get(game_ws))
         .with_state(state);
@@ -759,6 +760,123 @@ async fn join_game(
     })))
 }
 
+// ------------------------------------------------------- standing answers
+
+/// Upper bound on remembered answers per account. Generous next to any real
+/// card pool, and small enough that a caller cannot grow the store with one
+/// request.
+const MAX_STANDING_ANSWERS: usize = 512;
+
+#[derive(Deserialize)]
+struct AutomationBody {
+    answers: Vec<store::StandingAnswer>,
+}
+
+/// The account's remembered answers.
+async fn list_automation(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    let store = state.store.lock();
+    let answers = store
+        .automation
+        .get(&account_id)
+        .cloned()
+        .unwrap_or_default();
+    Ok(Json(serde_json::json!({ "answers": answers })))
+}
+
+/// Replaces the account's remembered answers.
+///
+/// References are validated against the card registry here rather than
+/// trusted: an answer for a card that does not exist could never fire, and
+/// storing junk from a client is how a store becomes unreadable later.
+async fn set_automation(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Json(body): Json<AutomationBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    if body.answers.len() > MAX_STANDING_ANSWERS {
+        return Err(err(StatusCode::BAD_REQUEST, "too many remembered answers"));
+    }
+    for a in &body.answers {
+        if baylee_cards::by_index(baylee_core::ids::CardIndex::new(a.card)).is_none() {
+            return Err(err(StatusCode::BAD_REQUEST, "unknown card"));
+        }
+    }
+    let mut answers = body.answers;
+    // One answer per ability, in a stable order: the engine keeps its own
+    // sorted list, and a duplicate would mean the stored preference and the
+    // engine's disagree about which one won.
+    answers.sort_by_key(|a| (a.card, a.ability));
+    answers.dedup_by_key(|a| (a.card, a.ability));
+    let count = answers.len();
+    state.store.lock().automation.insert(account_id, answers);
+    state.request_save();
+    Ok(Json(serde_json::json!({ "stored": count })))
+}
+
+/// Turns stored answers into the actions that carry them into a game.
+///
+/// Split out from [`replay_automation`] so the translation can be tested
+/// without a running gateway: it is the only part that can silently get the
+/// handle wrong, and a wrong handle simply never fires — no error, no log,
+/// just a seat being asked a question it thought it had answered forever.
+fn standing_actions(answers: &[store::StandingAnswer]) -> Vec<baylee_engine::choice::PlayerAction> {
+    use baylee_engine::choice::{PlayerAction, StandingAnswer};
+    answers
+        .iter()
+        .map(|a| PlayerAction::SetStandingAnswer {
+            ability: baylee_core::ids::AbilityRef::new(
+                baylee_core::ids::CardIndex::new(a.card),
+                a.ability,
+            ),
+            answer: Some(if a.yes {
+                StandingAnswer::Yes
+            } else {
+                StandingAnswer::No
+            }),
+        })
+        .collect()
+}
+
+/// Replays an account's remembered answers into a seat.
+///
+/// Setting a standing answer is not a game action — the engine keeps the
+/// pending question exactly as it was — so this is safe at any moment,
+/// including on a reconnect, where it simply restates what the seat already
+/// has.
+fn replay_automation(state: &Shared, game_id: &str, player: baylee_core::ids::PlayerId) {
+    let account_id = {
+        let lobby = state.lobby.lock();
+        lobby
+            .games
+            .get(game_id)
+            .and_then(|g| g.seats.iter().find(|s| s.seat == player.get() as usize))
+            .and_then(|s| s.account_id.clone())
+    };
+    let Some(account_id) = account_id else {
+        return;
+    };
+    let answers = state
+        .store
+        .lock()
+        .automation
+        .get(&account_id)
+        .cloned()
+        .unwrap_or_default();
+    for action in standing_actions(&answers) {
+        drive_session(state, game_id, |session, emit| {
+            for (p, env) in session.act(player, action)? {
+                emit(p, env);
+            }
+            Ok(())
+        });
+    }
+}
+
 // ---------------------------------------------------------------- game ws
 
 #[derive(Deserialize)]
@@ -927,6 +1045,10 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
         };
         game.updates.subscribe()
     };
+    // The account's remembered answers go in before the first pump, so a
+    // question the seat never wanted to see is already covered when the
+    // opening hand arrives.
+    replay_automation(&state, &game_id, player);
     if !drive_session(&state, &game_id, |session, emit| {
         for (p, env) in session.pump() {
             emit(p, env);
@@ -1040,4 +1162,83 @@ async fn send_envelope(socket: &mut WebSocket, env: Envelope) -> Result<(), ()> 
     futures_util::SinkExt::send(socket, Message::Binary(bytes.into()))
         .await
         .map_err(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_engine::choice::{PlayerAction, StandingAnswer};
+
+    fn ondu_cleric() -> u32 {
+        baylee_cards::by_oracle_id("f4232466-dd6a-49bf-be6c-95905c3ded17")
+            .expect("the card pool has Ondu Cleric")
+            .index
+            .get()
+    }
+
+    /// A stored answer has to arrive as the exact handle the engine keeps
+    /// its automation under. A wrong handle fails silently — the seat is
+    /// simply asked a question it believed it had answered for good.
+    #[test]
+    fn a_stored_answer_becomes_the_handle_the_engine_uses() {
+        let stored = vec![
+            store::StandingAnswer {
+                card: ondu_cleric(),
+                ability: 0,
+                yes: true,
+            },
+            store::StandingAnswer {
+                card: ondu_cleric(),
+                ability: baylee_core::ids::AbilityRef::ENTERS,
+                yes: false,
+            },
+        ];
+        let actions = standing_actions(&stored);
+        assert_eq!(
+            actions,
+            vec![
+                PlayerAction::SetStandingAnswer {
+                    ability: baylee_core::ids::AbilityRef::new(
+                        baylee_core::ids::CardIndex::new(ondu_cleric()),
+                        0
+                    ),
+                    answer: Some(StandingAnswer::Yes),
+                },
+                PlayerAction::SetStandingAnswer {
+                    ability: baylee_core::ids::AbilityRef::new(
+                        baylee_core::ids::CardIndex::new(ondu_cleric()),
+                        baylee_core::ids::AbilityRef::ENTERS
+                    ),
+                    answer: Some(StandingAnswer::No),
+                },
+            ]
+        );
+    }
+
+    /// The reserved indices address abilities that are not listed on the
+    /// card, so a round trip through the store must not confuse them with
+    /// ability 0.
+    #[test]
+    fn reserved_ability_handles_survive_the_store() {
+        let stored = vec![store::StandingAnswer {
+            card: ondu_cleric(),
+            ability: baylee_core::ids::AbilityRef::MIRACLE,
+            yes: true,
+        }];
+        let json = serde_json::to_string(&stored).expect("serializes");
+        let back: Vec<store::StandingAnswer> = serde_json::from_str(&json).expect("round trips");
+        assert_eq!(back, stored);
+        let PlayerAction::SetStandingAnswer { ability, .. } = &standing_actions(&back)[0] else {
+            panic!("expected a standing answer")
+        };
+        assert!(!ability.is_listed_ability());
+    }
+
+    /// A store written before standing answers existed still loads.
+    #[test]
+    fn an_older_store_file_still_loads() {
+        let old = r#"{"accounts":{},"tokens":{},"decks":{}}"#;
+        let store: store::Store = serde_json::from_str(old).expect("older store loads");
+        assert!(store.automation.is_empty());
+    }
 }
