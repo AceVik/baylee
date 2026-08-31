@@ -62,7 +62,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("target re-choice for the copy (protocol M3)"),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
             trigger: Trigger::SpellCast(&YOUR_AIS_SPELL),

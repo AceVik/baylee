@@ -708,13 +708,18 @@ impl<L: CardLookup> Engine<L> {
                 _ => {}
             }
         }
-        // Move the card to the stack as a spell.
+        // Move the card to the stack as a spell. The targeting requirement
+        // rides along on the object: a copy of this spell may be retargeted
+        // during resolution (CR 707.10c), and the resolver has no card lookup
+        // of its own to re-derive it from.
+        let target_req = self.wizard_target_req(wizard);
         let card = wizard.card;
         {
             let obj = self.state.object_mut(card).expect("wizard card exists");
             obj.kind = ObjectKind::Spell;
             obj.controller = player;
             obj.targets.clone_from(&wizard.targets);
+            obj.target_req = target_req;
             obj.x_value = wizard.x;
             obj.kicked = wizard.kicked;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));

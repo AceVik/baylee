@@ -364,6 +364,10 @@ pub struct GameObject {
     pub riders: RiderSet,
     /// Chosen targets (spells/abilities on the stack).
     pub targets: SmallVec<[ObjectId; 2]>,
+    /// What this spell is allowed to target, kept so a copy can be retargeted
+    /// without a card lookup (CR 707.10c). `None` for anything that does not
+    /// target, and for objects that never went through the cast wizard.
+    pub target_req: Option<baylee_cards_dsl::TargetReq>,
     /// Original base before a temporary copy (Cursed Mirror); reverted at
     /// cleanup.
     pub original_base: Option<Box<Characteristics>>,
@@ -421,6 +425,7 @@ impl GameObject {
             version: 0,
             riders: RiderSet::new(),
             targets: SmallVec::new(),
+            target_req: None,
             original_base: None,
             event_object: None,
             ability: None,

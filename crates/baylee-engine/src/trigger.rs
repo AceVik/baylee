@@ -457,6 +457,22 @@ fn matches(
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        (Trigger::NthSpellCast { n, filter }, GameEvent::SpellCast { object, player }) => {
+            // The per-turn counter is bumped before the event is journalled,
+            // so it already includes the spell this event is about: the nth
+            // spell is exactly the one that makes the count reach n. Copies
+            // are put on the stack rather than cast, and so never count.
+            let count = state
+                .per_turn
+                .spells_cast
+                .get(player.get() as usize)
+                .copied()
+                .unwrap_or(0);
+            count == u32::from(*n)
+                && state
+                    .object(*object)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         (Trigger::BecomesTarget, GameEvent::SpellCast { object, .. }) => {
             state
                 .object(*object)

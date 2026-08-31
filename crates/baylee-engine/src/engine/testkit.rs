@@ -166,6 +166,43 @@ pub fn pass_until(
     panic!("condition never reached");
 }
 
+/// Walks the game until a target choice offers `wanted`, answering whatever is
+/// asked on the way, and returns the options finally offered.
+///
+/// A copy effect asks twice — once for the copying trigger's own target, once
+/// for the copy's new targets — so a test that cares about the second choice
+/// needs to get past the first without hard-coding the order they arrive in.
+#[must_use]
+pub fn options_offered_including(
+    engine: &mut Engine<RegistryLookup>,
+    wanted: baylee_core::ids::ObjectId,
+) -> Vec<baylee_core::ids::ObjectId> {
+    for _ in 0..100 {
+        match engine.pending().clone() {
+            Pending::ChooseTargets {
+                player, options, ..
+            } => {
+                if options.contains(&wanted) {
+                    return options;
+                }
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![options[0]],
+                        },
+                    )
+                    .unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while waiting for a choice of {wanted:?}: {other:?}"),
+        }
+    }
+    panic!("no target choice ever offered {wanted:?}");
+}
+
 /// Whether `card` sits on the battlefield under `seat`'s control.
 #[must_use]
 pub fn on_battlefield(

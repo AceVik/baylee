@@ -90,6 +90,13 @@ pub enum AwaitingOp {
         /// The spell on the stack whose target changes.
         spell: ObjectId,
     },
+    /// After `CopyTargetSpell`: the copy's controller may choose new targets
+    /// for it (CR 707.10c). Picking the same objects again is how they
+    /// decline, so there is no separate "keep them" answer.
+    CopyNewTargets {
+        /// The copy on the stack whose targets change.
+        copy: ObjectId,
+    },
     /// After `DigRest`: the unpicked cards go to the bottom in the
     /// player's chosen order.
     DigBottom,
@@ -540,6 +547,12 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     ZonePosition::Bottom,
                     Cause::Effect,
                 );
+            }
+        }
+        AwaitingOp::CopyNewTargets { copy } => {
+            if let Some(obj) = state.object_mut(copy) {
+                obj.targets.clear();
+                obj.targets.extend(chosen.iter().copied());
             }
         }
         AwaitingOp::RedirectNewTarget { spell } => {
@@ -1518,12 +1531,18 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CopyTargetSpell { mods } => {
-            // Copy the spell on the stack under your control (same targets;
-            // target re-choice is a protocol M3 item).
+            // Copy the spell on the stack under your control. The copy starts
+            // with the original's targets and its controller may then choose
+            // new ones (CR 707.10c), so this can suspend on a choice.
             if let Some(&target_id) = res.targets.first() {
-                let (card, mut base, targets) = {
+                let (card, mut base, targets, target_req) = {
                     let obj = state.object(target_id)?;
-                    (obj.card, obj.base.clone(), obj.targets.clone())
+                    (
+                        obj.card,
+                        obj.base.clone(),
+                        obj.targets.clone(),
+                        obj.target_req,
+                    )
                 };
                 for m in mods {
                     tokens::apply_copy_mod(&mut base, m);
@@ -1535,20 +1554,44 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     obj.timestamp = ts;
                     obj
                 });
+                let picks = u8::try_from(targets.len()).unwrap_or(u8::MAX);
                 {
                     let obj = state.object_mut(id).expect("fresh copy");
                     obj.card = card;
                     obj.targets = targets;
+                    obj.target_req = target_req;
                     obj.zone = crate::zone::Zone::Stack;
                 }
                 state
                     .zones
                     .insert(id, ZoneLocation::Stack, ZonePosition::Top);
-                state.journal.record(GameEvent::SpellCast {
-                    object: id,
-                    player: you,
-                });
+                // Deliberately no `SpellCast` event: a copy is *put* onto the
+                // stack, not cast (CR 707.10). Journalling one made every copy
+                // re-trigger "whenever you cast" abilities — Jin-Gitaxias
+                // copied its own copy without end — and made copies count
+                // towards Storm of Saruman's "second spell each turn".
                 let _ = name;
+                // "You may choose new targets for the copy." Only worth asking
+                // when the copy targets objects at all and there is something
+                // legal to point it at; the player declines by re-picking what
+                // it already targets.
+                if picks > 0
+                    && let Some(req) = target_req
+                    // Player targets ride in `chosen_player`, not `targets`;
+                    // re-choosing those is a separate Pending.
+                    && !matches!(req.spec, TargetSpec::AnyPlayer)
+                {
+                    let options = eval::target_options(&req.spec, state, you, id);
+                    if options.len() >= picks as usize {
+                        res.awaiting = Some(AwaitingOp::CopyNewTargets { copy: id });
+                        return Some(Pending::ChooseTargets {
+                            player: you,
+                            options,
+                            min: picks,
+                            max: picks,
+                        });
+                    }
+                }
             }
             None
         }

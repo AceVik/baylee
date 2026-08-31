@@ -680,6 +680,19 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue = found.into_iter().collect();
         }
         while let Some(t) = self.trigger_queue.front().cloned() {
+            // "This ability triggers only once each turn." The fire is
+            // recorded when the trigger goes on the stack and `ability_fires`
+            // is cleared at end of turn, but nothing ever read it back, so the
+            // clause did nothing at all.
+            if t.once_per_turn
+                && self
+                    .state
+                    .ability_fires
+                    .contains_key(&(t.source, t.ability_index))
+            {
+                self.trigger_queue.pop_front();
+                continue;
+            }
             // Modal triggers: offer the mode choice first.
             if t.ability_index != u32::MAX
                 && let Some(modes) = self

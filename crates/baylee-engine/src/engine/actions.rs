@@ -330,6 +330,26 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
+                // Resolution path: a resolving effect asked for targets rather
+                // than a cast or an activation — redirecting a spell, or
+                // pointing a fresh copy somewhere new. There is no plan to
+                // consume; the suspended resolution is the continuation, the
+                // same way `ChooseCards` answers a search.
+                if self.pending_plan.is_none()
+                    && let Some(mut res) = self.resolution.take()
+                {
+                    match resolve::resume(&mut self.state, &mut res, &objects) {
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => {
+                            self.finish_resolution(&res);
+                        }
+                    }
+                    return Ok(());
+                }
                 let plan = self.pending_plan.take().expect("target plan set");
                 let targets: SmallVec<[ObjectId; 2]> = objects.into_iter().collect();
                 match plan {

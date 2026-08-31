@@ -357,3 +357,37 @@ Open milestones discovered tonight:
   → `cargo test -p baylee-cards <slug>` → `xtask validate`. Failures retry
   once with compiler output, then escalate. One local model at a time
   (M1 Max 64 GB).
+
+## 2026-08-31 — 193/1/0: the copy re-choice, and two bugs it uncovered
+
+- Target re-choice for copies shipped, and it needed **no protocol work at
+  all**. The handoff had it filed under protocol v2, but `Pending` travels
+  as serde_json inside the protobuf frames by deliberate design, so a new
+  choice costs no proto churn. Reusing `Pending::ChooseTargets` rather than
+  inventing a variant meant the AI and the client needed no change either:
+  both already answer it generically. Check what a "protocol item" actually
+  touches before scheduling it behind a protocol milestone.
+- Writing the first real test for the two cards found the machinery around
+  them broken in three ways that no existing test could see:
+  1. `Pending::ChooseTargets` had no resolution path in `apply` — only cast
+     wizard and `pending_plan`. Any resolution-time target choice panicked
+     with "target plan set". `RedirectTarget` has emitted one since it was
+     written; nothing ever answered one, so the panic sat there unseen.
+  2. A copy put on the stack was journalled as `GameEvent::SpellCast`. A
+     copy is *put* onto the stack, not cast (CR 707.10) — so every copy
+     re-triggered "whenever you cast", and Jin-Gitaxias copied its own copy
+     without end.
+  3. `Trigger::NthSpellCast` existed in the DSL and in Storm of Saruman,
+     but the engine's matcher had **no arm for it**. Storm's headline
+     ability had never fired. The card's `// PARTIAL` note claimed "the
+     second-spell copy trigger work[s]" — a coverage note asserting more
+     than the code did, the opposite of the usual stale-Partial drift.
+- `once_per_turn` was write-only: `ability_fires` was inserted into and
+  cleared each turn, but never read. Exactly one card uses it
+  (Jin-Gitaxias), which is why nothing noticed.
+- Lesson, again but sharper than the stale-Partial note above: a coverage
+  string is a claim, not evidence. The only thing that distinguishes
+  "implemented" from "declared" is a test that plays the card. Two ~40-line
+  behavioral tests turned three latent bugs into failing output in minutes.
+- **193 Implemented, 1 Partial, 0 Unimplemented.** The 1 is Karn
+  (outside-the-game access, still waiting on M4 gateway sideboards).

@@ -2,9 +2,8 @@
 //! Oracle: Ward {3}
 //! Oracle: Whenever you cast your second spell each turn, copy it, except the copy isn't legendary. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)
 //! Set: LTR #72 — The Lord of the Rings: Tales of Middle-earth | Scryfall ID: 52884e67-c742-4799-9afd-55bc70b2cf40 | Oracle ID: cf5f4860-e805-46a3-9352-a2c583e33403
-// PARTIAL — ward {3} and the second-spell copy trigger work; the
-// "copy isn't legendary" mod and new-target choice for the copy are
-// copy-machinery refinements (protocol M3).
+// IMPLEMENTED — ward {3}, the second-spell copy carrying the
+// non-legendary mod, and the copy's new-target choice.
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
@@ -48,7 +47,7 @@ pub static CARD: CardDef = CardDef {
     keywords: KeywordSet::EMPTY,
     commander: CommanderRule::NotEligible,
     partner: PartnerKind::None,
-    coverage: Coverage::Partial("copy target re-choice (protocol M3)"),
+    coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Ward { mana: 3 },
         AbilityDef::Triggered {
