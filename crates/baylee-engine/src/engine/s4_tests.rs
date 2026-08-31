@@ -135,7 +135,7 @@ fn pass_until(
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();

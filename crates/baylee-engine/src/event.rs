@@ -202,8 +202,8 @@ pub enum GameEvent {
     BecameAttacker {
         /// The attacking creature.
         object: ObjectId,
-        /// The defending player.
-        defending: PlayerId,
+        /// What it was declared against.
+        defending: baylee_core::ids::Defender,
     },
     /// A creature was declared as blocker.
     BecameBlocker {

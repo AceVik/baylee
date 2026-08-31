@@ -181,6 +181,25 @@ impl core::fmt::Display for ObjectId {
     }
 }
 
+/// What an attack is aimed at (CR 506.2).
+///
+/// A creature does not attack a *player*; it attacks a **defender**, and
+/// the defending player's planeswalkers are defenders too (CR 508.1a).
+/// Modelling that as a plain [`PlayerId`] made planeswalkers unattackable
+/// by construction, which is why this handle exists. Battles (CR 310) join
+/// the enum as a third case when they arrive; every match on it is written
+/// so that adding one is a compile error rather than a silent fallthrough.
+///
+/// It lives in `baylee-core` because both halves of the wire — the engine's
+/// `PlayerAction` and the client-facing view — have to name the same thing.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+pub enum Defender {
+    /// The defending player themself.
+    Player(PlayerId),
+    /// A planeswalker the defending player controls.
+    Planeswalker(ObjectId),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

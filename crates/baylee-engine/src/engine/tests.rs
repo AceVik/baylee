@@ -94,7 +94,7 @@ fn pass_all(engine: &mut Engine<RegistryLookup>) {
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();
@@ -123,7 +123,7 @@ fn full_turn_cycle_works() {
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();
@@ -254,15 +254,15 @@ fn combat_kills_and_wins() {
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
-                let attackers: Vec<(ObjectId, PlayerId)> = engine
+            Pending::ChooseAttackers { player, .. } => {
+                let attackers: Vec<(ObjectId, baylee_core::ids::Defender)> = engine
                     .state()
                     .zones
                     .list(ZoneLocation::Battlefield)
                     .iter()
                     .copied()
                     .filter(|id| combat::can_attack(engine.state(), player, *id))
-                    .map(|id| (id, p1))
+                    .map(|id| (id, baylee_core::ids::Defender::Player(p1)))
                     .collect();
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers })

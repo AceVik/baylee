@@ -61,7 +61,7 @@ fn nothing_to_do_skips_only_empty_priorities() {
                 );
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();
@@ -203,7 +203,7 @@ fn a_turn_hold_expires_with_the_turn() {
                 assert_ne!(player, P0, "seat 0 held priority for the whole turn");
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();

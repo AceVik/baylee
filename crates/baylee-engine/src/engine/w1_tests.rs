@@ -283,7 +283,7 @@ fn triome_cycling_from_hand_draws() {
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();

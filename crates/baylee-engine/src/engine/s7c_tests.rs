@@ -141,7 +141,7 @@ fn clone_enters_as_copy_of_target() {
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();

@@ -302,15 +302,27 @@ impl<L: CardLookup> Engine<L> {
             }
             Step::Cleanup => self.cleanup_step(),
             Step::DeclareAttackers if self.combat_declared != CombatDeclared::Attackers => {
+                let attacker = self.state.turn.active;
                 self.pending = Pending::ChooseAttackers {
-                    player: self.state.turn.active,
+                    player: attacker,
+                    defenders: combat::defender_options(&self.state, attacker),
                 };
                 self.awaiting_answer = true;
                 true
             }
             Step::DeclareBlockers if self.combat_declared != CombatDeclared::Blockers => {
                 let active = self.state.turn.active;
-                let defending = self.next_alive_after(active);
+                // Whoever is actually being attacked declares the blocks —
+                // which, once planeswalkers can be attacked, is the walker's
+                // controller and not merely the next seat along. With no
+                // attackers there is nobody to ask, so the seat order stands.
+                let defending = self
+                    .state
+                    .combat
+                    .attackers
+                    .first()
+                    .and_then(|a| combat::defending_player(&self.state, a.defending))
+                    .unwrap_or_else(|| self.next_alive_after(active));
                 self.pending = Pending::ChooseBlockers {
                     player: defending,
                     attacker: active,
@@ -1732,7 +1744,7 @@ impl<L: CardLookup> Engine<L> {
                     if let Some(obj) = self.state.object_mut(card)
                         && let Some(owner) = owner
                     {
-                        obj.controller = owner;
+                        obj.set_controller(owner);
                     }
                     let _ = self.state.move_object(
                         card,

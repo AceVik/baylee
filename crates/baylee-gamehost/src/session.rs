@@ -223,7 +223,7 @@ fn pending_player(pending: &Pending) -> Option<PlayerId> {
         Pending::Mulligan { player, .. }
         | Pending::MulliganBottom { player, .. }
         | Pending::Priority { player, .. }
-        | Pending::ChooseAttackers { player }
+        | Pending::ChooseAttackers { player, .. }
         | Pending::ChooseBlockers { player, .. }
         | Pending::DiscardChoice { player, .. }
         | Pending::LegendChoice { player, .. }

@@ -83,15 +83,20 @@ pub fn can_cast(
         return Err(CastError::BadTiming);
     }
     // Timing (CR 601.3): permanents and sorceries are sorcery-speed;
-    // instants (flash later) are any-time. Teferi's restriction forces
-    // sorcery-speed timing on everything for opponents.
+    // instants and anything with flash are any-time. Teferi's restriction
+    // forces sorcery-speed timing on everything for opponents.
     let teferi_lock = state.effects.iter().any(|fx| {
         matches!(
             fx.modifier,
             baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
         ) && fx.controller != player
     });
-    let is_instant = c.types.contains(TypeSet::INSTANT);
+    // Flash (CR 702.8a) makes a card castable whenever an instant could be,
+    // whatever its types say — Snapcaster Mage, Restoration Angel, the
+    // whole free-spell cycle. It is read off the projected characteristics
+    // so a granted flash counts too.
+    let is_instant = c.types.contains(TypeSet::INSTANT)
+        || c.keywords.contains(baylee_cards_dsl::KeywordSet::FLASH);
     // Teferi +1: your sorceries have flash until your next turn.
     let sorcery_flash = c.types.contains(TypeSet::SORCERY)
         && state.effects.iter().any(|fx| {
@@ -166,7 +171,7 @@ pub fn play_land(
     {
         let obj = state.object_mut(card).expect("validated");
         obj.kind = ObjectKind::Permanent;
-        obj.controller = player;
+        obj.set_controller(player);
     }
     state
         .move_object(

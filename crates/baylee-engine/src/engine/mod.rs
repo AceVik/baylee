@@ -423,6 +423,8 @@ mod draw_tests;
 #[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
+mod keyword_tests;
+#[cfg(test)]
 mod loop_tests;
 #[cfg(test)]
 mod m2_tests;

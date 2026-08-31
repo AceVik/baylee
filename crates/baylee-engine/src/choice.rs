@@ -47,6 +47,11 @@ pub enum Pending {
     ChooseAttackers {
         /// Attacking player.
         player: PlayerId,
+        /// What may be attacked: each surviving opponent, plus every
+        /// planeswalker they control. Carried in the request because a
+        /// client cannot derive "which permanents are planeswalkers I may
+        /// attack" from the view without re-implementing CR 508.1a.
+        defenders: Vec<baylee_core::ids::Defender>,
     },
     /// Declare blockers (combat).
     ChooseBlockers {
@@ -415,10 +420,11 @@ pub enum PlayerAction {
         /// Index into the card's abilities.
         ability_index: u32,
     },
-    /// Declare attackers with their defending players.
+    /// Declare attackers with what each one attacks.
     DeclareAttackers {
-        /// `(attacker, defending player)` pairs.
-        attackers: Vec<(ObjectId, PlayerId)>,
+        /// `(attacker, defender)` pairs. The defender is a player or one
+        /// of that player's planeswalkers (CR 508.1a).
+        attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
     },
     /// Declare blockers.
     DeclareBlockers {

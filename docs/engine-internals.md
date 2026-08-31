@@ -18,6 +18,27 @@ dependency topological order within a layer. Cache validity = one
 `Indefinitely`, conditions. Subtypes are a 512-bit bitmap (changeling =
 set-all in O(1)).
 
+Layer 2 is not cached separately: the refresh writes the projected
+controller straight into `GameObject::controller`, so every rule that asks
+"who controls this" reads one field and none of them has to know that
+layers exist. `base_controller` holds what a control effect will hand back
+and is written only by `GameObject::set_controller` — a permanent handover
+(entering the battlefield, Gilded Drake, Homeward Path). When the
+controller moves in either direction the object's timestamp is bumped,
+because CR 302.6 wants control held *continuously* since the turn began.
+
+## Combat
+An attack names a `Defender` — a player or one of the defending player's
+planeswalkers (CR 508.1a); battles will be the third case, and every match
+on the enum is written so adding one is a compile error. The engine
+enumerates the legal defenders into `Pending::ChooseAttackers` and
+validates a declaration against that same list, so a client cannot name a
+defender the engine did not offer. Combat damage aimed at a planeswalker
+takes loyalty counters off it (CR 306.8); trample past blockers goes to
+whatever the creature is attacking (CR 702.19b), and a planeswalker that
+has left the battlefield absorbs nothing — the attack stands (CR 506.4c)
+but no damage is dealt and no lifelink is paid.
+
 ## Events, replacement, triggers
 Proposed events are rewritten by applicable replacement effects (each at
 most once per event, CR 614.5), applied, journaled; matching triggers are

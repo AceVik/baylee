@@ -13,7 +13,7 @@
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
 
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
 use baylee_core::preset::{GamePreset, Politics};
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};
@@ -148,26 +148,27 @@ impl HeuristicAgent {
             }
             Pending::ChooseAttackers { .. } => {
                 // Attack with everything untapped and legal.
-                let defenders: Vec<PlayerId> = engine
+                let opponents: Vec<PlayerId> = engine
                     .state()
                     .players
                     .iter()
                     .filter(|p| p.id != player && !p.has_lost)
                     .map(|p| p.id)
                     .collect();
-                if defenders.is_empty() {
+                if opponents.is_empty() {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
-                let defender = self.pick_defender(engine.state(), player, &defenders);
-                let attackers: Vec<(ObjectId, PlayerId)> = engine
+                let victim = self.pick_defender(engine.state(), player, &opponents);
+                let squad: Vec<ObjectId> = engine
                     .state()
                     .zones
                     .list(baylee_engine::zone::ZoneLocation::Battlefield)
                     .iter()
                     .copied()
                     .filter(|id| baylee_engine::combat::can_attack(engine.state(), player, *id))
-                    .map(|id| (id, defender))
                     .collect();
+                let defender = aim_at(engine.state(), player, victim, &squad);
+                let attackers = squad.into_iter().map(|id| (id, defender)).collect();
                 PlayerAction::DeclareAttackers { attackers }
             }
             Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers { blockers: vec![] },
@@ -251,6 +252,45 @@ impl HeuristicAgent {
             Pending::GameOver(_) => PlayerAction::PassPriority, // unreachable in the driver
         }
     }
+}
+
+/// Chooses what the squad actually swings at once politics has picked the
+/// victim: one of their planeswalkers if this attack can finish it off,
+/// otherwise the player.
+///
+/// Killing a walker is worth more than a few points of life, but only if
+/// it actually dies — chipping a loyalty counter off a big planeswalker
+/// while the controller's life total goes untouched is the worst of both.
+/// So the bar is "total attacking power is at least its loyalty", and
+/// among the walkers that clear it the cheapest one to kill wins.
+///
+/// The blockers the defender has not declared yet are not modelled; this
+/// is the same one-ply optimism the rest of the heuristic runs on.
+fn aim_at(state: &GameState, me: PlayerId, victim: PlayerId, squad: &[ObjectId]) -> Defender {
+    let power: i32 = squad
+        .iter()
+        .filter_map(|id| state.object(*id))
+        .map(|o| i32::from(o.characteristics().power.unwrap_or(0)))
+        .sum();
+    baylee_engine::combat::defender_options(state, me)
+        .into_iter()
+        .filter_map(|d| {
+            let Defender::Planeswalker(id) = d else {
+                return None;
+            };
+            let walker = state.object(id)?;
+            if walker.controller != victim {
+                return None;
+            }
+            let loyalty = i32::from(
+                walker
+                    .counters
+                    .get(baylee_engine::object::CounterKind::Loyalty),
+            );
+            (loyalty > 0 && loyalty <= power).then_some((loyalty, d))
+        })
+        .min_by_key(|(loyalty, _)| *loyalty)
+        .map_or(Defender::Player(victim), |(_, d)| d)
 }
 
 /// How much a player's board threatens: a point per permanent plus its
@@ -353,7 +393,7 @@ fn pending_player(pending: &Pending) -> Option<PlayerId> {
         Pending::Mulligan { player, .. }
         | Pending::MulliganBottom { player, .. }
         | Pending::Priority { player, .. }
-        | Pending::ChooseAttackers { player }
+        | Pending::ChooseAttackers { player, .. }
         | Pending::ChooseBlockers { player, .. }
         | Pending::DiscardChoice { player, .. }
         | Pending::LegendChoice { player, .. }
@@ -522,6 +562,113 @@ mod tests {
         assert!(
             finished >= 2,
             "at least half of the self-play games should finish (got {finished}/4)"
+        );
+    }
+
+    /// A duel where seat 1 has Jace (3 loyalty) out and seat 0 has
+    /// `creatures` Ondu Clerics (1/1 each) ready to swing.
+    fn walker_duel(creatures: usize) -> baylee_engine::engine::Engine<RegistryLookup> {
+        use baylee_core::ids::PrintRef;
+        use baylee_core::preset::{
+            DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
+            SeatSpec,
+        };
+        let entry = |card: CardIndex| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let deck: Vec<DeckEntry> = (0..60).map(|_| entry(island())).collect();
+        let seat = |board: Vec<CardIndex>| SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            deck: deck.clone(),
+            sideboard: vec![],
+            starting_life: None,
+            starting_hand: Some(vec![]),
+            starting_battlefield: board.into_iter().map(entry).collect(),
+            emblems: vec![],
+            team: None,
+        };
+        let preset = GamePreset {
+            format: FormatId::Freeform,
+            seed: 5,
+            dev_mode: false,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![PrintInfo {
+                scryfall_id: uuid::Uuid::nil(),
+                lang: "EN".into(),
+                finish: Finish::Normal,
+            }],
+            seats: vec![
+                seat((0..creatures).map(|_| ondu_cleric()).collect()),
+                seat(vec![jace()]),
+            ],
+        };
+        let mut engine =
+            baylee_engine::engine::Engine::new(&preset, RegistryLookup).expect("engine builds");
+        // The game has to actually start: loyalty counters are placed when
+        // the opening board enters, not when the preset is read.
+        for _ in 0..2 {
+            let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+                panic!("expected a mulligan, got {:?}", engine.pending())
+            };
+            engine
+                .apply(player, PlayerAction::MulliganKeep)
+                .expect("keep");
+        }
+        engine
+    }
+
+    fn jace() -> CardIndex {
+        baylee_cards::by_oracle_id("7f77a84e-5a4b-4834-aefa-3cecc175ae8e")
+            .expect("jace")
+            .index
+    }
+
+    fn my_creatures(engine: &baylee_engine::engine::Engine<RegistryLookup>) -> Vec<ObjectId> {
+        engine
+            .state()
+            .zones
+            .list(baylee_engine::zone::ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| {
+                engine.state().object(*id).is_some_and(|o| {
+                    o.controller == PlayerId::new(0)
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                })
+            })
+            .collect()
+    }
+
+    /// A planeswalker is worth attacking only when the attack kills it:
+    /// three 1/1s finish a 3-loyalty Jace, so they go for the walker.
+    #[test]
+    fn a_squad_that_can_finish_a_planeswalker_goes_for_it() {
+        let engine = walker_duel(3);
+        let squad = my_creatures(&engine);
+        assert_eq!(squad.len(), 3, "the squad did not deploy");
+        let aim = aim_at(engine.state(), PlayerId::new(0), PlayerId::new(1), &squad);
+        assert!(
+            matches!(aim, Defender::Planeswalker(_)),
+            "three power went to the player instead of killing the walker"
+        );
+    }
+
+    /// Two 1/1s only chip it, which is the worst of both — so they hit the
+    /// player instead.
+    #[test]
+    fn a_squad_that_would_only_chip_a_planeswalker_hits_the_player() {
+        let engine = walker_duel(2);
+        let squad = my_creatures(&engine);
+        assert_eq!(squad.len(), 2, "the squad did not deploy");
+        let aim = aim_at(engine.state(), PlayerId::new(0), PlayerId::new(1), &squad);
+        assert_eq!(
+            aim,
+            Defender::Player(PlayerId::new(1)),
+            "the squad chipped a walker it could not kill"
         );
     }
 }

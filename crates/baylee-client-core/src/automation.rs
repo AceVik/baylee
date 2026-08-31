@@ -355,7 +355,8 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &Pending::ChooseAttackers {
-                    player: PlayerId::new(0)
+                    player: PlayerId::new(0),
+                    defenders: Vec::new(),
                 },
                 true,
                 true,
@@ -523,7 +524,8 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &Pending::ChooseAttackers {
-                    player: PlayerId::new(0)
+                    player: PlayerId::new(0),
+                    defenders: Vec::new(),
                 },
                 true,
                 true,
@@ -539,7 +541,8 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &Pending::ChooseAttackers {
-                    player: PlayerId::new(0)
+                    player: PlayerId::new(0),
+                    defenders: Vec::new(),
                 },
                 true,
                 true,

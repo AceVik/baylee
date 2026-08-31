@@ -204,11 +204,6 @@ pub struct CachedChar {
     generation: u64,
     /// The projection, when it differs from the base.
     value: Option<Box<Characteristics>>,
-    /// Projected controller (layer 2), when a layer-2 effect moved it.
-    /// No control modifier exists yet, so this is always `None` today —
-    /// it is here so layer 2 has a place to land rather than being
-    /// silently dropped once the modifier vocabulary grows.
-    controller: Option<PlayerId>,
 }
 
 impl CachedChar {
@@ -224,12 +219,6 @@ impl CachedChar {
         self.value.as_deref()
     }
 
-    /// The layer-2 controller, if one was projected.
-    #[must_use]
-    pub const fn controller(&self) -> Option<PlayerId> {
-        self.controller
-    }
-
     /// Drops the projection: the base is authoritative again.
     ///
     /// Called for objects the layer pass found nothing to change, and on
@@ -239,20 +228,21 @@ impl CachedChar {
     pub fn clear(&mut self) {
         self.generation = u64::MAX;
         self.value = None;
-        self.controller = None;
     }
 
     /// Stores a projection, reusing the allocation when one is already
     /// held and releasing it when the projection collapsed onto the base.
+    ///
+    /// The projected *controller* is not cached: the refresh writes it
+    /// straight to [`GameObject::controller`], so there is one answer to
+    /// "who controls this" rather than a cached second one.
     pub fn store(
         &mut self,
         generation: u64,
         characteristics: Characteristics,
-        controller: Option<PlayerId>,
         base: &Characteristics,
     ) {
         self.generation = generation;
-        self.controller = controller;
         if characteristics == *base {
             self.value = None;
             return;
@@ -398,8 +388,21 @@ pub struct GameObject {
     pub id: ObjectId,
     /// Owning player.
     pub owner: PlayerId,
-    /// Controlling player.
+    /// Controlling player *right now*, layer 2 included (CR 613.1b).
+    ///
+    /// Read this everywhere; it is the answer to "who controls this?".
+    /// The layer refresh writes it, so a "gain control until end of turn"
+    /// effect is visible to every rule that asks — combat, targeting,
+    /// priority, "creatures you control" — without any of them knowing
+    /// that layers exist.
     pub controller: PlayerId,
+    /// Controller before any layer-2 effect: who this permanent goes back
+    /// to when the control effect ends.
+    ///
+    /// Only a *permanent* control change writes it (a permanent entering,
+    /// a resolved Gilded Drake exchange, Homeward Path); use
+    /// [`GameObject::set_controller`] so the two can never drift apart.
+    pub base_controller: PlayerId,
     /// Current zone.
     pub zone: Zone,
     /// Which player's zone list contains this object (`None` on
@@ -484,6 +487,7 @@ impl GameObject {
             id,
             owner,
             controller: owner,
+            base_controller: owner,
             zone: Zone::Library,
             zone_owner: None,
             kind: ObjectKind::Card,
@@ -583,14 +587,14 @@ impl GameObject {
         self.cache.value().unwrap_or(&self.base)
     }
 
-    /// The controller as the layer system projects it (CR 613.1b).
+    /// Sets the controller permanently: both the value everyone reads and
+    /// the one a layer-2 effect falls back to when it ends.
     ///
-    /// Equal to [`GameObject::controller`] unless a layer-2 effect moved
-    /// it, which no modifier does yet — rules code that asks "who controls
-    /// this right now" should read this, so control effects need no second
-    /// sweep of call sites when they land.
-    #[must_use]
-    pub fn projected_controller(&self) -> PlayerId {
-        self.cache.controller().unwrap_or(self.controller)
+    /// The one way to hand a permanent over for good. Assigning
+    /// [`GameObject::controller`] directly would be undone by the next
+    /// layer refresh.
+    pub const fn set_controller(&mut self, player: PlayerId) {
+        self.controller = player;
+        self.base_controller = player;
     }
 }

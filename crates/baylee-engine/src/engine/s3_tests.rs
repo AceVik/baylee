@@ -250,7 +250,7 @@ fn cleric_rally_gains_life_on_ally_etbs() {
                     engine.apply(player, PlayerAction::PassPriority).unwrap();
                 }
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();

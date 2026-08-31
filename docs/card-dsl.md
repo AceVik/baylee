@@ -178,7 +178,14 @@ Modal/sequence: `Sequence(&[..])`.
 `LoseKeywords`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
-`OpponentsCantSearch`, `NoMaxHandSize`.
+`OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`.
+
+`GainControl` is layer 2 and must be paired with `Layer::Control` — any
+other layer applies it out of order with respect to the effects that read
+the controller. With `Filter::This` and `Duration::UntilEndOfTurn` it is
+Act of Treason; with `WhileSourceOnBattlefield` it is Mind Control. Use it
+rather than `Effect::ChangeController` whenever the control comes back:
+the one-shot effect never returns the permanent.
 
 New `Modifier` variants must be added to THREE places: the
 "handled elsewhere" arm in `layers.rs`, the modifier hash in

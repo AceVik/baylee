@@ -7,7 +7,7 @@ use crate::rng::GameRng;
 use crate::turn::TurnInfo;
 use crate::zone::{Zone, ZoneLocation, ZonePosition, Zones};
 use baylee_cards_dsl::CardDef;
-use baylee_core::ids::{CardIndex, NameRef, ObjectId, PlayerId};
+use baylee_core::ids::{CardIndex, Defender, NameRef, ObjectId, PlayerId};
 use baylee_core::mana::{ManaColor, ManaPool, ManaSymbol};
 use baylee_core::preset::{FormatId, GamePreset, PresetError};
 use rustc_hash::FxHashMap;
@@ -513,6 +513,17 @@ impl GameState {
         self.timestamp
     }
 
+    /// CR 302.6: a creature must have been controlled continuously since
+    /// its controller's most recent turn began, so *any* control change
+    /// makes it summoning-sick again — including the one at end of turn
+    /// that hands a stolen creature back.
+    fn restart_summoning_sickness(&mut self, id: ObjectId) {
+        let ts = self.next_timestamp();
+        if let Some(obj) = self.object_mut(id) {
+            obj.timestamp = ts;
+        }
+    }
+
     /// Switches an object to another face of its card (MDFC cast/land
     /// play, CR 712.4): rebuilds base characteristics from the face and
     /// invalidates the layered projection cache.
@@ -577,15 +588,27 @@ impl GameState {
                 // untouched board's per-object projection memory at zero.
                 let obj = self.object_mut(id).expect("checked above");
                 obj.cache.clear();
+                // No effects means no layer 2 either: whoever the base
+                // says controls it does, which is how a "gain control
+                // until end of turn" hands the permanent back.
+                let moved = obj.controller != obj.base_controller;
+                obj.controller = obj.base_controller;
+                if moved {
+                    self.restart_summoning_sickness(id);
+                }
                 continue;
             }
             let projection = crate::layers::recompute_with(self, obj, &plan);
             let obj = self.object_mut(id).expect("zone object exists");
-            let moved = (projection.controller != obj.controller).then_some(projection.controller);
+            let moved = obj.controller != projection.controller;
+            obj.controller = projection.controller;
             // `cache` and `base` are disjoint fields, so this is one
             // mutable borrow and one shared borrow of the same object.
             let crate::object::GameObject { cache, base, .. } = obj;
-            cache.store(generation, projection.characteristics, moved, base);
+            cache.store(generation, projection.characteristics, base);
+            if moved {
+                self.restart_summoning_sickness(id);
+            }
         }
         ids.clear();
         self.projection_ids = ids;
@@ -836,7 +859,7 @@ impl GameState {
         h.usize(self.combat.attackers.len());
         for a in &self.combat.attackers {
             h.u32(a.creature.slot());
-            h.u8(a.defending.get());
+            hash_defender(&mut h, a.defending, ObjectId::slot);
         }
         h.usize(self.combat.blockers.len());
         for b in &self.combat.blockers {
@@ -930,7 +953,7 @@ impl GameState {
         h.usize(self.combat.attackers.len());
         for a in &self.combat.attackers {
             h.u32(position(a.creature));
-            h.u8(a.defending.get());
+            hash_defender(&mut h, a.defending, position);
         }
         h.usize(self.combat.blockers.len());
         for b in &self.combat.blockers {
@@ -1021,6 +1044,25 @@ fn hash_zone(h: &mut Hasher, list: &[ObjectId]) {
     }
 }
 
+/// Hashes a defender. `locate` maps an object to whatever identity the
+/// caller's hash is built on — the arena slot for the snapshot, a
+/// canonical position for the loop signature.
+///
+/// The discriminant is hashed first so that a planeswalker in slot 3 and
+/// the player with id 3 cannot collide.
+fn hash_defender(h: &mut Hasher, defender: Defender, locate: impl Fn(ObjectId) -> u32) {
+    match defender {
+        Defender::Player(p) => {
+            h.u8(0);
+            h.u32(u32::from(p.get()));
+        }
+        Defender::Planeswalker(id) => {
+            h.u8(1);
+            h.u32(locate(id));
+        }
+    }
+}
+
 /// Hashes one object as a *situation*: everything a player could observe
 /// about it, with object references reduced to canonical positions.
 ///
@@ -1031,6 +1073,9 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     h.u8(1);
     h.u8(obj.owner.get());
     h.u8(obj.controller.get());
+    // Two boards that look identical but differ in who gets the permanent
+    // back when a control effect ends are different situations.
+    h.u8(obj.base_controller.get());
     h.u8(obj.zone as u8);
     h.u8(obj.zone_owner.map_or(255, PlayerId::get));
     h.u8(obj.kind as u8);
@@ -1086,6 +1131,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     h.u8(obj.id.generation());
     h.u8(obj.owner.get());
     h.u8(obj.controller.get());
+    // Not derivable from the projected controller: it is who the permanent
+    // goes back to when a control effect ends, so a resync that lost it
+    // would hand the permanent to the wrong seat later.
+    h.u8(obj.base_controller.get());
     h.u8(obj.zone as u8);
     h.u8(obj.zone_owner.map_or(255, baylee_core::ids::PlayerId::get));
     h.u8(obj.kind as u8);
@@ -1296,6 +1345,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         }
         M::GrantsFlashback => h.u8(25),
         M::PlayerHexproof => h.u8(26),
+        M::GainControl => h.u8(35),
         M::SorceriesHaveFlash => h.u8(29),
         M::GrantTriggered { .. } => h.u8(30),
         M::ManaIsAnyColor => h.u8(31),

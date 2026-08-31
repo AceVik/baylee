@@ -71,12 +71,30 @@ per-player hidden-information filtering (`FullView`/`Delta`), timers
 (`TimeExtensionRequest/Vote/Result`), `SetAutomationRules`, dev-mode
 `DevCommand`, and spectator streams.
 
-That seam has since paid for itself twice, and both times the feature was
-filed under v2 before anyone checked what it actually touched: the copy
-target re-choice (CR 707.10c) and the agreed draw (CR 104.4a) both shipped
-as new `Pending`/`PlayerAction` variants with **no proto change at all**.
-Before scheduling something behind protocol v2, check whether it needs the
-wire or only the taxonomy the wire carries.
+That seam has since paid for itself three times, and every time the feature
+was filed under v2 before anyone checked what it actually touched: the copy
+target re-choice (CR 707.10c), the agreed draw (CR 104.4a), and attacking
+planeswalkers all shipped as `Pending`/`PlayerAction` changes with **no
+proto change at all**. Before scheduling something behind protocol v2,
+check whether it needs the wire or only the taxonomy the wire carries.
+
+## Attacking a planeswalker (view version 3)
+
+`PlayerAction::DeclareAttackers` carries `(ObjectId, Defender)` pairs
+rather than `(ObjectId, PlayerId)`, where `Defender` is
+`Player(PlayerId)` or `Planeswalker(ObjectId)`. `Pending::ChooseAttackers`
+now carries the legal `defenders` list, and the engine validates a
+declaration against exactly that list — "which planeswalkers may I attack"
+(CR 508.1a) is a rules question, and a client re-deriving it would be a
+second, divergent implementation of the rule. `AttackerView::defending`
+changed the same way, which is what took **`VIEW_VERSION` from 2 to 3**;
+a client checks that on `HelloAck` and refuses a host it cannot render.
+
+`Defender` is an externally tagged serde enum over two transparent ids, so
+the JSON is `{"Player":0}` or `{"Planeswalker":1234}` where a v2 payload
+had a bare `0`. A v2 client therefore fails to deserialise rather than
+silently reading a planeswalker attack as an attack on seat 0 — which is
+the point of the version bump being mandatory rather than advisory.
 
 `ResumeGame{last_seq}` is answered as of 2026-08-31, by both servers.
 `Session::resume` is deliberately **read-only**, where `pump` advances the

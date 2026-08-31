@@ -5,17 +5,18 @@
 //! a per-creature property, deathtouch, trample, lifelink, and damage
 //! assignment in declaration order.
 //!
+//! Attacks are aimed at a [`Defender`], so a planeswalker can be attacked
+//! and its loyalty comes off (CR 306.8). Battles are the remaining case.
+//!
 //! Not yet: the attacking player's *choice* of damage assignment order
 //! among multiple blockers (CR 509.2) — the declaration order stands in
-//! for it — and attacking planeswalkers or battles, which need
-//! [`AttackerInfo::defending`] to become a defender handle rather than a
-//! [`PlayerId`].
+//! for it.
 
 use crate::event::{DamageTarget, GameEvent};
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
 use baylee_cards_dsl::KeywordSet as K;
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 
 /// One declared attacker.
@@ -23,8 +24,8 @@ use baylee_core::types::TypeSet;
 pub struct AttackerInfo {
     /// The attacking creature.
     pub creature: ObjectId,
-    /// The player it attacks.
-    pub defending: PlayerId,
+    /// What it attacks: a player, or one of their planeswalkers.
+    pub defending: Defender,
 }
 
 /// One declared blocker.
@@ -70,7 +71,7 @@ impl CombatState {
 }
 
 /// Whether `creature` may attack at all (untapped, a creature, not
-/// summoning-sick).
+/// summoning-sick, no defender).
 #[must_use]
 pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bool {
     let Some(obj) = state.object(creature) else {
@@ -79,8 +80,58 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
     obj.zone == crate::zone::Zone::Battlefield
         && obj.controller == player
         && obj.characteristics().types.contains(TypeSet::CREATURE)
+        // Defender (CR 702.3b): can't attack, however untapped it is.
+        && !obj.characteristics().keywords.contains(K::DEFENDER)
         && !obj.status.contains(Status::TAPPED)
         && !summoning_sick(state, obj)
+}
+
+/// Everything `player` may declare an attack against right now: each
+/// surviving opponent, and every planeswalker those opponents control
+/// (CR 508.1a).
+///
+/// One list rather than "pick a player, then pick one of their walkers":
+/// the choice is a single one in the rules, and a flat list is also what
+/// a client needs to render the choice.
+#[must_use]
+pub fn defender_options(state: &GameState, player: PlayerId) -> Vec<Defender> {
+    let opponents: Vec<PlayerId> = state
+        .players
+        .iter()
+        .filter(|p| p.id != player && !p.has_lost)
+        .map(|p| p.id)
+        .collect();
+    let mut options: Vec<Defender> = opponents.iter().copied().map(Defender::Player).collect();
+    options.extend(
+        state
+            .zones
+            .list(crate::zone::ZoneLocation::Battlefield)
+            .iter()
+            .filter(|id| {
+                state.object(**id).is_some_and(|o| {
+                    opponents.contains(&o.controller)
+                        && o.characteristics().types.contains(TypeSet::PLANESWALKER)
+                })
+            })
+            .map(|id| Defender::Planeswalker(*id)),
+    );
+    options
+}
+
+/// The player who would take the damage aimed at `defender` — the
+/// defending player themself, or a planeswalker's controller.
+///
+/// `None` once a planeswalker has left the battlefield: the attack stays
+/// declared (CR 506.4c) but there is nothing left to damage.
+#[must_use]
+pub fn defending_player(state: &GameState, defender: Defender) -> Option<PlayerId> {
+    match defender {
+        Defender::Player(p) => Some(p),
+        Defender::Planeswalker(id) => state
+            .object(id)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .map(|o| o.controller),
+    }
 }
 
 /// Summoning sickness (CR 302.6): a creature must be controlled
@@ -213,17 +264,17 @@ pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
         if power <= 0 {
             continue;
         }
-        deal_damage_to_object(state, info.blocker, info.attacker, power, true);
+        let dealt = deal_damage_to_object(state, info.blocker, info.attacker, power, true);
         if has_keyword(state, info.blocker, K::LIFELINK)
             && let Some(controller) = state.object(info.blocker).map(|o| o.controller)
         {
-            gain_life(state, controller, power);
+            gain_life(state, controller, dealt);
         }
     }
 }
 
 /// One attacker's damage assignment (CR 510.1a–c).
-fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: PlayerId) {
+fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: Defender) {
     let power = power_of(state, attacker);
     let trample = has_keyword(state, attacker, K::TRAMPLE);
     let lifelink = has_keyword(state, attacker, K::LIFELINK);
@@ -241,8 +292,7 @@ fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: 
         .filter(|b| state.object(*b).is_some())
         .collect();
     if blockers.is_empty() {
-        deal_damage_to_player(state, attacker, defending, power, true);
-        lifelinked += power;
+        lifelinked += deal_damage_to_defender(state, attacker, defending, power);
     } else {
         let mut remaining = power;
         for blocker in &live {
@@ -256,13 +306,16 @@ fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: 
             } else {
                 remaining
             };
-            deal_damage_to_object(state, attacker, *blocker, assigned, true);
+            // Assignment and dealing are separate steps (CR 510.1c/510.2):
+            // prevented damage is still assigned, so it still uses up the
+            // attacker's power — but it was never dealt, so it links no life.
+            lifelinked += deal_damage_to_object(state, attacker, *blocker, assigned, true);
             remaining -= assigned;
-            lifelinked += assigned;
         }
         if trample && remaining > 0 {
-            deal_damage_to_player(state, attacker, defending, remaining, true);
-            lifelinked += remaining;
+            // CR 702.19b: what tramples through goes to "the player or
+            // planeswalker it's attacking", not to the player regardless.
+            lifelinked += deal_damage_to_defender(state, attacker, defending, remaining);
         }
     }
     if lifelink {
@@ -270,18 +323,44 @@ fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: 
     }
 }
 
+/// Combat damage aimed at whatever the attacker declared against, and how
+/// much of it was actually dealt (prevention and a departed planeswalker
+/// both make that zero, and neither links any life).
+fn deal_damage_to_defender(
+    state: &mut GameState,
+    source: ObjectId,
+    defender: Defender,
+    amount: i16,
+) -> i16 {
+    match defender {
+        Defender::Player(player) => deal_damage_to_player(state, source, player, amount, true),
+        // CR 506.4c: the attack stands even after the planeswalker has
+        // gone, but there is nothing left for the damage to land on.
+        Defender::Planeswalker(walker) => {
+            if state
+                .object(walker)
+                .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield)
+            {
+                return 0;
+            }
+            deal_damage_to_object(state, source, walker, amount, true)
+        }
+    }
+}
+
+/// Deals damage to a player and returns how much landed.
 fn deal_damage_to_player(
     state: &mut GameState,
     source: ObjectId,
     player: PlayerId,
     amount: i16,
     is_combat: bool,
-) {
+) -> i16 {
     if amount <= 0 {
-        return;
+        return 0;
     }
     if prevent_from(state, source) {
-        return;
+        return 0;
     }
     let p = &mut state.players[player.get() as usize];
     let old = p.life;
@@ -299,28 +378,52 @@ fn deal_damage_to_player(
         amount: amount as u16,
         is_combat,
     });
+    amount
 }
 
+/// Deals damage to a permanent and returns how much landed.
 fn deal_damage_to_object(
     state: &mut GameState,
     source: ObjectId,
     target: ObjectId,
     amount: i16,
     is_combat: bool,
-) {
+) -> i16 {
     if amount <= 0 {
-        return;
+        return 0;
     }
     if prevent_from(state, source)
         || prevent_to(state, target)
         || crate::eval::protected_from(state, target, source)
     {
-        return;
+        return 0;
     }
-    let deathtouch = has_keyword(state, source, K::DEATHTOUCH);
-    if let Some(obj) = state.object_mut(target) {
-        obj.damage = obj.damage.saturating_add(amount as u16);
-        obj.deathtouched |= deathtouch;
+    // Damage to a planeswalker removes loyalty instead of marking damage
+    // (CR 306.8), the same way the spell-resolution path does it.
+    let is_walker = state
+        .object(target)
+        .is_some_and(|o| o.characteristics().types.contains(TypeSet::PLANESWALKER));
+    if is_walker {
+        let old = state.object(target).map_or(0, |o| {
+            o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
+        });
+        let new = old.saturating_sub(amount as u16);
+        if let Some(obj) = state.object_mut(target) {
+            obj.counters
+                .set(baylee_cards_dsl::CounterKind::Loyalty, new);
+        }
+        state.journal.record(GameEvent::CounterChanged {
+            object: target,
+            kind: baylee_cards_dsl::CounterKind::Loyalty,
+            old,
+            new,
+        });
+    } else {
+        let deathtouch = has_keyword(state, source, K::DEATHTOUCH);
+        if let Some(obj) = state.object_mut(target) {
+            obj.damage = obj.damage.saturating_add(amount as u16);
+            obj.deathtouched |= deathtouch;
+        }
     }
     state.journal.record(GameEvent::DamageDealt {
         source: Some(source),
@@ -328,6 +431,7 @@ fn deal_damage_to_object(
         amount: amount as u16,
         is_combat,
     });
+    amount
 }
 
 /// True if the source object may not deal damage (`PreventDamageFromIt`).
@@ -434,8 +538,39 @@ mod tests {
     fn attack(state: &mut GameState, creature: ObjectId, defending: PlayerId) {
         state.combat.attackers.push(AttackerInfo {
             creature,
-            defending,
+            defending: Defender::Player(defending),
         });
+    }
+
+    /// Declares `creature` as attacking a planeswalker instead of a seat.
+    fn attack_walker(state: &mut GameState, creature: ObjectId, walker: ObjectId) {
+        state.combat.attackers.push(AttackerInfo {
+            creature,
+            defending: Defender::Planeswalker(walker),
+        });
+    }
+
+    /// A planeswalker on the battlefield with `loyalty` counters.
+    fn planeswalker(state: &mut GameState, controller: PlayerId, loyalty: u16) -> ObjectId {
+        let name = state.names.intern("Test Walker");
+        let id = state.create_bare(
+            controller,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(id).expect("just created");
+        obj.base.types = TypeSet::PLANESWALKER;
+        obj.base.loyalty = Some(loyalty);
+        obj.counters
+            .set(baylee_cards_dsl::CounterKind::Loyalty, loyalty);
+        id
+    }
+
+    fn loyalty(state: &GameState, id: ObjectId) -> u16 {
+        state.object(id).map_or(0, |o| {
+            o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
+        })
     }
 
     fn block(state: &mut GameState, blocker: ObjectId, attacker: ObjectId) {
@@ -589,5 +724,115 @@ mod tests {
         deal_combat_damage(&mut state, false);
         assert_eq!(damage(&state, wall), 1, "one point is lethal here");
         assert_eq!(state.players[1].life, 16, "the other four trample through");
+    }
+
+    /// Double strike (CR 702.4b): damage in *both* steps, and the same
+    /// creature deals its full power each time.
+    #[test]
+    fn a_double_striker_deals_damage_in_both_steps() {
+        let mut state = empty_state();
+        let hero = creature(&mut state, P0, 2, 2, KeywordSet::DOUBLE_STRIKE);
+        let wall = creature(&mut state, P1, 0, 9, KeywordSet::EMPTY);
+        attack(&mut state, hero, P1);
+        block(&mut state, wall, hero);
+
+        deal_combat_damage(&mut state, true);
+        assert_eq!(
+            damage(&state, wall),
+            2,
+            "no damage in the first-strike step"
+        );
+        deal_combat_damage(&mut state, false);
+        assert_eq!(
+            damage(&state, wall),
+            4,
+            "no second helping in the regular step"
+        );
+    }
+
+    /// The control: a plain first striker must *not* strike twice, which
+    /// is the only thing that makes the test above about double strike
+    /// rather than about the step machinery.
+    #[test]
+    fn a_first_striker_deals_damage_only_once() {
+        let mut state = empty_state();
+        let knight = creature(&mut state, P0, 2, 2, KeywordSet::FIRST_STRIKE);
+        let wall = creature(&mut state, P1, 0, 9, KeywordSet::EMPTY);
+        attack(&mut state, knight, P1);
+        block(&mut state, wall, knight);
+
+        deal_combat_damage(&mut state, true);
+        deal_combat_damage(&mut state, false);
+        assert_eq!(damage(&state, wall), 2, "first strike struck twice");
+    }
+
+    /// Defender (CR 702.3b): untapped, awake, and still not attacking.
+    #[test]
+    fn a_creature_with_defender_cannot_attack() {
+        let mut state = empty_state();
+        let wall = creature(&mut state, P0, 0, 4, KeywordSet::DEFENDER);
+        let bear = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        // Neither is summoning-sick: both were created before this turn.
+        state.turn_start_timestamp = u64::MAX;
+        assert!(!can_attack(&state, P0, wall), "a wall attacked");
+        assert!(can_attack(&state, P0, bear), "the control could not attack");
+    }
+
+    /// Combat damage to a planeswalker takes loyalty off it (CR 306.8),
+    /// and leaves its controller's life alone.
+    #[test]
+    fn an_attack_on_a_planeswalker_costs_it_loyalty() {
+        let mut state = empty_state();
+        let bear = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let walker = planeswalker(&mut state, P1, 5);
+        attack_walker(&mut state, bear, walker);
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(loyalty(&state, walker), 3, "loyalty did not come off");
+        assert_eq!(state.players[1].life, 20, "the player took the damage too");
+        assert_eq!(damage(&state, walker), 0, "damage was marked on a walker");
+    }
+
+    /// Trample goes to whatever the creature is attacking (CR 702.19b) —
+    /// a planeswalker here, not past it to the player.
+    #[test]
+    fn trample_over_a_blocker_hits_the_planeswalker_being_attacked() {
+        let mut state = empty_state();
+        let beast = creature(&mut state, P0, 5, 5, KeywordSet::TRAMPLE);
+        let chump = creature(&mut state, P1, 1, 1, KeywordSet::EMPTY);
+        let walker = planeswalker(&mut state, P1, 6);
+        attack_walker(&mut state, beast, walker);
+        block(&mut state, chump, beast);
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(damage(&state, chump), 1, "the blocker takes lethal");
+        assert_eq!(loyalty(&state, walker), 2, "the rest trampled elsewhere");
+        assert_eq!(state.players[1].life, 20, "trample skipped the walker");
+    }
+
+    /// CR 506.4c: the attack survives the planeswalker leaving, but the
+    /// damage has nowhere to land — least of all on its controller.
+    #[test]
+    fn a_planeswalker_that_left_absorbs_nothing() {
+        let mut state = empty_state();
+        let bear = creature(&mut state, P0, 2, 2, KeywordSet::LIFELINK);
+        let walker = planeswalker(&mut state, P1, 5);
+        attack_walker(&mut state, bear, walker);
+        state
+            .move_object(
+                walker,
+                ZoneLocation::Graveyard(P1),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the walker leaves");
+
+        let life_before = state.players[0].life;
+        deal_combat_damage(&mut state, false);
+        assert_eq!(state.players[1].life, 20, "the damage found the player");
+        assert_eq!(
+            state.players[0].life, life_before,
+            "lifelink paid out for damage that was never dealt"
+        );
     }
 }

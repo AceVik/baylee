@@ -771,7 +771,7 @@ mod tests {
             .with_combat(
                 vec![AttackerView {
                     creature: attacker,
-                    defending: PlayerId::new(1),
+                    defending: baylee_core::ids::Defender::Player(PlayerId::new(1)),
                 }],
                 vec![BlockerView { blocker, attacker }],
             )

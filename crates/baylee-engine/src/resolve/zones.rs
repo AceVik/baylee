@@ -42,7 +42,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     // Blink returns under its OWNER's control (Eerie
                     // Interlude, Momentary Blink family, CR 610.1 note:
                     // "return … under its owner's control").
-                    obj.controller = owner;
+                    obj.set_controller(owner);
                 }
                 let _ = state.move_object(
                     target_id,
@@ -158,7 +158,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(&target_id) = res.targets.first() {
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Permanent;
-                    obj.controller = you;
+                    obj.set_controller(you);
                 }
                 let _ = state.move_object(
                     target_id,
@@ -479,7 +479,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                             Cause::Effect,
                         );
                         if let Some(obj) = state.object_mut(card) {
-                            obj.controller = you;
+                            obj.set_controller(you);
                         }
                     }
                 }
@@ -505,7 +505,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             if let Some(obj) = state.object_mut(res.source) {
                 obj.kind = ObjectKind::Permanent;
-                obj.controller = owner;
+                obj.set_controller(owner);
                 // The face switch needs the card definition (lookup);
                 // finish_resolution applies it.
                 obj.pending_face_change = Some(face);

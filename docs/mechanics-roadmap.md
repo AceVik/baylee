@@ -11,9 +11,16 @@ Size classes: **S** (< 100 engine LOC), **M** (100–400), **L** (> 400).
 ## A. Already supported (M0–M3) — do not reschedule
 
 Keywords: flying, first/double strike, deathtouch, lifelink, vigilance,
-haste, hexproof, indestructible, menace, reach, flash, unblockable,
-changeling, prowess (synthetic), rebound, ward {1}/{2}, legendary/basic
-supertypes, legend rule.
+haste, hexproof, shroud, defender, indestructible, menace, reach, flash,
+unblockable, changeling, prowess (synthetic), rebound, ward {1}/{2},
+legendary/basic supertypes, legend rule.
+
+Every keyword in that list is read by a rule and covered by a test. The
+four at the end of the list — hexproof, shroud, defender, flash — were
+printed on cards and enforced by nothing until 2026-08-31: the bit was set
+in `KeywordSet` and no code ever asked for it. If you add a keyword to the
+enum, add the rule that reads it and the test that proves it in the same
+change, or it will sit here looking supported.
 
 Cast machinery: alternative costs (pitch, evoke, commander-free),
 additional costs (kicker), mandatory additional (pay X life), X spells,
@@ -25,14 +32,21 @@ Zones: tutors (SearchLibrary with destinations), graveyard recursion,
 linked exile (Fiend Hunter), blink (immediate + end-step), phase-out,
 bottom-of-library, reorder-top, scry, mill, bottom-from-hand.
 
-Continuous/replacement: layer system (copy, text, type, color, ability,
-P/T CDA/set/modify, counters), keyword/P-T/type/color mods, cross-zone
-filters (Maskwood), token doubling, counter doubling, trigger
-multipliers/suppressors, ETB tap/pay-life/choose-subtype modifiers.
-**Layer 2 (control as a continuous effect) is NOT done** — control
-change/exchange exists only as a one-shot resolution effect
-(`change_controller`); there is no `Modifier` for it and `recompute`
-discards layer 2. Track here, not under "already supported".
+Continuous/replacement: layer system (copy, **control**, text, type,
+color, ability, P/T CDA/set/modify, counters), keyword/P-T/type/color
+mods, cross-zone filters (Maskwood), token doubling, counter doubling,
+trigger multipliers/suppressors, ETB tap/pay-life/choose-subtype
+modifiers.
+
+Layer 2 is `Modifier::GainControl` at `Layer::Control`: the effect's
+controller controls the permanent for as long as the effect lasts, and
+gets it back when it ends (Mind Control, Act of Treason, Sower of
+Temptation). `GameObject::controller` is the projected answer that every
+rule reads; `base_controller` is where it goes back to, and only a
+*permanent* handover (`set_controller`) writes that. A control change
+restarts summoning sickness in both directions (CR 302.6). The one-shot
+`Effect::ChangeController` is still the right tool for a permanent
+handover — Gilded Drake, Homeward Path, Aminatou −6.
 
 Triggers: ETB, LTB, dies, spellcast, draws (incl. except-first), attacks,
 becomes-target, exiled-from-battlefield, combat-damage-to-player,
@@ -43,7 +57,10 @@ Players: monarch, extra turns, no-lose, no-life-loss, damage prevention
 size, poison/energy/rad counter storage.
 
 Planeswalkers: loyalty abilities/costs, 0-loyalty death, damage →
-loyalty removal.
+loyalty removal, **being attacked** (CR 508.1a — an attack names a
+`Defender`, which is a player or one of their planeswalkers; trample goes
+to whatever the creature is attacking, and an attack on a walker that has
+left deals nothing to anyone).
 
 Misc: amass, token creation (incl. copies), clone-on-enter (permanent +
 until-EOT via layer 1), spell copies, control change/exchange, lifelink
@@ -141,7 +158,7 @@ Covered by section B. After those land, all 194 acceptance cards are
 | Plot | Rider::Plotted exists + exile activation + free sorcery cast | M |
 | Bestow | aura-or-creature cast modes | M |
 | Mutate | merge-on-cast + top-of-stack characteristics | L |
-| Battles (siege) | new card type + defense counters + attack-the-battle | L |
+| Battles (siege) | new card type + defense counters + a third `Defender` case (the handle itself already exists) | L |
 | Classes | B12 | (B12) |
 | Sagas | B7 | (B7) |
 

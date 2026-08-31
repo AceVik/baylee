@@ -725,7 +725,7 @@ impl<L: CardLookup> Engine<L> {
         {
             let obj = self.state.object_mut(card).expect("wizard card exists");
             obj.kind = ObjectKind::Spell;
-            obj.controller = player;
+            obj.set_controller(player);
             obj.targets.clone_from(&wizard.targets);
             obj.target_req = target_req;
             obj.x_value = wizard.x;

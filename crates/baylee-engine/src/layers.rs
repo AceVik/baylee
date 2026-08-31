@@ -139,7 +139,10 @@ pub fn recompute(state: &GameState, obj: &GameObject) -> Projection {
 /// Recomputes an object's characteristics against a prepared [`LayerPlan`].
 pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
     let mut c = obj.base.clone();
-    let mut controller = obj.controller;
+    // Layer 2 starts from the *base* controller, not from whatever the
+    // last refresh projected: an effect that has since ended must leave
+    // no trace.
+    let mut controller = obj.base_controller;
     let all = state.effects.as_slice();
     for layer in LAYERS {
         for &idx in plan.layer(layer) {
@@ -332,8 +335,10 @@ fn apply(
     state: &GameState,
     obj: &GameObject,
 ) {
-    let _ = &controller; // layer 2 lands here once a control modifier exists
     match &fx.modifier {
+        // Layer 2 (CR 613.1b): whoever controls the effect controls the
+        // permanent, for exactly as long as the effect lasts.
+        Modifier::GainControl => *controller = fx.controller,
         Modifier::BecomeCopyOf(id) => {
             // Layer 1: copiable values of the target (its own projection
             // included, CR 707.2).

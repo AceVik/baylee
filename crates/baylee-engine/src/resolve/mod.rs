@@ -1693,7 +1693,7 @@ fn change_controller(state: &mut GameState, target: ObjectId, new_controller: Pl
     let ts = state.next_timestamp();
     {
         let obj = state.object_mut(target).expect("checked above");
-        obj.controller = new_controller;
+        obj.set_controller(new_controller);
         // Control changes restart summoning sickness (CR 302.6).
         obj.timestamp = ts;
     }

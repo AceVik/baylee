@@ -770,7 +770,7 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (
-                Pending::ChooseAttackers { player: p },
+                Pending::ChooseAttackers { player: p, .. },
                 PlayerAction::DeclareAttackers { attackers },
             ) if *p == player => self.declare_attackers(player, attackers),
             (
@@ -865,15 +865,20 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn declare_attackers(
         &mut self,
         player: PlayerId,
-        attackers: Vec<(ObjectId, PlayerId)>,
+        attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
     ) -> Result<(), EngineError> {
+        // Checked against the same list the request offered, so a client
+        // can never name a defender the engine did not put on the table:
+        // an opponent's planeswalker that has since left, a player who has
+        // lost, or the attacking player themself.
+        let legal = combat::defender_options(&self.state, player);
         let mut seen = Vec::with_capacity(attackers.len());
         for (creature, defending) in &attackers {
             if !combat::can_attack(&self.state, player, *creature) {
                 return Err(EngineError::IllegalAction("creature cannot attack"));
             }
-            if *defending == player || self.state.players[defending.get() as usize].has_lost {
-                return Err(EngineError::IllegalAction("invalid defending player"));
+            if !legal.contains(defending) {
+                return Err(EngineError::IllegalAction("invalid defender"));
             }
             if seen.contains(creature) {
                 return Err(EngineError::IllegalAction("duplicate attacker"));

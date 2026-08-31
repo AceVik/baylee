@@ -31,13 +31,13 @@
 #![warn(missing_docs)]
 
 use baylee_core::color::ColorSet;
-use baylee_core::ids::{AbilityRef, CardIndex, ObjectId, PlayerId, PrintRef};
+use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, PrintRef};
 use baylee_core::types::{SupertypeSet, TypeSet};
 use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 2;
+pub const VIEW_VERSION: u32 = 3;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -590,8 +590,9 @@ impl SeatView {
 pub struct AttackerView {
     /// The attacking creature.
     pub creature: ObjectId,
-    /// The player being attacked.
-    pub defending: PlayerId,
+    /// What it attacks: the defending player, or one of their
+    /// planeswalkers (CR 508.1a).
+    pub defending: Defender,
 }
 
 /// One declared blocker and the attacker it blocks.
@@ -895,11 +896,11 @@ mod tests {
         v.combat.attackers = vec![
             AttackerView {
                 creature: att,
-                defending: PlayerId::new(1),
+                defending: Defender::Player(PlayerId::new(1)),
             },
             AttackerView {
                 creature: other,
-                defending: PlayerId::new(1),
+                defending: Defender::Player(PlayerId::new(1)),
             },
         ];
         v.combat.blockers = vec![BlockerView {

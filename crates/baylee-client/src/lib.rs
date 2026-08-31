@@ -415,12 +415,7 @@ fn combat_candidates(duel: &Duel, pending: &Pending) -> CombatCandidates {
 
     match pending {
         Pending::ChooseAttackers { .. } => {
-            candidates.defenders = view
-                .seats
-                .iter()
-                .filter(|s| s.player != seat && !s.has_lost)
-                .map(|s| s.player)
-                .collect();
+            // Who may be attacked comes from the pending choice itself.
             if let Some(pod) = board.pod(seat) {
                 for lane in &pod.lanes {
                     for group in &lane.groups {

@@ -16,6 +16,7 @@ const ANTHEM_LORD: u32 = 1000;
 const FAKE_LATTICE: u32 = 1001;
 const TEST_BEAR: u32 = 1002;
 const PUMP_SPELL: u32 = 1003;
+const STEAL_SPELL: u32 = 1004;
 
 static CREATURE_F: Filter = Filter::HasType(TypeSet::CREATURE);
 static CREATURE_YOU: Filter =
@@ -73,6 +74,7 @@ struct TestLookup {
     fake_lattice: &'static CardDef,
     test_bear: &'static CardDef,
     pump_spell: &'static CardDef,
+    steal_spell: &'static CardDef,
 }
 
 static ANTHEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
@@ -101,6 +103,20 @@ static PUMP_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
 }];
 
+/// Act of Treason without the haste: a layer-2 control change that ends
+/// with the turn.
+static STEAL_EFFECTS: &[Effect] = &[Effect::CreateContinuousEffect {
+    layer: Layer::Control,
+    filter: &THIS_F,
+    modifier: Modifier::GainControl,
+    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+}];
+
+static STEAL_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
+    effects: STEAL_EFFECTS,
+    targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
+}];
+
 impl TestLookup {
     fn new() -> Self {
         let anthem_lord: &'static CardDef = Box::leak(Box::new(def(
@@ -123,11 +139,17 @@ impl TestLookup {
             face("Pump Spell", "{G}", TypeSet::SORCERY, None),
             PUMP_ABILITIES,
         )));
+        let steal_spell: &'static CardDef = Box::leak(Box::new(def(
+            STEAL_SPELL,
+            face("Steal Spell", "{G}", TypeSet::SORCERY, None),
+            STEAL_ABILITIES,
+        )));
         Self {
             anthem_lord,
             fake_lattice,
             test_bear,
             pump_spell,
+            steal_spell,
         }
     }
 }
@@ -139,6 +161,7 @@ impl CardLookup for TestLookup {
             FAKE_LATTICE => Some(self.fake_lattice),
             TEST_BEAR => Some(self.test_bear),
             PUMP_SPELL => Some(self.pump_spell),
+            STEAL_SPELL => Some(self.steal_spell),
             _ => baylee_cards::by_index(index),
         }
     }
@@ -177,6 +200,14 @@ fn preset_bf(seed: u64, bf0: &[u32], hand0: &[u32]) -> GamePreset {
         }],
         seats: vec![mk(bf0, hand0), mk(&[], &[])],
     }
+}
+
+/// Like [`preset_bf`], but seat 1 starts with a board of its own — which
+/// is what a control-change test needs something to steal from.
+fn preset_duel(seed: u64, bf0: &[u32], hand0: &[u32], bf1: &[u32]) -> GamePreset {
+    let mut preset = preset_bf(seed, bf0, hand0);
+    preset.seats[1].starting_battlefield = bf1.iter().map(|c| entry(*c)).collect();
+    preset
 }
 
 fn keep_mulligans(engine: &mut Engine<TestLookup>) {
@@ -385,7 +416,7 @@ fn pump_lasts_until_end_of_turn() {
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();
@@ -404,5 +435,112 @@ fn pump_lasts_until_end_of_turn() {
         power_toughness(&engine, bear),
         (2, 2),
         "pump expired at cleanup"
+    );
+}
+
+/// Layer 2 (CR 613.1b): a control-changing continuous effect moves the
+/// permanent for exactly as long as it lasts, and every rule that asks
+/// "who controls this" sees the new answer — without the effect having to
+/// touch the permanent at all.
+#[test]
+fn control_change_lasts_only_as_long_as_the_effect() {
+    let lookup = TestLookup::new();
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6").get();
+    let mut engine = Engine::new(
+        &preset_duel(31, &[forest], &[STEAL_SPELL], &[TEST_BEAR]),
+        lookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let bear = bear(&engine);
+    assert_eq!(
+        engine.state().object(bear).unwrap().controller,
+        p1,
+        "the bear did not start on seat 1's side"
+    );
+
+    // p0's main phase: tap the forest and steal the bear.
+    let mut guard = 0;
+    while !(matches!(engine.state().turn.phase, Phase::FirstMain)
+        && engine.state().turn.active == p0)
+    {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        guard += 1;
+        assert!(guard < 20, "never reached p0's main phase");
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority")
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let steal = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: steal })
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![bear], "the only creature is the bear");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bear],
+            },
+        )
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    assert_eq!(
+        engine.state().object(bear).unwrap().controller,
+        p0,
+        "the control effect did not move the bear"
+    );
+    assert_eq!(
+        engine.state().object(bear).unwrap().base_controller,
+        p1,
+        "a continuous effect overwrote the permanent's own controller"
+    );
+    // CR 302.6: freshly gained control means freshly summoning-sick.
+    assert!(
+        !combat::can_attack(engine.state(), p0, bear),
+        "a stolen creature attacked the turn it changed hands"
+    );
+
+    // Play on until p0's turn ends; the effect expires and the bear goes home.
+    let turn = engine.state().turn.number;
+    let mut guard = 0;
+    while engine.state().turn.number == turn {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected while finishing the turn: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 60, "the turn never ended");
+    }
+    assert_eq!(
+        engine.state().object(bear).unwrap().controller,
+        p1,
+        "the bear never went home"
     );
 }

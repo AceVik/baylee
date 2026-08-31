@@ -1,5 +1,5 @@
 use super::*;
-use baylee_core::ids::{CardIndex, PrintRef};
+use baylee_core::ids::{CardIndex, Defender, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, PrintInfo, SeatController, SeatSpec,
 };
@@ -208,7 +208,7 @@ fn walker_at_zero_loyalty_dies() {
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            Pending::ChooseAttackers { player } => {
+            Pending::ChooseAttackers { player, .. } => {
                 engine
                     .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
                     .unwrap();
@@ -261,5 +261,164 @@ fn walker_at_zero_loyalty_dies() {
     assert!(
         activations >= 3,
         "expected three −1 activations, got {activations}"
+    );
+}
+
+/// A duel where each seat starts with its own battlefield.
+fn preset_both(seed: u64, bf0: Vec<CardIndex>, bf1: Vec<CardIndex>) -> GamePreset {
+    let mut preset = preset(seed, bf0);
+    preset.seats[1].starting_battlefield = bf1.into_iter().map(entry).collect();
+    preset
+}
+
+/// Attacking a planeswalker, end to end: the engine offers it as a
+/// defender, accepts the declaration, and combat damage comes off its
+/// loyalty instead of its controller's life (CR 306.8).
+#[test]
+fn a_creature_can_attack_a_planeswalker() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Engine::new(
+        &preset_both(73, vec![ondu_cleric()], vec![jace()]),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+
+    let find = |engine: &Engine<RegistryLookup>, seat: PlayerId| {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .find(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.controller == seat)
+            })
+            .expect("seat has a permanent")
+    };
+    let cleric = find(&engine, p0);
+    let jace = find(&engine, p1);
+
+    // Walk to p0's declare-attackers step.
+    let mut guard = 0;
+    let defenders = loop {
+        match engine.pending().clone() {
+            Pending::ChooseAttackers { player, defenders } if player == p0 => break defenders,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected before combat: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 40, "never reached the declare-attackers step");
+    };
+    assert!(
+        defenders.contains(&Defender::Planeswalker(jace)),
+        "the opponent's planeswalker was not offered as a defender"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(cleric, Defender::Planeswalker(jace))],
+            },
+        )
+        .unwrap();
+
+    // Let combat damage happen.
+    let mut guard = 0;
+    while engine
+        .state()
+        .object(jace)
+        .is_some_and(|o| o.counters.get(baylee_cards_dsl::CounterKind::Loyalty) == 3)
+    {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected during combat: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 40, "combat damage never happened");
+    }
+
+    assert_eq!(
+        engine
+            .state()
+            .object(jace)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::CounterKind::Loyalty),
+        2,
+        "the 1/1 did not take a loyalty counter off"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the attack hit the player as well as the planeswalker"
+    );
+}
+
+/// The declaration is validated against the engine's own list: a seat
+/// cannot attack its own planeswalker, however well-formed the message is.
+#[test]
+fn a_planeswalker_you_control_is_not_a_legal_defender() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Engine::new(
+        &preset_both(74, vec![ondu_cleric(), jace()], vec![]),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let mine: Vec<ObjectId> = engine.state().zones.list(ZoneLocation::Battlefield).clone();
+    let jace = *mine
+        .iter()
+        .find(|id| {
+            engine.state().object(**id).is_some_and(|o| {
+                o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::PLANESWALKER)
+            })
+        })
+        .expect("jace is on the board");
+    let cleric = *mine.iter().find(|id| **id != jace).expect("cleric too");
+
+    let mut guard = 0;
+    loop {
+        match engine.pending().clone() {
+            Pending::ChooseAttackers { player, defenders } if player == p0 => {
+                assert!(
+                    !defenders.contains(&Defender::Planeswalker(jace)),
+                    "your own planeswalker was offered as a defender"
+                );
+                break;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected before combat: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 40, "never reached the declare-attackers step");
+    }
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(cleric, Defender::Planeswalker(jace))],
+                },
+            )
+            .is_err(),
+        "the engine accepted an attack on its declarer's own planeswalker"
     );
 }

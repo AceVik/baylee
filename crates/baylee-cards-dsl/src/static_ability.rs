@@ -109,6 +109,15 @@ pub enum Modifier {
     /// The affected card (in a graveyard) may be cast for its mana cost;
     /// exile it afterwards (flashback grant, Snapcaster Mage).
     GrantsFlashback,
+    /// The effect's controller controls the affected permanent (CR 613.1b,
+    /// layer 2): Mind Control, Act of Treason, Sower of Temptation.
+    ///
+    /// A *continuous* control change, so it ends with the effect — which is
+    /// the whole difference between "gain control until end of turn" and
+    /// the one-shot `Effect::ChangeController` that never gives it back.
+    /// Use it with `Layer::Control`; any other layer would apply it out of
+    /// order with respect to the effects that read the controller.
+    GainControl,
     /// The controller can't be targeted by spells or abilities (player
     /// hexproof, Everybody Lives!).
     PlayerHexproof,
