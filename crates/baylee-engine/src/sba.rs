@@ -185,21 +185,36 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
     // all have no card behind them, and none of them may be swept up here.
     // The spell case mattered: a copy of a token-backed spell was deleted
     // by this pass before it could ever resolve.
-    let mut vanished = Vec::new();
-    for (id, obj) in state.arena.iter() {
+    //
+    // The candidates come from `GameState::watch_token_cleanup`, recorded
+    // when an object leaves for a zone that is neither the battlefield nor
+    // the stack. Scanning the whole arena instead — which is what this did
+    // — is O(arena) on every round of a fixpoint that runs before every
+    // priority grant, and an Ally deck puts six-figure counts of abilities
+    // on the stack for it to walk past.
+    let mut candidates = state.take_token_cleanup();
+    for id in candidates.drain(..) {
+        let Some(obj) = state.object(id) else {
+            continue; // already gone: queued twice, or removed elsewhere
+        };
         let is_token_like = obj.card.is_none()
             && !matches!(
                 obj.kind,
                 ObjectKind::Emblem | ObjectKind::AbilityOnStack | ObjectKind::Spell
             );
-        if is_token_like && obj.zone != crate::zone::Zone::Battlefield {
-            vanished.push(id);
+        if !is_token_like || obj.zone == crate::zone::Zone::Battlefield {
+            continue; // an emblem, a spell copy, or it went back
         }
-    }
-    for id in vanished {
+        // Ceasing to exist means leaving the zone list too. Removing it
+        // only from the arena leaves a dangling id behind that every later
+        // graveyard scan walks over and `snapshot_hash` hashes — which for
+        // a deck that makes thousands of tokens is an unbounded leak.
+        let loc = ZoneLocation::of(obj.zone, obj.zone_owner.unwrap_or(obj.owner));
+        state.zones.remove(id, loc);
         let _ = state.arena.remove(id);
         outcome.changed = true;
     }
+    state.return_token_cleanup(candidates);
 
     outcome
 }
@@ -418,6 +433,16 @@ mod tests {
         }
     }
 
+    /// Two empty boards. Nothing here interrupts the pass, which matters:
+    /// the legend rule returns early, so any test of a later SBA needs a
+    /// state that gets that far.
+    fn empty_boards_preset(seed: u64) -> GamePreset {
+        let mut preset = two_legend_pairs_preset(seed);
+        for seat in &mut preset.seats {
+            seat.starting_battlefield.clear();
+        }
+        preset
+    }
 
     /// With two legend pairs coexisting, the FIRST choice a player sees
     /// must be deterministic — it used to depend on hash iteration order.
@@ -446,5 +471,99 @@ mod tests {
             }
             first = Some(group);
         }
+    }
+
+    /// CR 704.5d, now driven by a recorded candidate instead of a scan of
+    /// the whole arena. The pass has to keep finding the token *and* keep
+    /// its hands off the two card-less objects that legitimately live
+    /// outside the battlefield.
+    #[test]
+    fn a_token_that_leaves_the_battlefield_ceases_to_exist() {
+        let mut state =
+            GameState::from_preset(&empty_boards_preset(3), &RegistryLookup).expect("game starts");
+        let owner = PlayerId::new(0);
+        let name = state.names.intern("Test Token");
+
+        let token = state.create_bare(
+            owner,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let emblem = state.create_bare(
+            owner,
+            ObjectKind::Emblem,
+            name,
+            ZoneLocation::Command(owner),
+        );
+
+        // A pass while it is still on the battlefield must not touch it.
+        run(&mut state);
+        assert!(
+            state.object(token).is_some(),
+            "a token on the battlefield stays"
+        );
+        assert!(state.object(emblem).is_some(), "an emblem is not a token");
+
+        let graveyard = ZoneLocation::Graveyard(owner);
+        state
+            .move_object(token, graveyard, ZonePosition::Top, Cause::StateBased)
+            .expect("the token dies");
+        assert!(
+            state.zones.list(graveyard).contains(&token),
+            "it is in the graveyard for exactly as long as it takes SBAs to run"
+        );
+
+        run(&mut state);
+        assert!(state.object(token).is_none(), "and then it is gone");
+        assert!(
+            !state.zones.list(graveyard).contains(&token),
+            "gone from the zone list too — an id left behind here is walked by \
+             every later graveyard scan and hashed by every snapshot, and a deck \
+             that makes thousands of tokens leaks one per token"
+        );
+        assert!(
+            state.object(emblem).is_some(),
+            "the emblem is still not a token"
+        );
+    }
+
+    /// The candidate queue is drained by every pass, which is what lets
+    /// `snapshot_hash` ignore it: two states that played the same game are
+    /// equal even though one of them queued and cleared a candidate.
+    #[test]
+    fn the_cleanup_queue_is_empty_once_the_pass_has_run() {
+        let mut state =
+            GameState::from_preset(&empty_boards_preset(11), &RegistryLookup).expect("game starts");
+
+        let owner = PlayerId::new(0);
+        let name = state.names.intern("Ephemeral");
+        let token = state.create_bare(
+            owner,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        state
+            .move_object(
+                token,
+                ZoneLocation::Graveyard(owner),
+                ZonePosition::Top,
+                Cause::StateBased,
+            )
+            .expect("the token dies");
+        run(&mut state);
+        assert!(state.object(token).is_none(), "the token is gone");
+
+        // The queue is not hashed, so if a pass left something in it the
+        // state would be silently unequal to a replay of the same game.
+        // Cloning after the pass and running another one has to be a no-op.
+        let mut replay = state.clone();
+        run(&mut replay);
+        assert_eq!(
+            state.snapshot_hash(),
+            replay.snapshot_hash(),
+            "an empty pass on a settled state changes nothing"
+        );
     }
 }

@@ -286,6 +286,21 @@ pub struct GameState {
     /// working list each time is a per-effect malloc for the whole game.
     /// Always left empty, which keeps it free to clone.
     projection_ids: Vec<ObjectId>,
+    /// Objects that may have become a token outside the battlefield
+    /// (CR 704.5d), queued for the next state-based-action pass.
+    ///
+    /// The alternative — and what this replaces — is scanning the whole
+    /// arena on every SBA round, which runs as a fixpoint before every
+    /// priority grant. That is fine at sixty objects and fatal at a
+    /// million: an Ally deck can put six-figure counts of abilities on the
+    /// stack, and each of them would be visited by every round of every
+    /// pass to find, almost always, nothing. A token can only *become*
+    /// eligible when it leaves the battlefield, so recording that moment
+    /// turns O(arena) per round into O(moves).
+    ///
+    /// Drained by every pass, so it is empty whenever anyone can observe
+    /// the state — which is what keeps it out of [`Self::snapshot_hash`].
+    token_cleanup: Vec<ObjectId>,
 }
 
 impl GameState {
@@ -348,6 +363,7 @@ impl GameState {
             characteristics_generation: u64::MAX,
             effect_generation: 0,
             projection_ids: Vec::new(),
+            token_cleanup: Vec::new(),
         };
         state.journal.record(GameEvent::GameStarted {
             seed: preset.seed,
@@ -504,6 +520,13 @@ impl GameState {
             obj.zone = loc.zone();
             obj.zone_owner = loc.player();
         }
+        // Same rule as `move_object`: a card-less object created straight
+        // into a zone that is not the battlefield or the stack is a
+        // cleanup candidate. Emblems are card-less and live in the command
+        // zone, which is why `sba::run` — not this call — decides.
+        if !matches!(loc.zone(), Zone::Battlefield | Zone::Stack) {
+            self.watch_token_cleanup(id);
+        }
         id
     }
 
@@ -555,6 +578,32 @@ impl GameState {
     /// this.
     pub const fn invalidate_projections(&mut self) {
         self.characteristics_generation = u64::MAX;
+    }
+
+    /// Notes that `id` may now be a token outside the battlefield, so the
+    /// next state-based-action pass looks at it (CR 704.5d).
+    ///
+    /// Deliberately over-inclusive: the caller checks only the two cheap
+    /// facts it already has in hand (card-less, destination is neither the
+    /// battlefield nor the stack) and [`crate::sba`] applies the real rule.
+    /// A false positive costs one arena lookup; a false negative would be
+    /// a token that never ceases to exist.
+    pub(crate) fn watch_token_cleanup(&mut self, id: ObjectId) {
+        self.token_cleanup.push(id);
+    }
+
+    /// Takes the pending cleanup candidates, leaving the buffer empty and
+    /// allocated for reuse.
+    pub(crate) fn take_token_cleanup(&mut self) -> Vec<ObjectId> {
+        std::mem::take(&mut self.token_cleanup)
+    }
+
+    /// Returns the drained buffer so the next pass allocates nothing.
+    pub(crate) fn return_token_cleanup(&mut self, mut buffer: Vec<ObjectId>) {
+        if self.token_cleanup.is_empty() {
+            buffer.clear();
+            self.token_cleanup = buffer;
+        }
     }
 
     /// Hot path: one generation compare. When stale, permanents and stack
@@ -737,6 +786,16 @@ impl GameState {
             obj.cache.clear();
         }
         self.zones.insert(id, to, pos);
+        // A card-less object that lands anywhere but the battlefield or the
+        // stack is a cleanup candidate (CR 704.5d). The stack is excluded
+        // because a token *copy of a spell* legitimately lives there and
+        // must be allowed to resolve — the bug this rule already caused
+        // once, recorded in `sba::run`.
+        if !matches!(to.zone(), Zone::Battlefield | Zone::Stack)
+            && self.object(id).is_some_and(|o| o.card.is_none())
+        {
+            self.watch_token_cleanup(id);
+        }
         // Creature deaths this turn (Emeritus of Woe's re-prepare).
         if from_zone == crate::zone::Zone::Battlefield && to.zone() == crate::zone::Zone::Graveyard
         {
