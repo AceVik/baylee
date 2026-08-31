@@ -49,6 +49,38 @@ Misc: amass, token creation (incl. copies), clone-on-enter (permanent +
 until-EOT via layer 1), spell copies, control change/exchange, lifelink
 counters, choose-a-type, join-forces-free casts, suspend.
 
+## A2. House rules (deliberate departures from CR)
+
+Three, all implemented and tested in `engine::house_rules_tests` and
+`engine::loop_tests`. They look like rules bugs to anyone reading the engine
+against the Comprehensive Rules, so they are listed here rather than buried:
+
+1. **The first mulligan is free** (`HouseRules::mulligan_free_first`,
+   default on) — CR 103.5 charges for every one.
+2. **With three or more players nobody skips their first draw step** — CR
+   103.8a skips it for the starting player in every game; the skip exists to
+   blunt a duel's first-turn advantage, which does not apply at a table.
+3. **A real endless loop resolves once and is then broken**
+   (`LoopPolicy::RunOnceThenBreak`, default) — CR 104.4b makes it a draw.
+   A large-but-finite pile of work is never mistaken for one; see
+   `crate::loops` and `docs/engine-internals.md`.
+
+## A3. Seat automation (delegating priority)
+
+A seat can hand back decisions it does not want to make, without the engine
+guessing on its behalf:
+
+- `PriorityHold` — pass when there is nothing to do / until the stack empties
+  / until a named object resolves / until end of turn. Every hold cancels
+  itself the moment the board changes under it, so a seat can never be left
+  auto-passing through something it would have responded to.
+- `StandingAnswer` per `AbilityRef` — "always yes to Ondu Cleric's rally".
+  A question that can lose the game carries no ability handle, so no standing
+  answer can ever reach one.
+- The gateway remembers standing answers per account and replays them into
+  each new game (`/automation`, `docs/protocol.md`).
+
+
 ---
 
 ## B. Remaining engine extension points (genuinely new hooks)
