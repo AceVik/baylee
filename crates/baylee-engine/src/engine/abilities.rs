@@ -7,6 +7,56 @@ use super::{
 use baylee_cards_dsl::ActivationZone;
 
 impl<L: CardLookup> Engine<L> {
+    /// Whether a spell has something it could legally be cast at.
+    ///
+    /// CR 601.2c: a spell with a mandatory target and no legal target cannot
+    /// be cast at all. Offering it anyway is not a harmless over-approximation
+    /// — the cast wizard aborts at the targeting step, so a human sees a
+    /// button that only ever errors, and an agent picks the same illegal cast
+    /// on every pass because nothing about the state has changed.
+    ///
+    /// Deliberately conservative, and returns `true` whenever it cannot be
+    /// sure: modal spells choose targets per mode, X-counted targets depend on
+    /// a value nobody has picked yet, and player targets are not objects. All
+    /// three stay the wizard's problem.
+    fn has_a_legal_target(&self, player: PlayerId, card: ObjectId) -> bool {
+        let Some(def) = self
+            .state
+            .object(card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+        else {
+            return true;
+        };
+        let abilities = def.abilities_for_face(0);
+        if abilities
+            .iter()
+            .any(|a| matches!(a, AbilityDef::ModalSpell { .. }))
+        {
+            return true;
+        }
+        let Some(req) = abilities.iter().find_map(|a| match a {
+            AbilityDef::Spell { targets, .. } => *targets,
+            _ => None,
+        }) else {
+            return true;
+        };
+        if req.min == 0
+            || req.count_is_x
+            || matches!(
+                req.spec,
+                baylee_cards_dsl::TargetSpec::AnyPlayer
+                    | baylee_cards_dsl::TargetSpec::Player(_)
+                    | baylee_cards_dsl::TargetSpec::ThisObject
+            )
+        {
+            return true;
+        }
+        eval::target_options(&req.spec, &self.state, player, card).len() >= req.min as usize
+    }
+}
+
+impl<L: CardLookup> Engine<L> {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn compute_legal(&self, player: PlayerId) -> LegalActions {
         let mut legal = LegalActions {
@@ -34,7 +84,9 @@ impl<L: CardLookup> Engine<L> {
             {
                 legal.lands.push(card);
             }
-            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok() {
+            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+                && self.has_a_legal_target(player, card)
+            {
                 legal.castable.push(card);
             }
         }
@@ -46,7 +98,9 @@ impl<L: CardLookup> Engine<L> {
                         .iter()
                         .any(|r| matches!(r, crate::object::Rider::PlayableFromExileFor(p) if *p == player))
             });
-            if exiled_castable && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+            if exiled_castable
+                && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+                && self.has_a_legal_target(player, card)
             {
                 legal.castable.push(card);
             }

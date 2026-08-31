@@ -16,6 +16,10 @@ pub struct LoadedDeck {
     pub name: String,
     /// Main-deck entries (one per copy).
     pub main: Vec<CardIndex>,
+    /// Sideboard entries (one per copy). Reachable by wishes, never
+    /// shuffled into the library — folding these into `main` quietly
+    /// turned a 60-card deck with a 15-card sideboard into 75 cards.
+    pub sideboard: Vec<CardIndex>,
     /// Commander card(s).
     pub commanders: Vec<CardIndex>,
 }
@@ -40,11 +44,13 @@ pub fn by_name(name: &str) -> Option<CardIndex> {
 pub fn load_acceptance(text: &str, deck_name: &str) -> Result<LoadedDeck, String> {
     let rows = parse_decks(text).map_err(|e| e.to_string())?;
     let mut main = Vec::new();
+    let mut sideboard = Vec::new();
     let mut commanders = Vec::new();
     for row in rows.iter().filter(|r| r.deck == deck_name) {
         let index = by_name(&row.name).ok_or_else(|| format!("unknown card: {}", row.name))?;
         let target = match row.zone {
-            Zone::Main | Zone::Sideboard => &mut main,
+            Zone::Main => &mut main,
+            Zone::Sideboard => &mut sideboard,
             Zone::Commander => &mut commanders,
         };
         for _ in 0..row.count {
@@ -57,6 +63,7 @@ pub fn load_acceptance(text: &str, deck_name: &str) -> Result<LoadedDeck, String
     Ok(LoadedDeck {
         name: deck_name.to_string(),
         main,
+        sideboard,
         commanders,
     })
 }
@@ -83,8 +90,10 @@ fn print_ref_for(prints: &mut Vec<PrintInfo>, card: CardIndex) -> PrintRef {
 #[must_use]
 pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
     let mut prints: Vec<PrintInfo> = Vec::new();
-    let mut entries = |deck: &LoadedDeck| {
-        deck.main
+    // One closure for both lists: the print table is shared, so two closures
+    // holding `prints` would each want it mutably.
+    let mut entries = |cards: &[CardIndex]| -> Vec<DeckEntry> {
+        cards
             .iter()
             .map(|card| DeckEntry {
                 card: *card,
@@ -92,16 +101,20 @@ pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
             })
             .collect()
     };
-    let seat = |entries: Vec<DeckEntry>| SeatSpec {
+    let seat = |entries: Vec<DeckEntry>, side: Vec<DeckEntry>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
         deck: entries,
+        sideboard: side,
         starting_life: None,
         starting_hand: None,
         starting_battlefield: vec![],
         emblems: vec![],
         team: None,
     };
-    let seats = vec![seat(entries(a)), seat(entries(b))];
+    let seats = vec![
+        seat(entries(&a.main), entries(&a.sideboard)),
+        seat(entries(&b.main), entries(&b.sideboard)),
+    ];
     GamePreset {
         format: FormatId::Freeform,
         seed,

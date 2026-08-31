@@ -58,6 +58,7 @@ fn preset(
     let mk = |hand: Vec<CardIndex>, bf: Vec<CardIndex>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
         deck: deck.clone(),
+        sideboard: vec![],
         starting_life: None,
         starting_hand: Some(hand.into_iter().map(entry).collect()),
         starting_battlefield: bf.into_iter().map(entry).collect(),

@@ -594,6 +594,9 @@ fn loaded_deck(
     Ok(baylee_cards::decks::LoadedDeck {
         name: deck.name.clone(),
         main,
+        // Stored decks are a flat card list; the gateway has no sideboard
+        // section to parse yet.
+        sideboard: vec![],
         commanders: vec![],
     })
 }

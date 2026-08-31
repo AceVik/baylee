@@ -90,6 +90,8 @@ pub enum AwaitingOp {
         /// The spell on the stack whose target changes.
         spell: ObjectId,
     },
+    /// After `WishToHand`: the chosen card, if any, goes to its owner's hand.
+    WishToHand,
     /// After `CopyTargetSpell`: the copy's controller may choose new targets
     /// for it (CR 707.10c). Picking the same objects again is how they
     /// decline, so there is no separate "keep them" answer.
@@ -545,6 +547,16 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     card,
                     ZoneLocation::Library(player),
                     ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+        }
+        AwaitingOp::WishToHand => {
+            if let Some(&card) = chosen.first() {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Hand(res.controller),
+                    ZonePosition::Top,
                     Cause::Effect,
                 );
             }
@@ -1432,6 +1444,30 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: pick,
                 max: pick,
                 prompt: ChoicePrompt::Generic,
+            })
+        }
+        Effect::WishToHand { filter } => {
+            // Cards outside the game, plus your own exile — the one place in
+            // the game a wish can already see. The choice is optional ("you
+            // may"), so the minimum is zero.
+            let mut options: Vec<ObjectId> = Vec::new();
+            for loc in [ZoneLocation::OutsideGame(you), ZoneLocation::Exile(you)] {
+                options.extend(state.zones.list(loc).iter().copied().filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.owner == you && eval::matches(filter, state, o, you, res.source)
+                    })
+                }));
+            }
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::WishToHand);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::Wish,
             })
         }
         Effect::RedirectTarget { new_filter } => {

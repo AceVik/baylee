@@ -52,6 +52,7 @@ fn preset_with_hand(seed: u64, hand0: Vec<CardIndex>, hand1: Vec<CardIndex>) -> 
     let mk_seat = |hand: Vec<CardIndex>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
         deck: deck.clone(),
+        sideboard: vec![],
         starting_life: None,
         starting_hand: Some(hand.into_iter().map(entry).collect()),
         starting_battlefield: vec![],

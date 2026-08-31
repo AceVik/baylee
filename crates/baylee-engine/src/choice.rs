@@ -175,6 +175,8 @@ pub enum ChoicePrompt {
     ScryBottom,
     /// Put cards from your hand on top of your library (chosen order).
     PutBackOnTop,
+    /// A wish: cards from outside the game, or face-up in your exile.
+    Wish,
     /// Generic selection.
     Generic,
 }

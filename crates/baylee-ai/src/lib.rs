@@ -324,19 +324,23 @@ pub fn play_game<L: CardLookup>(
         let player = pending_player(&pending)?;
         let action = agents[player.get() as usize].act(&engine, player);
         if let Err(err) = engine.apply(player, action) {
-            // Late legality/payment misses are AI mis-evaluation, not
-            // engine bugs: the wizard aborts and the game continues.
-            let msg = format!("{err}");
-            if msg.contains("cannot pay") {
+            // Late legality/payment misses are AI mis-evaluation, not engine
+            // bugs, and the engine has already recovered: a cast that fails
+            // mid-wizard drops the wizard and re-publishes a decision point
+            // (see `advance_cast_wizard`). So the game continues from
+            // whatever it published — abandoning it here threw away a game
+            // the engine had already put back on its feet, which is why a
+            // deck change could take the soak from 3/4 finished to 1/4.
+            //
+            // If the agent really is stuck, the state repeats exactly and the
+            // loop detector above ends the game on the next pass.
+            if format!("{err}").contains("cannot pay") {
                 continue;
             }
             if let Pending::Priority { .. } = &pending {
                 engine
                     .apply(player, PlayerAction::PassPriority)
                     .expect("passing is always legal");
-            } else {
-                let _ = msg; // late legality miss at a non-priority choice
-                return None;
             }
         }
     }
@@ -406,6 +410,7 @@ mod tests {
         let seat = |life: i32, board: usize| SeatSpec {
             controller: SeatController::Ai(AIProfile::default()),
             deck: deck.clone(),
+            sideboard: vec![],
             starting_life: Some(life),
             starting_hand: None,
             starting_battlefield: (0..board)

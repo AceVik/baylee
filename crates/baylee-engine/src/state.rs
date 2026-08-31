@@ -396,6 +396,21 @@ impl GameState {
                     .expect("freshly created object");
             }
             state.shuffle_library(player);
+            // The sideboard is created but never shuffled in. These cards are
+            // outside the game (CR 400.1) until a wish reaches them; folding
+            // them into the library would silently make every deck bigger
+            // than the one the player registered.
+            for &entry in &seat.sideboard {
+                let id = state.create_card(player, entry, lookup)?;
+                state
+                    .move_object(
+                        id,
+                        ZoneLocation::OutsideGame(player),
+                        ZonePosition::Top,
+                        Cause::Setup,
+                    )
+                    .expect("freshly created object");
+            }
             match &seat.starting_hand {
                 Some(hand) => {
                     for &entry in hand {
@@ -1239,6 +1254,7 @@ mod tests {
                 .map(|_| SeatSpec {
                     controller: SeatController::Ai(AIProfile::default()),
                     deck: deck.clone(),
+                    sideboard: vec![],
                     starting_life: None,
                     starting_hand: None,
                     starting_battlefield: vec![],

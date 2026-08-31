@@ -84,6 +84,7 @@ fn preset(seed: u64, seat0: SeatBuilder, seat1: SeatBuilder) -> GamePreset {
     let mk = |b: SeatBuilder| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
         deck: deck.clone(),
+        sideboard: vec![],
         starting_life: None,
         starting_hand: Some(b.hand.into_iter().map(entry).collect()),
         starting_battlefield: b.battlefield.into_iter().map(entry).collect(),

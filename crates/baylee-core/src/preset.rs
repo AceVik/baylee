@@ -187,6 +187,9 @@ pub struct SeatSpec {
     pub controller: SeatController,
     /// The deck (validated by the gateway; the engine re-checks structure).
     pub deck: Vec<DeckEntry>,
+    /// Cards outside the game this seat may reach (wishes, Karn's −2).
+    /// Never shuffled into the library: a sideboard is not the deck.
+    pub sideboard: Vec<DeckEntry>,
     /// Starting life override (format default when `None`).
     pub starting_life: Option<i32>,
     /// Fixed starting hand (drawn instead of random when set; testing/boss).
@@ -309,6 +312,7 @@ mod tests {
                         card: CardIndex::new(0),
                         print: PrintRef::new(print_ref),
                     }],
+                    sideboard: vec![],
                     starting_life: None,
                     starting_hand: None,
                     starting_battlefield: vec![],

@@ -157,6 +157,7 @@ fn preset_bf(seed: u64, bf0: &[u32], hand0: &[u32]) -> GamePreset {
     let mk = |bf: &[u32], hand: &[u32]| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
         deck: deck.clone(),
+        sideboard: vec![],
         starting_life: None,
         starting_hand: Some(hand.iter().map(|c| entry(*c)).collect()),
         starting_battlefield: bf.iter().map(|c| entry(*c)).collect(),

@@ -68,6 +68,14 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                     print: PrintRef::new(d.print_ref as u16),
                 })
                 .collect();
+            let sideboard = s
+                .sideboard
+                .iter()
+                .map(|d| DeckEntry {
+                    card: CardIndex::new(d.card_index),
+                    print: PrintRef::new(d.print_ref as u16),
+                })
+                .collect();
             let starting_hand: Vec<DeckEntry> = s
                 .starting_hand
                 .iter()
@@ -87,6 +95,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
             Ok(SeatSpec {
                 controller,
                 deck,
+                sideboard,
                 starting_life: s.starting_life,
                 starting_hand: if starting_hand.is_empty() {
                     None

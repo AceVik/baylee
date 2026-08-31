@@ -43,6 +43,7 @@ pub struct Duel {
     seed: u64,
     hand: [Vec<CardIndex>; 2],
     battlefield: [Vec<CardIndex>; 2],
+    sideboard: [Vec<CardIndex>; 2],
     library_filler: CardIndex,
 }
 
@@ -55,6 +56,7 @@ impl Duel {
             seed,
             hand: [Vec::new(), Vec::new()],
             battlefield: [Vec::new(), Vec::new()],
+            sideboard: [Vec::new(), Vec::new()],
             library_filler,
         }
     }
@@ -73,6 +75,13 @@ impl Duel {
         self
     }
 
+    /// Cards a seat keeps outside the game (sideboard; wish targets).
+    #[must_use]
+    pub fn sideboard(mut self, seat: usize, cards: &[CardIndex]) -> Self {
+        self.sideboard[seat] = cards.to_vec();
+        self
+    }
+
     /// Builds the engine (both seats AI-controlled; tests drive pending
     /// choices directly).
     #[track_caller]
@@ -81,6 +90,7 @@ impl Duel {
         let mk = |seat: usize| SeatSpec {
             controller: SeatController::Ai(AIProfile::default()),
             deck: deck.clone(),
+            sideboard: self.sideboard[seat].iter().copied().map(entry).collect(),
             starting_life: None,
             starting_hand: Some(self.hand[seat].iter().copied().map(entry).collect()),
             starting_battlefield: self.battlefield[seat].iter().copied().map(entry).collect(),

@@ -80,7 +80,12 @@ pub fn matches(
                 ZoneRef::Graveyard => obj.zone == crate::zone::Zone::Graveyard,
                 ZoneRef::Exile => obj.zone == crate::zone::Zone::Exile,
                 ZoneRef::Command => obj.zone == crate::zone::Zone::Command,
-                ZoneRef::NotBattlefield => obj.zone != crate::zone::Zone::Battlefield,
+                // Cards outside the game are in no zone at all, so "not on the
+                // battlefield" must not sweep the sideboard in with them.
+                ZoneRef::NotBattlefield => {
+                    obj.zone != crate::zone::Zone::Battlefield
+                        && obj.zone != crate::zone::Zone::OutsideGame
+                }
             }
         }
     }

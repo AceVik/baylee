@@ -7,7 +7,8 @@
 use baylee_core::ids::{ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 
-/// The seven zones (CR 400.1). Phasing is a status, not a zone (CR 702.26).
+/// The seven zones (CR 400.1), plus one that is not a zone at all.
+/// Phasing is a status, not a zone (CR 702.26).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Zone {
     /// Per-player, ordered, hidden.
@@ -24,6 +25,11 @@ pub enum Zone {
     Stack,
     /// Per-player (commanders, emblems, schemes, dungeons).
     Command,
+    /// Not a zone in the rules: cards *outside the game* are in no zone at
+    /// all (CR 400.1). They are stored as one anyway, because a wish has to
+    /// offer them as objects with ids — and giving them a home makes them
+    /// impossible to confuse with anything in the game.
+    OutsideGame,
 }
 
 impl Zone {
@@ -36,7 +42,7 @@ impl Zone {
     /// Whether the zone's contents are hidden from other players by default.
     #[must_use]
     pub const fn is_hidden_by_default(self) -> bool {
-        matches!(self, Zone::Library | Zone::Hand)
+        matches!(self, Zone::Library | Zone::Hand | Zone::OutsideGame)
     }
 }
 
@@ -57,6 +63,8 @@ pub enum ZoneLocation {
     Stack,
     /// A player's command zone.
     Command(PlayerId),
+    /// A player's cards outside the game (sideboard).
+    OutsideGame(PlayerId),
 }
 
 impl ZoneLocation {
@@ -71,6 +79,7 @@ impl ZoneLocation {
             ZoneLocation::Exile(_) => Zone::Exile,
             ZoneLocation::Stack => Zone::Stack,
             ZoneLocation::Command(_) => Zone::Command,
+            ZoneLocation::OutsideGame(_) => Zone::OutsideGame,
         }
     }
 
@@ -82,7 +91,8 @@ impl ZoneLocation {
             | ZoneLocation::Hand(p)
             | ZoneLocation::Graveyard(p)
             | ZoneLocation::Exile(p)
-            | ZoneLocation::Command(p) => Some(p),
+            | ZoneLocation::Command(p)
+            | ZoneLocation::OutsideGame(p) => Some(p),
             ZoneLocation::Battlefield | ZoneLocation::Stack => None,
         }
     }
@@ -98,6 +108,7 @@ impl ZoneLocation {
             Zone::Exile => ZoneLocation::Exile(p),
             Zone::Stack => ZoneLocation::Stack,
             Zone::Command => ZoneLocation::Command(p),
+            Zone::OutsideGame => ZoneLocation::OutsideGame(p),
         }
     }
 }
@@ -123,6 +134,7 @@ pub struct Zones {
     graveyards: Vec<Vec<ObjectId>>,
     exiles: Vec<Vec<ObjectId>>,
     commands: Vec<Vec<ObjectId>>,
+    outside: Vec<Vec<ObjectId>>,
 }
 
 impl Zones {
@@ -137,6 +149,7 @@ impl Zones {
             graveyards: vec![Vec::new(); players],
             exiles: vec![Vec::new(); players],
             commands: vec![Vec::new(); players],
+            outside: vec![Vec::new(); players],
         }
     }
 
@@ -151,6 +164,7 @@ impl Zones {
             ZoneLocation::Graveyard(p) => &self.graveyards[p.get() as usize],
             ZoneLocation::Exile(p) => &self.exiles[p.get() as usize],
             ZoneLocation::Command(p) => &self.commands[p.get() as usize],
+            ZoneLocation::OutsideGame(p) => &self.outside[p.get() as usize],
         }
     }
 
@@ -164,6 +178,7 @@ impl Zones {
             ZoneLocation::Graveyard(p) => &mut self.graveyards[p.get() as usize],
             ZoneLocation::Exile(p) => &mut self.exiles[p.get() as usize],
             ZoneLocation::Command(p) => &mut self.commands[p.get() as usize],
+            ZoneLocation::OutsideGame(p) => &mut self.outside[p.get() as usize],
         }
     }
 

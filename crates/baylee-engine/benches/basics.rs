@@ -54,6 +54,7 @@ fn preset(seed: u64) -> GamePreset {
             .map(|_| SeatSpec {
                 controller: SeatController::Ai(AIProfile::default()),
                 deck: deck.clone(),
+                sideboard: vec![],
                 starting_life: None,
                 starting_hand: None,
                 starting_battlefield: vec![],

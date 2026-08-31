@@ -192,6 +192,7 @@ mod tests {
                 SeatController::Open
             },
             deck: deck.clone(),
+            sideboard: vec![],
             starting_life: None,
             starting_hand: None,
             starting_battlefield: vec![],

@@ -104,7 +104,8 @@ Zones: `SearchLibrary`, `OptionalBasicLandSearchFor`, `GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,
 `ExileLinked`, `ReturnLinkedToBattlefield`, `PutFromHandOnTop`,
 `PutSourceOnTopOfLibrary`, `ExileAndReturnAtEndStep` (Venser +2, Eerie
-Interlude), `BottomCardFromHand`.
+Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own
+from outside the game or face-up in your exile).
 Continuous: `CreateContinuousEffect` (any layer+filter+modifier+duration),
 `PumpFilter`, `SetPTFilter`, `ChangeController`, `AllCreaturesToOwner`,
 `ExchangeControlOrSacrifice` (Gilded Drake), `PhaseOut`, `AttachSelf`.
@@ -190,12 +191,11 @@ abilities: &[AbilityDef::Static(StaticAbility {
 Landed since the freeze (no longer blockers): MDFC face casting, miracle,
 delve, convoke, flashback grants, protection (damage/target/block),
 until-EOT layer-1 copies, extra turns, lifelink counters, search locks,
-no-max-hand-size, damage prevention, choose-a-type, ward, monarch.
+no-max-hand-size, damage prevention, choose-a-type, ward, monarch,
+spell-copy target re-choice, sideboard / outside-the-game access.
 
 - Multiplayer player-choice for targeted triggers (protocol M3) — use
   `PlayerRel::Opponent` (heads-up auto-resolve) + `Partial` note for MP.
-- Target re-choice for spell copies (protocol M3).
-- Sideboard / outside-the-game access (Karn's wish, companion) — gateway M4.
 - Sagas (Urza's Saga chapters, The True Scriptures): lore counters,
   chapter triggers, granted abilities, sacrifice after the last chapter.
 - Disturb (Mirrorhall Mimic's back): graveyard face-casting.

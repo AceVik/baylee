@@ -311,6 +311,13 @@ pub enum Effect {
         /// How much.
         amount: Amount,
     },
+    /// "You may reveal a card you own from outside the game, or choose a
+    /// face-up card you own in exile. Put that card into your hand."
+    /// (wishes; Karn, the Great Creator's −2).
+    WishToHand {
+        /// Which cards qualify.
+        filter: &'static Filter,
+    },
     /// Destroy a target permanent (can't be regenerated).
     Destroy {
         /// What.

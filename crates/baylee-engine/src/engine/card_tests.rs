@@ -312,3 +312,126 @@ fn storm_of_saruman_copies_only_the_second_spell() {
         on_battlefield(e, p1, earth_king_s_lieutenant()).is_none()
     });
 }
+
+fn karn_the_great_creator() -> baylee_core::ids::CardIndex {
+    card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
+}
+fn chromatic_lantern() -> baylee_core::ids::CardIndex {
+    card_index("539f5396-d99a-417d-a84c-dff7930b5900")
+}
+
+/// Karn, the Great Creator −2: "reveal an artifact card you own from outside
+/// the game ... put that card into your hand."
+///
+/// Also the regression test for the sideboard itself: those cards must be
+/// reachable by the wish and absent from the library, which is where they
+/// used to end up.
+#[test]
+fn karn_minus_two_pulls_an_artifact_from_outside_the_game() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[karn_the_great_creator()])
+        .sideboard(0, &[chromatic_lantern()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let library = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0));
+    assert!(
+        !library.iter().any(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == chromatic_lantern()))
+        }),
+        "the sideboard was shuffled into the library"
+    );
+
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: karn,
+                ability_index: 2,
+            },
+        )
+        .unwrap();
+
+    // The ability goes on the stack; the wish is offered when it resolves.
+    let mut offered = None;
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChooseCards {
+                options, min, max, ..
+            } => {
+                assert_eq!((min, max), (0, 1), "the wish is optional and singular");
+                offered = Some(options);
+                break;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while resolving the wish: {other:?}"),
+        }
+    }
+    let offered = offered.expect("the wish offered the sideboard");
+    assert_eq!(
+        offered.len(),
+        1,
+        "only the artifact outside the game qualifies"
+    );
+
+    let wanted = offered[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wanted],
+            },
+        )
+        .unwrap();
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .contains(&wanted),
+        "the wished-for card is in hand"
+    );
+}
+
+/// CR 601.2c: a spell whose mandatory target has no legal choice cannot be
+/// cast at all, so it must not be offered. Counterspell with an empty stack
+/// is the clean case — offering it hands a human a button that only errors,
+/// and an agent an action it will pick again on every pass, because failing
+/// changes nothing about the state.
+#[test]
+fn a_spell_with_no_legal_target_is_not_offered() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(51, forest())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.is_empty(),
+        "counterspell was offered with nothing on the stack to counter"
+    );
+}

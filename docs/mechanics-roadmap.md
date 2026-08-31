@@ -119,6 +119,22 @@ Goad, melee, myriad, will of the council/vote, council's dilemma,
 temptation, join forces, assist, hidden agenda. Most need M3 protocol
 multi-target choices; engine support is otherwise small.
 
+### C2b — regeneration (P2, no card in the pool needs it yet)
+
+`Damn` and `Vindicate` both say "can't be regenerated", and the note in
+`damn.rs` promised this entry — which was never written, so the family
+was invisible. Nothing in the 194-card pool actually *regenerates*, so
+the clause is currently vacuous rather than wrong.
+
+What it needs when a regenerating card arrives: a per-object shield count
+cleared at cleanup, consumed by destruction instead of the object dying
+(tap, remove from combat, clear marked damage — CR 701.15), and a flag on
+the destroying effect for the "can't be regenerated" clause that already
+appears on several cards. Size S–M. Deliberately not built ahead of a
+card: an effect with no card to exercise it is the exact shape of
+`NthSpellCast` and `once_per_turn`, which sat declared-but-dead for
+months.
+
 ### C3 — newer-set families (P2, as needed)
 
 Energy economy (counters exist; spend/gain effects), The Ring tempts

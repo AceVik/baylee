@@ -51,6 +51,7 @@ fn preset_2p(seed: u64, deck: &[CardIndex]) -> GamePreset {
             .map(|_| SeatSpec {
                 controller: SeatController::Ai(AIProfile::default()),
                 deck: entries.clone(),
+                sideboard: vec![],
                 starting_life: None,
                 starting_hand: None,
                 starting_battlefield: vec![],

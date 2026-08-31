@@ -79,6 +79,9 @@ message ModifierSpec {
 message SeatSpec {
   SeatController controller = 1;
   repeated DeckEntry deck = 2;
+  // Cards outside the game this seat may reach (wishes). Never shuffled
+  // into the library.
+  repeated DeckEntry sideboard = 8;
   optional int32 starting_life = 3;
   repeated DeckEntry starting_hand = 4;
   repeated DeckEntry starting_battlefield = 5;

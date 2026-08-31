@@ -297,6 +297,7 @@ mod tests {
         let mk = |bf: Vec<CardIndex>| SeatSpec {
             controller: SeatController::Ai(AIProfile::default()),
             deck: deck.clone(),
+            sideboard: vec![],
             starting_life: None,
             starting_hand: None,
             starting_battlefield: bf.into_iter().map(entry).collect(),

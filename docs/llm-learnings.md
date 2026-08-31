@@ -391,3 +391,77 @@ Open milestones discovered tonight:
   behavioral tests turned three latent bugs into failing output in minutes.
 - **193 Implemented, 1 Partial, 0 Unimplemented.** The 1 is Karn
   (outside-the-game access, still waiting on M4 gateway sideboards).
+
+## 2026-08-31 (later) — 194/0/0, and the pattern behind all of it
+
+Five things landed this session that were each already "in the codebase":
+`once_per_turn`, `Trigger::NthSpellCast`, `ResumeGame{last_seq}`,
+`HouseRules::decision_timeout_secs`, and `AIProfile::politics`. Every one was
+declared in a type, carried through the preset or the proto, documented as a
+feature — and read by nobody. Two of them (`politics`, the agent profile) even
+carried an `#[allow(dead_code)]` that made the deadness look deliberate.
+
+That is the failure mode of this codebase, and it is not sloppiness: it is
+what happens when the *declaration* is the cheap half and the wiring is the
+expensive half, and the declaration is what gets reviewed. Things to take
+from it:
+
+- **Grep for reads, not for the name.** All five would have been caught by
+  asking "where is this *read*?" instead of "does this exist?". `ability_fires`
+  had an insert and a clear and no `get`.
+- **A settings field is a claim like a coverage string is a claim.** Neither
+  is evidence. The only evidence is a test that exercises it.
+- **"Needs protocol v2" was wrong four times out of five.** The copy
+  re-choice, the agreed draw, the resume and the decision clock all shipped
+  without touching the wire, because the taxonomy travels as JSON inside the
+  protobuf frames by deliberate design. Before deferring something to a
+  protocol milestone, check whether it needs the wire or only the taxonomy
+  the wire carries. Only `time_extension_votes` genuinely needs new messages.
+
+The sideboard was the same shape in reverse: `Zone::Sideboard` was parsed
+correctly and then folded into the main deck (`Zone::Main | Zone::Sideboard =>
+&mut main`), so every acceptance deck was ~15 cards larger than the one it
+described, silently, for as long as the parser has existed. Both acceptance
+decks have sideboard sections, so this was live, not theoretical.
+
+Karn's −2 then became small: sideboard cards materialise into a
+`Zone::OutsideGame` — not a zone in the rules (CR 400.1 says those cards are
+in *no* zone), but they need object ids for a choice to offer them, and a home
+makes them impossible to confuse with cards in the game. `Effect::WishToHand`
+reads that zone plus your own exile.
+
+- **194 Implemented, 0 Partial, 0 Unimplemented.** The acceptance pool is
+  complete. What remains is engine *families* (see the roadmap), not cards.
+- Regeneration was deliberately **not** built: nothing in the pool regenerates,
+  and `damn.rs` promised a roadmap entry that had never been written. The
+  entry now exists (C2b) with the shape and sizing. Building the machinery
+  ahead of a card would have produced a sixth declared-but-dead feature —
+  which, this session of all sessions, would have been a poor joke.
+
+### The soak failure the sideboard fix exposed
+
+Fixing the sideboard took the AI soak from 4/4 to 1/4 finished games, which
+looked at first like an infinite loop introduced by the new zone. It was
+neither new nor a loop, and the diagnosis is worth keeping:
+
+1. **Bisect before theorising.** Skipping the sideboard object creation
+   entirely still failed — so the new zone was innocent and the *deck
+   composition change* was the trigger. Different shuffles, different games.
+2. **`None` from `play_game` meant three different things** (action cap,
+   loop detected, late legality miss) and the test could not tell them apart.
+   One `eprintln!` per exit path found it in a single run.
+3. The real cause: `compute_legal` offered Force of Will as castable with an
+   empty stack. The cast wizard then aborted at the targeting step, the
+   engine recovered cleanly — and the agent, facing an unchanged state, chose
+   the same illegal cast again. `play_game` abandoned the game on the first
+   miss, which is why the count moved so sharply for so small a data change.
+
+Both halves were wrong and both are fixed: the harness no longer gives up on
+a miss the engine has already recovered from, and `compute_legal` no longer
+offers a spell whose mandatory target has no legal choice (CR 601.2c). The
+second is the one that matters beyond the soak — a human client was being
+shown a cast button that could only ever produce an error.
+
+Worth remembering: an over-approximated "legal actions" list is not a
+harmless convenience. Anything that consumes it — a UI, an agent, a test
+harness — treats it as truth.
