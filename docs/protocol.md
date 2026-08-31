@@ -37,6 +37,23 @@ as a side effect of somebody reconnecting. A client that is already current
 gateway now also uses that snapshot when a seat's socket lags behind the
 broadcast, instead of dropping the player.
 
+`HouseRules::decision_timeout_secs` is enforced as of 2026-08-31. It was
+carried from the preset through `baylee-gamehost` into the proto and read by
+nobody. The clock lives in the **gateway**, never in the engine or the
+session: the rules kernel is deterministic, and a session that timed itself
+would replay differently on every machine. `Session` only answers two
+clock-free questions — who owes an answer, and what a legal answer would be —
+and the gateway anchors a deadline to the session's sequence number so it
+restarts when the game moves rather than whenever the task wakes up. On
+expiry the house agent answers for the seat, because it is legal for every
+`Pending`; a timeout that produced an illegal action would leave the same
+seat stuck on the same question forever.
+
+Still open here: `time_extension_votes`, which unlike everything above does
+need the wire — `TimeExtensionRequest/Vote/Result` are not in the proto — and
+`reconnect_window_secs`, which needs the gateway to hold a seat open rather
+than only rebuild it.
+
 Server: `baylee-engine-server` (tokio + tokio-tungstenite), one process,
 games as `Session`s — engine + human seat + auto-driven AI seats
 (baylee-ai). E2E smoke: real binary over a real socket

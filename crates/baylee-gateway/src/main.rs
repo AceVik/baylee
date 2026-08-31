@@ -833,6 +833,85 @@ where
     }
 }
 
+/// Applies one decoded frame from a seat's socket.
+///
+/// Returns false when the game is gone and the socket should close.
+fn handle_client_frame(
+    state: &Shared,
+    game_id: &str,
+    player: baylee_core::ids::PlayerId,
+    envelope: Envelope,
+) -> bool {
+    match envelope.msg {
+        Some(v1::envelope::Msg::PlayerAction(action_msg)) => {
+            let Ok(action) = serde_json::from_slice::<baylee_engine::choice::PlayerAction>(
+                &action_msg.action_json,
+            ) else {
+                return true;
+            };
+            drive_session(state, game_id, |session, emit| {
+                let routed = session.act(player, action)?;
+                for (p, env) in routed {
+                    emit(p, env);
+                }
+                Ok(())
+            })
+        }
+        // A reconnecting seat asks for whatever it missed. Read-only, so the
+        // seats still playing see nothing and no AI seat is driven forward as
+        // a side effect of somebody reconnecting.
+        Some(v1::envelope::Msg::Resume(resume)) => {
+            drive_session(state, game_id, |session, emit| {
+                for env in session.resume(player, resume.last_seq) {
+                    emit(player, env);
+                }
+                Ok(())
+            })
+        }
+        _ => true,
+    }
+}
+
+/// Re-arms the seat's decision deadline when the game has moved on.
+///
+/// The deadline is anchored to the session's sequence number, so it restarts
+/// when the game actually advances rather than every time an envelope
+/// addressed to the opponent wakes this task up.
+fn refresh_decision_clock(
+    state: &Shared,
+    game_id: &str,
+    player: baylee_core::ids::PlayerId,
+    timeout_secs: u32,
+    deadline: &mut Option<tokio::time::Instant>,
+    clocked_seq: &mut Option<u64>,
+) {
+    let lobby = state.lobby.lock();
+    match lobby.games.get(game_id).and_then(|g| g.session.as_ref()) {
+        Some(session) if session.awaiting_seat() == Some(player) => {
+            if *clocked_seq != Some(session.seq()) {
+                *clocked_seq = Some(session.seq());
+                *deadline = (timeout_secs > 0).then(|| {
+                    tokio::time::Instant::now()
+                        + std::time::Duration::from_secs(u64::from(timeout_secs))
+                });
+            }
+        }
+        _ => {
+            *deadline = None;
+            *clocked_seq = None;
+        }
+    }
+}
+
+/// Waits for a seat's decision deadline; waits forever when the seat is not
+/// the one being asked, or the table sets no limit.
+async fn decision_clock(deadline: Option<tokio::time::Instant>) {
+    match deadline {
+        Some(at) => tokio::time::sleep_until(at).await,
+        None => std::future::pending().await,
+    }
+}
+
 async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket: WebSocket) {
     let player = baylee_core::ids::PlayerId::new(seat as u8);
     // Subscribe BEFORE the initial pump so this socket can't miss its own
@@ -853,48 +932,58 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
     }) {
         return;
     }
+    // The decision clock lives here, never in the engine or the session: the
+    // rules kernel is deterministic and must not read a wall clock. Each
+    // socket runs only its own seat's clock, so the seats of a duel cannot
+    // both fire the same timeout.
+    let timeout_secs = {
+        let lobby = state.lobby.lock();
+        lobby
+            .games
+            .get(&game_id)
+            .and_then(|g| g.session.as_ref())
+            .map_or(0, baylee_gamehost::Session::decision_timeout_secs)
+    };
+    // The deadline is anchored to the sequence number it was set for, so it
+    // restarts when the game actually moves — not every time an envelope
+    // addressed to the opponent happens to wake this task up.
+    let mut deadline: Option<tokio::time::Instant> = None;
+    let mut clocked_seq: Option<u64> = None;
     loop {
+        refresh_decision_clock(
+            &state,
+            &game_id,
+            player,
+            timeout_secs,
+            &mut deadline,
+            &mut clocked_seq,
+        );
         tokio::select! {
+            () = decision_clock(deadline) => {
+                // Out of time. The house agent answers for the seat, which is
+                // guaranteed to be legal for whatever was asked.
+                tracing::info!(game_id, seat, "decision timed out; answering for the seat");
+                let alive = drive_session(&state, &game_id, |session, emit| {
+                    let Some((p, action)) = session.timeout_action() else {
+                        return Ok(());
+                    };
+                    for (q, env) in session.act(p, action)? {
+                        emit(q, env);
+                    }
+                    Ok(())
+                });
+                if !alive {
+                    return;
+                }
+            }
             frame = futures_util::StreamExt::next(&mut socket) => {
                 match frame {
                     Some(Ok(Message::Binary(data))) => {
                         let Ok(envelope) = Envelope::decode(data) else {
                             continue;
                         };
-                        match envelope.msg {
-                            Some(v1::envelope::Msg::PlayerAction(action_msg)) => {
-                                let Ok(action) =
-                                    serde_json::from_slice::<baylee_engine::choice::PlayerAction>(
-                                        &action_msg.action_json,
-                                    )
-                                else {
-                                    continue;
-                                };
-                                if !drive_session(&state, &game_id, |session, emit| {
-                                    let routed = session.act(player, action)?;
-                                    for (p, env) in routed {
-                                        emit(p, env);
-                                    }
-                                    Ok(())
-                                }) {
-                                    return;
-                                }
-                            }
-                            // A reconnecting seat asks for whatever it missed.
-                            // Read-only, so the seats still playing see nothing
-                            // and no AI seat is driven forward by a reconnect.
-                            Some(v1::envelope::Msg::Resume(resume)) => {
-                                let alive = drive_session(&state, &game_id, |session, emit| {
-                                    for env in session.resume(player, resume.last_seq) {
-                                        emit(player, env);
-                                    }
-                                    Ok(())
-                                });
-                                if !alive {
-                                    return;
-                                }
-                            }
-                            _ => {}
+                        if !handle_client_frame(&state, &game_id, player, envelope) {
+                            return;
                         }
                     }
                     // Pings are answered by axum; ignore other frame kinds.

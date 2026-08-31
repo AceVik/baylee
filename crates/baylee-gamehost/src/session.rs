@@ -5,7 +5,7 @@
 use baylee_ai::HeuristicAgent;
 use baylee_cards::dsl::CardDef;
 use baylee_core::ids::{CardIndex, PlayerId};
-use baylee_core::preset::{GamePreset, SeatController};
+use baylee_core::preset::{AIProfile, GamePreset, HouseRules, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_engine::state::CardLookup;
@@ -33,6 +33,8 @@ pub struct Session {
     engine: Engine<RegistryLookup>,
     seats: Vec<SeatKind>,
     seq: u64,
+    /// Kept for the decision clock; the engine has its own copy for rules.
+    house_rules: HouseRules,
 }
 
 impl Session {
@@ -53,6 +55,7 @@ impl Session {
             engine,
             seats,
             seq: 0,
+            house_rules: preset.house_rules.clone(),
         })
     }
 
@@ -120,6 +123,37 @@ impl Session {
             self.seq += 1;
         }
         out
+    }
+
+    /// How long a seat may sit on a decision, per the table's house rules
+    /// (`0` = no limit).
+    ///
+    /// The clock itself belongs to the caller. Nothing below this line may
+    /// read a wall clock: the rules kernel is deterministic, and a session
+    /// that timed itself would replay differently on every machine.
+    #[must_use]
+    pub const fn decision_timeout_secs(&self) -> u32 {
+        self.house_rules.decision_timeout_secs
+    }
+
+    /// The seat that currently owes an answer, if any.
+    #[must_use]
+    pub fn awaiting_seat(&self) -> Option<PlayerId> {
+        pending_player(self.engine.pending())
+    }
+
+    /// The action to apply when a seat's decision clock runs out.
+    ///
+    /// The house agent answers rather than a hand-written table of defaults.
+    /// It already produces a *legal* answer for every `Pending`, and a
+    /// timeout that produced an illegal one would stall the very game it
+    /// exists to unstick — the seat would be asked again, time out again,
+    /// and the table would never move.
+    #[must_use]
+    pub fn timeout_action(&self) -> Option<(PlayerId, PlayerAction)> {
+        let player = self.awaiting_seat()?;
+        let agent = HeuristicAgent::new(AIProfile::default());
+        Some((player, agent.act(&self.engine, player)))
     }
 
     /// The sequence number a client should report back when it resumes.
@@ -385,5 +419,54 @@ mod tests {
                 "choice went to the wrong seat"
             );
         }
+    }
+
+    /// The clock is the table's, not the engine's.
+    #[test]
+    fn the_decision_clock_comes_from_the_house_rules() {
+        let mut preset = test_preset();
+        preset.house_rules.decision_timeout_secs = 42;
+        let session = Session::new(&preset).expect("session builds");
+        assert_eq!(session.decision_timeout_secs(), 42);
+    }
+
+    /// A seat that runs out of time is answered legally, and the game moves.
+    ///
+    /// This is the property that matters: an *illegal* timeout answer would
+    /// leave the same seat being asked the same question forever, which is
+    /// the exact failure the clock exists to prevent.
+    #[test]
+    fn a_timed_out_seat_is_answered_legally() {
+        let mut session = Session::new(&test_preset()).expect("session builds");
+        let _ = session.pump();
+        let (player, action) = session
+            .timeout_action()
+            .expect("somebody is being asked something");
+        assert_eq!(Some(player), session.awaiting_seat());
+
+        let seq_before = session.seq();
+        session
+            .act(player, action)
+            .expect("the timeout answer is legal");
+        assert!(session.seq() > seq_before, "the game moved on");
+    }
+
+    /// Answering by timeout over and over drives the game forward rather than
+    /// deadlocking on a pending nobody can satisfy.
+    #[test]
+    fn repeated_timeouts_keep_the_game_moving() {
+        let mut session = Session::new(&test_preset()).expect("session builds");
+        let _ = session.pump();
+        let mut answered = 0;
+        for _ in 0..40 {
+            let Some((player, action)) = session.timeout_action() else {
+                break;
+            };
+            if session.act(player, action).is_err() {
+                break;
+            }
+            answered += 1;
+        }
+        assert!(answered > 5, "only {answered} timeouts were answered");
     }
 }
