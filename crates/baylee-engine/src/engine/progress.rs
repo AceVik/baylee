@@ -658,6 +658,14 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn game_result(&self) -> Option<GameResult> {
+        // An agreed draw ends the game with players still alive, so it has
+        // to be checked before the last-player-standing count (CR 104.4a).
+        if self.agreed_draw {
+            return Some(GameResult {
+                winner: None,
+                reason: EndReason::Draw,
+            });
+        }
         let alive = self.alive_players();
         match alive.len() {
             0 => Some(GameResult {

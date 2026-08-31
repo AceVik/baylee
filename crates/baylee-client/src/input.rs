@@ -411,7 +411,7 @@ pub fn pointer(
             match button.action {
                 MenuAction::Concede => duel.submit(PlayerAction::Concede),
                 // Draw offers need mutual agreement — a protocol item.
-                MenuAction::OfferDraw => {}
+                MenuAction::OfferDraw => duel.submit(PlayerAction::OfferDraw),
             }
             continue;
         }

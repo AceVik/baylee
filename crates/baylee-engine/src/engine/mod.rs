@@ -97,6 +97,8 @@ pub struct Engine<L: CardLookup> {
     cast_wizard: Option<cast_wizard::CastWizard>,
     /// Triggers collected but not yet stacked (target choices first).
     trigger_queue: VecDeque<trigger::PendingTrigger>,
+    /// Every player still in the game accepted a draw offer (CR 104.4a).
+    agreed_draw: bool,
 }
 
 /// What a `Pending::ChooseTargets` is targeting for.
@@ -167,6 +169,15 @@ enum PlanKind {
         /// Ability index.
         ability_index: u32,
     },
+    /// A draw offer working its way around the table (CR 104.4a).
+    DrawOffer {
+        /// Who offered the draw.
+        proposer: PlayerId,
+        /// Players not yet asked.
+        remaining: Vec<PlayerId>,
+        /// The decision the offer interrupted, restored on a refusal.
+        resume: Box<Pending>,
+    },
     /// A modal trigger waiting for its mode choice.
     ModalTrigger {
         /// The source permanent.
@@ -205,6 +216,7 @@ impl<L: CardLookup> Engine<L> {
             resolution: None,
             trigger_scan_seq,
             pending_plan: None,
+            agreed_draw: false,
             loyalty_player_choice: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
@@ -272,6 +284,11 @@ impl<L: CardLookup> Engine<L> {
             self.run_until_choice();
             return Ok(());
         }
+        // A draw offer interrupts whoever holds priority and asks every
+        // other player in turn; nothing else about the game moves.
+        if let PlayerAction::OfferDraw = action {
+            return self.offer_draw(player);
+        }
         self.awaiting_answer = false;
         self.apply_inner(player, action)?;
         // As-it-enters modifiers run before anything else (they may
@@ -304,6 +321,8 @@ mod progress;
 
 #[cfg(test)]
 mod card_tests;
+#[cfg(test)]
+mod draw_tests;
 #[cfg(test)]
 mod m2_tests;
 #[cfg(test)]

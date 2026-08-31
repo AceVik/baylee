@@ -199,6 +199,12 @@ pub enum YesNoPrompt {
         /// The drawn card.
         card: baylee_core::ids::ObjectId,
     },
+    /// "A draw was offered. Accept?" (CR 104.4a). Everyone still in the
+    /// game has to say yes; one no and play continues where it left off.
+    DrawOffer {
+        /// The player who offered.
+        proposer: PlayerId,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -295,4 +301,6 @@ pub enum PlayerAction {
     YesNo(bool),
     /// Concede the game.
     Concede,
+    /// Offer a draw to every other player still in the game (CR 104.4a).
+    OfferDraw,
 }

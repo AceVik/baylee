@@ -21,6 +21,14 @@ protobuf mapping of the taxonomy is a protocol v2 item, together with
 per-player hidden-information filtering (`FullView`/`Delta`), timers
 (`TimeExtensionRequest/Vote/Result`), `SetAutomationRules`, dev-mode
 `DevCommand`, and spectator streams.
+
+That seam has since paid for itself twice, and both times the feature was
+filed under v2 before anyone checked what it actually touched: the copy
+target re-choice (CR 707.10c) and the agreed draw (CR 104.4a) both shipped
+as new `Pending`/`PlayerAction` variants with **no proto change at all**.
+Before scheduling something behind protocol v2, check whether it needs the
+wire or only the taxonomy the wire carries.
+
 Server: `baylee-engine-server` (tokio + tokio-tungstenite), one process,
 games as `Session`s — engine + human seat + auto-driven AI seats
 (baylee-ai). E2E smoke: real binary over a real socket

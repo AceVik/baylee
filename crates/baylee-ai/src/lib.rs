@@ -204,7 +204,12 @@ impl HeuristicAgent {
                 YesNoPrompt::Miracle { .. } => {
                     PlayerAction::YesNo(mana_available(engine.state(), player) >= 2)
                 }
-                YesNoPrompt::Kicker | YesNoPrompt::PayTax { .. } => PlayerAction::YesNo(false),
+                // Kicker and tax are declined to keep the mana; a draw is
+                // declined because the house AI has no match score to protect,
+                // so accepting would only ever be a game given away.
+                YesNoPrompt::Kicker
+                | YesNoPrompt::PayTax { .. }
+                | YesNoPrompt::DrawOffer { .. } => PlayerAction::YesNo(false),
                 YesNoPrompt::Generic => PlayerAction::YesNo(true),
             },
             Pending::GameOver(_) => PlayerAction::PassPriority, // unreachable in the driver

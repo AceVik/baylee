@@ -173,6 +173,7 @@ fn yes_no_line(question: YesNoPrompt) -> String {
         YesNoPrompt::Kicker => "Pay the additional cost?".to_string(),
         YesNoPrompt::PayTax { mana } => format!("Pay {{{mana}}}?"),
         YesNoPrompt::Miracle { .. } => "Cast it for its miracle cost?".to_string(),
+        YesNoPrompt::DrawOffer { .. } => "A draw was offered. Accept?".to_string(),
         YesNoPrompt::Generic => "Yes or no?".to_string(),
     }
 }

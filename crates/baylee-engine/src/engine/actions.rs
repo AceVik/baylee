@@ -6,6 +6,42 @@ use super::{
 };
 
 impl<L: CardLookup> Engine<L> {
+    /// Offers a draw to every other player still in the game (CR 104.4a).
+    ///
+    /// Only from your own priority: the offer suspends a decision that has to
+    /// be handed back untouched if anyone refuses, and priority is the only
+    /// point where the game is quiet enough for that to be true.
+    pub(crate) fn offer_draw(&mut self, player: PlayerId) -> Result<(), EngineError> {
+        let Pending::Priority { player: holder, .. } = &self.pending else {
+            return Err(EngineError::IllegalAction("a draw offer needs priority"));
+        };
+        if *holder != player {
+            return Err(EngineError::IllegalAction("a draw offer needs priority"));
+        }
+        let mut remaining: Vec<PlayerId> = self
+            .state
+            .players
+            .iter()
+            .filter(|p| !p.has_lost && p.id != player)
+            .map(|p| p.id)
+            .collect();
+        if remaining.is_empty() {
+            return Err(EngineError::IllegalAction("nobody left to offer a draw to"));
+        }
+        let asked = remaining.remove(0);
+        self.pending_plan = Some(PlanKind::DrawOffer {
+            proposer: player,
+            remaining,
+            resume: Box::new(self.pending.clone()),
+        });
+        self.pending = Pending::YesNo {
+            player: asked,
+            prompt: crate::choice::YesNoPrompt::DrawOffer { proposer: player },
+        };
+        self.awaiting_answer = true;
+        Ok(())
+    }
+
     #[allow(clippy::too_many_lines)] // flat match over the choice taxonomy — splitting would obscure, not clarify
     pub(crate) fn apply_inner(
         &mut self,
@@ -394,6 +430,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::LoyaltyPlayer { .. } => {
                         unreachable!("loyalty-player plans are answered via ChoosePlayer")
                     }
+                    PlanKind::DrawOffer { .. } => {
+                        unreachable!("draw offers are answered via YesNo")
+                    }
                     PlanKind::ModalTrigger { .. } => {
                         unreachable!("modal-trigger plans are answered via ChooseMode")
                     }
@@ -494,6 +533,41 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                // A draw offer: unanimous or nothing (CR 104.4a).
+                if matches!(self.pending_plan, Some(PlanKind::DrawOffer { .. })) {
+                    let Some(PlanKind::DrawOffer {
+                        proposer,
+                        mut remaining,
+                        resume,
+                    }) = self.pending_plan.take()
+                    else {
+                        unreachable!()
+                    };
+                    if !answer {
+                        // Refused: hand back the decision the offer interrupted.
+                        self.pending = *resume;
+                        self.awaiting_answer = true;
+                        return Ok(());
+                    }
+                    if remaining.is_empty() {
+                        self.agreed_draw = true;
+                        self.awaiting_answer = false;
+                        self.run_until_choice();
+                        return Ok(());
+                    }
+                    let next = remaining.remove(0);
+                    self.pending_plan = Some(PlanKind::DrawOffer {
+                        proposer,
+                        remaining,
+                        resume,
+                    });
+                    self.pending = Pending::YesNo {
+                        player: next,
+                        prompt: crate::choice::YesNoPrompt::DrawOffer { proposer },
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
                 // Delayed pay-or-lose (Pact of Negation).
                 if matches!(self.pending_plan, Some(PlanKind::DelayedPay { .. })) {
                     let Some(PlanKind::DelayedPay { cost }) = self.pending_plan.take() else {

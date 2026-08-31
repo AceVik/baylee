@@ -135,8 +135,8 @@ pub struct MenuButton {
 pub enum MenuAction {
     /// Leave the game (sends the engine's own concession).
     Concede,
-    /// Offer a draw — needs mutual agreement, a protocol item; shown
-    /// disabled until it exists.
+    /// Offer a draw: every other player still in the game has to accept
+    /// (CR 104.4a).
     OfferDraw,
 }
 
@@ -460,7 +460,7 @@ pub fn sync_overlay(
         ))
         .id();
     for (action, label, enabled) in [
-        (MenuAction::OfferDraw, "Remis", false),
+        (MenuAction::OfferDraw, "Remis", true),
         (MenuAction::Concede, "Aufgeben", true),
     ] {
         let button = commands
