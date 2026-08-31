@@ -102,9 +102,65 @@ pub fn unique_names(rows: &[DeckRow]) -> Vec<String> {
         .collect()
 }
 
+/// Card names from the standalone pool file (`data/card-pool.txt`): one name
+/// per line, `#` comments and blank lines ignored.
+///
+/// The acceptance decks are the architecture proof and say what they say; a
+/// card implemented because someone wants to play it does not belong in them.
+/// This is where those live. Both lists feed the same registry, and the
+/// `CardIndex` ledger keeps either from disturbing the other.
+#[must_use]
+pub fn pool_names(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(ToString::to_string)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// Every card the registry should contain: the acceptance decks plus the
+/// pool file, deduplicated. A card in both is one card.
+#[must_use]
+pub fn all_names(rows: &[DeckRow], pool_text: &str) -> Vec<String> {
+    unique_names(rows)
+        .into_iter()
+        .chain(pool_names(pool_text))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The pool file is a plain list, and a card named in both places is one
+    /// card — otherwise it would take two indices and the deck resolver would
+    /// have to pick.
+    #[test]
+    fn the_pool_file_and_the_decks_make_one_list() {
+        let rows = parse_decks("[deck:A]\n1 Island\n2 Counterspell\n").expect("decks parse");
+        let pool = "# a comment\n\nBrainstorm\nCounterspell\n  Island  \n";
+        assert_eq!(
+            pool_names(pool),
+            vec!["Brainstorm", "Counterspell", "Island"]
+        );
+        assert_eq!(
+            all_names(&rows, pool),
+            vec!["Brainstorm", "Counterspell", "Island"],
+            "Counterspell is in both and is still one card"
+        );
+    }
+
+    /// A missing pool file is an empty pool, not an error: the file is
+    /// optional and the acceptance decks stand on their own.
+    #[test]
+    fn an_empty_pool_leaves_the_decks_alone() {
+        let rows = parse_decks("[deck:A]\n1 Island\n").expect("decks parse");
+        assert_eq!(all_names(&rows, ""), vec!["Island"]);
+    }
 
     #[test]
     fn parses_sections() {

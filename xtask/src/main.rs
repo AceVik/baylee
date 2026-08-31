@@ -146,6 +146,79 @@ fn write_or_check(
     Ok(())
 }
 
+/// Every card the registry should hold: the acceptance decks (the architecture
+/// proof, which says exactly what it says) plus `data/card-pool.txt` (a card
+/// implemented for its own sake). Writes the stubs, the module list, the
+/// `CardIndex` ledger and the registry tables.
+fn cards(
+    root: &Path,
+    check: bool,
+    agent: &ureq::Agent,
+    cache: &Path,
+    cats: &catalog::SubtypeCatalogs,
+    changed: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    let names = acceptance::all_names(&rows, &pool_text);
+    let from_decks = acceptance::unique_names(&rows).len();
+    println!(
+        "card pool: {} cards ({from_decks} from the acceptance decks, {} from the pool file)",
+        names.len(),
+        names.len() - from_decks
+    );
+    // Indices come from the ledger, never from a card's position in this list:
+    // the list is alphabetical, so one new card would otherwise renumber every
+    // card after it (see baylee-cards-codegen/src/ledger.rs).
+    let ledger_path = root.join("data/card-index.tsv");
+    let mut ledger =
+        ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?;
+    let before = ledger.entries().len();
+    let mut stubs = Vec::with_capacity(names.len());
+    for name in &names {
+        let card = scryfall::fetch_named(name, agent, cache)?;
+        let oracle_id = card.oracle_id.clone().unwrap_or_default();
+        let index = ledger.assign(&oracle_id, &card.name);
+        let (info, content) = stubgen::render_stub(&card, index, cats)?;
+        let stub_path = root.join(format!("crates/baylee-cards/src/cards/{}.rs", info.slug));
+        // Implemented cards are hand-owned: only touch files that are
+        // missing or still carry the GENERATED STUB marker.
+        let implemented = fs::read_to_string(&stub_path)
+            .is_ok_and(|existing| !existing.contains("// GENERATED STUB"));
+        if implemented {
+            if check {
+                println!("skip (implemented): {}", info.slug);
+            }
+            stubs.push(info);
+            continue;
+        }
+        write_or_check(check, &stub_path, &content, changed)?;
+        stubs.push(info);
+    }
+    write_or_check(
+        check,
+        &root.join("crates/baylee-cards/src/cards/mod.rs"),
+        &stubgen::render_cards_mod(&stubs),
+        changed,
+    )?;
+    if ledger.entries().len() > before {
+        println!(
+            "card-index ledger: {} new index/indices assigned",
+            ledger.entries().len() - before
+        );
+    }
+    let slots = ledger.slots();
+    write_or_check(check, &ledger_path, &ledger.render(), changed)?;
+    write_or_check(
+        check,
+        &root.join("crates/baylee-cards/src/generated.rs"),
+        &stubgen::render_registry(&stubs, slots),
+        changed,
+    )?;
+    Ok(())
+}
+
 fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::Result<()> {
     let cache = root.join(cache);
     let agent = ureq::Agent::new_with_defaults();
@@ -168,59 +241,8 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
         &mut changed,
     )?;
 
-    // 2. Acceptance decks → per-card stubs + registry.
-    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
-    let rows = acceptance::parse_decks(&decks_text)?;
-    let names = acceptance::unique_names(&rows);
-    println!("acceptance suite: {} unique cards", names.len());
-    // Indices come from the ledger, not from a card's position in this list:
-    // the list is alphabetical, so one new card would otherwise renumber every
-    // card after it (see baylee-cards-codegen/src/ledger.rs).
-    let ledger_path = root.join("data/card-index.tsv");
-    let mut ledger =
-        ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?;
-    let before = ledger.entries().len();
-    let mut stubs = Vec::with_capacity(names.len());
-    for name in &names {
-        let card = scryfall::fetch_named(name, &agent, &cache)?;
-        let oracle_id = card.oracle_id.clone().unwrap_or_default();
-        let index = ledger.assign(&oracle_id, &card.name);
-        let (info, content) = stubgen::render_stub(&card, index, &cats)?;
-        let stub_path = root.join(format!("crates/baylee-cards/src/cards/{}.rs", info.slug));
-        // Implemented cards are hand-owned: only touch files that are
-        // missing or still carry the GENERATED STUB marker.
-        let implemented = fs::read_to_string(&stub_path)
-            .is_ok_and(|existing| !existing.contains("// GENERATED STUB"));
-        if implemented {
-            if check {
-                println!("skip (implemented): {}", info.slug);
-            }
-            stubs.push(info);
-            continue;
-        }
-        write_or_check(check, &stub_path, &content, &mut changed)?;
-        stubs.push(info);
-    }
-    write_or_check(
-        check,
-        &root.join("crates/baylee-cards/src/cards/mod.rs"),
-        &stubgen::render_cards_mod(&stubs),
-        &mut changed,
-    )?;
-    if ledger.entries().len() > before {
-        println!(
-            "card-index ledger: {} new index/indices assigned",
-            ledger.entries().len() - before
-        );
-    }
-    let slots = ledger.slots();
-    write_or_check(check, &ledger_path, &ledger.render(), &mut changed)?;
-    write_or_check(
-        check,
-        &root.join("crates/baylee-cards/src/generated.rs"),
-        &stubgen::render_registry(&stubs, slots),
-        &mut changed,
-    )?;
+    // 2. The card pool → per-card stubs + registry.
+    cards(root, check, &agent, &cache, &cats, &mut changed)?;
 
     // 3. forge-reference index.
     let forge_dir = root.join(forge_dir);

@@ -1,0 +1,11 @@
+# Cards implemented beyond the acceptance decks — one name per line.
+#
+# The acceptance decks (data/acceptance-decks.txt) are the architecture proof
+# and say exactly what they say. A card implemented because someone wants to
+# play it belongs here instead. Both lists feed one registry, and the
+# CardIndex ledger (data/card-index.tsv) keeps either from disturbing the
+# other: a name added here takes the next free index and moves nothing.
+#
+# Names must match Scryfall exactly. `cargo run -p xtask -- codegen` turns a
+# new line into a stub; `xtask validate` and the card-crate tests decide when
+# it counts as implemented.
