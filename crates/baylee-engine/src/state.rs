@@ -1062,8 +1062,9 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
         h.u16(n);
     }
     h.u16(obj.damage);
-    h.boolean(obj.deathtouched);
-    h.u8(obj.status.bits());
+    // Status and the deathtouch mark share one word; bit 8 is out of the
+    // status byte, so packing them cannot collide.
+    h.u16(u16::from(obj.status.bits()) | (u16::from(obj.deathtouched) << 8));
     h.option_u32(obj.attached_to.map(position));
     h.usize(obj.targets.len());
     for t in &obj.targets {
@@ -1118,8 +1119,9 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         h.u16(n);
     }
     h.u16(obj.damage);
-    h.boolean(obj.deathtouched);
-    h.u8(obj.status.bits());
+    // Status and the deathtouch mark share one word; bit 8 is out of the
+    // status byte, so packing them cannot collide.
+    h.u16(u16::from(obj.status.bits()) | (u16::from(obj.deathtouched) << 8));
     h.option_u32(obj.attached_to.map(baylee_core::ids::ObjectId::slot));
     h.u64(obj.timestamp);
     h.u32(obj.version);

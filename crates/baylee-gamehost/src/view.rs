@@ -289,3 +289,207 @@ pub fn game_static(
             .collect(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_cards::by_oracle_id;
+    use baylee_core::ids::{CardIndex, PrintRef};
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
+        SeatSpec,
+    };
+    use baylee_engine::engine::Engine;
+    use baylee_engine::state::CardLookup;
+
+    struct Registry;
+    impl CardLookup for Registry {
+        fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            baylee_cards::by_index(index)
+        }
+    }
+
+    fn island() -> CardIndex {
+        by_oracle_id("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+            .unwrap()
+            .index
+    }
+
+    fn print_info(lang: &str, finish: Finish) -> PrintInfo {
+        PrintInfo {
+            scryfall_id: uuid::Uuid::nil(),
+            lang: lang.to_string(),
+            finish,
+        }
+    }
+
+    /// A deck holding the same card in three different printings, plus one
+    /// copy of each already on the battlefield.
+    fn mixed_print_preset() -> GamePreset {
+        let mut deck: Vec<DeckEntry> = Vec::new();
+        for i in 0..60u16 {
+            deck.push(DeckEntry {
+                card: island(),
+                print: PrintRef::new(i % 3),
+            });
+        }
+        let seat = |battlefield: Vec<DeckEntry>| SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            deck: deck.clone(),
+            sideboard: vec![],
+            starting_life: None,
+            starting_hand: Some(vec![
+                DeckEntry {
+                    card: island(),
+                    print: PrintRef::new(0),
+                },
+                DeckEntry {
+                    card: island(),
+                    print: PrintRef::new(2),
+                },
+            ]),
+            starting_battlefield: battlefield,
+            emblems: vec![],
+            team: None,
+        };
+        GamePreset {
+            format: FormatId::Freeform,
+            seed: 5,
+            dev_mode: false,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![
+                print_info("EN", Finish::Normal),
+                print_info("DE", Finish::Foil),
+                print_info("JA", Finish::Etched),
+            ],
+            seats: vec![
+                seat(vec![
+                    DeckEntry {
+                        card: island(),
+                        print: PrintRef::new(1),
+                    },
+                    DeckEntry {
+                        card: island(),
+                        print: PrintRef::new(2),
+                    },
+                ]),
+                seat(vec![]),
+            ],
+        }
+    }
+
+    /// The whole point of `PrintRef`: two copies of the *same* card in one
+    /// deck can be different printings, and the client has to be told which
+    /// is which. The engine never interprets the ref — it carries it — so
+    /// this test follows one deck entry all the way to the seat view.
+    #[test]
+    fn the_same_card_in_two_printings_stays_two_printings_in_the_view() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let seat = PlayerId::new(0);
+        let view = player_view(engine.state(), seat, None, 0);
+
+        let battlefield: Vec<u16> = view
+            .battlefield
+            .iter()
+            .filter(|o| o.controller == seat)
+            .filter_map(|o| o.card.map(|c| c.print.get()))
+            .collect();
+        assert_eq!(
+            battlefield,
+            vec![1, 2],
+            "the battlefield lost the printings the preset asked for"
+        );
+
+        let hand: Vec<u16> = view.hand.iter().map(|o| o.card.print.get()).collect();
+        assert_eq!(hand, vec![0, 2], "the hand lost its printings");
+
+        // Same rules identity throughout — only the printing differs.
+        assert!(
+            view.hand.iter().all(|o| o.card.index == island()),
+            "print refs must not disturb card identity"
+        );
+    }
+
+    /// The print table is a per-game payload: the view carries indices, and
+    /// `GameStatic` carries what they mean. A client that only got the
+    /// indices could not fetch an image.
+    #[test]
+    fn the_static_payload_carries_what_a_print_ref_points_at() {
+        let preset = mixed_print_preset();
+        let statics = game_static("g1".into(), PlayerId::new(0), vec![], &preset.prints);
+        assert_eq!(statics.prints.len(), 3);
+        assert_eq!(statics.prints[1].lang, "DE");
+        assert!(matches!(
+            statics.prints[1].finish,
+            baylee_view::Finish::Foil
+        ));
+        assert!(matches!(
+            statics.prints[2].finish,
+            baylee_view::Finish::Etched
+        ));
+        assert_eq!(statics.view_version, baylee_view::VIEW_VERSION);
+    }
+
+    /// A card keeps its printing when it changes zone: the ref lives on the
+    /// object, not on the zone it happens to be in. The land is played for
+    /// real rather than moved by hand, so the whole cast path is covered.
+    #[test]
+    fn a_printing_survives_a_zone_change() {
+        use baylee_engine::choice::{Pending, PlayerAction};
+
+        let preset = mixed_print_preset();
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        for _ in 0..2 {
+            let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+                panic!("expected a mulligan")
+            };
+            engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        }
+        let seat = PlayerId::new(0);
+
+        // Walk to seat 0's main phase, where a land may be played.
+        for _ in 0..30 {
+            if let Pending::Priority { player, legal } = engine.pending()
+                && *player == seat
+                && !legal.lands.is_empty()
+            {
+                break;
+            }
+            let Pending::Priority { player, .. } = engine.pending().clone() else {
+                panic!("expected priority, got {:?}", engine.pending())
+            };
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        }
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority")
+        };
+        let card = *legal.lands.first().expect("a land in hand to play");
+        let print_before = engine
+            .state()
+            .object(card)
+            .and_then(|o| o.card)
+            .expect("a card-backed object")
+            .print;
+        engine
+            .apply(seat, PlayerAction::PlayLand { card })
+            .expect("playing a land from hand is legal");
+
+        let view = player_view(engine.state(), seat, None, 1);
+        let played = view
+            .battlefield
+            .iter()
+            .find(|o| o.id == card)
+            .expect("the land reached the battlefield");
+        assert_eq!(
+            played.card.expect("card-backed").print,
+            print_before,
+            "the printing was lost on the way to the battlefield"
+        );
+        assert!(
+            !view.hand.iter().any(|o| o.id == card),
+            "the land is still shown in hand"
+        );
+    }
+}

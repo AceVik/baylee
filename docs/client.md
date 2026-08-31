@@ -50,6 +50,39 @@ Each seat also gets a text chip row (`12× 1/1 Soldier · 3× Treasure`) and a
 one-line threat read (power ready, blockers, open mana, cards in hand), which
 is what makes an unfocused pod useful at eight seats.
 
+## Which ability is on the stack (and how a client names it)
+
+The engine is free of card text on purpose, but a client still has to be able
+to say *"Ondu Cleric's rally trigger is resolving"* rather than *"an ability
+is resolving"*. An ability on the stack is its own object with no card of its
+own, so the view carries what it points at:
+
+```rust
+PublicObject.stack_item: Option<StackItem>
+// StackItem::Spell
+// StackItem::Ability { source: ObjectId, ability: AbilityRef }
+```
+
+`AbilityRef { card: CardIndex, index: u32 }` is the stable handle. `index` is
+the position in that card's `CardDef::abilities`, so a client that knows the
+card pool can map it to text; the reserved indices (`SPELL`, `ENTERS`,
+`ADDITIONAL_COST`, `MIRACLE`, `UPKEEP_COST`, all counting down from
+`u32::MAX`) name the abilities that are not listed on the card, and
+`AbilityRef::is_listed_ability` separates the two.
+
+The same handle addresses a seat's standing answers
+(`PlayerAction::SetStandingAnswer`), which is why it deliberately says nothing
+about a particular game: a gateway can store *"always say yes to Ondu Cleric's
+rally"* against an account and replay it into the next one.
+
+**Getting the text is the client's job, and no text crosses the engine
+boundary.** The intended source is codegen: the card files already carry the
+oracle sentences as `//! Oracle:` header lines, ordered to match the ability
+list, so `cargo xtask codegen` can emit a per-card table of ordered sentences
+alongside the registry for clients and the gateway to read. Until it does, a
+client can render the source permanent's name plus the ability index, which
+is already enough to point at the right card on the board.
+
 ## Images and memory
 
 Scryfall CDN, keyed by printing id — no API call is needed to render a board.

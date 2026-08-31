@@ -3,6 +3,34 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Printings (which art the client draws)
+
+Rules identity and *presentation* identity are two different things, and a
+deck may legitimately hold the same card in several printings — three Islands
+from three sets, one of them foil. So a card reference on the wire is a pair:
+
+- `card_index` — the rules identity. The engine reads this and nothing else.
+- `print_ref` — an index into a per-game print table. **The engine never
+  interprets it**; it copies it onto the object at setup and carries it
+  through every zone change, so the client is told exactly which of the
+  duplicate cards it is looking at.
+
+The table itself travels once, in `GameStatic.prints`: `scryfall_id`, `lang`
+and `finish` per entry, which is everything the client needs to key the
+Scryfall CDN. The path end to end is
+
+```
+DeckEntry { card, print }        (preset, per copy in the deck)
+  → CardRef { index, print }     (engine, on the object)
+    → CardIdentity { index, print, face }   (view, per seat)
+      → GameStatic.prints[print]            (what to actually draw)
+```
+
+`baylee-gamehost`'s view tests follow one deck entry along that path,
+including through a zone change, because a printing that silently reset to
+entry 0 would be invisible in every other test — the game would play
+perfectly and show the wrong art.
+
 ## v0 (M0)
 Transport handshake + preset transfer:
 `Hello{protocol_version, card_pool_hash}` / `HelloAck`, `JoinGame`,

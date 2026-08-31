@@ -113,12 +113,76 @@ fn bench_priority_pass(c: &mut Criterion) {
     });
 }
 
+/// A wide board under many anthems: the shape the layer system is actually
+/// expensive on.
+///
+/// The old projection sorted every effect from scratch for every object it
+/// touched (`objects · layers · effects²`); the plan is now built once per
+/// refresh (`layers · effects² + objects · effects`). Nothing else in this
+/// file grows with the number of continuous effects, so without this bench
+/// the difference is invisible.
+fn wide_board(anthems: usize) -> GameState {
+    use baylee_cards_dsl::static_ability::{Duration, Layer, Modifier};
+    use baylee_core::ids::EffectId;
+    use baylee_engine::effects::{ContinuousEffect, EffectFilter};
+    use baylee_engine::zone::{ZoneLocation, ZonePosition};
+
+    static CREATURES: baylee_cards_dsl::Filter =
+        baylee_cards_dsl::Filter::HasType(baylee_core::types::TypeSet::CREATURE);
+
+    let mut state = GameState::from_preset(&preset(42), &RegistryLookup).unwrap();
+    // Put every library card of seat 0 onto the battlefield: a board far
+    // wider than a real one, so the per-object cost dominates the noise.
+    let seat = baylee_core::ids::PlayerId::new(0);
+    let library = state.zones.list(ZoneLocation::Library(seat)).clone();
+    for id in library {
+        let _ = state.move_object(
+            id,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            baylee_engine::event::Cause::Setup,
+        );
+    }
+    for i in 0..anthems {
+        state.effects.register(ContinuousEffect {
+            id: EffectId::new(0),
+            source: None,
+            controller: seat,
+            layer: Layer::PtModify,
+            timestamp: i as u64,
+            duration: Duration::Indefinitely,
+            filter: EffectFilter::Dsl(&CREATURES),
+            modifier: Modifier::ModifyPT(1, 1),
+        });
+    }
+    state
+}
+
+fn bench_layers(c: &mut Criterion) {
+    for anthems in [1usize, 8, 32] {
+        let state = wide_board(anthems);
+        c.bench_function(&format!("layers/refresh_x{anthems}"), |b| {
+            b.iter_batched(
+                || state.clone(),
+                |mut s| {
+                    // Force a full recompute rather than a cache hit.
+                    s.effects.generation += 1;
+                    s.refresh_characteristics();
+                    s
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+}
+
 // The baseline benchmark group (CI regression budgets derive from these).
 criterion_group!(
     basics,
     bench_setup,
     bench_clone,
     bench_snapshot_hash,
-    bench_priority_pass
+    bench_priority_pass,
+    bench_layers
 );
 criterion_main!(basics);
