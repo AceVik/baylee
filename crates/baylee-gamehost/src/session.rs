@@ -122,6 +122,47 @@ impl Session {
         out
     }
 
+    /// The sequence number a client should report back when it resumes.
+    #[must_use]
+    pub const fn seq(&self) -> u64 {
+        self.seq
+    }
+
+    /// Everything a seat needs to render the game from scratch: its own
+    /// view, plus the outstanding choice when this seat is the one being
+    /// asked (or the game is over, which everyone is told about).
+    ///
+    /// Read-only on purpose. `pump` *advances* the game — it drives every AI
+    /// seat until a human is needed — so rebuilding a client through it
+    /// would let a reconnect take a turn on the AI's behalf.
+    #[must_use]
+    pub fn snapshot(&self, seat: PlayerId) -> Vec<Envelope> {
+        let pending = self.engine.pending().clone();
+        let mut out = vec![view_envelope(
+            self.seq,
+            &self.engine,
+            seat,
+            priority_holder(&pending),
+        )];
+        if pending_player(&pending) == Some(seat) || matches!(pending, Pending::GameOver(_)) {
+            out.push(choice_envelope(self.seq, &pending));
+        }
+        out
+    }
+
+    /// Answers `ResumeGame{last_seq}`: the snapshot when the client is
+    /// behind, nothing when it is already current.
+    ///
+    /// Returning nothing matters — a client that reconnects without having
+    /// missed anything should not be made to re-render the whole table.
+    #[must_use]
+    pub fn resume(&self, seat: PlayerId, last_seq: u64) -> Vec<Envelope> {
+        if last_seq >= self.seq {
+            return Vec::new();
+        }
+        self.snapshot(seat)
+    }
+
     /// Applies a human action, then pumps the AI until a human is needed.
     ///
     /// # Errors
@@ -280,5 +321,69 @@ mod tests {
             }
         }
         assert!(human_choices > 0, "the human received choices");
+    }
+
+    /// Plays a couple of steps so the session has a sequence number to be
+    /// behind or current on.
+    fn started_session() -> (Session, PlayerId) {
+        let mut session = Session::new(&test_preset()).expect("session builds");
+        let human = session.human_seats()[0];
+        let _ = session.pump();
+        let _ = session.act(human, PlayerAction::MulliganKeep);
+        assert!(session.seq() > 0, "the game moved");
+        (session, human)
+    }
+
+    /// A client that has applied everything is not made to re-render the
+    /// whole table just because it reconnected.
+    #[test]
+    fn a_current_client_gets_nothing_back() {
+        let (session, human) = started_session();
+        assert!(session.resume(human, session.seq()).is_empty());
+    }
+
+    /// A client that missed everything gets its seat rebuilt — and asking for
+    /// it does not move the game. Rebuilding through `pump` would have played
+    /// the AI seats forward as a side effect of someone reconnecting.
+    #[test]
+    fn a_stale_client_is_rebuilt_without_advancing_the_game() {
+        let (session, human) = started_session();
+        let pending_before = format!("{:?}", session.pending());
+        let seq_before = session.seq();
+
+        let envelopes = session.resume(human, 0);
+        assert!(
+            envelopes
+                .iter()
+                .any(|e| matches!(e.msg, Some(v1::envelope::Msg::StateDelta(_)))),
+            "the seat's own view is part of the rebuild"
+        );
+        assert_eq!(session.seq(), seq_before, "resume moved the sequence");
+        assert_eq!(
+            format!("{:?}", session.pending()),
+            pending_before,
+            "resume moved the game"
+        );
+    }
+
+    /// The snapshot carries the outstanding choice only for the seat that
+    /// owes an answer: a spectating reconnect must not be handed someone
+    /// else's decision.
+    #[test]
+    fn only_the_asked_seat_is_sent_the_choice() {
+        let (session, human) = started_session();
+        let others: Vec<PlayerId> = (0..2).map(PlayerId::new).filter(|p| *p != human).collect();
+        let asked = super::pending_player(session.pending());
+        for seat in others {
+            let has_choice = session
+                .snapshot(seat)
+                .iter()
+                .any(|e| matches!(e.msg, Some(v1::envelope::Msg::ChoiceRequest(_))));
+            assert_eq!(
+                has_choice,
+                asked == Some(seat) || matches!(session.pending(), Pending::GameOver(_)),
+                "choice went to the wrong seat"
+            );
+        }
     }
 }

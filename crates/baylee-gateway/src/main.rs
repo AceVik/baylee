@@ -861,24 +861,40 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
                         let Ok(envelope) = Envelope::decode(data) else {
                             continue;
                         };
-                        let Some(v1::envelope::Msg::PlayerAction(action_msg)) = envelope.msg else {
-                            continue;
-                        };
-                        let Ok(action) =
-                            serde_json::from_slice::<baylee_engine::choice::PlayerAction>(
-                                &action_msg.action_json,
-                            )
-                        else {
-                            continue;
-                        };
-                        if !drive_session(&state, &game_id, |session, emit| {
-                            let routed = session.act(player, action)?;
-                            for (p, env) in routed {
-                                emit(p, env);
+                        match envelope.msg {
+                            Some(v1::envelope::Msg::PlayerAction(action_msg)) => {
+                                let Ok(action) =
+                                    serde_json::from_slice::<baylee_engine::choice::PlayerAction>(
+                                        &action_msg.action_json,
+                                    )
+                                else {
+                                    continue;
+                                };
+                                if !drive_session(&state, &game_id, |session, emit| {
+                                    let routed = session.act(player, action)?;
+                                    for (p, env) in routed {
+                                        emit(p, env);
+                                    }
+                                    Ok(())
+                                }) {
+                                    return;
+                                }
                             }
-                            Ok(())
-                        }) {
-                            return;
+                            // A reconnecting seat asks for whatever it missed.
+                            // Read-only, so the seats still playing see nothing
+                            // and no AI seat is driven forward by a reconnect.
+                            Some(v1::envelope::Msg::Resume(resume)) => {
+                                let alive = drive_session(&state, &game_id, |session, emit| {
+                                    for env in session.resume(player, resume.last_seq) {
+                                        emit(player, env);
+                                    }
+                                    Ok(())
+                                });
+                                if !alive {
+                                    return;
+                                }
+                            }
+                            _ => {}
                         }
                     }
                     // Pings are answered by axum; ignore other frame kinds.
@@ -894,8 +910,22 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
                         }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        tracing::warn!(game_id, seat, n, "seat socket lagged; closing");
-                        return;
+                        // Dropping the player was the old answer. Now that a
+                        // seat's whole state can be rebuilt on demand, resend
+                        // it instead: the gap in the stream stops mattering.
+                        tracing::warn!(game_id, seat, n, "seat socket lagged; resyncing");
+                        let snapshot = {
+                            let lobby = state.lobby.lock();
+                            match lobby.games.get(&game_id).and_then(|g| g.session.as_ref()) {
+                                Some(session) => session.snapshot(player),
+                                None => return,
+                            }
+                        };
+                        for env in snapshot {
+                            if send_envelope(&mut socket, env).await.is_err() {
+                                return;
+                            }
+                        }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
                 }

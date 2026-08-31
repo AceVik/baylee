@@ -116,13 +116,29 @@ async fn handle_connection(
                 out
             }
             v1::envelope::Msg::Join(join) => {
-                // Re-attach to a live game (v1: re-send the current view +
-                // pending; full resume with seq comes with protocol v2).
+                // Re-attach to a live game. Note this *pumps*: joining is
+                // how a fresh client starts playing. A reconnect that only
+                // wants its state back sends `ResumeGame` instead.
                 let mut games = games.lock().await;
                 match games.get_mut(&join.game_id) {
                     Some(session) => {
                         game_id = Some(join.game_id.clone());
                         session.pump().into_iter().map(|(_, env)| env).collect()
+                    }
+                    None => vec![error("no such game")],
+                }
+            }
+            v1::envelope::Msg::Resume(resume) => {
+                // Read-only reconnect: never pump here, or resuming would play
+                // the AI seats forward as a side effect of coming back.
+                let games = games.lock().await;
+                match games.get(&resume.game_id) {
+                    Some(session) => {
+                        let out =
+                            session.resume(baylee_core::ids::PlayerId::new(0), resume.last_seq);
+                        drop(games);
+                        game_id = Some(resume.game_id.clone());
+                        out
                     }
                     None => vec![error("no such game")],
                 }

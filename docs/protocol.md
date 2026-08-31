@@ -29,6 +29,14 @@ as new `Pending`/`PlayerAction` variants with **no proto change at all**.
 Before scheduling something behind protocol v2, check whether it needs the
 wire or only the taxonomy the wire carries.
 
+`ResumeGame{last_seq}` is answered as of 2026-08-31, by both servers.
+`Session::resume` is deliberately **read-only**, where `pump` advances the
+game: rebuilding a client through `pump` would drive every AI seat forward
+as a side effect of somebody reconnecting. A client that is already current
+(`last_seq >= seq`) is sent nothing rather than a redundant re-render. The
+gateway now also uses that snapshot when a seat's socket lags behind the
+broadcast, instead of dropping the player.
+
 Server: `baylee-engine-server` (tokio + tokio-tungstenite), one process,
 games as `Session`s — engine + human seat + auto-driven AI seats
 (baylee-ai). E2E smoke: real binary over a real socket
