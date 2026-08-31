@@ -236,7 +236,9 @@ pub enum YesNoPrompt {
 /// reaches on its own, and the engine drops back to [`Self::Always`] the
 /// moment it does. There is deliberately no "never ask me again" — a hold
 /// that could outlive its reason is a hold that loses a game quietly.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
 pub enum PriorityHold {
     /// Offer priority every time (full manual control).
     #[default]
@@ -320,7 +322,10 @@ impl SeatAutomation {
 
     /// Remembers (or, with `None`, forgets) an answer for an ability.
     pub fn set_standing_answer(&mut self, ability: AbilityRef, answer: Option<StandingAnswer>) {
-        match (self.standing.binary_search_by_key(&ability, |(a, _)| *a), answer) {
+        match (
+            self.standing.binary_search_by_key(&ability, |(a, _)| *a),
+            answer,
+        ) {
             (Ok(i), Some(a)) => self.standing[i].1 = a,
             (Ok(i), None) => {
                 self.standing.remove(i);

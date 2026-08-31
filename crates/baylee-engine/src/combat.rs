@@ -432,14 +432,17 @@ mod tests {
     }
 
     fn attack(state: &mut GameState, creature: ObjectId, defending: PlayerId) {
-        state
-            .combat
-            .attackers
-            .push(AttackerInfo { creature, defending });
+        state.combat.attackers.push(AttackerInfo {
+            creature,
+            defending,
+        });
     }
 
     fn block(state: &mut GameState, blocker: ObjectId, attacker: ObjectId) {
-        state.combat.blockers.push(BlockerInfo { blocker, attacker });
+        state
+            .combat
+            .blockers
+            .push(BlockerInfo { blocker, attacker });
     }
 
     fn damage(state: &GameState, id: ObjectId) -> u16 {
@@ -489,13 +492,7 @@ mod tests {
     fn deathtouch_does_not_linger_past_the_sba_that_judged_it() {
         let mut state = empty_state();
         let biter = creature(&mut state, P0, 1, 1, KeywordSet::DEATHTOUCH);
-        let wall = creature(
-            &mut state,
-            P1,
-            0,
-            4,
-            KeywordSet::INDESTRUCTIBLE,
-        );
+        let wall = creature(&mut state, P1, 0, 4, KeywordSet::INDESTRUCTIBLE);
         attack(&mut state, biter, P1);
         block(&mut state, wall, biter);
         deal_combat_damage(&mut state, false);
@@ -508,11 +505,7 @@ mod tests {
         assert!(!state.object(wall).expect("alive").deathtouched);
 
         // Losing indestructibility later must not make it die retroactively.
-        state
-            .object_mut(wall)
-            .expect("alive")
-            .base
-            .keywords = KeywordSet::EMPTY;
+        state.object_mut(wall).expect("alive").base.keywords = KeywordSet::EMPTY;
         crate::sba::run(&mut state);
         assert!(
             on_battlefield(&state, wall),
@@ -560,11 +553,7 @@ mod tests {
         block(&mut state, second, small);
 
         deal_combat_damage(&mut state, false);
-        assert_eq!(
-            damage(&state, small),
-            5,
-            "both blockers deal damage: 2 + 3"
-        );
+        assert_eq!(damage(&state, small), 5, "both blockers deal damage: 2 + 3");
     }
 
     /// A blocker with lifelink gains its controller life (CR 702.15b is

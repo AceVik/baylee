@@ -217,7 +217,9 @@ fn run_attachment_sbas(state: &mut GameState) -> bool {
     let mut falling_off = Vec::new();
     let mut unattaching = Vec::new();
     for &id in state.zones.list(ZoneLocation::Battlefield) {
-        let Some(obj) = state.object(id) else { continue };
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
         if obj.kind != ObjectKind::Permanent {
             continue;
         }

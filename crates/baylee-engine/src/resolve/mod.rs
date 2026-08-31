@@ -1110,15 +1110,9 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             Some(Pending::YesNo {
                 player: you,
                 prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
-                source: state
-                    .object(res.source)
-                    .and_then(|o| o.card)
-                    .map(|c| {
-                        baylee_core::ids::AbilityRef::new(
-                            c.index,
-                            baylee_core::ids::AbilityRef::ENTERS,
-                        )
-                    }),
+                source: state.object(res.source).and_then(|o| o.card).map(|c| {
+                    baylee_core::ids::AbilityRef::new(c.index, baylee_core::ids::AbilityRef::ENTERS)
+                }),
             })
         }
         _ => unreachable!("not a choice op"),

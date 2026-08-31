@@ -176,7 +176,8 @@ fn apply_pt_counters(c: &mut Characteristics, obj: &GameObject) {
     if !c.types.contains(baylee_core::types::TypeSet::CREATURE) {
         return;
     }
-    let plus = i16::try_from(obj.counters.get(crate::object::CounterKind::P1P1)).unwrap_or(i16::MAX);
+    let plus =
+        i16::try_from(obj.counters.get(crate::object::CounterKind::P1P1)).unwrap_or(i16::MAX);
     let minus =
         i16::try_from(obj.counters.get(crate::object::CounterKind::M1M1)).unwrap_or(i16::MAX);
     let delta = plus - minus;
