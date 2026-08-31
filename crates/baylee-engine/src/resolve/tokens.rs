@@ -90,7 +90,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     });
                     state
                         .zones
-                        .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top);
+                        .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top, true);
                     if let Some(obj) = state.object_mut(new_id) {
                         obj.zone = crate::zone::Zone::Battlefield;
                     }
@@ -124,7 +124,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 });
                 state
                     .zones
-                    .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top);
+                    .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top, true);
                 if let Some(obj) = state.object_mut(new_id) {
                     obj.zone = crate::zone::Zone::Battlefield;
                 }
@@ -150,7 +150,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     });
                     state
                         .zones
-                        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
+                        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);
                     if let Some(obj) = state.object_mut(id) {
                         obj.zone = crate::zone::Zone::Battlefield;
                     }
@@ -339,7 +339,7 @@ fn create_token(
     });
     state
         .zones
-        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
+        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);
     if let Some(obj) = state.object_mut(id) {
         obj.zone = crate::zone::Zone::Battlefield;
     }

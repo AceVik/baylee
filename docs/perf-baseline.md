@@ -64,3 +64,37 @@ What the numbers say:
   the added `deathtouched` field** — removing that field from the hash
   entirely measures the same 6.3 µs. It is not on a budgeted path (resync and
   loop-free replay comparison), so it is recorded rather than chased.
+
+## The stack stops being walked (2026-08-31, later)
+
+An Ally deck can put six figures of triggered abilities on the stack. The
+layer refresh runs once per engine step and every counter placed invalidates
+it, so walking those abilities made the cost of one step proportional to the
+whole stack — and an ability on the stack has no characteristic a layer can
+change, so all of it was waste. `Zones` now keeps the projectable subset
+(spells only) and the refresh reads that instead.
+
+Same machine, same session, one line apart — the bench builds a 20 000-deep
+stack of abilities and times one full refresh:
+
+| Path | Before | After | Change |
+|---|---|---|---|
+| `layers/refresh_over_20k_stack` | 129.6 µs | 8.65 ns | **~15 000×** |
+
+It is a constant now, not a factor, which is the point: extrapolated to the
+million-ability stack the rules actually permit, the old path cost ~6.5 ms
+per engine step, and there is one step per resolution.
+
+Measured, and *not* fixed here — recorded so the next person does not have
+to rediscover it:
+
+- `state/clone` now measures **11.4 µs**, up from the 7.80 µs above. The 16
+  bytes `GameObject` gained for the token pointer are far too few to explain
+  it, and the cache-line theory was tested and disproved: forcing
+  `#[repr(align(64))]` (stride 640, exactly ten lines per slot instead of
+  8.5) made it *slower*, 12.37 µs. Clone cost tracks bytes copied linearly,
+  so the likeliest explanation is that the 7.80 µs reference is not
+  comparable. Worth re-establishing on a quiet machine.
+- `Counters` holds four kinds inline, so thousands of tokens with +1/+1
+  counters allocate nothing — but the amount is a `u16` with
+  `saturating_add` and caps silently at 65 535.

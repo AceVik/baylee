@@ -1632,7 +1632,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 }
                 state
                     .zones
-                    .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+                    .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
                 // Deliberately no `SpellCast` event: a copy is *put* onto the
                 // stack, not cast (CR 707.10). Journalling one made every copy
                 // re-trigger "whenever you cast" abilities — Jin-Gitaxias

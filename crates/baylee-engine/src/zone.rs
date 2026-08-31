@@ -129,6 +129,17 @@ pub enum ZonePosition {
 pub struct Zones {
     battlefield: Vec<ObjectId>,
     stack: Vec<ObjectId>,
+    /// The subset of [`Self::stack`] whose characteristics the layer system
+    /// can change — spells and copies of spells, never abilities.
+    ///
+    /// The layer refresh runs once per engine step and re-walks the stack
+    /// every time an effect set or a counter changes. An ability on the
+    /// stack has nothing for layers to modify, so visiting it is pure
+    /// waste — and an Ally deck can leave six figures of them there, which
+    /// turns "pure waste" into a game that never finishes. Keeping the
+    /// projectable subset here rather than filtering on the way past means
+    /// the refresh never touches the abilities at all.
+    stack_projectable: Vec<ObjectId>,
     libraries: Vec<Vec<ObjectId>>,
     hands: Vec<Vec<ObjectId>>,
     graveyards: Vec<Vec<ObjectId>>,
@@ -144,6 +155,7 @@ impl Zones {
         Self {
             battlefield: Vec::new(),
             stack: Vec::new(),
+            stack_projectable: Vec::new(),
             libraries: vec![Vec::new(); players],
             hands: vec![Vec::new(); players],
             graveyards: vec![Vec::new(); players],
@@ -184,6 +196,12 @@ impl Zones {
 
     /// Removes an object from a zone, preserving order. Returns success.
     pub fn remove(&mut self, id: ObjectId, loc: ZoneLocation) -> bool {
+        if loc == ZoneLocation::Stack
+            && let Some(pos) = self.stack_projectable.iter().position(|&x| x == id)
+        {
+            // Cheap even on a huge stack: this list holds only the spells.
+            self.stack_projectable.remove(pos);
+        }
         let list = self.list_mut(loc);
         if let Some(pos) = list.iter().position(|&x| x == id) {
             list.remove(pos);
@@ -194,13 +212,39 @@ impl Zones {
     }
 
     /// Inserts an object into a zone at the given position.
-    pub fn insert(&mut self, id: ObjectId, loc: ZoneLocation, pos: ZonePosition) {
+    ///
+    /// `projectable` says whether the layer system can change this object's
+    /// characteristics; it is only consulted for the stack, where it
+    /// separates spells from abilities. It is a parameter rather than
+    /// something derived here because [`Zones`] has no arena to ask — and
+    /// making every caller answer is what keeps [`Self::stack_projectable`]
+    /// from silently drifting out of sync with the stack.
+    pub fn insert(
+        &mut self,
+        id: ObjectId,
+        loc: ZoneLocation,
+        pos: ZonePosition,
+        projectable: bool,
+    ) {
         let list = self.list_mut(loc);
         match pos {
             ZonePosition::Top => list.push(id),
             ZonePosition::Bottom => list.insert(0, id),
             ZonePosition::Index(i) => list.insert(i.min(list.len()), id),
         }
+        if loc == ZoneLocation::Stack && projectable {
+            self.stack_projectable.push(id);
+        }
+    }
+
+    /// The stack objects the layer refresh has to visit.
+    ///
+    /// Order is insertion order rather than stack order, which is fine
+    /// because every projection is computed independently of the others —
+    /// nothing here depends on what was projected before it.
+    #[must_use]
+    pub fn stack_projectable(&self) -> &[ObjectId] {
+        &self.stack_projectable
     }
 
     /// Whether the object is in the given zone.
@@ -228,12 +272,57 @@ mod tests {
     fn ordered_insert_remove() {
         let mut zones = Zones::new(2);
         let lib = ZoneLocation::Library(PlayerId::new(0));
-        zones.insert(id(1), lib, ZonePosition::Top);
-        zones.insert(id(2), lib, ZonePosition::Top);
-        zones.insert(id(3), lib, ZonePosition::Bottom);
+        zones.insert(id(1), lib, ZonePosition::Top, true);
+        zones.insert(id(2), lib, ZonePosition::Top, true);
+        zones.insert(id(3), lib, ZonePosition::Bottom, true);
         assert_eq!(zones.list(lib).as_slice(), &[id(3), id(1), id(2)]);
         assert!(zones.remove(id(1), lib));
         assert_eq!(zones.list(lib).as_slice(), &[id(3), id(2)]);
         assert!(!zones.remove(id(9), lib));
+    }
+
+    /// The projectable subset has to survive removals from the middle of a
+    /// stack — a countered spell leaves under the abilities stacked on top
+    /// of it, and if its id stayed behind the layer refresh would keep
+    /// projecting an object that no longer exists.
+    #[test]
+    fn the_projectable_subset_tracks_the_stack() {
+        let mut zones = Zones::new(2);
+        let stack = ZoneLocation::Stack;
+        zones.insert(id(1), stack, ZonePosition::Top, true); // a spell
+        zones.insert(id(2), stack, ZonePosition::Top, false); // its trigger
+        zones.insert(id(3), stack, ZonePosition::Top, true); // a response
+
+        assert_eq!(zones.list(stack).as_slice(), &[id(1), id(2), id(3)]);
+        assert_eq!(zones.stack_projectable(), &[id(1), id(3)]);
+
+        assert!(zones.remove(id(1), stack), "the spell is countered");
+        assert_eq!(zones.list(stack).as_slice(), &[id(2), id(3)]);
+        assert_eq!(zones.stack_projectable(), &[id(3)]);
+
+        assert!(zones.remove(id(2), stack), "the ability resolves");
+        assert_eq!(
+            zones.stack_projectable(),
+            &[id(3)],
+            "abilities were never in it"
+        );
+
+        assert!(zones.remove(id(3), stack));
+        assert!(zones.stack_projectable().is_empty());
+    }
+
+    /// The flag is a stack concept. Everywhere else it is ignored, and a
+    /// battlefield permanent must not leak into the stack's subset.
+    #[test]
+    fn only_the_stack_has_a_projectable_subset() {
+        let mut zones = Zones::new(2);
+        zones.insert(id(1), ZoneLocation::Battlefield, ZonePosition::Top, true);
+        zones.insert(
+            id(2),
+            ZoneLocation::Graveyard(PlayerId::new(0)),
+            ZonePosition::Top,
+            true,
+        );
+        assert!(zones.stack_projectable().is_empty());
     }
 }

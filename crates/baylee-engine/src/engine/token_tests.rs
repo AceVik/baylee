@@ -108,6 +108,71 @@ fn a_token_remembers_which_token_it_is() {
     );
 }
 
+/// The layer refresh visits `Zones::stack_projectable` rather than the
+/// stack, because an ability on the stack has no characteristic a layer can
+/// change and a deck can leave six figures of them there. That shortcut is
+/// only sound while the subset actually excludes abilities and includes
+/// everything else — and both halves fail silently, so they need a test on
+/// a stack that really holds a triggered ability.
+#[test]
+fn a_triggered_ability_stays_out_of_the_projection_set() {
+    let mut engine = Duel::new(9, island())
+        .battlefield(0, &[smothering_tithe()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let mut saw_ability_on_stack = false;
+    for _ in 0..60 {
+        // The invariant, checked at every single step of the walk.
+        let state = engine.state();
+        let stack = state.zones.list(ZoneLocation::Stack).clone();
+        let mut expected: Vec<ObjectId> = stack
+            .iter()
+            .copied()
+            .filter(|id| {
+                state
+                    .object(*id)
+                    .is_some_and(|o| o.kind != crate::object::ObjectKind::AbilityOnStack)
+            })
+            .collect();
+        let mut actual = state.zones.stack_projectable().to_vec();
+        expected.sort_unstable();
+        actual.sort_unstable();
+        assert_eq!(
+            actual, expected,
+            "projection set drifted from stack {stack:?}"
+        );
+        saw_ability_on_stack |= stack.len() > expected.len();
+
+        if saw_ability_on_stack && !tokens_on_battlefield(&engine).is_empty() {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::YesNo { player, .. } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+    assert!(
+        saw_ability_on_stack,
+        "the tithe trigger has to have been on the stack for this to prove anything"
+    );
+}
+
 /// The point of the whole exercise: a Treasure is a Treasure because the
 /// engine reads the ability off the token definition. Before that, this
 /// returned an empty list and the player was left holding an artifact that

@@ -421,7 +421,7 @@ impl<L: CardLookup> Engine<L> {
         });
         self.state
             .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, true);
         self.state
             .journal
             .record(GameEvent::SpellCast { object: id, player });
@@ -520,7 +520,7 @@ impl<L: CardLookup> Engine<L> {
             self.synthetic_fx.insert(id, effects);
             self.state
                 .zones
-                .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+                .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
             self.state.journal.record(GameEvent::AbilityTriggered {
                 object: id,
                 source,
@@ -750,7 +750,7 @@ impl<L: CardLookup> Engine<L> {
         });
         self.state
             .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source,
@@ -885,7 +885,7 @@ impl<L: CardLookup> Engine<L> {
         });
         self.state
             .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source,
@@ -1019,7 +1019,7 @@ impl<L: CardLookup> Engine<L> {
         });
         self.state
             .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source,
@@ -1059,7 +1059,7 @@ impl<L: CardLookup> Engine<L> {
         });
         self.state
             .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source,

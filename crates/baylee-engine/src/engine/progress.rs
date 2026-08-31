@@ -1067,7 +1067,7 @@ impl<L: CardLookup> Engine<L> {
                     self.synthetic_fx.insert(id, synthetic);
                     self.state
                         .zones
-                        .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+                        .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
                     self.state.journal.record(GameEvent::AbilityTriggered {
                         object: id,
                         source: t.source,
@@ -1594,7 +1594,7 @@ impl<L: CardLookup> Engine<L> {
         self.synthetic_fx.insert(id, synthetic);
         self.state
             .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source: t.source,

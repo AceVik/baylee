@@ -176,6 +176,37 @@ fn bench_layers(c: &mut Criterion) {
     }
 }
 
+/// The layer refresh with a deep stack of triggered abilities.
+///
+/// This is the shape an Ally deck reaches and the reason the refresh reads
+/// the projectable subset instead of the stack: an ability on the stack has
+/// nothing a layer can change, but the pass runs once per engine step and
+/// every counter placed invalidates it. Walking the abilities made the cost
+/// of one step proportional to the whole stack.
+fn bench_layers_deep_stack(c: &mut Criterion) {
+    use baylee_engine::object::ObjectKind;
+    use baylee_engine::zone::ZoneLocation;
+
+    let mut state = GameState::from_preset(&preset(42), &RegistryLookup).unwrap();
+    let owner = baylee_core::ids::PlayerId::new(0);
+    let name = state.names.intern("Ally trigger");
+    for _ in 0..20_000 {
+        state.create_bare(owner, ObjectKind::AbilityOnStack, name, ZoneLocation::Stack);
+    }
+    assert_eq!(state.zones.list(ZoneLocation::Stack).len(), 20_000);
+    assert!(
+        state.zones.stack_projectable().is_empty(),
+        "abilities never enter the projectable subset — that is the point"
+    );
+
+    c.bench_function("layers/refresh_over_20k_stack", |b| {
+        b.iter(|| {
+            state.invalidate_projections();
+            state.refresh_characteristics();
+        });
+    });
+}
+
 // The baseline benchmark group (CI regression budgets derive from these).
 criterion_group!(
     basics,
@@ -183,6 +214,7 @@ criterion_group!(
     bench_clone,
     bench_snapshot_hash,
     bench_priority_pass,
-    bench_layers
+    bench_layers,
+    bench_layers_deep_stack
 );
 criterion_main!(basics);

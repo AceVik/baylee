@@ -902,7 +902,7 @@ impl<L: CardLookup> Engine<L> {
                         self.synthetic_fx.insert(id, fx);
                         self.state
                             .zones
-                            .insert(id, ZoneLocation::Stack, ZonePosition::Top);
+                            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
                     }
                 }
             }

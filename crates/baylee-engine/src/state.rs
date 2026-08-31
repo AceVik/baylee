@@ -514,7 +514,12 @@ impl GameState {
             obj.timestamp = ts;
             obj
         });
-        self.zones.insert(id, loc, ZonePosition::Top);
+        self.zones.insert(
+            id,
+            loc,
+            ZonePosition::Top,
+            kind != ObjectKind::AbilityOnStack,
+        );
         {
             let obj = self.arena.get_mut(id).expect("fresh object");
             obj.zone = loc.zone();
@@ -580,6 +585,29 @@ impl GameState {
         self.characteristics_generation = u64::MAX;
     }
 
+    /// Whether [`crate::zone::Zones::stack_projectable`] still agrees with
+    /// the stack: same objects, abilities excluded.
+    ///
+    /// Read-only, and only ever called from a `debug_assert!` — it walks
+    /// the stack, which is precisely the walk the subset exists to avoid.
+    #[must_use]
+    pub fn stack_projection_set_is_consistent(&self) -> bool {
+        let mut expected: Vec<ObjectId> = self
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .copied()
+            .filter(|id| {
+                self.object(*id)
+                    .is_some_and(|o| o.kind != ObjectKind::AbilityOnStack)
+            })
+            .collect();
+        let mut actual = self.zones.stack_projectable().to_vec();
+        expected.sort_unstable();
+        actual.sort_unstable();
+        expected == actual
+    }
+
     /// Notes that `id` may now be a token outside the battlefield, so the
     /// next state-based-action pass looks at it (CR 704.5d).
     ///
@@ -612,6 +640,16 @@ impl GameState {
     /// # Panics
     /// Internal invariant violations (zone objects always exist).
     pub fn refresh_characteristics(&mut self) {
+        // Both halves of the stack shortcut below fail silently — an id
+        // left in the subset is projected after its object is gone, a spell
+        // missing from it quietly stops being affected by anthems — and the
+        // sites that fill it are spread over five files. Checked here, on
+        // every engine step rather than only when the effect set moved, so
+        // that every test on every code path is a test of the invariant.
+        debug_assert!(
+            self.stack_projection_set_is_consistent(),
+            "stack_projectable drifted from the stack"
+        );
         if self.characteristics_generation == self.effects.generation {
             return;
         }
@@ -634,11 +672,16 @@ impl GameState {
         if cross_zone {
             ids.extend(self.arena.iter().map(|(id, _)| id));
         } else {
+            // The stack contributes only its *spells*. An ability on the
+            // stack has no characteristic a layer can touch, and this pass
+            // runs once per engine step — walking six figures of Ally
+            // triggers to establish that, every time a counter moves, is
+            // the difference between a long game and no game at all.
             ids.extend(
                 self.zones
                     .list(ZoneLocation::Battlefield)
                     .iter()
-                    .chain(self.zones.list(ZoneLocation::Stack).iter())
+                    .chain(self.zones.stack_projectable().iter())
                     .copied(),
             );
         }
@@ -785,7 +828,10 @@ impl GameState {
             // and every filter reading its power would agree.
             obj.cache.clear();
         }
-        self.zones.insert(id, to, pos);
+        let projectable = self
+            .object(id)
+            .is_none_or(|o| o.kind != ObjectKind::AbilityOnStack);
+        self.zones.insert(id, to, pos, projectable);
         // A card-less object that lands anywhere but the battlefield or the
         // stack is a cleanup candidate (CR 704.5d). The stack is excluded
         // because a token *copy of a spell* legitimately lives there and

@@ -88,8 +88,41 @@ fn keep_all(engine: &mut Engine<RegistryLookup>) {
     }
 }
 
+/// The layer refresh reads `Zones::stack_projectable` instead of walking the
+/// stack, so the two are only allowed to disagree about abilities.
+///
+/// Both directions are silent failures if they ever drift. An id left in
+/// the subset after its object is gone gets projected forever; a spell
+/// missing from it simply stops being affected by anthems, and nothing
+/// anywhere would report either.
+fn check_projectable(engine: &Engine<RegistryLookup>) {
+    let state = engine.state();
+    let expected: Vec<_> = state
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .copied()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| o.kind != crate::object::ObjectKind::AbilityOnStack)
+        })
+        .collect();
+    let mut actual = state.zones.stack_projectable().to_vec();
+    let mut sorted = expected.clone();
+    actual.sort_unstable();
+    sorted.sort_unstable();
+    assert_eq!(
+        actual,
+        sorted,
+        "the projectable subset drifted from the stack (stack: {:?})",
+        state.zones.list(ZoneLocation::Stack)
+    );
+}
+
 fn pass_all(engine: &mut Engine<RegistryLookup>) {
     for _ in 0..4 {
+        check_projectable(engine);
         match engine.pending().clone() {
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
