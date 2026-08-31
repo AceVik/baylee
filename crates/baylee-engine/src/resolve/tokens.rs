@@ -51,7 +51,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // effect because it has no duration and an Army is always a
             // token, so there is nothing underneath for it to shadow.
             if let Some(obj) = state.object_mut(target_id) {
-                obj.base.subtypes.insert(subtype);
+                obj.base_mut().subtypes.insert(subtype);
                 obj.cache.clear();
                 let old = obj.counters.get(baylee_cards_dsl::CounterKind::P1P1);
                 let new = obj
@@ -138,7 +138,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 && let Some(base) = state.object(equipped).map(|o| o.base.clone())
             {
                 for _ in 0..count {
-                    let mut base = base.clone();
+                    let mut base = (*base).clone();
                     for m in mods {
                         apply_copy_mod(&mut base, m);
                     }
@@ -310,22 +310,9 @@ fn create_token(
     token: &'static baylee_cards_dsl::TokenDef,
     size: Option<i16>,
 ) -> ObjectId {
-    let name = state.names.intern(token.name);
-    let base = Characteristics {
-        name,
-        mana_cost: ManaCost::ZERO,
-        colors: token.colors,
-        types: token.types,
-        supertypes: token.supertypes,
-        subtypes: SubtypeSet::from_slice(token.subtypes),
-        keywords: token.keywords,
-        power: size.or(token.power),
-        toughness: size.or(token.toughness),
-        loyalty: None,
-        color_identity: ColorSet::EMPTY,
-        produced_colors: ColorSet::EMPTY,
-        produced_colorless: false,
-    };
+    // Every Zombie of the same kind shares one printed face: the board this
+    // has to survive is thousands of them.
+    let base = state.token_base(token, size);
     let ts = state.next_timestamp();
     let id = state.arena.insert_with(|id| {
         let mut obj = GameObject::new_bare(id, controller, ObjectKind::Permanent, base);

@@ -407,11 +407,11 @@ mod tests {
             name,
             ZoneLocation::Battlefield,
         );
-        let obj = state.object_mut(id).expect("just created");
-        obj.base.types = TypeSet::CREATURE;
-        obj.base.power = Some(1);
-        obj.base.toughness = Some(1);
-        obj.base.keywords = keywords;
+        let b = state.object_mut(id).expect("just created").base_mut();
+        b.types = TypeSet::CREATURE;
+        b.power = Some(1);
+        b.toughness = Some(1);
+        b.keywords = keywords;
         id
     }
 

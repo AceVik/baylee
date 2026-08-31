@@ -207,6 +207,56 @@ fn bench_layers_deep_stack(c: &mut Criterion) {
     });
 }
 
+/// A board of a few thousand tokens, each carrying counters.
+///
+/// This is the shape a go-wide deck reaches, and the one that decides
+/// whether the printed characteristics belong in the object or behind a
+/// shared handle: every token of the same kind prints the same, so the
+/// board is thousands of objects reading one face. Both numbers here are
+/// per *engine step* — the refresh runs before every priority grant, and
+/// the clone is the AI's per-ply primitive.
+fn token_board(count: usize) -> GameState {
+    use baylee_engine::object::ObjectKind;
+    use baylee_engine::zone::ZoneLocation;
+
+    let mut state = GameState::from_preset(&preset(42), &RegistryLookup).unwrap();
+    let owner = baylee_core::ids::PlayerId::new(0);
+    let name = state.names.intern("Zombie");
+    for i in 0..count {
+        let id = state.create_bare(
+            owner,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(id).expect("fresh token");
+        obj.base_mut().types = baylee_core::types::TypeSet::CREATURE;
+        obj.base_mut().power = Some(2);
+        obj.base_mut().toughness = Some(2);
+        obj.counters.add(
+            baylee_cards_dsl::CounterKind::P1P1,
+            u16::try_from(i % 7 + 1).unwrap(),
+        );
+    }
+    state
+}
+
+fn bench_token_board(c: &mut Criterion) {
+    let state = token_board(3_000);
+    c.bench_function("state/clone_3k_tokens", |b| b.iter(|| state.clone()));
+    c.bench_function("layers/refresh_3k_tokens", |b| {
+        b.iter_batched(
+            || state.clone(),
+            |mut s| {
+                s.invalidate_projections();
+                s.refresh_characteristics();
+                s
+            },
+            BatchSize::SmallInput,
+        );
+    });
+}
+
 // The baseline benchmark group (CI regression budgets derive from these).
 criterion_group!(
     basics,
@@ -215,6 +265,7 @@ criterion_group!(
     bench_snapshot_hash,
     bench_priority_pass,
     bench_layers,
-    bench_layers_deep_stack
+    bench_layers_deep_stack,
+    bench_token_board
 );
 criterion_main!(basics);

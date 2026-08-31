@@ -886,6 +886,7 @@ impl<L: CardLookup> Engine<L> {
                             .state
                             .object(spell)
                             .map_or(NameRef::new(0), |o| o.base.name);
+                        let base = self.state.bare_base(name);
                         let id = self.state.arena.insert_with(|id| {
                             GameObject::new_ability_on_stack(
                                 id,
@@ -896,7 +897,7 @@ impl<L: CardLookup> Engine<L> {
                                     source: spell,
                                 },
                                 SmallVec::new(),
-                                name,
+                                base,
                             )
                         });
                         self.synthetic_fx.insert(id, fx);

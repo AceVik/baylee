@@ -1,5 +1,7 @@
 //! Game state: the complete, cloneable, hashable world.
 
+use std::sync::Arc;
+
 use crate::arena::Arena;
 use crate::event::{Cause, GameEvent, Journal};
 use crate::object::{CardRef, Characteristics, CounterKind, GameObject, ObjectKind, Rider};
@@ -214,6 +216,36 @@ pub enum StateError {
     NoSuchObject(ObjectId),
 }
 
+/// Printed characteristics, shared by every object that prints the same.
+///
+/// A [`GameObject`] holds its printed face behind an [`Arc`]. Three places
+/// in the engine write a base, all through [`GameObject::base_mut`], which
+/// splits the sharing before it writes; everything else only reads. So every
+/// copy of a card in a deck, every token of the same kind and every
+/// triggered ability waiting on the stack can point at one allocation
+/// instead of carrying 256 bytes of its own.
+///
+/// The scale this exists for is a board of a few thousand tokens under a
+/// stack of a million abilities. Without the table that is a million
+/// allocations scattered across the heap, which the layer refresh then
+/// chases one cache miss at a time; with it, one allocation the refresh
+/// keeps in L1. The table itself sits behind an `Arc` too, so cloning a
+/// state for the AI copies a pointer rather than the map.
+#[derive(Clone, Debug, Default)]
+pub struct BaseCache {
+    /// Printed card faces, keyed by card. Only the front face is interned:
+    /// [`GameState::switch_face`] rebuilds from the definition and is rare.
+    cards: FxHashMap<CardIndex, Arc<Characteristics>>,
+    /// The blank face a card-less, token-less object starts from — an
+    /// ability on the stack, an emblem — keyed by its name.
+    bare: FxHashMap<NameRef, Arc<Characteristics>>,
+    /// Token faces, keyed by the definition they were printed from and the
+    /// size an effect may have overridden (Skyclave Apparition's Illusion).
+    /// The definition is a `&'static`, so its address is its identity —
+    /// two token kinds that share a name do not share a face.
+    tokens: FxHashMap<(usize, Option<i16>), Arc<Characteristics>>,
+}
+
 /// The whole game world: cloneable for AI, hashable for determinism.
 #[derive(Clone, Debug)]
 pub struct GameState {
@@ -270,6 +302,8 @@ pub struct GameState {
     pub journal: Journal,
     /// Name interner.
     pub names: Names,
+    /// Printed characteristics, shared between objects that print the same.
+    pub bases: Arc<BaseCache>,
     /// Monotonic timestamp source (effects ordering).
     pub timestamp: u64,
     /// Registered continuous effects (anthems, type changes, pumps).
@@ -357,6 +391,7 @@ impl GameState {
             rng: GameRng::new(preset.seed),
             journal: Journal::default(),
             names: Names::default(),
+            bases: Arc::default(),
             timestamp: 0,
             effects: crate::effects::EffectTable::default(),
             replacement_rules: Vec::new(),
@@ -456,6 +491,93 @@ impl GameState {
         Ok(state)
     }
 
+    /// The shared printed face of a card, interned on first use.
+    ///
+    /// Front face only: an MDFC that turns over goes through
+    /// [`GameState::switch_face`], which builds a face of its own.
+    fn card_base(&mut self, def: &CardDef, index: CardIndex) -> Arc<Characteristics> {
+        if let Some(base) = self.bases.cards.get(&index) {
+            return Arc::clone(base);
+        }
+        let name = self.names.intern(def.name());
+        let base = Arc::new(Characteristics::from_face(def, 0, name));
+        Arc::make_mut(&mut self.bases)
+            .cards
+            .insert(index, Arc::clone(&base));
+        base
+    }
+
+    /// The shared blank face behind every card-less, token-less object:
+    /// an ability on the stack, an emblem. A name and nothing else.
+    ///
+    /// This is the one that carries the million-ability stack: a deck that
+    /// puts six figures of triggers up puts up a handful of *distinct*
+    /// ones, so they all end up pointing here.
+    pub fn bare_base(&mut self, name: NameRef) -> Arc<Characteristics> {
+        if let Some(base) = self.bases.bare.get(&name) {
+            return Arc::clone(base);
+        }
+        let base = Arc::new(Characteristics {
+            name,
+            mana_cost: baylee_core::mana::ManaCost::ZERO,
+            colors: baylee_core::color::ColorSet::EMPTY,
+            types: baylee_core::types::TypeSet::EMPTY,
+            supertypes: baylee_core::types::SupertypeSet::EMPTY,
+            subtypes: baylee_core::types::SubtypeSet::EMPTY,
+            keywords: baylee_cards_dsl::KeywordSet::EMPTY,
+            power: None,
+            toughness: None,
+            loyalty: None,
+            color_identity: baylee_core::color::ColorSet::EMPTY,
+            produced_colors: baylee_core::color::ColorSet::EMPTY,
+            produced_colorless: false,
+        });
+        Arc::make_mut(&mut self.bases)
+            .bare
+            .insert(name, Arc::clone(&base));
+        base
+    }
+
+    /// The shared printed face of a token, at the size the effect asked for.
+    ///
+    /// `size` is `None` for the printed size and `Some(x)` when the effect
+    /// computed one (Skyclave Apparition's Illusion is "X/X"); the two are
+    /// different faces of the same definition and are interned apart.
+    pub fn token_base(
+        &mut self,
+        token: &'static baylee_cards_dsl::TokenDef,
+        size: Option<i16>,
+    ) -> Arc<Characteristics> {
+        // The definition is a `&'static` handed out by the card registry,
+        // so its address identifies it. Nothing hashes or orders on this —
+        // it is a lookup key inside one process — so a different address in
+        // a different run cannot change a game.
+        let key = (std::ptr::from_ref(token) as usize, size);
+        if let Some(base) = self.bases.tokens.get(&key) {
+            return Arc::clone(base);
+        }
+        let name = self.names.intern(token.name);
+        let base = Arc::new(Characteristics {
+            name,
+            mana_cost: baylee_core::mana::ManaCost::ZERO,
+            colors: token.colors,
+            types: token.types,
+            supertypes: token.supertypes,
+            subtypes: baylee_core::types::SubtypeSet::from_slice(token.subtypes),
+            keywords: token.keywords,
+            power: size.or(token.power),
+            toughness: size.or(token.toughness),
+            loyalty: None,
+            color_identity: baylee_core::color::ColorSet::EMPTY,
+            produced_colors: baylee_core::color::ColorSet::EMPTY,
+            produced_colorless: false,
+        });
+        Arc::make_mut(&mut self.bases)
+            .tokens
+            .insert(key, Arc::clone(&base));
+        base
+    }
+
     fn create_card(
         &mut self,
         owner: PlayerId,
@@ -465,8 +587,7 @@ impl GameState {
         let def = lookup
             .card(entry.card)
             .ok_or(SetupError::UnknownCard(entry.card))?;
-        let name = self.names.intern(def.name());
-        let base = Characteristics::from_face(def, 0, name);
+        let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
             print: entry.print,
@@ -492,21 +613,7 @@ impl GameState {
         name: NameRef,
         loc: ZoneLocation,
     ) -> ObjectId {
-        let base = Characteristics {
-            name,
-            mana_cost: baylee_core::mana::ManaCost::ZERO,
-            colors: baylee_core::color::ColorSet::EMPTY,
-            types: baylee_core::types::TypeSet::EMPTY,
-            supertypes: baylee_core::types::SupertypeSet::EMPTY,
-            subtypes: baylee_core::types::SubtypeSet::EMPTY,
-            keywords: baylee_cards_dsl::KeywordSet::EMPTY,
-            power: None,
-            toughness: None,
-            loyalty: None,
-            color_identity: baylee_core::color::ColorSet::EMPTY,
-            produced_colors: baylee_core::color::ColorSet::EMPTY,
-            produced_colorless: false,
-        };
+        let base = self.bare_base(name);
         self.timestamp += 1;
         let ts = self.timestamp;
         let id = self.arena.insert_with(|id| {
@@ -561,7 +668,7 @@ impl GameState {
         let base = crate::object::Characteristics::from_face(def, face, name);
         if let Some(obj) = self.object_mut(id) {
             obj.face_index = face as u8;
-            obj.base = base;
+            obj.base = Arc::new(base);
             obj.cache.clear();
         }
         // The projection is now stale for this object; the next refresh

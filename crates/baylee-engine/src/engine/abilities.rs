@@ -498,6 +498,7 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(source)
                 .map_or(NameRef::new(0), |o| o.base.name);
+            let base = self.state.bare_base(name);
             let card = self
                 .state
                 .object(source)
@@ -514,7 +515,7 @@ impl<L: CardLookup> Engine<L> {
                         source,
                     },
                     targets,
-                    name,
+                    base,
                 )
             });
             self.synthetic_fx.insert(id, effects);
@@ -743,8 +744,9 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
+        let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
-            let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, name);
+            let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, base);
             obj.chosen_player = self.loyalty_player_choice.take();
             obj
         });
@@ -878,8 +880,9 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
+        let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
-            let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, name);
+            let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, base);
             obj.chosen_player = self.loyalty_player_choice.take();
             obj
         });
@@ -1002,6 +1005,7 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
+        let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
             GameObject::new_ability_on_stack(
                 id,
@@ -1014,7 +1018,7 @@ impl<L: CardLookup> Engine<L> {
                     source,
                 },
                 targets,
-                name,
+                base,
             )
         });
         self.state
@@ -1044,6 +1048,7 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
+        let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
             GameObject::new_ability_on_stack(
                 id,
@@ -1054,7 +1059,7 @@ impl<L: CardLookup> Engine<L> {
                     source,
                 },
                 targets,
-                name,
+                base,
             )
         });
         self.state

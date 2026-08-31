@@ -488,7 +488,7 @@ impl<L: CardLookup> Engine<L> {
                         .types
                         .contains(baylee_core::types::TypeSet::CREATURE)
                     {
-                        obj.base.subtypes.insert(subtype);
+                        obj.base_mut().subtypes.insert(subtype);
                     }
                 }
                 Ok(())

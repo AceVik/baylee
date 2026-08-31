@@ -138,7 +138,7 @@ pub fn recompute(state: &GameState, obj: &GameObject) -> Projection {
 
 /// Recomputes an object's characteristics against a prepared [`LayerPlan`].
 pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> Projection {
-    let mut c = obj.base.clone();
+    let mut c = (*obj.base).clone();
     // Layer 2 starts from the *base* controller, not from whatever the
     // last refresh projected: an effect that has since ended must leave
     // no trace.

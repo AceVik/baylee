@@ -17,8 +17,7 @@ use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_cards_dsl::{Amount, Effect, PlayerRel, SearchDest, TargetSpec};
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::SubtypeSet;
+use baylee_core::mana::ManaColor;
 use smallvec::SmallVec;
 
 mod counters;
@@ -1607,7 +1606,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     let obj = state.object(target_id)?;
                     (
                         obj.card,
-                        obj.base.clone(),
+                        (*obj.base).clone(),
                         obj.targets.clone(),
                         obj.target_req,
                     )

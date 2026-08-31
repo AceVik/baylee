@@ -8,6 +8,15 @@ Spell, Permanent, Token, Emblem, AbilityOnStack. Zone is a property; zones
 hold ordered ids (library order IS the data). Every card instance carries
 `card: (CardIndex, PrintRef)` — `PrintRef` is presentation-only.
 
+The *printed* characteristics are shared, not inlined: an object holds an
+`Arc<Characteristics>` handed out by `GameState::bases`, so every copy of a
+card in a deck, every token of the same kind and every ability of the same
+name on the stack point at one allocation. **Every write goes through
+`GameObject::base_mut`**, which splits the sharing first; assigning
+`obj.base` a fresh face is the only other legal way to change one. This is
+what keeps a `GameObject` at 272 bytes and `GameState::clone` — the AI's
+per-ply primitive — from copying the same 256 bytes a thousand times.
+
 ## Layers & continuous effects
 Computed characteristics are cached projections: printed/copiable base →
 apply matching `ContinuousEffect`s by layer (1 copy, 2 control, 3 text,

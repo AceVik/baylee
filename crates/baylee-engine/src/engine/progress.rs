@@ -708,19 +708,23 @@ impl<L: CardLookup> Engine<L> {
             let obj = self.state.object_mut(id).expect("copy target exists");
             match m {
                 baylee_cards_dsl::CopyMod::AddType(t) => {
-                    obj.base.types = obj.base.types.union(t);
+                    let b = obj.base_mut();
+                    b.types = b.types.union(t);
                 }
                 baylee_cards_dsl::CopyMod::RemoveType(t) => {
-                    obj.base.types = obj.base.types.difference(t);
+                    let b = obj.base_mut();
+                    b.types = b.types.difference(t);
                 }
                 baylee_cards_dsl::CopyMod::RemoveSupertype(s) => {
-                    obj.base.supertypes = obj.base.supertypes.difference(s);
+                    let b = obj.base_mut();
+                    b.supertypes = b.supertypes.difference(s);
                 }
                 baylee_cards_dsl::CopyMod::AddSubtype(s) => {
-                    obj.base.subtypes.insert(s);
+                    obj.base_mut().subtypes.insert(s);
                 }
                 baylee_cards_dsl::CopyMod::AddKeyword(k) => {
-                    obj.base.keywords = obj.base.keywords.union(k);
+                    let b = obj.base_mut();
+                    b.keywords = b.keywords.union(k);
                 }
                 baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
                     obj.counters.add(kind, n);
@@ -1048,6 +1052,7 @@ impl<L: CardLookup> Engine<L> {
                         .state
                         .object(t.source)
                         .map_or(NameRef::new(0), |o| o.base.name);
+                    let base = self.state.bare_base(name);
                     // The event object doubles as the implicit target
                     // (prowess: itself; ward: the targeting spell).
                     let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
@@ -1061,7 +1066,7 @@ impl<L: CardLookup> Engine<L> {
                                 source: t.source,
                             },
                             targets,
-                            name,
+                            base,
                         )
                     });
                     self.synthetic_fx.insert(id, synthetic);
@@ -1578,6 +1583,7 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(t.source)
             .map_or(NameRef::new(0), |o| o.base.name);
+        let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
             GameObject::new_ability_on_stack(
                 id,
@@ -1588,7 +1594,7 @@ impl<L: CardLookup> Engine<L> {
                     source: t.source,
                 },
                 targets,
-                name,
+                base,
             )
         });
         self.synthetic_fx.insert(id, synthetic);
@@ -1935,7 +1941,7 @@ impl<L: CardLookup> Engine<L> {
         // Temporary copies revert (Cursed Mirror).
         for obj in self.state.arena.iter_mut_all() {
             if let Some(original) = obj.original_base.take() {
-                obj.base = *original;
+                obj.base = original;
             }
         }
         self.state.invalidate_projections();

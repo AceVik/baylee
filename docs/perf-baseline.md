@@ -98,3 +98,50 @@ to rediscover it:
 - `Counters` holds four kinds inline, so thousands of tokens with +1/+1
   counters allocate nothing — but the amount is a `u16` with
   `saturating_add` and caps silently at 65 535.
+
+## The printed face moves out of the object (2026-08-31, later still)
+
+`GameObject` inlined 256 bytes of *printed* characteristics — name, mana
+cost, the 512-bit subtype bitmap, types, P/T. Every object carried its own
+copy even though a 60-card deck prints a dozen faces, a board of three
+thousand Zombie tokens prints one, and a stack of a million triggered
+abilities prints a handful. The face is now an `Arc<Characteristics>` handed
+out by `GameState`'s base cache, and the three places in the engine that
+write one go through `GameObject::base_mut`, which splits the sharing first.
+
+Both halves matter. The `Arc` alone shrinks the object; without the cache it
+would trade 256 inlined bytes for a `malloc` per object and a cache miss per
+read, which is worse at exactly the scale this is for. `create_card`,
+`create_bare` and the token factory all take their face from the cache.
+
+Same machine, minutes apart: HEAD in a throwaway worktree against the change,
+both with the benches below.
+
+| Bench | Before | After | Change |
+|---|---|---|---|
+| `state/clone_3k_tokens` | 258.4 µs | 163.2 µs | **−37 %** |
+| `state/clone` | 11.37 µs | 8.66 µs | −24 % |
+| `setup/from_preset` | 17.86 µs | 13.54 µs | −24 % |
+| `engine/priority_pass_x4` | 2.32 µs | 1.89 µs | −19 % |
+| `layers/refresh_x32` | 15.23 µs | 13.67 µs | −10 % |
+| `layers/refresh_3k_tokens` | 249.4 µs | 244.1 µs | −2 % |
+| `layers/refresh_x1` | 6.44 µs | 6.01 µs | −7 % |
+| `state/snapshot_hash` | 6.23 µs | 6.29 µs | +1 % |
+
+`GameObject` is **528 → 272 B**; `tests/footprint.rs` holds it there.
+
+Two things the table does not say:
+
+- **The layer refresh barely moved**, and that is the honest result. It reads
+  every base once per object, so it trades an inline read for a pointer
+  chase into an allocation the whole board shares — a hot line, not a cold
+  one, but still a dependent load. What it buys back is the halved arena it
+  walks. Net: a few percent, in the right direction.
+- **The clone win grows with the board.** At 120 objects it is 24 %; at 3 000
+  it is 37 %, because that is where the per-object 256 bytes stopped being
+  noise. The AI clones once per ply, so this is the number that compounds.
+
+`state/clone` at **11.37 µs** here also settles the open question from the
+section above: the 7.80 µs reference was not comparable, and 11.4 µs was the
+real cost of the old layout. Measured fresh, in a worktree with no criterion
+history, minutes before the 8.66 µs.

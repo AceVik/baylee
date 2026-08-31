@@ -527,11 +527,11 @@ mod tests {
             name,
             ZoneLocation::Battlefield,
         );
-        let obj = state.object_mut(id).expect("just created");
-        obj.base.types = TypeSet::CREATURE;
-        obj.base.power = Some(power);
-        obj.base.toughness = Some(toughness);
-        obj.base.keywords = keywords;
+        let b = state.object_mut(id).expect("just created").base_mut();
+        b.types = TypeSet::CREATURE;
+        b.power = Some(power);
+        b.toughness = Some(toughness);
+        b.keywords = keywords;
         id
     }
 
@@ -560,8 +560,9 @@ mod tests {
             ZoneLocation::Battlefield,
         );
         let obj = state.object_mut(id).expect("just created");
-        obj.base.types = TypeSet::PLANESWALKER;
-        obj.base.loyalty = Some(loyalty);
+        let b = obj.base_mut();
+        b.types = TypeSet::PLANESWALKER;
+        b.loyalty = Some(loyalty);
         obj.counters
             .set(baylee_cards_dsl::CounterKind::Loyalty, loyalty);
         id
@@ -640,7 +641,7 @@ mod tests {
         assert!(!state.object(wall).expect("alive").deathtouched);
 
         // Losing indestructibility later must not make it die retroactively.
-        state.object_mut(wall).expect("alive").base.keywords = KeywordSet::EMPTY;
+        state.object_mut(wall).expect("alive").base_mut().keywords = KeywordSet::EMPTY;
         crate::sba::run(&mut state);
         assert!(
             on_battlefield(&state, wall),

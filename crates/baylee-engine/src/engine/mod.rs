@@ -417,6 +417,8 @@ mod progress;
 #[cfg(test)]
 mod automation_tests;
 #[cfg(test)]
+mod base_sharing_tests;
+#[cfg(test)]
 mod card_rider_tests;
 #[cfg(test)]
 mod card_tests;

@@ -13,6 +13,7 @@ use baylee_core::ids::{CardIndex, NameRef, ObjectId, PlayerId, PrintRef};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use smallvec::SmallVec;
+use std::sync::Arc;
 
 /// What kind of object this is.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -413,7 +414,19 @@ pub struct GameObject {
     /// Backing card, if any (tokens/emblems have none).
     pub card: Option<CardRef>,
     /// Copiable base characteristics.
-    pub base: Characteristics,
+    ///
+    /// Shared rather than owned, for two reasons that pull the same way.
+    /// Inline it is 256 bytes — half of a `GameObject` — so every object in
+    /// the arena paid for a full characteristic set whether or not anything
+    /// ever looked at it. And `GameState::clone` is the AI's lookahead
+    /// primitive: with the set inline, every ply deep-copied all of them;
+    /// behind a handle a clone is a refcount bump.
+    ///
+    /// Nothing here is copy-on-write by accident — the three places that
+    /// rewrite a base (a clone effect, Cursed Mirror, its cleanup) go
+    /// through [`GameObject::base_mut`], which is `Arc::make_mut` and so
+    /// splits the sharing exactly when someone writes.
+    pub base: Arc<Characteristics>,
     /// Layered projection cache (M2).
     pub cache: CachedChar,
     /// Counters.
@@ -450,7 +463,7 @@ pub struct GameObject {
     pub target_req: Option<baylee_cards_dsl::TargetReq>,
     /// Original base before a temporary copy (Cursed Mirror); reverted at
     /// cleanup.
-    pub original_base: Option<Box<Characteristics>>,
+    pub original_base: Option<Arc<Characteristics>>,
     /// Which ability this is (`AbilityOnStack` objects only).
     pub ability: Option<AbilityLoc>,
     /// The value of X chosen at cast time (spells).
@@ -493,7 +506,12 @@ pub struct GameObject {
 impl GameObject {
     /// Creates a card-backed object.
     #[must_use]
-    pub fn new_card(id: ObjectId, owner: PlayerId, card: CardRef, base: Characteristics) -> Self {
+    pub fn new_card(
+        id: ObjectId,
+        owner: PlayerId,
+        card: CardRef,
+        base: impl Into<Arc<Characteristics>>,
+    ) -> Self {
         Self {
             id,
             owner,
@@ -504,7 +522,7 @@ impl GameObject {
             kind: ObjectKind::Card,
             card: Some(card),
             cache: CachedChar::default(),
-            base,
+            base: base.into(),
             counters: Counters::default(),
             damage: 0,
             deathtouched: false,
@@ -533,34 +551,21 @@ impl GameObject {
     }
 
     /// Creates an ability object on the stack.
+    ///
+    /// `base` is the blank face from [`GameState::bare_base`], not one built
+    /// here: an Ally deck puts six figures of these on the stack, and a face
+    /// of its own for each would be six figures of allocations for a name.
+    ///
+    /// [`GameState::bare_base`]: crate::state::GameState::bare_base
     #[must_use]
     pub fn new_ability_on_stack(
         id: ObjectId,
         controller: PlayerId,
         ability: AbilityLoc,
         targets: SmallVec<[ObjectId; 2]>,
-        name: NameRef,
+        base: Arc<Characteristics>,
     ) -> Self {
-        let mut obj = Self::new_bare(
-            id,
-            controller,
-            ObjectKind::AbilityOnStack,
-            Characteristics {
-                name,
-                mana_cost: ManaCost::ZERO,
-                colors: ColorSet::EMPTY,
-                types: TypeSet::EMPTY,
-                supertypes: SupertypeSet::EMPTY,
-                subtypes: SubtypeSet::EMPTY,
-                keywords: KeywordSet::EMPTY,
-                power: None,
-                toughness: None,
-                loyalty: None,
-                color_identity: ColorSet::EMPTY,
-                produced_colors: ColorSet::EMPTY,
-                produced_colorless: false,
-            },
-        );
+        let mut obj = Self::new_bare(id, controller, ObjectKind::AbilityOnStack, base);
         obj.ability = Some(ability);
         obj.targets = targets;
         obj.zone = Zone::Stack;
@@ -573,7 +578,7 @@ impl GameObject {
         id: ObjectId,
         owner: PlayerId,
         kind: ObjectKind,
-        base: Characteristics,
+        base: impl Into<Arc<Characteristics>>,
     ) -> Self {
         let mut obj = Self::new_card(
             id,
@@ -611,6 +616,17 @@ impl GameObject {
                 .map_or(&[], |def| def.abilities_for_face(self.face_index as usize));
         }
         self.token.map_or(&[], |token| token.abilities)
+    }
+
+    /// Mutable access to the base, splitting the sharing if anyone else
+    /// holds it.
+    ///
+    /// The only way to write a base. Going through `Arc::make_mut` is what
+    /// makes sharing safe: a clone of the game state, or a token that took
+    /// its base from the permanent it copies, keeps reading the old values
+    /// while the writer gets its own copy.
+    pub fn base_mut(&mut self) -> &mut Characteristics {
+        Arc::make_mut(&mut self.base)
     }
 
     /// Current characteristics.

@@ -16,22 +16,24 @@ use baylee_engine::state::GameState;
 
 /// Every characteristic set carries a 512-bit subtype bitmap and a 16-slot
 /// mana cost; those two dominate it and are what makes storing a second
-/// copy per object expensive.
+/// copy per object expensive. Objects hold it behind an `Arc`, so this
+/// number is paid once per *distinct* base, not once per object.
 const CHARACTERISTICS_BUDGET: usize = 256;
 
 /// The projection cache holds a generation, an optional boxed projection
 /// and an optional layer-2 controller — not a second `Characteristics`.
 const CACHE_BUDGET: usize = 32;
 
-/// One object: identity, zone, base characteristics, counters, riders,
-/// targets and the cache slot.
+/// One object: identity, zone, a handle on the base characteristics,
+/// counters, riders, targets and the cache slot.
 ///
-/// Raised 512 → 528 when a token started remembering the `TokenDef` it was
-/// created from. That pointer is what makes a Treasure sacrificeable and
-/// gives the client its art key: before it, every token was an anonymous
-/// permanent whose printed abilities did not exist. Paid deliberately, and
-/// recorded in `docs/perf-baseline.md`.
-const OBJECT_BUDGET: usize = 528;
+/// Went 528 → 272 when the *printed* characteristics moved behind an
+/// `Arc`. They are written three times in the whole engine and read
+/// everywhere, so inlining 256 bytes per object bought nothing and cost a
+/// 256-byte memcpy per object on every `GameState::clone` — the AI's
+/// per-ply primitive. Sharing also survives the copy: a token made from a
+/// permanent points at the same base until something writes to it.
+const OBJECT_BUDGET: usize = 272;
 
 #[test]
 fn game_object_stays_within_its_budget() {
