@@ -32,24 +32,11 @@ pub static CARD: CardDef = CardDef {
         subtypes: &[creature::FAERIE, creature::WIZARD],
         power: Some(3),
         toughness: Some(1),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::FLASH.union(KeywordSet::FLYING),
     commander: CommanderRule::Legendary,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
@@ -66,6 +53,7 @@ pub static CARD: CardDef = CardDef {
         ],
         targets: None,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

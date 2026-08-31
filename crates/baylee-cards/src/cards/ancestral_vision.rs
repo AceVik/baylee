@@ -20,30 +20,10 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "9ec075ba-db56-4dcf-b1dc-fe6270b7ab36",
     faces: &[FaceDef {
         name: "Ancestral Vision",
-        mana_cost: ManaCost::ZERO,
         types: TypeSet::SORCERY,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Suspend {
@@ -60,6 +40,7 @@ pub static CARD: CardDef = CardDef {
             )),
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

@@ -22,11 +22,59 @@ Rules:
 1. **Every oracle sentence maps to an ability/effect** or to an explicit
    `// NOT SUPPORTED: <reason>` comment near the affected ability.
 2. Keep `index`/`oracle_id`/`scryfall_id`/`faces` data from the generated
-   stub untouched. Only edit `coverage`, `keywords`, `abilities`.
+   stub untouched. Only edit `coverage`, `keywords`, `abilities`. State only
+   what the card prints — see *Only state what the card prints* below.
 3. Declare layers + durations explicitly for continuous effects. The engine
    deregisters effects structurally — never hand-roll removal.
 4. Every card ships with `#[cfg(test)] mod tests` (resolution, targeting,
    edge cases, one interaction test per non-trivial mechanic).
+
+## Only state what the card prints
+
+`CardDef` and `FaceDef` both carry a `DEFAULT` associated const, and every
+card file ends its literals with a struct-update tail:
+
+```rust
+pub static CARD: CardDef = CardDef {
+    index: CardIndex::new(104),
+    oracle_id: "f4232466-dd6a-49bf-be6c-95905c3ded17",
+    scryfall_id: "ced43447-fefc-482a-b8fa-33b9616aa532",
+    faces: &[FaceDef {
+        name: "Ondu Cleric",
+        mana_cost: baylee_core::mana!("{1}{W}"),
+        types: TypeSet::CREATURE,
+        subtypes: &[creature::HUMAN, creature::CLERIC, creature::ALLY],
+        power: Some(1),
+        toughness: Some(1),
+        ..FaceDef::DEFAULT
+    }],
+    color_identity: ColorSet::from_slice(&[Color::White]),
+    coverage: Coverage::Implemented,
+    abilities: &[/* … */],
+    ..CardDef::DEFAULT
+};
+```
+
+Never write a field back just to restate its default (`loyalty: None`,
+`delve: false`, `partner: PartnerKind::None`, …) — a reviewer should be able
+to read the literal as the card's printed face. Adding a field to `FaceDef`
+then costs one line in `baylee-cards-dsl` instead of one line in ~200 card
+files.
+
+Two defaults are the *pessimistic* value rather than the common one, and
+both are load-bearing:
+
+- `CardDef::DEFAULT.index` is `0`, which collides with card 0. The
+  `every_card_sits_at_the_index_it_claims` test in `baylee-cards` turns a
+  forgotten index into a build failure instead of a card that silently
+  resolves as another one.
+- `CardDef::DEFAULT.coverage` is `Coverage::Unimplemented`, so a stub that
+  was never finished cannot reach the deckbuilder as playable just because
+  a line went missing. An implemented card writes
+  `coverage: Coverage::Implemented` by hand.
+
+`FaceDef::DEFAULT.castable_from_hand` is `true`; only disturb and adventure
+backs opt out.
 
 ## The vocabulary
 

@@ -167,6 +167,15 @@ fn super_const(s: SupertypeSet) -> &'static str {
     }
 }
 
+/// Appends `name: value` unless `value` is what the struct-update tail
+/// would supply anyway (an empty `value` always counts as the default).
+fn push_field(fields: &mut Vec<String>, name: &str, value: &str, default: &str) {
+    if value.is_empty() || value == default {
+        return;
+    }
+    fields.push(format!("{name}: {value}"));
+}
+
 fn mana_expr(card_name: &str, cost: &str) -> Result<String, CodegenError> {
     if cost.is_empty() {
         return Ok("ManaCost::ZERO".to_string());
@@ -266,6 +275,105 @@ fn doc_lines(out: &mut String, prefix: &str, text: &str) {
     }
 }
 
+/// Renders one `FaceDef` literal.
+///
+/// Only fields that differ from [`baylee_cards_dsl::FaceDef::DEFAULT`] are
+/// written out; the rest come from the struct-update tail. A stub therefore
+/// says exactly what is printed on the face and nothing else, and a new
+/// `FaceDef` field does not have to be back-filled into every card file.
+fn render_face(
+    card_name: &str,
+    f: &FaceData,
+    cats: &SubtypeCatalogs,
+) -> Result<String, CodegenError> {
+    let (types, supers, subtype_paths, unknown) = type_expr(&f.type_line, cats);
+    let subtypes = if subtype_paths.is_empty() {
+        String::new()
+    } else {
+        format!("&[{}]", subtype_paths.join(", "))
+    };
+    let mut fields = vec![format!("name: {:?}", f.name)];
+    push_field(
+        &mut fields,
+        "mana_cost",
+        &mana_expr(card_name, &f.mana_cost)?,
+        "ManaCost::ZERO",
+    );
+    fields.push(format!("types: {types}"));
+    push_field(&mut fields, "supertypes", &supers, "SupertypeSet::EMPTY");
+    push_field(&mut fields, "subtypes", &subtypes, "");
+    push_field(&mut fields, "power", &pt_expr(f.power.as_deref()), "None");
+    push_field(
+        &mut fields,
+        "toughness",
+        &pt_expr(f.toughness.as_deref()),
+        "None",
+    );
+    push_field(
+        &mut fields,
+        "loyalty",
+        &loyalty_expr(f.loyalty.as_deref()),
+        "None",
+    );
+
+    let mut out = String::from("    FaceDef {\n");
+    for field in &fields {
+        out.push_str(&format!("        {field},\n"));
+    }
+    out.push_str("        ..FaceDef::DEFAULT\n    },\n");
+    for u in unknown {
+        out.push_str(&format!(
+            "    // FIXME(codegen): unknown type-line word {u:?}\n"
+        ));
+    }
+    Ok(out)
+}
+
+/// Renders the `pub static CARD: CardDef = …` literal.
+///
+/// `coverage` is deliberately never emitted: `CardDef::DEFAULT` is
+/// [`baylee_cards_dsl::Coverage::Unimplemented`], so a stub cannot pass for
+/// playable until somebody writes the line by hand.
+fn render_card_literal(
+    card: &ScryfallCard,
+    index: u32,
+    oracle_id: &str,
+    faces: &[FaceData],
+    face_defs: &str,
+) -> String {
+    let mut fields = vec![
+        format!("index: CardIndex::new({index})"),
+        format!("oracle_id: {oracle_id:?}"),
+        format!("scryfall_id: {:?}", card.id),
+    ];
+    push_field(
+        &mut fields,
+        "color_identity",
+        &color_identity_expr(card.color_identity.as_ref()),
+        "ColorSet::EMPTY",
+    );
+    push_field(
+        &mut fields,
+        "commander",
+        commander_rule(faces),
+        "CommanderRule::NotEligible",
+    );
+    push_field(
+        &mut fields,
+        "partner",
+        &partner_kind(faces),
+        "PartnerKind::None",
+    );
+
+    let mut out = String::from("pub static CARD: CardDef = CardDef {\n");
+    for field in &fields {
+        out.push_str(&format!("    {field},\n"));
+    }
+    out.push_str(&format!("    faces: &[\n{face_defs}    ],\n"));
+    out.push_str("    ..CardDef::DEFAULT\n};\n\n");
+    out
+}
+
 /// Renders one stub file (`crates/baylee-cards/src/cards/<slug>.rs`).
 ///
 /// # Errors
@@ -326,34 +434,10 @@ pub fn render_stub(
 
     let mut face_defs = String::new();
     for f in &faces {
-        let (types, supers, subtype_paths, unknown) = type_expr(&f.type_line, cats);
-        let mana = mana_expr(&card.name, &f.mana_cost)?;
-        let subtypes = if subtype_paths.is_empty() {
-            "&[]".to_string()
-        } else {
-            format!("&[{}]", subtype_paths.join(", "))
-        };
-        face_defs.push_str(&format!(
-            "    FaceDef {{\n        name: {:?},\n        mana_cost: {mana},\n        types: {types},\n        supertypes: {supers},\n        subtypes: {subtypes},\n        power: {},\n        toughness: {},\n        loyalty: {},\n        alternative_costs: &[],\n        additional_costs: &[],\n        mandatory_additional_costs: &[],\n        enter_modifiers: &[],\n    }},\n",
-            f.name,
-            pt_expr(f.power.as_deref()),
-            pt_expr(f.toughness.as_deref()),
-            loyalty_expr(f.loyalty.as_deref()),
-        ));
-        for u in unknown {
-            face_defs.push_str(&format!(
-                "    // FIXME(codegen): unknown type-line word {u:?}\n"
-            ));
-        }
+        face_defs.push_str(&render_face(&card.name, f, cats)?);
     }
-
-    out.push_str(&format!(
-        "pub static CARD: CardDef = CardDef {{\n    index: CardIndex::new({index}),\n    oracle_id: {:?},\n    scryfall_id: {:?},\n    faces: &[\n{face_defs}    ],\n    color_identity: {},\n    keywords: KeywordSet::EMPTY,\n    commander: {},\n    partner: {},\n    coverage: Coverage::Unimplemented,\n    abilities: &[],\n}};\n\n",
-        oracle_id,
-        card.id,
-        color_identity_expr(card.color_identity.as_ref()),
-        commander_rule(&faces),
-        partner_kind(&faces),
+    out.push_str(&render_card_literal(
+        card, index, &oracle_id, &faces, &face_defs,
     ));
     out.push_str(
         "#[cfg(test)]\nmod tests {\n    // TODO(card): implement abilities + tests, see docs/card-dsl.md.\n}\n",
@@ -446,5 +530,86 @@ mod tests {
             slug("Jin-Gitaxias, Progress Tyrant"),
             "jin_gitaxias_progress_tyrant"
         );
+    }
+
+    fn bare_card(name: &str, type_line: &str) -> ScryfallCard {
+        ScryfallCard {
+            id: "00000000-0000-0000-0000-000000000000".to_string(),
+            oracle_id: Some("11111111-1111-1111-1111-111111111111".to_string()),
+            name: name.to_string(),
+            mana_cost: None,
+            type_line: Some(type_line.to_string()),
+            oracle_text: Some(String::new()),
+            colors: None,
+            color_identity: None,
+            set: None,
+            set_name: None,
+            collector_number: None,
+            rarity: None,
+            layout: None,
+            power: None,
+            toughness: None,
+            loyalty: None,
+            card_faces: None,
+        }
+    }
+
+    /// A stub states only what is printed and inherits the rest, so a new
+    /// `FaceDef` field never has to be back-filled into 200 card files.
+    #[test]
+    fn a_stub_omits_every_field_that_matches_the_default() {
+        let cats = SubtypeCatalogs::default();
+        let (_, text) = render_stub(&bare_card("Nothing", "Land"), 7, &cats).unwrap();
+        assert!(text.contains("..FaceDef::DEFAULT"));
+        assert!(text.contains("..CardDef::DEFAULT"));
+        for absent in [
+            "mana_cost:",
+            "supertypes:",
+            "subtypes:",
+            "power:",
+            "toughness:",
+            "loyalty:",
+            "color_identity:",
+            "keywords:",
+            "commander:",
+            "partner:",
+            "alternative_costs:",
+            "castable_from_hand:",
+        ] {
+            assert!(
+                !text.contains(absent),
+                "stub restated the default for {absent}\n{text}"
+            );
+        }
+        assert!(text.contains("    types: TypeSet::LAND,\n"));
+        assert!(text.contains("    index: CardIndex::new(7),\n"));
+    }
+
+    /// `coverage` is never emitted: `CardDef::DEFAULT` is
+    /// `Unimplemented`, so an abandoned stub cannot pass for playable.
+    #[test]
+    fn a_stub_is_unimplemented_by_omission() {
+        let cats = SubtypeCatalogs::default();
+        let (_, text) = render_stub(&bare_card("Nothing", "Land"), 0, &cats).unwrap();
+        assert!(!text.contains("coverage:"));
+    }
+
+    /// Printed values still appear — the tail only supplies what the card
+    /// does not say.
+    #[test]
+    fn a_stub_keeps_the_fields_the_card_actually_prints() {
+        let cats = SubtypeCatalogs::default();
+        let mut card = bare_card("Something", "Legendary Creature");
+        card.mana_cost = Some("{1}{W}".to_string());
+        card.power = Some("2".to_string());
+        card.toughness = Some("3".to_string());
+        card.color_identity = Some(vec!["W".to_string()]);
+        let (_, text) = render_stub(&card, 1, &cats).unwrap();
+        assert!(text.contains("mana_cost: baylee_core::mana!(\"{1}{W}\"),"));
+        assert!(text.contains("power: Some(2),"));
+        assert!(text.contains("toughness: Some(3),"));
+        assert!(text.contains("supertypes: SupertypeSet::LEGENDARY,"));
+        assert!(text.contains("color_identity: ColorSet::from_slice(&[Color::White]),"));
+        assert!(text.contains("commander: CommanderRule::Legendary,"));
     }
 }

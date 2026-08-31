@@ -40,19 +40,7 @@ pub static CARD: CardDef = CardDef {
         subtypes: &[subtypes::creature::HUMAN, subtypes::creature::ALLY],
         power: Some(3),
         toughness: Some(4),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[
         Color::Black,
@@ -61,9 +49,7 @@ pub static CARD: CardDef = CardDef {
         Color::White,
         Color::Blue,
     ]),
-    keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
@@ -95,6 +81,7 @@ pub static CARD: CardDef = CardDef {
             zone: ActivationZone::Battlefield,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

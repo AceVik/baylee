@@ -21,33 +21,16 @@ pub static CARD: CardDef = CardDef {
         name: "Dig Through Time",
         mana_cost: baylee_core::mana!("{6}{U}{U}"),
         types: TypeSet::INSTANT,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
         delve: true,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
         effects: &[Effect::LookAtTopPick { count: 7, pick: 2 }],
         targets: None,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

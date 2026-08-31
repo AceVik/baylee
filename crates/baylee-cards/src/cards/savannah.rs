@@ -23,30 +23,11 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "b0d161fc-4a2a-4f1d-82b4-a746552552df",
     faces: &[FaceDef {
         name: "Savannah",
-        mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: SUBS,
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
@@ -60,6 +41,7 @@ pub static CARD: CardDef = CardDef {
         mana_ability: true,
         zone: ActivationZone::Battlefield,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

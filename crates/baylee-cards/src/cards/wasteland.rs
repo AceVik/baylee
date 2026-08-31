@@ -1,6 +1,6 @@
 //! Wasteland — (no cost) — Land
 //! Oracle: {T}: Add {C}. {T}, Sacrifice this land: Destroy target nonbasic land.
-//! Set: C17 #264 — Commander 2017 | Scryfall ID: aaafb9bc-7cea-4624-a227-595544fa42b0 | Oracle ID: 09a70ae8-3859-4a09-901d-dce063fa3b5d
+//! Set: C17 #264 — Commander 2017 | Scryfall ID: aaafb9bc-7cea-4624-a227-595544fa42b0 | Oracle ID: 09a70ae8-3859-4a09-901d-dce063fa3b5f
 // IMPLEMENTED.
 #![allow(unused_imports, missing_docs)]
 
@@ -21,34 +21,13 @@ static NONBASIC_LAND: Filter = Filter::And(&[
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(188),
-    oracle_id: "09a70ae8-3859-4a09-901d-dce063fa3b5d",
+    oracle_id: "09a70ae8-3859-4a09-901d-dce063fa3b5f",
     scryfall_id: "aaafb9bc-7cea-4624-a227-595544fa42b0",
     faces: &[FaceDef {
         name: "Wasteland",
-        mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
-    color_identity: ColorSet::EMPTY,
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Activated {
@@ -76,6 +55,7 @@ pub static CARD: CardDef = CardDef {
             zone: ActivationZone::Battlefield,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

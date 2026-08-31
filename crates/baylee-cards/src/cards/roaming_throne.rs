@@ -33,28 +33,12 @@ pub static CARD: CardDef = CardDef {
         name: "Roaming Throne",
         mana_cost: baylee_core::mana!("{4}"),
         types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::GOLEM],
         power: Some(4),
         toughness: Some(4),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
         enter_modifiers: &[EnterModifier::ChooseSubtype],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
-    color_identity: ColorSet::EMPTY,
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Ward { mana: 2 },
@@ -63,6 +47,7 @@ pub static CARD: CardDef = CardDef {
             event: TriggerEventKind::Any,
         }),
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

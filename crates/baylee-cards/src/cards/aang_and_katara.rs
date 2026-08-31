@@ -37,24 +37,10 @@ pub static CARD: CardDef = CardDef {
         subtypes: &[creature::HUMAN, creature::AVATAR, creature::ALLY],
         power: Some(2),
         toughness: Some(3),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Green]),
-    keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
@@ -82,6 +68,7 @@ pub static CARD: CardDef = CardDef {
             targets: None,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

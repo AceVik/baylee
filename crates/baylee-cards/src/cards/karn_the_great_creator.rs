@@ -36,26 +36,10 @@ pub static CARD: CardDef = CardDef {
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::KARN],
-        power: None,
-        toughness: None,
         loyalty: Some(5),
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
-    color_identity: ColorSet::EMPTY,
-    keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Static(StaticAbility {
@@ -90,6 +74,7 @@ pub static CARD: CardDef = CardDef {
             target: None,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

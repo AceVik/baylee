@@ -30,30 +30,11 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "d673a2d5-0c61-48dc-8c8d-06f0c7b6b8bf",
     faces: &[FaceDef {
         name: "Glacial Fortress",
-        mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
         enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
@@ -67,6 +48,7 @@ pub static CARD: CardDef = CardDef {
         mana_ability: true,
         zone: ActivationZone::Battlefield,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

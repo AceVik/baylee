@@ -24,28 +24,10 @@ pub static CARD: CardDef = CardDef {
         name: "Entreat the Dead",
         mana_cost: baylee_core::mana!("{X}{X}{B}{B}{B}"),
         types: TypeSet::SORCERY,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
         miracle: Some(baylee_core::mana!("{X}{B}{B}")),
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
         effects: &[Effect::GraveyardToBattlefield {
@@ -56,6 +38,7 @@ pub static CARD: CardDef = CardDef {
             PlayerRel::You,
         ))),
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

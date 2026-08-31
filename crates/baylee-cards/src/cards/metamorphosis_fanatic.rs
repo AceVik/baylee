@@ -27,28 +27,14 @@ pub static CARD: CardDef = CardDef {
         name: "Metamorphosis Fanatic",
         mana_cost: baylee_core::mana!("{4}{B}{B}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::HUMAN, creature::CLERIC],
         power: Some(4),
         toughness: Some(4),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
         miracle: Some(baylee_core::mana!("{1}{B}")),
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::LIFELINK,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
@@ -69,6 +55,7 @@ pub static CARD: CardDef = CardDef {
             count_is_x: false,
         }),
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

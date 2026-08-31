@@ -28,28 +28,13 @@ pub static CARD: CardDef = CardDef {
         name: "Opposition Agent",
         mana_cost: baylee_core::mana!("{2}{B}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::HUMAN, creature::ROGUE],
         power: Some(3),
         toughness: Some(2),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::FLASH,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Static(StaticAbility {
         layer: Layer::Text,
@@ -57,6 +42,7 @@ pub static CARD: CardDef = CardDef {
         modifier: Modifier::SearchTakeover,
         cross_zone: false,
     })],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

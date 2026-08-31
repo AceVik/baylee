@@ -31,28 +31,9 @@ pub static CARD: CardDef = CardDef {
         name: "Sheoldred's Edict",
         mana_cost: baylee_core::mana!("{1}{B}"),
         types: TypeSet::INSTANT,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::ModalSpell {
         modes: &[
@@ -82,6 +63,7 @@ pub static CARD: CardDef = CardDef {
             },
         ],
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

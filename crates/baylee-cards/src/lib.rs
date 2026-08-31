@@ -43,3 +43,57 @@ pub fn count() -> usize {
 pub fn pool_hash() -> u64 {
     generated::POOL_HASH
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Card files inherit unstated fields from [`dsl::CardDef::DEFAULT`],
+    /// whose `index` is 0. That is a deliberate collision: a file that
+    /// forgets its index would otherwise shadow card 0 in `by_index` and
+    /// hand the engine the wrong card at cast time. This test is what
+    /// turns that collision into a build failure.
+    #[test]
+    fn every_card_sits_at_the_index_it_claims() {
+        for (i, def) in generated::BY_INDEX.iter().enumerate() {
+            assert_eq!(
+                def.index.get() as usize,
+                i,
+                "{} is registered at index {i} but claims {}",
+                def.name(),
+                def.index.get()
+            );
+        }
+        assert_eq!(generated::BY_INDEX.len(), generated::ALL.len());
+    }
+
+    /// The same for the oracle-id table the gateway resolves deck lists
+    /// against: an empty or copied `oracle_id` would silently resolve one
+    /// card's name to another card's rules.
+    #[test]
+    fn every_card_answers_to_the_oracle_id_it_is_filed_under() {
+        for (oracle, def) in generated::ALL {
+            assert_eq!(def.oracle_id, *oracle, "{} is misfiled", def.name());
+            assert!(!def.oracle_id.is_empty());
+            assert!(!def.scryfall_id.is_empty());
+            assert!(!def.faces.is_empty(), "{} has no faces", def.name());
+            assert!(!def.name().is_empty());
+        }
+    }
+
+    /// `coverage` defaults to `Unimplemented`, so a card that reaches the
+    /// acceptance pool without the line is reported as a stub rather than
+    /// quietly offered to deckbuilders.
+    #[test]
+    fn coverage_is_claimed_explicitly_or_not_at_all() {
+        let unimplemented: Vec<&str> = generated::ALL
+            .iter()
+            .filter(|(_, d)| !d.is_implemented())
+            .map(|(_, d)| d.name())
+            .collect();
+        assert!(
+            unimplemented.is_empty(),
+            "acceptance pool contains stubs: {unimplemented:?}"
+        );
+    }
+}

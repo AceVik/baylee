@@ -27,11 +27,6 @@ pub static CARD: CardDef = CardDef {
         name: "Force of Negation",
         mana_cost: baylee_core::mana!("{1}{U}{U}"),
         types: TypeSet::INSTANT,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
         alternative_costs: &[AlternativeCost {
             cost: Cost {
                 mana: ManaCost::ZERO,
@@ -39,27 +34,15 @@ pub static CARD: CardDef = CardDef {
             },
             condition: AltCondition::NotYourTurn,
         }],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Spell {
         effects: &[Effect::CounterTargetSpellToExile],
         targets: Some(TargetReq::one(TargetSpec::Spell(&NONCREATURE_SPELL))),
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

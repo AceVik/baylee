@@ -76,47 +76,19 @@ pub static CARD: CardDef = CardDef {
             subtypes: &[creature::PHYREXIAN, creature::PRAETOR],
             power: Some(4),
             toughness: Some(5),
-            loyalty: None,
-            alternative_costs: &[],
-            additional_costs: &[],
-            mandatory_additional_costs: &[],
-            enter_modifiers: &[],
-            abilities: &[],
-            castable_from_hand: true,
-            miracle: None,
-            delve: false,
-            convoke: false,
-            cost_reduction: None,
-            disturb: false,
-            adventure: false,
+            ..FaceDef::DEFAULT
         },
         FaceDef {
             name: "The True Scriptures",
             mana_cost: baylee_core::mana!("{2}{B}{B}"),
             types: TypeSet::ENCHANTMENT,
-            supertypes: SupertypeSet::EMPTY,
             subtypes: &[enchantment::SAGA],
-            power: None,
-            toughness: None,
-            loyalty: None,
-            alternative_costs: &[],
-            additional_costs: &[],
-            mandatory_additional_costs: &[],
-            enter_modifiers: &[],
             abilities: BACK_ABILITIES,
-            castable_from_hand: true,
-            miracle: None,
-            delve: false,
-            convoke: false,
-            cost_reduction: None,
-            disturb: false,
-            adventure: false,
+            ..FaceDef::DEFAULT
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::MENACE,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
@@ -141,6 +113,7 @@ pub static CARD: CardDef = CardDef {
             condition: ActivationCondition::OpponentGraveyardCountAtLeast(8),
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

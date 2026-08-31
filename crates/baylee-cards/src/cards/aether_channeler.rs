@@ -35,28 +35,12 @@ pub static CARD: CardDef = CardDef {
         name: "Aether Channeler",
         mana_cost: baylee_core::mana!("{2}{U}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::HUMAN, creature::WIZARD],
         power: Some(2),
         toughness: Some(1),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::ModalTriggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
@@ -79,6 +63,7 @@ pub static CARD: CardDef = CardDef {
         ],
         once_per_turn: false,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

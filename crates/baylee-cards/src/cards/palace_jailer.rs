@@ -29,28 +29,12 @@ pub static CARD: CardDef = CardDef {
         name: "Palace Jailer",
         mana_cost: baylee_core::mana!("{2}{W}{W}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::HUMAN, creature::SOLDIER],
         power: Some(2),
         toughness: Some(2),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
@@ -68,6 +52,7 @@ pub static CARD: CardDef = CardDef {
             targets: Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE))),
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

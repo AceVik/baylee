@@ -29,28 +29,13 @@ pub static CARD: CardDef = CardDef {
         name: "Karmic Guide",
         mana_cost: baylee_core::mana!("{3}{W}{W}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::ANGEL, creature::SPIRIT],
         power: Some(2),
         toughness: Some(2),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::FLYING,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Echo {
@@ -74,6 +59,7 @@ pub static CARD: CardDef = CardDef {
             ))),
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

@@ -20,30 +20,9 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "e2a27742-08c1-4153-af7f-25a7a98f585e",
     faces: &[FaceDef {
         name: "Reliquary Tower",
-        mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
-    color_identity: ColorSet::EMPTY,
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Static(StaticAbility {
@@ -64,6 +43,7 @@ pub static CARD: CardDef = CardDef {
             zone: ActivationZone::Battlefield,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

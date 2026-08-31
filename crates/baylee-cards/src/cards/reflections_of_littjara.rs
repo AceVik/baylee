@@ -27,28 +27,10 @@ pub static CARD: CardDef = CardDef {
         name: "Reflections of Littjara",
         mana_cost: baylee_core::mana!("{4}{U}"),
         types: TypeSet::ENCHANTMENT,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
         enter_modifiers: &[EnterModifier::ChooseSubtype],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::SpellCast(&YOUR_SPELL_OF_CHOSEN_TYPE),
@@ -56,6 +38,7 @@ pub static CARD: CardDef = CardDef {
         effects: &[Effect::CopyTargetSpell { mods: &[] }],
         targets: Some(TargetReq::one(TargetSpec::EventObject)),
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

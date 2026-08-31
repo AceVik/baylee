@@ -24,28 +24,13 @@ pub static CARD: CardDef = CardDef {
         name: "Thief of Blood",
         mana_cost: baylee_core::mana!("{4}{B}{B}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::VAMPIRE],
         power: Some(1),
         toughness: Some(1),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::FLYING,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
@@ -53,6 +38,7 @@ pub static CARD: CardDef = CardDef {
         effects: &[Effect::DrainAllCountersIntoSelf],
         targets: None,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 //! Rhystic Study — {2}{U} — Enchantment
 //! Oracle: Whenever an opponent casts a spell, you may have that player pay {1}. If they don't, you draw a card.
-//! Set: J25 #587 — Foundations Jumpstart | Scryfall ID: 9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b | Oracle ID: 53236dd7-845a-444c-96d5-f41ed7325d8e
+//! Set: J25 #587 — Foundations Jumpstart | Scryfall ID: 9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b | Oracle ID: 53236dd7-845a-444c-96d5-f41ed7325d8f
 // IMPLEMENTED — opponent-choice {1} tax on opponents' spells.
 #![allow(unused_imports, missing_docs)]
 
@@ -20,34 +20,15 @@ static DRAW_ONE: Effect = Effect::DrawCards {
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(133),
-    oracle_id: "53236dd7-845a-444c-96d5-f41ed7325d8e",
+    oracle_id: "53236dd7-845a-444c-96d5-f41ed7325d8f",
     scryfall_id: "9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b",
     faces: &[FaceDef {
         name: "Rhystic Study",
         mana_cost: baylee_core::mana!("{2}{U}"),
         types: TypeSet::ENCHANTMENT,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::SpellCast(&OPPONENT_SPELL),
@@ -59,6 +40,7 @@ pub static CARD: CardDef = CardDef {
         }],
         targets: None,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

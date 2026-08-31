@@ -32,28 +32,12 @@ pub static CARD: CardDef = CardDef {
         name: "Spark Double",
         mana_cost: baylee_core::mana!("{3}{U}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::ILLUSION],
         power: Some(0),
         toughness: Some(0),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::CopyOnEnter {
         target: TargetSpec::Object(&YOUR_CREATURE_OR_WALKER),
@@ -63,6 +47,7 @@ pub static CARD: CardDef = CardDef {
             CopyMod::AddCounter(CounterKind::Loyalty, 1),
         ],
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

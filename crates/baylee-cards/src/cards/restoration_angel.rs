@@ -30,28 +30,13 @@ pub static CARD: CardDef = CardDef {
         name: "Restoration Angel",
         mana_cost: baylee_core::mana!("{3}{W}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::ANGEL],
         power: Some(3),
         toughness: Some(4),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::FLASH.union(KeywordSet::FLYING),
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Triggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
@@ -66,6 +51,7 @@ pub static CARD: CardDef = CardDef {
             count_is_x: false,
         }),
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

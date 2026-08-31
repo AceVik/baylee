@@ -104,6 +104,39 @@ impl CardDef {
     }
 }
 
+impl CardDef {
+    /// The neutral card: no faces, no abilities, not implemented.
+    ///
+    /// Card files spell out only what distinguishes the card and finish with
+    /// `..CardDef::DEFAULT`. Two defaults are deliberately the *pessimistic*
+    /// choice rather than the common one:
+    ///
+    /// - `index` is 0, which every other card's index collides with. The
+    ///   registry consistency test in `baylee-cards` fails loudly if a card
+    ///   file forgets it, instead of silently shadowing card 0.
+    /// - `coverage` is [`Coverage::Unimplemented`], so a stub that was never
+    ///   finished cannot claim to be playable in the deckbuilder just because
+    ///   somebody deleted a line.
+    pub const DEFAULT: Self = Self {
+        index: CardIndex::new(0),
+        oracle_id: "",
+        scryfall_id: "",
+        faces: &[],
+        color_identity: ColorSet::EMPTY,
+        keywords: KeywordSet::EMPTY,
+        commander: CommanderRule::NotEligible,
+        partner: PartnerKind::None,
+        coverage: Coverage::Unimplemented,
+        abilities: &[],
+    };
+}
+
+impl Default for CardDef {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// One face of a card.
 #[derive(Debug)]
 #[allow(clippy::struct_excessive_bools)] // card faces accumulate boolean rule markers
@@ -157,6 +190,46 @@ pub struct FaceDef {
     /// resolves, exile the card; the front face may then be cast from
     /// exile.
     pub adventure: bool,
+}
+
+impl FaceDef {
+    /// The neutral face: nameless, costless, typeless, castable from hand.
+    ///
+    /// Every card file builds its faces as `FaceDef { …, ..FaceDef::DEFAULT }`
+    /// so that a face lists only what is printed on it. Adding a field to
+    /// [`FaceDef`] then costs one line here instead of one line in every card
+    /// file, and a card that does not care about the new rule keeps compiling.
+    ///
+    /// `castable_from_hand` defaults to `true` because that is what a printed
+    /// face normally is; only disturb/adventure backs opt out.
+    pub const DEFAULT: Self = Self {
+        name: "",
+        mana_cost: ManaCost::ZERO,
+        types: TypeSet::EMPTY,
+        supertypes: SupertypeSet::EMPTY,
+        subtypes: &[],
+        power: None,
+        toughness: None,
+        loyalty: None,
+        alternative_costs: &[],
+        additional_costs: &[],
+        mandatory_additional_costs: &[],
+        enter_modifiers: &[],
+        abilities: &[],
+        castable_from_hand: true,
+        miracle: None,
+        delve: false,
+        convoke: false,
+        cost_reduction: None,
+        disturb: false,
+        adventure: false,
+    };
+}
+
+impl Default for FaceDef {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).

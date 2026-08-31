@@ -28,24 +28,9 @@ pub static CARD: CardDef = CardDef {
         subtypes: &[creature::VEDALKEN, creature::ARTIFICER],
         power: Some(1),
         toughness: Some(4),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
@@ -69,6 +54,7 @@ pub static CARD: CardDef = CardDef {
             cross_zone: false,
         }),
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

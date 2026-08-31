@@ -44,7 +44,7 @@ static DESTROY_EFFECTS: &[Effect] = &[
 ];
 
 pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(46),
+    index: CardIndex::new(45),
     oracle_id: "3d038f7c-95fa-4b71-8f74-b9b4dd45cde0",
     scryfall_id: "7f7e780e-fbc5-4dc0-b5c7-efcb8645c7c6",
     faces: &[FaceDef {
@@ -55,24 +55,10 @@ pub static CARD: CardDef = CardDef {
         subtypes: &[creature::PHYREXIAN, creature::HUMAN, creature::WIZARD],
         power: Some(3),
         toughness: Some(2),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black]),
     keywords: KeywordSet::FLASH,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::ModalTriggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
@@ -96,6 +82,7 @@ pub static CARD: CardDef = CardDef {
         ],
         once_per_turn: false,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

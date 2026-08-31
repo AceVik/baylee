@@ -21,28 +21,8 @@ pub static CARD: CardDef = CardDef {
         name: "Sol Ring",
         mana_cost: baylee_core::mana!("{1}"),
         types: TypeSet::ARTIFACT,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
-    color_identity: ColorSet::EMPTY,
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
@@ -55,6 +35,7 @@ pub static CARD: CardDef = CardDef {
         mana_ability: true,
         zone: ActivationZone::Battlefield,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

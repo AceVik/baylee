@@ -24,28 +24,12 @@ pub static CARD: CardDef = CardDef {
         name: "Progenitor Mimic",
         mana_cost: baylee_core::mana!("{4}{G}{U}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::SHAPESHIFTER],
         power: Some(0),
         toughness: Some(0),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Green]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::CopyOnEnter {
@@ -65,6 +49,7 @@ pub static CARD: CardDef = CardDef {
             targets: None,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

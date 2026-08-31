@@ -1,6 +1,6 @@
 //! Riptide Laboratory — (no cost) — Land
 //! Oracle: {T}: Add {C}. {T}: Return target Wizard to its owner\u{2019}s hand.
-//! Set: C14 #305 — Commander 2014 | Scryfall ID: 25a9cb87-e572-4885-8561-1d4b158ec7e4 | Oracle ID: 444d50dd-a44a-42db-bbf6-d0978e3bd8b7
+//! Set: C14 #305 — Commander 2014 | Scryfall ID: 25a9cb87-e572-4885-8561-1d4b158ec7e4 | Oracle ID: 444d50dd-a44a-42db-bbf6-d0978e3bd6a3
 // IMPLEMENTED.
 #![allow(unused_imports, missing_docs)]
 
@@ -18,34 +18,14 @@ static WIZARD: Filter = Filter::HasSubtype(creature::WIZARD);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(134),
-    oracle_id: "444d50dd-a44a-42db-bbf6-d0978e3bd8b7",
+    oracle_id: "444d50dd-a44a-42db-bbf6-d0978e3bd6a3",
     scryfall_id: "25a9cb87-e572-4885-8561-1d4b158ec7e4",
     faces: &[FaceDef {
         name: "Riptide Laboratory",
-        mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Activated {
@@ -70,6 +50,7 @@ pub static CARD: CardDef = CardDef {
             zone: ActivationZone::Battlefield,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

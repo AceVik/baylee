@@ -34,28 +34,10 @@ pub static CARD: CardDef = CardDef {
         name: "Wizard Class",
         mana_cost: baylee_core::mana!("{U}"),
         types: TypeSet::ENCHANTMENT,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[enchantment::CLASS],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         // Level 1 (printed).
@@ -115,6 +97,7 @@ pub static CARD: CardDef = CardDef {
             condition: ActivationCondition::CountersOnSelfExactly(CounterKind::Level, 1),
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

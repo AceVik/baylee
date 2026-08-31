@@ -30,30 +30,11 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "3a8eef9b-9b03-42cd-a27a-07021bf0b33f",
     faces: &[FaceDef {
         name: "Sunken Hollow",
-        mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
         enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black, Color::Green]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
@@ -67,6 +48,7 @@ pub static CARD: CardDef = CardDef {
         mana_ability: true,
         zone: ActivationZone::Battlefield,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

@@ -25,28 +25,12 @@ pub static CARD: CardDef = CardDef {
         name: "Sea Gate Loremaster",
         mana_cost: baylee_core::mana!("{4}{U}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::MERFOLK, creature::WIZARD, creature::ALLY],
         power: Some(1),
         toughness: Some(3),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
@@ -61,6 +45,7 @@ pub static CARD: CardDef = CardDef {
         mana_ability: false,
         zone: ActivationZone::Battlefield,
     }],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

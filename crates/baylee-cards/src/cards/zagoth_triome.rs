@@ -22,34 +22,16 @@ pub static CARD: CardDef = CardDef {
     scryfall_id: "cc520518-2063-4b57-a0d4-10cf62a7175e",
     faces: &[FaceDef {
         name: "Zagoth Triome",
-        mana_cost: ManaCost::ZERO,
         types: TypeSet::LAND,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[
             subtypes::land::SWAMP,
             subtypes::land::FOREST,
             subtypes::land::ISLAND,
         ],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
         enter_modifiers: &[EnterModifier::Tapped],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black, Color::Green]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Activated {
@@ -78,6 +60,7 @@ pub static CARD: CardDef = CardDef {
             zone: ActivationZone::Hand,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

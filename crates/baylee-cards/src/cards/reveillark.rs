@@ -28,11 +28,9 @@ pub static CARD: CardDef = CardDef {
         name: "Reveillark",
         mana_cost: baylee_core::mana!("{4}{W}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[baylee_core::generated::subtypes::creature::ELEMENTAL],
         power: Some(4),
         toughness: Some(3),
-        loyalty: None,
         alternative_costs: &[AlternativeCost {
             cost: Cost {
                 mana: baylee_core::mana!("{5}{W}"),
@@ -40,22 +38,10 @@ pub static CARD: CardDef = CardDef {
             },
             condition: AltCondition::Always,
         }],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::FLYING,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Triggered {
@@ -76,6 +62,7 @@ pub static CARD: CardDef = CardDef {
             targets: None,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

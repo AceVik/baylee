@@ -34,26 +34,10 @@ pub static CARD: CardDef = CardDef {
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::VENSER],
-        power: None,
-        toughness: None,
         loyalty: Some(3),
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Loyalty {
@@ -79,6 +63,7 @@ pub static CARD: CardDef = CardDef {
             target: None,
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 static ANY_PERMANENT: Filter = Filter::Any;

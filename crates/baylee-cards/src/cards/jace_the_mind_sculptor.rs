@@ -29,26 +29,11 @@ pub static CARD: CardDef = CardDef {
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::JACE],
-        power: None,
-        toughness: None,
         loyalty: Some(3),
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::EMPTY,
     commander: CommanderRule::Legendary,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Loyalty {
@@ -84,6 +69,7 @@ pub static CARD: CardDef = CardDef {
             target: Some(TargetSpec::AnyPlayer),
         },
     ],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]

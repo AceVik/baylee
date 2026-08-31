@@ -24,28 +24,12 @@ pub static CARD: CardDef = CardDef {
         name: "Great Divide Guide",
         mana_cost: baylee_core::mana!("{1}{G}"),
         types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::EMPTY,
         subtypes: &[creature::HUMAN, creature::SCOUT, creature::ALLY],
         power: Some(1),
         toughness: Some(2),
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        castable_from_hand: true,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
+        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Green]),
-    keywords: KeywordSet::EMPTY,
-    commander: CommanderRule::NotEligible,
-    partner: PartnerKind::None,
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Static(StaticAbility {
         layer: Layer::Ability,
@@ -63,6 +47,7 @@ pub static CARD: CardDef = CardDef {
         },
         cross_zone: false,
     })],
+    ..CardDef::DEFAULT
 };
 
 #[cfg(test)]
