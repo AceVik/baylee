@@ -480,16 +480,25 @@ fn fnv1a(mut hash: u64, bytes: &[u8]) -> u64 {
 
 /// Renders `crates/baylee-cards/src/generated.rs` (registry tables).
 #[must_use]
-pub fn render_registry(stubs: &[StubInfo]) -> String {
+pub fn render_registry(stubs: &[StubInfo], slots: usize) -> String {
     let mut by_oracle: Vec<&StubInfo> = stubs.iter().collect();
     by_oracle.sort_by(|a, b| a.oracle_id.cmp(&b.oracle_id));
-    let mut by_index: Vec<&StubInfo> = stubs.iter().collect();
-    by_index.sort_by_key(|s| s.index);
+    // Indices come from the ledger and are permanent, so the table is as long
+    // as the highest one ever assigned and a card that left the pool leaves a
+    // hole rather than shifting its neighbours.
+    let mut slot: Vec<Option<&StubInfo>> = vec![None; slots];
+    for s in stubs {
+        slot[s.index as usize] = Some(s);
+    }
 
     let mut hash = FNV_OFFSET;
     for s in &by_oracle {
         hash = fnv1a(hash, s.oracle_id.as_bytes());
         hash = fnv1a(hash, s.slug.as_bytes());
+        // The index is part of the pool's identity now that it is permanent:
+        // a client holding a cache keyed on this hash must drop it if a card
+        // it knows has moved.
+        hash = fnv1a(hash, &s.index.to_le_bytes());
     }
 
     let mut out = String::from(
@@ -502,15 +511,20 @@ pub fn render_registry(stubs: &[StubInfo]) -> String {
             s.oracle_id, s.slug
         ));
     }
-    out.push_str("];\n\n/// All registered cards, ordered by `CardIndex`.\npub static BY_INDEX: &[&CardDef] = &[\n");
-    for s in &by_index {
-        out.push_str(&format!("    &crate::cards::{}::CARD,\n", s.slug));
+    out.push_str(
+        "];\n\n/// Registered cards by `CardIndex`. `None` is a retired index:\n/// the card left the pool, and the slot is never handed on.\npub static BY_INDEX: &[Option<&CardDef>] = &[\n",
+    );
+    for s in &slot {
+        match s {
+            Some(s) => out.push_str(&format!("    Some(&crate::cards::{}::CARD),\n", s.slug)),
+            None => out.push_str("    None,\n"),
+        }
     }
     out.push_str(&format!(
         "];\n\n/// FNV-1a hash over the registry content.\npub const POOL_HASH: u64 = {hash:#x};\n\n"
     ));
     out.push_str(
-        "pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {\n    ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))\n        .ok()\n        .map(|i| ALL[i].1)\n}\n\npub fn by_index(index: CardIndex) -> Option<&'static CardDef> {\n    BY_INDEX.get(index.get() as usize).copied()\n}\n",
+        "pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {\n    ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))\n        .ok()\n        .map(|i| ALL[i].1)\n}\n\npub fn by_index(index: CardIndex) -> Option<&'static CardDef> {\n    BY_INDEX.get(index.get() as usize).copied().flatten()\n}\n",
     );
     out
 }
@@ -518,6 +532,74 @@ pub fn render_registry(stubs: &[StubInfo]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A retired index leaves a hole, and the hole must reach the generated
+    /// table as a `None` rather than closing up — closing it would slide every
+    /// later card onto its neighbour's number, which is the whole bug this
+    /// design exists to prevent. Nothing in the repo has a hole yet, so this
+    /// is the only place the path is exercised.
+    #[test]
+    fn a_retired_index_becomes_an_empty_slot_and_moves_nothing() {
+        let stubs = vec![
+            StubInfo {
+                slug: "first".into(),
+                oracle_id: "oracle-a".into(),
+                index: 0,
+            },
+            StubInfo {
+                slug: "third".into(),
+                oracle_id: "oracle-c".into(),
+                index: 2,
+            },
+        ];
+        let out = render_registry(&stubs, 3);
+        let table = out
+            .split("pub static BY_INDEX")
+            .nth(1)
+            .expect("index table is rendered");
+        let slots: Vec<&str> = table
+            .lines()
+            .filter_map(|l| {
+                let l = l.trim();
+                l.starts_with("Some(")
+                    .then_some(l)
+                    .or(l.eq("None,").then_some(l))
+            })
+            .collect();
+        assert_eq!(
+            slots,
+            vec![
+                "Some(&crate::cards::first::CARD),",
+                "None,",
+                "Some(&crate::cards::third::CARD),",
+            ],
+            "index 1 is retired: the slot stays empty and `third` keeps index 2"
+        );
+    }
+
+    /// The pool hash covers the indices, not just the names: a client cache
+    /// keyed on it has to drop when a card it knows moves.
+    #[test]
+    fn the_pool_hash_notices_a_moved_card() {
+        let at = |index| {
+            vec![StubInfo {
+                slug: "only".into(),
+                oracle_id: "oracle-a".into(),
+                index,
+            }]
+        };
+        let hash_of = |s: &str| {
+            s.split("POOL_HASH: u64 = ")
+                .nth(1)
+                .and_then(|r| r.split(';').next())
+                .expect("hash is rendered")
+                .to_string()
+        };
+        assert_ne!(
+            hash_of(&render_registry(&at(0), 1)),
+            hash_of(&render_registry(&at(7), 8))
+        );
+    }
 
     #[test]
     fn slugs() {

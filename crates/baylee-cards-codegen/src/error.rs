@@ -37,6 +37,14 @@ pub enum CodegenError {
         /// Parser message.
         reason: &'static str,
     },
+    /// Invalid line in the `CardIndex` ledger.
+    #[error("card-index ledger line {line}: {text}")]
+    LedgerLine {
+        /// 1-based line number.
+        line: usize,
+        /// Line content.
+        text: String,
+    },
     /// Invalid line in the acceptance deck file.
     #[error("acceptance deck file line {line}: {text}")]
     DeckLine {

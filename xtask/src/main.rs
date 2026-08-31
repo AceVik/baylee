@@ -1,6 +1,6 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
-use baylee_cards_codegen::{acceptance, catalog, forge, scryfall, stubgen};
+use baylee_cards_codegen::{acceptance, catalog, forge, ledger, scryfall, stubgen};
 use clap::{Parser, Subcommand};
 use std::collections::BTreeMap;
 use std::fs;
@@ -173,10 +173,19 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
     let rows = acceptance::parse_decks(&decks_text)?;
     let names = acceptance::unique_names(&rows);
     println!("acceptance suite: {} unique cards", names.len());
+    // Indices come from the ledger, not from a card's position in this list:
+    // the list is alphabetical, so one new card would otherwise renumber every
+    // card after it (see baylee-cards-codegen/src/ledger.rs).
+    let ledger_path = root.join("data/card-index.tsv");
+    let mut ledger =
+        ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?;
+    let before = ledger.entries().len();
     let mut stubs = Vec::with_capacity(names.len());
-    for (i, name) in names.iter().enumerate() {
+    for name in &names {
         let card = scryfall::fetch_named(name, &agent, &cache)?;
-        let (info, content) = stubgen::render_stub(&card, i as u32, &cats)?;
+        let oracle_id = card.oracle_id.clone().unwrap_or_default();
+        let index = ledger.assign(&oracle_id, &card.name);
+        let (info, content) = stubgen::render_stub(&card, index, &cats)?;
         let stub_path = root.join(format!("crates/baylee-cards/src/cards/{}.rs", info.slug));
         // Implemented cards are hand-owned: only touch files that are
         // missing or still carry the GENERATED STUB marker.
@@ -198,10 +207,18 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
         &stubgen::render_cards_mod(&stubs),
         &mut changed,
     )?;
+    if ledger.entries().len() > before {
+        println!(
+            "card-index ledger: {} new index/indices assigned",
+            ledger.entries().len() - before
+        );
+    }
+    let slots = ledger.slots();
+    write_or_check(check, &ledger_path, &ledger.render(), &mut changed)?;
     write_or_check(
         check,
         &root.join("crates/baylee-cards/src/generated.rs"),
-        &stubgen::render_registry(&stubs),
+        &stubgen::render_registry(&stubs, slots),
         &mut changed,
     )?;
 

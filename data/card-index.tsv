@@ -1,0 +1,205 @@
+# CardIndex ledger — assigned once, never reused, never reordered.
+#
+# A card's index is its permanent rules identity: DeckEntry stores one, the
+# gateway persists decks made of them, and a replay names them. So this file
+# is append-only. A new card takes the next free index; a card that leaves the
+# pool retires its own and the slot stays empty.
+#
+# Written by `cargo xtask codegen`. `codegen --check` fails if a run would
+# change it, so no index is ever assigned outside a commit.
+#
+# index	oracle_id	name
+0	481c3e14-b670-4fab-aa9f-6ce5b514096d	Aang and Katara
+1	9575d7ce-f26d-4b90-87a3-6329e9799572	Abandoned Air Temple
+2	fb220f46-f8b8-4804-baa4-e7d50b4871f7	Aether Channeler
+3	3a30089d-cd2d-49be-9b06-7a2454117692	Aminatou, the Fateshifter
+4	9728dec9-d482-4c7a-8cdc-44d010dc878d	Ancestral Vision
+5	7d7cf15c-06b9-4062-a1eb-32614c458a3b	Arcane Sanctum
+6	a91a3266-cadd-47a0-9b20-160307f14c07	Archaeomancer
+7	c5acf2a5-40f4-433d-a74d-1cb56c521464	Arid Mesa
+8	93723b12-db34-4047-885e-8606415b1553	Ashiok, Dream Render
+9	13ff3222-91cb-4796-a34e-899ed817694c	Badlands
+10	37688720-03de-4eca-a82d-a0afe8d58adc	Baleful Strix
+11	a6898364-c29e-4b97-a500-344efa3ec24a	Banishing Stroke
+12	2b8144a0-08d2-4c28-9fd7-5d90f90105e4	Bleachbone Verge
+13	fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57	Bloodstained Mire
+14	04b7362d-0490-4cb0-b5d7-2a7732f659ce	Bojuka Bog
+15	36cd2364-d113-47d1-b2c4-b088d9eb88dd	Brainstorm
+16	1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9	Brightclimb Pathway // Grimclimb Pathway
+17	89ca686a-7c72-4d8f-9290-e89635624a83	Cavern of Souls
+18	c48d844c-3976-4fa5-8e0d-3f0e535e7619	Charming Prince
+19	539f5396-d99a-417d-a84c-dff7930b5900	Chromatic Lantern
+20	f25351e3-539b-4bbc-b92d-6480acf4d722	City of Brass
+21	144119bc-7fd1-45c5-9e29-f742e7c255ac	Clearwater Pathway // Murkwater Pathway
+22	42bb7ea9-f6e4-4551-8d93-3b1eae84b865	Clever Concealment
+23	0895c9b7-ae7d-4bb3-af17-3b75deb50a25	Command Tower
+24	54d7d7f8-22cd-4859-b203-924d248b422b	Commander's Insight
+25	cc187110-1148-4090-bbb8-e205694a39f5	Counterspell
+26	2987c385-011a-4032-a516-a46d1e9dc9e8	Crib Swap
+27	5669ea7c-c4fc-494c-896b-4bce9b494817	Curse of the Swine
+28	4d67e2a7-4aa7-44cc-853b-500d7aac046d	Cursed Mirror
+29	d75b9c82-1b49-4c3e-a1b5-aeef57d6644b	Cyclonic Rift
+30	b01d61cc-9844-4191-86a0-f2db6d42d6e5	Damn
+31	9b3bec05-441f-4fdf-8b51-69fa8613fcd4	Darksteel Forge
+32	82004860-e589-4e38-8d61-8c0210e4ea39	Demonic Tutor
+33	f8b17b89-26ce-4208-874a-9e1d66514640	Dig Through Time
+34	ece44a82-dcf0-4439-bdd9-a09c99a6f159	Double Major
+35	01546b7d-a233-4176-8843-d732074dc5b6	Doubling Season
+36	819fc966-434e-470f-91e9-a38df974ad17	Drowned Catacomb
+37	9da9248d-1201-447f-b6c2-2b64af4f71c4	Earth King's Lieutenant
+38	0634091a-a74c-4cea-b6d1-7324a725554a	Eerie Interlude
+39	5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f	Elesh Norn, Mother of Machines
+40	f78af825-023a-42e9-8374-5c52303a1417	Elspeth, Storm Slayer
+41	93056597-b964-421f-be2f-e92abef1c2a4	Emeritus of Woe // Demonic Tutor
+42	c5229c17-b7be-4b05-b683-f2277edc4849	Enlightened Tutor
+43	2de6c3d9-1759-40a2-99c6-8cbe17b4bcdd	Entreat the Dead
+44	0fd57894-b917-41c8-a394-360d1d31b236	Ephemerate
+45	3d038f7c-95fa-4b71-8f74-b9b4dd45cde0	Ertai Resurrected
+46	5def9f38-0a0b-4e8d-9f9d-29dcb46520b4	Esper Sentinel
+47	39213de3-6a4a-4879-a7f9-70f45013765e	Everybody Lives!
+48	27b047e3-0d41-45e2-98e9-9391d7923a1e	Exotic Orchard
+49	42bf259d-4bb9-49c3-b4ec-223dca62f4d6	Fetid Heath
+50	d09c9cba-fdd2-479b-ad5d-d05181c3e3f9	Fierce Guardianship
+51	4e183439-17d2-47ff-9d99-5e22821d91e3	Flawless Maneuver
+52	f3c7af78-a77d-4134-82a2-a5ce84285a84	Flooded Strand
+53	ac2173f9-f223-440a-9231-fd98762bdc6f	Force of Negation
+54	956381ba-6d37-4a8a-846c-bad79222dbee	Force of Will
+55	b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6	Forest
+56	f21d0319-0509-4ac1-b6e3-10955a26fd7a	Fracture
+57	b0f19cba-1339-4518-8320-d7b1dcaf2eb0	General Tazri
+58	7f06c098-6482-4bf3-a9a1-110d6d5b5703	Gilded Drake
+59	027dd013-baa7-4111-b3c9-f4d1414e9c45	Glacial Fortress
+60	c178953c-3888-4edd-9d0c-265bd82b1d24	Glasspool Mimic // Glasspool Shore
+61	73864fcc-1bde-4bc0-831e-2b93e546e417	Godless Shrine
+62	79e69a91-d580-47fb-be76-1e32c50d2fa0	Great Divide Guide
+63	5e2c1e0e-0a10-416a-9b50-96ee0cbbc24e	Hagra Diabolist
+64	fd3e37c9-93bf-4f3e-a279-22afbffd8d43	Halimar Excavator
+65	f1750962-a87c-49f6-b731-02ae971ac6ea	Hallowed Fountain
+66	ead985ec-f29f-4a3b-b8b1-061142cc5bd1	Harabaz Druid
+67	e7564d66-767c-4cd9-a5f0-0f2488a4a74b	Heliod's Intervention
+68	83b43aba-bf9c-4da2-967d-9daa632e97d2	Helm of the Host
+69	461b3f2f-fcee-4160-abfa-061f8b6a784f	Hengegate Pathway // Mistgate Pathway
+70	24882fa2-3fe9-4c1b-aa3d-0e6488b9db27	Heroic Intervention
+71	cb8ec2e4-8223-4172-8f2c-37c918a573fa	Homeward Path
+72	ec2b3779-55f7-4169-aa66-6312fb52721f	Indatha Triome
+73	554df866-3dbb-4811-8573-6033481591aa	Inspirit, Flagship Vessel
+74	b2c6aa39-2d2a-459c-a555-fb48ba993373	Island
+75	7e5d9efe-48a9-434b-bb09-056e0e09cc9a	Isolated Chapel
+76	7f77a84e-5a4b-4834-aefa-3cecc175ae8e	Jace, the Mind Sculptor
+77	d9a24444-289f-473f-9985-8df275257555	Jasmine Dragon Tea Shop
+78	f5daadc1-98ff-480a-82bb-fe7bfaa7b60e	Jin-Gitaxias, Progress Tyrant
+79	59119143-c0fa-49dd-adf0-e2fd3029c48b	Karakas
+80	8c31fec9-e4b3-4761-990e-7be38eb05604	Karmic Guide
+81	a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1	Karn, the Great Creator
+82	0972d46e-423b-454e-87c7-a2d40fb6fb6d	Katara, the Fearless
+83	133f5d30-d883-493e-93a1-cf9583db460b	Kazandu Blademaster
+84	276cece9-f9f2-46e6-ae76-daddaa2fb9ab	Kor Haven
+85	f4bdc551-c2eb-4a34-a3e3-b4a017c925af	Liquimetal Coating
+86	b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad	Liquimetal Torque
+87	b3d81980-76f2-44e2-b1c9-01e30c726312	Loran of the Third Path
+88	90076bf5-aa9a-4a6e-9035-9aa97fd5561e	Luminarch Ascension
+89	64ebdd6f-acde-4aab-a86b-2798bad5f70c	Machine God's Effigy
+90	74d3277a-38e5-4732-afed-084a56148f20	Mana Drain
+91	dab520d0-20b4-4273-ba6b-eb07f85ea433	Marsh Flats
+92	9b2cdbed-c733-409b-b0e4-2c8960c25111	Maskwood Nexus
+93	38a12bd7-4394-44a8-91a0-6a4ff7fa4f71	Maze of Ith
+94	017aa9b3-a8ea-4588-9c50-e914a7d8e4ee	Metamorphosis Fanatic
+95	5768fe50-a134-492c-a725-5ed02610c39f	Mirrorhall Mimic // Ghastly Mimicry
+96	c39e5fb0-6de3-4105-ad3c-0ecb8951a1d5	Misdirection
+97	09dd85aa-47bc-4713-a9b9-8b52ff2285ed	Misty Rainforest
+98	de2440de-e948-4811-903c-0bbe376ff64d	Mox Opal
+99	24d0f5e7-0d9e-4b76-900e-a7274e80312d	Mulldrifter
+100	ae1f2ab5-c6a5-4d49-a746-3cb4668bf805	Mycosynth Lattice
+101	e9f5feb2-2c1a-46ce-885a-4f378d7d10af	Mystic Gate
+102	fb81f95c-70f8-4eb7-8d15-15d0ae23ec03	Mystical Tutor
+103	fe8fc442-ed17-40b2-8624-69f2eed3f9be	Nesting Dovehawk
+104	f4232466-dd6a-49bf-be6c-95905c3ded17	Ondu Cleric
+105	1f438b8f-fe23-4f3b-ab2e-f6c33676c462	Opposition Agent
+106	ea5103f5-27e0-4eb1-902c-7f34652d6bf3	Orcish Bowmasters
+107	f3e213a4-ba5a-468a-93b3-c0a34e1bd725	Pact of Negation
+108	0c7ba712-6a99-4d2f-9242-a2163a11f69c	Padeem, Consul of Innovation
+109	180eda7c-fca2-403b-85cd-8ffebaf9f408	Palace Jailer
+110	76678885-3674-443d-b9a2-2a460cf6aac0	Panharmonicon
+111	b473e293-59e3-4e04-acf2-622604aeb25f	Path of Ancestry
+112	d683d985-9888-4d21-8b5f-69e69ce4a03b	Path to Exile
+113	bde94af8-faea-41ff-8eed-ba642eac9968	Phantasmal Image
+114	340bbe8b-e987-4c3e-ab4e-9dee63e57d4f	Phyrexian Metamorph
+115	bc71ebf6-2056-41f7-be35-b2e5c34afa99	Plains
+116	ef86989d-ce80-4e55-aece-7d11710eeffa	Polluted Delta
+117	5330e24a-8568-446e-840a-594cd08bd1bc	Prairie Stream
+118	7d679591-f8ea-4c4c-ab98-7b9e3438cf57	Primaris Eliminator
+119	abd62af0-c17d-4f62-af15-9ea83037b990	Privileged Position
+120	27a1f42c-0b86-4609-9609-1fa9cab7e7c9	Profane Tutor
+121	88929ea9-900f-4dbb-b16c-cf3bad4e410c	Progenitor Mimic
+122	6e9ef5ef-6aed-4d3e-a59b-9e3dc8740b1b	Raffine's Tower
+123	c7fa1dda-9312-4ec8-82cd-a1ba7bc33497	Raugrin Triome
+124	7b459306-149b-4f43-abc1-2dd70c748c0e	Ravenous Chupacabra
+125	a044474a-cd72-4e9d-bd8d-a08f2de9cdc0	Reanimate
+126	d521a329-a53a-4962-810a-2abed80df260	Recruiter of the Guard
+127	a6708b11-1bcd-4208-a967-fe91f2e3313c	Recurring Nightmare
+128	67f43ac6-2a58-4b53-b5d7-0330e2a252e2	Reflecting Pool
+129	c3fdfb94-2d10-4743-864c-a59fdd57d8b7	Reflections of Littjara
+130	c23e5b80-08d2-4e24-9908-fe2aa4f30f6f	Reliquary Tower
+131	dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa	Restoration Angel
+132	1be13ede-98f8-497e-800c-03e5802932b3	Reveillark
+133	53236dd7-845a-444c-96d5-f41ed7325d8f	Rhystic Study
+134	444d50dd-a44a-42db-bbf6-d0978e3bd6a3	Riptide Laboratory
+135	fb60739e-1dc3-481d-a056-ad72e665c680	Rite of Replication
+136	3640c29b-1534-4952-b297-619ade948431	Roaming Throne
+137	8ecdaf4b-4442-42da-9714-4257a83faf50	Sakashima of a Thousand Faces
+138	703243f0-8cb3-420f-958f-5fd4bde30293	Savannah
+139	cb027150-848c-4a66-88ad-e20222304dd8	Scalding Tarn
+140	c8d95ca8-7d12-4072-aeaf-e20f248c7e39	Scrubland
+141	6eed122b-9760-47fd-8ba2-adeda8054e0d	Sea Gate Loremaster
+142	13575cf9-65c1-4861-b21e-eb2155e07766	Sensei's Divining Top
+143	97652492-7906-4d79-983c-fa1dc1239eba	Sheoldred // The True Scriptures
+144	217062f5-96f1-454c-9507-17f34ef37070	Sheoldred's Edict
+145	34f34409-326d-4994-a0ea-1a69aa278f03	Sheoldred, the Apocalypse
+146	d90af00a-d322-4265-9954-7b1e80702e18	Skyclave Apparition
+147	153376c9-dffd-458c-8ce3-a4c8269bc4e9	Smothering Tithe
+148	2bb2eda7-3b38-4c56-870f-c3218a1056f5	Snapcaster Mage
+149	6b68acc2-b9d5-495b-8054-c04bae1349f1	Sokka, Tenacious Tactician
+150	6ad8011d-3471-4369-9d68-b264cc027487	Sol Ring
+151	00c0543c-2a1f-4425-8283-4062d74a1637	Solemn Simulacrum
+152	dcb9c2a7-ae54-4ddc-a567-640bf4bf4366	Solitude
+153	92019547-f6db-4ea6-8356-d0a90ace5662	Soulherder
+154	8dcb35e5-ae44-455f-86e3-4a77d496ff34	Spark Double
+155	47a785ed-8095-4685-8daa-02c4e2b0ffcd	Spellseeker
+156	68979160-b5ce-4787-8a1e-1f40e614c3b0	Spirit Water Revival
+157	cf5f4860-e805-46a3-9352-a2c583e33403	Storm of Saruman
+158	b2e950fb-cb7e-40a0-a311-5bbdd0477b29	Sun Titan
+159	cd2c90ac-2b04-461c-92f3-939871b6b6a3	Sunken Hollow
+160	0230de18-8d15-4cfa-9d42-7ccddd9f9570	Supreme Verdict
+161	4f328996-f9dd-4c7a-9548-bc4b9d0d943f	Surgical Metamorph
+162	56719f6a-1a6c-4c0a-8d21-18f7d7350b68	Swamp
+163	913e6182-706a-4872-8c8a-e146b0ae0738	Sword of Hearth and Home
+164	b1544f21-7e98-461b-aed5-e748b0168c52	Swords to Plowshares
+165	22e3cf1d-3559-4ce1-954c-8dc815342979	Taiga
+166	ae7604bb-4818-45a3-960c-cf3d83f15964	Teferi, Time Raveler
+167	f413a83d-a40d-434c-b20a-4c707c0527fa	Temple Garden
+168	5c58b8e6-c572-461e-893e-a8c05f20ba17	Temporal Mastery
+169	97d61346-bd53-4eb8-a920-6ae0382eb20d	Thief of Blood
+170	2993dc7d-723d-4a9b-94bd-4bb02a9f7243	Tishana's Tidebinder
+171	ac08fae8-208c-4602-8d39-9bfd29b53a5e	Tower of the Magistrate
+172	afaef788-34d1-460b-b884-9d7ae6ddeb18	Toxic Deluge
+173	72deedab-7c17-4505-aeca-4bc8596d80a5	Tribute to the World Tree
+174	85cf2403-b419-4364-8ac9-67dd1ceddf9e	Tuktuk Scrapper
+175	02418479-9455-417f-a6a1-004356faff37	Tundra
+176	105aea98-8eb9-4fb2-a0cb-7c7513317c5b	Twining Twins // Swift Spiral
+177	a58ee84f-1d9c-4924-b7b1-14a9b2ba3b98	Umara Raptor
+178	4b22be3a-8ce1-47d1-b82e-6c3ccfb0548b	Underground Sea
+179	4c6a0c30-b547-4eff-8ff4-0ca25803c076	Urza's Saga
+180	5b8f0cdf-572d-4025-b930-79291f7c35be	Vanishing Verse
+181	244d4807-0802-41bc-9460-55ac38a28a72	Vendilion Clique
+182	0f41cefc-d6ff-4db7-ba35-502b7e081de1	Venser, Shaper Savant
+183	a8bf8ff8-d924-4fd2-b5ed-05b38f55325a	Venser, the Sojourner
+184	63c1ac21-e3d8-40c2-8c09-3f31c52992ef	Vindicate
+185	713f16db-95ec-479e-a48c-7a69f7668d7f	Void Rend
+186	73b8cf90-3c71-4f8b-a29f-61894b7f27c9	Volrath's Stronghold
+187	6557813b-4ee7-4881-a37c-10c8ea097360	Wartime Protestors
+188	09a70ae8-3859-4a09-901d-dce063fa3b5f	Wasteland
+189	fc9ec820-4245-4a96-b009-5308a818ca58	Watery Grave
+190	d5ee2ced-29f4-430f-962e-2f930b92624c	Werefox Bodyguard
+191	29737a60-3ebd-40d9-b935-c4f54b90d45d	Windswept Heath
+192	36f68aa3-9955-46f1-bc87-497f16ef5222	Wizard Class
+193	fdd46004-eaba-4024-8687-39b23dc6a58c	Zagoth Triome

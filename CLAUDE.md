@@ -139,7 +139,10 @@ and `gateway`.
 (`crates/baylee-cards/src/generated.rs`, `cards/mod.rs`) and subtype constants
 (`crates/baylee-core/src/generated/subtypes.rs`). You then edit **only**
 `coverage`, `keywords`, `abilities` in `crates/baylee-cards/src/cards/<slug>.rs`;
-`index`, `oracle_id`, `scryfall_id` and `faces` stay as generated. The `//!`
+`index`, `oracle_id`, `scryfall_id` and `faces` stay as generated. The index
+comes from the append-only ledger `data/card-index.tsv`, so a new card never
+renumbers an existing one — a `CardIndex` is what saved decks and replays
+name. The `//!`
 header (name, cost, oracle text, set, Scryfall id) is the human-verification
 surface and `xtask validate` fails if it drifts from the `CardDef` built below
 it. Field defaults come from `CardDef::DEFAULT` / `FaceDef::DEFAULT` via a

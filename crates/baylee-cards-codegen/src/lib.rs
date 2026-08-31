@@ -11,6 +11,7 @@ pub mod acceptance;
 pub mod catalog;
 pub mod error;
 pub mod forge;
+pub mod ledger;
 pub mod scryfall;
 pub mod stubgen;
 

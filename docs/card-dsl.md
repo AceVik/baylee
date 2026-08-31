@@ -68,6 +68,15 @@ both are load-bearing:
   `every_card_sits_at_the_index_it_claims` test in `baylee-cards` turns a
   forgotten index into a build failure instead of a card that silently
   resolves as another one.
+
+  Where the number comes from: `data/card-index.tsv`, the append-only ledger
+  codegen keeps. A `CardIndex` is an identity, not a position — `DeckEntry`
+  stores one, the gateway persists decks made of them, and a replay names
+  them — so adding a card takes the next free index and never renumbers a
+  card that is already there. A card that leaves the pool retires its index;
+  the slot stays empty (`BY_INDEX` holds `None` there) rather than being
+  handed to someone else. Never edit the ledger by hand: `codegen --check`
+  fails if a run would change it.
 - `CardDef::DEFAULT.coverage` is `Coverage::Unimplemented`, so a stub that
   was never finished cannot reach the deckbuilder as playable just because
   a line went missing. An implemented card writes

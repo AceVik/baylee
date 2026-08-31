@@ -55,7 +55,8 @@ mod tests {
     /// turns that collision into a build failure.
     #[test]
     fn every_card_sits_at_the_index_it_claims() {
-        for (i, def) in generated::BY_INDEX.iter().enumerate() {
+        for (i, slot) in generated::BY_INDEX.iter().enumerate() {
+            let Some(def) = slot else { continue };
             assert_eq!(
                 def.index.get() as usize,
                 i,
@@ -64,7 +65,52 @@ mod tests {
                 def.index.get()
             );
         }
-        assert_eq!(generated::BY_INDEX.len(), generated::ALL.len());
+        let filled = generated::BY_INDEX.iter().flatten().count();
+        assert_eq!(filled, generated::ALL.len());
+    }
+
+    /// An index is an identity, not a position: `DeckEntry` stores one, the
+    /// gateway persists decks made of them, and a replay names them. They are
+    /// handed out by `data/card-index.tsv` (append-only) rather than by a
+    /// card's place in the alphabetically sorted pool, which is what used to
+    /// renumber every card after any newly added one — silently pointing
+    /// every saved deck at a different card.
+    ///
+    /// The ledger's own rules are tested in `baylee-cards-codegen`; what is
+    /// checked here is the half that reaches the engine: the table is indexed
+    /// by that number, tolerates a retired slot, and answers `None` for one.
+    #[test]
+    fn the_index_table_is_addressed_by_index_and_tolerates_a_retired_slot() {
+        for (i, slot) in generated::BY_INDEX.iter().enumerate() {
+            let index = CardIndex::new(u32::try_from(i).expect("pool fits in u32"));
+            match slot {
+                Some(def) => assert!(std::ptr::eq(by_index(index).expect("filled slot"), *def)),
+                None => assert!(
+                    by_index(index).is_none(),
+                    "index {i} is retired and must answer to nothing"
+                ),
+            }
+        }
+        assert!(
+            by_index(CardIndex::new(u32::MAX)).is_none(),
+            "an index past the end is not a card"
+        );
+    }
+
+    /// Every card in the pool is reachable through the index it claims — the
+    /// other direction of the same table, and the one a deck list travels.
+    #[test]
+    fn every_card_answers_to_its_own_index() {
+        for (_, def) in generated::ALL {
+            let found = by_index(def.index).unwrap_or_else(|| {
+                panic!(
+                    "{} claims index {} and nothing is there",
+                    def.name(),
+                    def.index.get()
+                )
+            });
+            assert_eq!(found.oracle_id, def.oracle_id);
+        }
     }
 
     /// The same for the oracle-id table the gateway resolves deck lists
