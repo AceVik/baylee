@@ -54,6 +54,31 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo run -p xtask -- codegen --check
 
+  # The card data is only as good as this check: it re-reads the acceptance
+  # list and compares every card's doc header against the CardDef the code
+  # actually builds. It has caught real drift (a card carrying the wrong cost
+  # and P/T through a "fix"), which stable clippy and the tests cannot see.
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run -p xtask -- validate
+
+  # The browser client compiles nothing on a native build: its localStorage
+  # settings and Web Crypto entropy live behind `cfg(target_arch = "wasm32")`
+  # and would rot unnoticed without a target-specific job.
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check -p baylee-client --target wasm32-unknown-unknown
+
   # Benches run in CI so they never silently rot; the numbers land in the
   # job log for comparison against docs/perf-baseline.md (manual check —
   # runner timing is too noisy for a hard 10% gate).

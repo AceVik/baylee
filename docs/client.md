@@ -83,10 +83,19 @@ host the resulting `dist/` statically. Two notes: always build `--release`
 (a dev-profile wasm is ~350 MB vs ~36 MB optimized), and the acceptance deck
 file is embedded with `include_str!` because a browser has no filesystem.
 
+The same missing filesystem is why settings take a second back end. Natively
+they are a JSON file under `~/.config/baylee/`; in a browser the identical
+JSON lives in `localStorage` under `baylee:client-settings`, scoped to the
+origin the client is served from. Both are best-effort — a corrupt file, a
+private window, a browser set to block site data — so `ClientSettings::load`
+falls back to defaults rather than failing a launch.
+
 ## Verification
 
 - `cargo test -p baylee-client --test duel_flow` plays real games headlessly
   through the client's own path (host → view → board model → interaction).
-- The wasm CI job builds `baylee-client` for `wasm32-unknown-unknown`.
+- The wasm CI job type-checks `baylee-client` for `wasm32-unknown-unknown`.
+  The browser-only paths (settings storage, entropy) compile nowhere else,
+  so without that job they rot silently.
 - Browser entropy needs both `.cargo/config.toml`'s `getrandom_backend` cfg and
   the `wasm_js` feature; either alone is not enough.

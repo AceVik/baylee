@@ -31,6 +31,8 @@ uuid.workspace = true
 name = "baylee-client"
 path = "src/main.rs"
 
-# Browser builds: entropy comes from Web Crypto (see .cargo/config.toml).
+# Browser builds: entropy comes from Web Crypto (see .cargo/config.toml), and
+# settings persist in localStorage (see src/settings.rs).
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
+web-sys = { workspace = true, features = ["Storage", "Window"] }

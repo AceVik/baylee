@@ -53,6 +53,9 @@ parking_lot = "0.12"
 axum = { version = "0.8", features = ["ws"] }
 argon2 = "0.5"
 getrandom = "0.3"
+# Browser bindings for the client's localStorage settings. Version pinned to
+# the one bevy already resolves for wasm, so this adds no second copy.
+web-sys = "0.3"
 sha2 = "0.10"
 subtle = "2"
 tokio-tungstenite = "0.26"
