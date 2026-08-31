@@ -4,10 +4,135 @@ use super::{
     PlayerId, Resolution, SmallVec, Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval,
     mana_pay, resolve, sba, trigger,
 };
-use crate::choice::{CastModeDesc, CastModeKind, YesNoPrompt};
+use crate::choice::{
+    CastModeDesc, CastModeKind, PlayerAction, PriorityHold, SeatAutomation, YesNoPrompt,
+};
+use baylee_core::ids::AbilityRef;
 
 impl<L: CardLookup> Engine<L> {
+    /// A seat's automation settings.
+    #[must_use]
+    pub fn automation(&self, player: PlayerId) -> &SeatAutomation {
+        static EMPTY: std::sync::OnceLock<SeatAutomation> = std::sync::OnceLock::new();
+        self.automation
+            .get(player.get() as usize)
+            .unwrap_or_else(|| EMPTY.get_or_init(SeatAutomation::default))
+    }
+
+    /// Applies a [`PlayerAction::SetPriorityHold`] or
+    /// [`PlayerAction::SetStandingAnswer`].
+    pub(crate) fn set_automation(&mut self, player: PlayerId, action: &PlayerAction) {
+        let Some(seat) = self.automation.get_mut(player.get() as usize) else {
+            return;
+        };
+        match action {
+            PlayerAction::SetPriorityHold(hold) => seat.hold = *hold,
+            PlayerAction::SetStandingAnswer { ability, answer } => {
+                seat.set_standing_answer(*ability, *answer);
+            }
+            _ => {}
+        }
+    }
+
+    /// Drops a seat's priority hold once the condition it named is met.
+    ///
+    /// Holds are cancelled here rather than where they are consumed so
+    /// that the *client* sees an accurate setting: a hold that has already
+    /// expired must not still be reported as active.
+    fn expire_holds(&mut self) {
+        let stack_depth = self.state.zones.list(ZoneLocation::Stack).len();
+        let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
+        let turn = self.state.turn.number;
+        for seat in &mut self.automation {
+            let expired = match seat.hold {
+                PriorityHold::Always | PriorityHold::PassWhenNothingToDo => false,
+                // Empty, or somebody responded to what was being let through.
+                PriorityHold::UntilStackEmpty { depth } => {
+                    stack_depth == 0 || stack_depth > depth as usize
+                }
+                // Reached the top, or left the stack without ever doing so.
+                PriorityHold::UntilTopOfStack { object } => {
+                    top == Some(object)
+                        || self
+                            .state
+                            .object(object)
+                            .is_none_or(|o| o.zone != crate::zone::Zone::Stack)
+                }
+                PriorityHold::UntilEndOfTurn { turn: set_on } => turn != set_on,
+            };
+            if expired {
+                seat.hold = PriorityHold::Always;
+            }
+        }
+    }
+
+    /// Answers the pending choice from the acting seat's automation, if it
+    /// covers it. Returns `true` when it did, and the caller loops.
+    ///
+    /// Only two kinds of question are ever answered this way: priority
+    /// (always by passing, which the seat could always have done) and a
+    /// yes/no the seat has explicitly stored an answer for. Nothing that
+    /// could *lose* a game is automated, and no automated answer is one
+    /// the seat could not have given by hand.
+    fn auto_answer(&mut self) -> bool {
+        let answer = match &self.pending {
+            Pending::Priority { player, legal } => {
+                let hold = self.automation(*player).hold;
+                let pass = match hold {
+                    PriorityHold::Always => false,
+                    PriorityHold::PassWhenNothingToDo => legal.nothing_but_passing(),
+                    // The expiry pass above already cleared any hold whose
+                    // condition is met, so an active one still means "keep
+                    // going".
+                    PriorityHold::UntilStackEmpty { .. }
+                    | PriorityHold::UntilTopOfStack { .. }
+                    | PriorityHold::UntilEndOfTurn { .. } => true,
+                };
+                pass.then_some((*player, PlayerAction::PassPriority))
+            }
+            Pending::YesNo {
+                player,
+                source: Some(ability),
+                ..
+            } => self
+                .automation(*player)
+                .standing_answer(*ability)
+                .map(|a| (*player, PlayerAction::YesNo(a.as_bool()))),
+            _ => None,
+        };
+        let Some((player, action)) = answer else {
+            return false;
+        };
+        self.awaiting_answer = false;
+        // An automated answer goes through the ordinary action path, so it
+        // is validated and journaled exactly like a hand-played one — a
+        // replay cannot tell the difference, which is the point.
+        self.apply_inner(player, action).is_ok()
+    }
+
+    /// Runs the game to the next decision, letting seat automation answer
+    /// the decisions it covers and running on.
+    ///
+    /// The bound is a safety net, not a budget: every automated answer is
+    /// an action the game accepted, so it makes progress the same way a
+    /// human answer does. It exists because "the engine spins forever" is
+    /// a worse failure than "an automated seat is asked one question it
+    /// meant to skip".
     pub(crate) fn run_until_choice(&mut self) {
+        const AUTO_ANSWER_LIMIT: u32 = 4096;
+        for _ in 0..AUTO_ANSWER_LIMIT {
+            self.run_machine();
+            if !self.awaiting_answer {
+                return;
+            }
+            self.expire_holds();
+            if !self.auto_answer() {
+                return;
+            }
+        }
+    }
+
+    fn run_machine(&mut self) {
         if self.awaiting_answer {
             return;
         }
@@ -87,10 +212,14 @@ impl<L: CardLookup> Engine<L> {
             if def.faces[obj.face_index as usize].miracle.is_none() {
                 continue;
             }
+            let source = obj
+                .card
+                .map(|c| AbilityRef::new(c.index, AbilityRef::MIRACLE));
             self.pending_plan = Some(PlanKind::Miracle { card });
             self.pending = Pending::YesNo {
                 player,
                 prompt: crate::choice::YesNoPrompt::Miracle { card },
+                source,
             };
             self.awaiting_answer = true;
             return true;
@@ -363,10 +492,16 @@ impl<L: CardLookup> Engine<L> {
                             }
                             continue;
                         }
+                        let source = self
+                            .state
+                            .object(id)
+                            .and_then(|o| o.card)
+                            .map(|c| AbilityRef::new(c.index, AbilityRef::ENTERS));
                         self.pending_plan = Some(PlanKind::EntryTap { object: id, amount });
                         self.pending = Pending::YesNo {
                             player: controller,
                             prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+                            source,
                         };
                         self.awaiting_answer = true;
                         return true; // one choice at a time
@@ -1565,10 +1700,16 @@ impl<L: CardLookup> Engine<L> {
                     );
                     return false;
                 }
+                let source = self
+                    .state
+                    .object(card)
+                    .and_then(|o| o.card)
+                    .map(|c| AbilityRef::new(c.index, AbilityRef::UPKEEP_COST));
                 self.pending_plan = Some(PlanKind::DelayedPaySacrifice { cost, card });
                 self.pending = Pending::YesNo {
                     player: active,
                     prompt: YesNoPrompt::Generic,
+                    source,
                 };
                 self.awaiting_answer = true;
                 true
@@ -1586,6 +1727,9 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::YesNo {
                     player: active,
                     prompt: YesNoPrompt::Generic,
+                    // A pact's "pay or lose" must never be automatable:
+                    // a standing "no" here is a standing loss.
+                    source: None,
                 };
                 self.awaiting_answer = true;
                 true
@@ -1724,6 +1868,7 @@ impl<L: CardLookup> Engine<L> {
         // (CR 514.2), and check hand size.
         for obj in self.state.arena.iter_mut_all() {
             obj.damage = 0;
+            obj.deathtouched = false;
         }
         self.state
             .effects

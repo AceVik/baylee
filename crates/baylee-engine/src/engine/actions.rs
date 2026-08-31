@@ -37,6 +37,8 @@ impl<L: CardLookup> Engine<L> {
         self.pending = Pending::YesNo {
             player: asked,
             prompt: crate::choice::YesNoPrompt::DrawOffer { proposer: player },
+            // Not a card asking: no ability to remember an answer for.
+            source: None,
         };
         self.awaiting_answer = true;
         Ok(())
@@ -564,6 +566,7 @@ impl<L: CardLookup> Engine<L> {
                     self.pending = Pending::YesNo {
                         player: next,
                         prompt: crate::choice::YesNoPrompt::DrawOffer { proposer },
+                        source: None,
                     };
                     self.awaiting_answer = true;
                     return Ok(());

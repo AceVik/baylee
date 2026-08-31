@@ -126,9 +126,29 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
             .collect(),
         attached_to: obj.attached_to,
         targets: obj.targets.iter().map(|t| TargetRef::Object(*t)).collect(),
+        stack_item: stack_item(obj),
         summoning_sick: obj.kind == ObjectKind::Permanent
             && baylee_engine::combat::summoning_sick(state, obj),
     })
+}
+
+/// What a stack object is, for objects that are on the stack.
+///
+/// An ability on the stack is its own object with no card of its own, so
+/// without this a client can only draw an anonymous entry — it knows a
+/// trigger is resolving, but not whose, and not which of that permanent's
+/// abilities it is. The engine already tracks exactly that in
+/// `AbilityLoc`; this is where it reaches the client.
+fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
+    use baylee_view::StackItem;
+    match obj.kind {
+        ObjectKind::Spell => Some(StackItem::Spell),
+        ObjectKind::AbilityOnStack => obj.ability.map(|loc| StackItem::Ability {
+            source: loc.source,
+            ability: baylee_core::ids::AbilityRef::new(loc.card, loc.index),
+        }),
+        _ => None,
+    }
 }
 
 /// Collects a public zone into view objects.

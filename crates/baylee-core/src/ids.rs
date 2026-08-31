@@ -64,6 +64,63 @@ id_type! {
     NameRef(u32);
 }
 
+/// One ability of one card, addressed the same way in every game.
+///
+/// Unlike a game object's ability instance, this carries no per-game
+/// handle: it is `(which card, which ability of it)` and nothing else.
+/// That is what lets a client label a stack entry ("Ondu Cleric's rally
+/// trigger") and what lets a player's standing answer for an ability —
+/// "always yes for this one" — be stored once by an account and replayed
+/// into every future game.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+pub struct AbilityRef {
+    /// The card the ability is printed on.
+    pub card: CardIndex,
+    /// Index into that card's ability list.
+    pub index: u32,
+}
+
+impl AbilityRef {
+    /// Builds a handle.
+    #[inline]
+    #[must_use]
+    pub const fn new(card: CardIndex, index: u32) -> Self {
+        Self { card, index }
+    }
+
+    /// The card's spell ability — what an instant or sorcery does when it
+    /// resolves, which is not an entry in its ability list.
+    pub const SPELL: u32 = u32::MAX;
+    /// The card's as-it-enters question (a shockland's "pay 2 life?").
+    pub const ENTERS: u32 = u32::MAX - 1;
+    /// The card's optional additional cost at cast time (kicker).
+    pub const ADDITIONAL_COST: u32 = u32::MAX - 2;
+    /// The card's miracle offer (CR 702.94).
+    pub const MIRACLE: u32 = u32::MAX - 3;
+    /// A recurring upkeep payment the card imposes (echo, pacts).
+    pub const UPKEEP_COST: u32 = u32::MAX - 4;
+
+    /// The lowest reserved index. Real ability indices are positions in a
+    /// card's ability list and never come close; reserving the top of the
+    /// range lets card-level questions that are not abilities — a
+    /// shockland's entry choice, a kicker — be addressed by the same
+    /// handle, so "always yes for this card's question" works for them
+    /// too.
+    pub const FIRST_RESERVED: u32 = u32::MAX - 4;
+
+    /// Whether this handle names a real entry in the card's ability list.
+    #[must_use]
+    pub const fn is_listed_ability(self) -> bool {
+        self.index < Self::FIRST_RESERVED
+    }
+}
+
+impl core::fmt::Display for AbilityRef {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "card {}#{}", self.card.get(), self.index)
+    }
+}
+
 /// Generational arena handle for a game object: `slot:24 | generation:8`.
 ///
 /// The generation distinguishes an object from earlier objects that occupied

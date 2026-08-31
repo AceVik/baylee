@@ -4,7 +4,7 @@
 #![allow(missing_docs, unused_imports, dead_code, clippy::all, clippy::pedantic)]
 
 use crate::ids::SubtypeId;
-use crate::types::SubtypeKind;
+use crate::types::{SubtypeKind, SubtypeSet};
 
 pub mod creature {
     use super::SubtypeId;
@@ -532,12 +532,25 @@ pub mod spell {
 }
 
 pub const COUNT: u16 = 506;
-const CREATURE_END: u16 = 350;
-const ARTIFACT_END: u16 = 370;
-const ENCHANTMENT_END: u16 = 383;
-const LAND_END: u16 = 401;
-const PLANESWALKER_END: u16 = 500;
-const SPELL_END: u16 = 506;
+pub const CREATURE_START: u16 = 0;
+pub const CREATURE_END: u16 = 350;
+pub const ARTIFACT_START: u16 = 350;
+pub const ARTIFACT_END: u16 = 370;
+pub const ENCHANTMENT_START: u16 = 370;
+pub const ENCHANTMENT_END: u16 = 383;
+pub const LAND_START: u16 = 383;
+pub const LAND_END: u16 = 401;
+pub const PLANESWALKER_START: u16 = 401;
+pub const PLANESWALKER_END: u16 = 500;
+pub const SPELL_START: u16 = 500;
+pub const SPELL_END: u16 = 506;
+pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::range(CREATURE_START, CREATURE_END);
+pub const ALL_ARTIFACT_TYPES: SubtypeSet = SubtypeSet::range(ARTIFACT_START, ARTIFACT_END);
+pub const ALL_ENCHANTMENT_TYPES: SubtypeSet = SubtypeSet::range(ENCHANTMENT_START, ENCHANTMENT_END);
+pub const ALL_LAND_TYPES: SubtypeSet = SubtypeSet::range(LAND_START, LAND_END);
+pub const ALL_PLANESWALKER_TYPES: SubtypeSet =
+    SubtypeSet::range(PLANESWALKER_START, PLANESWALKER_END);
+pub const ALL_SPELL_TYPES: SubtypeSet = SubtypeSet::range(SPELL_START, SPELL_END);
 
 pub const fn kind(id: SubtypeId) -> SubtypeKind {
     let v = id.get();

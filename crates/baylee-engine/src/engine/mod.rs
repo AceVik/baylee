@@ -99,6 +99,23 @@ pub struct Engine<L: CardLookup> {
     trigger_queue: VecDeque<trigger::PendingTrigger>,
     /// Every player still in the game accepted a draw offer (CR 104.4a).
     agreed_draw: bool,
+    /// Per-seat automation: when to offer priority, which yes/no
+    /// questions to answer without asking (see `choice::Automation`).
+    automation: Vec<crate::choice::SeatAutomation>,
+}
+
+/// A distinguishing tag per priority-hold shape, including its payload —
+/// two holds of the same kind with different conditions are different
+/// engine states.
+fn hold_tag(hold: crate::choice::PriorityHold) -> u64 {
+    use crate::choice::PriorityHold as H;
+    match hold {
+        H::Always => 1,
+        H::PassWhenNothingToDo => 2,
+        H::UntilStackEmpty { depth } => 3 ^ (u64::from(depth) << 8),
+        H::UntilTopOfStack { object } => 4 ^ (u64::from(object.slot()) << 8),
+        H::UntilEndOfTurn { turn } => 5 ^ (u64::from(turn) << 8),
+    }
 }
 
 /// What a `Pending::ChooseTargets` is targeting for.
@@ -199,6 +216,7 @@ impl<L: CardLookup> Engine<L> {
         let mut engine = Self {
             lookup,
             mulligans: vec![0; state.players.len()],
+            automation: vec![crate::choice::SeatAutomation::default(); state.players.len()],
             mulligan_player: 0,
             house_rules: preset.house_rules.clone(),
             state,
@@ -265,6 +283,24 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_add(u64::from(r.controller.get()));
         }
         extra = extra.wrapping_mul(31).wrapping_add(u64::from(self.passes));
+        // Automation decides which decisions the engine takes on a seat's
+        // behalf, so two engines that differ in it will diverge from here
+        // on. The loop detector compares these hashes to decide whether a
+        // segment repeated; leaving automation out would let it call a
+        // segment identical that is about to behave differently.
+        for seat in &self.automation {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(hold_tag(seat.hold))
+                .wrapping_add(seat.standing_answers().count() as u64);
+            for (ability, answer) in seat.standing_answers() {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(ability.card.get()))
+                    .wrapping_add(u64::from(ability.index))
+                    .wrapping_add(u64::from(answer.as_bool()));
+            }
+        }
         base ^ extra.rotate_left(17)
     }
 
@@ -276,6 +312,19 @@ impl<L: CardLookup> Engine<L> {
     pub fn apply(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
         if matches!(self.pending, Pending::GameOver(_)) {
             return Err(EngineError::GameOver);
+        }
+        // Automation settings change who gets interrupted, not the game.
+        // They are answered in place: whatever was pending stays pending,
+        // and the priority round is untouched.
+        if action.is_automation_setting() {
+            self.set_automation(player, &action);
+            // Re-run the driver *without* clearing `awaiting_answer`: the
+            // question on the table has not been answered, so the machine
+            // must not step past it. All this does is give the new setting
+            // a chance to cover that same question — and if it does not,
+            // the pending stands exactly as it was.
+            self.run_until_choice();
+            return Ok(());
         }
         // Concession is always legal for any seated player (CR 104.3a).
         if let PlayerAction::Concede = action {
@@ -319,6 +368,8 @@ mod actions;
 mod cast_wizard;
 mod progress;
 
+#[cfg(test)]
+mod automation_tests;
 #[cfg(test)]
 mod card_tests;
 #[cfg(test)]

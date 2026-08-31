@@ -413,6 +413,14 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::YesNo {
                     player: wizard.player,
                     prompt: YesNoPrompt::Kicker,
+                    source: self.state.object(wizard.card).and_then(|o| {
+                        o.card.map(|c| {
+                            baylee_core::ids::AbilityRef::new(
+                                c.index,
+                                baylee_core::ids::AbilityRef::ADDITIONAL_COST,
+                            )
+                        })
+                    }),
                 };
                 self.awaiting_answer = true;
                 Ok(())

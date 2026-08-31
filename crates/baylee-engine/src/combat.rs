@@ -1,9 +1,15 @@
 //! Structured combat state machine.
 //!
-//! S2: single-blocker damage assignment, first/double strike steps,
-//! trample, lifelink, flying/reach/menace restrictions. Multi-blocker
-//! ordering and assignment choices arrive with the full choice taxonomy
-//! (M2); deathtouch tracking lands with keywords (M1.S3).
+//! Implemented: attacker/blocker declaration with the keyword restrictions
+//! (flying/reach, menace, unblockable, protection), first/double strike as
+//! a per-creature property, deathtouch, trample, lifelink, and damage
+//! assignment in declaration order.
+//!
+//! Not yet: the attacking player's *choice* of damage assignment order
+//! among multiple blockers (CR 509.2) — the declaration order stands in
+//! for it — and attacking planeswalkers or battles, which need
+//! [`AttackerInfo::defending`] to become a defender handle rather than a
+//! [`PlayerId`].
 
 use crate::event::{DamageTarget, GameEvent};
 use crate::object::{GameObject, Status};
@@ -135,76 +141,132 @@ pub fn can_block(
     true
 }
 
-/// Deals combat damage for all attackers (S2 assignment rules).
+/// Whether a creature deals its combat damage in the given step
+/// (CR 510.4): first strikers in the first step, everyone else in the
+/// regular one, double strikers in both.
+fn strikes_now(state: &GameState, creature: ObjectId, first_strike_step: bool) -> bool {
+    let Some(obj) = state.object(creature) else {
+        return false;
+    };
+    let kw = obj.characteristics().keywords;
+    if first_strike_step {
+        kw.contains(K::FIRST_STRIKE) || kw.contains(K::DOUBLE_STRIKE)
+    } else {
+        !kw.contains(K::FIRST_STRIKE) || kw.contains(K::DOUBLE_STRIKE)
+    }
+}
+
+/// How much damage from `source` is lethal to `target` right now
+/// (CR 510.1c): toughness minus damage already marked, or 1 if the source
+/// has deathtouch (CR 702.2b — *any* nonzero damage is lethal).
+fn lethal_damage(state: &GameState, source: ObjectId, target: ObjectId) -> i16 {
+    if has_keyword(state, source, K::DEATHTOUCH) {
+        return 1;
+    }
+    let Some(obj) = state.object(target) else {
+        return 1;
+    };
+    let toughness = obj.characteristics().toughness.unwrap_or(0).max(0);
+    (toughness - obj.damage as i16).max(1)
+}
+
+fn has_keyword(state: &GameState, id: ObjectId, kw: baylee_cards_dsl::KeywordSet) -> bool {
+    state
+        .object(id)
+        .is_some_and(|o| o.characteristics().keywords.contains(kw))
+}
+
+fn power_of(state: &GameState, id: ObjectId) -> i16 {
+    state
+        .object(id)
+        .and_then(|o| o.characteristics().power)
+        .unwrap_or(0)
+        .max(0)
+}
+
+/// Deals combat damage for one strike step.
 ///
 /// `first_strike_step`: only first/double strikers deal damage; the regular
 /// step skips first-strikers (double strikers deal in both).
+///
+/// Attackers and blockers are two separate passes on purpose. Folding the
+/// blockers' damage into the attacker loop tied a blocker's strike step to
+/// its *attacker's* keywords — a first-striking attacker made its ordinary
+/// blocker strike first too, which is precisely the interaction first
+/// strike exists to decide — and skipped blockers the attacker had run out
+/// of damage to assign to, though CR 510.1d has every blocking creature
+/// deal its damage regardless.
 pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
     let attackers = state.combat.attackers.clone();
-    for info in attackers {
-        let Some(a) = state.object(info.creature) else {
-            continue;
-        };
-        let kw = a.characteristics().keywords;
-        let deals_now = if first_strike_step {
-            kw.contains(K::FIRST_STRIKE) || kw.contains(K::DOUBLE_STRIKE)
-        } else {
-            !kw.contains(K::FIRST_STRIKE) || kw.contains(K::DOUBLE_STRIKE)
-        };
-        if !deals_now {
+    for info in &attackers {
+        if !strikes_now(state, info.creature, first_strike_step) {
             continue;
         }
-        let power = a.characteristics().power.unwrap_or(0).max(0);
-        let trample = kw.contains(K::TRAMPLE);
-        let lifelink = kw.contains(K::LIFELINK);
-        let controller = a.controller;
-        let blockers = state.combat.blockers_of(info.creature);
-        if blockers.is_empty() {
-            // Unblocked: damage the defending player.
-            deal_damage_to_player(state, info.creature, info.defending, power, true);
-            if lifelink {
-                gain_life(state, controller, power);
-            }
-        } else {
-            let mut remaining = power;
-            for blocker in &blockers {
-                if remaining <= 0 {
-                    break;
-                }
-                let toughness = state
-                    .object(*blocker)
-                    .and_then(|b| b.characteristics().toughness)
-                    .unwrap_or(0)
-                    .max(0);
-                let damage_already = state.object(*blocker).map_or(0, |b| b.damage);
-                let lethal_needed = (toughness - damage_already as i16).max(1);
-                let assigned = if trample {
-                    remaining.min(lethal_needed)
-                } else {
-                    remaining
-                };
-                deal_damage_to_object(state, info.creature, *blocker, assigned, true);
-                remaining -= assigned;
-                if lifelink {
-                    gain_life(state, controller, assigned);
-                }
-                // Blocker hits back.
-                let blocker_power = state
-                    .object(*blocker)
-                    .and_then(|b| b.characteristics().power)
-                    .unwrap_or(0)
-                    .max(0);
-                if blocker_power > 0 {
-                    deal_damage_to_object(state, *blocker, info.creature, blocker_power, true);
-                }
-            }
-            if trample && remaining > 0 {
-                deal_damage_to_player(state, info.creature, info.defending, remaining, true);
-                if lifelink {
-                    gain_life(state, controller, remaining);
-                }
-            }
+        assign_attacker_damage(state, info.creature, info.defending);
+    }
+    let blockers = state.combat.blockers.clone();
+    for info in &blockers {
+        if !strikes_now(state, info.blocker, first_strike_step) {
+            continue;
         }
+        let power = power_of(state, info.blocker);
+        if power <= 0 {
+            continue;
+        }
+        deal_damage_to_object(state, info.blocker, info.attacker, power, true);
+        if has_keyword(state, info.blocker, K::LIFELINK)
+            && let Some(controller) = state.object(info.blocker).map(|o| o.controller)
+        {
+            gain_life(state, controller, power);
+        }
+    }
+}
+
+/// One attacker's damage assignment (CR 510.1a–c).
+fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: PlayerId) {
+    let power = power_of(state, attacker);
+    let trample = has_keyword(state, attacker, K::TRAMPLE);
+    let lifelink = has_keyword(state, attacker, K::LIFELINK);
+    let Some(controller) = state.object(attacker).map(|o| o.controller) else {
+        return;
+    };
+    let mut lifelinked = 0i16;
+    let blockers = state.combat.blockers_of(attacker);
+    // CR 509.1h: an attacker with no blockers left is still *blocked*, so
+    // it deals no damage to the player — unless it has trample, which
+    // assigns everything past the (now absent) blockers to the defender.
+    let live: Vec<ObjectId> = blockers
+        .iter()
+        .copied()
+        .filter(|b| state.object(*b).is_some())
+        .collect();
+    if blockers.is_empty() {
+        deal_damage_to_player(state, attacker, defending, power, true);
+        lifelinked += power;
+    } else {
+        let mut remaining = power;
+        for blocker in &live {
+            if remaining <= 0 {
+                break;
+            }
+            // Only trample lets an attacker hold damage back; without it
+            // the whole assignment goes to the blocker in front of it.
+            let assigned = if trample {
+                remaining.min(lethal_damage(state, attacker, *blocker))
+            } else {
+                remaining
+            };
+            deal_damage_to_object(state, attacker, *blocker, assigned, true);
+            remaining -= assigned;
+            lifelinked += assigned;
+        }
+        if trample && remaining > 0 {
+            deal_damage_to_player(state, attacker, defending, remaining, true);
+            lifelinked += remaining;
+        }
+    }
+    if lifelink {
+        gain_life(state, controller, lifelinked);
     }
 }
 
@@ -255,8 +317,10 @@ fn deal_damage_to_object(
     {
         return;
     }
+    let deathtouch = has_keyword(state, source, K::DEATHTOUCH);
     if let Some(obj) = state.object_mut(target) {
         obj.damage = obj.damage.saturating_add(amount as u16);
+        obj.deathtouched |= deathtouch;
     }
     state.journal.record(GameEvent::DamageDealt {
         source: Some(source),
@@ -296,4 +360,245 @@ fn gain_life(state: &mut GameState, player: PlayerId, amount: i16) {
         new,
         cause: crate::event::Cause::Spell,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::object::ObjectKind;
+    use crate::state::CardLookup;
+    use crate::zone::ZoneLocation;
+    use baylee_cards_dsl::KeywordSet;
+    use baylee_core::ids::CardIndex;
+    use baylee_core::preset::{FormatId, GamePreset, HouseRules, SeatController, SeatSpec};
+
+    /// A registry with nothing in it: these tests build creatures directly
+    /// rather than going through cards, because the interactions under
+    /// test are between *keywords*, and picking real cards that happen to
+    /// carry them would make the test about those cards.
+    struct NoCards;
+    impl CardLookup for NoCards {
+        fn card(&self, _: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
+            None
+        }
+    }
+
+    fn empty_state() -> GameState {
+        let seat = || SeatSpec {
+            controller: SeatController::Open,
+            deck: vec![],
+            sideboard: vec![],
+            starting_life: Some(20),
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        GameState::from_preset(
+            &GamePreset {
+                format: FormatId::Freeform,
+                seed: 1,
+                dev_mode: false,
+                house_rules: HouseRules::default(),
+                modifiers: vec![],
+                prints: vec![],
+                seats: vec![seat(), seat()],
+            },
+            &NoCards,
+        )
+        .expect("an empty two-seat board")
+    }
+
+    fn creature(
+        state: &mut GameState,
+        controller: PlayerId,
+        power: i16,
+        toughness: i16,
+        keywords: KeywordSet,
+    ) -> ObjectId {
+        let name = state.names.intern("Test Creature");
+        let id = state.create_bare(
+            controller,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let obj = state.object_mut(id).expect("just created");
+        obj.base.types = TypeSet::CREATURE;
+        obj.base.power = Some(power);
+        obj.base.toughness = Some(toughness);
+        obj.base.keywords = keywords;
+        id
+    }
+
+    fn attack(state: &mut GameState, creature: ObjectId, defending: PlayerId) {
+        state
+            .combat
+            .attackers
+            .push(AttackerInfo { creature, defending });
+    }
+
+    fn block(state: &mut GameState, blocker: ObjectId, attacker: ObjectId) {
+        state.combat.blockers.push(BlockerInfo { blocker, attacker });
+    }
+
+    fn damage(state: &GameState, id: ObjectId) -> u16 {
+        state.object(id).map_or(0, |o| o.damage)
+    }
+
+    fn on_battlefield(state: &GameState, id: ObjectId) -> bool {
+        state
+            .object(id)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    }
+
+    const P0: PlayerId = PlayerId::new(0);
+    const P1: PlayerId = PlayerId::new(1);
+
+    /// CR 702.2b + 704.5h: any nonzero damage from a deathtouch source is
+    /// lethal. A 1/1 deathtoucher marks one damage on a 6/6 and the SBA
+    /// pass has to destroy it, even though one is nowhere near six.
+    #[test]
+    fn a_point_of_deathtouch_damage_is_lethal() {
+        let mut state = empty_state();
+        let biter = creature(&mut state, P0, 1, 1, KeywordSet::DEATHTOUCH);
+        let bear = creature(&mut state, P1, 6, 6, KeywordSet::EMPTY);
+        attack(&mut state, biter, P1);
+        block(&mut state, bear, biter);
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(damage(&state, bear), 1, "one damage, not six");
+        assert!(
+            state.object(bear).expect("still alive").deathtouched,
+            "the deathtouch mark is what the SBA reads"
+        );
+
+        crate::sba::run(&mut state);
+        // These test creatures are card-less, so dying takes them out of
+        // the game entirely (CR 704.5e) rather than to a graveyard.
+        assert!(
+            !on_battlefield(&state, bear),
+            "the 6/6 dies to one point of deathtouch damage"
+        );
+    }
+
+    /// The deathtouch window is "since the last SBA check" (CR 704.5h), so
+    /// an indestructible creature that survived the mark must not die when
+    /// the next unrelated SBA pass runs.
+    #[test]
+    fn deathtouch_does_not_linger_past_the_sba_that_judged_it() {
+        let mut state = empty_state();
+        let biter = creature(&mut state, P0, 1, 1, KeywordSet::DEATHTOUCH);
+        let wall = creature(
+            &mut state,
+            P1,
+            0,
+            4,
+            KeywordSet::INDESTRUCTIBLE,
+        );
+        attack(&mut state, biter, P1);
+        block(&mut state, wall, biter);
+        deal_combat_damage(&mut state, false);
+
+        crate::sba::run(&mut state);
+        assert!(
+            on_battlefield(&state, wall),
+            "indestructible survives deathtouch (CR 702.12b)"
+        );
+        assert!(!state.object(wall).expect("alive").deathtouched);
+
+        // Losing indestructibility later must not make it die retroactively.
+        state
+            .object_mut(wall)
+            .expect("alive")
+            .base
+            .keywords = KeywordSet::EMPTY;
+        crate::sba::run(&mut state);
+        assert!(
+            on_battlefield(&state, wall),
+            "the mark expired with the SBA pass that judged it"
+        );
+    }
+
+    /// CR 510.4: first strike is a property of the creature dealing the
+    /// damage. A first-striking attacker must not drag its ordinary
+    /// blocker into the first-strike step — that is the whole point of
+    /// the keyword.
+    #[test]
+    fn first_strike_is_per_creature_not_per_combat() {
+        let mut state = empty_state();
+        let knight = creature(&mut state, P0, 3, 3, KeywordSet::FIRST_STRIKE);
+        let bear = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        attack(&mut state, knight, P1);
+        block(&mut state, bear, knight);
+
+        deal_combat_damage(&mut state, true);
+        assert_eq!(damage(&state, bear), 3, "the first striker connects");
+        assert_eq!(
+            damage(&state, knight),
+            0,
+            "the ordinary blocker does not strike first"
+        );
+
+        // The bear is dead before the regular step, so it never strikes.
+        crate::sba::run(&mut state);
+        deal_combat_damage(&mut state, false);
+        assert_eq!(damage(&state, knight), 0, "the knight takes nothing back");
+    }
+
+    /// CR 510.1d: every blocking creature assigns its combat damage,
+    /// whether or not the attacker had damage left to assign to it. The
+    /// attacker's assignment loop must not gate the blockers' strikes.
+    #[test]
+    fn every_blocker_strikes_even_when_the_attacker_ran_out() {
+        let mut state = empty_state();
+        let small = creature(&mut state, P0, 1, 10, KeywordSet::EMPTY);
+        let first = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        let second = creature(&mut state, P1, 3, 3, KeywordSet::EMPTY);
+        attack(&mut state, small, P1);
+        block(&mut state, first, small);
+        block(&mut state, second, small);
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(
+            damage(&state, small),
+            5,
+            "both blockers deal damage: 2 + 3"
+        );
+    }
+
+    /// A blocker with lifelink gains its controller life (CR 702.15b is
+    /// about the damage, not about who is attacking).
+    #[test]
+    fn a_blocker_with_lifelink_gains_life() {
+        let mut state = empty_state();
+        let attacker = creature(&mut state, P0, 1, 5, KeywordSet::EMPTY);
+        let blocker = creature(&mut state, P1, 4, 4, KeywordSet::LIFELINK);
+        attack(&mut state, attacker, P1);
+        block(&mut state, blocker, attacker);
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(state.players[1].life, 24, "20 + the blocker's 4 power");
+    }
+
+    /// Trample with deathtouch only has to assign one damage per blocker
+    /// before the rest tramples over (CR 702.19b + 702.2b).
+    #[test]
+    fn trample_over_deathtouch_only_owes_one_per_blocker() {
+        let mut state = empty_state();
+        let beast = creature(
+            &mut state,
+            P0,
+            5,
+            5,
+            KeywordSet::TRAMPLE.union(KeywordSet::DEATHTOUCH),
+        );
+        let wall = creature(&mut state, P1, 0, 4, KeywordSet::EMPTY);
+        attack(&mut state, beast, P1);
+        block(&mut state, wall, beast);
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(damage(&state, wall), 1, "one point is lethal here");
+        assert_eq!(state.players[1].life, 16, "the other four trample through");
+    }
 }

@@ -157,6 +157,7 @@ fn first_draw_of_turn_offers_miracle_and_casts_at_miracle_cost() {
             Pending::YesNo {
                 player,
                 prompt: crate::choice::YesNoPrompt::Miracle { .. },
+                ..
             } if player == p0 => {
                 // Accept the miracle: the wizard starts and the spell
                 // resolves at the miracle cost {1}{U}.
@@ -283,6 +284,7 @@ fn declining_miracle_keeps_the_card_in_hand() {
             Pending::YesNo {
                 player,
                 prompt: crate::choice::YesNoPrompt::Miracle { card },
+                ..
             } if player == p0 => {
                 engine.apply(player, PlayerAction::YesNo(false)).unwrap();
                 // The declined card stays in hand.

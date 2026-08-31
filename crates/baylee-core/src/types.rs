@@ -337,11 +337,86 @@ impl SubtypeSet {
         set
     }
 
+    /// Union of two sets.
+    #[inline]
+    #[must_use]
+    pub const fn union(self, other: Self) -> Self {
+        let mut out = [0u64; 8];
+        let mut i = 0;
+        while i < 8 {
+            out[i] = self.0[i] | other.0[i];
+            i += 1;
+        }
+        Self(out)
+    }
+
+    /// Whether the two sets share at least one subtype.
+    ///
+    /// Word-wise: eight `AND`s instead of one probe per subtype id. The
+    /// naive loop over [`COUNT`](crate::generated::subtypes::COUNT) ids was
+    /// 500+ iterations for a question eight instructions answer.
+    #[inline]
+    #[must_use]
+    pub const fn intersects(self, other: Self) -> bool {
+        let mut i = 0;
+        while i < 8 {
+            if self.0[i] & other.0[i] != 0 {
+                return true;
+            }
+            i += 1;
+        }
+        false
+    }
+
+    /// The set of all subtype ids in `start..end`.
+    ///
+    /// Subtype ids are range-partitioned per kind by codegen, so "every
+    /// creature type" (changeling, CR 702.73) is one contiguous range and
+    /// therefore a compile-time constant rather than a runtime scan.
+    #[must_use]
+    pub const fn range(start: u16, end: u16) -> Self {
+        let mut set = Self::EMPTY;
+        let mut i = start;
+        while i < end {
+            set.insert(SubtypeId::new(i));
+            i += 1;
+        }
+        set
+    }
+
+    /// Number of subtypes in the set.
+    #[must_use]
+    pub const fn len(self) -> u32 {
+        let mut n = 0;
+        let mut i = 0;
+        while i < 8 {
+            n += self.0[i].count_ones();
+            i += 1;
+        }
+        n
+    }
+
     /// Raw 64-bit words (snapshot hashing).
     #[must_use]
     pub const fn words(&self) -> &[u64; 8] {
         &self.0
     }
+
+    /// The five basic land types (CR 305.6).
+    ///
+    /// Not a codegen range — the basics are five specific ids inside the
+    /// land block, not the whole block (Desert and Gate are land types
+    /// too, and Dryad Arbor does not have them).
+    pub const BASIC_LANDS: Self = Self::from_slice(&[
+        crate::generated::subtypes::land::PLAINS,
+        crate::generated::subtypes::land::ISLAND,
+        crate::generated::subtypes::land::SWAMP,
+        crate::generated::subtypes::land::MOUNTAIN,
+        crate::generated::subtypes::land::FOREST,
+    ]);
+
+    /// Every creature type — what changeling grants (CR 702.73).
+    pub const ALL_CREATURE: Self = crate::generated::subtypes::ALL_CREATURE_TYPES;
 }
 
 impl core::fmt::Debug for SubtypeSet {

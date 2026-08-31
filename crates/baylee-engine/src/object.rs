@@ -53,7 +53,7 @@ pub struct AbilityLoc {
 ///
 /// Computed/layered characteristics are a *projection* of this base plus
 /// continuous effects (M2); for M1 the projection IS the base.
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Characteristics {
     /// Interned name.
     pub name: NameRef,
@@ -189,18 +189,79 @@ impl Characteristics {
     }
 }
 
-/// Cached layered projection (M2); `generation` matches the effect
-/// generation the value was computed at.
-#[derive(Clone, Debug)]
+/// Cached layered projection (CR 613).
+///
+/// The projection is stored **only when it differs from the base**. Every
+/// card in a library, hand or graveyard, and every permanent on a board
+/// with no continuous effect touching it, stores nothing at all — which is
+/// the difference between a `GameObject` carrying one set of
+/// characteristics and carrying two. At 256 bytes per [`Characteristics`]
+/// that is a third of the object, on every object, paid again on every
+/// state clone the AI lookahead does.
+#[derive(Clone, Debug, Default)]
 pub struct CachedChar {
-    /// Effect generation this cache was computed at; `u64::MAX` = stale.
-    pub generation: u64,
-    /// Cached value.
-    pub value: Characteristics,
-    /// Projected controller (layer 2). No control modifier exists yet, so
-    /// this equals `controller` today — cached so layer-2 control effects
-    /// have a place to land when the modifier vocabulary grows.
-    pub projected_controller: PlayerId,
+    /// Effect generation the value was computed at; `u64::MAX` = never.
+    generation: u64,
+    /// The projection, when it differs from the base.
+    value: Option<Box<Characteristics>>,
+    /// Projected controller (layer 2), when a layer-2 effect moved it.
+    /// No control modifier exists yet, so this is always `None` today —
+    /// it is here so layer 2 has a place to land rather than being
+    /// silently dropped once the modifier vocabulary grows.
+    controller: Option<PlayerId>,
+}
+
+impl CachedChar {
+    /// The effect generation this cache was computed at.
+    #[must_use]
+    pub const fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// The cached projection, if one is stored.
+    #[must_use]
+    pub fn value(&self) -> Option<&Characteristics> {
+        self.value.as_deref()
+    }
+
+    /// The layer-2 controller, if one was projected.
+    #[must_use]
+    pub const fn controller(&self) -> Option<PlayerId> {
+        self.controller
+    }
+
+    /// Drops the projection: the base is authoritative again.
+    ///
+    /// Called for objects the layer pass found nothing to change, and on
+    /// every zone change — a permanent that dies is a new object (CR
+    /// 400.7) and must not carry the anthem it was standing under into
+    /// the graveyard.
+    pub fn clear(&mut self) {
+        self.generation = u64::MAX;
+        self.value = None;
+        self.controller = None;
+    }
+
+    /// Stores a projection, reusing the allocation when one is already
+    /// held and releasing it when the projection collapsed onto the base.
+    pub fn store(
+        &mut self,
+        generation: u64,
+        characteristics: Characteristics,
+        controller: Option<PlayerId>,
+        base: &Characteristics,
+    ) {
+        self.generation = generation;
+        self.controller = controller;
+        if characteristics == *base {
+            self.value = None;
+            return;
+        }
+        match &mut self.value {
+            Some(slot) => **slot = characteristics,
+            None => self.value = Some(Box::new(characteristics)),
+        }
+    }
 }
 
 pub use baylee_cards_dsl::CounterKind;
@@ -326,6 +387,11 @@ pub enum Rider {
 pub type RiderSet = SmallVec<[Rider; 2]>;
 
 /// A game object.
+///
+/// The independent flags (`kicked`, `alt_cast`, `cast_from_hand`,
+/// `deathtouched`) genuinely are unrelated one-bit facts about one object,
+/// not a state machine waiting to be an enum.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug)]
 pub struct GameObject {
     /// Arena handle (stable for the object's lifetime).
@@ -351,6 +417,17 @@ pub struct GameObject {
     pub counters: Counters,
     /// Marked damage this turn.
     pub damage: u16,
+    /// Dealt damage by a source with deathtouch since the last
+    /// state-based-action check (CR 704.5h).
+    ///
+    /// Deathtouch is not "lethal damage" — a 1/1 deathtoucher marks one
+    /// damage on a 6/6 and the 6/6 dies with five toughness to spare, so
+    /// the marked total can never carry this. The SBA pass that reads the
+    /// flag also clears it, which is exactly the "since the last time
+    /// state-based actions were checked" window the rule is written in:
+    /// a creature that survived because it was indestructible does not
+    /// die later in the turn when the indestructibility wears off.
+    pub deathtouched: bool,
     /// Status bits.
     pub status: Status,
     /// What this object is attached to (auras/equipment).
@@ -411,14 +488,11 @@ impl GameObject {
             zone_owner: None,
             kind: ObjectKind::Card,
             card: Some(card),
-            cache: CachedChar {
-                generation: u64::MAX,
-                value: base.clone(),
-                projected_controller: owner,
-            },
+            cache: CachedChar::default(),
             base,
             counters: Counters::default(),
             damage: 0,
+            deathtouched: false,
             status: Status::NONE,
             attached_to: None,
             timestamp: 0,
@@ -506,10 +580,17 @@ impl GameObject {
     /// the copiable base.
     #[must_use]
     pub fn characteristics(&self) -> &Characteristics {
-        if self.cache.generation == u64::MAX {
-            &self.base
-        } else {
-            &self.cache.value
-        }
+        self.cache.value().unwrap_or(&self.base)
+    }
+
+    /// The controller as the layer system projects it (CR 613.1b).
+    ///
+    /// Equal to [`GameObject::controller`] unless a layer-2 effect moved
+    /// it, which no modifier does yet — rules code that asks "who controls
+    /// this right now" should read this, so control effects need no second
+    /// sweep of call sites when they land.
+    #[must_use]
+    pub fn projected_controller(&self) -> PlayerId {
+        self.cache.controller().unwrap_or(self.controller)
     }
 }

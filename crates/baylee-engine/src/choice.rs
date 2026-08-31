@@ -3,9 +3,19 @@
 //! The engine never asks open questions — every [`ChoiceRequest`] carries
 //! the complete set of legal answers, precomputed. Humans, AIs, and network
 //! clients all answer through the same [`PlayerAction`] type.
+//!
+//! # Automation
+//!
+//! A seat can tell the engine *not* to ask it about things (see
+//! [`Automation`]). This lives in the engine rather than in a client for
+//! two reasons. It has to see the same board the rules do — "stop when
+//! that trigger reaches the top of the stack" is a question about the
+//! stack, not about a UI. And it has to be journaled: an auto-pass that a
+//! client invented would replay as a different game, whereas a
+//! [`PlayerAction::SetPriorityHold`] in the journal replays exactly.
 
 use crate::win::GameResult;
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{AbilityRef, ObjectId, PlayerId};
 
 /// What the game is currently waiting for.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -103,6 +113,13 @@ pub enum Pending {
         player: PlayerId,
         /// What is being decided.
         prompt: YesNoPrompt,
+        /// The ability asking, when one can be named.
+        ///
+        /// This is the key a standing answer is stored under, and the
+        /// label a client puts on the prompt. `None` for questions that
+        /// come from the game itself rather than from a card (a draw
+        /// offer, a mulligan-adjacent choice).
+        source: Option<AbilityRef>,
     },
     /// Choose how to cast a spell (normal / alternative cost / mode).
     ChooseCastMode {
@@ -211,6 +228,120 @@ pub enum YesNoPrompt {
     Generic,
 }
 
+// ------------------------------------------------------------ automation
+
+/// A seat's standing instruction for when it wants to be offered priority.
+///
+/// Every variant is *self-cancelling*: it names a condition that the game
+/// reaches on its own, and the engine drops back to [`Self::Always`] the
+/// moment it does. There is deliberately no "never ask me again" — a hold
+/// that could outlive its reason is a hold that loses a game quietly.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub enum PriorityHold {
+    /// Offer priority every time (full manual control).
+    #[default]
+    Always,
+    /// Don't offer priority while the seat's only legal action is to pass.
+    ///
+    /// Strictly safe: it fires only when passing is the sole thing the
+    /// seat *could* have done. Mana abilities on their own do not count as
+    /// something to do — the engine pays costs from the pool itself, so
+    /// floating mana with nothing to spend it on is not a decision.
+    ///
+    /// Unlike the other variants this one does not expire; it never
+    /// suppresses a decision, so there is nothing for it to expire from.
+    PassWhenNothingToDo,
+    /// "Let the stack resolve": don't offer priority until the stack is
+    /// empty.
+    ///
+    /// Cancelled the moment anything is *added* to the stack — which is
+    /// exactly the moment a player wants to be asked again, because
+    /// somebody just responded to what they were letting through.
+    UntilStackEmpty {
+        /// Stack depth when the hold was set; anything above it is new.
+        depth: u16,
+    },
+    /// Don't offer priority until a specific spell or ability is the next
+    /// thing to resolve.
+    ///
+    /// This is "I don't care about the rest of the stack, wake me when
+    /// *that* one is up". Cancelled if the object leaves the stack without
+    /// ever reaching the top (it was countered, or its source left).
+    UntilTopOfStack {
+        /// The stack object to stop for.
+        object: ObjectId,
+    },
+    /// Don't offer priority for the rest of this turn.
+    UntilEndOfTurn {
+        /// The turn the hold was set on; it expires when the number moves.
+        turn: u32,
+    },
+}
+
+/// A remembered answer to a yes/no question a particular ability asks.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum StandingAnswer {
+    /// Always accept.
+    Yes,
+    /// Always decline.
+    No,
+}
+
+impl StandingAnswer {
+    /// The boolean this answer stands for.
+    #[must_use]
+    pub const fn as_bool(self) -> bool {
+        matches!(self, Self::Yes)
+    }
+}
+
+/// One seat's automation settings.
+///
+/// Kept as a sorted `Vec` rather than a map: it holds a handful of entries,
+/// it is cloned with the engine on every AI lookahead ply, and iteration
+/// order is part of the determinism contract.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SeatAutomation {
+    /// When to offer this seat priority.
+    pub hold: PriorityHold,
+    /// Remembered yes/no answers, keyed by ability and kept sorted.
+    standing: Vec<(AbilityRef, StandingAnswer)>,
+}
+
+impl SeatAutomation {
+    /// The remembered answer for an ability, if any.
+    #[must_use]
+    pub fn standing_answer(&self, ability: AbilityRef) -> Option<StandingAnswer> {
+        self.standing
+            .binary_search_by_key(&ability, |(a, _)| *a)
+            .ok()
+            .map(|i| self.standing[i].1)
+    }
+
+    /// Remembers (or, with `None`, forgets) an answer for an ability.
+    pub fn set_standing_answer(&mut self, ability: AbilityRef, answer: Option<StandingAnswer>) {
+        match (self.standing.binary_search_by_key(&ability, |(a, _)| *a), answer) {
+            (Ok(i), Some(a)) => self.standing[i].1 = a,
+            (Ok(i), None) => {
+                self.standing.remove(i);
+            }
+            (Err(i), Some(a)) => self.standing.insert(i, (ability, a)),
+            (Err(_), None) => {}
+        }
+    }
+
+    /// Every remembered answer, in ability order.
+    pub fn standing_answers(&self) -> impl Iterator<Item = (AbilityRef, StandingAnswer)> + '_ {
+        self.standing.iter().copied()
+    }
+
+    /// Whether this seat automates nothing (the default).
+    #[must_use]
+    pub fn is_default(&self) -> bool {
+        self.hold == PriorityHold::Always && self.standing.is_empty()
+    }
+}
+
 /// Everything a player may legally do with priority (precomputed).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct LegalActions {
@@ -227,6 +358,21 @@ pub struct LegalActions {
     pub abilities: Vec<(ObjectId, u32)>,
     /// Cards suspendable from hand.
     pub suspendable: Vec<ObjectId>,
+}
+
+impl LegalActions {
+    /// Whether passing is the only thing this seat could do.
+    ///
+    /// Mana abilities are excluded on purpose: the engine pays from the
+    /// pool itself, so a seat that can only make mana it cannot spend has
+    /// no decision to make.
+    #[must_use]
+    pub fn nothing_but_passing(&self) -> bool {
+        self.lands.is_empty()
+            && self.castable.is_empty()
+            && self.abilities.is_empty()
+            && self.suspendable.is_empty()
+    }
 }
 
 /// A player's answer to a [`Pending`] request.
@@ -305,4 +451,36 @@ pub enum PlayerAction {
     Concede,
     /// Offer a draw to every other player still in the game (CR 104.4a).
     OfferDraw,
+    /// Change when this seat wants to be offered priority.
+    ///
+    /// Legal at any time, including while another seat is being asked
+    /// something: it changes nothing about the game, only about who gets
+    /// interrupted. It is journaled so a replay auto-passes in exactly the
+    /// places the live game did.
+    SetPriorityHold(PriorityHold),
+    /// Remember (or, with `None`, forget) an answer for an ability's
+    /// yes/no question — "always gain the life, stop asking".
+    ///
+    /// Also legal at any time, for the same reason.
+    SetStandingAnswer {
+        /// Which ability's question.
+        ability: AbilityRef,
+        /// The answer to give from now on; `None` clears it.
+        answer: Option<StandingAnswer>,
+    },
+}
+
+impl PlayerAction {
+    /// Whether the action only changes a seat's automation settings.
+    ///
+    /// These never touch the game: the engine applies them and re-offers
+    /// whatever it was already asking, so they neither reset the priority
+    /// round nor count as taking an action.
+    #[must_use]
+    pub const fn is_automation_setting(&self) -> bool {
+        matches!(
+            self,
+            Self::SetPriorityHold(_) | Self::SetStandingAnswer { .. }
+        )
+    }
 }

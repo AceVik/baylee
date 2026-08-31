@@ -135,8 +135,18 @@ pub(super) fn deal_to_object_with_loyalty(
             old,
             new,
         });
-    } else if let Some(obj) = state.object_mut(target) {
-        obj.damage = obj.damage.saturating_add(n as u16);
+    } else {
+        // CR 702.2b: deathtouch is a property of the *source*, and it
+        // applies to any damage it deals, not just combat damage.
+        let deathtouch = state.object(source).is_some_and(|o| {
+            o.characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::DEATHTOUCH)
+        });
+        if let Some(obj) = state.object_mut(target) {
+            obj.damage = obj.damage.saturating_add(n as u16);
+            obj.deathtouched |= deathtouch;
+        }
     }
     state.journal.record(GameEvent::DamageDealt {
         source: Some(source),

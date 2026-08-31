@@ -1078,6 +1078,7 @@ mod tests {
         let yn = interaction(Pending::YesNo {
             player: me(),
             prompt: YesNoPrompt::Generic,
+                source: None,
         });
         assert_eq!(yn.answer_yes_no(true), Some(PlayerAction::YesNo(true)));
         assert_eq!(yn.answer_mulligan(true), None);
@@ -1133,6 +1134,7 @@ mod tests {
         let i = interaction(Pending::YesNo {
             player: me(),
             prompt: YesNoPrompt::PayLifeOrEnterTapped { amount: 2 },
+                source: None,
         });
         assert_eq!(
             i.prompt().headline(),
@@ -1219,6 +1221,7 @@ mod tests {
             Pending::YesNo {
                 player: me(),
                 prompt: YesNoPrompt::Generic,
+                    source: None,
             },
         ];
         for pending in all {

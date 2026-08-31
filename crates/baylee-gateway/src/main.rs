@@ -970,6 +970,15 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
                     let Some((p, action)) = session.timeout_action() else {
                         return Ok(());
                     };
+                    // Re-check under the lock. The deadline was armed while
+                    // this seat owed the answer, but the opponent may have
+                    // acted between the timer firing and this closure
+                    // running — and answering for whoever is being asked
+                    // *now* would let one seat's expired clock take another
+                    // seat's decision.
+                    if p != player {
+                        return Ok(());
+                    }
                     for (q, env) in session.act(p, action)? {
                         emit(q, env);
                     }

@@ -16,7 +16,7 @@ fn an_accepted_offer_ends_the_game_in_a_draw() {
     reach_main_phase(&mut engine, p0);
 
     engine.apply(p0, PlayerAction::OfferDraw).unwrap();
-    let Pending::YesNo { player, prompt } = engine.pending().clone() else {
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
         panic!("expected the offer to reach p1, got {:?}", engine.pending())
     };
     assert_eq!(player, p1);

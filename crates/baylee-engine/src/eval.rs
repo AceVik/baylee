@@ -10,7 +10,6 @@ use baylee_cards_dsl::{Amount, Filter, PlayerRel, TargetSpec, ZoneSel};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// Evaluates a [`Filter`] against an object.
-#[allow(clippy::only_used_in_recursion)] // part of the eval API: future filters (auras, counts) need state
 #[must_use]
 pub fn matches(
     filter: &Filter,
@@ -19,20 +18,39 @@ pub fn matches(
     you: PlayerId,
     this: ObjectId,
 ) -> bool {
+    matches_projected(filter, state, obj, obj.characteristics(), you, this)
+}
+
+/// Evaluates a [`Filter`] against an object whose characteristics are
+/// supplied separately.
+///
+/// The layer system needs this: CR 613.1 evaluates each layer against the
+/// characteristics as modified by every *earlier* layer — a value that
+/// exists only mid-projection and is not yet in the object's cache.
+#[must_use]
+pub fn matches_projected(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    chars: &crate::object::Characteristics,
+    you: PlayerId,
+    this: ObjectId,
+) -> bool {
+    let matches = |f: &Filter| matches_projected(f, state, obj, chars, you, this);
     match filter {
         Filter::Any => true,
         Filter::This => obj.id == this,
         Filter::Another => obj.id != this,
-        Filter::And(parts) => parts.iter().all(|f| matches(f, state, obj, you, this)),
-        Filter::Or(parts) => parts.iter().any(|f| matches(f, state, obj, you, this)),
-        Filter::Not(f) => !matches(f, state, obj, you, this),
-        Filter::HasType(t) => obj.characteristics().types.intersects(*t),
-        Filter::LacksType(t) => !obj.characteristics().types.intersects(*t),
-        Filter::HasSupertype(t) => obj.characteristics().supertypes.contains(*t),
-        Filter::HasSubtype(s) => obj.characteristics().subtypes.contains(*s),
-        Filter::HasColor(c) => obj.characteristics().colors.intersects(*c),
-        Filter::IsColorless => obj.characteristics().colors.is_colorless(),
-        Filter::Monocolored => obj.characteristics().colors.len() == 1,
+        Filter::And(parts) => parts.iter().all(&matches),
+        Filter::Or(parts) => parts.iter().any(&matches),
+        Filter::Not(f) => !matches(f),
+        Filter::HasType(t) => chars.types.intersects(*t),
+        Filter::LacksType(t) => !chars.types.intersects(*t),
+        Filter::HasSupertype(t) => chars.supertypes.contains(*t),
+        Filter::HasSubtype(s) => chars.subtypes.contains(*s),
+        Filter::HasColor(c) => chars.colors.intersects(*c),
+        Filter::IsColorless => chars.colors.is_colorless(),
+        Filter::Monocolored => chars.colors.len() == 1,
         Filter::IsToken => obj.card.is_none(),
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => obj.controller != you,
@@ -47,29 +65,25 @@ pub fn matches(
         Filter::MatchesChosenTypeOfSource => state
             .object(this)
             .and_then(|src| src.chosen_subtype)
-            .is_some_and(|s| obj.characteristics().subtypes.contains(s)),
+            .is_some_and(|s| chars.subtypes.contains(s)),
         Filter::AttachedToBySource => state
             .object(this)
             .and_then(|src| src.attached_to)
             .is_some_and(|attached| attached == obj.id),
         Filter::SharesSubtypeWithCommander => {
-            let obj_subs = &obj.characteristics().subtypes;
+            // Eight `AND`s per commander, not one probe per subtype id.
+            let obj_subs = chars.subtypes;
             state
                 .zones
                 .list(ZoneLocation::Command(you))
                 .iter()
                 .filter_map(|id| state.object(*id))
-                .any(|commander| {
-                    let cmd_subs = &commander.characteristics().subtypes;
-                    (0..baylee_core::generated::subtypes::COUNT)
-                        .map(baylee_core::ids::SubtypeId::new)
-                        .any(|s| obj_subs.contains(s) && cmd_subs.contains(s))
-                })
+                .any(|commander| obj_subs.intersects(commander.characteristics().subtypes))
         }
-        Filter::HasKeyword(k) => obj.characteristics().keywords.contains(*k),
-        Filter::CmcAtMost(n) => obj.characteristics().mana_cost.cmc() <= *n,
-        Filter::CmcAtLeast(n) => obj.characteristics().mana_cost.cmc() >= *n,
-        Filter::ToughnessAtMost(n) => obj.characteristics().toughness.is_some_and(|t| t <= *n),
+        Filter::HasKeyword(k) => chars.keywords.contains(*k),
+        Filter::CmcAtMost(n) => chars.mana_cost.cmc() <= *n,
+        Filter::CmcAtLeast(n) => chars.mana_cost.cmc() >= *n,
+        Filter::ToughnessAtMost(n) => chars.toughness.is_some_and(|t| t <= *n),
         Filter::InZone(z) => {
             use baylee_cards_dsl::ZoneRef;
             match z {

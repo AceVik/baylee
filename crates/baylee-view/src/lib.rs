@@ -31,13 +31,13 @@
 #![warn(missing_docs)]
 
 use baylee_core::color::ColorSet;
-use baylee_core::ids::{CardIndex, ObjectId, PlayerId, PrintRef};
+use baylee_core::ids::{AbilityRef, CardIndex, ObjectId, PlayerId, PrintRef};
 use baylee_core::types::{SupertypeSet, TypeSet};
 use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 1;
+pub const VIEW_VERSION: u32 = 2;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -360,6 +360,34 @@ pub struct CardIdentity {
     pub face: u8,
 }
 
+/// What a stack entry is, beyond the object carrying it.
+///
+/// A permanent's ability on the stack has no card of its own — it is a
+/// separate object whose only identity is "ability *n* of card *c*, put
+/// there by permanent *p*". Without this a client can only render an
+/// anonymous entry: it knows a trigger is resolving but not whose, and
+/// not which of the three abilities on that permanent it is.
+///
+/// The [`AbilityRef`] is the same handle a player's standing answer is
+/// stored under, so "always yes for this" and "this is what is on the
+/// stack" name the same thing.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum StackItem {
+    /// A spell: the card itself is on the stack, and [`PublicObject::card`]
+    /// already identifies it.
+    Spell,
+    /// An activated or triggered ability.
+    Ability {
+        /// The permanent, spell or emblem the ability came from. It may
+        /// already have left the battlefield — the ability on the stack is
+        /// independent of its source (CR 113.7a) — so a client should fall
+        /// back to the name below when it can no longer find the object.
+        source: ObjectId,
+        /// Which ability of which card, stable across games.
+        ability: AbilityRef,
+    },
+}
+
 /// An object a seat can see, with its characteristics already projected
 /// through the layer system.
 ///
@@ -405,6 +433,8 @@ pub struct PublicObject {
     pub attached_to: Option<ObjectId>,
     /// Targets, for objects on the stack.
     pub targets: Vec<TargetRef>,
+    /// What this is, for objects on the stack; `None` everywhere else.
+    pub stack_item: Option<StackItem>,
     /// Whether the permanent came under its controller's control this turn and
     /// has neither haste nor an ability that ignores it.
     pub summoning_sick: bool,
@@ -726,6 +756,7 @@ mod tests {
             counters: vec![],
             attached_to: None,
             targets: vec![],
+            stack_item: None,
             summoning_sick: false,
         }
     }

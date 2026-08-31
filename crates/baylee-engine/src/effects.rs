@@ -74,6 +74,16 @@ impl EffectTable {
         self.effects.iter()
     }
 
+    /// All active effects as a slice, so callers can address them by index.
+    ///
+    /// `layers::LayerPlan` orders indices rather than references: a plan
+    /// holding borrows of this table could not coexist with the `&mut
+    /// GameState` that stores the projection results.
+    #[must_use]
+    pub fn as_slice(&self) -> &[ContinuousEffect] {
+        &self.effects
+    }
+
     /// Whether any effect is registered.
     #[must_use]
     pub fn is_empty(&self) -> bool {

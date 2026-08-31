@@ -58,9 +58,10 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
         }
     }
 
-    // --- Lethal damage / zero toughness (CR 704.5f-g) -------------------
+    // --- Lethal damage / zero toughness (CR 704.5f-h) -------------------
     let battlefield = state.zones.list(ZoneLocation::Battlefield).clone();
-    for id in battlefield {
+    for id in &battlefield {
+        let id = *id;
         let Some(obj) = state.object(id) else {
             continue;
         };
@@ -75,7 +76,16 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
             }
             continue;
         }
-        // Indestructible permanents can't be destroyed (CR 702.12b).
+        let toughness = obj.characteristics().toughness.unwrap_or(0);
+        // CR 704.5f: zero or less toughness puts it in the graveyard. This
+        // is not destruction, so indestructible does not save it.
+        if toughness <= 0 {
+            destroy(state, id);
+            outcome.changed = true;
+            continue;
+        }
+        // Indestructible permanents can't be destroyed (CR 702.12b), which
+        // covers both lethal damage and deathtouch.
         if obj
             .characteristics()
             .keywords
@@ -83,17 +93,24 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
         {
             continue;
         }
-        let toughness = obj.characteristics().toughness.unwrap_or(0);
-        let dead = if toughness <= 0 {
-            true
-        } else {
-            obj.damage >= toughness as u16
-        };
-        if dead {
+        // CR 704.5g lethal damage, CR 704.5h deathtouch — one point from a
+        // deathtouch source is lethal however big the creature is.
+        if obj.damage >= toughness as u16 || obj.deathtouched {
             destroy(state, id);
             outcome.changed = true;
         }
     }
+    // The deathtouch window is "since the last time state-based actions
+    // were checked" (CR 704.5h), so this pass — which has now judged every
+    // marked creature — closes it.
+    for id in &battlefield {
+        if let Some(obj) = state.object_mut(*id) {
+            obj.deathtouched = false;
+        }
+    }
+
+    // --- Attachments (CR 704.5m-p) --------------------------------------
+    outcome.changed |= run_attachment_sbas(state);
 
     // --- +1/+1 vs -1/-1 annihilation (CR 704.5q) -------------------------
     for id in state.zones.list(ZoneLocation::Battlefield).clone() {
@@ -162,10 +179,18 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
     }
 
     // --- Tokens outside the battlefield cease to exist (CR 704.5d) ------
+    // "Card-less" is not the same as "token": an emblem, an ability on the
+    // stack and a *copy of a spell* (CR 707.10 — a copy is not a token)
+    // all have no card behind them, and none of them may be swept up here.
+    // The spell case mattered: a copy of a token-backed spell was deleted
+    // by this pass before it could ever resolve.
     let mut vanished = Vec::new();
     for (id, obj) in state.arena.iter() {
         let is_token_like = obj.card.is_none()
-            && !matches!(obj.kind, ObjectKind::Emblem | ObjectKind::AbilityOnStack);
+            && !matches!(
+                obj.kind,
+                ObjectKind::Emblem | ObjectKind::AbilityOnStack | ObjectKind::Spell
+            );
         if is_token_like && obj.zone != crate::zone::Zone::Battlefield {
             vanished.push(id);
         }
@@ -176,6 +201,73 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
     }
 
     outcome
+}
+
+/// Attachment state-based actions (CR 704.5m–p).
+///
+/// An Aura attached to something illegal — or to nothing — is put into its
+/// owner's graveyard; an Equipment or Fortification in the same position
+/// simply becomes unattached and stays on the battlefield. Without this,
+/// an aura outlived the creature it enchanted and kept granting its
+/// effect, and equipment kept pointing at a dead object whose slot a later
+/// permanent could reuse.
+fn run_attachment_sbas(state: &mut GameState) -> bool {
+    use baylee_core::types::TypeSet as T;
+    let mut changed = false;
+    let mut falling_off = Vec::new();
+    let mut unattaching = Vec::new();
+    for &id in state.zones.list(ZoneLocation::Battlefield) {
+        let Some(obj) = state.object(id) else { continue };
+        if obj.kind != ObjectKind::Permanent {
+            continue;
+        }
+        let types = obj.characteristics().types;
+        let is_aura = obj
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::enchantment::AURA);
+        let is_equipment = obj
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT);
+        if !is_aura && !is_equipment {
+            continue;
+        }
+        // The host has to be a permanent on the battlefield; anything else
+        // (destroyed, exiled, bounced, or never set) is an illegal
+        // attachment.
+        let host_ok = obj.attached_to.is_some_and(|host| {
+            state.object(host).is_some_and(|h| {
+                h.zone == crate::zone::Zone::Battlefield
+                    && h.kind == ObjectKind::Permanent
+                    // CR 303.4f: an Aura can't enchant an Aura it is
+                    // attached to being itself; self-attachment is never
+                    // legal for either kind.
+                    && host != id
+            })
+        });
+        if host_ok {
+            continue;
+        }
+        // An Equipment that is also a creature (living weapon, an animated
+        // Equipment) is not attached to anything and that is fine.
+        if is_aura && !types.contains(T::CREATURE) {
+            falling_off.push(id);
+        } else if obj.attached_to.is_some() {
+            unattaching.push(id);
+        }
+    }
+    for id in falling_off {
+        destroy(state, id);
+        changed = true;
+    }
+    for id in unattaching {
+        if let Some(obj) = state.object_mut(id) {
+            obj.attached_to = None;
+        }
+        changed = true;
+    }
+    changed
 }
 
 /// Applies a legend-rule choice (the kept object survives, the rest go to
@@ -201,6 +293,7 @@ pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
     if let Some(obj) = state.object_mut(id) {
         obj.kind = ObjectKind::Card;
         obj.damage = 0;
+        obj.deathtouched = false;
     }
     let _ = state.move_object(
         id,

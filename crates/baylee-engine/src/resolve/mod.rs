@@ -899,6 +899,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             Some(Pending::YesNo {
                 player,
                 prompt: YesNoPrompt::PayTax { mana },
+                source: resolving_ability(state, res),
             })
         }
         Effect::ReorderTopLibrary { count } => {
@@ -1109,10 +1110,40 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             Some(Pending::YesNo {
                 player: you,
                 prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+                source: state
+                    .object(res.source)
+                    .and_then(|o| o.card)
+                    .map(|c| {
+                        baylee_core::ids::AbilityRef::new(
+                            c.index,
+                            baylee_core::ids::AbilityRef::ENTERS,
+                        )
+                    }),
             })
         }
         _ => unreachable!("not a choice op"),
     }
+}
+
+/// The card ability a resolution belongs to.
+///
+/// This is the handle a seat's standing answer is stored under and the
+/// label a client puts on a stack entry, so it has to name the *ability*
+/// (Ondu Cleric's rally trigger) rather than only the permanent.
+#[must_use]
+pub fn resolving_ability(
+    state: &GameState,
+    res: &Resolution,
+) -> Option<baylee_core::ids::AbilityRef> {
+    use baylee_core::ids::AbilityRef;
+    let obj = state.object(res.on_stack)?;
+    if let Some(loc) = obj.ability {
+        return Some(AbilityRef::new(loc.card, loc.index));
+    }
+    // A spell resolving: what it does is its spell ability, which is not
+    // an entry in the card's ability list.
+    obj.card
+        .map(|c| AbilityRef::new(c.index, AbilityRef::SPELL))
 }
 
 /// Runs a nested branch (If*/kicked-style conditional effects) inline;

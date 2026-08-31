@@ -33,6 +33,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         counters: Vec::new(),
         attached_to: None,
         targets: Vec::new(),
+        stack_item: None,
         summoning_sick: false,
     }
 }

@@ -115,7 +115,7 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs) -> String {
          // Source: Scryfall subtype catalogs (sorted, ids sequential per kind).\n\n\
          #![allow(missing_docs, unused_imports, dead_code, clippy::all, clippy::pedantic)]\n\n\
          use crate::ids::SubtypeId;\n\
-         use crate::types::SubtypeKind;\n\n",
+         use crate::types::{SubtypeKind, SubtypeSet};\n\n",
     );
 
     // Constants, grouped per kind module, ids sequential across modules.
@@ -145,10 +145,22 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs) -> String {
     }
 
     out.push_str(&format!("\npub const COUNT: u16 = {next};\n"));
+    let mut start: u16 = 0;
     for (module, end) in &ends {
+        let upper = module.to_ascii_uppercase();
+        out.push_str(&format!("pub const {upper}_START: u16 = {start};\n"));
+        out.push_str(&format!("pub const {upper}_END: u16 = {end};\n"));
+        start = *end;
+    }
+
+    // Whole-kind masks. Ids are contiguous per kind, so "every creature
+    // type" is a compile-time bitmap — changeling (CR 702.73) and
+    // `AllCreatureTypes` become one 8-word OR instead of a 500-iteration
+    // scan with a `kind()` call per id.
+    for (module, _) in &ends {
+        let upper = module.to_ascii_uppercase();
         out.push_str(&format!(
-            "const {}_END: u16 = {end};\n",
-            module.to_ascii_uppercase()
+            "pub const ALL_{upper}_TYPES: SubtypeSet = SubtypeSet::range({upper}_START, {upper}_END);\n"
         ));
     }
 

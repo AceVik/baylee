@@ -280,6 +280,12 @@ pub struct GameState {
     pub characteristics_generation: u64,
     /// Effect-set generation for characteristic caches (M2).
     pub effect_generation: u64,
+    /// Scratch list reused by [`GameState::refresh_characteristics`].
+    ///
+    /// A refresh runs after every effect-set change, so allocating its
+    /// working list each time is a per-effect malloc for the whole game.
+    /// Always left empty, which keeps it free to clone.
+    projection_ids: Vec<ObjectId>,
 }
 
 impl GameState {
@@ -341,6 +347,7 @@ impl GameState {
             replacement_rules: Vec::new(),
             characteristics_generation: u64::MAX,
             effect_generation: 0,
+            projection_ids: Vec::new(),
         };
         state.journal.record(GameEvent::GameStarted {
             seed: preset.seed,
@@ -506,8 +513,6 @@ impl GameState {
         self.timestamp
     }
 
-    /// Recomputes characteristic caches when the effect set changed.
-    ///
     /// Switches an object to another face of its card (MDFC cast/land
     /// play, CR 712.4): rebuilds base characteristics from the face and
     /// invalidates the layered projection cache.
@@ -517,10 +522,12 @@ impl GameState {
         let base = crate::object::Characteristics::from_face(def, face, name);
         if let Some(obj) = self.object_mut(id) {
             obj.face_index = face as u8;
-            obj.base = base.clone();
-            obj.cache.generation = u64::MAX;
-            obj.cache.value = base;
+            obj.base = base;
+            obj.cache.clear();
         }
+        // The projection is now stale for this object; the next refresh
+        // has to rebuild it even if no effect was added or removed.
+        self.characteristics_generation = u64::MAX;
     }
 
     /// Hot path: one generation compare. When stale, permanents and stack
@@ -533,6 +540,10 @@ impl GameState {
             return;
         }
         let generation = self.effects.generation;
+        // Bucket and dependency-order the effect table ONCE for the whole
+        // pass; the ordering does not depend on the object being projected
+        // (see `layers::LayerPlan`).
+        let plan = crate::layers::LayerPlan::build(&self.effects);
         // Cross-zone effects (Maskwood Nexus & co.) reach into library,
         // hand, graveyard — then every object must be projected, not only
         // battlefield + stack.
@@ -540,28 +551,44 @@ impl GameState {
             .effects
             .iter()
             .any(|fx| matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reaches_other_zones(f)));
-        let ids: Vec<ObjectId> = if cross_zone {
-            self.arena.iter().map(|(id, _)| id).collect()
+        // Scratch buffers live in the state so a refresh — which runs
+        // after every single effect-set change — allocates nothing.
+        let mut ids = std::mem::take(&mut self.projection_ids);
+        ids.clear();
+        if cross_zone {
+            ids.extend(self.arena.iter().map(|(id, _)| id));
         } else {
-            self.zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .chain(self.zones.list(ZoneLocation::Stack).iter())
-                .copied()
-                .collect()
-        };
-        for id in ids {
+            ids.extend(
+                self.zones
+                    .list(ZoneLocation::Battlefield)
+                    .iter()
+                    .chain(self.zones.list(ZoneLocation::Stack).iter())
+                    .copied(),
+            );
+        }
+        for &id in &ids {
             let Some(obj) = self.object(id) else {
                 continue;
             };
-            let projection = crate::layers::recompute(self, obj);
+            if !crate::layers::needs_projection(&plan, obj) {
+                // Nothing can change this object's characteristics, so the
+                // base is the projection. Dropping the cache is not just
+                // cheaper than recomputing it — it is what keeps an
+                // untouched board's per-object projection memory at zero.
+                let obj = self.object_mut(id).expect("checked above");
+                obj.cache.clear();
+                continue;
+            }
+            let projection = crate::layers::recompute_with(self, obj, &plan);
             let obj = self.object_mut(id).expect("zone object exists");
-            obj.cache = crate::object::CachedChar {
-                generation,
-                value: projection.characteristics,
-                projected_controller: projection.controller,
-            };
+            let moved = (projection.controller != obj.controller).then_some(projection.controller);
+            // `cache` and `base` are disjoint fields, so this is one
+            // mutable borrow and one shared borrow of the same object.
+            let crate::object::GameObject { cache, base, .. } = obj;
+            cache.store(generation, projection.characteristics, moved, base);
         }
+        ids.clear();
+        self.projection_ids = ids;
         self.characteristics_generation = generation;
     }
 
@@ -663,6 +690,12 @@ impl GameState {
             obj.zone_owner = to.player();
             obj.timestamp = ts;
             obj.version = obj.version.wrapping_add(1);
+            // CR 400.7: it becomes a new object. The old projection must
+            // not survive the move — the refresh pass only revisits the
+            // battlefield and the stack, so a creature that died under an
+            // anthem would otherwise sit in the graveyard still pumped,
+            // and every filter reading its power would agree.
+            obj.cache.clear();
         }
         self.zones.insert(id, to, pos);
         // Creature deaths this turn (Emeritus of Woe's re-prepare).
@@ -927,6 +960,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         h.u16(n);
     }
     h.u16(obj.damage);
+    h.boolean(obj.deathtouched);
     h.u8(obj.status.bits());
     h.option_u32(obj.attached_to.map(baylee_core::ids::ObjectId::slot));
     h.u64(obj.timestamp);

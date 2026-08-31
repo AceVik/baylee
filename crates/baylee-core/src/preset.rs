@@ -221,6 +221,24 @@ pub struct GamePreset {
     pub seats: Vec<SeatSpec>,
 }
 
+/// The most cards one seat may bring, across deck, sideboard, opening hand
+/// and starting battlefield combined.
+///
+/// Every entry becomes a live [`crate::ids::ObjectId`] before the first
+/// turn, so an unbounded list is an unbounded allocation driven straight
+/// from the wire. The largest legal construct is a 100-card Commander deck
+/// plus a sideboard; an order of magnitude of headroom above that is
+/// generous for puzzles and boss modes and still nowhere near a problem.
+pub const MAX_CARDS_PER_SEAT: usize = 1024;
+
+/// The most emblems one seat may start with (boss modes use a handful).
+pub const MAX_EMBLEMS_PER_SEAT: usize = 32;
+
+/// The most entries a print table may hold.
+///
+/// [`PrintRef`] is a `u16`, so the table can never usefully exceed this.
+pub const MAX_PRINTS: usize = u16::MAX as usize + 1;
+
 /// Structural preset errors (rules validation is the gateway's job).
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum PresetError {
@@ -231,10 +249,12 @@ pub enum PresetError {
     #[error("preset supports at most 8 seats")]
     TooManySeats,
     /// A deck entry references a print outside the print table.
-    #[error("seat {seat} deck entry {entry} references print {print}, out of range")]
+    #[error("seat {seat} {list} entry {entry} references print {print}, out of range")]
     PrintOutOfRange {
         /// Seat index.
         seat: usize,
+        /// Which card list the entry came from.
+        list: CardList,
         /// Deck entry index.
         entry: usize,
         /// The offending print reference.
@@ -243,10 +263,62 @@ pub enum PresetError {
     /// A human/AI seat has no deck.
     #[error("seat {0} has an empty deck")]
     EmptyDeck(usize),
+    /// A seat brings more cards than [`MAX_CARDS_PER_SEAT`].
+    #[error("seat {seat} brings {count} cards, at most {MAX_CARDS_PER_SEAT} allowed")]
+    TooManyCards {
+        /// Seat index.
+        seat: usize,
+        /// How many were listed.
+        count: usize,
+    },
+    /// A seat brings more emblems than [`MAX_EMBLEMS_PER_SEAT`].
+    #[error("seat {seat} brings {count} emblems, at most {MAX_EMBLEMS_PER_SEAT} allowed")]
+    TooManyEmblems {
+        /// Seat index.
+        seat: usize,
+        /// How many were listed.
+        count: usize,
+    },
+    /// The print table is larger than [`PrintRef`] can address.
+    #[error("print table has {0} entries, at most {MAX_PRINTS} addressable")]
+    PrintTableTooLarge(usize),
+}
+
+/// Which of a seat's card lists an entry came from (error reporting).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardList {
+    /// The library.
+    Deck,
+    /// Cards outside the game (wish targets).
+    Sideboard,
+    /// A fixed opening hand.
+    StartingHand,
+    /// Cards that start on the battlefield.
+    StartingBattlefield,
+}
+
+impl core::fmt::Display for CardList {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::Deck => "deck",
+            Self::Sideboard => "sideboard",
+            Self::StartingHand => "starting hand",
+            Self::StartingBattlefield => "starting battlefield",
+        })
+    }
 }
 
 impl GamePreset {
     /// Structural validation (cheap; runs at engine construction).
+    ///
+    /// This is the trust boundary: a preset arrives from a client over the
+    /// wire, so every index it carries is checked against the table it
+    /// indexes and every list is checked against a size bound before the
+    /// engine allocates anything from it. The engine itself never reads a
+    /// [`PrintRef`], but the *client* does — it indexes
+    /// [`GamePreset::prints`] to pick artwork — so an unchecked print
+    /// reference is a crash in every other player's client, planted by
+    /// one player's preset.
     ///
     /// # Errors
     /// [`PresetError`] describing the first violation.
@@ -257,29 +329,49 @@ impl GamePreset {
         if self.seats.len() > 8 {
             return Err(PresetError::TooManySeats);
         }
+        if self.prints.len() > MAX_PRINTS {
+            return Err(PresetError::PrintTableTooLarge(self.prints.len()));
+        }
         for (seat, spec) in self.seats.iter().enumerate() {
             if !matches!(spec.controller, SeatController::Open) && spec.deck.is_empty() {
                 return Err(PresetError::EmptyDeck(seat));
             }
-            let check = |entry: usize, e: &DeckEntry| -> Result<(), PresetError> {
-                if usize::from(e.print.get()) >= self.prints.len() {
-                    return Err(PresetError::PrintOutOfRange {
-                        seat,
-                        entry,
-                        print: e.print.get(),
-                    });
-                }
-                Ok(())
-            };
-            for (i, e) in spec.deck.iter().enumerate() {
-                check(i, e)?;
+            let hand = spec.starting_hand.as_deref().unwrap_or(&[]);
+            let count = spec.deck.len()
+                + spec.sideboard.len()
+                + hand.len()
+                + spec.starting_battlefield.len();
+            if count > MAX_CARDS_PER_SEAT {
+                return Err(PresetError::TooManyCards { seat, count });
             }
-            for (i, e) in spec.starting_battlefield.iter().enumerate() {
-                check(i, e)?;
+            if spec.emblems.len() > MAX_EMBLEMS_PER_SEAT {
+                return Err(PresetError::TooManyEmblems {
+                    seat,
+                    count: spec.emblems.len(),
+                });
             }
-            if let Some(hand) = &spec.starting_hand {
-                for (i, e) in hand.iter().enumerate() {
-                    check(i, e)?;
+            let lists = [
+                (CardList::Deck, spec.deck.as_slice()),
+                // The sideboard was missing here, and it is the one list a
+                // wish (Karn's −2, learn) pulls straight into a hand and
+                // therefore into a client's print lookup.
+                (CardList::Sideboard, spec.sideboard.as_slice()),
+                (CardList::StartingHand, hand),
+                (
+                    CardList::StartingBattlefield,
+                    spec.starting_battlefield.as_slice(),
+                ),
+            ];
+            for (list, entries) in lists {
+                for (entry, e) in entries.iter().enumerate() {
+                    if usize::from(e.print.get()) >= self.prints.len() {
+                        return Err(PresetError::PrintOutOfRange {
+                            seat,
+                            list,
+                            entry,
+                            print: e.print.get(),
+                        });
+                    }
                 }
             }
         }
@@ -336,9 +428,75 @@ mod tests {
             preset(2, 0, 0).validate().unwrap_err(),
             PresetError::PrintOutOfRange {
                 seat: 0,
+                list: CardList::Deck,
                 entry: 0,
                 print: 0,
             }
         );
+    }
+
+    /// The sideboard was the one card list validation skipped, and it is
+    /// exactly the list a wish moves into a hand — where the print
+    /// reference reaches a client and indexes its print table.
+    #[test]
+    fn a_sideboard_print_reference_is_range_checked() {
+        let mut p = preset(2, 1, 0);
+        p.seats[0].sideboard = vec![DeckEntry {
+            card: CardIndex::new(0),
+            print: PrintRef::new(9),
+        }];
+        assert_eq!(
+            p.validate().unwrap_err(),
+            PresetError::PrintOutOfRange {
+                seat: 0,
+                list: CardList::Sideboard,
+                entry: 0,
+                print: 9,
+            }
+        );
+    }
+
+    /// Every card listed becomes a live object before the first turn, so
+    /// the lists are bounded rather than trusted.
+    #[test]
+    fn card_and_emblem_counts_are_bounded() {
+        let mut p = preset(2, 1, 0);
+        p.seats[1].deck = (0..=MAX_CARDS_PER_SEAT)
+            .map(|_| DeckEntry {
+                card: CardIndex::new(0),
+                print: PrintRef::new(0),
+            })
+            .collect();
+        assert!(matches!(
+            p.validate(),
+            Err(PresetError::TooManyCards { seat: 1, .. })
+        ));
+
+        let mut p = preset(2, 1, 0);
+        p.seats[0].emblems = (0..=MAX_EMBLEMS_PER_SEAT).map(|i| i.to_string()).collect();
+        assert!(matches!(
+            p.validate(),
+            Err(PresetError::TooManyEmblems { seat: 0, .. })
+        ));
+    }
+
+    /// The bound is on the whole seat, not on the deck alone: splitting a
+    /// huge list across deck, sideboard, hand and battlefield must not
+    /// slip past it.
+    #[test]
+    fn the_card_bound_counts_every_list_together() {
+        let entry = DeckEntry {
+            card: CardIndex::new(0),
+            print: PrintRef::new(0),
+        };
+        let n = MAX_CARDS_PER_SEAT / 2;
+        let mut p = preset(2, 1, 0);
+        p.seats[0].deck = vec![entry; n];
+        p.seats[0].sideboard = vec![entry; n];
+        p.seats[0].starting_hand = Some(vec![entry; 8]);
+        assert!(matches!(
+            p.validate(),
+            Err(PresetError::TooManyCards { seat: 0, .. })
+        ));
     }
 }

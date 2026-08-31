@@ -59,12 +59,28 @@ fn tracing_subscriber_init() {
 /// gateway milestone).
 type Games = std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, Session>>>;
 
+/// Transport limits.
+///
+/// tungstenite defaults to a 64 MiB message, which is three orders of
+/// magnitude more than any message this protocol has: the largest is a
+/// `CreateGame` carrying eight seats of at most
+/// [`baylee_core::preset::MAX_CARDS_PER_SEAT`] entries plus a print table,
+/// well under 1 MiB. Decoding happens *before* the preset can be
+/// validated, so the frame budget is the only thing standing between an
+/// unauthenticated peer and an arbitrary allocation — it belongs here, not
+/// in the message handler.
+fn ws_config() -> tokio_tungstenite::tungstenite::protocol::WebSocketConfig {
+    tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default()
+        .max_message_size(Some(4 << 20))
+        .max_frame_size(Some(4 << 20))
+}
+
 #[allow(clippy::too_many_lines)]
 async fn handle_connection(
     stream: tokio::net::TcpStream,
     games: Games,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let mut ws = tokio_tungstenite::accept_async(stream).await?;
+    let mut ws = tokio_tungstenite::accept_async_with_config(stream, Some(ws_config())).await?;
     let mut game_id: Option<String> = None;
     while let Some(frame) = ws.next().await {
         let frame = frame?;
