@@ -42,6 +42,13 @@ pub enum CounterKind {
 }
 
 /// Definition of a token a card can create.
+///
+/// A token is a permanent with no card behind it, which for a long time also
+/// meant it could carry no rules: the engine reads abilities off the card in
+/// the registry, and a token has none. `abilities` closes that hole — it is
+/// the same [`crate::AbilityDef`] slice a card face carries, so a Treasure's
+/// "{T}, Sacrifice this artifact: Add one mana of any color" is written and
+/// executed exactly like the identical ability printed on a real card.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct TokenDef {
     /// Token name.
@@ -60,6 +67,27 @@ pub struct TokenDef {
     pub toughness: Option<i16>,
     /// Keywords.
     pub keywords: KeywordSet,
+    /// Activated and triggered abilities, read exactly like a card face's.
+    pub abilities: &'static [crate::ability::AbilityDef],
+}
+
+impl TokenDef {
+    /// The blank token: no name, colorless, no types, no abilities.
+    ///
+    /// Every definition in `baylee_cards::tokens` is written as a
+    /// struct-update tail on this, so adding a field does not mean editing
+    /// every token — the same contract [`crate::CardDef::DEFAULT`] carries.
+    pub const DEFAULT: Self = Self {
+        name: "",
+        colors: ColorSet::EMPTY,
+        types: TypeSet::EMPTY,
+        supertypes: SupertypeSet::EMPTY,
+        subtypes: &[],
+        power: None,
+        toughness: None,
+        keywords: KeywordSet::EMPTY,
+        abilities: &[],
+    };
 }
 
 /// A computed number (CR 107.1).
@@ -649,10 +677,19 @@ pub enum Effect {
         /// What.
         token: &'static TokenDef,
     },
-    /// Put N +1/+1 counters on an Army creature you control, or create a
-    /// 0/0 Army token with N +1/+1 counters if you control none (amass).
+    /// Amass N (CR 701.44): put N +1/+1 counters on an Army you control, or
+    /// create `token` first if you control none.
+    ///
+    /// `subtype` is the type the mechanic names — "amass Orcs 1" makes the
+    /// Army an Orc Army in addition to its other types (CR 701.44b), whether
+    /// it was just created or was already on the battlefield. The token comes
+    /// from the card rather than the engine because the rules kernel does not
+    /// know the token registry, and because a token without a registry entry
+    /// has no art key.
     Amass {
-        /// Army subtype.
+        /// The Army token to create when you control no Army.
+        token: &'static TokenDef,
+        /// The creature type the Army also becomes.
         subtype: SubtypeId,
         /// How many counters.
         amount: u16,

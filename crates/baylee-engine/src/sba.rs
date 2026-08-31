@@ -127,6 +127,7 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
                 obj.counters.set(CounterKind::P1P1, plus - cancel);
                 obj.counters.set(CounterKind::M1M1, minus - cancel);
             }
+            state.invalidate_projections();
             outcome.changed = true;
         }
     }
@@ -416,6 +417,7 @@ mod tests {
             ],
         }
     }
+
 
     /// With two legend pairs coexisting, the FIRST choice a player sees
     /// must be deterministic — it used to depend on hash iteration order.

@@ -50,6 +50,11 @@ pub struct Resolution {
     pub event_object: Option<ObjectId>,
     /// The suspended choice, if any.
     pub awaiting: Option<AwaitingOp>,
+    /// Whether this is a mana ability resolving off the stack (CR 605.3b).
+    ///
+    /// It changes what happens when the resolution *finishes*: there is no
+    /// stack object to finalize, and its controller keeps priority.
+    pub mana_ability: bool,
 }
 
 /// An operation suspended on a player choice.
@@ -412,6 +417,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
         x: res.x,
         chosen_player: res.chosen_player,
         awaiting: None,
+        mana_ability: false,
     };
     let mut fallback = fallback;
     match run(state, &mut fallback) {
@@ -1160,6 +1166,7 @@ fn run_nested_with(
         x: res.x,
         chosen_player: res.chosen_player,
         awaiting: None,
+        mana_ability: false,
     };
     match run(state, &mut nested) {
         Flow::Complete => None,

@@ -42,6 +42,7 @@ pub static CARD: CardDef = CardDef {
                     target: TargetSpec::Player(PlayerRel::Opponent),
                 },
                 Effect::Amass {
+                    token: &crate::tokens::ARMY_0_0_BLACK,
                     subtype: creature::ORC,
                     amount: 1,
                 },
@@ -52,6 +53,7 @@ pub static CARD: CardDef = CardDef {
             trigger: Trigger::DrawsExceptFirst(PlayerRel::Opponent),
             once_per_turn: false,
             effects: &[Effect::Amass {
+                token: &crate::tokens::ARMY_0_0_BLACK,
                 subtype: creature::ORC,
                 amount: 1,
             }],

@@ -2,17 +2,18 @@
 //! Oracle: ({T}: Add {U} or {B}.)
 //! Watery Grave enters the battlefield tapped unless you pay 2 life.
 //! Set: FDN #284 — Foundations | Scryfall ID: 5525d6a6-e532-4047-9da4-bfae7927fecc | Oracle ID: fc9ec820-4245-4a96-b009-5308a818ca58
-// IMPLEMENTED — shockland (pay 2 life or enters tapped; intrinsic mana via subtypes).
+// IMPLEMENTED — shockland (pay 2 life or enters tapped) with the
+// two-colour mana ability its type line grants (CR 305.6).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Coverage, EnterModifier,
-    FaceDef, KeywordSet, PartnerKind,
+    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
+    Effect, EnterModifier, FaceDef, KeywordSet, PartnerKind,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, land};
 use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 pub static CARD: CardDef = CardDef {
@@ -28,6 +29,18 @@ pub static CARD: CardDef = CardDef {
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black]),
     coverage: Coverage::Implemented,
+    abilities: &[AbilityDef::Activated {
+        cost: Cost::TAP,
+        effects: &[Effect::AddManaChoice {
+            colors: &[ManaColor::Blue, ManaColor::Black],
+            amount: Amount::Fixed(1),
+            combination: false,
+        }],
+        target: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: true,
+        zone: ActivationZone::Battlefield,
+    }],
     ..CardDef::DEFAULT
 };
 

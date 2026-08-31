@@ -1,8 +1,8 @@
 //! Double Major — {G}{U} — Instant
 //! Oracle: Copy target creature spell you control, except it isn't legendary if the spell is legendary. (A copy of a creature spell becomes a token.)
 //! Set: STX #179 — Strixhaven: School of Mages | Scryfall ID: c3d35413-8742-4443-8859-93c91112978d | Oracle ID: ece44a82-dcf0-4439-bdd9-a09c99a6f159
-// PARTIAL — spell copy on the stack implemented; NOT SUPPORTED yet: the copy
-// isn't legendary (copy-time modification on spell copies, M2.S7c+).
+// IMPLEMENTED — copies the creature spell and strips LEGENDARY from the copy
+// (CR 707.10), so the legend rule does not eat it when both resolve.
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{

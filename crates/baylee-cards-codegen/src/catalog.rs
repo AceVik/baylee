@@ -122,6 +122,7 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs) -> String {
     let mut next: u16 = 0;
     let mut ends: Vec<(&'static str, u16)> = Vec::new();
     let mut name_arms: Vec<String> = Vec::new();
+    let mut display_names: Vec<String> = Vec::new();
     for (kind, names) in cats.ordered() {
         out.push_str(&format!(
             "pub mod {} {{\n    use super::SubtypeId;\n",
@@ -138,6 +139,7 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs) -> String {
                 module_name(kind),
                 cname
             ));
+            display_names.push(name.replace('"', "\\\""));
             next += 1;
         }
         out.push_str("}\n");
@@ -189,6 +191,23 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs) -> String {
         out.push('\n');
     }
     out.push_str("        _ => return None,\n    })\n}\n");
+
+    // NAMES / name(): the way back from an id to printable text.
+    //
+    // `by_name` alone is not enough for a client: a type line is built from
+    // the *projected* subtypes of an object (an animated land really is a
+    // Creature — Elemental), and those arrive as ids, never as strings. Ids
+    // are assigned sequentially across the kind modules above, so the table
+    // is a dense array and the lookup is one bounds-checked index.
+    out.push_str("\npub static NAMES: &[&str] = &[\n");
+    for name in display_names {
+        out.push_str(&format!("    \"{name}\",\n"));
+    }
+    out.push_str("];\n");
+    out.push_str(
+        "\npub fn name(id: SubtypeId) -> Option<&'static str> {\n    \
+         NAMES.get(id.get() as usize).copied()\n}\n",
+    );
     out
 }
 
@@ -220,5 +239,23 @@ mod tests {
             cats.const_path("forest").as_deref(),
             Some("subtypes::land::FOREST")
         );
+    }
+
+    /// `NAMES` is indexed by the same sequential id the constants above get,
+    /// so a drift between the two tables would silently mislabel every type
+    /// line. Pinning the order here is what turns that into a test failure.
+    #[test]
+    fn names_are_indexed_by_id_and_keep_their_printed_spelling() {
+        let mut cats = SubtypeCatalogs {
+            creature: vec!["Wizard".into(), "Assembly-Worker".into()],
+            land: vec!["Forest".into()],
+            ..SubtypeCatalogs::default()
+        };
+        cats.normalize();
+        let out = render_subtypes_rs(&cats);
+        // normalize() sorts: Assembly-Worker = 0, Wizard = 1, Forest = 2.
+        assert!(out.contains(
+            "pub static NAMES: &[&str] = &[\n    \"Assembly-Worker\",\n    \"Wizard\",\n    \"Forest\",\n];"
+        ));
     }
 }

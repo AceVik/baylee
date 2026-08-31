@@ -135,15 +135,9 @@ impl<L: CardLookup> Engine<L> {
             if obj.controller != player {
                 continue;
             }
-            let Some(card) = obj.card else { continue };
-            let Some(def) = self.lookup.card(card.index) else {
-                continue;
-            };
-            for (i, ability) in def
-                .abilities_for_face(obj.face_index as usize)
-                .iter()
-                .enumerate()
-            {
+            // A token's abilities come from its definition rather than from a
+            // card; everything below reads the same `AbilityDef`s either way.
+            for (i, ability) in obj.abilities(&self.lookup).iter().enumerate() {
                 match ability {
                     AbilityDef::Activated {
                         cost, timing, zone, ..
@@ -208,7 +202,8 @@ impl<L: CardLookup> Engine<L> {
                 if let Some(linked_card) = linked {
                     let affordable = self.lookup.card(linked_card).is_some_and(|spell_def| {
                         let cost = &spell_def.faces[0].mana_cost;
-                        mana_pay::can_pay(
+                        casting::affordable(
+                            &self.state,
                             &self.state.players[player.get() as usize].mana_pool,
                             cost,
                         )
@@ -331,7 +326,14 @@ impl<L: CardLookup> Engine<L> {
 
     pub(crate) fn can_afford(&self, player: PlayerId, source: ObjectId, cost: &Cost) -> bool {
         let pool = &self.state.players[player.get() as usize].mana_pool;
-        if !mana_pay::can_pay(pool, &cost.mana) {
+        // Mycosynth Lattice: mana spends as though it were any colour, so a
+        // five-colour activation cost is payable off five Islands.
+        let payable = if casting::mana_is_wild(&self.state) {
+            mana_pay::can_pay_wild(pool, &cost.mana)
+        } else {
+            mana_pay::can_pay(pool, &cost.mana)
+        };
+        if !payable {
             return false;
         }
         for part in cost.parts {
@@ -394,7 +396,9 @@ impl<L: CardLookup> Engine<L> {
             .card(linked_card)
             .ok_or(EngineError::IllegalAction("unknown linked card"))?;
         let face = &spell_def.faces[0];
-        if !mana_pay::pay(
+        let wild = casting::mana_is_wild(&self.state);
+        if !casting::pay_with(
+            wild,
             &mut self.state.players[player.get() as usize].mana_pool,
             &face.mana_cost,
         ) {
@@ -478,6 +482,7 @@ impl<L: CardLookup> Engine<L> {
                 chosen_player: None,
                 event_object: None,
                 awaiting: None,
+                mana_ability: true,
             };
             match crate::resolve::run(&mut self.state, &mut res) {
                 crate::resolve::Flow::Complete => {}
@@ -696,6 +701,7 @@ impl<L: CardLookup> Engine<L> {
                 chosen_player: None,
                 event_object: None,
                 awaiting: None,
+                mana_ability: true,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => {}
@@ -898,8 +904,11 @@ impl<L: CardLookup> Engine<L> {
         cost: &Cost,
     ) -> Result<(), EngineError> {
         if !cost.mana.is_empty() {
+            // Mycosynth Lattice: any mana pays any pip (read before the pool
+            // is borrowed mutably).
+            let wild = casting::mana_is_wild(&self.state);
             let pool = &mut self.state.players[player.get() as usize].mana_pool;
-            if !mana_pay::pay(pool, &cost.mana) {
+            if !casting::pay_with(wild, pool, &cost.mana) {
                 return Err(EngineError::IllegalAction("not enough mana"));
             }
         }

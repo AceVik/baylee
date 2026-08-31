@@ -541,6 +541,22 @@ impl GameState {
         self.characteristics_generation = u64::MAX;
     }
 
+    /// Forces the next [`GameState::refresh_characteristics`] to rebuild
+    /// every projection, even though the effect table did not change.
+    ///
+    /// The generation compare that guards the refresh tracks *effects*, and
+    /// counters are the other input the projection reads (CR 613.4c for
+    /// +1/+1 and -1/-1, CR 122.1b for keyword counters). Changing a counter
+    /// on a board where nothing else moved therefore leaves the projection
+    /// stale — which is how an amass token, a 0/0 that is only alive because
+    /// of the counter placed on it a moment later, used to die to state-based
+    /// actions before anything ever recomputed its toughness. Anything that
+    /// writes a counter, or puts a new permanent on the battlefield, calls
+    /// this.
+    pub const fn invalidate_projections(&mut self) {
+        self.characteristics_generation = u64::MAX;
+    }
+
     /// Hot path: one generation compare. When stale, permanents and stack
     /// objects are re-projected through the layer system (CR 613).
     ///

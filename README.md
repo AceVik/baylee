@@ -23,6 +23,7 @@ markers: **[Implemented]** = code exists, **[Spec]** = design target only.
 | `baylee-ai` | Heuristic AI controllers (difficulty profiles) |
 | `baylee-engine-server` | Binary: one process per game, WS transport |
 | `baylee-view` | Per-seat wire view (projected characteristics, hidden-info filtered) |
+| `baylee-catalog` | Card text in PostgreSQL: Scryfall bulk ingest, i18n lookup, search |
 | `baylee-client-core` | Renderer-agnostic client brain: layout, board model, interaction, image policy |
 | `baylee-client` | Bevy 2.5D duel client (native + browser); see `docs/client.md` |
 

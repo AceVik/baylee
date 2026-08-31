@@ -470,6 +470,17 @@ pub struct GameObject {
     pub face_index: u8,
     /// Abilities of an emblem object (not card-backed; command zone).
     pub emblem_abilities: Option<&'static [baylee_cards_dsl::AbilityDef]>,
+    /// The definition this object was created from, if a token created it.
+    ///
+    /// The only thing that says *which* token a card-less permanent is, and
+    /// the engine needs it for one reason: a token's abilities live here, so
+    /// a Treasure can be cracked at all. The definition is a `'static` from
+    /// the registry — the same shape [`GameObject::emblem_abilities`]
+    /// already had — because the rules kernel does not depend on the card
+    /// registry and cannot resolve an index into it. The client's art key is
+    /// the token's position in that registry, which the view builder derives
+    /// from this on the way out.
+    pub token: Option<&'static baylee_cards_dsl::TokenDef>,
     /// A face switch queued by a resolution (transform); the engine
     /// applies it after the resolution completes.
     pub pending_face_change: Option<u8>,
@@ -515,6 +526,7 @@ impl GameObject {
             chosen_subtype: None,
             face_index: 0,
             emblem_abilities: None,
+            token: None,
             pending_face_change: None,
             cast_from_hand: true,
         }
@@ -575,6 +587,30 @@ impl GameObject {
         obj.card = None;
         obj.kind = kind;
         obj
+    }
+
+    /// The abilities this object actually has, whatever it is.
+    ///
+    /// Three sources answer to the same question and used to be asked
+    /// separately at two dozen call sites: a card's active face, an emblem's
+    /// stored list, and — since tokens gained rules of their own — the
+    /// central token definition. Anything that wants to know what a permanent
+    /// can do goes through here, so a new kind of card-less object is one
+    /// arm of this match rather than a sweep through the engine.
+    #[must_use]
+    pub fn abilities(
+        &self,
+        lookup: &impl crate::state::CardLookup,
+    ) -> &'static [baylee_cards_dsl::AbilityDef] {
+        if let Some(abilities) = self.emblem_abilities {
+            return abilities;
+        }
+        if let Some(card) = self.card {
+            return lookup
+                .card(card.index)
+                .map_or(&[], |def| def.abilities_for_face(self.face_index as usize));
+        }
+        self.token.map_or(&[], |token| token.abilities)
     }
 
     /// Current characteristics.

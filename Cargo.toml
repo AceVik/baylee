@@ -26,6 +26,7 @@ baylee-ai = { path = "crates/baylee-ai" }
 baylee-gamehost = { path = "crates/baylee-gamehost" }
 baylee-gateway = { path = "crates/baylee-gateway" }
 baylee-engine-server = { path = "crates/baylee-engine-server" }
+baylee-catalog = { path = "crates/baylee-catalog" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -59,6 +60,16 @@ web-sys = "0.3"
 sha2 = "0.10"
 subtle = "2"
 tokio-tungstenite = "0.26"
+# Card catalog persistence (gateway only). The engine never sees a database.
+sea-orm = { version = "2.0", default-features = false, features = [
+    "sqlx-postgres", "runtime-tokio-rustls", "macros",
+] }
+# Scryfall ships its bulk data gzipped; the ingest streams it rather than
+# holding 400 MB of JSON in memory.
+flate2 = "1"
+# Card text fetch in the client. Tiny, and the only HTTP client that works
+# unchanged on native and wasm — bevy's asset server only does assets.
+ehttp = "0.5"
 criterion = { version = "0.5", features = ["html_reports"] }
 bevy = { version = "0.19", default-features = false, features = [
     "std", "async_executor", "multi_threaded",
@@ -74,7 +85,14 @@ bevy = { version = "0.19", default-features = false, features = [
 ] }
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# `deny`, not `forbid`: unsafe stays off by default, but a call site that
+# genuinely earns it — a measured performance win, or a safe abstraction that
+# would otherwise take far more complex code — can opt in with a local
+# `#[allow(unsafe_code)]`. `forbid` cannot be overridden, which is why every
+# such decision would otherwise have to be a workspace-wide one. The opt-in is
+# deliberate and reviewable: it carries a `// SAFETY:` comment stating the
+# invariant, and tests that would fail if the invariant broke.
+unsafe_code = "deny"
 missing_docs = "warn"
 
 [workspace.lints.clippy]

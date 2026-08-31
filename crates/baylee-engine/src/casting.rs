@@ -13,7 +13,7 @@ use crate::turn::Phase;
 use crate::zone::{Zone, ZoneLocation, ZonePosition};
 use baylee_core::generated::subtypes::land;
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_core::mana::ManaColor;
+use baylee_core::mana::{ManaColor, ManaCost, ManaPool};
 use baylee_core::types::TypeSet;
 
 /// Why a card cannot be cast right now (validated before the action).
@@ -31,6 +31,48 @@ pub enum CastError {
     /// Costs with {X}/{Y}/{Z} need the full wizard (M1.S3).
     #[error("variable costs not supported yet")]
     VariableCost,
+}
+
+/// Whether any effect lets mana be spent as though it were mana of any
+/// color (Mycosynth Lattice).
+///
+/// The payment step has always honoured this; the *affordability* checks
+/// did not, so the Lattice's third line was unreachable — the spell it made
+/// payable was never offered as castable in the first place.
+#[must_use]
+pub fn mana_is_wild(state: &GameState) -> bool {
+    state
+        .effects
+        .iter()
+        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::ManaIsAnyColor))
+}
+
+/// Whether `pool` covers `cost`, honouring a mana-conversion effect.
+pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) -> bool {
+    wild_or_not(mana_is_wild(state), pool, cost)
+}
+
+/// [`affordable`] with the conversion flag already read.
+///
+/// Payment sites need it in this shape: `pool` is borrowed mutably there,
+/// so the state cannot be read at the same time.
+pub(crate) fn wild_or_not(wild: bool, pool: &ManaPool, cost: &ManaCost) -> bool {
+    if wild {
+        mana_pay::can_pay_wild(pool, cost)
+    } else {
+        mana_pay::can_pay(pool, cost)
+    }
+}
+
+/// Pays `cost` from `pool`, honouring a mana-conversion effect.
+///
+/// `wild` comes from [`mana_is_wild`], read before the pool is borrowed.
+pub(crate) fn pay_with(wild: bool, pool: &mut ManaPool, cost: &ManaCost) -> bool {
+    if wild {
+        mana_pay::pay_wild(pool, cost)
+    } else {
+        mana_pay::pay(pool, cost)
+    }
 }
 
 /// Whether `card` can be cast by `player` right now (printed cost or any
@@ -112,7 +154,7 @@ pub fn can_cast(
     let pool = &state.players[player.get() as usize].mana_pool;
     // Printed cost probed with X = 0; the full payment is validated when
     // the wizard finishes.
-    if !mana_pay::can_pay(pool, &c.mana_cost.with_x(0)) {
+    if !affordable(state, pool, &c.mana_cost.with_x(0)) {
         // Alternative costs may still make it castable (pitch/evoke) —
         // the wizard computes the exact options.
         let Some(card_ref) = obj.card else {
@@ -126,11 +168,15 @@ pub fn can_cast(
             let condition_ok =
                 !matches!(alt.condition, baylee_cards_dsl::AltCondition::NotYourTurn)
                     || state.turn.active != player;
-            condition_ok && mana_pay::can_pay(pool, &alt.cost.mana)
+            condition_ok && affordable(state, pool, &alt.cost.mana)
         });
         let any_mode = def.abilities.iter().any(|a| match a {
             baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes.iter().any(|m| {
-                mana_pay::can_pay(pool, &m.cost_override.unwrap_or(face.mana_cost).with_x(0))
+                affordable(
+                    state,
+                    pool,
+                    &m.cost_override.unwrap_or(face.mana_cost).with_x(0),
+                )
             }),
             _ => false,
         });
@@ -188,8 +234,12 @@ pub fn play_land(
     Ok(())
 }
 
-/// Mana color produced by a basic land subtype (CR 305.6), `None` for
-/// nonbasic lands (their printed abilities arrive with the DSL, M1.S3+).
+/// Mana color produced by a land with exactly one basic land subtype
+/// (CR 305.6).
+///
+/// `None` for a land with no basic subtype and for one with several: both
+/// are served by the `AddManaChoice` ability printed on the card, which can
+/// offer the choice this shortcut cannot.
 #[must_use]
 pub fn intrinsic_mana(state: &GameState, source: ObjectId) -> Option<ManaColor> {
     let obj = state.object(source)?;
@@ -197,19 +247,29 @@ pub fn intrinsic_mana(state: &GameState, source: ObjectId) -> Option<ManaColor> 
         return None;
     }
     let s = &obj.characteristics().subtypes;
-    if s.contains(land::FOREST) {
-        Some(ManaColor::Green)
-    } else if s.contains(land::ISLAND) {
-        Some(ManaColor::Blue)
-    } else if s.contains(land::PLAINS) {
-        Some(ManaColor::White)
-    } else if s.contains(land::SWAMP) {
-        Some(ManaColor::Black)
-    } else if s.contains(land::MOUNTAIN) {
-        Some(ManaColor::Red)
-    } else {
-        None
+    let mut only = None;
+    for (subtype, color) in [
+        (land::PLAINS, ManaColor::White),
+        (land::ISLAND, ManaColor::Blue),
+        (land::SWAMP, ManaColor::Black),
+        (land::MOUNTAIN, ManaColor::Red),
+        (land::FOREST, ManaColor::Green),
+    ] {
+        if s.contains(subtype) {
+            // CR 305.6 gives a land one mana ability *per* basic type, so a
+            // dual has two of them and its controller picks which to
+            // activate. This shortcut cannot ask, and answering on the
+            // player's behalf is worse than not answering at all: Godless
+            // Shrine used to tap for white and never for black, whatever the
+            // player needed. A land with more than one basic type is left to
+            // the printed `AddManaChoice` ability on its card, which does ask.
+            if only.is_some() {
+                return None;
+            }
+            only = Some(color);
+        }
     }
+    only
 }
 
 /// Whether the intrinsic mana ability of `source` can be activated now.

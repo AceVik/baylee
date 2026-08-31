@@ -27,7 +27,6 @@
 //!
 //! Nothing in this crate knows what a frame is.
 
-#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 // Layout and threat arithmetic converts small counts (seats, cards in a lane,
 // permanents on a board) into floats. Every one of them is bounded by what
@@ -37,6 +36,7 @@
 
 pub mod automation;
 pub mod board;
+pub mod card_face;
 pub mod images;
 pub mod interaction;
 pub mod layout;
@@ -46,6 +46,9 @@ pub(crate) mod test_support;
 
 pub use automation::{AutoAnswer, AutoPilot, PhaseOrders};
 pub use board::{BoardModel, CardGroup, Lane, SeatPod, StackItem, ThreatSummary, TokenChip};
+pub use card_face::{
+    CardFace, CardText, CardTextEntry, Characteristics, FaceText, Stats, TextBlock,
+};
 pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
 pub use interaction::{Interaction, Prompt, SelectionOutcome};
 pub use layout::{LaneKind, SeatSlot, TableLayout};

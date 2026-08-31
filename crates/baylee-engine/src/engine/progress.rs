@@ -401,14 +401,9 @@ impl<L: CardLookup> Engine<L> {
             // Echo (CR 702.30): register the pay-or-sacrifice choice at
             // the controller's next upkeep.
             if let Some(cost) = self.state.object(id).and_then(|o| {
-                let face = o.face_index as usize;
-                o.card.and_then(|c| {
-                    self.lookup.card(c.index).and_then(|def| {
-                        def.abilities_for_face(face).iter().find_map(|a| match a {
-                            baylee_cards_dsl::AbilityDef::Echo { cost } => Some(*cost),
-                            _ => None,
-                        })
-                    })
+                o.abilities(&self.lookup).iter().find_map(|a| match a {
+                    baylee_cards_dsl::AbilityDef::Echo { cost } => Some(*cost),
+                    _ => None,
                 })
             }) {
                 self.state.delayed.push(crate::state::DelayedTrigger {
@@ -420,20 +415,15 @@ impl<L: CardLookup> Engine<L> {
             // Sagas enter with a lore counter, triggering chapter I
             // (CR 714.2a/b).
             let chapter_one = self.state.object(id).and_then(|o| {
-                let face = o.face_index as usize;
-                o.card.and_then(|c| {
-                    self.lookup.card(c.index).and_then(|def| {
-                        def.abilities_for_face(face)
-                            .iter()
-                            .enumerate()
-                            .find_map(|(i, a)| match a {
-                                baylee_cards_dsl::AbilityDef::SagaChapter {
-                                    chapter: 1, ..
-                                } => Some(i as u32),
-                                _ => None,
-                            })
+                o.abilities(&self.lookup)
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, a)| match a {
+                        baylee_cards_dsl::AbilityDef::SagaChapter { chapter: 1, .. } => {
+                            Some(i as u32)
+                        }
+                        _ => None,
                     })
-                })
             });
             if let Some(ability_index) = chapter_one {
                 let ts = self.state.next_timestamp();
@@ -441,6 +431,7 @@ impl<L: CardLookup> Engine<L> {
                     obj.counters.add(baylee_cards_dsl::CounterKind::Lore, 1);
                     obj.timestamp = ts;
                 }
+                self.state.invalidate_projections();
                 self.trigger_queue
                     .push_back(crate::trigger::PendingTrigger {
                         source: id,
@@ -505,6 +496,7 @@ impl<L: CardLookup> Engine<L> {
                     old,
                     new,
                 });
+                self.state.invalidate_projections();
                 changed = true;
             }
             // Clone-on-enter: offer the copy choice before anything else
@@ -597,19 +589,11 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(id) else {
                 return false;
             };
-            let Some(card) = obj.card else { return false };
-            let Some(def) = self.lookup.card(card.index) else {
-                return false;
-            };
-            let Some(spec) = def
-                .abilities_for_face(obj.face_index as usize)
-                .iter()
-                .find_map(|a| match a {
-                    AbilityDef::CopyOnEnter { target, .. }
-                    | AbilityDef::CopyOnEnterUntilEot { target, .. } => Some(*target),
-                    _ => None,
-                })
-            else {
+            let Some(spec) = obj.abilities(&self.lookup).iter().find_map(|a| match a {
+                AbilityDef::CopyOnEnter { target, .. }
+                | AbilityDef::CopyOnEnterUntilEot { target, .. } => Some(*target),
+                _ => None,
+            }) else {
                 return false;
             };
             (spec, obj.controller)
@@ -639,11 +623,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(id) else {
                 return;
             };
-            let Some(card) = obj.card else { return };
-            let Some(def) = self.lookup.card(card.index) else {
-                return;
-            };
-            def.abilities_for_face(obj.face_index as usize)
+            obj.abilities(&self.lookup)
                 .iter()
                 .find_map(|a| match a {
                     AbilityDef::CopyOnEnter { mods, .. } => Some((mods.to_vec(), false)),
@@ -693,6 +673,10 @@ impl<L: CardLookup> Engine<L> {
                         if let Some(obj) = self.state.object_mut(id) {
                             obj.counters.add(kind, n);
                         }
+                        // A copy that arrives with counters is projected from
+                        // them (CR 613.4c), and nothing in the effect table
+                        // moved to say so.
+                        self.state.invalidate_projections();
                         continue;
                     }
                     baylee_cards_dsl::CopyMod::RemoveSupertype(_) => continue, // no modifier form
@@ -743,7 +727,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        self.state.characteristics_generation = u64::MAX; // force recompute
+        self.state.invalidate_projections();
     }
 
     /// Keeps the effect table in sync with the battlefield: registers
@@ -927,12 +911,7 @@ impl<L: CardLookup> Engine<L> {
                 && let Some(modes) = self
                     .state
                     .object(t.source)
-                    .and_then(|o| {
-                        let face = o.face_index as usize;
-                        o.card
-                            .and_then(|c| self.lookup.card(c.index))
-                            .map(|def| def.abilities_for_face(face))
-                    })
+                    .map(|o| o.abilities(&self.lookup))
                     .and_then(|abilities| abilities.get(t.ability_index as usize))
                     .and_then(|a| match a {
                         AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
@@ -962,15 +941,7 @@ impl<L: CardLookup> Engine<L> {
             let req = self
                 .state
                 .object(t.source)
-                .and_then(|o| {
-                    if let Some(emblem) = o.emblem_abilities {
-                        return Some(emblem);
-                    }
-                    let face = o.face_index as usize;
-                    o.card
-                        .and_then(|c| self.lookup.card(c.index))
-                        .map(|def| def.abilities_for_face(face))
-                })
+                .map(|o| o.abilities(&self.lookup))
                 .and_then(|abilities| abilities.get(t.ability_index as usize))
                 .and_then(|a| match a {
                     AbilityDef::Triggered { targets, .. } => *targets,
@@ -1149,32 +1120,20 @@ impl<L: CardLookup> Engine<L> {
         if kind == Some(ObjectKind::AbilityOnStack) {
             let obj = self.state.object(top).expect("stack object exists");
             let loc = obj.ability.expect("ability object has a location");
-            // Emblem abilities resolve from the source object (no card).
-            let emblem_abilities = self
+            // The source's abilities, wherever they come from: a card face,
+            // an emblem's stored list, or a token's definition. `loc.index`
+            // indexes into that one list, so the three cases that used to be
+            // branched on here are now the same case.
+            let abilities = self
                 .state
                 .object(loc.source)
-                .and_then(|o| o.emblem_abilities);
-            let def = if emblem_abilities.is_none() {
-                Some(self.lookup.card(loc.card).expect("ability card exists"))
-            } else {
-                None
-            };
-            let face = self
-                .state
-                .object(loc.source)
-                .map_or(0, |o| o.face_index as usize);
-            let effects = if let Some(abilities) = emblem_abilities {
-                match abilities.get(loc.index as usize) {
-                    Some(AbilityDef::Triggered { effects, .. }) => *effects,
-                    _ => panic!("emblem ability index out of range"),
-                }
-            } else if loc.index == u32::MAX {
+                .map_or(&[][..], |o| o.abilities(&self.lookup));
+            let effects = if loc.index == u32::MAX {
                 // Synthetic keyword trigger (prowess, ward): effects live
                 // in the side map, resolved below.
                 &[][..]
             } else {
-                let def = def.expect("non-emblem ability has a card");
-                match def.abilities_for_face(face).get(loc.index as usize) {
+                match abilities.get(loc.index as usize) {
                     Some(
                         AbilityDef::Activated { effects, .. }
                         | AbilityDef::Triggered { effects, .. }
@@ -1189,10 +1148,8 @@ impl<L: CardLookup> Engine<L> {
                             .expect("modal trigger mode exists")
                     }
                     _ => panic!(
-                        "ability object references non-resolvable ability: {} index {} face {}",
-                        def.name(),
-                        loc.index,
-                        face
+                        "ability object references non-resolvable ability: source {:?} index {}",
+                        loc.source, loc.index
                     ),
                 }
             };
@@ -1214,6 +1171,7 @@ impl<L: CardLookup> Engine<L> {
                     chosen_player: obj.chosen_player,
                     event_object: obj.event_object,
                     awaiting: None,
+                    mana_ability: false,
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
@@ -1236,6 +1194,7 @@ impl<L: CardLookup> Engine<L> {
                 chosen_player: obj.chosen_player,
                 event_object: obj.event_object,
                 awaiting: None,
+                mana_ability: false,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -1292,6 +1251,7 @@ impl<L: CardLookup> Engine<L> {
                 chosen_player: obj.chosen_player,
                 event_object: None,
                 awaiting: None,
+                mana_ability: false,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -1330,6 +1290,18 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(crate) fn finish_resolution(&mut self, res: &Resolution) {
+        // A mana ability never went on the stack (CR 605.3b), and its
+        // `on_stack` is the source permanent itself. Falling through here
+        // treated that permanent as a resolving spell: `finalize_spell`
+        // untapped the land and "moved" it to the battlefield it was
+        // already on, so every colour-choice source — Badlands, City of
+        // Brass, Command Tower, Harabaz Druid — untapped itself and made
+        // unbounded mana. Nothing to finalize; the activating player keeps
+        // priority (CR 605.3a).
+        if res.mana_ability {
+            self.after_action(res.controller);
+            return;
+        }
         if self
             .state
             .object(res.on_stack)
@@ -1684,6 +1656,7 @@ impl<L: CardLookup> Engine<L> {
                     obj.counters.add(baylee_cards_dsl::CounterKind::Lore, 1);
                     obj.timestamp = ts;
                 }
+                self.state.invalidate_projections();
                 self.trigger_queue
                     .push_back(crate::trigger::PendingTrigger {
                         source: id,
@@ -1965,7 +1938,7 @@ impl<L: CardLookup> Engine<L> {
                 obj.base = *original;
             }
         }
-        self.state.characteristics_generation = u64::MAX;
+        self.state.invalidate_projections();
         let active = self.state.turn.active;
         // Reliquary Tower & co.: no maximum hand size for this player.
         let no_max = self.state.effects.iter().any(|fx| {

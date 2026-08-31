@@ -55,7 +55,11 @@ What the numbers say:
   pure overhead (+15 %). That is the trade, and it is the right way round.
 - **Clone got 12 % cheaper** because `GameObject` went 768 → 512 B (the
   projection cache became a lazy 24-byte slot). `tests/footprint.rs` keeps it
-  there.
+  there. Since raised to **528 B**: a token now carries the `TokenDef` it was
+  made from, which is what gives it its printed abilities (a Treasure that
+  can actually be cracked) and the handle the client keys its art on. One
+  pointer, ~3 % of the object, taken deliberately against the 33 % the
+  cache rewrite bought.
 - **`snapshot_hash` regressed 18 % and the cause is the object layout, not
   the added `deathtouched` field** — removing that field from the hash
   entirely measures the same 6.3 µs. It is not on a budgeted path (resync and

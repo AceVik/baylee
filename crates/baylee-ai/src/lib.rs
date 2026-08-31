@@ -11,7 +11,6 @@
 //! view layer (M3 server work).
 
 #![warn(missing_docs)]
-#![forbid(unsafe_code)]
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;

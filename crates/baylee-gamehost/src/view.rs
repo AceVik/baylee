@@ -110,6 +110,10 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         status: ObjectStatus::from_bits(obj.status.bits()),
         types: chars.types,
         supertypes: chars.supertypes,
+        subtypes: chars.subtypes,
+        // The engine holds the definition; the client needs the number, and
+        // this crate is the one that can see both.
+        token: obj.token.map(baylee_cards::tokens::token_id),
         colors: chars.colors,
         keywords: chars.keywords.bits(),
         power: chars.power,
@@ -430,6 +434,43 @@ mod tests {
             baylee_view::Finish::Etched
         ));
         assert_eq!(statics.view_version, baylee_view::VIEW_VERSION);
+    }
+
+    /// A token has no printing, so `card` is `None` and a client has nothing
+    /// to fetch an image with. The token id is the handle that replaces it:
+    /// it survives the projection into the view, and it resolves back to the
+    /// definition the engine created the object from.
+    #[test]
+    fn a_token_reaches_the_client_with_the_handle_its_art_is_keyed_on() {
+        use baylee_engine::choice::{Pending, PlayerAction};
+
+        let preset = mixed_print_preset();
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        for _ in 0..2 {
+            let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+                panic!("expected a mulligan")
+            };
+            engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        }
+
+        // Every object the view can project; a card-backed one carries a
+        // printing and no token id, and the two are mutually exclusive.
+        let view = player_view(engine.state(), PlayerId::new(0), None, 1);
+        for object in &view.battlefield {
+            assert!(
+                object.card.is_none() || object.token.is_none(),
+                "{} claims to be both a printing and a token",
+                object.name
+            );
+        }
+
+        // And the id round-trips: whatever the view says, the registry can
+        // name it. A token filed under `u16::MAX` — one defined in a card
+        // file instead of the registry — would fail here.
+        for id in 0..u16::try_from(baylee_cards::tokens::ALL.len()).expect("registry fits") {
+            let token = baylee_cards::tokens::by_token_id(id).expect("id names a token");
+            assert_eq!(baylee_cards::tokens::token_id(token), id);
+        }
     }
 
     /// A card keeps its printing when it changes zone: the ref lives on the

@@ -24,16 +24,9 @@ static TARGET_F: Filter = Filter::And(&[
     Filter::CmcAtMost(4),
 ]);
 
-static ILLUSION: TokenDef = TokenDef {
-    name: "Illusion",
-    colors: ColorSet::from_slice(&[Color::Blue]),
-    types: TypeSet::CREATURE,
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::ILLUSION],
-    power: None, // set to the exiled card's mana value
-    toughness: None,
-    keywords: KeywordSet::EMPTY,
-};
+// Power and toughness are left unset in the definition; the effect below
+// sizes the token to the exiled card's mana value.
+use crate::tokens::ILLUSION_X_BLUE as ILLUSION;
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(146),

@@ -23,6 +23,9 @@ getrandom.workspace = true
 prost.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# Card text over HTTP. Works unchanged on native and wasm, which bevy's
+# asset server does not do for anything that is not an asset.
+ehttp.workspace = true
 
 [dev-dependencies]
 uuid.workspace = true
@@ -35,4 +38,4 @@ path = "src/main.rs"
 # settings persist in localStorage (see src/settings.rs).
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
-web-sys = { workspace = true, features = ["Storage", "Window"] }
+web-sys = { workspace = true, features = ["Location", "Storage", "Window"] }

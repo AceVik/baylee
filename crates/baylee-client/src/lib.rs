@@ -25,7 +25,6 @@
 //! own, and the standalone binary in `main.rs` is only the thinnest possible
 //! wrapper around the same plugin.
 
-#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 // The client converts small counts (seats, cards in a lane, list indices) to
 // floats for layout. All are bounded by what fits on a table.
@@ -36,6 +35,8 @@
 // cases where it is right.
 #![allow(clippy::needless_pass_by_value)]
 
+pub mod cardtext;
+pub mod face;
 pub mod host;
 pub mod hud;
 pub mod input;
@@ -206,6 +207,8 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::CameraRig>()
             .init_resource::<hud::HudRevision>()
             .init_resource::<textures::Preload>()
+            .init_resource::<cardtext::CardTexts>()
+            .init_resource::<face::FaceMode>()
             .add_message::<DuelCommand>()
             .add_message::<DuelReport>()
             .configure_sets(
@@ -215,7 +218,14 @@ impl Plugin for DuelPlugin {
             .add_systems(Startup, (textures::setup, hud::setup_fonts))
             .add_systems(
                 Update,
-                (handle_commands, poll_host, run_autopilot, flush_outbox)
+                (
+                    handle_commands,
+                    poll_host,
+                    run_autopilot,
+                    flush_outbox,
+                    cardtext::request,
+                    cardtext::poll,
+                )
                     .chain()
                     .in_set(DuelSet::Sync),
             )
@@ -227,6 +237,7 @@ impl Plugin for DuelPlugin {
                     input::pointer_hover,
                     input::camera_controls,
                     input::preview_resize,
+                    face::track_modifier,
                 )
                     .in_set(DuelSet::Input)
                     .run_if(in_state(DuelPhase::Playing)),
@@ -240,6 +251,7 @@ impl Plugin for DuelPlugin {
                     hud::apply_hand_scroll,
                     hud::animate_overlay,
                     textures::drive_preloads,
+                    textures::note_failed_loads,
                 )
                     .in_set(DuelSet::Present)
                     .run_if(not(in_state(DuelPhase::Closed))),

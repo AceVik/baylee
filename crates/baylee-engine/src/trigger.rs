@@ -180,10 +180,10 @@ fn collect_for_objects(
         let Some(obj) = state.object(permanent) else {
             continue;
         };
-        let Some(card) = obj.card else { continue };
-        let Some(def) = lookup.card(card.index) else {
-            continue;
-        };
+        // Not `obj.card`: a token has none, and bailing out here is how every
+        // token on the battlefield used to be invisible to triggers —
+        // including its own.
+        let abilities = obj.abilities(lookup);
         // Prowess (engine-level keyword trigger, CR 702.108).
         if obj
             .characteristics()
@@ -257,7 +257,7 @@ fn collect_for_objects(
         }
         // Ward {N} (engine-level keyword trigger, CR 702.21): an
         // opponent's spell or ability targets this permanent.
-        for ability in def.abilities_for_face(obj.face_index as usize) {
+        for ability in abilities {
             let AbilityDef::Ward { mana } = ability else {
                 continue;
             };
@@ -294,11 +294,7 @@ fn collect_for_objects(
                 }
             }
         }
-        for (index, ability) in def
-            .abilities_for_face(obj.face_index as usize)
-            .iter()
-            .enumerate()
-        {
+        for (index, ability) in abilities.iter().enumerate() {
             let AbilityDef::Triggered {
                 trigger,
                 once_per_turn,

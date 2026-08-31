@@ -18,6 +18,7 @@
 use crate::Duel;
 use crate::textures::CardTextures;
 use baylee_client_core::automation::{AutoPilot, RailRow};
+use baylee_client_core::card_face::CardFace;
 use baylee_client_core::images::{ArtSize, ImageKey};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_view::{GameStatic, PlayerView};
@@ -250,6 +251,12 @@ pub struct HudRevision {
     overlay_closed: bool,
     /// Preview size (resized via handle or shortcut).
     preview_scale: f32,
+    /// Whether cards are drawing their constructed face. Held on a key, so
+    /// it changes between snapshots and has to be part of the redraw gate.
+    faces: bool,
+    /// How many printings have text. Text arrives over the network mid-game,
+    /// and a face built before it lands says a good deal less.
+    texts: usize,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -319,6 +326,91 @@ fn preview_radius(width: f32) -> BorderRadius {
     BorderRadius::all(px(width * 0.08))
 }
 
+// ------------------------------------------------- art, or the card's text
+
+/// What the overlay needs in order to choose between a card's art and its own
+/// constructed face.
+///
+/// Bundled because every card-drawing helper here needs all three, and three
+/// more parameters on functions that already carry eleven is how a signature
+/// stops being readable.
+struct FaceCtx<'a> {
+    texts: &'a crate::cardtext::CardTexts,
+    mode: &'a crate::face::FaceMode,
+    settings: &'a crate::settings::ClientSettings,
+}
+
+impl FaceCtx<'_> {
+    /// Whether every card is showing its face, whatever its art is doing.
+    ///
+    /// Part of the redraw gate: this one is a held key and a setting, so it
+    /// changes without a new snapshot.
+    fn always(&self) -> bool {
+        self.mode.held || self.settings.prefer_text_view
+    }
+
+    /// The face to draw instead of a card's art, or `None` to draw the art.
+    fn object(
+        &self,
+        object: &baylee_view::PublicObject,
+        textures: &CardTextures,
+        art: Option<ImageKey>,
+    ) -> Option<CardFace> {
+        crate::face::wants_face(self.mode, self.settings, textures, art)
+            .then(|| crate::face::of_object(object, self.texts))
+    }
+
+    /// The same, for a card in hand.
+    fn hand(
+        &self,
+        card: &baylee_view::HandObject,
+        textures: &CardTextures,
+        art: Option<ImageKey>,
+    ) -> Option<CardFace> {
+        crate::face::wants_face(self.mode, self.settings, textures, art)
+            .then(|| crate::face::of_hand(card, self.texts))
+    }
+}
+
+/// Draws a card into a slot of a fixed size: its art, or its face.
+///
+/// Every place the overlay shows a card goes through here, which is what makes
+/// the two interchangeable: the slot is the same size either way, so holding
+/// the modifier reveals text without moving anything on screen.
+fn spawn_card_art(
+    commands: &mut Commands,
+    image: Handle<Image>,
+    built: Option<&CardFace>,
+    width: f32,
+    height: f32,
+    detail: crate::face::Detail,
+    fonts: &UiFonts,
+) -> Entity {
+    let slot = commands
+        .spawn(Node {
+            width: px(width),
+            height: px(height),
+            overflow: Overflow::clip(),
+            ..default()
+        })
+        .id();
+    let child = match built {
+        Some(face) => crate::face::spawn_ui(commands, face, width, detail, fonts),
+        None => commands
+            .spawn((
+                ImageNode::new(image),
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    ..default()
+                },
+            ))
+            .id(),
+    };
+    commands.entity(slot).add_child(child);
+    slot
+}
+
 /// One color per team, so allied seats read as one side at a glance.
 /// `None` is the neutral default.
 #[must_use]
@@ -346,7 +438,14 @@ pub fn sync_overlay(
     windows: Query<&Window>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
+    texts: Res<crate::cardtext::CardTexts>,
+    mode: Res<crate::face::FaceMode>,
 ) {
+    let faces = FaceCtx {
+        texts: &texts,
+        mode: &mode,
+        settings: &settings,
+    };
     let seq = duel.board.as_ref().map(|b| b.seq);
     let prompt = duel
         .interaction
@@ -374,6 +473,8 @@ pub fn sync_overlay(
         && revision.focus == focus
         && revision.overlay_closed == overlay_closed
         && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
+        && revision.faces == faces.always()
+        && revision.texts == texts.len()
         && !existing.is_empty()
     {
         return;
@@ -387,6 +488,8 @@ pub fn sync_overlay(
     revision.focus = focus;
     revision.overlay_closed = overlay_closed;
     revision.preview_scale = preview_scale;
+    revision.faces = faces.always();
+    revision.texts = texts.len();
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -621,6 +724,7 @@ pub fn sync_overlay(
             &mut textures,
             &assets,
             &fonts,
+            &faces,
         );
         commands.entity(root).add_child(hand_bar);
 
@@ -637,11 +741,26 @@ pub fn sync_overlay(
             let anchor = anchor.unwrap_or(win_w / 2.0);
             // Always fully in the viewport.
             let left = (anchor - panel_w / 2.0).clamp(8.0, (win_w - panel_w - 8.0).max(8.0));
-            let key = ImageKey {
+            let key = art.map(|art| ImageKey {
                 size: ArtSize::Normal,
                 ..art
+            });
+            // The face first: it only borrows the cache, and the image below
+            // needs it mutably.
+            let built = hovered.and_then(|id| preview_face(&faces, view, &textures, id, key));
+            let image = match key {
+                Some(key) => textures.get(key, statics, &assets),
+                None => textures.card_back(),
             };
-            let image = textures.get(key, statics, &assets);
+            let visual = spawn_card_art(
+                &mut commands,
+                image,
+                built.as_ref(),
+                img_w,
+                img_h,
+                crate::face::Detail::Full,
+                &fonts,
+            );
             let tooltip = commands
                 .spawn((
                     Node {
@@ -657,36 +776,27 @@ pub fn sync_overlay(
                     overlay_shadow(),
                     ZIndex(10),
                     Pickable::IGNORE,
-                    children![
-                        (
-                            ImageNode::new(image),
-                            Node {
-                                width: px(img_w),
-                                height: px(img_h),
-                                ..default()
-                            },
-                        ),
-                        (
-                            // Resize handle, bottom right.
-                            PreviewResize,
-                            Node {
-                                position_type: PositionType::Absolute,
-                                right: px(4),
-                                bottom: px(4),
-                                padding: UiRect::all(px(4)),
-                                border_radius: btn_radius(),
-                                ..default()
-                            },
-                            BackgroundColor(palette::PANEL),
-                            children![(
-                                Text::new(glyph::EXPAND.to_string()),
-                                icon_tf(&fonts, 11.0),
-                                TextColor(palette::MUTED),
-                            )],
-                        ),
-                    ],
+                    children![(
+                        // Resize handle, bottom right.
+                        PreviewResize,
+                        Node {
+                            position_type: PositionType::Absolute,
+                            right: px(4),
+                            bottom: px(4),
+                            padding: UiRect::all(px(4)),
+                            border_radius: btn_radius(),
+                            ..default()
+                        },
+                        BackgroundColor(palette::PANEL),
+                        children![(
+                            Text::new(glyph::EXPAND.to_string()),
+                            icon_tf(&fonts, 11.0),
+                            TextColor(palette::MUTED),
+                        )],
+                    ),],
                 ))
                 .id();
+            commands.entity(tooltip).add_child(visual);
             commands.entity(root).add_child(tooltip);
 
             // The speech-bubble tail, pointing at the hovered card.
@@ -715,6 +825,7 @@ pub fn sync_overlay(
         let overlay = spawn_own_board_overlay(
             &mut commands,
             board,
+            view,
             statics,
             hovered,
             &selected,
@@ -724,6 +835,7 @@ pub fn sync_overlay(
             &mut textures,
             &assets,
             &fonts,
+            &faces,
         );
         commands.entity(root).add_child(overlay);
     }
@@ -1156,6 +1268,7 @@ fn spawn_hand_bar(
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
+    faces: &FaceCtx<'_>,
 ) -> Entity {
     let bar = commands
         .spawn((
@@ -1220,7 +1333,21 @@ fn spawn_hand_bar(
         } else {
             soft_shadow()
         };
+        let built = view
+            .hand
+            .iter()
+            .find(|h| h.id == card.id)
+            .and_then(|h| faces.hand(h, textures, Some(card.art)));
         let image = textures.get(card.art, statics, assets);
+        let visual = spawn_card_art(
+            commands,
+            image,
+            built.as_ref(),
+            HAND_CARD_W,
+            HAND_CARD_H,
+            crate::face::Detail::Full,
+            fonts,
+        );
         // Positioned by the layout rule; the strip's margin carries the
         // scroll offset (applied per frame, not rebuilt).
         let left = i as f32 * layout.step;
@@ -1238,16 +1365,9 @@ fn spawn_hand_bar(
                     ..default()
                 },
                 shadow,
-                children![(
-                    ImageNode::new(image),
-                    Node {
-                        width: percent(100),
-                        height: percent(100),
-                        ..default()
-                    },
-                )],
             ))
             .id();
+        commands.entity(entity).add_child(visual);
         commands.entity(strip).add_child(entity);
     }
     commands.entity(bar).add_child(strip);
@@ -1281,13 +1401,23 @@ fn spawn_hand_bar(
             .id();
         for (i, cmd) in commanders.iter().enumerate() {
             let times_cast = casts.get(i).copied().unwrap_or(0);
-            let image = match cmd
+            let key = cmd
                 .card
-                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
-            {
-                Some(k) => textures.get(k, statics, assets),
+                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small));
+            let built = faces.object(cmd, textures, key);
+            let image = match key {
+                Some(key) => textures.get(key, statics, assets),
                 None => textures.card_back(),
             };
+            let visual = spawn_card_art(
+                commands,
+                image,
+                built.as_ref(),
+                OVERLAY_CARD_W * 0.75,
+                OVERLAY_CARD_H * 0.75,
+                crate::face::Detail::Compact,
+                fonts,
+            );
             let card = commands
                 .spawn((
                     HandCardVisual { object: cmd.id },
@@ -1299,34 +1429,25 @@ fn spawn_hand_bar(
                         ..default()
                     },
                     soft_shadow(),
-                    children![
-                        (
-                            ImageNode::new(image),
-                            Node {
-                                width: percent(100),
-                                height: percent(100),
-                                ..default()
-                            },
-                        ),
-                        (
-                            // Cast counter, floating above the card's top.
-                            Text::new(format!("×{times_cast}")),
-                            tf(fonts, 12.0),
-                            TextColor(palette::ACCENT),
-                            Node {
-                                position_type: PositionType::Absolute,
-                                top: px(-6),
-                                left: percent(50),
-                                margin: UiRect::left(px(-10)),
-                                padding: UiRect::axes(px(4), px(1)),
-                                border_radius: btn_radius(),
-                                ..default()
-                            },
-                            BackgroundColor(palette::PANEL),
-                        ),
-                    ],
+                    children![(
+                        // Cast counter, floating above the card's top.
+                        Text::new(format!("×{times_cast}")),
+                        tf(fonts, 12.0),
+                        TextColor(palette::ACCENT),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            top: px(-6),
+                            left: percent(50),
+                            margin: UiRect::left(px(-10)),
+                            padding: UiRect::axes(px(4), px(1)),
+                            border_radius: btn_radius(),
+                            ..default()
+                        },
+                        BackgroundColor(palette::PANEL),
+                    ),],
                 ))
                 .id();
+            commands.entity(card).add_child(visual);
             commands.entity(zone).add_child(card);
         }
         commands.entity(bar).add_child(zone);
@@ -1380,17 +1501,19 @@ fn preview_anchor(
     hovered: Option<ObjectId>,
     layout: HandLayout,
     scroll: f32,
-) -> Option<(ImageKey, Option<f32>)> {
+) -> Option<(Option<ImageKey>, Option<f32>)> {
     let h = hovered?;
     if let Some(i) = board.hand.iter().position(|c| c.id == h) {
         let x = 10.0 + i as f32 * layout.step - scroll + HAND_CARD_W / 2.0;
-        return Some((board.hand[i].art, Some(x)));
+        return Some((Some(board.hand[i].art), Some(x)));
     }
     for pod in &board.pods {
         for lane in &pod.lanes {
             for group in &lane.groups {
                 if group.representative == h {
-                    return group.art.map(|art| (art, None));
+                    // A token has no art; it still gets a preview, built from
+                    // its projected characteristics alone.
+                    return Some((group.art, None));
                 }
             }
         }
@@ -1400,11 +1523,31 @@ fn preview_anchor(
         .get(view.seat.get() as usize)
         .and_then(|cmds| cmds.iter().find(|c| c.id == h))
     {
-        return cmd
-            .card
-            .map(|c| (ImageKey::new(c.print, c.face, ArtSize::Normal), None));
+        return Some((
+            cmd.card
+                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Normal)),
+            None,
+        ));
     }
     None
+}
+
+/// The face for whatever the preview is pointing at.
+///
+/// The hand is checked first because a hand card is a [`baylee_view::HandObject`]
+/// and never appears in [`PlayerView::object`]; everything else — battlefield,
+/// stack, graveyard, exile, command zone — is one lookup.
+fn preview_face(
+    faces: &FaceCtx<'_>,
+    view: &PlayerView,
+    textures: &CardTextures,
+    hovered: ObjectId,
+    art: Option<ImageKey>,
+) -> Option<CardFace> {
+    if let Some(card) = view.hand.iter().find(|c| c.id == hovered) {
+        return faces.hand(card, textures, art);
+    }
+    faces.object(view.object(hovered)?, textures, art)
 }
 
 /// Card width in the own-board overlay.
@@ -1424,6 +1567,7 @@ pub const HAND_BAR_H: f32 = HAND_CARD_H + 20.0;
 fn spawn_own_board_overlay(
     commands: &mut Commands,
     board: &baylee_client_core::BoardModel,
+    view: &PlayerView,
     statics: &GameStatic,
     hovered: Option<ObjectId>,
     selected: &[ObjectId],
@@ -1433,6 +1577,7 @@ fn spawn_own_board_overlay(
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
+    faces: &FaceCtx<'_>,
 ) -> Entity {
     // Spawn already at the current slide position — spawning open and
     // correcting next frame is the battlefield's flicker.
@@ -1517,9 +1662,6 @@ fn spawn_own_board_overlay(
             ))
             .id();
         for group in &lane.groups {
-            let Some(art) = group.art else {
-                continue;
-            };
             let is_selected = group.members.iter().any(|m| selected.contains(m));
             let is_hovered = hovered == Some(group.representative);
             let shadow = if is_selected || is_hovered {
@@ -1533,7 +1675,26 @@ fn spawn_own_board_overlay(
             } else {
                 soft_shadow()
             };
-            let image = textures.get(art, statics, assets);
+            let object = view.object(group.representative);
+            let built = object.and_then(|o| faces.object(o, textures, group.art));
+            // A token has no printing at all, so its face is the only thing
+            // there is to draw — before this the overlay skipped it entirely.
+            let image = match group.art {
+                Some(art) => textures.get(art, statics, assets),
+                None => textures.card_back(),
+            };
+            if built.is_none() && group.art.is_none() {
+                continue;
+            }
+            let visual = spawn_card_art(
+                commands,
+                image,
+                built.as_ref(),
+                OVERLAY_CARD_W,
+                OVERLAY_CARD_H,
+                crate::face::Detail::Compact,
+                fonts,
+            );
             let card = commands
                 .spawn((
                     HandCardVisual {
@@ -1547,34 +1708,25 @@ fn spawn_own_board_overlay(
                         ..default()
                     },
                     shadow,
-                    children![
-                        (
-                            ImageNode::new(image),
-                            Node {
-                                width: percent(100),
-                                height: percent(100),
-                                ..default()
-                            },
-                        ),
-                        (
-                            // Count chip for grouped stacks.
-                            Text::new(if group.count() > 1 {
-                                format!("×{}", group.count())
-                            } else {
-                                String::new()
-                            }),
-                            tf(fonts, 12.0),
-                            TextColor(palette::INK),
-                            Node {
-                                position_type: PositionType::Absolute,
-                                right: px(3),
-                                bottom: px(2),
-                                ..default()
-                            },
-                        ),
-                    ],
+                    children![(
+                        // Count chip for grouped stacks.
+                        Text::new(if group.count() > 1 {
+                            format!("×{}", group.count())
+                        } else {
+                            String::new()
+                        }),
+                        tf(fonts, 12.0),
+                        TextColor(palette::INK),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            right: px(3),
+                            bottom: px(2),
+                            ..default()
+                        },
+                    ),],
                 ))
                 .id();
+            commands.entity(card).add_child(visual);
             commands.entity(row).add_child(card);
         }
         commands.entity(panel).add_child(row);

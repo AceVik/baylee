@@ -9,6 +9,7 @@ use super::{
     AbilityDef, CardLookup, Cause, Engine, EngineError, GameEvent, ObjectId, ObjectKind, Pending,
     PlayerId, SmallVec, Zone, ZoneLocation, ZonePosition, eval, mana_pay,
 };
+use crate::casting;
 use crate::choice::{CastModeDesc, CastModeKind, ChoicePrompt, YesNoPrompt};
 use crate::object::GameObject;
 use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
@@ -185,6 +186,11 @@ impl<L: CardLookup> Engine<L> {
             .ok_or(EngineError::IllegalAction("unknown card"))?;
         let face = &def.faces[0];
         let pool = &self.state.players[player.get() as usize].mana_pool;
+        // Mycosynth Lattice: every probe below asks whether the pool covers a
+        // cost, and under the Lattice any mana answers any pip.
+        let afford = |cost: &baylee_core::mana::ManaCost| {
+            casting::wild_or_not(casting::mana_is_wild(&self.state), pool, cost)
+        };
         let mut options = Vec::new();
         // Disturb casts come from the graveyard: no normal-cost option.
         let disturb_cast = self
@@ -194,7 +200,7 @@ impl<L: CardLookup> Engine<L> {
             && def.faces.iter().any(|f| f.disturb);
         if disturb_cast {
             for (i, back) in def.faces.iter().enumerate().skip(1) {
-                if back.disturb && mana_pay::can_pay(pool, &back.mana_cost.with_x(0)) {
+                if back.disturb && afford(&back.mana_cost.with_x(0)) {
                     options.push(CastModeDesc {
                         index: (options.len()) as u8,
                         kind: CastModeKind::Face(i),
@@ -215,7 +221,7 @@ impl<L: CardLookup> Engine<L> {
             _ => face.mana_cost,
         };
         // Normal cost (X probed with 0; the real check happens at payment).
-        if mana_pay::can_pay(pool, &normal_cost.with_x(0)) {
+        if afford(&normal_cost.with_x(0)) {
             options.push(CastModeDesc {
                 index: 0,
                 kind: CastModeKind::Normal,
@@ -243,7 +249,7 @@ impl<L: CardLookup> Engine<L> {
             if back.types.contains(baylee_core::types::TypeSet::LAND) || !back.castable_from_hand {
                 continue; // land faces are played; disturb backs come from the graveyard
             }
-            if mana_pay::can_pay(pool, &back.mana_cost.with_x(0)) {
+            if afford(&back.mana_cost.with_x(0)) {
                 options.push(CastModeDesc {
                     index: (options.len()) as u8,
                     kind: CastModeKind::Face(i),
@@ -258,7 +264,7 @@ impl<L: CardLookup> Engine<L> {
             };
             for (i, mode) in modes.iter().enumerate() {
                 let cost = mode.cost_override.unwrap_or(face.mana_cost);
-                if mana_pay::can_pay(pool, &cost.with_x(0)) {
+                if afford(&cost.with_x(0)) {
                     options.push(CastModeDesc {
                         index: (options.len()) as u8,
                         kind: CastModeKind::Mode(i),

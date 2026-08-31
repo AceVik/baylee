@@ -13,6 +13,7 @@ argon2.workspace = true
 axum.workspace = true
 baylee-ai.workspace = true
 baylee-cards.workspace = true
+baylee-catalog.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
 baylee-gamehost.workspace = true

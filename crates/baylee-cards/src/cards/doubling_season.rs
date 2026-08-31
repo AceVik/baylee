@@ -2,9 +2,8 @@
 //! Oracle: If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.
 //! Oracle: If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.
 //! Set: FDN #216 — Foundations | Scryfall ID: f2c4f80e-84a0-463b-82c3-5c6503809351 | Oracle ID: 01546b7d-a233-4176-8843-d732074dc5b6
-// IMPLEMENTED — token creation and counter placement doubling (all counter
-// kinds on permanents). NOT SUPPORTED yet: planeswalker ETB-loyalty
-// doubling routes through this same hook once walkers land (M2.S7).
+// IMPLEMENTED — token creation and counter placement (every counter kind on a
+// permanent), including a planeswalker's starting loyalty (CR 306.5b/614.16).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{

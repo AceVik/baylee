@@ -1,0 +1,184 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+`AGENTS.md` is the short contract (conventions, legal guardrails) and stays
+authoritative — read it too. This file adds the commands it does not list and
+the architecture you would otherwise have to reconstruct from a dozen files.
+
+## Commands
+
+```bash
+cargo build --workspace                                  # build
+cargo test --workspace --all-targets                     # test
+cargo clippy --workspace --all-targets -- -D warnings    # lint (pedantic, CI-enforced)
+cargo fmt --all                                          # format
+```
+
+Single tests. Most engine tests are inline `#[cfg(test)]` modules under
+`crates/baylee-engine/src/engine/*_tests.rs`, so the module path is the filter:
+
+```bash
+cargo test -p baylee-engine keyword_tests                # whole module
+cargo test -p baylee-engine --lib -- --exact engine::keyword_tests::no_card_claims_a_keyword_the_engine_ignores
+cargo test -p baylee-engine --lib -- --list              # discover exact names
+```
+
+Card, codegen, and data tooling (`xtask`):
+
+```bash
+cargo run -p xtask -- codegen            # regen subtypes, card stubs, registry, forge index
+cargo run -p xtask -- codegen --check    # CI: fail if generated files are stale
+cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
+cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + forge data side by side
+cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages for unimplemented cards
+```
+
+`codegen`, `explain`, and `card-batch` default `--forge` to
+`../mtg/forge-reference/forge-gui/res/cardsfolder` (read-only GPL reference,
+never copied into this repo) and `--cache` to `data/scryfall-cache`.
+
+Running things:
+
+```bash
+cargo run -p baylee-client                               # Bevy duel client, solo vs AI
+trunk serve index.html --release                         # from crates/baylee-client/ — browser client on :8080
+./target/debug/baylee-gateway                            # accounts/decks/lobby, 0.0.0.0:28766
+./target/debug/baylee-engine-server                      # one process per game, 127.0.0.1:28765
+cargo bench -p baylee-engine -- --quick                  # numbers to compare against docs/perf-baseline.md
+```
+
+Always build the browser client `--release` (a dev-profile wasm is ~350 MB vs
+~36 MB). Servers are quiet without `RUST_LOG=info` — the tracing subscriber
+reads `EnvFilter::from_default_env()`.
+
+The card catalog (card text, not images) lives in PostgreSQL and is optional:
+
+```bash
+docker compose up -d                                     # postgres 18 on :5432
+export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
+cargo run -p baylee-catalog -- ingest                     # ~118k English printings, ~30 s
+cargo run -p baylee-catalog -- ingest --all-languages     # every language (392 MB)
+cargo run -p baylee-catalog -- search "lightning bolt"
+```
+
+Without `DATABASE_URL` the gateway starts as before and simply serves no card
+text; the client then draws faces from what the engine projects. Copy
+`.env.example` to `.env` for the client's `BAYLEE_GATEWAY` and this URL.
+
+Env vars: gateway takes `PORT`, `STORE_PATH` (default `gateway-store.json` in
+the working directory, and *not* gitignored), `BAYLEE_REGISTRATION=off`,
+`BAYLEE_TRUSTED_PROXIES`, `DATABASE_URL`. Engine-server takes `PORT` and
+`BAYLEE_BIND` — it defaults to loopback deliberately: it has no
+authentication, every action runs as seat 0, so binding it publicly hands out
+the game.
+
+CI (`.github/workflows/ci.yml`) runs more than the four commands above: the
+test suite **also in `--release`** (a `debug_assert!` once hid mana payment
+from every release build), `codegen --check`, `validate`, a
+`wasm32-unknown-unknown` check of the client, benches, an MSRV check against
+exactly 1.88, `cargo-deny`, and `cargo-audit`.
+
+## Architecture
+
+### One-way data flow, and why each seam exists
+
+```
+baylee-core ──> baylee-engine ──> baylee-gamehost ──> baylee-{engine-server, gateway}
+     │               │                   │
+     │               │                   └── builds ──> baylee-view ──┐
+     │               └── choice taxonomy ─────────────────────────────┤
+     └──────────────────────────────────────> baylee-client-core <────┘
+                                                     │
+                                                     └──> baylee-client (Bevy)
+```
+
+Each arrow drops a capability on purpose, so test what you can without the
+layer above:
+
+- **`baylee-view`** does not depend on the rules kernel at all — only on
+  `baylee-core` ids plus serde. A spectator overlay needs nothing else.
+- **`baylee-client-core`** holds the whole client brain (layout, board model,
+  interaction state machine, image policy) and knows no renderer, which is why
+  it carries the bulk of the client's tests.
+- **`baylee-protocol`** is the protobuf wire framing (`Envelope`); complex engine
+  structures (`Pending`, `PlayerAction`) ride inside it as `serde_json` payloads.
+  Both servers and `LocalHost` use it, so an in-process duel and a networked one
+  exercise the same envelopes.
+- **`baylee-client`** is the only crate that needs a GPU.
+
+`baylee-core`, `baylee-protocol`, `baylee-view`, `baylee-client-core` and
+`baylee-client` must all keep compiling for `wasm32-unknown-unknown`.
+
+### The engine advances only through choices
+
+`Engine` exposes essentially `pending()`, `apply(player, action)`, `state()`,
+`journal()`, `snapshot_hash()`. There is no "cast this spell" method: the
+engine publishes a `Pending` with *enumerated legal actions*, and
+`apply` validates the answer against that same enumeration. A client cannot
+name an option the engine did not offer — e.g. combat's legal defenders
+(player or planeswalker, CR 508.1a) come from `Pending::ChooseAttackers`, not
+from the client's own candidate list.
+
+Consequences worth knowing before you touch the engine: continuous effects are
+a cached layer projection (validity = one `u64` generation compare), events go
+propose → replacement → apply → journal → triggers, SBAs run as a fixpoint
+before every priority grant, and endless loops are found with Brent's
+algorithm over a rules-visible `loop_signature` (not `snapshot_hash`, which
+never repeats). `docs/engine-internals.md` is normative on all of this.
+
+Determinism is the constraint behind most engine rules: seeded ChaCha8, no
+`HashMap` iteration in hot paths, and `std::time`, `std::random` and the
+`algebraic_*` float methods are banned outright in `baylee-engine`/`-core`.
+The engine is also strictly synchronous — async lives only in `engine-server`
+and `gateway`.
+
+### Cards: generated stubs, hand-finished, machine-checked
+
+`cargo xtask codegen` writes the stub, the registry tables
+(`crates/baylee-cards/src/generated.rs`, `cards/mod.rs`) and subtype constants
+(`crates/baylee-core/src/generated/subtypes.rs`). You then edit **only**
+`coverage`, `keywords`, `abilities` in `crates/baylee-cards/src/cards/<slug>.rs`;
+`index`, `oracle_id`, `scryfall_id` and `faces` stay as generated. The `//!`
+header (name, cost, oracle text, set, Scryfall id) is the human-verification
+surface and `xtask validate` fails if it drifts from the `CardDef` built below
+it. Field defaults come from `CardDef::DEFAULT` / `FaceDef::DEFAULT` via a
+struct-update tail — never restate a default. A mechanic the DSL cannot express
+gets `Coverage::Partial("reason")` and a `// NOT SUPPORTED:` comment; extend
+the DSL rather than working around it. `docs/card-dsl.md` is the authoring
+contract, `docs/llm-learnings.md` gets updated after every card batch.
+
+Several tests exist purely to turn convention into a build failure — a card
+sitting at the wrong `CardIndex`, or a card claiming a keyword no rule reads.
+Expect that shape when adding data.
+
+### Hidden information is unrepresentable, not omitted
+
+`baylee-view` carries **projected** characteristics (P/T after anthems, a
+clone's name, an animated land's types), because a client cannot run the layer
+system. Hidden information has no field to leak through: libraries are counts,
+another seat's hand is a count, a face-down permanent's `card` is `None` for
+anyone not entitled to look. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`,
+currently 3) is asserted in gamehost and client tests — bump it on any breaking
+view change so a client refuses a host it cannot render.
+
+The engine never carries card text, so a client names an ability through
+`AbilityRef { card, index }`; reserved indices (`SPELL`, `ENTERS`, …) count
+down from `u32::MAX`. The same handle addresses per-account standing answers,
+which is how the gateway replays "always say yes to this trigger" into a new
+game.
+
+### Hosts, and where the client actually gets its game
+
+The renderer never touches a socket; it talks to a `DuelHost`. The standalone
+client (`crates/baylee-client/src/main.rs`) installs a **`LocalHost` — an
+in-process engine, solo vs the house AI** from `data/acceptance-decks.txt`. It
+does not talk to the gateway or the engine-server, even when those are running;
+messages still travel as the same protobuf envelopes a socket would carry.
+
+Known gap, easy to misread from the code: `client-core`'s `Interaction` exposes
+and tests `declare_attacker`, `declare_blocker` and `choose_index`, but
+`crates/baylee-client/src/input.rs` calls none of them. Combat is currently
+answered only by `automation::AutoAnswer::DeclareNoAttackers/DeclareNoBlockers`
+— i.e. with empty lists. The client looks like it has combat and does not; the
+missing wiring is in `input.rs`/`hud.rs`, not in `interaction.rs`.

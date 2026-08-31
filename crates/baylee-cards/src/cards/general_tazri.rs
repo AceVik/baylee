@@ -2,9 +2,8 @@
 //! Oracle: When General Tazri enters, you may search your library for an Ally creature card, reveal it, put it into your hand, then shuffle.
 //! Oracle: {W}{U}{B}{R}{G}: Ally creatures you control get +X/+X until end of turn, where X is the number of colors among those creatures.
 //! Set: OGW #19 — Oath of the Gatewatch | Scryfall ID: 34e9aa86-1a31-4c0f-928d-923f066286b6 | Oracle ID: b0f19cba-1339-4518-8320-d7b1dcaf2eb0
-// PARTIAL — ETB ally tutor implemented. NOT SUPPORTED yet: the {WUBRG}
-// activated pump needs Amount-driven modifiers (M2.S7). Reveal is
-// presentation-only and lands with the protocol (M3).
+// IMPLEMENTED — ETB ally tutor and the {WUBRG} pump, whose X is the number of
+// colours among the Allies. Reveal is presentation-only (protocol, M3).
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{

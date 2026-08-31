@@ -21,10 +21,12 @@
 //! table at frame rate on a phone.
 
 use crate::Duel;
+use crate::face;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
 use baylee_client_core::images::ImageKey;
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH, SeatSlot, pack_lane};
+use baylee_core::color::ColorSet;
 use baylee_core::ids::ObjectId;
 use bevy::asset::RenderAssetUsages;
 use bevy::light::NotShadowCaster;
@@ -138,6 +140,18 @@ pub struct SceneIndex {
     materials: HashMap<ImageKey, Handle<StandardMaterial>>,
     quad: Option<Handle<Mesh>>,
     blank: Option<Handle<StandardMaterial>>,
+    /// Text entities of the constructed face, per card currently showing one,
+    /// with the snapshot they were built from.
+    ///
+    /// Held here rather than found by query because the face comes and goes
+    /// with a held key: the entities have to be removed as cheaply as they
+    /// were made, and a card that no longer wants one must not keep a stale
+    /// line of text glued to it. The sequence number is what rebuilds a face
+    /// whose card changed (an anthem, a counter, a clone) without rebuilding
+    /// every face every frame.
+    faces: HashMap<ObjectId, (u64, Vec<Entity>)>,
+    /// One material per colour identity, for cards drawing their face.
+    face_materials: HashMap<u8, Handle<StandardMaterial>>,
 }
 
 /// A card's corner radius (~10% of the width — clearly rounded, matching
@@ -251,6 +265,7 @@ pub fn despawn_stage(
         commands.entity(entity).despawn();
     }
     index.cards.clear();
+    index.faces.clear();
 }
 
 /// Places table-space coordinates into the world.
@@ -331,6 +346,10 @@ pub fn sync_scene(
     mut textures: Option<ResMut<CardTextures>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     assets: Res<AssetServer>,
+    texts: Res<crate::cardtext::CardTexts>,
+    mode: Res<crate::face::FaceMode>,
+    settings: Res<crate::settings::ClientSettings>,
+    fonts: Option<Res<crate::hud::UiFonts>>,
     mut cards: Query<(
         &mut Transform,
         &mut CardVisual,
@@ -357,26 +376,55 @@ pub fn sync_scene(
         .map(|i| i.selected().iter().copied().collect())
         .unwrap_or_default();
 
+    // The snapshot the faces below were built from: rules text is projected,
+    // so a face is only stale when the game state that produced it moved on.
+    let seq = duel.view.as_ref().map_or(0, |v| v.seq);
+
     for placement in &wanted {
         live.insert(placement.object);
 
-        // One material per texture, created on first use.
-        let material = match placement.art {
-            Some(key) => {
-                if let Some(handle) = index.materials.get(&key) {
-                    handle.clone()
-                } else {
-                    let image = textures.get(key, statics, &assets);
-                    let handle = materials.add(StandardMaterial {
-                        base_color_texture: Some(image),
-                        unlit: true,
-                        ..default()
-                    });
-                    index.materials.insert(key, handle.clone());
-                    handle
-                }
+        // A card either wears its art or its own text, never both — text on
+        // top of artwork is unreadable at any zoom.
+        let show_face = face::wants_face(&mode, &settings, textures, placement.art);
+        let object = duel
+            .view
+            .as_ref()
+            .and_then(|view| view.object(placement.object));
+
+        let material = if show_face {
+            // One material per colour identity, so a mono-green board is one
+            // material however many creatures are on it.
+            let colors = object.map_or(ColorSet::EMPTY, |o| o.colors);
+            if let Some(handle) = index.face_materials.get(&colors.bits()) {
+                handle.clone()
+            } else {
+                let handle = materials.add(StandardMaterial {
+                    base_color: face::table_color(colors),
+                    unlit: true,
+                    ..default()
+                });
+                index.face_materials.insert(colors.bits(), handle.clone());
+                handle
             }
-            None => blank.clone().unwrap_or_default(),
+        } else {
+            // One material per texture, created on first use.
+            match placement.art {
+                Some(key) => {
+                    if let Some(handle) = index.materials.get(&key) {
+                        handle.clone()
+                    } else {
+                        let image = textures.get(key, statics, &assets);
+                        let handle = materials.add(StandardMaterial {
+                            base_color_texture: Some(image),
+                            unlit: true,
+                            ..default()
+                        });
+                        index.materials.insert(key, handle.clone());
+                        handle
+                    }
+                }
+                None => blank.clone().unwrap_or_default(),
+            }
         };
 
         let mut transform =
@@ -391,7 +439,7 @@ pub fn sync_scene(
             transform.scale *= HOVER_SCALE;
         }
 
-        if let Some(&entity) = index.cards.get(&placement.object) {
+        let entity = if let Some(&entity) = index.cards.get(&placement.object) {
             // Existing card: update in place. Touching only what changed is
             // what keeps a large board cheap.
             if let Ok((mut current, mut visual, mut current_material)) = cards.get_mut(entity) {
@@ -405,45 +453,70 @@ pub fn sync_scene(
                     current_material.0 = material;
                 }
             }
+            entity
+        } else {
+            let entity = commands
+                .spawn((
+                    DuelStage,
+                    CardVisual {
+                        object: placement.object,
+                        count: placement.count,
+                    },
+                    Mesh3d(quad.clone()),
+                    MeshMaterial3d(material),
+                    transform,
+                    NotShadowCaster,
+                ))
+                .id();
+            index.cards.insert(placement.object, entity);
+
+            // A counted group gets a few offset cards behind it so the stack
+            // reads as physical depth rather than as a number floating on one
+            // card.
+            let depth = placement.count.saturating_sub(1).min(MAX_STACK_DEPTH);
+            for i in 1..=depth {
+                let back = card_transform(
+                    &placement.slot,
+                    placement.position + Vec2::splat(0.02 * i as f32),
+                    placement.tapped,
+                    STACK_LIFT * i as f32,
+                );
+                commands.spawn((
+                    DuelStage,
+                    Mesh3d(quad.clone()),
+                    MeshMaterial3d(blank.clone().unwrap_or_default()),
+                    back,
+                    NotShadowCaster,
+                ));
+            }
+            entity
+        };
+
+        // The text children follow the same decision as the material, and are
+        // rebuilt when the snapshot they were made from is no longer current:
+        // an anthem, a counter or a clone all change what the face should say.
+        let current = index.faces.get(&placement.object).map(|(seq, _)| *seq);
+        if show_face && current == Some(seq) {
             continue;
         }
-
-        let entity = commands
-            .spawn((
-                DuelStage,
-                CardVisual {
-                    object: placement.object,
-                    count: placement.count,
-                },
-                Mesh3d(quad.clone()),
-                MeshMaterial3d(material),
-                transform,
-                NotShadowCaster,
-            ))
-            .id();
-        index.cards.insert(placement.object, entity);
-
-        // A counted group gets a few offset cards behind it so the stack reads
-        // as physical depth rather than as a number floating on one card.
-        let depth = placement.count.saturating_sub(1).min(MAX_STACK_DEPTH);
-        for i in 1..=depth {
-            let back = card_transform(
-                &placement.slot,
-                placement.position + Vec2::splat(0.02 * i as f32),
-                placement.tapped,
-                STACK_LIFT * i as f32,
-            );
-            commands.spawn((
-                DuelStage,
-                Mesh3d(quad.clone()),
-                MeshMaterial3d(blank.clone().unwrap_or_default()),
-                back,
-                NotShadowCaster,
-            ));
+        if let Some((_, previous)) = index.faces.remove(&placement.object) {
+            for text in previous {
+                commands.entity(text).despawn();
+            }
         }
+        if !show_face {
+            continue;
+        }
+        let Some((object, fonts)) = object.zip(fonts.as_deref()) else {
+            continue;
+        };
+        let built = face::of_object(object, &texts);
+        let spawned = face::spawn_world(&mut commands, entity, &built, fonts);
+        index.faces.insert(placement.object, (seq, spawned));
     }
 
     // Anything no longer on the board leaves the scene.
+
     let stale: Vec<ObjectId> = index
         .cards
         .keys()
@@ -452,6 +525,9 @@ pub fn sync_scene(
         .collect();
     for id in stale {
         if let Some(entity) = index.cards.remove(&id) {
+            // Despawning a card takes its text children with it, so the map
+            // only has to forget them.
+            index.faces.remove(&id);
             commands.entity(entity).despawn();
         }
     }

@@ -27,17 +27,16 @@
 //! game state (a spectator overlay, an MMO world showing a duel in progress)
 //! needs nothing but this crate.
 
-#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, PrintRef};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 3;
+pub const VIEW_VERSION: u32 = 5;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -415,6 +414,23 @@ pub struct PublicObject {
     pub types: TypeSet,
     /// Projected supertypes.
     pub supertypes: SupertypeSet,
+    /// Projected subtypes.
+    ///
+    /// Carried for the same reason as [`Self::types`]: a client that builds a
+    /// type line cannot derive it from the printed card. An animated land is
+    /// genuinely a `Creature — Elemental`, and a card that gained a type keeps
+    /// its printed ones — only the projection knows the answer.
+    pub subtypes: SubtypeSet,
+    /// Which token this is, for permanents with no card behind them.
+    ///
+    /// The index into `baylee_cards::tokens::ALL`. A token has no printing
+    /// and therefore no [`Self::card`], which left a client with nothing to
+    /// draw but a coloured rectangle; this is the handle it keys token art
+    /// on, and the one thing that distinguishes a Treasure from a Clue when
+    /// both project to "an artifact named something". `None` for cards and
+    /// for the tokens a copy effect makes, which are copies of a card rather
+    /// than of a registry token.
+    pub token: Option<u16>,
     /// Projected colors.
     pub colors: ColorSet,
     /// Projected keyword bitset (`baylee_cards_dsl::KeywordSet` bits).
@@ -748,6 +764,8 @@ mod tests {
             status: ObjectStatus::NONE,
             types: TypeSet::CREATURE,
             supertypes: SupertypeSet::default(),
+            subtypes: SubtypeSet::EMPTY,
+            token: None,
             colors: ColorSet::default(),
             keywords: 0,
             power: Some(1),

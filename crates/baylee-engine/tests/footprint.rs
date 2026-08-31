@@ -25,7 +25,13 @@ const CACHE_BUDGET: usize = 32;
 
 /// One object: identity, zone, base characteristics, counters, riders,
 /// targets and the cache slot.
-const OBJECT_BUDGET: usize = 512;
+///
+/// Raised 512 → 528 when a token started remembering the `TokenDef` it was
+/// created from. That pointer is what makes a Treasure sacrificeable and
+/// gives the client its art key: before it, every token was an anonymous
+/// permanent whose printed abilities did not exist. Paid deliberately, and
+/// recorded in `docs/perf-baseline.md`.
+const OBJECT_BUDGET: usize = 528;
 
 #[test]
 fn game_object_stays_within_its_budget() {

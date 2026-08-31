@@ -13,7 +13,7 @@ use baylee_client_core::images::{ArtSize, ImageKey, TextureBudget, resolve};
 use baylee_view::GameStatic;
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
-use bevy::platform::collections::HashMap;
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
@@ -58,6 +58,13 @@ pub struct CardTextures {
     card_back: Handle<Image>,
     /// Requests issued this frame, for diagnostics and tests.
     issued: usize,
+    /// Printings whose art will not arrive.
+    ///
+    /// A printing with no artwork at the requested size, a 404, or a client
+    /// with no network all end here, and every one of them is a card the
+    /// player would otherwise see as a blank rectangle. The constructed face
+    /// takes over for exactly these.
+    failed: HashSet<ImageKey>,
 }
 
 impl CardTextures {
@@ -68,7 +75,22 @@ impl CardTextures {
             handles: HashMap::new(),
             card_back: images.add(solid_texture([26, 30, 38, 255])),
             issued: 0,
+            failed: HashSet::new(),
         }
+    }
+
+    /// Whether this printing's art is known not to be coming.
+    #[must_use]
+    pub fn has_failed(&self, key: ImageKey) -> bool {
+        self.failed.contains(&key)
+    }
+
+    /// Records a printing whose art will not arrive.
+    ///
+    /// The load-state sweep is the normal caller; a test needs it too, because
+    /// there is no way to fail a load without a network.
+    pub fn mark_failed(&mut self, key: ImageKey) {
+        self.failed.insert(key);
     }
 
     /// The placeholder texture.
@@ -104,6 +126,10 @@ impl CardTextures {
             return handle.clone();
         }
         let Some(request) = resolve(statics, key) else {
+            // An unresolvable printing never even becomes a request, so no
+            // load state will ever report it; it is a permanent failure the
+            // moment it is asked for.
+            self.failed.insert(key);
             return self.card_back.clone();
         };
         let handle: Handle<Image> = assets.load(request.url);
@@ -143,6 +169,35 @@ impl CardTextures {
         } else {
             ArtSize::Small
         }
+    }
+}
+
+/// Notes which loads have failed, so the renderer can fall back to text.
+///
+/// Bevy reports a failed load only through the asset server, and nothing asked
+/// it before: a 404 left a card as an untextured rectangle for the rest of the
+/// game. Checking once per frame is cheap — the map holds at most a board's
+/// worth of handles — and it is the only signal that distinguishes "still
+/// loading" from "never arriving".
+pub fn note_failed_loads(mut textures: ResMut<CardTextures>, assets: Res<AssetServer>) {
+    let newly_failed: Vec<ImageKey> = textures
+        .handles
+        .iter()
+        .filter(|(key, handle)| {
+            !textures.failed.contains(*key)
+                && matches!(
+                    assets.get_load_state(*handle),
+                    Some(bevy::asset::LoadState::Failed(_))
+                )
+        })
+        .map(|(key, _)| *key)
+        .collect();
+    for key in newly_failed {
+        bevy::log::debug!(
+            ?key,
+            "card art failed to load; falling back to the card face"
+        );
+        textures.failed.insert(key);
     }
 }
 

@@ -164,6 +164,37 @@ impl TypeSet {
     pub const fn is_instant_or_sorcery(self) -> bool {
         self.intersects(Self::INSTANT.union(Self::SORCERY))
     }
+
+    /// The type words in the set, in the order a card prints them.
+    ///
+    /// Printed order is not the bit order and not alphabetical: a card reads
+    /// "Artifact Creature", never "Creature Artifact", and "Land Creature"
+    /// (Dryad Arbor) rather than the reverse. The order below is that printed
+    /// order, so a constructed type line matches the physical card.
+    pub fn words(self) -> impl Iterator<Item = &'static str> {
+        const PRINTED_ORDER: [(TypeSet, &str); 16] = [
+            (TypeSet::KINDRED, "Kindred"),
+            (TypeSet::ARTIFACT, "Artifact"),
+            (TypeSet::ENCHANTMENT, "Enchantment"),
+            (TypeSet::LAND, "Land"),
+            (TypeSet::CREATURE, "Creature"),
+            (TypeSet::PLANESWALKER, "Planeswalker"),
+            (TypeSet::BATTLE, "Battle"),
+            (TypeSet::INSTANT, "Instant"),
+            (TypeSet::SORCERY, "Sorcery"),
+            (TypeSet::DUNGEON, "Dungeon"),
+            (TypeSet::PLANE, "Plane"),
+            (TypeSet::PHENOMENON, "Phenomenon"),
+            (TypeSet::SCHEME, "Scheme"),
+            (TypeSet::VANGUARD, "Vanguard"),
+            (TypeSet::CONSPIRACY, "Conspiracy"),
+            (TypeSet::ATTRACTION, "Attraction"),
+        ];
+        PRINTED_ORDER
+            .into_iter()
+            .filter(move |(t, _)| self.contains(*t))
+            .map(|(_, w)| w)
+    }
 }
 
 impl core::fmt::Debug for TypeSet {
@@ -241,6 +272,23 @@ impl SupertypeSet {
     #[must_use]
     pub const fn bits(self) -> u8 {
         self.0
+    }
+
+    /// The supertype words in the set, in printed order (CR 205.4a — they
+    /// come before every card type: "Legendary Snow Artifact").
+    pub fn words(self) -> impl Iterator<Item = &'static str> {
+        const PRINTED_ORDER: [(SupertypeSet, &str); 6] = [
+            (SupertypeSet::BASIC, "Basic"),
+            (SupertypeSet::LEGENDARY, "Legendary"),
+            (SupertypeSet::ONGOING, "Ongoing"),
+            (SupertypeSet::SNOW, "Snow"),
+            (SupertypeSet::WORLD, "World"),
+            (SupertypeSet::HOST, "Host"),
+        ];
+        PRINTED_ORDER
+            .into_iter()
+            .filter(move |(t, _)| self.contains(*t))
+            .map(|(_, w)| w)
     }
 }
 
@@ -402,6 +450,39 @@ impl SubtypeSet {
         &self.0
     }
 
+    /// Whether every subtype in `other` is also in this set.
+    #[must_use]
+    pub const fn contains_all(self, other: Self) -> bool {
+        let mut i = 0;
+        while i < 8 {
+            if self.0[i] & other.0[i] != other.0[i] {
+                return false;
+            }
+            i += 1;
+        }
+        true
+    }
+
+    /// The subtypes in the set, in ascending id order.
+    ///
+    /// Ascending id order is also kind order (creature types, then artifact,
+    /// then …), which is what a type line wants: ids are assigned per kind by
+    /// codegen. Iteration walks set bits rather than all 512 slots, so a card
+    /// with two subtypes costs two steps, not five hundred.
+    pub fn iter(self) -> impl Iterator<Item = SubtypeId> {
+        (0..8).flat_map(move |word| {
+            let mut bits = self.0[word];
+            core::iter::from_fn(move || {
+                if bits == 0 {
+                    return None;
+                }
+                let bit = bits.trailing_zeros();
+                bits &= bits - 1;
+                Some(SubtypeId::new((word as u16) * 64 + bit as u16))
+            })
+        })
+    }
+
     /// The five basic land types (CR 305.6).
     ///
     /// Not a codegen range — the basics are five specific ids inside the
@@ -435,6 +516,47 @@ mod tests {
         assert!(TypeSet::CREATURE.is_permanent());
         assert!(!TypeSet::INSTANT.is_permanent());
         assert!(SupertypeSet::from_word("Legendary").is_some());
+    }
+
+    /// `iter` is what a client turns a projected object into a type line
+    /// with, so it has to walk set bits in ascending id order and nothing
+    /// else — an out-of-order or over-long iteration would misprint every
+    /// type line rather than fail loudly.
+    #[test]
+    fn subtypes_iterate_in_ascending_id_order() {
+        use crate::generated::subtypes;
+        let set = SubtypeSet::from_slice(&[
+            subtypes::land::FOREST,
+            subtypes::creature::WIZARD,
+            subtypes::creature::ALLY,
+        ]);
+        let ids: Vec<_> = set.iter().collect();
+        assert_eq!(ids.len(), 3);
+        assert!(ids.windows(2).all(|w| w[0].get() < w[1].get()));
+        assert_eq!(ids[0], subtypes::creature::ALLY);
+        assert_eq!(ids[2], subtypes::land::FOREST);
+        assert_eq!(SubtypeSet::EMPTY.iter().count(), 0);
+        assert_eq!(
+            SubtypeSet::ALL_CREATURE.iter().count(),
+            SubtypeSet::ALL_CREATURE.len() as usize
+        );
+    }
+
+    /// Changeling grants every creature type; a client has to be able to ask
+    /// "is this the all-types case" cheaply so it can collapse the type line
+    /// instead of printing three hundred words.
+    #[test]
+    fn contains_all_recognises_the_changeling_case() {
+        use crate::generated::subtypes;
+        assert!(SubtypeSet::ALL_CREATURE.contains_all(SubtypeSet::ALL_CREATURE));
+        assert!(
+            SubtypeSet::ALL_CREATURE
+                .contains_all(SubtypeSet::from_slice(&[subtypes::creature::WIZARD]))
+        );
+        assert!(
+            !SubtypeSet::from_slice(&[subtypes::creature::WIZARD])
+                .contains_all(SubtypeSet::ALL_CREATURE)
+        );
     }
 
     #[test]

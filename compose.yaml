@@ -1,0 +1,29 @@
+# Local Postgres for the card catalog.
+#
+# Only the catalog needs a database: accounts, decks and lobbies still live in
+# the gateway's JSON store, so a gateway started without this compose file runs
+# every game — it just serves no card text.
+#
+#   docker compose up -d
+#   export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
+#   cargo run -p baylee-catalog -- ingest        # English, ~78 MB compressed
+#   cargo run -p baylee-catalog -- ingest --all-languages   # every language
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: baylee
+      POSTGRES_PASSWORD: baylee
+      POSTGRES_DB: baylee
+    ports:
+      - "5432:5432"
+    volumes:
+      - catalog-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baylee -d baylee"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  catalog-data:

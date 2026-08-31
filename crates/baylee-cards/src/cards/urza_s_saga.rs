@@ -20,16 +20,7 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static CONSTRUCT: TokenDef = TokenDef {
-    name: "Construct",
-    colors: ColorSet::EMPTY,
-    types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
-    supertypes: SupertypeSet::EMPTY,
-    subtypes: &[creature::CONSTRUCT],
-    power: Some(0),
-    toughness: Some(0),
-    keywords: KeywordSet::EMPTY,
-};
+use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
 static ARTIFACT_F: Filter = Filter::HasType(TypeSet::ARTIFACT);
 static ARTIFACT_CMC1: Filter =
     Filter::And(&[Filter::HasType(TypeSet::ARTIFACT), Filter::CmcAtMost(1)]);

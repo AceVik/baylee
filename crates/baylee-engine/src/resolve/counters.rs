@@ -41,6 +41,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     new,
                 });
             }
+            state.invalidate_projections();
             None
         }
         Effect::AddCounterFilter {
@@ -72,6 +73,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     });
                 }
             }
+            state.invalidate_projections();
             None
         }
         Effect::DrainAllCountersIntoSelf => {
@@ -93,6 +95,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 src.counters
                     .add(baylee_cards_dsl::CounterKind::P1P1, drained);
             }
+            state.invalidate_projections();
             None
         }
         Effect::SetPTFilter {

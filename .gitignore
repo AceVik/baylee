@@ -7,3 +7,6 @@
 dist/
 # Bevy's on-disk web asset cache (Scryfall images, fetched at runtime)
 .web-asset-cache/
+
+# local configuration (see .env.example)
+.env

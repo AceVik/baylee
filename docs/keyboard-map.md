@@ -12,6 +12,8 @@ Binding defaults (rebindable, persisted per account):
 | Activate the card under the cursor (play / select) | `E` | implemented |
 | Inspect an opponent's board (camera frames the pod) | `Shift+1..9` | implemented |
 | Slide the own-board overlay down/up | `X` (or the knob) | implemented |
+| Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
+| Keep the card text on (latch, persisted) | `T` | implemented |
 | Battlefield camera: pan | arrows, left-drag, touch-drag | implemented |
 | Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
 | Battlefield camera: rotate | `Shift+←/→`, right-drag, rotate gesture | implemented |

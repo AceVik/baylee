@@ -193,6 +193,32 @@ New `Modifier` variants must be added to THREE places: the
 
 ## Worked examples
 
+A land with two basic land types must print its own mana ability. CR 305.6
+grants one ability *per* basic type, and the engine's intrinsic shortcut
+(`casting::intrinsic_mana`) can only return a single colour with no way to
+ask which — so it declines any land with more than one, and such a land taps
+for nothing at all unless the card supplies the choice itself:
+
+```rust
+abilities: &[AbilityDef::Activated {
+    cost: Cost::TAP,
+    effects: &[Effect::AddManaChoice {
+        colors: &[ManaColor::White, ManaColor::Black],
+        amount: Amount::Fixed(1),
+        combination: false,
+    }],
+    target: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: true,
+    zone: ActivationZone::Battlefield,
+}],
+```
+
+`baylee-cards`'s `a_land_with_two_basic_types_prints_its_own_mana_ability`
+turns that into a build failure. A land with exactly one basic type (a plain
+Swamp) may rely on the shortcut, though every basic in the pool prints the
+ability anyway.
+
 Fetchland (activated with composite cost + filtered search):
 
 ```rust

@@ -96,4 +96,161 @@ mod tests {
             "acceptance pool contains stubs: {unimplemented:?}"
         );
     }
+
+    /// CR 305.6 gives a land one mana ability per basic land type, so a dual
+    /// has two and its controller picks. The engine's intrinsic shortcut
+    /// (`casting::intrinsic_mana`) can only return one colour and has no way
+    /// to ask, so it deliberately declines any land with more than one basic
+    /// type — such a land is playable only through the `AddManaChoice`
+    /// ability printed on its card.
+    ///
+    /// A file that forgets it produces a land that taps for nothing at all,
+    /// which is quiet in a way a rules bug should never be: the four
+    /// shocklands spent their whole life tapping for exactly one of their two
+    /// colours because the shortcut answered for them.
+    #[test]
+    fn a_land_with_two_basic_types_prints_its_own_mana_ability() {
+        use baylee_cards_dsl::{AbilityDef, Effect};
+        use baylee_core::generated::subtypes::land;
+        use baylee_core::types::TypeSet;
+
+        const BASICS: [baylee_core::ids::SubtypeId; 5] = [
+            land::PLAINS,
+            land::ISLAND,
+            land::SWAMP,
+            land::MOUNTAIN,
+            land::FOREST,
+        ];
+        let mut offenders = Vec::new();
+        for (_, def) in generated::ALL {
+            for (i, face) in def.faces.iter().enumerate() {
+                if !face.types.contains(TypeSet::LAND) {
+                    continue;
+                }
+                let basics = BASICS.iter().filter(|b| face.subtypes.contains(b)).count();
+                if basics < 2 {
+                    continue;
+                }
+                let makes_mana = def.abilities_for_face(i).iter().any(|a| {
+                    let AbilityDef::Activated { effects, .. } = a else {
+                        return false;
+                    };
+                    effects
+                        .iter()
+                        .any(|e| matches!(e, Effect::AddMana { .. } | Effect::AddManaChoice { .. }))
+                });
+                if !makes_mana {
+                    offenders.push(format!("{} (face {i})", def.name()));
+                }
+            }
+        }
+        offenders.sort();
+        assert!(
+            offenders.is_empty(),
+            "these lands have two basic types and no printed mana ability, so \
+             they tap for nothing: {offenders:?}"
+        );
+    }
+
+    /// CR 903.4: a card's color identity covers the colored mana symbols in
+    /// its cost *and* in its rules text, on every face. `color_identity` is
+    /// hand-written in each file while the costs are read by the engine, so
+    /// the two can disagree — and nothing else would notice, because the
+    /// engine never reads `color_identity` at all. The gateway does: it is
+    /// what makes a commander deck legal or illegal.
+    ///
+    /// Checked as a lower bound, which is the half that can be decided from
+    /// the `CardDef` alone. Mana symbols in reminder or rules text (a dual
+    /// land's "{T}: Add {B} or {R}") legitimately push the identity wider,
+    /// so a superset is fine; a card whose own cost names a colour it does
+    /// not claim is not.
+    #[test]
+    fn no_card_costs_a_colour_its_identity_leaves_out() {
+        use baylee_cards_dsl::AbilityDef;
+        use baylee_core::color::ColorSet;
+
+        let mut offenders = Vec::new();
+        for (_, def) in generated::ALL {
+            let mut used = ColorSet::EMPTY;
+            let mut add = |cost: &baylee_core::mana::ManaCost| used = used.union(cost.colors());
+            for face in def.faces {
+                add(&face.mana_cost);
+                for alt in face.alternative_costs {
+                    add(&alt.cost.mana);
+                }
+                for extra in face.additional_costs {
+                    add(&extra.mana);
+                }
+                if let Some(miracle) = face.miracle {
+                    add(&miracle);
+                }
+            }
+            for ability in def
+                .faces
+                .iter()
+                .enumerate()
+                .flat_map(|(i, _)| def.abilities_for_face(i))
+            {
+                match ability {
+                    AbilityDef::Activated { cost, .. }
+                    | AbilityDef::ActivatedConditional { cost, .. } => add(&cost.mana),
+                    AbilityDef::Echo { cost } => add(cost),
+                    AbilityDef::ModalSpell { modes } => {
+                        for mode in *modes {
+                            if let Some(cost) = mode.cost_override {
+                                add(&cost);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            let missing = used.difference(def.color_identity);
+            if !missing.is_empty() {
+                offenders.push(format!("{} is missing {missing:?}", def.name()));
+            }
+        }
+        offenders.sort();
+        assert!(
+            offenders.is_empty(),
+            "color identity narrower than the card's own costs: {offenders:?}"
+        );
+    }
+
+    /// A card file's `// NOT SUPPORTED:` note and its `coverage` line are two
+    /// statements about the same thing, and only the second one is checked by
+    /// anything. Five cards drifted apart that way: the mechanic landed, the
+    /// note stayed, and the file went on advertising a gap that had been
+    /// closed — which is worse than no note, because it tells the next reader
+    /// not to bother with the card.
+    ///
+    /// So the two have to agree: a file that still names a missing mechanic
+    /// must say `Coverage::Partial`, and a file that claims full coverage
+    /// must not carry the note.
+    #[test]
+    fn a_card_that_names_a_missing_mechanic_does_not_also_claim_full_coverage() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/src/cards");
+        let mut offenders = Vec::new();
+        for entry in std::fs::read_dir(dir).expect("cards dir") {
+            let path = entry.expect("dir entry").path();
+            if path.extension().is_none_or(|e| e != "rs") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("read card");
+            if text.contains("NOT SUPPORTED") && text.contains("coverage: Coverage::Implemented") {
+                offenders.push(
+                    path.file_name()
+                        .expect("file name")
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+            }
+        }
+        offenders.sort();
+        assert!(
+            offenders.is_empty(),
+            "these files name a missing mechanic but claim `Coverage::Implemented` \
+             — fix the card or downgrade it to `Coverage::Partial`: {offenders:?}"
+        );
+    }
 }

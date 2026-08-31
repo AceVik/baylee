@@ -16,10 +16,20 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::Amass { subtype, amount } => {
-            // Find an Army you control; if none, create a 0/0 Army token.
-            static ARMY: baylee_core::ids::SubtypeId = baylee_core::ids::SubtypeId::new(0);
-            let _ = ARMY;
+        Effect::Amass {
+            token,
+            subtype,
+            amount,
+        } => {
+            // CR 701.44a: choose an *Army* you control — not a creature of the
+            // named type. Searching for the named type instead is how "amass
+            // Orcs 1" used to grow Orcish Bowmasters itself, which is an Orc
+            // Archer and no Army at all.
+            let army_type = token
+                .subtypes
+                .first()
+                .copied()
+                .unwrap_or(baylee_core::ids::SubtypeId::new(0));
             let army = state
                 .zones
                 .list(ZoneLocation::Battlefield)
@@ -31,44 +41,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                             && o.characteristics()
                                 .types
                                 .contains(baylee_core::types::TypeSet::CREATURE)
-                            && o.characteristics().subtypes.contains(subtype)
+                            && o.characteristics().subtypes.contains(army_type)
                     })
                 });
-            let target_id = if let Some(id) = army {
-                id
-            } else {
-                // Create the 0/0 Army token, then put counters on it.
-                let name = state.names.intern("Army");
-                let base = Characteristics {
-                    name,
-                    mana_cost: ManaCost::ZERO,
-                    colors: ColorSet::EMPTY,
-                    types: baylee_core::types::TypeSet::CREATURE,
-                    supertypes: baylee_core::types::SupertypeSet::EMPTY,
-                    subtypes: SubtypeSet::from_slice(&[subtype]),
-                    keywords: baylee_cards_dsl::KeywordSet::EMPTY,
-                    power: Some(0),
-                    toughness: Some(0),
-                    loyalty: None,
-                    color_identity: ColorSet::EMPTY,
-                    produced_colors: ColorSet::EMPTY,
-                    produced_colorless: false,
-                };
-                let ts = state.next_timestamp();
-                let id = state.arena.insert_with(|id| {
-                    let mut obj = GameObject::new_bare(id, you, ObjectKind::Permanent, base);
-                    obj.timestamp = ts;
-                    obj
-                });
-                state
-                    .zones
-                    .insert(id, ZoneLocation::Battlefield, ZonePosition::Top);
-                if let Some(obj) = state.object_mut(id) {
-                    obj.zone = crate::zone::Zone::Battlefield;
-                }
-                id
-            };
+            let target_id = army.unwrap_or_else(|| create_one_token(state, you, token));
+            // CR 701.44b: the Army becomes the named type in addition to its
+            // other types, whether it was just created or was already there.
+            // Written into the base rather than registered as a continuous
+            // effect because it has no duration and an Army is always a
+            // token, so there is nothing underneath for it to shadow.
             if let Some(obj) = state.object_mut(target_id) {
+                obj.base.subtypes.insert(subtype);
+                obj.cache.clear();
                 let old = obj.counters.get(baylee_cards_dsl::CounterKind::P1P1);
                 let new = obj
                     .counters
@@ -80,6 +64,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     new,
                 });
             }
+            state.invalidate_projections();
             None
         }
         Effect::CreateTokenCopyOf {
@@ -265,10 +250,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 }
             }
             if let Some(owner) = owner {
-                let mut def = *token;
-                def.power = Some(cmc as i16);
-                def.toughness = Some(cmc as i16);
-                create_one_token(state, owner, &def);
+                create_sized_token(state, owner, token, cmc as i16);
             }
             None
         }
@@ -301,7 +283,32 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
 pub(super) fn create_one_token(
     state: &mut GameState,
     controller: PlayerId,
-    token: &baylee_cards_dsl::TokenDef,
+    token: &'static baylee_cards_dsl::TokenDef,
+) -> ObjectId {
+    create_token(state, controller, token, None)
+}
+
+/// The same, at a size the effect computed rather than the one printed.
+///
+/// Skyclave Apparition's Illusion is "X/X, where X is the exiled card's mana
+/// value": the definition deliberately leaves power and toughness unset and
+/// this is what fills them in. Overriding here rather than copying the
+/// definition and editing it is what keeps the token's identity — a copy is a
+/// different `TokenDef` with no registry entry, and the art key would be lost.
+pub(super) fn create_sized_token(
+    state: &mut GameState,
+    controller: PlayerId,
+    token: &'static baylee_cards_dsl::TokenDef,
+    size: i16,
+) -> ObjectId {
+    create_token(state, controller, token, Some(size))
+}
+
+fn create_token(
+    state: &mut GameState,
+    controller: PlayerId,
+    token: &'static baylee_cards_dsl::TokenDef,
+    size: Option<i16>,
 ) -> ObjectId {
     let name = state.names.intern(token.name);
     let base = Characteristics {
@@ -312,8 +319,8 @@ pub(super) fn create_one_token(
         supertypes: token.supertypes,
         subtypes: SubtypeSet::from_slice(token.subtypes),
         keywords: token.keywords,
-        power: token.power,
-        toughness: token.toughness,
+        power: size.or(token.power),
+        toughness: size.or(token.toughness),
         loyalty: None,
         color_identity: ColorSet::EMPTY,
         produced_colors: ColorSet::EMPTY,
@@ -323,6 +330,11 @@ pub(super) fn create_one_token(
     let id = state.arena.insert_with(|id| {
         let mut obj = GameObject::new_bare(id, controller, ObjectKind::Permanent, base);
         obj.timestamp = ts;
+        // What makes this a Treasure rather than a blank artifact: the
+        // definition is where the token's abilities live, and it is the only
+        // record of which token this is once the characteristics are copied
+        // out of it.
+        obj.token = Some(token);
         obj
     });
     state
@@ -331,5 +343,9 @@ pub(super) fn create_one_token(
     if let Some(obj) = state.object_mut(id) {
         obj.zone = crate::zone::Zone::Battlefield;
     }
+    // A permanent that just arrived has never been projected: the anthem it
+    // is standing under, and any counter about to be placed on it, are both
+    // invisible until something asks for the pass.
+    state.invalidate_projections();
     id
 }

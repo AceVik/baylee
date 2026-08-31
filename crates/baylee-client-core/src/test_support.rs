@@ -6,7 +6,7 @@
 
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId, PrintRef};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use baylee_view::{
     AttackerView, BlockerView, CardIdentity, CombatView, Finish, GameStatic, HandObject,
     ObjectStatus, Phase, PlayerView, PrintEntry, PublicObject, SeatIdentity, SeatView, Step,
@@ -24,6 +24,8 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         status: ObjectStatus::NONE,
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
+        subtypes: SubtypeSet::EMPTY,
+        token: None,
         colors: ColorSet::default(),
         keywords: 0,
         power: Some(power),

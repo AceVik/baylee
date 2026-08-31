@@ -129,15 +129,19 @@ engine iteration. B3, B4, B7, B9, B12 are the remaining real milestones.
 
 ### C0 — acceptance partials first (B-hooks above, already sized)
 
-Covered by section B. After those land, all 194 acceptance cards are
-`Implemented` except explicit out-of-scope riders.
+Covered by section B. All 194 acceptance cards are `Implemented` and no card
+file carries a `NOT SUPPORTED` rider any more — the last five (Double Major,
+General Tazri, Doubling Season, Force of Negation, Mycosynth Lattice) named
+mechanics that had since landed, and `baylee-engine`'s `card_rider_tests`
+pins each of them.
 
 ### C1 — commander staple families (P1)
 
 | Family | Needs | Size |
 |--------|-------|------|
 | Cycling / typecycling | hand-zone activation (exists) + DiscardSelf (exists) + draw/search | S |
-| Blood/Clue/Food/Treasure/Map tokens | token defs with sac abilities (exists) + investigate/create variants | S |
+| Blood/Clue/Food/Treasure tokens | done — `baylee-cards::tokens` (defs + sac abilities) | — |
+| Map tokens | token def blocked on explore (library-top reveal + counter-or-bottom) | S |
 | Landfall triggers | ETB filter with HasType(LAND) (exists — pure card work) | S |
 | Evoke | alt cost + sacrifice-on-ETB (EntersBattlefieldEvoked exists) | S |
 | Channel | hand-zone activation + DiscardSelf cost | S |

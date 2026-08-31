@@ -63,6 +63,7 @@ pub fn keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     mut duel: ResMut<Duel>,
     mut rig: ResMut<crate::table::CameraRig>,
+    mut settings: ResMut<crate::settings::ClientSettings>,
 ) {
     let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
 
@@ -104,6 +105,15 @@ pub fn keyboard(
     // ---- X: slide the own-board overlay down/up --------------------------
     if keys.just_pressed(KeyCode::KeyX) {
         duel.overlay_closed = !duel.overlay_closed;
+    }
+
+    // ---- T: keep the constructed card face on ----------------------------
+    // Cmd or Alt shows it while held; this is the latch, for players who
+    // read text rather than art. Persisted, because it is a preference and
+    // not a mode.
+    if !shift && keys.just_pressed(KeyCode::KeyT) {
+        settings.prefer_text_view = !settings.prefer_text_view;
+        settings.save();
     }
 
     // ---- WASD moves the card cursor, E activates it ---------------------

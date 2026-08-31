@@ -19,7 +19,12 @@
 
 ## Conventions
 
-- `#![forbid(unsafe_code)]` everywhere; clippy pedantic is enforced in CI.
+- `unsafe_code = "deny"` workspace-wide: safe Rust is the default everywhere.
+  `unsafe` is allowed where it buys measured performance or replaces markedly
+  more complex code, and then only with a local `#[allow(unsafe_code)]`, a
+  `// SAFETY:` comment naming the invariant that makes it sound, and tests
+  that fail if that invariant is broken. Never reach for it to silence a
+  borrow-check error. Clippy pedantic is enforced in CI.
 - Generated files are **committed** and regenerated only via `cargo xtask codegen`;
   never edit them by hand (marked `// GENERATED`).
 - No `String`/`HashMap` iteration in engine hot paths; determinism is sacred

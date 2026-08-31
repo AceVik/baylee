@@ -417,6 +417,8 @@ mod progress;
 #[cfg(test)]
 mod automation_tests;
 #[cfg(test)]
+mod card_rider_tests;
+#[cfg(test)]
 mod card_tests;
 #[cfg(test)]
 mod draw_tests;
@@ -450,6 +452,8 @@ mod saga_tests;
 pub(crate) mod testkit;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod token_tests;
 #[cfg(test)]
 mod w1_tests;
 #[cfg(test)]

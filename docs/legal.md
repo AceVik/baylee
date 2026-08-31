@@ -9,8 +9,10 @@ Urheber- und Medienrecht.
 2. **WotC Fan Content Policy:** the service is and stays completely free
    (no paywall, no paid features); clients show "unofficial fan content,
    not affiliated with Wizards of the Coast"; no WotC logos, no
-   "Magic: The Gathering" in branding; mana symbols rendered with the
-   open-licensed `mana` font (SIL OFL), not WotC assets.
+   "Magic: The Gathering" in branding; mana symbols drawn by the client
+   itself (coloured pips, `crates/baylee-client/src/face.rs`) or, if a font
+   is ever wanted, the open-licensed `mana` font (SIL OFL) — never WotC
+   assets.
 3. **Scryfall:** honor rate limits (≤ 10 req/s), cache card images
    (encouraged by their terms), "data and images provided by Scryfall"
    attribution in clients. No card images are committed to the repo.

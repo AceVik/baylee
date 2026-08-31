@@ -45,6 +45,12 @@ struct AppState {
     /// the header is never trusted; anyone can set it, so trusting it
     /// blindly disables the brute-force defense.
     trusted_proxies: Vec<IpAddr>,
+    /// The card catalog, when `DATABASE_URL` is configured.
+    ///
+    /// Optional on purpose: accounts, decks and lobbies live in the JSON
+    /// store and need no database, so a gateway without Postgres still runs
+    /// a full game — it just cannot serve card text.
+    catalog: Option<baylee_catalog::Catalog>,
 }
 
 impl AppState {
@@ -68,6 +74,7 @@ async fn main() {
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let (save_tx, save_rx) = tokio::sync::mpsc::unbounded_channel();
+    let catalog = connect_catalog().await;
     let state = Arc::new(AppState {
         store: Mutex::new(Store::load(&store_path)),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
@@ -81,6 +88,7 @@ async fn main() {
             .split(',')
             .filter_map(|s| s.trim().parse::<IpAddr>().ok())
             .collect(),
+        catalog,
     });
     spawn_store_writer(state.clone(), save_rx);
     spawn_cleanup(state.clone());
@@ -100,6 +108,8 @@ async fn main() {
         .route("/automation", get(list_automation).put(set_automation))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/games/{id}/ws", get(game_ws))
+        .route("/catalog/text", get(catalog_text))
+        .route("/catalog/search", get(catalog_search))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
@@ -341,6 +351,165 @@ fn authed(state: &Shared, headers: &HeaderMap) -> Result<String, (StatusCode, Js
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
     state.request_save();
     Ok(account_id)
+}
+
+// ------------------------------------------------------------------ catalog
+
+/// How many printings one text request may ask for.
+///
+/// A commander table's whole print table is a few hundred entries, so this
+/// covers a full game in one round trip and still bounds what a single request
+/// can cost.
+const MAX_TEXT_IDS: usize = 500;
+
+/// How many unknown cards one request may pull from Scryfall.
+///
+/// Filling on demand is for the handful of cards a bulk snapshot missed, not
+/// for populating an empty catalog — that is what `baylee-catalog ingest` is.
+/// Scryfall's rate limit is a shared budget (`docs/legal.md` §3), so a single
+/// client cannot be allowed to spend all of it.
+const MAX_ONDEMAND_FILL: usize = 25;
+
+/// Connects the card catalog when `DATABASE_URL` is configured.
+///
+/// A failure here is logged and otherwise ignored: card text is presentation,
+/// and a gateway that cannot reach Postgres should still host games.
+async fn connect_catalog() -> Option<baylee_catalog::Catalog> {
+    let url = std::env::var("DATABASE_URL")
+        .ok()
+        .filter(|u| !u.is_empty())?;
+    match baylee_catalog::Catalog::connect(&url).await {
+        Ok(catalog) => {
+            if let Err(err) = catalog.migrate().await {
+                tracing::error!(%err, "card catalog schema could not be applied");
+                return None;
+            }
+            let count = catalog.count().await.unwrap_or(0);
+            tracing::info!(printings = count, "card catalog connected");
+            Some(catalog)
+        }
+        Err(err) => {
+            tracing::error!(%err, "card catalog unavailable; text endpoints disabled");
+            None
+        }
+    }
+}
+
+/// Query for `/catalog/text`.
+#[derive(Deserialize)]
+struct CatalogTextQuery {
+    /// Comma-separated Scryfall printing ids.
+    ids: String,
+    /// Preferred language; English is the fallback.
+    lang: Option<String>,
+}
+
+/// Card text for a set of printings.
+///
+/// Deliberately unauthenticated. This is public reference data — Scryfall
+/// serves the same thing without a token — and a client has to be able to draw
+/// a readable card before it has an account, which is exactly the case when a
+/// card image fails to load on first launch.
+async fn catalog_text(
+    State(state): State<Shared>,
+    Query(params): Query<CatalogTextQuery>,
+) -> Result<Json<Vec<baylee_catalog::CardTextEntry>>, (StatusCode, Json<ErrorBody>)> {
+    let catalog = state.catalog.as_ref().ok_or_else(|| {
+        err(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "card catalog not configured",
+        )
+    })?;
+    let lang = params.lang.as_deref().unwrap_or("en").to_lowercase();
+
+    // Only well-formed ids reach the query: they are bound parameters, so this
+    // is not about injection, but one malformed id would fail the cast for the
+    // whole batch and cost every other card its text.
+    let ids: Vec<String> = params
+        .ids
+        .split(',')
+        .map(str::trim)
+        .filter(|id| uuid::Uuid::parse_str(id).is_ok())
+        .map(str::to_lowercase)
+        .take(MAX_TEXT_IDS)
+        .collect();
+    if ids.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+
+    let mut found = catalog
+        .text(&ids, &lang)
+        .await
+        .map_err(|e| catalog_error("looking up card text", &e))?;
+
+    // Anything the catalog has never seen is fetched once and kept.
+    let missing: Vec<String> = ids
+        .iter()
+        .filter(|id| !found.iter().any(|e| &&e.scryfall_id == id))
+        .take(MAX_ONDEMAND_FILL)
+        .cloned()
+        .collect();
+    if !missing.is_empty() {
+        let wanted = missing.clone();
+        let fetched = tokio::task::spawn_blocking(move || {
+            wanted
+                .iter()
+                .filter_map(|id| baylee_catalog::ingest::fetch_one_blocking(id).ok())
+                .collect::<Vec<_>>()
+        })
+        .await
+        .unwrap_or_default();
+        if !fetched.is_empty() {
+            if let Err(err) = catalog.upsert(&fetched).await {
+                tracing::warn!(%err, "storing on-demand cards failed");
+            }
+            found = catalog
+                .text(&ids, &lang)
+                .await
+                .map_err(|e| catalog_error("looking up card text", &e))?;
+        }
+    }
+    Ok(Json(found))
+}
+
+/// Query for `/catalog/search`.
+#[derive(Deserialize)]
+struct CatalogSearchQuery {
+    /// Search terms.
+    q: String,
+    /// Preferred language.
+    lang: Option<String>,
+    /// Maximum hits.
+    limit: Option<u64>,
+}
+
+/// Searches the card catalog — the entry point the deck builder will use.
+async fn catalog_search(
+    State(state): State<Shared>,
+    Query(params): Query<CatalogSearchQuery>,
+) -> Result<Json<Vec<baylee_catalog::SearchHit>>, (StatusCode, Json<ErrorBody>)> {
+    let catalog = state.catalog.as_ref().ok_or_else(|| {
+        err(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "card catalog not configured",
+        )
+    })?;
+    let lang = params.lang.as_deref().unwrap_or("en").to_lowercase();
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let hits = catalog
+        .search(params.q.trim(), &lang, limit)
+        .await
+        .map_err(|e| catalog_error("searching the catalog", &e))?;
+    Ok(Json(hits))
+}
+
+/// Logs a catalog failure and returns a response that leaks nothing.
+///
+/// The error text can carry connection strings and SQL, neither of which
+/// belongs in a client response.
+fn catalog_error(what: &str, error: &impl std::fmt::Display) -> (StatusCode, Json<ErrorBody>) {
+    tracing::error!(%error, "{what} failed");
+    err(StatusCode::BAD_GATEWAY, "card catalog request failed")
 }
 
 async fn logout(

@@ -465,3 +465,51 @@ shown a cast button that could only ever produce an error.
 Worth remembering: an over-approximated "legal actions" list is not a
 harmless convenience. Anything that consumes it — a UI, an agent, a test
 harness — treats it as truth.
+
+## 2026-08-31 (later still) — the riders were the symptom, not the disease
+
+Five card files still carried `// PARTIAL` / `// NOT SUPPORTED` riders naming
+mechanics that had landed weeks earlier (this very file records four of them
+as done). Nothing checked the riders, so nothing noticed. `baylee-cards` now
+has a test that a file naming a missing mechanic may not also claim
+`Coverage::Implemented`, and `baylee-engine::engine::card_rider_tests` drives
+one real game per rider — Double Major's non-legendary copy, Tazri's
+five-colour pump, Doubling Season on a walker's starting loyalty, Force of
+Negation's counter-to-exile, and the Lattice paying a green pip off Islands.
+
+Writing those five tests is what turned up three engine bugs that no card
+file mentioned, all of them in the mana path:
+
+1. **The Lattice was half-wired.** `pay_wild` existed and was called at
+   payment time, but every *affordability* check (`can_cast`, `can_afford`,
+   and all four cast-wizard mode probes) used plain `can_pay`. The spell the
+   Lattice made payable was therefore never offered as castable, and the
+   activated ability it made affordable never appeared in `legal.abilities`.
+   A capability reachable only through a code path nobody can enter is
+   indistinguishable from a missing one — which is exactly what the card's
+   header said.
+2. **A dual land could only make one of its colours.** `intrinsic_mana` maps
+   basic land subtypes to a colour with an `if/else` chain, so it silently
+   returned the first match: Badlands always black, Godless Shrine always
+   white, Temple Garden always green. CR 305.6 grants one ability *per* basic
+   type. The shortcut cannot ask, so it now declines multi-type lands and
+   leaves them to the printed `AddManaChoice` ability — which meant giving
+   the four shocklands (Godless Shrine, Hallowed Fountain, Temple Garden,
+   Watery Grave) the ability their siblings already had. Their headers had
+   said "intrinsic mana via subtypes"; the intrinsic path could not deliver
+   what they were promising.
+3. **A colour choice untapped the source.** A mana ability resolves off the
+   stack, but a colour choice suspends it like any resolution — and the
+   resume path ended in `finish_resolution`, whose `on_stack` for a mana
+   ability *is the land*. `finalize_spell` duly "resolved the permanent":
+   removed `TAPPED` and moved it to the battlefield it was already on. Every
+   choice-mana source in the pool — Badlands, City of Brass, Command Tower,
+   Chromatic Lantern, Harabaz Druid — untapped itself and made unbounded
+   mana, and handed priority to the opponent on the way. `Resolution` now
+   carries a `mana_ability` flag and `finish_resolution` returns early.
+
+The pattern worth keeping: **a stale "not supported" note is a load-bearing
+lie.** Nobody writes a test for a mechanic the card says is missing, so the
+half-built path underneath it never gets exercised. Bug 3 had been live in
+every game containing a dual land; it took writing the test that the header
+said was pointless to find it.

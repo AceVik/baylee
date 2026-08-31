@@ -2,9 +2,8 @@
 //! Oracle: If it's not your turn, you may exile a blue card from your hand rather than pay this spell's mana cost.
 //! Oracle: Counter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.
 //! Set: 2X2 #50 — Double Masters 2022 | Scryfall ID: 1825a719-1b2a-4af9-9cd2-7cb497cd0317 | Oracle ID: ac2173f9-f223-440a-9231-fd98762bdc6f
-// PARTIAL — pitch on opponents' turns implemented (wizard + NotYourTurn
-// condition). NOT SUPPORTED yet: countered spell goes to exile instead of
-// graveyard (needs per-source counter destination, M2.S7+).
+// IMPLEMENTED — pitch on opponents' turns (wizard + NotYourTurn condition)
+// and the counter-to-exile destination that separates it from Counterspell.
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{

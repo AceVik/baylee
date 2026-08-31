@@ -6,7 +6,6 @@
 //! (wire → core preset conversion).
 
 #![warn(missing_docs)]
-#![forbid(unsafe_code)]
 
 pub mod preset;
 pub mod session;
