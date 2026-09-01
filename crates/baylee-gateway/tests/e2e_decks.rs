@@ -185,3 +185,54 @@ fn another_account_cannot_read_edit_or_delete_a_deck() {
     let (status, _) = http(gateway.port, "GET", &format!("/decks/{id}"), None, "");
     assert_eq!(status, 401);
 }
+
+/// A row may name the printing, the language and the finish, and the gateway
+/// stores it verbatim — which is what makes the stored form the exported form.
+#[test]
+fn a_row_keeps_the_printing_its_owner_chose() {
+    let gateway = spawn_gateway("printings");
+    let token = login(gateway.port, "collector@example.test", "Collector");
+
+    let rows = r#"["4 Baleful Strix (2X2) 155 [de] *F*",
+                   "1 Counterspell scryfall=11111111-2222-3333-4444-555555555555",
+                   "20 Forest *E*"]"#;
+    let body = format!(r#"{{"name":"Shiny","cards":{rows},"sideboard":[],"commander":null}}"#);
+    let (status, saved) = http(gateway.port, "POST", "/decks", Some(&token), &body);
+    assert_eq!(status, 200, "{saved}");
+    let id = json_field(&saved, "deck_id").to_string();
+
+    let (status, one) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{one}");
+    for kept in [
+        "4 Baleful Strix (2X2) 155 [de] *F*",
+        "1 Counterspell scryfall=11111111-2222-3333-4444-555555555555",
+        "20 Forest *E*",
+    ] {
+        assert!(one.contains(kept), "{kept} was not kept: {one}");
+    }
+}
+
+/// The rules still apply through the extra groups: a copy count is a copy
+/// count whether or not the row names a foil.
+#[test]
+fn a_printing_does_not_buy_a_fifth_copy() {
+    let gateway = spawn_gateway("printing-rules");
+    let token = login(gateway.port, "sneaky@example.test", "Sneaky");
+
+    for (why, row) in [
+        ("five copies", "5 Baleful Strix (2X2) 155 *F*"),
+        ("an unknown card", "1 Not A Real Card [de]"),
+        ("a finish this build has never heard of", "1 Forest *Q*"),
+        ("a language that is a word", "1 Forest [deutsch]"),
+    ] {
+        let body = format!(r#"{{"name":"D","cards":["{row}"],"sideboard":[],"commander":null}}"#);
+        let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), &body);
+        assert_eq!(status, 400, "{why}: {answer}");
+    }
+}

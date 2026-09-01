@@ -585,40 +585,59 @@ struct DeckBody {
 /// could strain memory at game start.
 const MAX_DECK_CARDS: u32 = 250;
 
-/// Parsed lines as the flat card list the engine's preset takes.
-fn expand(lines: &[ParsedLine]) -> Vec<baylee_core::ids::CardIndex> {
+/// Parsed lines as the flat card list the engine's preset takes, one entry
+/// per copy, each carrying the printing its row named.
+fn expand(lines: &[ParsedLine]) -> Vec<baylee_cards::decks::DeckCard> {
     let mut out = Vec::new();
     for line in lines {
         for _ in 0..line.count {
-            out.push(line.index);
+            out.push(baylee_cards::decks::DeckCard::chosen(
+                line.index,
+                &line.print,
+            ));
         }
     }
     out
 }
 
-/// One parsed deck line: how many of which card.
+/// One parsed deck line: how many of which card, printed how.
 struct ParsedLine {
     count: u32,
     index: baylee_core::ids::CardIndex,
+    print: baylee_core::deckrow::PrintChoice,
 }
 
-/// Parses and validates "N Card Name" lines. Shared by `validate_deck` and
+/// Parses and validates deck lines. Shared by `validate_deck` and
 /// `loaded_deck` so a deck can never pass one and explode the other:
 /// counts are parsed here (1–4, unlimited for basic lands) and the
 /// expanded total is capped at [`MAX_DECK_CARDS`].
+///
+/// The row grammar lives in `baylee_core::deckrow`, so a stored deck, an
+/// exported file and an imported one are read by the same code. A row that
+/// names only a card is the old form and still means what it meant.
 fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Json<ErrorBody>)> {
     let mut out = Vec::with_capacity(lines.len());
     let mut total: u32 = 0;
     for line in lines {
-        let Some((count, name)) = line.split_once(' ') else {
-            return Err(err(StatusCode::BAD_REQUEST, "malformed card line"));
-        };
-        let Ok(count) = count.trim().parse::<u32>() else {
-            return Err(err(StatusCode::BAD_REQUEST, "malformed card count"));
-        };
-        let Some(index) = baylee_cards::decks::by_name(name.trim()) else {
+        let row = baylee_core::deckrow::parse(line).map_err(|e| match e {
+            baylee_core::deckrow::RowError::Count => {
+                err(StatusCode::BAD_REQUEST, "malformed card count")
+            }
+            baylee_core::deckrow::RowError::Finish => {
+                err(StatusCode::BAD_REQUEST, "unknown finish")
+            }
+            baylee_core::deckrow::RowError::Lang => {
+                err(StatusCode::BAD_REQUEST, "unknown language")
+            }
+            baylee_core::deckrow::RowError::Shape => {
+                err(StatusCode::BAD_REQUEST, "malformed card line")
+            }
+        })?;
+        let count = row.count;
+        let Some(index) = baylee_cards::decks::by_name(&row.name) else {
             return Err(err(StatusCode::BAD_REQUEST, "unknown card"));
         };
+
         let basic_land = baylee_cards::by_index(index).is_some_and(|def| {
             def.faces[0]
                 .supertypes
@@ -639,7 +658,11 @@ fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Js
         if total > MAX_DECK_CARDS {
             return Err(err(StatusCode::BAD_REQUEST, "deck too large"));
         }
-        out.push(ParsedLine { count, index });
+        out.push(ParsedLine {
+            count,
+            index,
+            print: row.print,
+        });
     }
     Ok(out)
 }
@@ -795,7 +818,7 @@ struct CreateGameBody {
     mode: String,
 }
 
-/// Builds a `LoadedDeck` from a stored deck (card lines "N Card Name").
+/// Builds a `LoadedDeck` from a stored deck.
 /// Uses the same parser as validation, so counts are already bounded.
 fn loaded_deck(
     deck: &Deck,
