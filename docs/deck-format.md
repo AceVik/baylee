@@ -1,9 +1,13 @@
 # Deck Import/Export Format
 
-**Status: [Spec].** The gateway today accepts simple `"N Card Name"` lines
-(registry-validated, counts 1–4, basics unlimited, ≤250 cards total).
-Nothing below — zones, print metadata, the fallback chain — is
-implemented yet; it is the design target for the catalog milestone.
+**Status: [Spec], with one zone landed.** The gateway accepts simple
+`"N Card Name"` lines (registry-validated, counts 1–4, basics unlimited, ≤250
+cards and ≤250 lines per list) in *two* lists now: `cards` and `sideboard`,
+which the deck builder fills and which reach a seat as its `SeatSpec`. The
+commander field is stored and validated but no format assembles from it yet.
+Everything else below — print metadata, languages, the fallback chain, the
+text and JSON files themselves — is still the design target for the catalog
+milestone.
 
 Canonical JSON plus an MTGO/Arena-style text format. All per-card metadata
 is optional on import; export always writes complete metadata.

@@ -37,6 +37,7 @@
 pub mod automation;
 pub mod board;
 pub mod card_face;
+pub mod deckbuilder;
 pub mod images;
 pub mod interaction;
 pub mod layout;
@@ -49,6 +50,9 @@ pub use automation::{AutoAnswer, AutoPilot, PhaseOrders};
 pub use board::{BoardModel, CardGroup, Lane, SeatPod, StackItem, ThreatSummary, TokenChip};
 pub use card_face::{
     CardFace, CardText, CardTextEntry, Characteristics, FaceText, Stats, TextBlock,
+};
+pub use deckbuilder::{
+    BuildField, Counts, Coverage, DeckBuilder, Entry, Group, PoolCard, Problem, Sort, Zone,
 };
 pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
 pub use interaction::{Interaction, Prompt, SelectionOutcome};

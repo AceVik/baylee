@@ -269,9 +269,23 @@ into the same `NetworkHost`. The decisions live in
 route mapping is tested without a gateway. The lobby runs only in
 `DuelPhase::Closed` and brings its own 2D camera; it is a separate plugin
 because `DuelPlugin` has to stay embeddable in an application that already has
-a front door. Two buttons exist only because nothing else does yet: "add the
-starter deck" (no deck builder; it posts the acceptance file's `Allytifact`
-rows) and "play the house AI offline" (a `LocalHost`, no account).
+a front door. Two buttons survive from before there was a builder: "add the
+starter deck" (it posts the acceptance file's `Allytifact` rows in one tap)
+and "play the house AI offline" (a `LocalHost`, no account).
+
+The deck builder is `Screen::Build`, and the same split once more: all of it
+decides in `crates/baylee-client-core/src/deckbuilder.rs`. Two things fix its
+shape. Its pool is `GET /pool` — the compiled **registry**, not the catalog's
+118k printings — because a builder offering catalog cards would offer cards
+the engine cannot play; every row carries its `Coverage`, and the default
+"playable only" hides the stubs (partial cards stay — they do play, and are
+marked). And
+`DeckBuilder::problems` is a mirror of what `POST /decks` enforces, split into
+blocking (which greys the save button) and advisory (60 cards, a 15-card
+sideboard, a land count, unimplemented cards — never blocking): if the button
+is live, the deck saves. The pool arrives whole once per session and every
+filter runs locally, so search costs no request. A sideboard is a real second
+list now — through the store, `DeckBody`, `LoadedDeck` and into `SeatSpec`.
 
 The lobby is the client's one responsive screen: `Metrics::of(width)` picks a
 phone / tablet / desktop frame and every size comes from it, so a phone stacks

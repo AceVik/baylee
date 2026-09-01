@@ -9,6 +9,7 @@
 mod auth;
 mod engine;
 mod lobby;
+mod pool;
 mod store;
 
 use axum::Router;
@@ -138,6 +139,7 @@ async fn main() {
         // and neither accepts a player's token; see `engine.rs`.
         .route("/agent/ws", get(engine::agent_ws))
         .route("/engine/ws", get(engine::engine_ws))
+        .route("/pool", get(pool::pool))
         .route("/catalog/text", get(catalog_text))
         .route("/catalog/search", get(catalog_search))
         .with_state(state);
@@ -572,6 +574,9 @@ async fn me(
 struct DeckBody {
     name: String,
     cards: Vec<String>,
+    /// Optional: a deck saved without one simply has no sideboard.
+    #[serde(default)]
+    sideboard: Vec<String>,
     commander: Option<String>,
 }
 
@@ -579,6 +584,17 @@ struct DeckBody {
 /// every legal format size (100 for commander), far below anything that
 /// could strain memory at game start.
 const MAX_DECK_CARDS: u32 = 250;
+
+/// Parsed lines as the flat card list the engine's preset takes.
+fn expand(lines: &[ParsedLine]) -> Vec<baylee_core::ids::CardIndex> {
+    let mut out = Vec::new();
+    for line in lines {
+        for _ in 0..line.count {
+            out.push(line.index);
+        }
+    }
+    out
+}
 
 /// One parsed deck line: how many of which card.
 struct ParsedLine {
@@ -635,7 +651,12 @@ fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     if body.cards.is_empty() || body.cards.len() > 250 {
         return Err(err(StatusCode::BAD_REQUEST, "invalid card list"));
     }
+    if body.sideboard.len() > 250 {
+        return Err(err(StatusCode::BAD_REQUEST, "invalid sideboard"));
+    }
+    // The same parser, so a sideboard cannot hold what a deck could not.
     parse_deck_lines(&body.cards)?;
+    parse_deck_lines(&body.sideboard)?;
     if let Some(c) = &body.commander
         && baylee_cards::decks::by_name(c).is_none()
     {
@@ -659,6 +680,7 @@ async fn list_decks(
                 "id": d.id,
                 "name": d.name,
                 "cards": d.cards.len(),
+                "sideboard": d.sideboard.len(),
                 "commander": d.commander,
             })
         })
@@ -684,6 +706,7 @@ async fn get_deck(
         "id": deck.id,
         "name": deck.name,
         "cards": deck.cards,
+        "sideboard": deck.sideboard,
         "commander": deck.commander,
     })))
 }
@@ -701,6 +724,7 @@ async fn create_deck(
         account_id,
         name: body.name,
         cards: body.cards,
+        sideboard: body.sideboard,
         commander: body.commander,
         updated_at: auth::now_secs(),
     };
@@ -728,6 +752,7 @@ async fn update_deck(
     }
     deck.name = body.name;
     deck.cards = body.cards;
+    deck.sideboard = body.sideboard;
     deck.commander = body.commander;
     deck.updated_at = auth::now_secs();
     state.request_save();
@@ -775,19 +800,12 @@ struct CreateGameBody {
 fn loaded_deck(
     deck: &Deck,
 ) -> Result<baylee_cards::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)> {
-    let parsed = parse_deck_lines(&deck.cards)?;
-    let mut main = Vec::new();
-    for line in parsed {
-        for _ in 0..line.count {
-            main.push(line.index);
-        }
-    }
+    let main = expand(&parse_deck_lines(&deck.cards)?);
+    let side = expand(&parse_deck_lines(&deck.sideboard)?);
     Ok(baylee_cards::decks::LoadedDeck {
         name: deck.name.clone(),
         main,
-        // Stored decks are a flat card list; the gateway has no sideboard
-        // section to parse yet.
-        sideboard: vec![],
+        sideboard: side,
         commanders: vec![],
     })
 }

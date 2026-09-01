@@ -228,15 +228,33 @@ which is what turned this from a curl recipe into a contract:
 | --- | --- | --- |
 | sign up | `POST /auth/register` `{email, display_name, password}` | `{"ok":true}` |
 | sign in | `POST /auth/login` `{email, password}` | `{token, expires_at}` |
-| decks | `GET /decks` | `[{id, name, cards, commander}]` |
-| save a deck | `POST /decks` `{name, cards:["N Card Name"], commander}` | `{deck_id}` |
+| decks | `GET /decks` | `[{id, name, cards, sideboard, commander}]` |
+| one deck | `GET /decks/{id}` | `{id, name, cards:[…], sideboard:[…], commander}` |
+| save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commander}` | `{deck_id}` |
+| edit one | `PUT /decks/{id}` — same body | `204` |
+| throw one away | `DELETE /decks/{id}` | `204` |
+| the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
 | tables | `GET /lobby/games` | `[{id, state, seats:[{seat, taken}]}]` |
 | open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open"}` | `{game_id, seat, seat_token}` |
 | sit down | `POST /lobby/games/{id}/join` `{deck_id}` | `{game_id, seat, seat_token}` |
 
-Everything but the two auth calls and `/auth/config` takes
+Everything but the two auth calls, `/auth/config` and `/pool` takes
 `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a status,
 and the string is written to be shown to a player as-is — the lobby does.
+
+`/pool` is the deck builder's card list, and the one route with no account
+behind it: it is reference data about what this build can play, the same for
+everybody, and a sign-in page that cannot show it is worse than a public one.
+Each row carries the registry `index` (the rules identity a saved deck line
+resolves to), the printed characteristics, and `coverage`
+(`implemented` / `partial` / `unimplemented`) with the author's `note` — a
+builder that offered a stub as though it played would be lying. `name`,
+`type_line` and `oracle_text` come from the catalog when the gateway has one,
+in the language `lang` asks for, falling back field by field to English;
+`english_name` never does, because that is what a deck row is written with.
+`has_text` says whether rules text was available at all. The whole pool is a
+few hundred rows, so it is sent whole and filtered in the client; `total` and
+`pool_hash` are there for the day it is not.
 
 Two distinctions the client has to keep straight. A `401` on a *signed*
 request means the account token is spent (sign out and start over); a `401` on

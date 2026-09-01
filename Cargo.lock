@@ -710,6 +710,7 @@ dependencies = [
  "argon2",
  "axum",
  "baylee-cards",
+ "baylee-cards-dsl",
  "baylee-catalog",
  "baylee-core",
  "baylee-engine",

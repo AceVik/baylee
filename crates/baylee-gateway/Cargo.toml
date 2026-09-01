@@ -12,6 +12,7 @@ workspace = true
 argon2.workspace = true
 axum.workspace = true
 baylee-cards.workspace = true
+baylee-cards-dsl.workspace = true
 baylee-catalog.workspace = true
 baylee-core.workspace = true
 baylee-protocol.workspace = true

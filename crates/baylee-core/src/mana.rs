@@ -780,4 +780,68 @@ mod tests {
         assert_eq!(pool.total(), 2); // no-empty survived
         assert!(pool.colors_available().is_empty());
     }
+
+    /// Every cost that can be written must read back as itself. The two
+    /// directions are used by different crates — the deck builder writes them,
+    /// the card files read them — so a symbol either side got wrong would show
+    /// up as a card with a subtly different cost rather than as an error.
+    #[test]
+    fn every_symbol_survives_a_round_trip() {
+        let costs = [
+            "",
+            "{0}",
+            "{5}",
+            "{W}",
+            "{U}",
+            "{B}",
+            "{R}",
+            "{G}",
+            "{C}",
+            "{S}",
+            "{X}",
+            "{Y}",
+            "{Z}",
+            "{2}{W}{U}",
+            "{W/U}",
+            "{B/R}{B/R}",
+            "{2/G}",
+            "{W/P}",
+            "{W/U/P}",
+            "{½}",
+            "{∞}",
+            "{X}{X}{R}",
+            "{10}{G}{G}",
+        ];
+        for src in costs {
+            let cost = ManaCost::try_parse(src).expect(src);
+            let written = cost.to_string();
+            assert_eq!(
+                ManaCost::try_parse(&written).expect(&written),
+                cost,
+                "{src} wrote as {written}"
+            );
+        }
+    }
+
+    /// Canonical order is what a cost is stored in, so writing normalises it:
+    /// two spellings of the same cost produce one string, and a client that
+    /// keys anything on that string cannot see them as two different cards.
+    #[test]
+    fn writing_a_cost_normalises_its_order() {
+        let a = ManaCost::try_parse("{W}{2}").expect("parses");
+        let b = ManaCost::try_parse("{2}{W}").expect("parses");
+        assert_eq!(a.to_string(), "{2}{W}");
+        assert_eq!(a.to_string(), b.to_string());
+    }
+
+    /// A land has no cost and prints as nothing rather than as `{0}` — the
+    /// deck builder shows this string as-is beside the card name.
+    #[test]
+    fn no_cost_writes_as_nothing() {
+        assert_eq!(ManaCost::ZERO.to_string(), "");
+        assert_eq!(
+            ManaCost::try_parse("{0}").expect("parses").to_string(),
+            "{0}"
+        );
+    }
 }

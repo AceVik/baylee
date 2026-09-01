@@ -129,15 +129,70 @@ seat whose game does not exist yet, so the lobby keeps the table screen up with
 a banner and re-reads the game list until somebody sits down opposite. Opening
 the socket earlier would connect and close again with nothing on it.
 
-Two things the lobby carries because nothing else does yet: an "add the starter
-deck" button (there is no deck builder, and a fresh account cannot sit down
-without a deck) that posts the acceptance file's `Allytifact` rows, and a "play
-the house AI offline" button that installs a `LocalHost` and needs no account
-at all. A finished game gets a "back to the lobby" button, which closes the
-duel and drops the host with it.
+The deck list offers *new*, *edit* and *delete*, all of which open or act on
+the builder below. Two buttons stay because nothing else does their job: "add
+the starter deck", which posts the acceptance file's `Allytifact` rows in one
+tap, and "play the house AI offline", which installs a `LocalHost` and needs
+no account at all. A finished game gets a "back to the lobby" button, which
+closes the duel and drops the host with it.
 
 The lobby is `DuelPhase::Closed` only, and brings its own 2D camera — the duel
 brings its own and the two never coexist.
+
+## The deck builder
+
+A screen of its own (`Screen::Build`), and the same split again: every
+decision is in `baylee_client_core::deckbuilder::DeckBuilder`, tested as
+arithmetic, and the plugin only draws it and forwards the taps.
+
+Two things decide its shape.
+
+**The pool is what this build can play.** It is `GET /pool` — the compiled
+card registry, not the 118k-printing catalog — because a builder offering
+catalog cards would be offering cards the engine cannot put on a table. Every
+row carries its `Coverage`, and "playable only" is on by default: it hides the
+stubs — cards the registry knows and the engine does nothing with. Partial
+cards stay, because they do play, and are marked *partial* with their author's
+note in the card panel; turning the switch off brings the stubs back, marked
+*stub*, which is a different thing from pretending they are fine. The whole pool arrives once per session and every
+filter — text, colour identity, type, mana value, sort — runs locally, so
+search answers at keystroke latency and never at the gateway's.
+
+**Saving must not surprise.** `DeckBuilder::problems` is a mirror of what
+`POST /decks` enforces, split into blocking and advisory. Blocking is the
+gateway's own list (a name, a non-empty deck, 250 lines and 250 cards *per
+list*, no card the pool has lost) and it is what greys the save button out;
+advisory — 60 cards, a sideboard of 15, a land count that fits the curve,
+cards that are not fully implemented — is written in the panel and never stops
+anything. If the button is live, the deck saves.
+
+The rest is a deck list: two zones, a mana curve whose bars are also the mana
+value filter, the coloured pips the main deck asks for, and `+`/`−` on every
+row rather than "click to remove" — a list is read far more often than it is
+edited. Reading a card is its own target (`?` on the row, closed with `×`),
+because a touch screen has no hover to read one with and the row itself has to
+stay the fast way to add. Leaving a deck with unsaved changes takes two
+presses — the first turns the back button into *Leave without saving*, and
+anything else answers the question — because a deck is half an hour of work
+and the way out sits in the busiest corner of the screen.
+
+The frame decides the shape twice. A desktop and a tablet show the pool and
+the deck side by side; a phone shows one at a time behind a switch that names
+what is in the other, because the count is the whole reason to look. And a
+phone folds the filter chips away behind a *Filters* button — three wrapped
+rows of them is most of a phone screen, and what is under them is the point —
+keeping *sort* and *clear* outside the fold. Both text boxes go through the
+same `softkeys.rs` path as the sign-in form, so a phone raises a real keyboard,
+and Enter in the search box adds the first hit.
+
+Every list scrolls, and that took wiring: Bevy's `Overflow::scroll_y` only
+clips, so `Scrollable` + `ScrollPosition` and a wheel-and-swipe handler
+are what make sixty rows reachable — and a swipe that ends over a card is a
+scroll, not a tap. Where each list was left is kept in `Scrolled`, a resource
+deliberately outside `LobbyState`: the tree is rebuilt whenever *that* changes,
+so adding a card would otherwise throw the list back to the top, and keeping
+the offsets inside it would rebuild sixty rows on every notch of the wheel. A
+new search does start at the top, because it is a different list.
 
 ## Embedding (the open-world plan)
 

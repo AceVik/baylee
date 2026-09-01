@@ -11,6 +11,7 @@
 //! the wire should know the field names, and the shell that encodes the
 //! request is not it.
 
+use crate::deckbuilder::DeckBuilder;
 use serde::{Deserialize, Serialize};
 
 /// Which screen the lobby is showing.
@@ -23,6 +24,10 @@ pub enum Screen {
     },
     /// Signed in: the account's decks, and the tables that are open.
     Table,
+    /// Building a deck. The builder itself lives on [`Lobby::builder`]: it is
+    /// far larger than the other screens' state and outlives a visit, so
+    /// leaving the pool in it means coming back costs no round trip.
+    Build,
     /// A seat was granted. The shell connects a host and leaves the lobby.
     Seated(SeatHandover),
 }
@@ -80,6 +85,9 @@ pub struct DeckSummary {
     /// Number of stored *lines* ("4 Llanowar Elves" is one), not cards.
     #[serde(default)]
     pub cards: usize,
+    /// Number of stored sideboard lines.
+    #[serde(default)]
+    pub sideboard: usize,
     /// The commander, for the deck formats that name one.
     #[serde(default)]
     pub commander: Option<String>,
@@ -168,12 +176,28 @@ pub enum LobbyRequest {
     },
     /// `GET /decks`.
     ListDecks,
-    /// `POST /decks`.
-    CreateDeck {
+    /// `GET /pool` — every card a deck may be built from.
+    LoadPool,
+    /// `GET /decks/{id}` — one deck, with its rows, for editing.
+    LoadDeck {
+        /// Which deck.
+        deck_id: String,
+    },
+    /// `POST /decks`, or `PUT /decks/{id}` when editing an existing one.
+    SaveDeck {
+        /// The deck to overwrite, or `None` to create one.
+        deck_id: Option<String>,
         /// The deck's name.
         name: String,
         /// Its rows, each `"N Card Name"`.
         cards: Vec<String>,
+        /// Its sideboard rows, in the same form.
+        sideboard: Vec<String>,
+    },
+    /// `DELETE /decks/{id}`.
+    DeleteDeck {
+        /// Which deck.
+        deck_id: String,
     },
     /// `GET /lobby/games`.
     ListGames,
@@ -205,8 +229,32 @@ pub enum LobbyEvent {
     },
     /// The account's decks.
     Decks(Vec<DeckSummary>),
-    /// A deck was saved.
-    DeckCreated,
+    /// The playable card pool.
+    Pool {
+        /// Every card the engine can play.
+        cards: Vec<crate::deckbuilder::PoolCard>,
+        /// Whether the gateway could serve rules text with them.
+        has_text: bool,
+    },
+    /// One deck, with its rows, ready to edit.
+    DeckLoaded {
+        /// The deck's id.
+        id: String,
+        /// Its name.
+        name: String,
+        /// Its rows.
+        cards: Vec<String>,
+        /// Its sideboard rows.
+        sideboard: Vec<String>,
+    },
+    /// A deck was saved. `deck_id` is the id `POST /decks` hands back for a
+    /// *new* deck; an edit answers `204` and carries none, having had one.
+    DeckSaved {
+        /// The id the gateway filed it under, when this was a new deck.
+        deck_id: Option<String>,
+    },
+    /// A deck was deleted.
+    DeckDeleted,
     /// The tables that are open.
     Games(Vec<GameSummary>),
     /// A seat, and the ticket that proves it.
@@ -233,6 +281,10 @@ pub struct Lobby {
     status: String,
     busy: bool,
     registration_enabled: bool,
+    /// The deck builder. Kept across visits so its pool is fetched once.
+    builder: DeckBuilder,
+    /// Whether the pool has been asked for. See [`Lobby::needs_pool`].
+    pool_requested: bool,
     /// Bumped every time the caret is placed, including onto the field it is
     /// already in. A shell that has to *do* something when a field is picked —
     /// raise a keyboard, say — cannot tell that from the field alone.
@@ -457,17 +509,101 @@ impl Lobby {
         }
     }
 
-    /// Saves a deck. `cards` are gateway rows, each `"N Card Name"`.
+    /// Saves a deck outright. `cards` are gateway rows, each `"N Card Name"`.
+    ///
+    /// This is the starter-deck button; the builder saves through
+    /// [`Lobby::save_deck`].
     pub fn create_deck(&mut self, name: &str, cards: Vec<String>) -> Option<LobbyRequest> {
         if self.busy || self.token.is_none() || cards.is_empty() {
             return None;
         }
         self.busy = true;
         self.status = "saving the deck…".to_string();
-        Some(LobbyRequest::CreateDeck {
+        Some(LobbyRequest::SaveDeck {
+            deck_id: None,
             name: name.to_string(),
             cards,
+            sideboard: Vec::new(),
         })
+    }
+
+    /// The deck builder, whatever screen is showing.
+    #[must_use]
+    pub fn builder(&self) -> &DeckBuilder {
+        &self.builder
+    }
+
+    /// The deck builder, to type into.
+    pub fn builder_mut(&mut self) -> &mut DeckBuilder {
+        &mut self.builder
+    }
+
+    /// Opens the builder on a new deck, fetching the pool the first time.
+    ///
+    /// The pool outlives a visit deliberately: it is the same few hundred
+    /// cards every time, and a player who steps out to look at the tables
+    /// should not pay for it again on the way back.
+    pub fn build_deck(&mut self) -> Option<LobbyRequest> {
+        self.token.as_ref()?;
+        self.builder.start_new();
+        self.screen = Screen::Build;
+        self.needs_pool()
+    }
+
+    /// Opens the builder on a saved deck.
+    pub fn edit_deck(&mut self, index: usize) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        let deck_id = self.decks.get(index)?.id.clone();
+        self.screen = Screen::Build;
+        self.busy = true;
+        self.status = "opening the deck…".to_string();
+        Some(LobbyRequest::LoadDeck { deck_id })
+    }
+
+    /// Deletes a saved deck.
+    pub fn delete_deck(&mut self, index: usize) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        let deck_id = self.decks.get(index)?.id.clone();
+        self.busy = true;
+        self.status = "deleting the deck…".to_string();
+        Some(LobbyRequest::DeleteDeck { deck_id })
+    }
+
+    /// Leaves the builder for the tables.
+    pub fn close_builder(&mut self) -> Option<LobbyRequest> {
+        self.screen = Screen::Table;
+        self.refresh()
+    }
+
+    /// Saves whatever the builder holds.
+    pub fn save_deck(&mut self) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        let request = self.builder.save()?;
+        self.busy = true;
+        self.status = "saving the deck…".to_string();
+        Some(request)
+    }
+
+    /// The pool request, when the builder has not got one yet.
+    ///
+    /// Guarded by its own flag rather than by [`Lobby::busy`]: the lobby polls
+    /// the table list every couple of seconds, so `busy` is true far too often
+    /// for it to mean "do not open a screen" — a player clicking *new deck*
+    /// while a poll was in flight would have found nothing happening. The flag
+    /// says what is actually meant, which is that the pool is fetched once.
+    fn needs_pool(&mut self) -> Option<LobbyRequest> {
+        if self.builder.loaded() || self.pool_requested {
+            return None;
+        }
+        self.pool_requested = true;
+        self.status = "loading the card pool…".to_string();
+        Some(LobbyRequest::LoadPool)
     }
 
     /// Re-reads decks and tables. Decks first: the answer chains into games.
@@ -565,8 +701,31 @@ impl Lobby {
                 self.busy = true;
                 Some(LobbyRequest::ListGames)
             }
-            LobbyEvent::DeckCreated => {
+            LobbyEvent::Pool { cards, has_text } => {
+                self.builder.set_pool(cards, has_text);
+                self.status = String::new();
+                None
+            }
+            LobbyEvent::DeckLoaded {
+                id,
+                name,
+                cards,
+                sideboard,
+            } => {
+                self.builder.load(&id, &name, &cards, &sideboard);
+                self.status = String::new();
+                // The pool may not have arrived yet — the rows are held by
+                // name until it does, which is why loading is safe either way.
+                self.needs_pool()
+            }
+            LobbyEvent::DeckSaved { deck_id } => {
                 self.status = "deck saved".to_string();
+                self.builder.saved(deck_id.as_deref());
+                self.busy = true;
+                Some(LobbyRequest::ListDecks)
+            }
+            LobbyEvent::DeckDeleted => {
+                self.status = "deck deleted".to_string();
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
@@ -600,6 +759,9 @@ impl Lobby {
             }
             LobbyEvent::Failed(why) => {
                 self.status = why;
+                // A failed fetch may have been the pool's; letting it be asked
+                // for again costs one request and un-wedges the builder.
+                self.pool_requested = self.builder.loaded();
                 None
             }
         }
@@ -634,6 +796,7 @@ impl Lobby {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::deckbuilder::{Coverage, PoolCard, Zone};
 
     /// A signed-in lobby with one deck, without walking the whole flow.
     fn seated_lobby() -> Lobby {
@@ -649,6 +812,7 @@ mod tests {
         );
         assert_eq!(
             lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
+                sideboard: 0,
                 id: "d1".to_string(),
                 name: "Allytifact".to_string(),
                 cards: 60,
@@ -1010,13 +1174,17 @@ mod tests {
         let rows = vec!["40 Island".to_string(), "20 Forest".to_string()];
         assert_eq!(
             lobby.create_deck("Starter", rows.clone()),
-            Some(LobbyRequest::CreateDeck {
+            Some(LobbyRequest::SaveDeck {
+                deck_id: None,
                 name: "Starter".to_string(),
                 cards: rows,
+                sideboard: vec![],
             })
         );
         assert_eq!(
-            lobby.apply(LobbyEvent::DeckCreated),
+            lobby.apply(LobbyEvent::DeckSaved {
+                deck_id: Some("d9".to_string())
+            }),
             Some(LobbyRequest::ListDecks)
         );
     }
@@ -1100,5 +1268,177 @@ mod tests {
             serde_json::from_str(r#"{"game_id":"g1","seat":0,"seat_token":"tok"}"#)
                 .expect("handover");
         assert_eq!(seat.seat_token, "tok");
+    }
+    /// Opening the builder asks for the pool once. Coming back must not ask
+    /// again: it is the same few hundred cards, and the round trip would be
+    /// paid on every visit.
+    #[test]
+    fn the_card_pool_is_fetched_once() {
+        let mut lobby = seated_lobby();
+        assert_eq!(lobby.build_deck(), Some(LobbyRequest::LoadPool));
+        assert_eq!(lobby.screen(), &Screen::Build);
+        lobby.apply(LobbyEvent::Pool {
+            cards: vec![PoolCard {
+                index: 1,
+                english_name: "Forest".to_string(),
+                name: "Forest".to_string(),
+                kinds: vec!["Land".to_string()],
+                type_line: "Basic Land — Forest".to_string(),
+                basic_land: true,
+                coverage: Coverage::Implemented,
+                ..PoolCard::default()
+            }],
+            has_text: false,
+        });
+        assert!(lobby.builder().loaded());
+        lobby.close_builder();
+        assert_eq!(lobby.build_deck(), None, "the pool is already here");
+        assert_eq!(lobby.screen(), &Screen::Build);
+    }
+
+    /// Editing a saved deck asks for its rows — `GET /decks` lists counts, not
+    /// contents, so the builder cannot fill itself from the list.
+    #[test]
+    fn editing_a_deck_asks_for_its_rows() {
+        let mut lobby = seated_lobby();
+        lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
+            id: "deck-1".to_string(),
+            name: "Burn".to_string(),
+            cards: 2,
+            sideboard: 0,
+            commander: None,
+        }]));
+        lobby.apply(LobbyEvent::Games(vec![]));
+        assert_eq!(
+            lobby.edit_deck(0),
+            Some(LobbyRequest::LoadDeck {
+                deck_id: "deck-1".to_string()
+            })
+        );
+        assert_eq!(lobby.edit_deck(9), None, "no such deck");
+    }
+
+    /// A deck that arrives before the pool is held by name and resolves when
+    /// the pool lands — the two answers race, and neither order may lose rows.
+    #[test]
+    fn a_deck_loaded_before_the_pool_still_resolves() {
+        let mut lobby = seated_lobby();
+        assert_eq!(
+            lobby.apply(LobbyEvent::DeckLoaded {
+                id: "deck-1".to_string(),
+                name: "Trees".to_string(),
+                cards: vec!["3 Forest".to_string()],
+                sideboard: vec![],
+            }),
+            Some(LobbyRequest::LoadPool),
+            "the rows arrived first; the pool is still needed"
+        );
+        assert!(
+            lobby.builder().missing().is_empty(),
+            "nothing is missing yet — the pool has not had its say"
+        );
+        lobby.apply(LobbyEvent::Pool {
+            cards: vec![PoolCard {
+                index: 1,
+                english_name: "Forest".to_string(),
+                name: "Forest".to_string(),
+                kinds: vec!["Land".to_string()],
+                type_line: "Basic Land — Forest".to_string(),
+                basic_land: true,
+                ..PoolCard::default()
+            }],
+            has_text: false,
+        });
+        assert_eq!(lobby.builder().name(), "Trees");
+        assert_eq!(
+            lobby.builder().counts().main,
+            3,
+            "the held row became a real entry once the pool arrived"
+        );
+        assert!(lobby.builder().missing().is_empty());
+    }
+
+    /// Saving from the builder goes through the builder's own rules, so a deck
+    /// the gateway would refuse never leaves the client.
+    #[test]
+    fn the_builder_refuses_to_save_what_the_gateway_would_reject() {
+        let mut lobby = seated_lobby();
+        lobby.build_deck();
+        lobby.apply(LobbyEvent::Pool {
+            cards: vec![PoolCard {
+                index: 1,
+                english_name: "Forest".to_string(),
+                name: "Forest".to_string(),
+                kinds: vec!["Land".to_string()],
+                type_line: "Basic Land — Forest".to_string(),
+                basic_land: true,
+                ..PoolCard::default()
+            }],
+            has_text: false,
+        });
+        assert_eq!(lobby.save_deck(), None, "nameless and empty");
+        lobby.builder_mut().set_name("Trees");
+        lobby.builder_mut().add(0, Zone::Main);
+        assert_eq!(
+            lobby.save_deck(),
+            Some(LobbyRequest::SaveDeck {
+                deck_id: None,
+                name: "Trees".to_string(),
+                cards: vec!["1 Forest".to_string()],
+                sideboard: vec![],
+            })
+        );
+        assert_eq!(
+            lobby.apply(LobbyEvent::DeckSaved {
+                deck_id: Some("d9".to_string())
+            }),
+            Some(LobbyRequest::ListDecks)
+        );
+        assert!(!lobby.builder().dirty(), "saving settles the deck");
+        assert_eq!(
+            lobby.builder().editing(),
+            Some("d9"),
+            "and it is now the deck being edited"
+        );
+        // So a second save edits that deck rather than filing a copy of it.
+        // (Through the list refresh the save kicked off, which is what frees
+        // the lobby to send anything at all.)
+        lobby.apply(LobbyEvent::Decks(vec![]));
+        lobby.apply(LobbyEvent::Games(vec![]));
+        lobby.builder_mut().set_name("Trees II");
+        assert_eq!(
+            lobby.save_deck(),
+            Some(LobbyRequest::SaveDeck {
+                deck_id: Some("d9".to_string()),
+                name: "Trees II".to_string(),
+                cards: vec!["1 Forest".to_string()],
+                sideboard: vec![],
+            })
+        );
+    }
+
+    /// Deleting a deck re-reads the list, or the one that is gone stays on
+    /// screen until something else happens to refresh it.
+    #[test]
+    fn deleting_a_deck_re_reads_the_list() {
+        let mut lobby = seated_lobby();
+        lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
+            id: "deck-1".to_string(),
+            name: "Burn".to_string(),
+            cards: 2,
+            sideboard: 0,
+            commander: None,
+        }]));
+        lobby.apply(LobbyEvent::Games(vec![]));
+        assert_eq!(
+            lobby.delete_deck(0),
+            Some(LobbyRequest::DeleteDeck {
+                deck_id: "deck-1".to_string()
+            })
+        );
+        assert_eq!(
+            lobby.apply(LobbyEvent::DeckDeleted),
+            Some(LobbyRequest::ListDecks)
+        );
     }
 }

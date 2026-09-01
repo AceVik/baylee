@@ -45,6 +45,13 @@ pub struct Deck {
     pub name: String,
     /// Card lines (`"N Card Name"`).
     pub cards: Vec<String>,
+    /// Sideboard lines, in the same form. Cards outside the game a seat may
+    /// reach; never shuffled into the library.
+    ///
+    /// Defaulted rather than required, so a deck saved before there was a
+    /// sideboard still loads as one without a sideboard.
+    #[serde(default)]
+    pub sideboard: Vec<String>,
     /// Commander card name, if any.
     pub commander: Option<String>,
     /// Last update (unix seconds).

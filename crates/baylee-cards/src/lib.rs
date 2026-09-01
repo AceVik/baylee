@@ -38,6 +38,16 @@ pub fn count() -> usize {
     generated::ALL.len()
 }
 
+/// Every card in the registry, in index order.
+///
+/// The pool is what a deck builder can offer, so something has to be able to
+/// walk it. Index order rather than table order: the order is what a player
+/// sees when nothing else sorts the list, and a `HashMap`'s order is not an
+/// order.
+pub fn all() -> impl Iterator<Item = &'static CardDef> {
+    generated::BY_INDEX.iter().filter_map(|slot| *slot)
+}
+
 /// Hash of the whole pool (client cache invalidation / gateway handshake).
 #[must_use]
 pub fn pool_hash() -> u64 {
