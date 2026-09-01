@@ -43,6 +43,7 @@ pub mod input;
 pub mod lobby;
 pub mod net;
 pub mod settings;
+pub mod softkeys;
 pub mod table;
 pub mod textures;
 

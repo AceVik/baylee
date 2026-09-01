@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Deliberately *without* `viewport-fit=cover`: the browser then keeps the
+       canvas inside the safe area on its own, and the client needs no notch
+       arithmetic it cannot test. `user-scalable=no` because pinch is a camera
+       gesture here, not a page zoom, and a double-tap must not zoom the page
+       away from the game. -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0a0d0f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>baylee</title>
   <link data-trunk rel="rust" data-wasm-opt="z" data-bin="baylee-client">
   <style>
@@ -10,14 +19,42 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      background: #1a1b1e;
+      background: #0a0d0f;
       overflow: hidden;
+      /* A rubber-band scroll on iOS drags the whole game out of view. */
+      overscroll-behavior: none;
     }
     /* Bevy creates the canvas; fit_canvas_to_parent sizes it to the body. */
     canvas {
       display: block;
       width: 100%;
       height: 100%;
+      /* Every touch is the game's: no scroll, no pinch-zoom, no
+         double-tap-to-zoom, and no grey flash on tap. */
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
+    /* The lobby's text fields on a touch device. A canvas never raises a soft
+       keyboard, so `src/softkeys.rs` puts a real input over the page and
+       focuses it; the client draws the text itself. Invisible, but NOT
+       `display:none` or `visibility:hidden` — neither can hold focus, and
+       focus is the whole point. 16px keeps iOS from zooming on focus. -->
+    #baylee-text-input {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      border: 0;
+      outline: none;
+      opacity: 0;
+      font-size: 16px;
+      background: transparent;
+      color: transparent;
+      caret-color: transparent;
+      z-index: 2;
     }
   </style>
 </head>

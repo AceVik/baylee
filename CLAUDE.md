@@ -218,6 +218,17 @@ a front door. Two buttons exist only because nothing else does yet: "add the
 starter deck" (no deck builder; it posts the acceptance file's `Allytifact`
 rows) and "play the house AI offline" (a `LocalHost`, no account).
 
+The lobby is the client's one responsive screen: `Metrics::of(width)` picks a
+phone / tablet / desktop frame and every size comes from it, so a phone stacks
+the panels, drops the gateway line and gives every target 44 logical pixels.
+Text entry on a canvas is the part with no obvious answer —
+`crates/baylee-client/src/softkeys.rs` keeps one invisible but *focusable*
+`<input>` over the page on wasm, which is what raises a phone's keyboard and
+what buys autofill, IME and paste; the client's own key handling is skipped
+there so nothing is typed twice. In a browser the gateway comes from
+`?gateway=…` (remembered in `localStorage`), because the page origin is a
+`trunk serve` on :8080 and the gateway is not.
+
 The trap in that flow: a seat token is not always usable yet. `mode:"ai"` and a
 join both build the game's session before answering, but an **open** table
 holds a seat whose game does not exist — `opening_payload` has no session to

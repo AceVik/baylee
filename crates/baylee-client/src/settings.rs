@@ -39,12 +39,17 @@ impl Default for ClientSettings {
 
 /// Where the client looks for the gateway.
 ///
-/// Card text comes from the gateway rather than from the client's own binary,
-/// so the address has to be configurable without a rebuild. Resolution order:
-/// the `BAYLEE_GATEWAY` environment variable, then a `.env` file in the working
-/// directory, then the development default. In a browser there is neither, so
-/// the page's own origin is used — the client is served by something, and that
-/// something is the natural gateway.
+/// The gateway is where the client signs in, plays, and fetches card text, so
+/// the address has to be configurable without a rebuild. Natively:
+/// `BAYLEE_GATEWAY` in the environment, then a `.env` file in the working
+/// directory, then the development default.
+///
+/// In a browser there is neither, and the page's own origin is only the right
+/// answer when the gateway is what served the page. A dev build from `trunk
+/// serve` is not: it comes off `:8080` and the gateway is somewhere else. So a
+/// `?gateway=…` on the page URL wins, and is **remembered** — a browser drops
+/// the query string on the first internal navigation, and a client that
+/// forgot where its table was would be worse than one that never knew.
 #[must_use]
 pub fn gateway_url() -> String {
     #[cfg(not(target_arch = "wasm32"))]
@@ -52,19 +57,48 @@ pub fn gateway_url() -> String {
         if let Ok(url) = std::env::var("BAYLEE_GATEWAY")
             && !url.is_empty()
         {
-            return url.trim_end_matches('/').to_string();
+            return trim_url(&url);
         }
         if let Some(url) = dotenv_value("BAYLEE_GATEWAY") {
-            return url.trim_end_matches('/').to_string();
+            return trim_url(&url);
         }
         "http://127.0.0.1:28766".to_string()
     }
     #[cfg(target_arch = "wasm32")]
     {
+        /// `localStorage` key remembering the gateway a `?gateway=` named.
+        const KEY: &str = "baylee:gateway";
+        let query = web_sys::window()
+            .and_then(|w| w.location().search().ok())
+            .unwrap_or_default();
+        if let Some(url) = crate::net::query_value(&query, "gateway").filter(|u| !u.is_empty()) {
+            let url = trim_url(&url);
+            store::write_key(KEY, &url);
+            return url;
+        }
+        if let Some(url) = store::read_key(KEY).filter(|u| !u.is_empty()) {
+            return trim_url(&url);
+        }
         web_sys::window()
             .and_then(|w| w.location().origin().ok())
+            .map(|origin| trim_url(&origin))
             .unwrap_or_else(|| "http://127.0.0.1:28766".to_string())
     }
+}
+
+/// A gateway base URL without its trailing slash — `{base}/decks`, never
+/// `{base}//decks`, which is a 404 with no explanation.
+fn trim_url(url: &str) -> String {
+    url.trim().trim_end_matches('/').to_string()
+}
+
+/// Forgets a remembered browser gateway, so the page origin decides again.
+///
+/// Only reachable from a browser: everywhere else the address comes from the
+/// environment on every launch and there is nothing to forget.
+#[cfg(target_arch = "wasm32")]
+pub fn forget_gateway() {
+    store::remove_key("baylee:gateway");
 }
 
 /// Reads one key out of a `.env` file in the working directory.
@@ -163,6 +197,25 @@ mod store {
     pub fn write(text: &str) {
         if let Some(storage) = storage() {
             let _ = storage.set_item(KEY, text);
+        }
+    }
+
+    /// Reads one namespaced key.
+    pub fn read_key(key: &str) -> Option<String> {
+        storage()?.get_item(key).ok().flatten()
+    }
+
+    /// Writes one namespaced key; a full or disabled store is ignored.
+    pub fn write_key(key: &str, value: &str) {
+        if let Some(storage) = storage() {
+            let _ = storage.set_item(key, value);
+        }
+    }
+
+    /// Forgets one namespaced key.
+    pub fn remove_key(key: &str) {
+        if let Some(storage) = storage() {
+            let _ = storage.remove_item(key);
         }
     }
 

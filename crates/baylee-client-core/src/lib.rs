@@ -54,8 +54,8 @@ pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
 pub use interaction::{Interaction, Prompt, SelectionOutcome};
 pub use layout::{LaneKind, SeatSlot, TableLayout};
 pub use lobby::{
-    DeckSummary, Field, GameMode, GameSeat, GameSummary, Lobby, LobbyEvent, LobbyRequest, Screen,
-    SeatHandover,
+    DeckSummary, Field, FieldKind, GameMode, GameSeat, GameSummary, Lobby, LobbyEvent,
+    LobbyRequest, Screen, SeatHandover,
 };
 
 /// Re-exported wire types, so a downstream crate needs one dependency to talk

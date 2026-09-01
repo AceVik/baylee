@@ -29,6 +29,7 @@ use bevy::prelude::*;
 
 use crate::hud::{UiFonts, btn_radius, palette, soft_shadow, tf};
 use crate::net::{NetworkHost, SeatTicket};
+use crate::softkeys::{SoftKey, SoftKeyboard};
 use crate::{DuelCommand, DuelPhase, InstalledHost};
 
 /// The ground the lobby sits on — dark enough that the felt never flashes
@@ -50,11 +51,12 @@ pub struct LobbyPlugin;
 impl Plugin for LobbyPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Mailbox>()
+            .init_resource::<SoftKeyboard>()
             .insert_resource(LobbyState::new())
             .add_systems(Startup, ask_about_registration)
             .add_systems(
                 Update,
-                (poll, watch, keyboard, clicks, ui)
+                (poll, watch, softkeys, keyboard, clicks, ui)
                     .chain()
                     .run_if(in_state(DuelPhase::Closed)),
             )
@@ -410,13 +412,62 @@ fn watch(
     dispatch(&state, &mailbox, request);
 }
 
-/// Types into the sign-in form.
+/// Hands the sign-in form to the platform's own text input, where there is one.
+///
+/// Only the browser has one. Focusing a field there focuses a real `<input>`,
+/// which is what raises a phone's keyboard and what makes autofill, paste and
+/// an IME work at all; the value comes back whole rather than as keystrokes.
+/// The keyboard is *not* raised on arrival — only when a field is tapped —
+/// because a form that covers half the screen before anyone asked for it is
+/// the thing every mobile web app gets wrong.
+fn softkeys(
+    mut keys: ResMut<SoftKeyboard>,
+    mut state: ResMut<LobbyState>,
+    mailbox: Res<Mailbox>,
+    mut epoch: Local<u64>,
+) {
+    if !SoftKeyboard::owns_typing() {
+        return;
+    }
+    if !matches!(state.lobby.screen(), Screen::SignIn { .. }) {
+        keys.close();
+        *epoch = state.lobby.focus_epoch();
+        return;
+    }
+    // A tap on a field is what opens it — including a tap on the field the
+    // caret is already in, which is why this counts placements rather than
+    // watching which field is focused.
+    if *epoch != state.lobby.focus_epoch() {
+        *epoch = state.lobby.focus_epoch();
+        let field = state.lobby.focus();
+        keys.open(field.kind(), state.lobby.field(field));
+        return;
+    }
+    for key in keys.drain() {
+        match key {
+            SoftKey::Text(value) => {
+                let field = state.lobby.focus();
+                state.lobby.set_field(field, &value);
+            }
+            SoftKey::Submit => {
+                let request = state.lobby.submit();
+                dispatch(&state, &mailbox, request);
+            }
+        }
+    }
+}
+
+/// Types into the sign-in form from a keyboard the client itself reads.
+///
+/// Skipped entirely where [`SoftKeyboard`] owns the typing: the browser's
+/// input has focus, so the canvas sees nothing anyway, and anything it did see
+/// would be entered twice.
 fn keyboard(
     mut keys: MessageReader<KeyboardInput>,
     mut state: ResMut<LobbyState>,
     mailbox: Res<Mailbox>,
 ) {
-    if !matches!(state.lobby.screen(), Screen::SignIn { .. }) {
+    if SoftKeyboard::owns_typing() || !matches!(state.lobby.screen(), Screen::SignIn { .. }) {
         keys.clear();
         return;
     }
@@ -600,6 +651,101 @@ struct LobbyRoot;
 #[derive(Component)]
 struct LeaveButton;
 
+/// How much room there is, in three sizes.
+///
+/// Breakpoints rather than a continuous scale: what changes between a phone
+/// and a desktop is the *shape* of the screen — one column or two, a card that
+/// fills the width or one that floats — and shape does not interpolate.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Frame {
+    /// A phone held upright, or a very narrow window.
+    Phone,
+    /// A tablet, or a half-screen window.
+    Tablet,
+    /// A desktop window.
+    Desktop,
+}
+
+impl Frame {
+    /// The frame a window of this width is in.
+    fn of(width: f32) -> Self {
+        if width < 760.0 {
+            Self::Phone
+        } else if width < 1180.0 {
+            Self::Tablet
+        } else {
+            Self::Desktop
+        }
+    }
+}
+
+/// Every size the layout takes from the frame, in one place.
+#[derive(Clone, Copy)]
+struct Metrics {
+    frame: Frame,
+    /// Body text.
+    text: f32,
+    /// Headings.
+    head: f32,
+    /// Captions and secondary lines.
+    small: f32,
+    /// The minimum height of anything meant to be tapped. 44 logical pixels
+    /// is the smallest target a finger hits reliably.
+    tap: f32,
+    /// Padding around and inside panels.
+    pad: f32,
+    /// Gap between stacked controls.
+    gap: f32,
+}
+
+impl Metrics {
+    fn of(width: f32) -> Self {
+        match Frame::of(width) {
+            Frame::Phone => Self {
+                frame: Frame::Phone,
+                text: 15.0,
+                head: 17.0,
+                small: 12.0,
+                tap: 48.0,
+                pad: 14.0,
+                gap: 12.0,
+            },
+            Frame::Tablet => Self {
+                frame: Frame::Tablet,
+                text: 14.0,
+                head: 16.0,
+                small: 11.5,
+                tap: 44.0,
+                pad: 16.0,
+                gap: 10.0,
+            },
+            Frame::Desktop => Self {
+                frame: Frame::Desktop,
+                text: 13.0,
+                head: 15.0,
+                small: 11.0,
+                tap: 38.0,
+                pad: 18.0,
+                gap: 9.0,
+            },
+        }
+    }
+
+    /// Whether the table screen stacks its two panels instead of pairing them.
+    fn stacked(self) -> bool {
+        self.frame == Frame::Phone
+    }
+
+    /// The width of the deck panel beside the table list.
+    fn decks_width(self) -> Val {
+        match self.frame {
+            Frame::Phone => percent(100),
+            Frame::Tablet => px(280),
+            Frame::Desktop => px(330),
+        }
+    }
+}
+
 /// The lobby's own camera. The duel brings its own and the two never coexist:
 /// this one is despawned on the way out of [`DuelPhase::Closed`], before the
 /// stage is built.
@@ -621,15 +767,26 @@ fn teardown(mut commands: Commands, screen: Query<Entity, With<LobbyScreen>>) {
     }
 }
 
-/// Rebuilds the node tree when the lobby changed — the same retained-UI trick
-/// the HUD uses, with change detection standing in for a revision struct.
+/// Rebuilds the node tree when the lobby changed, or when the window crossed
+/// into a different frame.
+///
+/// The same retained-UI trick the HUD uses, with change detection standing in
+/// for a revision struct. Resizing *within* a frame is left to flexbox — the
+/// layout is written in percentages and gaps for exactly that reason.
 fn ui(
     mut commands: Commands,
     state: Res<LobbyState>,
     fonts: Option<Res<UiFonts>>,
+    windows: Query<&Window>,
     root: Query<Entity, With<LobbyRoot>>,
+    mut drawn: Local<Option<Frame>>,
 ) {
-    if !state.is_changed() && !root.is_empty() {
+    let width = windows
+        .iter()
+        .next()
+        .map_or(1280.0, |w| w.resolution.width());
+    let metrics = Metrics::of(width);
+    if !state.is_changed() && !root.is_empty() && *drawn == Some(metrics.frame) {
         return;
     }
     // The fonts are inserted by the duel plugin's startup system, so the first
@@ -641,8 +798,13 @@ fn ui(
     for entity in &root {
         commands.entity(entity).despawn();
     }
+    *drawn = Some(metrics.frame);
 
-    let top = matches!(state.lobby.screen(), Screen::Table);
+    let table_screen = matches!(state.lobby.screen(), Screen::Table);
+    // A phone puts the sign-in form near the top instead of centring it: the
+    // soft keyboard takes the bottom half of the screen, and a centred form
+    // ends up underneath it.
+    let top = table_screen || metrics.frame == Frame::Phone;
     let root = commands
         .spawn((
             LobbyScreen,
@@ -654,7 +816,7 @@ fn ui(
                 width: percent(100),
                 height: percent(100),
                 flex_direction: FlexDirection::Column,
-                align_items: if top {
+                align_items: if table_screen {
                     AlignItems::Stretch
                 } else {
                     AlignItems::Center
@@ -664,6 +826,11 @@ fn ui(
                 } else {
                     JustifyContent::Center
                 },
+                padding: if table_screen {
+                    UiRect::ZERO
+                } else {
+                    UiRect::all(px(metrics.pad))
+                },
                 ..default()
             },
             BackgroundColor(BACKDROP),
@@ -672,15 +839,15 @@ fn ui(
 
     match state.lobby.screen() {
         Screen::SignIn { registering } => {
-            let panel = sign_in(&mut commands, &state, &fonts, *registering);
+            let panel = sign_in(&mut commands, &state, &fonts, metrics, *registering);
             commands.entity(root).add_child(panel);
         }
-        Screen::Table => table(&mut commands, root, &state, &fonts),
+        Screen::Table => table(&mut commands, root, &state, &fonts, metrics),
         Screen::Seated(_) => {
             let note = commands
                 .spawn((
                     Text::new("taking your seat…"),
-                    tf(&fonts, 16.0),
+                    tf(&fonts, metrics.head),
                     TextColor(palette::MUTED),
                 ))
                 .id();
@@ -695,17 +862,25 @@ fn sign_in(
     commands: &mut Commands,
     state: &LobbyState,
     fonts: &UiFonts,
+    metrics: Metrics,
     registering: bool,
 ) -> Entity {
     let lobby = &state.lobby;
     let panel = commands
         .spawn((
             Node {
-                width: px(380),
+                // Fills a phone, floats on anything wider.
+                width: percent(100),
+                max_width: px(420),
+                margin: if metrics.frame == Frame::Phone {
+                    UiRect::top(px(metrics.pad * 2.0))
+                } else {
+                    UiRect::ZERO
+                },
                 flex_direction: FlexDirection::Column,
-                row_gap: px(12),
-                padding: UiRect::all(px(24)),
-                border_radius: BorderRadius::all(px(10)),
+                row_gap: px(metrics.gap),
+                padding: UiRect::all(px(metrics.pad * 1.4)),
+                border_radius: BorderRadius::all(px(12)),
                 ..default()
             },
             BackgroundColor(palette::PANEL_LIT),
@@ -716,7 +891,7 @@ fn sign_in(
     let title = commands
         .spawn((
             Text::new("baylee"),
-            tf(fonts, 28.0),
+            tf(fonts, metrics.head * 1.8),
             TextColor(palette::INK),
             Pickable::IGNORE,
         ))
@@ -724,7 +899,7 @@ fn sign_in(
     let where_ = commands
         .spawn((
             Text::new(state.gateway.clone()),
-            tf(fonts, 10.0),
+            tf(fonts, metrics.small * 0.9),
             TextColor(palette::MUTED),
             Pickable::IGNORE,
         ))
@@ -735,6 +910,7 @@ fn sign_in(
     let email = text_field(
         commands,
         fonts,
+        metrics,
         "E-MAIL",
         lobby.field(Field::Email),
         lobby.focus() == Field::Email,
@@ -745,6 +921,7 @@ fn sign_in(
         let name = text_field(
             commands,
             fonts,
+            metrics,
             "DISPLAY NAME",
             lobby.field(Field::DisplayName),
             lobby.focus() == Field::DisplayName,
@@ -756,6 +933,7 @@ fn sign_in(
     let password = text_field(
         commands,
         fonts,
+        metrics,
         "PASSWORD",
         &secret,
         lobby.focus() == Field::Password,
@@ -766,6 +944,7 @@ fn sign_in(
     let submit = button(
         commands,
         fonts,
+        metrics,
         if registering {
             "Create account"
         } else {
@@ -781,6 +960,7 @@ fn sign_in(
         let swap = button(
             commands,
             fonts,
+            metrics,
             if registering {
                 "I already have an account"
             } else {
@@ -796,7 +976,7 @@ fn sign_in(
     let status = commands
         .spawn((
             Text::new(lobby.status()),
-            tf(fonts, 12.0),
+            tf(fonts, metrics.small),
             TextColor(palette::MUTED),
             Pickable::IGNORE,
         ))
@@ -818,6 +998,7 @@ fn sign_in(
     let offline = button(
         commands,
         fonts,
+        metrics,
         "Play the house AI offline",
         Press::PlayOffline,
         palette::PANEL,
@@ -828,44 +1009,61 @@ fn sign_in(
     panel
 }
 
-/// The signed-in screen: decks on the left, tables on the right.
+/// The signed-in screen: decks and tables, side by side or stacked.
 #[allow(clippy::too_many_lines)] // two panels and a bar, built in order
-fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFonts) {
+fn table(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) {
     let lobby = &state.lobby;
+    let phone = metrics.frame == Frame::Phone;
 
     // ---- top bar
     let bar = commands
         .spawn((
             Node {
                 width: percent(100),
-                min_height: px(52),
+                min_height: px(metrics.tap + metrics.pad),
                 align_items: AlignItems::Center,
-                column_gap: px(12),
-                padding: UiRect::axes(px(16), px(8)),
+                column_gap: px(metrics.gap),
+                row_gap: px(6),
+                flex_wrap: FlexWrap::Wrap,
+                padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.5)),
                 ..default()
             },
             BackgroundColor(palette::PANEL),
         ))
         .id();
-    for (label, size, color) in [
-        ("baylee", 18.0, palette::INK),
-        (state.gateway.as_str(), 10.0, palette::MUTED),
-    ] {
-        let text = commands
+    let brand = commands
+        .spawn((
+            Text::new("baylee"),
+            tf(fonts, metrics.head * 1.2),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(bar).add_child(brand);
+    // The gateway address is reassurance, not information, and the first thing
+    // a narrow screen can do without.
+    if !phone {
+        let host = commands
             .spawn((
-                Text::new(label),
-                tf(fonts, size),
-                TextColor(color),
+                Text::new(state.gateway.clone()),
+                tf(fonts, metrics.small * 0.9),
+                TextColor(palette::MUTED),
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(bar).add_child(text);
+        commands.entity(bar).add_child(host);
     }
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
     let status = commands
         .spawn((
             Text::new(lobby.status()),
-            tf(fonts, 12.0),
+            tf(fonts, metrics.small),
             TextColor(palette::MUTED),
             Pickable::IGNORE,
         ))
@@ -873,6 +1071,7 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
     let out = button(
         commands,
         fonts,
+        metrics,
         "Sign out",
         Press::SignOut,
         palette::PANEL_LIT,
@@ -889,8 +1088,7 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
                 Node {
                     width: percent(100),
                     align_items: AlignItems::Center,
-                    column_gap: px(8),
-                    padding: UiRect::axes(px(16), px(8)),
+                    padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.5)),
                     ..default()
                 },
                 BackgroundColor(palette::PANEL_LIT),
@@ -901,9 +1099,9 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
             .spawn((
                 Text::new(format!(
                     "your table {} is open — waiting for an opponent",
-                    handover.game_id.chars().take(8).collect::<String>()
+                    short_id(&handover.game_id)
                 )),
-                tf(fonts, 12.0),
+                tf(fonts, metrics.small),
                 TextColor(palette::ACTIVE),
                 Pickable::IGNORE,
             ))
@@ -918,8 +1116,17 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
             Node {
                 width: percent(100),
                 flex_grow: 1.0,
-                column_gap: px(16),
-                padding: UiRect::all(px(16)),
+                flex_direction: if metrics.stacked() {
+                    FlexDirection::Column
+                } else {
+                    FlexDirection::Row
+                },
+                column_gap: px(metrics.pad),
+                row_gap: px(metrics.pad),
+                padding: UiRect::all(px(metrics.pad)),
+                // A phone runs out of height long before it runs out of
+                // games; without this the list is simply cut off.
+                overflow: Overflow::scroll_y(),
                 ..default()
             },
             Pickable::IGNORE,
@@ -928,12 +1135,13 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
     commands.entity(root).add_child(body);
 
     // ---- decks
-    let decks = panel(commands, px(320), 0.0);
-    let decks_head = heading(commands, fonts, "Your decks");
+    let decks = panel(commands, metrics, metrics.decks_width(), 0.0);
+    let decks_head = heading(commands, fonts, metrics, "Your decks");
     commands.entity(decks).add_child(decks_head);
     let starter = button(
         commands,
         fonts,
+        metrics,
         "Add the starter deck",
         Press::StarterDeck,
         palette::PANEL_LIT,
@@ -941,7 +1149,12 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
     );
     commands.entity(decks).add_child(starter);
     if lobby.decks().is_empty() {
-        let empty = note(commands, fonts, "no decks yet — add the starter deck");
+        let empty = note(
+            commands,
+            fonts,
+            metrics,
+            "no decks yet — add the starter deck",
+        );
         commands.entity(decks).add_child(empty);
     }
     for (index, deck) in lobby.decks().iter().enumerate() {
@@ -949,9 +1162,10 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
             .spawn((
                 Node {
                     width: percent(100),
+                    min_height: px(metrics.tap),
                     align_items: AlignItems::Center,
-                    column_gap: px(8),
-                    padding: UiRect::axes(px(10), px(8)),
+                    column_gap: px(metrics.gap),
+                    padding: UiRect::axes(px(metrics.pad * 0.7), px(metrics.pad * 0.4)),
                     border: UiRect::all(px(1)),
                     border_radius: btn_radius(),
                     ..default()
@@ -968,7 +1182,7 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
         let name = commands
             .spawn((
                 Text::new(deck.name.clone()),
-                tf(fonts, 13.0),
+                tf(fonts, metrics.text),
                 TextColor(palette::INK),
                 Pickable::IGNORE,
             ))
@@ -977,7 +1191,7 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
         let size = commands
             .spawn((
                 Text::new(format!("{} rows", deck.cards)),
-                tf(fonts, 11.0),
+                tf(fonts, metrics.small),
                 TextColor(palette::MUTED),
                 Pickable::IGNORE,
             ))
@@ -990,22 +1204,26 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
     commands.entity(body).add_child(decks);
 
     // ---- tables
-    let games = panel(commands, px(0), 1.0);
+    let games = panel(commands, metrics, percent(100), 1.0);
     let head_row = commands
         .spawn((
             Node {
                 width: percent(100),
                 align_items: AlignItems::Center,
-                column_gap: px(8),
+                column_gap: px(metrics.gap),
+                row_gap: px(metrics.gap),
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let head = heading(commands, fonts, "Tables");
-    let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+    let head = heading(commands, fonts, metrics, "Tables");
     commands.entity(head_row).add_child(head);
-    commands.entity(head_row).add_child(gap);
+    if !phone {
+        let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+        commands.entity(head_row).add_child(gap);
+    }
     for (label, press, tone) in [
         ("Refresh", Press::Refresh, palette::PANEL_LIT),
         ("Play the house", Press::Host(GameMode::Ai), palette::ACCENT),
@@ -1015,13 +1233,13 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
             palette::PANEL_LIT,
         ),
     ] {
-        let b = button(commands, fonts, label, press, tone, !lobby.busy());
+        let b = button(commands, fonts, metrics, label, press, tone, !lobby.busy());
         commands.entity(head_row).add_child(b);
     }
     commands.entity(games).add_child(head_row);
 
     if lobby.games().is_empty() {
-        let empty = note(commands, fonts, "no tables are open — start one");
+        let empty = note(commands, fonts, metrics, "no tables are open — start one");
         commands.entity(games).add_child(empty);
     }
     for (index, game) in lobby.games().iter().enumerate() {
@@ -1029,9 +1247,12 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
             .spawn((
                 Node {
                     width: percent(100),
+                    min_height: px(metrics.tap),
                     align_items: AlignItems::Center,
-                    column_gap: px(10),
-                    padding: UiRect::axes(px(10), px(8)),
+                    column_gap: px(metrics.gap),
+                    row_gap: px(6),
+                    flex_wrap: FlexWrap::Wrap,
+                    padding: UiRect::axes(px(metrics.pad * 0.7), px(metrics.pad * 0.4)),
                     border_radius: btn_radius(),
                     ..default()
                 },
@@ -1042,10 +1263,8 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
         let taken = game.seats.iter().filter(|s| s.taken).count();
         let label = commands
             .spawn((
-                // The id is opaque and long; the head of it is enough to tell
-                // two tables apart.
-                Text::new(game.id.chars().take(8).collect::<String>()),
-                tf(fonts, 13.0),
+                Text::new(short_id(&game.id)),
+                tf(fonts, metrics.text),
                 TextColor(palette::INK),
                 Pickable::IGNORE,
             ))
@@ -1057,7 +1276,7 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
                     game.state,
                     game.seats.len()
                 )),
-                tf(fonts, 11.0),
+                tf(fonts, metrics.small),
                 TextColor(palette::MUTED),
                 Pickable::IGNORE,
             ))
@@ -1070,6 +1289,7 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
             let join = button(
                 commands,
                 fonts,
+                metrics,
                 "Join",
                 Press::Join(index),
                 palette::ACCENT,
@@ -1082,11 +1302,26 @@ fn table(commands: &mut Commands, root: Entity, state: &LobbyState, fonts: &UiFo
     commands.entity(body).add_child(games);
 }
 
+/// The head of an opaque game id — enough to tell two tables apart, and short
+/// enough to fit on a phone.
+fn short_id(id: &str) -> String {
+    id.chars().take(8).collect()
+}
+
 /// The "leave table" button, over a game that has ended.
-fn spawn_leave_button(mut commands: Commands, fonts: Option<Res<UiFonts>>) {
+fn spawn_leave_button(
+    mut commands: Commands,
+    fonts: Option<Res<UiFonts>>,
+    windows: Query<&Window>,
+) {
     let Some(fonts) = fonts else {
         return;
     };
+    let width = windows
+        .iter()
+        .next()
+        .map_or(1280.0, |w| w.resolution.width());
+    let metrics = Metrics::of(width);
     let holder = commands
         .spawn((
             LeaveButton,
@@ -1103,6 +1338,7 @@ fn spawn_leave_button(mut commands: Commands, fonts: Option<Res<UiFonts>>) {
     let leave = button(
         &mut commands,
         &fonts,
+        metrics,
         "Back to the lobby",
         Press::Leave,
         palette::ACCENT,
@@ -1120,10 +1356,11 @@ fn despawn_leave_button(mut commands: Commands, buttons: Query<Entity, With<Leav
 
 // ----------------------------------------------------------- node makers
 
-/// A labelled text box that takes the caret when clicked.
+/// A labelled text box that takes the caret when tapped.
 fn text_field(
     commands: &mut Commands,
     fonts: &UiFonts,
+    metrics: Metrics,
     label: &str,
     value: &str,
     focused: bool,
@@ -1143,7 +1380,7 @@ fn text_field(
     let caption = commands
         .spawn((
             Text::new(label),
-            tf(fonts, 9.0),
+            tf(fonts, metrics.small * 0.8),
             TextColor(palette::MUTED),
             Pickable::IGNORE,
         ))
@@ -1158,7 +1395,7 @@ fn text_field(
     let text = commands
         .spawn((
             Text::new(shown),
-            tf(fonts, 14.0),
+            tf(fonts, metrics.text),
             TextColor(palette::INK),
             Pickable::IGNORE,
         ))
@@ -1167,9 +1404,9 @@ fn text_field(
         .spawn((
             Node {
                 width: percent(100),
-                min_height: px(34),
+                min_height: px(metrics.tap),
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(px(10), px(6)),
+                padding: UiRect::axes(px(metrics.pad * 0.7), px(6)),
                 border: UiRect::all(px(1)),
                 border_radius: btn_radius(),
                 ..default()
@@ -1193,6 +1430,7 @@ fn text_field(
 fn button(
     commands: &mut Commands,
     fonts: &UiFonts,
+    metrics: Metrics,
     label: &str,
     press: Press,
     tone: Color,
@@ -1201,7 +1439,7 @@ fn button(
     let text = commands
         .spawn((
             Text::new(label),
-            tf(fonts, 13.0),
+            tf(fonts, metrics.text),
             TextColor(if enabled { palette::INK } else { palette::DEAD }),
             Pickable::IGNORE,
         ))
@@ -1209,7 +1447,8 @@ fn button(
     let id = {
         let mut entity = commands.spawn((
             Node {
-                padding: UiRect::axes(px(14), px(8)),
+                min_height: px(metrics.tap),
+                padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.45)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border_radius: btn_radius(),
@@ -1227,17 +1466,19 @@ fn button(
     id
 }
 
-/// A column panel: fixed width, or growing to fill.
-fn panel(commands: &mut Commands, width: Val, grow: f32) -> Entity {
+/// A column panel: a fixed width beside its neighbour, or the full width
+/// above it.
+fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow: f32) -> Entity {
     commands
         .spawn((
             Node {
                 width,
                 flex_grow: grow,
+                flex_shrink: 0.0,
                 flex_direction: FlexDirection::Column,
-                row_gap: px(8),
-                padding: UiRect::all(px(14)),
-                border_radius: BorderRadius::all(px(10)),
+                row_gap: px(metrics.gap * 0.8),
+                padding: UiRect::all(px(metrics.pad * 0.8)),
+                border_radius: BorderRadius::all(px(12)),
                 ..default()
             },
             BackgroundColor(palette::PANEL),
@@ -1247,11 +1488,11 @@ fn panel(commands: &mut Commands, width: Val, grow: f32) -> Entity {
 }
 
 /// A panel heading.
-fn heading(commands: &mut Commands, fonts: &UiFonts, label: &str) -> Entity {
+fn heading(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, label: &str) -> Entity {
     commands
         .spawn((
             Text::new(label),
-            tf(fonts, 14.0),
+            tf(fonts, metrics.head),
             TextColor(palette::INK),
             Pickable::IGNORE,
         ))
@@ -1259,11 +1500,11 @@ fn heading(commands: &mut Commands, fonts: &UiFonts, label: &str) -> Entity {
 }
 
 /// A muted line where a list would be.
-fn note(commands: &mut Commands, fonts: &UiFonts, label: &str) -> Entity {
+fn note(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, label: &str) -> Entity {
     commands
         .spawn((
             Text::new(label),
-            tf(fonts, 11.0),
+            tf(fonts, metrics.small),
             TextColor(palette::MUTED),
             Pickable::IGNORE,
         ))
@@ -1724,6 +1965,97 @@ mod tests {
                 Screen::Seated(_)
             ),
             "a second dial would have failed and unseated us"
+        );
+    }
+
+    /// A window of a given width, so the breakpoints can be exercised without
+    /// a windowing system.
+    fn sized(app: &mut App, width: f32) {
+        let mut existing = app.world_mut().query::<&mut Window>();
+        if let Some(mut window) = existing.iter_mut(app.world_mut()).next() {
+            window.resolution.set(width, 900.0);
+            return;
+        }
+        let mut window = Window::default();
+        window.resolution.set(width, 900.0);
+        app.world_mut().spawn(window);
+    }
+
+    #[test]
+    fn the_frame_follows_the_width() {
+        assert_eq!(Frame::of(390.0), Frame::Phone, "a phone held upright");
+        assert_eq!(Frame::of(759.0), Frame::Phone);
+        assert_eq!(Frame::of(760.0), Frame::Tablet);
+        assert_eq!(
+            Frame::of(1024.0),
+            Frame::Tablet,
+            "a tablet, or a half window"
+        );
+        assert_eq!(Frame::of(1180.0), Frame::Desktop);
+        assert_eq!(Frame::of(2560.0), Frame::Desktop);
+    }
+
+    #[test]
+    fn a_finger_gets_a_target_it_can_hit() {
+        for width in [360.0_f32, 400.0, 700.0, 900.0, 1400.0] {
+            let metrics = Metrics::of(width);
+            assert!(
+                metrics.tap >= 38.0,
+                "{width} gave a {}px target",
+                metrics.tap
+            );
+        }
+        assert!(
+            Metrics::of(390.0).tap >= 44.0,
+            "a touch screen needs the full 44"
+        );
+        assert!(Metrics::of(390.0).stacked(), "a phone has one column");
+        assert!(!Metrics::of(1400.0).stacked(), "a desktop has two");
+    }
+
+    #[test]
+    fn a_phone_drops_what_it_has_no_room_for() {
+        let mut app = headless();
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .lobby
+            .apply(LobbyEvent::LoggedIn {
+                token: "tok".to_string(),
+            });
+        sized(&mut app, 1400.0);
+        app.update();
+        let wide = labels(&mut app);
+        sized(&mut app, 390.0);
+        app.update();
+        let narrow = labels(&mut app);
+
+        let gateway = app.world().resource::<LobbyState>().gateway.clone();
+        assert!(wide.contains(&gateway), "a desktop has room to say where");
+        assert!(
+            !narrow.contains(&gateway),
+            "a phone does not, and the address is reassurance rather than \
+             information"
+        );
+        assert!(
+            narrow.iter().any(|l| l == "Your decks"),
+            "everything that matters is still there: {narrow:?}"
+        );
+    }
+
+    #[test]
+    fn crossing_a_breakpoint_rebuilds_the_tree() {
+        let mut app = headless();
+        sized(&mut app, 1400.0);
+        app.update();
+        let wide = roots(&mut app);
+        app.update();
+        assert_eq!(roots(&mut app), wide, "the same frame keeps its tree");
+        sized(&mut app, 390.0);
+        app.update();
+        assert_ne!(
+            roots(&mut app),
+            wide,
+            "a different frame is a different layout, not a resize"
         );
     }
 

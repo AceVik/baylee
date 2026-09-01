@@ -155,13 +155,21 @@ exists would make the next duel's first frame skip its own rebuild.
 ## In the browser
 
 `trunk serve index.html --release` from `crates/baylee-client/` serves the
-client on <http://127.0.0.1:8080> (solo duel vs the house AI unless the page
-URL carries a seat ticket; card art streams
-from the Scryfall CDN on first use, so the first minute needs a network
-connection). Build for deployment with `trunk build index.html --release` and
-host the resulting `dist/` statically. Two notes: always build `--release`
-(a dev-profile wasm is ~350 MB vs ~36 MB optimized), and the acceptance deck
-file is embedded with `include_str!` because a browser has no filesystem.
+client on <http://127.0.0.1:8080> (the lobby, unless the page URL carries a
+seat ticket; card art streams from the Scryfall CDN on first use, so the first
+minute needs a network connection). Build for deployment with `trunk build
+index.html --release` and host the resulting `dist/` statically. Two notes:
+always build `--release` (a dev-profile wasm is ~350 MB vs ~36 MB optimized),
+and the acceptance deck file is embedded with `include_str!` because a browser
+has no filesystem.
+
+**Which gateway.** The page's own origin is only the right answer when the
+gateway served the page, and a `trunk serve` build comes off `:8080` while the
+gateway is on `:28766`. So `?gateway=http://127.0.0.1:28766` on the page URL
+wins — and is remembered in `localStorage` under `baylee:gateway`, because a
+browser drops the query string on the first internal navigation and a client
+that forgot where its table was would be worse than one that never knew.
+`settings::forget_gateway()` clears it.
 
 The same missing filesystem is why settings take a second back end. Natively
 they are a JSON file under `~/.config/baylee/`; in a browser the identical
@@ -169,6 +177,47 @@ JSON lives in `localStorage` under `baylee:client-settings`, scoped to the
 origin the client is served from. Both are best-effort — a corrupt file, a
 private window, a browser set to block site data — so `ClientSettings::load`
 falls back to defaults rather than failing a launch.
+
+## On a phone
+
+One binary, three shapes. The lobby lays itself out from the window width in
+three frames — phone below 760 logical pixels, tablet below 1180, desktop above
+— and `Metrics` is the single place every size comes from: text, headings, tap
+targets, padding, gaps. Breakpoints rather than a continuous scale, because
+what changes is the *shape* (one column or two, a card that fills the width or
+one that floats) and shape does not interpolate. Resizing inside a frame is
+left to flexbox; crossing into another one rebuilds the tree.
+
+Nothing meant to be tapped is under 44 logical pixels on a touch frame, the
+smallest target a finger hits reliably. A phone drops what it has no room for
+rather than shrinking it — the gateway address goes, the deck and table panels
+stack, the top bar and the table rows wrap.
+
+**Text entry is the hard part.** A canvas never raises a soft keyboard, which
+would make the sign-in form unusable on a phone and would cost desktop web its
+autofill, password managers, IME and paste. `src/softkeys.rs` keeps one real,
+invisible `<input>` over the page: tapping a lobby field focuses it, the
+browser does the typing, and the client reads the value back and draws it
+itself. Invisible, never hidden — neither `display:none` nor
+`visibility:hidden` can hold focus, and focus is the whole point. The field's
+`FieldKind` picks the input type, the `inputmode` and the `autocomplete` hint,
+so the phone raises the address keyboard for an e-mail and the password manager
+knows which box is which. The keyboard is not raised on arrival, only when a
+field is tapped, and `Lobby::focus_epoch` counts *placements* rather than
+changes so tapping the field you are already in still opens it.
+
+Where the platform owns the typing, the client's own key handling is skipped
+outright — the browser's input has focus, so the canvas sees nothing, and
+anything it did see would be entered twice.
+
+`index.html` carries the rest: `touch-action: none` so a swipe is the game's
+and not the page's, `overscroll-behavior: none` against iOS rubber-banding, no
+tap highlight, and deliberately *no* `viewport-fit=cover` — the browser then
+keeps the canvas inside the safe area on its own, and the client needs no notch
+arithmetic it has no way to test.
+
+The duel's own overlay is still written in fixed pixels and has not had this
+pass yet.
 
 ## Verification
 

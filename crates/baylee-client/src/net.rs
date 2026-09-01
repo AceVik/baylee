@@ -136,7 +136,7 @@ impl SeatTicket {
 /// Only a browser has a query string to read; the test below is what keeps it
 /// honest on the platform where it cannot be exercised by hand.
 #[cfg(any(target_arch = "wasm32", test))]
-fn query_value(query: &str, key: &str) -> Option<String> {
+pub(crate) fn query_value(query: &str, key: &str) -> Option<String> {
     query
         .trim_start_matches('?')
         .split('&')

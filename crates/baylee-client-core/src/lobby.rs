@@ -45,6 +45,31 @@ pub enum Field {
     Password,
 }
 
+impl Field {
+    /// What kind of text this field holds, for a platform that can help with
+    /// it. A phone raises a different keyboard for an address than for a
+    /// password, and a password manager has to be told which is which.
+    #[must_use]
+    pub fn kind(self) -> FieldKind {
+        match self {
+            Self::Email => FieldKind::Email,
+            Self::DisplayName => FieldKind::Name,
+            Self::Password => FieldKind::Password,
+        }
+    }
+}
+
+/// What a shell should ask its platform for when a [`Field`] takes the caret.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FieldKind {
+    /// An e-mail address: the address keyboard, and the username to autofill.
+    Email,
+    /// A plain name.
+    Name,
+    /// A password: masked, and the password to autofill.
+    Password,
+}
+
 /// One of the account's saved decks, as `GET /decks` lists it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DeckSummary {
@@ -208,6 +233,10 @@ pub struct Lobby {
     status: String,
     busy: bool,
     registration_enabled: bool,
+    /// Bumped every time the caret is placed, including onto the field it is
+    /// already in. A shell that has to *do* something when a field is picked —
+    /// raise a keyboard, say — cannot tell that from the field alone.
+    focus_epoch: u64,
     /// A table of ours that is open and has nobody in the other chair yet.
     awaiting: Option<SeatHandover>,
     /// What the seat now being granted was asked for.
@@ -238,6 +267,24 @@ impl Lobby {
     #[must_use]
     pub fn focus(&self) -> Field {
         self.focus
+    }
+
+    /// How many times the caret has been placed.
+    #[must_use]
+    pub fn focus_epoch(&self) -> u64 {
+        self.focus_epoch
+    }
+
+    /// Replaces a field wholesale.
+    ///
+    /// For a shell whose platform owns the text — a browser's own input, where
+    /// autofill, paste and an IME all change the value without a keystroke the
+    /// client ever sees.
+    pub fn set_field(&mut self, field: Field, value: &str) {
+        if self.field(field) == value {
+            return;
+        }
+        *self.field_mut(field) = value.to_string();
     }
 
     /// The text in one sign-in field.
@@ -322,6 +369,7 @@ impl Lobby {
             return;
         }
         self.focus = field;
+        self.focus_epoch += 1;
     }
 
     /// Moves the caret to the next field — the Tab key. The display name is
@@ -332,6 +380,7 @@ impl Lobby {
             (Field::Email, false) | (Field::DisplayName, _) => Field::Password,
             (Field::Password, _) => Field::Email,
         };
+        self.focus_epoch += 1;
     }
 
     /// Appends one typed character to the focused field.
@@ -361,6 +410,7 @@ impl Lobby {
             self.status.clear();
             if registering && self.focus == Field::DisplayName {
                 self.focus = Field::Password;
+                self.focus_epoch += 1;
             }
         } else {
             self.status = "this gateway is not taking new accounts".to_string();
@@ -841,6 +891,43 @@ mod tests {
         }));
         lobby.sign_out();
         assert_eq!(lobby.awaiting(), None);
+    }
+
+    #[test]
+    fn placing_the_caret_is_visible_even_when_it_does_not_move() {
+        let mut lobby = Lobby::new();
+        let start = lobby.focus_epoch();
+        lobby.focus_on(Field::Email);
+        assert!(
+            lobby.focus_epoch() > start,
+            "tapping the field you are already in still has to raise a keyboard"
+        );
+        let again = lobby.focus_epoch();
+        lobby.cycle_focus();
+        assert!(lobby.focus_epoch() > again);
+        let refused = lobby.focus_epoch();
+        lobby.focus_on(Field::DisplayName);
+        assert_eq!(
+            lobby.focus_epoch(),
+            refused,
+            "a field that is not on screen is not focused, so nothing happens"
+        );
+    }
+
+    #[test]
+    fn a_field_can_be_replaced_wholesale() {
+        let mut lobby = Lobby::new();
+        lobby.set_field(Field::Email, "pasted@example.com");
+        assert_eq!(lobby.field(Field::Email), "pasted@example.com");
+        lobby.set_field(Field::Email, "");
+        assert_eq!(lobby.field(Field::Email), "", "clearing works too");
+    }
+
+    #[test]
+    fn a_field_says_what_kind_of_keyboard_it_wants() {
+        assert_eq!(Field::Email.kind(), FieldKind::Email);
+        assert_eq!(Field::DisplayName.kind(), FieldKind::Name);
+        assert_eq!(Field::Password.kind(), FieldKind::Password);
     }
 
     #[test]

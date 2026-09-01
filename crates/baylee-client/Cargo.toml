@@ -45,5 +45,16 @@ path = "src/main.rs"
 # settings persist in localStorage (see src/settings.rs).
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
-web-sys = { workspace = true, features = ["Location", "Storage", "Window"] }
+web-sys = { workspace = true, features = [
+    "Document",
+    "Element",
+    "EventTarget",
+    "HtmlElement",
+    "HtmlInputElement",
+    "KeyboardEvent",
+    "Location",
+    "Storage",
+    "Window",
+] }
+wasm-bindgen.workspace = true
 send_wrapper.workspace = true

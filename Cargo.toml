@@ -57,6 +57,7 @@ getrandom = "0.3"
 # Browser bindings for the client's localStorage settings. Version pinned to
 # the one bevy already resolves for wasm, so this adds no second copy.
 web-sys = "0.3"
+wasm-bindgen = "0.2"
 sha2 = "0.10"
 subtle = "2"
 tokio-tungstenite = "0.26"
