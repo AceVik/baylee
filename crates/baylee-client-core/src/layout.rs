@@ -31,6 +31,11 @@ use glam::Vec2;
 pub const CARD_WIDTH: f32 = 1.0;
 /// Height of a card in table units.
 pub const CARD_HEIGHT: f32 = 1.397;
+/// A card's width divided by its height.
+///
+/// UI that sizes a card from one dimension needs the other, and a material
+/// node — unlike an image node — carries no intrinsic size to fall back on.
+pub const CARD_ASPECT: f32 = CARD_WIDTH / CARD_HEIGHT;
 /// Gap between cards in a comfortably filled lane.
 pub const CARD_GAP: f32 = 0.12;
 /// How much of a card must stay visible when a lane fans.

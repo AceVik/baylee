@@ -42,6 +42,7 @@ pub mod host;
 pub mod hud;
 pub mod input;
 pub mod lobby;
+pub mod manaui;
 pub mod net;
 pub mod settings;
 pub mod softkeys;

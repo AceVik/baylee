@@ -21,9 +21,11 @@
 //!
 //! # Mana symbols
 //!
-//! Drawn as coloured pips rather than a symbol font. `docs/legal.md` §2 rules
-//! out `WotC`'s symbol artwork, and a pip we draw ourselves is both further from
-//! that line and easier to keep legible at hand size than a glyph would be.
+//! Drawn with the open-licensed `mana` font on discs this module paints —
+//! see [`crate::manaui`]. `docs/legal.md` §2 allows that font by name and
+//! rules out `WotC`'s own symbol artwork. The table path still sets the cost
+//! as letters, because there it is one line of ordinary text rather than a
+//! row of nodes.
 
 use baylee_client_core::card_face::{CardFace, Stats, TextBlock};
 use baylee_core::color::{Color as MagicColor, ColorSet};
@@ -178,24 +180,6 @@ pub fn table_color(colors: ColorSet) -> Color {
     PAPER.mix(&frame_color(colors), 0.30)
 }
 
-/// The colour of one mana pip.
-fn pip_color(symbol: ManaSymbol) -> Color {
-    match symbol {
-        ManaSymbol::White => Color::srgb(0.96, 0.94, 0.86),
-        ManaSymbol::Blue => Color::srgb(0.44, 0.71, 0.90),
-        ManaSymbol::Black => Color::srgb(0.36, 0.33, 0.36),
-        ManaSymbol::Red => Color::srgb(0.92, 0.51, 0.42),
-        ManaSymbol::Green => Color::srgb(0.47, 0.76, 0.53),
-        ManaSymbol::Colorless | ManaSymbol::Generic(_) | ManaSymbol::HalfGeneric => {
-            Color::srgb(0.76, 0.74, 0.71)
-        }
-        ManaSymbol::Snow => Color::srgb(0.80, 0.87, 0.92),
-        // Hybrid, Phyrexian and the variables are drawn on the generic pip
-        // with their own label; a two-tone pip is not legible at hand size.
-        _ => Color::srgb(0.72, 0.68, 0.55),
-    }
-}
-
 /// The label inside one mana pip.
 fn pip_label(symbol: ManaSymbol) -> String {
     match symbol {
@@ -232,14 +216,6 @@ const fn color_letter(color: MagicColor) -> &'static str {
         MagicColor::Black => "B",
         MagicColor::Red => "R",
         MagicColor::Green => "G",
-    }
-}
-
-/// Whether a pip's label should be dark rather than light.
-fn pip_ink(symbol: ManaSymbol) -> Color {
-    match symbol {
-        ManaSymbol::Black => Color::srgb(0.92, 0.92, 0.92),
-        _ => Color::srgb(0.08, 0.08, 0.09),
     }
 }
 
@@ -397,24 +373,14 @@ fn spawn_pips(commands: &mut Commands, face: &CardFace, width: f32, fonts: &UiFo
         })
         .id();
     for symbol in &face.cost {
-        let pip = commands
-            .spawn((
-                Node {
-                    width: Val::Px(size),
-                    height: Val::Px(size),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(Val::Px(size * 0.5)),
-                    ..default()
-                },
-                BackgroundColor(pip_color(*symbol)),
-                children![(
-                    Text::new(pip_label(*symbol)),
-                    text_font(fonts, size * 0.62),
-                    TextColor(pip_ink(*symbol)),
-                )],
-            ))
-            .id();
+        // The `mana` font draws the printed mark; the letter this used to set
+        // was standing in for it, and a hybrid could not be spelled at all.
+        let pip = crate::manaui::spawn_pip(
+            commands,
+            fonts,
+            baylee_client_core::manapip::pip(*symbol),
+            size,
+        );
         commands.entity(row).add_child(pip);
     }
     row

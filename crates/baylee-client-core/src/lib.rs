@@ -42,6 +42,7 @@ pub mod images;
 pub mod interaction;
 pub mod layout;
 pub mod lobby;
+pub mod manapip;
 
 #[cfg(test)]
 pub(crate) mod test_support;

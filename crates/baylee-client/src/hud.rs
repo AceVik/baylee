@@ -25,15 +25,19 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_view::{GameStatic, PlayerView};
 use bevy::prelude::*;
 
-/// The two UI fonts: Inter for text, Font Awesome Solid for icons.
-/// Bundled OFL/CC-BY fonts (see NOTICE) — the default font has neither
-/// the weight range nor the icon glyphs.
+/// The three UI fonts: Inter for text, Font Awesome Solid for icons, and
+/// the `mana` font for mana symbols.
+/// Bundled OFL/CC-BY fonts (see NOTICE) — the default font has none of the
+/// weight range, the icon glyphs or the mana symbols.
 #[derive(Resource, Clone)]
 pub struct UiFonts {
     /// Text font (Inter, variable weight).
     pub text: Handle<Font>,
     /// Icon font (Font Awesome 6 Free, solid).
     pub icons: Handle<Font>,
+    /// Mana symbols (the `mana` font, SIL OFL). `docs/legal.md` §2 names it
+    /// as the one symbol font this project may bundle.
+    pub mana: Handle<Font>,
 }
 
 /// Loads the bundled fonts at startup.
@@ -41,6 +45,7 @@ pub fn setup_fonts(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(UiFonts {
         text: assets.load("fonts/Inter.ttf"),
         icons: assets.load("fonts/fa-solid-900.ttf"),
+        mana: assets.load("fonts/mana.ttf"),
     });
 }
 

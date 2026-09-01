@@ -2375,19 +2375,26 @@ fn pool_panel(
                 .id();
             commands.entity(entry).add_child(flag);
         }
-        let cost = commands
-            .spawn((
-                Text::new(if card.mana_cost.is_empty() {
-                    card.stats.clone().unwrap_or_default()
-                } else {
-                    card.mana_cost.clone()
-                }),
-                tf(fonts, metrics.small),
-                TextColor(palette::MUTED),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(entry).add_child(cost);
+        // A spell shows its cost as symbols; a land has none, and its power
+        // and toughness is the more useful thing to put in that column.
+        let cost = if card.mana_cost.is_empty() {
+            let stats = card.stats.clone().unwrap_or_default();
+            (!stats.is_empty()).then(|| {
+                commands
+                    .spawn((
+                        Text::new(stats),
+                        tf(fonts, metrics.small),
+                        TextColor(palette::MUTED),
+                        Pickable::IGNORE,
+                    ))
+                    .id()
+            })
+        } else {
+            crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small)
+        };
+        if let Some(cost) = cost {
+            commands.entity(entry).add_child(cost);
+        }
         // Reading a card is its own target. There is no hover on a touch
         // screen to read one with, and the row itself has to stay the fast
         // way to add — a builder is mostly typing a name and tapping once.
@@ -2752,6 +2759,10 @@ fn picker_art(
                 MaterialNode(material),
                 Node {
                     height: percent(100),
+                    // A material node has no intrinsic size the way an
+                    // `ImageNode` does, so without this it takes whatever
+                    // width flex hands it and a card renders on its side.
+                    aspect_ratio: Some(baylee_client_core::layout::CARD_ASPECT),
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -2812,16 +2823,13 @@ fn card_detail(
         ))
         .id();
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-    let cost = commands
-        .spawn((
-            Text::new(card.mana_cost.clone()),
-            tf(fonts, metrics.small),
-            TextColor(palette::MUTED),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let cost =
+        crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small * 1.15);
     let close = chip(commands, fonts, metrics, "\u{d7}", Press::CloseCard, false);
-    for child in [title, gap, cost, close] {
+    for child in [Some(title), Some(gap), cost, Some(close)]
+        .into_iter()
+        .flatten()
+    {
         commands.entity(head).add_child(child);
     }
     commands.entity(holder).add_child(head);
@@ -3041,15 +3049,12 @@ fn deck_panel(
             ))
             .id();
         let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-        let cost = commands
-            .spawn((
-                Text::new(card.mana_cost.clone()),
-                tf(fonts, metrics.small),
-                TextColor(palette::MUTED),
-                Pickable::IGNORE,
-            ))
-            .id();
-        for child in [count, title, gap, cost] {
+        let cost =
+            crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small);
+        for child in [Some(count), Some(title), Some(gap), cost]
+            .into_iter()
+            .flatten()
+        {
             commands.entity(row_id).add_child(child);
         }
         // A row that names a printing has to show it, or two lines of the
@@ -3215,16 +3220,29 @@ fn pip_row(
         if count == 0 {
             continue;
         }
-        let letter = "WUBRG".as_bytes()[at] as char;
+        let Some(color) = baylee_core::color::Color::ALL.get(at).copied() else {
+            continue;
+        };
+        // Symbol then count, as a decklist prints it — the letter this used
+        // to show was the placeholder for exactly this.
+        let pair = row(commands, metrics, false);
+        let symbol = crate::manaui::spawn_pip(
+            commands,
+            fonts,
+            baylee_client_core::manapip::of_color(color),
+            metrics.small,
+        );
         let text = commands
             .spawn((
-                Text::new(format!("{letter} {count}")),
+                Text::new(format!(" {count}")),
                 tf(fonts, metrics.small),
-                TextColor(mana_tone(letter)),
+                TextColor(palette::MUTED),
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(holder).add_child(text);
+        commands.entity(pair).add_child(symbol);
+        commands.entity(pair).add_child(text);
+        commands.entity(holder).add_child(pair);
     }
     holder
 }
@@ -3980,6 +3998,7 @@ mod tests {
             .insert_resource(UiFonts {
                 text: Handle::default(),
                 icons: Handle::default(),
+                mana: Handle::default(),
             })
             .add_plugins(LobbyPlugin);
         app.update();
