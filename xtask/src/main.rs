@@ -66,6 +66,30 @@ enum Cmd {
     },
     /// Validate card-file conventions (header, coverage, tests).
     Validate,
+    /// Seat a dev account at a table and print (or play) its ticket.
+    ///
+    /// Skips the lobby's sign-in and deck-picking screens and nothing else:
+    /// the account, the deck, the room and the seat are all made through the
+    /// gateway's own HTTP routes, and the game that comes out is played over
+    /// the same engine ⇄ gateway ⇄ client sockets as any other.
+    DevTable {
+        /// Gateway base URL.
+        #[arg(long, default_value = "http://127.0.0.1:28766")]
+        gateway: String,
+        /// How many chairs. Two is the one-tap game against the house; more
+        /// opens a room and hands every other chair to the AI.
+        #[arg(long, default_value_t = 2)]
+        seats: usize,
+        /// Which difficulty the AI chairs play at.
+        #[arg(long, default_value = "steady")]
+        ai: String,
+        /// Which acceptance deck to bring.
+        #[arg(long, default_value = "Allytifact")]
+        deck: String,
+        /// Launch the client on the seat instead of printing its ticket.
+        #[arg(long)]
+        play: bool,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -88,6 +112,13 @@ fn main() -> anyhow::Result<()> {
             cache,
         } => card_batch(&root, cards.as_deref(), &out, &forge, &cache),
         Cmd::Validate => validate(&root),
+        Cmd::DevTable {
+            gateway,
+            seats,
+            ai,
+            deck,
+            play,
+        } => dev_table(&root, &gateway, seats, &ai, &deck, play),
     }
 }
 
@@ -536,5 +567,189 @@ fn explain(root: &Path, name: &str, forge_dir: &Path, cache: &Path) -> anyhow::R
     } else {
         println!("note: data/forge_index.json missing; run `cargo xtask codegen`");
     }
+    Ok(())
+}
+
+// ------------------------------------------------------------- dev table
+
+/// The dev account. Fixed, so a repeated run reuses one account and one deck
+/// rather than filling the store with strangers.
+const DEV_EMAIL: &str = "dev@baylee.local";
+/// The dev account's password. This account exists only on a developer's own
+/// gateway and owns nothing worth taking.
+const DEV_PASSWORD: &str = "dev-password-dev-password";
+/// The dev account's display name.
+const DEV_NAME: &str = "dev";
+
+/// POSTs JSON and returns `(status, body)`. A refusal is a body, not an
+/// error: several steps here expect one (an account that already exists).
+fn post(
+    agent: &ureq::Agent,
+    url: &str,
+    token: Option<&str>,
+    body: &serde_json::Value,
+) -> anyhow::Result<(u16, String)> {
+    let mut req = agent.post(url).header("content-type", "application/json");
+    if let Some(token) = token {
+        req = req.header("authorization", &format!("Bearer {token}"));
+    }
+    match req.send_json(body) {
+        Ok(mut resp) => Ok((resp.status().as_u16(), resp.body_mut().read_to_string()?)),
+        Err(ureq::Error::StatusCode(code)) => Ok((code, String::new())),
+        Err(e) => Err(anyhow::anyhow!("{url}: {e}")),
+    }
+}
+
+/// GETs JSON and returns the body.
+fn get(agent: &ureq::Agent, url: &str, token: &str) -> anyhow::Result<String> {
+    let mut resp = agent
+        .get(url)
+        .header("authorization", &format!("Bearer {token}"))
+        .call()
+        .map_err(|e| anyhow::anyhow!("{url}: {e}"))?;
+    Ok(resp.body_mut().read_to_string()?)
+}
+
+/// Pulls a string field out of a JSON object body.
+fn field(body: &str, name: &str) -> anyhow::Result<String> {
+    let value: serde_json::Value = serde_json::from_str(body)?;
+    value
+        .get(name)
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+        .ok_or_else(|| anyhow::anyhow!("no `{name}` in {body}"))
+}
+
+/// The acceptance file's deck, as the `POST /decks` body wants it.
+fn acceptance_deck(root: &Path, name: &str) -> anyhow::Result<serde_json::Value> {
+    let text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&text).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let mut main = Vec::new();
+    let mut side = Vec::new();
+    for row in rows.iter().filter(|r| r.deck == name) {
+        let line = format!("{} {}", row.count, row.name);
+        match row.zone {
+            acceptance::Zone::Main => main.push(line),
+            acceptance::Zone::Sideboard => side.push(line),
+            // The engine does not run the commander format yet, so a
+            // commander row would only be a deck the gateway refuses.
+            acceptance::Zone::Commander => {}
+        }
+    }
+    anyhow::ensure!(!main.is_empty(), "no deck called `{name}` in the file");
+    Ok(serde_json::json!({ "name": name, "cards": main, "sideboard": side }))
+}
+
+/// Seats the dev account at a table and prints or plays its ticket.
+///
+/// Every step is a real request to a real gateway: the only thing skipped is
+/// having to type them into the lobby.
+fn dev_table(
+    root: &Path,
+    gateway: &str,
+    seats: usize,
+    ai: &str,
+    deck_name: &str,
+    play: bool,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        (2..=4).contains(&seats),
+        "a table seats between two and four"
+    );
+    let agent = ureq::Agent::new_with_defaults();
+
+    // An account. A second run finds it already there, which is not an error.
+    let _ = post(
+        &agent,
+        &format!("{gateway}/auth/register"),
+        None,
+        &serde_json::json!({
+            "email": DEV_EMAIL, "display_name": DEV_NAME, "password": DEV_PASSWORD,
+        }),
+    )?;
+    let (status, body) = post(
+        &agent,
+        &format!("{gateway}/auth/login"),
+        None,
+        &serde_json::json!({ "email": DEV_EMAIL, "password": DEV_PASSWORD }),
+    )?;
+    anyhow::ensure!(status == 200, "sign in as {DEV_NAME}: {status} {body}");
+    let token = field(&body, "token")?;
+
+    // A deck. Reused when a previous run already saved it, so the card pool
+    // is not re-validated on every launch.
+    let decks: serde_json::Value =
+        serde_json::from_str(&get(&agent, &format!("{gateway}/decks"), &token)?)?;
+    let existing = decks.as_array().and_then(|list| {
+        list.iter()
+            .find(|d| d.get("name").and_then(serde_json::Value::as_str) == Some(deck_name))
+            .and_then(|d| d.get("id").and_then(serde_json::Value::as_str))
+            .map(ToString::to_string)
+    });
+    let deck_id = if let Some(id) = existing {
+        id
+    } else {
+        let (status, body) = post(
+            &agent,
+            &format!("{gateway}/decks"),
+            Some(&token),
+            &acceptance_deck(root, deck_name)?,
+        )?;
+        anyhow::ensure!(status == 200, "save the {deck_name} deck: {status} {body}");
+        field(&body, "deck_id")?
+    };
+
+    // The table. Two chairs is the one-tap game against the house; more is a
+    // room whose other chairs go to the AI, which is what starts it.
+    let create = if seats == 2 {
+        serde_json::json!({ "deck_id": deck_id, "mode": "ai" })
+    } else {
+        serde_json::json!({ "deck_id": deck_id, "seats": seats, "name": "dev table" })
+    };
+    let (status, body) = post(
+        &agent,
+        &format!("{gateway}/lobby/games"),
+        Some(&token),
+        &create,
+    )?;
+    anyhow::ensure!(status == 200, "open a table: {status} {body}");
+    let game_id = field(&body, "game_id")?;
+    let seat_token = field(&body, "seat_token")?;
+
+    // A room's other chairs still have to be handed over; the two-seat path
+    // already came back with its house AI seated, and reaching into that
+    // chair would be a `409`.
+    if seats > 2 {
+        for seat in 1..seats {
+            let url = format!("{gateway}/lobby/games/{game_id}/seats/{seat}");
+            let (status, body) = post(
+                &agent,
+                &url,
+                Some(&token),
+                &serde_json::json!({ "kind": "ai", "ai": ai }),
+            )?;
+            anyhow::ensure!(
+                status == 200,
+                "seat the AI in chair {seat}: {status} {body}"
+            );
+        }
+    }
+
+    let opponents = seats - 1;
+    println!("table ready: {seats} chairs, {opponents} × {ai} AI, playing {deck_name}");
+    if !play {
+        println!(
+            "\nBAYLEE_GATEWAY={gateway} \\\n  BAYLEE_GAME={game_id} \\\n  BAYLEE_SEAT_TOKEN={seat_token} \\\n  cargo run -p baylee-client"
+        );
+        return Ok(());
+    }
+    let status = std::process::Command::new("cargo")
+        .args(["run", "-p", "baylee-client"])
+        .current_dir(root)
+        .env("BAYLEE_GATEWAY", gateway)
+        .env("BAYLEE_GAME", &game_id)
+        .env("BAYLEE_SEAT_TOKEN", &seat_token)
+        .status()?;
+    anyhow::ensure!(status.success(), "the client exited with {status}");
     Ok(())
 }

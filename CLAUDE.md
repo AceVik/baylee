@@ -32,7 +32,15 @@ cargo run -p xtask -- codegen --check    # CI: fail if generated files are stale
 cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
 cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + forge data side by side
 cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages for unimplemented cards
+cargo run -p xtask -- dev-table --seats 4 --ai sharp      # a seated dev ticket (add --play to launch the client)
 ```
+
+`dev-table` skips the lobby's sign-in and deck-picking *screens* and nothing
+else: the account (`dev@baylee.local`, reused across runs), the deck, the room
+and every AI chair are made through the gateway's own HTTP routes, and what it
+prints is an ordinary `SeatTicket`. The game therefore runs over the same
+engine ⇄ gateway ⇄ client sockets as any other — it is not a `LocalHost`
+shortcut, which is the whole point of having it.
 
 `codegen`, `explain`, and `card-batch` default `--forge` to
 `../mtg/forge-reference/forge-gui/res/cardsfolder` (read-only GPL reference,
