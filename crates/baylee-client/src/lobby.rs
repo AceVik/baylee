@@ -64,13 +64,18 @@ impl Plugin for LobbyPlugin {
             .add_systems(Startup, ask_about_registration)
             .add_systems(
                 Update,
-                (poll, watch, softkeys, keyboard, clicks, scrolls, ui)
+                (
+                    poll, watch, softkeys, keyboard, clicks, scrolls, hovers, ui, preview,
+                )
                     .chain()
                     .run_if(in_state(DuelPhase::Closed)),
             )
             .add_systems(Update, leave_clicks.run_if(in_state(DuelPhase::Finished)))
             .add_systems(OnEnter(DuelPhase::Closed), (came_back, spawn_camera))
-            .add_systems(OnExit(DuelPhase::Closed), teardown)
+            .init_resource::<Hovered>()
+            .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Out>>()
+            .add_systems(OnExit(DuelPhase::Closed), (teardown, despawn_preview))
             .add_systems(OnEnter(DuelPhase::Finished), spawn_leave_button)
             .add_systems(OnExit(DuelPhase::Finished), despawn_leave_button);
     }
@@ -255,12 +260,13 @@ fn build(
             name,
             cards,
             sideboard,
+            commander,
         } => {
             let body = serde_json::json!({
                 "name": name,
                 "cards": cards,
                 "sideboard": sideboard,
-                "commander": null,
+                "commander": commander,
             });
             match deck_id {
                 // Editing an existing deck overwrites it; without an id this
@@ -396,6 +402,8 @@ fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
         cards: Vec<String>,
         #[serde(default)]
         sideboard: Vec<String>,
+        #[serde(default)]
+        commander: Option<String>,
     }
 
     let body = response.text().unwrap_or_default();
@@ -431,6 +439,7 @@ fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
                 name: d.name,
                 cards: d.cards,
                 sideboard: d.sideboard,
+                commander: d.commander,
             },
         ),
         Expect::LoggedIn => serde_json::from_str::<TokenBody>(body).map_or_else(
@@ -884,6 +893,21 @@ fn clicks(
                 let zone = state.lobby.builder().zone();
                 state.lobby.builder_mut().remove_at(at, zone);
             }
+            Press::MoveRow(at) => {
+                let from = state.lobby.builder().zone();
+                let to = match from {
+                    Zone::Main => Zone::Side,
+                    Zone::Side => Zone::Main,
+                };
+                state.lobby.builder_mut().move_entry(at, from, to);
+            }
+            Press::AddCardTo(slot, zone) => {
+                state.lobby.builder_mut().add(slot, zone);
+            }
+            Press::SetCommander(slot) => {
+                state.lobby.builder_mut().set_commander(slot);
+            }
+            Press::ClearCommander => state.lobby.builder_mut().clear_commander(),
             Press::SetZone(zone) => state.lobby.builder_mut().set_zone(zone),
             Press::ToggleColor(color) => state.lobby.builder_mut().toggle_color(color),
             Press::SetKind(kind) => {
@@ -1146,6 +1170,15 @@ enum Press {
     PickerNothing,
     /// Take one copy out of a named row of the deck list.
     RemoveRow(usize),
+    /// Move one copy of a named row to the other list — deck to sideboard,
+    /// or back. The row keeps the printing it was chosen with.
+    MoveRow(usize),
+    /// Add one copy of a pool card to a named list, whichever one is open.
+    AddCardTo(usize, Zone),
+    /// Make a pool card the deck's commander.
+    SetCommander(usize),
+    /// Take the commander mark off, leaving the card in the deck.
+    ClearCommander,
     /// Put it away again.
     CloseCard,
     /// Show or hide the filter chips on a narrow screen.
@@ -1168,6 +1201,203 @@ fn in_lineage<'a>(
         current = parents.get(e).ok().map(ChildOf::parent);
     }
     None
+}
+
+// ------------------------------------------------------------ hover preview
+
+/// A row that has a card behind it, and what that card looks like.
+///
+/// The URL is worked out when the row is spawned rather than when it is
+/// hovered: the row already knows which printing it is showing, and a hover
+/// that had to go looking would be doing it on the pointer's schedule.
+#[derive(Component, Clone)]
+pub struct HoverCard {
+    /// The card's art, if there is a printing to fetch.
+    pub url: Option<String>,
+    /// How the printing is finished, so a foil previews as one.
+    pub finish: FinishTreatment,
+}
+
+/// The card the pointer is over, and where the pointer was.
+#[derive(Resource, Default)]
+struct Hovered {
+    /// What to draw, or `None` when the pointer is over nothing.
+    card: Option<HoverCard>,
+    /// Where to draw it, in logical pixels.
+    at: Vec2,
+    /// Bumped whenever either changes, so the preview knows to redraw
+    /// without comparing an image handle.
+    epoch: u64,
+}
+
+/// The preview node itself.
+#[derive(Component)]
+struct CardPreview {
+    /// The epoch this node was drawn for.
+    epoch: u64,
+}
+
+/// Tracks which row the pointer is over.
+fn hovers(
+    mut overs: MessageReader<Pointer<Over>>,
+    mut outs: MessageReader<Pointer<Out>>,
+    cards: Query<&HoverCard>,
+    parents: Query<&ChildOf>,
+    mut hovered: ResMut<Hovered>,
+) {
+    for out in outs.read() {
+        if lineage_card(out.entity, &cards, &parents).is_some() {
+            hovered.card = None;
+            hovered.epoch = hovered.epoch.wrapping_add(1);
+        }
+    }
+    for over in overs.read() {
+        if let Some(card) = lineage_card(over.entity, &cards, &parents) {
+            hovered.card = Some(card.clone());
+            hovered.at = over.pointer_location.position;
+            hovered.epoch = hovered.epoch.wrapping_add(1);
+        }
+    }
+}
+
+/// The nearest [`HoverCard`] at or above an entity.
+fn lineage_card<'a>(
+    entity: Entity,
+    cards: &'a Query<&HoverCard>,
+    parents: &Query<&ChildOf>,
+) -> Option<&'a HoverCard> {
+    let mut current = Some(entity);
+    for _ in 0..6 {
+        let e = current?;
+        if let Ok(found) = cards.get(e) {
+            return Some(found);
+        }
+        current = parents.get(e).ok().map(ChildOf::parent);
+    }
+    None
+}
+
+/// Draws the hovered card beside the pointer.
+///
+/// Its own entity, spawned and despawned on its own: rebuilding the whole
+/// builder on every hover would mean tearing down two hundred rows to show
+/// one picture.
+fn preview(
+    mut commands: Commands,
+    hovered: Res<Hovered>,
+    existing: Query<(Entity, &CardPreview)>,
+    windows: Query<&Window>,
+    assets: Option<Res<AssetServer>>,
+    ui_materials: Option<ResMut<UiCardMaterials>>,
+    material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
+) {
+    let current = existing.iter().next().map(|(_, p)| p.epoch);
+    if current == Some(hovered.epoch) {
+        return;
+    }
+    for (entity, _) in existing {
+        commands.entity(entity).despawn();
+    }
+    let (Some(card), Some(assets)) = (hovered.card.as_ref(), assets) else {
+        return;
+    };
+    let Some(url) = card.url.clone() else {
+        return;
+    };
+    let (Some(mut cache), Some(mut store)) = (ui_materials, material_assets) else {
+        return;
+    };
+    let mut cards = UiCards {
+        cache: &mut cache,
+        assets: &mut store,
+    };
+
+    // Big enough to read the art, small enough to leave the list visible.
+    let height = 340.0_f32;
+    let width = height * baylee_client_core::layout::CARD_ASPECT;
+    let window = windows.iter().next();
+    let (w, h) = window.map_or((1280.0, 800.0), |win| (win.width(), win.height()));
+    // Beside the pointer, flipped to the other side when there is no room
+    // and clamped so a row near the bottom does not push it off screen.
+    let left = if hovered.at.x + width + 32.0 < w {
+        hovered.at.x + 24.0
+    } else {
+        (hovered.at.x - width - 24.0).max(8.0)
+    };
+    let top = (hovered.at.y - height / 2.0).clamp(8.0, (h - height - 8.0).max(8.0));
+
+    let material = cards.preview(&url, card.finish, assets.load(url.clone()));
+    commands.spawn((
+        CardPreview {
+            epoch: hovered.epoch,
+        },
+        MaterialNode(material),
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(left),
+            top: px(top),
+            width: px(width),
+            height: px(height),
+            border_radius: BorderRadius::all(px(12)),
+            ..default()
+        },
+        GlobalZIndex(600),
+        // A preview must never eat the click that would add the card.
+        Pickable::IGNORE,
+    ));
+}
+
+/// Takes the preview down when the builder does.
+fn despawn_preview(mut commands: Commands, previews: Query<Entity, With<CardPreview>>) {
+    for entity in previews {
+        commands.entity(entity).despawn();
+    }
+}
+
+/// The art a pool row previews: the printing the registry names.
+fn hover_of_card(card: &baylee_client_core::deckbuilder::PoolCard) -> HoverCard {
+    HoverCard {
+        url: baylee_client_core::images::image_url(
+            &baylee_view::PrintEntry {
+                scryfall_id: card.scryfall_id.clone(),
+                lang: "en".to_string(),
+                finish: baylee_view::Finish::Normal,
+            },
+            baylee_client_core::images::Face::Front,
+            baylee_client_core::images::ArtSize::Normal,
+        ),
+        finish: FinishTreatment::Plain,
+    }
+}
+
+/// The art a deck row previews: the printing that row actually names.
+fn hover_of_entry(
+    card: &baylee_client_core::deckbuilder::PoolCard,
+    print: &baylee_core::deckrow::PrintChoice,
+) -> HoverCard {
+    let finish = print.finish_or_default();
+    HoverCard {
+        url: baylee_client_core::images::image_url(
+            &baylee_view::PrintEntry {
+                // A row that named an exact printing previews that one; one
+                // that only narrowed by set has no id to fetch with, so it
+                // falls back to the art the pool row shows.
+                scryfall_id: print
+                    .scryfall_id
+                    .clone()
+                    .unwrap_or_else(|| card.scryfall_id.clone()),
+                lang: print.lang_or_default().to_string(),
+                finish: match finish {
+                    Finish::Foil => baylee_view::Finish::Foil,
+                    Finish::Etched => baylee_view::Finish::Etched,
+                    Finish::Normal => baylee_view::Finish::Normal,
+                },
+            },
+            baylee_client_core::images::Face::Front,
+            baylee_client_core::images::ArtSize::Normal,
+        ),
+        finish: treatment(finish),
+    }
 }
 
 /// The starter deck's rows, in the `"N Card Name"` form `POST /decks` takes.
@@ -2325,6 +2555,7 @@ fn pool_panel(
                     Color::NONE
                 }),
                 Press::AddCard(slot),
+                hover_of_card(card),
             ))
             .id();
         if held > 0 {
@@ -2882,6 +3113,98 @@ fn card_detail(
             .id();
         commands.entity(holder).add_child(line);
     }
+
+    let menu = card_menu(commands, fonts, metrics, deck, slot);
+    commands.entity(holder).add_child(menu);
+    holder
+}
+
+/// What a player can do with the card they are reading.
+///
+/// The row itself stays the one-tap way to add to the open list, which is
+/// what building a deck mostly is. Everything that needs a decision — which
+/// list, which printing, whether this card leads the deck — is here, where
+/// there is room to label it.
+fn card_menu(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    deck: &DeckBuilder,
+    slot: usize,
+) -> Entity {
+    let holder = row(commands, metrics, true);
+    let in_main = deck.count_of(slot, Zone::Main);
+    let in_side = deck.count_of(slot, Zone::Side);
+
+    for (label, press, lit) in [
+        ("+ deck", Press::AddCardTo(slot, Zone::Main), false),
+        ("+ sideboard", Press::AddCardTo(slot, Zone::Side), false),
+    ] {
+        let button = chip(commands, fonts, metrics, label, press, lit);
+        commands.entity(holder).add_child(button);
+    }
+
+    // Moving addresses a *row*, and a row index only means something in the
+    // list that is open — so the move is offered on the list being shown,
+    // and only when this card is actually in it.
+    let open = deck.zone();
+    let held = match open {
+        Zone::Main => in_main,
+        Zone::Side => in_side,
+    };
+    if held > 0
+        && let Some(at) = deck.row_of(slot, open)
+    {
+        let label = match open {
+            Zone::Main => "\u{2192} sideboard",
+            Zone::Side => "\u{2192} deck",
+        };
+        let button = chip(commands, fonts, metrics, label, Press::MoveRow(at), false);
+        commands.entity(holder).add_child(button);
+        let out = chip(
+            commands,
+            fonts,
+            metrics,
+            "remove",
+            Press::RemoveRow(at),
+            false,
+        );
+        commands.entity(holder).add_child(out);
+    }
+
+    // Only cards the rules can seat get the option: the gateway refuses the
+    // rest on save, and an offer that ends in a refusal is worse than none.
+    if deck.card(slot).is_some_and(|card| card.commander) {
+        let leading = deck.commander() == Some(slot);
+        let button = chip(
+            commands,
+            fonts,
+            metrics,
+            if leading {
+                "commander \u{2713}"
+            } else {
+                "set as commander"
+            },
+            if leading {
+                Press::ClearCommander
+            } else {
+                Press::SetCommander(slot)
+            },
+            leading,
+        );
+        commands.entity(holder).add_child(button);
+    }
+
+    let where_it_is = match (in_main, in_side) {
+        (0, 0) => String::new(),
+        (m, 0) => format!("{m} in the deck"),
+        (0, s) => format!("{s} in the sideboard"),
+        (m, s) => format!("{m} in the deck, {s} in the sideboard"),
+    };
+    if !where_it_is.is_empty() {
+        let line = note(commands, fonts, metrics, &where_it_is);
+        commands.entity(holder).add_child(line);
+    }
     holder
 }
 
@@ -3025,7 +3348,11 @@ fn deck_panel(
                     ..default()
                 },
                 BackgroundColor(palette::PANEL_LIT),
-                Pickable::IGNORE,
+                // Clicking a row in the deck reads the card, the same as
+                // clicking one in the pool — and a row that reports nothing
+                // could not be hovered for a preview either.
+                Press::Inspect(entry.slot),
+                hover_of_entry(card, &entry.print),
             ))
             .id();
         let count = commands
@@ -3079,6 +3406,10 @@ fn deck_panel(
             // two lines, and a tap on one of them means that one.
             ("−", Press::RemoveRow(at)),
             ("+", Press::AddCard(entry.slot)),
+            // One tap to send a copy the other way. The builder shows one
+            // list at a time, so without this a card has to be removed here
+            // and found again over there.
+            ("\u{21c4}", Press::MoveRow(at)),
         ] {
             let step = chip(commands, fonts, metrics, label, press, false);
             commands.entity(row_id).add_child(step);
@@ -3748,6 +4079,7 @@ mod tests {
                     name: "d".to_string(),
                     cards: vec!["1 Forest".to_string()],
                     sideboard: Vec::new(),
+                    commander: None,
                 },
                 "POST",
                 "http://gw/decks",
@@ -3758,6 +4090,7 @@ mod tests {
                     name: "d".to_string(),
                     cards: vec!["1 Forest".to_string()],
                     sideboard: Vec::new(),
+                    commander: None,
                 },
                 "PUT",
                 "http://gw/decks/d1",
@@ -3840,6 +4173,7 @@ mod tests {
                 name: "Starter".to_string(),
                 cards: vec!["1 Forest".to_string()],
                 sideboard: vec!["2 Naturalize".to_string()],
+                commander: None,
             },
         );
         assert_eq!(
@@ -3905,6 +4239,7 @@ mod tests {
                 name: "d".to_string(),
                 cards: vec!["1 Forest".to_string()],
                 sideboard: Vec::new(),
+                commander: None,
             },
         );
         assert_eq!(built.headers.get("Content-Type"), Some("application/json"));
@@ -4872,6 +5207,7 @@ mod tests {
                 name: "Elves".to_string(),
                 cards: vec!["4 Llanowar Elves".to_string()],
                 sideboard: vec!["1 Forest".to_string()],
+                commander: None,
             }
         );
         assert_eq!(
@@ -4964,5 +5300,65 @@ mod tests {
         app.update();
         let found = presses(&mut app);
         assert!(found.contains(&Press::PickPrint(0)), "{found:?}");
+    }
+    /// A deck row previews the printing it names, not the one the registry
+    /// happens to point at — that is the whole point of having chosen one.
+    #[test]
+    fn a_deck_row_previews_the_printing_it_names() {
+        use baylee_client_core::deckbuilder::PoolCard;
+        let card = PoolCard {
+            scryfall_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
+            ..PoolCard::default()
+        };
+        let chosen = baylee_core::deckrow::PrintChoice {
+            scryfall_id: Some("11111111-2222-3333-4444-555555555555".to_string()),
+            lang: Some("de".to_string()),
+            finish: Some(Finish::Foil),
+            ..baylee_core::deckrow::PrintChoice::default()
+        };
+        let hover = hover_of_entry(&card, &chosen);
+        let url = hover.url.expect("a real id has art");
+        assert!(
+            url.contains("11111111-2222-3333-4444-555555555555"),
+            "{url}"
+        );
+        assert_eq!(hover.finish, FinishTreatment::Foil);
+
+        // A row that only narrowed by set has no id of its own and falls
+        // back to the card's, rather than previewing nothing at all.
+        let vague = baylee_core::deckrow::PrintChoice {
+            set: Some("M11".to_string()),
+            ..baylee_core::deckrow::PrintChoice::default()
+        };
+        let fallback = hover_of_entry(&card, &vague).url.expect("falls back");
+        assert!(
+            fallback.contains("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+            "{fallback}"
+        );
+    }
+
+    /// The pool's own rows preview plainly: a player has not chosen a finish
+    /// there, and showing one would be inventing a choice.
+    #[test]
+    fn a_pool_row_previews_plainly() {
+        use baylee_client_core::deckbuilder::PoolCard;
+        let card = PoolCard {
+            scryfall_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
+            ..PoolCard::default()
+        };
+        assert_eq!(hover_of_card(&card).finish, FinishTreatment::Plain);
+        assert!(hover_of_card(&card).url.is_some());
+    }
+
+    /// A card with no usable printing must preview nothing rather than fetch
+    /// a guaranteed 404 — the nil id is what a preset carries.
+    #[test]
+    fn a_card_with_no_printing_previews_nothing() {
+        use baylee_client_core::deckbuilder::PoolCard;
+        let card = PoolCard {
+            scryfall_id: "00000000-0000-0000-0000-000000000000".to_string(),
+            ..PoolCard::default()
+        };
+        assert!(hover_of_card(&card).url.is_none());
     }
 }

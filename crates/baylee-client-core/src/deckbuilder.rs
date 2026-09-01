@@ -603,6 +603,15 @@ pub struct DeckBuilder {
     has_text: bool,
     /// The card whose full text is on screen, as a slot in the pool.
     inspecting: Option<usize>,
+    /// The deck's commander, as a slot in the pool.
+    ///
+    /// A slot rather than a name so it survives a language change: the row a
+    /// deck stores is the English name, and the pool is what maps between
+    /// them. `None` for every deck that is not a commander deck, which is
+    /// most of them.
+    commander: Option<usize>,
+    /// A loaded deck's commander name, until the pool can resolve it.
+    pending_commander: Option<String>,
     /// The open printing picker, if a card is being picked for.
     picker: Option<Picker>,
     focus: BuildField,
@@ -740,6 +749,15 @@ impl DeckBuilder {
             .iter()
             .filter(|e| e.slot == slot)
             .fold(0u16, |sum, e| sum.saturating_add(e.count))
+    }
+
+    /// Where a card's first row sits in a zone's list.
+    ///
+    /// A card with two printings has two rows; this finds the first, which is
+    /// what an action aimed at "this card" should act on.
+    #[must_use]
+    pub fn row_of(&self, slot: usize, zone: Zone) -> Option<usize> {
+        self.entries(zone).iter().position(|e| e.slot == slot)
     }
 
     // ------------------------------------------------------------- the pool
@@ -1468,6 +1486,73 @@ impl DeckBuilder {
         !self.problems().iter().any(|p| p.blocking)
     }
 
+    // ------------------------------------------------------- the commander
+
+    /// The deck's commander, as a slot in the pool.
+    #[must_use]
+    pub fn commander(&self) -> Option<usize> {
+        self.commander
+    }
+
+    /// The commander's English name — what the gateway is told.
+    #[must_use]
+    pub fn commander_name(&self) -> Option<&str> {
+        self.commander
+            .and_then(|slot| self.pool.get(slot))
+            .map(|card| card.english_name.as_str())
+    }
+
+    /// Makes a card the deck's commander.
+    ///
+    /// Refused for a card the rules cannot seat as one — the pool says which,
+    /// and offering the choice on a card that would be rejected on save is
+    /// worse than not offering it.
+    ///
+    /// A commander is also a card in the deck, so this puts one there if it
+    /// is not already: choosing a leader that is not in the ninety-nine is a
+    /// deck nobody meant to build.
+    pub fn set_commander(&mut self, slot: usize) -> bool {
+        if !self.pool.get(slot).is_some_and(|card| card.commander) {
+            return false;
+        }
+        if self.count_of(slot, Zone::Main) == 0 {
+            self.add(slot, Zone::Main);
+        }
+        if self.commander != Some(slot) {
+            self.commander = Some(slot);
+            self.dirty = true;
+        }
+        true
+    }
+
+    /// Takes the commander mark off, leaving the card in the deck.
+    pub fn clear_commander(&mut self) {
+        if self.commander.take().is_some() {
+            self.dirty = true;
+        }
+    }
+
+    // -------------------------------------------------- between the zones
+
+    /// Moves one copy of an entry to the other zone, printing and all.
+    ///
+    /// Not remove-then-add at the call site, because that would drop the
+    /// chosen printing: a foil moved to the sideboard has to arrive as the
+    /// same piece of cardboard it left as.
+    pub fn move_entry(&mut self, at: usize, from: Zone, to: Zone) -> bool {
+        if from == to {
+            return false;
+        }
+        let Some(entry) = self.entries(from).get(at) else {
+            return false;
+        };
+        let (slot, print) = (entry.slot, entry.print.clone());
+        if !self.remove_at(at, from) {
+            return false;
+        }
+        self.add_print(slot, to, print)
+    }
+
     // ---------------------------------------------------------- the wire
 
     /// One zone as the `"N Card Name"` rows the gateway stores.
@@ -1509,6 +1594,7 @@ impl DeckBuilder {
             name: self.name.trim().to_string(),
             cards: self.rows(Zone::Main),
             sideboard: self.rows(Zone::Side),
+            commander: self.commander_name().map(ToString::to_string),
         })
     }
 
@@ -1534,6 +1620,8 @@ impl DeckBuilder {
         self.zone = Zone::Main;
         self.dirty = false;
         self.inspecting = None;
+        self.commander = None;
+        self.pending_commander = None;
         // A nameless deck cannot be saved, so that is where the caret starts.
         self.focus_on(BuildField::Name);
     }
@@ -1546,10 +1634,20 @@ impl DeckBuilder {
     /// again. What is still unresolved once the pool is here is genuinely
     /// missing, and [`DeckBuilder::problems`] refuses to save over it: losing
     /// a card silently is the one outcome a deck builder must not have.
-    pub fn load(&mut self, id: &str, name: &str, cards: &[String], sideboard: &[String]) {
+    pub fn load(
+        &mut self,
+        id: &str,
+        name: &str,
+        cards: &[String],
+        sideboard: &[String],
+        commander: Option<&str>,
+    ) {
         self.start_new();
         self.editing = Some(id.to_string());
         self.name = name.to_string();
+        // The commander is a name too, and races the pool the same way its
+        // rows do.
+        self.pending_commander = commander.map(ToString::to_string);
         for (rows, zone) in [(cards, Zone::Main), (sideboard, Zone::Side)] {
             for row in rows {
                 match baylee_core::deckrow::parse(row) {
@@ -1577,6 +1675,12 @@ impl DeckBuilder {
 
     /// Turns held rows into deck entries, as far as the pool allows.
     fn resolve_pending(&mut self) {
+        if let Some(name) = self.pending_commander.clone()
+            && let Some(slot) = self.slot_of(&name)
+        {
+            self.commander = Some(slot);
+            self.pending_commander = None;
+        }
         if self.pending.is_empty() {
             return;
         }
@@ -1903,6 +2007,7 @@ mod tests {
             "Burn",
             &["4 Lightning Bolt".to_string(), "20 Forest".to_string()],
             &["2 Wrath of God".to_string()],
+            None,
         );
         assert_eq!(b.name(), "Burn");
         assert_eq!(b.editing(), Some("deck-1"));
@@ -1924,7 +2029,7 @@ mod tests {
     #[test]
     fn a_card_the_pool_lost_is_reported_not_dropped() {
         let mut b = builder();
-        b.load("d", "Old", &["1 Black Lotus".to_string()], &[]);
+        b.load("d", "Old", &["1 Black Lotus".to_string()], &[], None);
         assert_eq!(b.missing(), ["Black Lotus"]);
         assert!(!b.saveable(), "and it refuses to save over the loss");
         assert!(
@@ -1956,7 +2061,7 @@ mod tests {
     #[test]
     fn a_new_deck_is_not_the_old_one() {
         let mut b = builder();
-        b.load("deck-1", "Burn", &["1 Forest".to_string()], &[]);
+        b.load("deck-1", "Burn", &["1 Forest".to_string()], &[], None);
         b.start_new();
         assert_eq!(b.editing(), None);
         assert!(b.name().is_empty());
@@ -2249,6 +2354,7 @@ mod tests {
                 "1 Lightning Bolt".to_string(),
             ],
             &[],
+            None,
         );
         assert!(builder.missing().is_empty(), "{:?}", builder.missing());
         assert_eq!(
@@ -2278,8 +2384,128 @@ mod tests {
                 "1 Lightning Bolt (M11) 149 *F*".to_string(),
             ],
             &[],
+            None,
         );
         assert!(builder.remove(0, Zone::Main));
         assert_eq!(builder.rows(Zone::Main), vec!["1 Lightning Bolt"]);
+    }
+
+    /// A pool where one card may lead a deck and the rest may not.
+    fn commander_pool() -> DeckBuilder {
+        let mut cards = pool();
+        let mut general = card(
+            6,
+            "Nissa, Who Shakes the World",
+            "{3}{G}{G}",
+            5,
+            &["Legendary", "Planeswalker"],
+        );
+        general.commander = true;
+        cards.push(general);
+        let mut b = DeckBuilder::new();
+        b.set_pool(cards, true);
+        b.set_name("Test");
+        b
+    }
+
+    /// The pool says which cards the rules can seat as a commander, and the
+    /// gateway rejects the rest on save. Offering the choice on a card that
+    /// would be refused is worse than not offering it at all.
+    #[test]
+    fn a_card_that_cannot_lead_a_deck_is_refused_as_its_commander() {
+        let mut b = commander_pool();
+        let bears = b.slot_of("Grizzly Bears").unwrap();
+        assert!(!b.set_commander(bears));
+        assert_eq!(b.commander(), None);
+    }
+
+    /// A commander is one of the cards in the deck, so naming one that is not
+    /// in it yet puts it there — a leader outside the list is a deck nobody
+    /// meant to build.
+    #[test]
+    fn naming_a_commander_seats_it_in_the_deck() {
+        let mut b = commander_pool();
+        let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
+        assert!(b.set_commander(nissa));
+        assert_eq!(b.commander(), Some(nissa));
+        assert_eq!(b.count_of(nissa, Zone::Main), 1);
+        assert_eq!(b.commander_name(), Some("Nissa, Who Shakes the World"));
+    }
+
+    /// Clearing the mark leaves the card where it is: a player demoting their
+    /// commander is not asking to lose the card.
+    #[test]
+    fn clearing_the_commander_keeps_the_card() {
+        let mut b = commander_pool();
+        let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
+        b.set_commander(nissa);
+        b.clear_commander();
+        assert_eq!(b.commander(), None);
+        assert_eq!(b.count_of(nissa, Zone::Main), 1);
+    }
+
+    /// The commander rides the save request and comes back on load — and it
+    /// is a *name* on the wire, so it races the pool exactly as the rows do.
+    #[test]
+    fn a_commander_survives_a_save_and_a_reload() {
+        let mut b = commander_pool();
+        let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
+        b.set_commander(nissa);
+        let Some(crate::lobby::LobbyRequest::SaveDeck { commander, .. }) = b.save() else {
+            panic!("a named deck with cards saves");
+        };
+        assert_eq!(commander.as_deref(), Some("Nissa, Who Shakes the World"));
+
+        // Loaded into a builder whose pool has not arrived yet.
+        let mut fresh = DeckBuilder::new();
+        fresh.load(
+            "d",
+            "Superfriends",
+            &["1 Nissa, Who Shakes the World".to_string()],
+            &[],
+            Some("Nissa, Who Shakes the World"),
+        );
+        assert_eq!(
+            fresh.commander(),
+            None,
+            "no pool, nothing to resolve against"
+        );
+        let mut cards = pool();
+        let mut general = card(
+            6,
+            "Nissa, Who Shakes the World",
+            "{3}{G}{G}",
+            5,
+            &["Legendary", "Planeswalker"],
+        );
+        general.commander = true;
+        cards.push(general);
+        fresh.set_pool(cards, true);
+        assert_eq!(fresh.commander_name(), Some("Nissa, Who Shakes the World"));
+    }
+
+    /// Moving a card between the lists must not quietly reprint it: the
+    /// sideboard copy is the same piece of cardboard the deck held.
+    #[test]
+    fn a_card_moved_to_the_sideboard_keeps_its_printing() {
+        let mut builder = picking();
+        builder.picker_set_finish(Finish::Foil);
+        assert!(builder.picker_confirm());
+        let before = builder.rows(Zone::Main);
+        assert_eq!(before.len(), 1);
+        assert!(builder.move_entry(0, Zone::Main, Zone::Side));
+        assert!(builder.rows(Zone::Main).is_empty());
+        assert_eq!(builder.rows(Zone::Side), before);
+    }
+
+    /// A move to the zone the card is already in is not a move, and must not
+    /// silently duplicate or drop it.
+    #[test]
+    fn moving_a_card_to_the_zone_it_is_in_does_nothing() {
+        let mut b = builder();
+        let forest = b.slot_of("Forest").unwrap();
+        b.add(forest, Zone::Main);
+        assert!(!b.move_entry(0, Zone::Main, Zone::Main));
+        assert_eq!(b.count_of(forest, Zone::Main), 1);
     }
 }

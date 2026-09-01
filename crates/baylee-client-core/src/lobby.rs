@@ -198,6 +198,8 @@ pub enum LobbyRequest {
         cards: Vec<String>,
         /// Its sideboard rows, in the same form.
         sideboard: Vec<String>,
+        /// The card that leads it, when it is a commander deck.
+        commander: Option<String>,
     },
     /// `DELETE /decks/{id}`.
     DeleteDeck {
@@ -261,6 +263,8 @@ pub enum LobbyEvent {
         cards: Vec<String>,
         /// Its sideboard rows.
         sideboard: Vec<String>,
+        /// The card that leads it, when it is a commander deck.
+        commander: Option<String>,
     },
     /// A deck was saved. `deck_id` is the id `POST /decks` hands back for a
     /// *new* deck; an edit answers `204` and carries none, having had one.
@@ -539,6 +543,7 @@ impl Lobby {
             name: name.to_string(),
             cards,
             sideboard: Vec::new(),
+            commander: None,
         })
     }
 
@@ -734,8 +739,10 @@ impl Lobby {
                 name,
                 cards,
                 sideboard,
+                commander,
             } => {
-                self.builder.load(&id, &name, &cards, &sideboard);
+                self.builder
+                    .load(&id, &name, &cards, &sideboard, commander.as_deref());
                 self.status = String::new();
                 // The pool may not have arrived yet — the rows are held by
                 // name until it does, which is why loading is safe either way.
@@ -1202,6 +1209,7 @@ mod tests {
                 name: "Starter".to_string(),
                 cards: rows,
                 sideboard: vec![],
+                commander: None,
             })
         );
         assert_eq!(
@@ -1352,6 +1360,7 @@ mod tests {
                 name: "Trees".to_string(),
                 cards: vec!["3 Forest".to_string()],
                 sideboard: vec![],
+                commander: None,
             }),
             Some(LobbyRequest::LoadPool),
             "the rows arrived first; the pool is still needed"
@@ -1409,6 +1418,7 @@ mod tests {
                 name: "Trees".to_string(),
                 cards: vec!["1 Forest".to_string()],
                 sideboard: vec![],
+                commander: None,
             })
         );
         assert_eq!(
@@ -1436,6 +1446,7 @@ mod tests {
                 name: "Trees II".to_string(),
                 cards: vec!["1 Forest".to_string()],
                 sideboard: vec![],
+                commander: None,
             })
         );
     }
