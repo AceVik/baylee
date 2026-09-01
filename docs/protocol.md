@@ -131,6 +131,93 @@ so a flat list of "creatures that may block" would be wrong for every
 flier on the table. `CombatCandidates` — the client's own guess at both —
 is gone. No proto change: the taxonomy travels as JSON.
 
+## The gateway runs no rules
+
+A game does not live in the gateway. It lives in an engine process that an
+**agent** started and that dialled the gateway back; the gateway routes between
+that process and the seats, and links neither `baylee-engine` nor
+`baylee-gamehost`. The circle:
+
+```
+POST /lobby/games ─┐
+                   v
+              gateway ── StartEngine{game_id, engine_token, gateway_url} ──> agent
+                   ^                                                          │ spawn
+                   │                                                          v
+                   └──────── EngineHello{game_id, token} ──── baylee-engine-server
+                   │
+                   ├── GameSetup / SeatAttached / SeatDetached / SeatFrame ──>
+                   <── SeatFrame / GameEnded ──────────────────────────────────
+                   │
+                   └── the seat sockets, unchanged
+```
+
+Three sockets, three secrets, and no two of them are interchangeable:
+
+| socket | who opens it | what proves it |
+| --- | --- | --- |
+| `GET /agent/ws` | an agent | `BAYLEE_AGENT_TOKEN`, from the gateway's own configuration |
+| `GET /engine/ws` | one engine process | a token issued for exactly one game |
+| `GET /games/{id}/ws` | a player | a seat token, scoped to one seat of one game |
+
+A player's token opens neither of the first two. The engine token is minted
+when the game is ordered, handed to the agent, and passed to the process it
+starts as a command-line argument — it never leaves the machine the agent runs
+on, and it is worth one game.
+
+**`SeatFrame{seat, envelope}`** is what makes the routing possible without the
+gateway understanding a word of the game: it nests an *encoded* player-facing
+`Envelope` and tags it with a seat, so the gateway forwards the bytes it was
+handed without decoding or re-encoding them. The player-facing protocol keeps
+exactly the shape it had; a client cannot tell it is being proxied.
+
+Two things moved out of the gateway with the rules:
+
+- **The decision clock.** It has to sit where `awaiting_seat()` and `seq()` can
+  be read, which is now the engine process. It is anchored to the sequence
+  number it was armed at, so one seat's expired clock can never take another
+  seat's decision, and it does not run for a seat with no socket — a player who
+  walked away is not on a clock they cannot see.
+- **The panic boundary.** One process per game *is* the boundary, so the
+  `catch_unwind` the gateway used to wrap every rules call around is gone. A
+  rules path that panics takes down exactly one game, and the agent reports the
+  exit.
+
+Standing answers travel as JSON (`baylee_protocol::StandingAnswer`) rather than
+as actions: the gateway cannot build a `PlayerAction` any more, and the engine
+has never heard of an account. `EngineRunner::standing_answers` is the other
+half of that seam, and the gateway's own test reads its payload back with
+exactly that function — a wrong handle fails silently, so nothing here may be
+checked by eye alone.
+
+A seat's frames are dropped in the *engine* while it has no socket, not one hop
+later at the gateway. That is what keeps a seat's own opening payload first on
+its wire: the frames another seat's arrival produced for a player who was not
+there yet are gone before they can overtake it. Nothing is lost by it — every
+attach pumps, and a pump re-sends the current view to every seat that is
+present.
+
+Losing the engine link ends the game. The state lives in that process and
+nowhere else, so a link that closes before `GameEnded` is a game that cannot be
+continued; the gateway marks it over rather than leaving a table that will
+never move again.
+
+### Running one
+
+```bash
+BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) ./target/debug/baylee-gateway
+BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent
+```
+
+The agent finds `baylee-engine-server` beside itself (`BAYLEE_ENGINE_BIN`
+overrides), reconnects with backoff, and takes `BAYLEE_GATEWAY`,
+`BAYLEE_AGENT_NAME` and `BAYLEE_AGENT_CAPACITY` (0 = no limit). The gateway
+tells an engine to dial `BAYLEE_ENGINE_URL`, which defaults to
+`ws://127.0.0.1:{PORT}/engine/ws` — right for a single box, wrong the moment an
+agent runs somewhere else. With no agent connected, `POST /lobby/games` answers
+`503`: there is nothing to run the game, and handing out a seat token for a
+table that will never start would be worse.
+
 ## From an account to a seat
 
 The websocket below is opened with a *seat token*, and there is exactly one
@@ -161,13 +248,14 @@ URL.
 `seat` in the answer is a hint. The table states which chair this is, in the
 opening payload below, and the client believes the table.
 
-**A seat token is not always usable yet.** `mode:"ai"` and a join both build
-the game's session before answering, so the socket can be opened at once. An
-`"open"` table does not: it holds the seat and waits, and a socket opened
-against it is accepted and then closed with nothing on it, because
-`opening_payload` has no session to describe. The host of an open table has to
-wait for its `state` to turn `"playing"` — there is nothing to push the news
-on, so the lobby re-reads `GET /lobby/games` every two seconds until it does.
+**A seat token is not always usable yet.** `mode:"ai"` and a join both order an
+engine before answering, so the socket can be opened at once — it simply waits
+(up to 30 s) for that engine to attach before the first frame arrives. An
+`"open"` table orders nothing: it holds the seat and waits for a second player,
+and a socket opened against it is accepted and then closed with nothing on it,
+because there is no game yet to describe. The host of an open table has to wait
+for its `state` to turn `"playing"` — there is nothing to push the news on, so
+the lobby re-reads `GET /lobby/games` every two seconds until it does.
 
 ## The opening payload, and a client that is not the server
 
@@ -178,10 +266,10 @@ never sees — so `LocalHost` built them out of the preset it happened to be
 holding, and nothing on the wire carried them. A socket client had a print
 table of length zero and every `PrintRef` named no card.
 
-`Session::game_static_envelope` now produces it and both servers send it
-first: the gateway straight down each seat socket at connect (and again on a
-reconnect, since that is a new socket), the engine-server on `CreateGame`,
-`Join` and `Resume`. `LocalHost` takes it off the wire too, through the same
+`Session::game_static_envelope` now produces it and it is always the first
+thing on a seat's wire: `EngineRunner` sends it on `SeatAttached` (and again on
+a reconnect, since that is a new socket), the engine-server's dev harness on
+`CreateGame`, `Join` and `Resume`. `LocalHost` takes it off the wire too, through the same
 `host_message` decoder the networked host uses — a field only the in-process
 path filled in would be missing in exactly the case nobody tests at a desk.
 

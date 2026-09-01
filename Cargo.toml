@@ -26,6 +26,7 @@ baylee-ai = { path = "crates/baylee-ai" }
 baylee-gamehost = { path = "crates/baylee-gamehost" }
 baylee-gateway = { path = "crates/baylee-gateway" }
 baylee-engine-server = { path = "crates/baylee-engine-server" }
+baylee-agent = { path = "crates/baylee-agent" }
 baylee-catalog = { path = "crates/baylee-catalog" }
 
 serde = { version = "1", features = ["derive"] }

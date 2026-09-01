@@ -7,6 +7,7 @@
 //! must never be exposed on a plaintext listener in production.
 
 mod auth;
+mod engine;
 mod lobby;
 mod store;
 
@@ -16,11 +17,9 @@ use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
 use axum::routing::{get, post};
-use baylee_engine::choice::Pending;
 use baylee_protocol::v1::{self, Envelope};
 use lobby::{Lobby, LobbyGame, LobbySeat, LobbyState};
 use parking_lot::Mutex;
-use prost::Message as _;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
@@ -45,6 +44,23 @@ struct AppState {
     /// the header is never trusted; anyone can set it, so trusting it
     /// blindly disables the brute-force defense.
     trusted_proxies: Vec<IpAddr>,
+    /// Every agent connected right now, and the games each was asked to run.
+    ///
+    /// Nothing here is persisted: an agent that reconnects is a new agent, and
+    /// a game whose agent went away is a game whose engine either reports its
+    /// own end or stops existing.
+    agents: Mutex<engine::Agents>,
+    /// The shared secret an agent proves itself with (`BAYLEE_AGENT_TOKEN`).
+    ///
+    /// Without one no agent may connect, and therefore no game can start: an
+    /// unauthenticated control plane is a way to run processes on somebody
+    /// else's machine.
+    agent_token: Option<String>,
+    /// The websocket an engine is told to dial back on (`BAYLEE_ENGINE_URL`).
+    ///
+    /// Loopback by default, which is right for a single-box deployment and
+    /// wrong the moment an agent runs somewhere else.
+    engine_url: String,
     /// The card catalog, when `DATABASE_URL` is configured.
     ///
     /// Optional on purpose: accounts, decks and lobbies live in the JSON
@@ -75,10 +91,20 @@ async fn main() {
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let (save_tx, save_rx) = tokio::sync::mpsc::unbounded_channel();
     let catalog = connect_catalog().await;
+    let agent_token = std::env::var("BAYLEE_AGENT_TOKEN")
+        .ok()
+        .filter(|t| !t.is_empty());
+    if agent_token.is_none() {
+        tracing::warn!("BAYLEE_AGENT_TOKEN is not set: no agent can connect, so no game can start");
+    }
     let state = Arc::new(AppState {
         store: Mutex::new(Store::load(&store_path)),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         lobby: Mutex::new(Lobby::default()),
+        agents: Mutex::new(engine::Agents::default()),
+        agent_token,
+        engine_url: std::env::var("BAYLEE_ENGINE_URL")
+            .unwrap_or_else(|_| format!("ws://127.0.0.1:{port}/engine/ws")),
         store_path,
         save_tx,
         registration_enabled: std::env::var("BAYLEE_REGISTRATION")
@@ -108,6 +134,10 @@ async fn main() {
         .route("/automation", get(list_automation).put(set_automation))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/games/{id}/ws", get(game_ws))
+        // The control and engine planes. Neither carries a player's traffic
+        // and neither accepts a player's token; see `engine.rs`.
+        .route("/agent/ws", get(engine::agent_ws))
+        .route("/engine/ws", get(engine::engine_ws))
         .route("/catalog/text", get(catalog_text))
         .route("/catalog/search", get(catalog_search))
         .with_state(state);
@@ -156,18 +186,9 @@ fn spawn_cleanup(state: Shared) {
             let now = auth::now_secs();
             {
                 let mut lobby = state.lobby.lock();
-                // Flip live sessions that reached game over.
-                for game in lobby.games.values_mut() {
-                    if game.state == LobbyState::Playing
-                        && game
-                            .session
-                            .as_ref()
-                            .is_some_and(|s| matches!(s.pending(), Pending::GameOver(_)))
-                    {
-                        game.state = LobbyState::Over;
-                        game.finished_at = Some(now);
-                    }
-                }
+                // A game reaching its end is no longer something to discover
+                // here: the engine says so on its own link, and losing that
+                // link closes the game too. All that is left is reclaiming.
                 lobby.games.retain(|_, g| match g.state {
                     LobbyState::Waiting => now.saturating_sub(g.created_at) < WAITING_TIMEOUT_SECS,
                     LobbyState::Over => g
@@ -814,49 +835,57 @@ async fn create_game(
     };
     let game_id = auth::new_id();
     let seat_token = auth::new_token();
-    let mut lobby = state.lobby.lock();
-    match body.mode.as_str() {
-        "ai" => {
-            let mut preset = ai_preset(&deck, auth::new_game_seed())?;
-            preset.seats[0].controller = baylee_core::preset::SeatController::Open;
-            let session = baylee_gamehost::Session::new(&preset)
-                .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "game failed to start"))?;
-            let game = LobbyGame::playing(
-                game_id.clone(),
-                vec![
-                    LobbySeat {
-                        seat: 0,
-                        account_id: Some(account_id.clone()),
-                        seat_token_hash: Some(auth::token_hash(&seat_token)),
-                        deck_name,
-                        deck: Some(deck.clone()),
-                    },
-                    LobbySeat {
-                        seat: 1,
-                        account_id: None,
-                        seat_token_hash: None,
-                        deck_name: "house AI".to_string(),
-                        deck: None,
-                    },
-                ],
-                preset,
-                session,
-                auth::now_secs(),
-            );
-            lobby.games.insert(game_id.clone(), game);
+    let mut starts_now = false;
+    {
+        let mut lobby = state.lobby.lock();
+        match body.mode.as_str() {
+            "ai" => {
+                let mut preset = ai_preset(&deck, auth::new_game_seed())?;
+                preset.seats[0].controller = baylee_core::preset::SeatController::Open;
+                let game = LobbyGame::playing(
+                    game_id.clone(),
+                    vec![
+                        LobbySeat {
+                            seat: 0,
+                            account_id: Some(account_id.clone()),
+                            seat_token_hash: Some(auth::token_hash(&seat_token)),
+                            deck_name,
+                            deck: Some(deck.clone()),
+                        },
+                        LobbySeat {
+                            seat: 1,
+                            account_id: None,
+                            seat_token_hash: None,
+                            deck_name: "house AI".to_string(),
+                            deck: None,
+                        },
+                    ],
+                    preset,
+                    auth::now_secs(),
+                );
+                lobby.games.insert(game_id.clone(), game);
+                starts_now = true;
+            }
+            "open" => {
+                let mut game = LobbyGame::waiting(
+                    game_id.clone(),
+                    account_id,
+                    deck_name,
+                    deck.clone(),
+                    auth::now_secs(),
+                );
+                game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
+                lobby.games.insert(game_id.clone(), game);
+            }
+            _ => return Err(err(StatusCode::BAD_REQUEST, "mode must be ai or open")),
         }
-        "open" => {
-            let mut game = LobbyGame::waiting(
-                game_id.clone(),
-                account_id,
-                deck_name,
-                deck.clone(),
-                auth::now_secs(),
-            );
-            game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
-            lobby.games.insert(game_id.clone(), game);
-        }
-        _ => return Err(err(StatusCode::BAD_REQUEST, "mode must be ai or open")),
+    }
+    // Outside the lobby lock: ordering an engine takes the agent registry too,
+    // and a game nobody can run is not a game to hand a seat token for.
+    if starts_now && let Err(reason) = engine::start_engine(&state, &game_id) {
+        state.lobby.lock().games.remove(&game_id);
+        tracing::error!(game_id, reason, "could not start a game");
+        return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
     }
     Ok(Json(serde_json::json!({
         "game_id": game_id,
@@ -888,40 +917,55 @@ async fn join_game(
         }
         (deck.name.clone(), deck.clone())
     };
-    let mut lobby = state.lobby.lock();
-    let game = lobby
-        .games
-        .get_mut(&id)
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
-    if game.state != LobbyState::Waiting {
-        return Err(err(StatusCode::CONFLICT, "game already started"));
-    }
     let seat_token = auth::new_token();
-    game.seats[1] = lobby::LobbySeat {
-        seat: 1,
-        account_id: Some(account_id),
-        seat_token_hash: Some(auth::token_hash(&seat_token)),
-        deck_name,
-        deck: Some(deck.clone()),
-    };
-    // Both seats filled: build the preset from BOTH players' decks.
-    let creator_deck = game.seats[0]
-        .deck
-        .clone()
-        .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "creator deck missing"))?;
-    let mut preset = hvh_preset(&creator_deck, &deck, auth::new_game_seed())?;
-    // The deck helper presets every seat as AI; here BOTH chairs belong
-    // to humans, or the game would silently play itself (and the humans
-    // would never be asked).
-    for seat in &mut preset.seats {
-        seat.controller = baylee_core::preset::SeatController::Open;
+    {
+        let mut lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get_mut(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if game.state != LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        game.seats[1] = lobby::LobbySeat {
+            seat: 1,
+            account_id: Some(account_id),
+            seat_token_hash: Some(auth::token_hash(&seat_token)),
+            deck_name,
+            deck: Some(deck.clone()),
+        };
+        // Both seats filled: build the preset from BOTH players' decks.
+        let creator_deck = game.seats[0]
+            .deck
+            .clone()
+            .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "creator deck missing"))?;
+        let mut preset = hvh_preset(&creator_deck, &deck, auth::new_game_seed())?;
+        // The deck helper presets every seat as AI; here BOTH chairs belong
+        // to humans, or the game would silently play itself (and the humans
+        // would never be asked).
+        for seat in &mut preset.seats {
+            seat.controller = baylee_core::preset::SeatController::Open;
+        }
+        game.preset = Some(preset);
+        game.state = LobbyState::Playing;
     }
-    game.preset = Some(preset.clone());
-    game.session = Some(
-        baylee_gamehost::Session::new(&preset)
-            .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "game failed to start"))?,
-    );
-    game.state = LobbyState::Playing;
+    if let Err(reason) = engine::start_engine(&state, &id) {
+        // The joiner keeps its seat and the table stays open rather than
+        // vanishing under the player who created it.
+        let mut lobby = state.lobby.lock();
+        if let Some(game) = lobby.games.get_mut(&id) {
+            game.state = LobbyState::Waiting;
+            game.seats[1] = lobby::LobbySeat {
+                seat: 1,
+                account_id: None,
+                seat_token_hash: None,
+                deck_name: String::new(),
+                deck: None,
+            };
+        }
+        tracing::error!(game_id = id, reason, "could not start a game");
+        return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
+    }
     Ok(Json(serde_json::json!({
         "game_id": id,
         "seat": 1,
@@ -987,47 +1031,38 @@ async fn set_automation(
     Ok(Json(serde_json::json!({ "stored": count })))
 }
 
-/// Turns stored answers into the actions that carry them into a game.
+/// The account's remembered answers, in the shape the engine reads them.
 ///
-/// Split out from [`replay_automation`] so the translation can be tested
-/// without a running gateway: it is the only part that can silently get the
-/// handle wrong, and a wrong handle simply never fires — no error, no log,
-/// just a seat being asked a question it thought it had answered forever.
-fn standing_actions(answers: &[store::StandingAnswer]) -> Vec<baylee_engine::choice::PlayerAction> {
-    use baylee_engine::choice::{PlayerAction, StandingAnswer};
-    answers
+/// The gateway cannot build a `PlayerAction` — it does not link the engine —
+/// so what travels is the stored preference itself, and the engine turns it
+/// back into the handle it keeps its automation under. That handle is the one
+/// thing here that can silently be wrong: a wrong handle never fires, with no
+/// error and no log, and the seat is simply asked a question it believed it
+/// had answered for good.
+fn standing_payload(answers: &[store::StandingAnswer]) -> Vec<u8> {
+    let wire: Vec<baylee_protocol::StandingAnswer> = answers
         .iter()
-        .map(|a| PlayerAction::SetStandingAnswer {
-            ability: baylee_core::ids::AbilityRef::new(
-                baylee_core::ids::CardIndex::new(a.card),
-                a.ability,
-            ),
-            answer: Some(if a.yes {
-                StandingAnswer::Yes
-            } else {
-                StandingAnswer::No
-            }),
+        .map(|a| baylee_protocol::StandingAnswer {
+            card: a.card,
+            ability: a.ability,
+            yes: a.yes,
         })
-        .collect()
+        .collect();
+    serde_json::to_vec(&wire).unwrap_or_else(|_| b"[]".to_vec())
 }
 
-/// Replays an account's remembered answers into a seat.
-///
-/// Setting a standing answer is not a game action — the engine keeps the
-/// pending question exactly as it was — so this is safe at any moment,
-/// including on a reconnect, where it simply restates what the seat already
-/// has.
-fn replay_automation(state: &Shared, game_id: &str, player: baylee_core::ids::PlayerId) {
+/// What a seat's account has remembered, ready to hand to the engine.
+fn standing_for_seat(state: &Shared, game_id: &str, seat: usize) -> Vec<u8> {
     let account_id = {
         let lobby = state.lobby.lock();
         lobby
             .games
             .get(game_id)
-            .and_then(|g| g.seats.iter().find(|s| s.seat == player.get() as usize))
+            .and_then(|g| g.seats.iter().find(|s| s.seat == seat))
             .and_then(|s| s.account_id.clone())
     };
     let Some(account_id) = account_id else {
-        return;
+        return b"[]".to_vec();
     };
     let answers = state
         .store
@@ -1036,14 +1071,7 @@ fn replay_automation(state: &Shared, game_id: &str, player: baylee_core::ids::Pl
         .get(&account_id)
         .cloned()
         .unwrap_or_default();
-    for action in standing_actions(&answers) {
-        drive_session(state, game_id, |session, emit| {
-            for (p, env) in session.act(player, action)? {
-                emit(p, env);
-            }
-            Ok(())
-        });
-    }
+    standing_payload(&answers)
 }
 
 // ---------------------------------------------------------------- game ws
@@ -1079,135 +1107,13 @@ async fn game_ws(
     Ok(ws.on_upgrade(move |socket| run_game_socket(state, id, seat, socket)))
 }
 
-/// Pumps (or acts) the session under a panic boundary and broadcasts
-/// every routed envelope to all seat subscribers. A panicking rules path
-/// kills ONE game (marked over) instead of the process.
-///
-/// Returns false when the game is gone or panicked — the socket closes.
-fn drive_session<F>(state: &Shared, game_id: &str, step: F) -> bool
-where
-    F: FnOnce(
-        &mut baylee_gamehost::Session,
-        &mut dyn FnMut(baylee_core::ids::PlayerId, Envelope),
-    ) -> Result<(), String>,
-{
-    let mut lobby = state.lobby.lock();
-    let Some(game) = lobby.games.get_mut(game_id) else {
-        return false;
-    };
-    let Some(session) = game.session.as_mut() else {
-        return false;
-    };
-    let updates = game.updates.clone();
-    let mut emit = |p: baylee_core::ids::PlayerId, env: Envelope| {
-        // No receivers is fine (AI seats, seats without a live socket).
-        let _ = updates.send((p.get(), env));
-    };
-    let result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| step(session, &mut emit)));
-    match result {
-        Ok(Ok(())) => {
-            if matches!(session.pending(), Pending::GameOver(_)) {
-                game.state = LobbyState::Over;
-                game.finished_at = Some(auth::now_secs());
-            }
-            true
-        }
-        Ok(Err(_)) => true, // illegal action etc. — the game lives on
-        Err(_) => {
-            tracing::error!(game_id, "rules engine panicked; game closed");
-            game.state = LobbyState::Over;
-            game.finished_at = Some(auth::now_secs());
-            false
-        }
-    }
-}
-
-/// Applies one decoded frame from a seat's socket.
-///
-/// Returns false when the game is gone and the socket should close.
-fn handle_client_frame(
-    state: &Shared,
-    game_id: &str,
-    player: baylee_core::ids::PlayerId,
-    envelope: Envelope,
-) -> bool {
-    match envelope.msg {
-        Some(v1::envelope::Msg::PlayerAction(action_msg)) => {
-            let Ok(action) = serde_json::from_slice::<baylee_engine::choice::PlayerAction>(
-                &action_msg.action_json,
-            ) else {
-                return true;
-            };
-            drive_session(state, game_id, |session, emit| {
-                let routed = session.act(player, action)?;
-                for (p, env) in routed {
-                    emit(p, env);
-                }
-                Ok(())
-            })
-        }
-        // A reconnecting seat asks for whatever it missed. Read-only, so the
-        // seats still playing see nothing and no AI seat is driven forward as
-        // a side effect of somebody reconnecting.
-        Some(v1::envelope::Msg::Resume(resume)) => {
-            drive_session(state, game_id, |session, emit| {
-                for env in session.resume(player, resume.last_seq) {
-                    emit(player, env);
-                }
-                Ok(())
-            })
-        }
-        _ => true,
-    }
-}
-
-/// Re-arms the seat's decision deadline when the game has moved on.
-///
-/// The deadline is anchored to the session's sequence number, so it restarts
-/// when the game actually advances rather than every time an envelope
-/// addressed to the opponent wakes this task up.
-fn refresh_decision_clock(
-    state: &Shared,
-    game_id: &str,
-    player: baylee_core::ids::PlayerId,
-    timeout_secs: u32,
-    deadline: &mut Option<tokio::time::Instant>,
-    clocked_seq: &mut Option<u64>,
-) {
-    let lobby = state.lobby.lock();
-    match lobby.games.get(game_id).and_then(|g| g.session.as_ref()) {
-        Some(session) if session.awaiting_seat() == Some(player) => {
-            if *clocked_seq != Some(session.seq()) {
-                *clocked_seq = Some(session.seq());
-                *deadline = (timeout_secs > 0).then(|| {
-                    tokio::time::Instant::now()
-                        + std::time::Duration::from_secs(u64::from(timeout_secs))
-                });
-            }
-        }
-        _ => {
-            *deadline = None;
-            *clocked_seq = None;
-        }
-    }
-}
-
-/// Waits for a seat's decision deadline; waits forever when the seat is not
-/// the one being asked, or the table sets no limit.
-async fn decision_clock(deadline: Option<tokio::time::Instant>) {
-    match deadline {
-        Some(at) => tokio::time::sleep_until(at).await,
-        None => std::future::pending().await,
-    }
-}
-
 /// The names shown at each seat of a game, in seat order.
 ///
 /// The rules kernel has never heard of an account, so the roster is assembled
-/// here. The two locks are taken one after the other rather than nested: the
-/// lobby says which account sits where, the store says what that account is
-/// called, and nothing in between needs both at once.
+/// here and handed to the engine with the preset. The two locks are taken one
+/// after the other rather than nested: the lobby says which account sits
+/// where, the store says what that account is called, and nothing in between
+/// needs both at once.
 fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
     let accounts: Vec<Option<String>> = {
         let lobby = state.lobby.lock();
@@ -1230,185 +1136,136 @@ fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
         .collect()
 }
 
-/// The once-per-game payload for a seat, or `None` when the game is gone.
+/// How long a seat socket waits for its game's engine to attach.
 ///
-/// A networked client cannot build this itself: it never sees the preset, and
-/// without the print table a `PrintRef` names no card at all.
-fn opening_payload(
-    state: &Shared,
-    game_id: &str,
-    player: baylee_core::ids::PlayerId,
-) -> Option<Envelope> {
-    let names = seat_names(state, game_id);
-    let mut lobby = state.lobby.lock();
-    let session = lobby
-        .games
-        .get_mut(game_id)
-        .and_then(|g| g.session.as_mut())?;
-    // Idempotent, and the cheapest place to do it: the roster is the same on
-    // every socket, and this is the only code path that knows both halves.
-    session.describe(game_id.to_string(), names);
-    Some(session.game_static_envelope(player))
-}
+/// A seat may open its socket the moment the lobby says "playing", which is
+/// before the agent has finished starting the process. Generous, because the
+/// alternative is a client that has to poll and guess.
+const ENGINE_WAIT_SECS: u64 = 30;
 
-/// Resends a seat's whole state after its socket fell behind the broadcast.
+/// The biggest frame a seat may send.
 ///
-/// The opening payload goes first, and is not skipped as "it cannot have
-/// changed": it *can*. A seat earns a printing by seeing the card, and the
-/// updated payload that says so travels the same broadcast this socket just
-/// dropped messages from.
-async fn resync(
-    state: &Shared,
-    game_id: &str,
-    player: baylee_core::ids::PlayerId,
-    socket: &mut WebSocket,
-) -> Result<(), ()> {
-    let Some(statics) = opening_payload(state, game_id, player) else {
-        return Err(());
-    };
-    send_envelope(socket, statics).await?;
-    let snapshot = {
-        let lobby = state.lobby.lock();
-        match lobby.games.get(game_id).and_then(|g| g.session.as_ref()) {
-            Some(session) => session.snapshot(player),
-            None => return Err(()),
+/// A player's frame is a `PlayerActionMsg` carrying a JSON action — hundreds
+/// of bytes at most. The gateway forwards these without decoding them, so
+/// this is the only bound on what one seat can make the engine read.
+const MAX_SEAT_FRAME: usize = 64 * 1024;
+
+/// Waits until the game's engine is attached.
+async fn engine_ready(ready: &mut tokio::sync::watch::Receiver<bool>) -> bool {
+    let wait = async {
+        loop {
+            if *ready.borrow_and_update() {
+                return true;
+            }
+            if ready.changed().await.is_err() {
+                return false;
+            }
         }
     };
-    for env in snapshot {
-        send_envelope(socket, env).await?;
-    }
-    Ok(())
+    tokio::time::timeout(std::time::Duration::from_secs(ENGINE_WAIT_SECS), wait)
+        .await
+        .unwrap_or(false)
 }
 
+/// Sends one frame to a game's engine. False when there is no engine to send
+/// to, which is the end of this socket.
+fn to_engine(state: &Shared, game_id: &str, msg: v1::envelope::Msg) -> bool {
+    let lobby = state.lobby.lock();
+    lobby.games.get(game_id).is_some_and(|game| {
+        game.engine
+            .as_ref()
+            .is_some_and(|tx| tx.send(Envelope { msg: Some(msg) }).is_ok())
+    })
+}
+
+/// One seat's socket: everything it says goes to the engine tagged with its
+/// seat, and everything the engine addresses to that seat comes back.
+///
+/// The gateway never decodes either direction. It cannot: it does not link the
+/// rules kernel, and the whole point of the engine plane is that it does not
+/// have to.
 async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket: WebSocket) {
-    let player = baylee_core::ids::PlayerId::new(seat as u8);
-    // Subscribe BEFORE the initial pump so this socket can't miss its own
-    // first view; every envelope addressed to this seat arrives here,
+    // Subscribe BEFORE announcing the seat, so this socket cannot miss its
+    // own first view; every envelope addressed to this seat arrives here,
     // including the ones produced by the opponent's actions.
-    let mut rx = {
+    let (mut rx, mut ready) = {
         let lobby = state.lobby.lock();
         let Some(game) = lobby.games.get(&game_id) else {
             return;
         };
-        game.updates.subscribe()
+        (game.updates.subscribe(), game.ready.subscribe())
     };
-    // The seat roster and the print table, before anything that refers to
-    // them. Sent straight down this socket rather than broadcast: it is
-    // addressed to one seat, and what it says differs per seat.
-    let Some(statics) = opening_payload(&state, &game_id, player) else {
-        return;
-    };
-    if send_envelope(&mut socket, statics).await.is_err() {
+    if !engine_ready(&mut ready).await {
+        tracing::warn!(game_id, seat, "no engine attached; seat socket closing");
         return;
     }
-    // The account's remembered answers go in before the first pump, so a
-    // question the seat never wanted to see is already covered when the
-    // opening hand arrives.
-    replay_automation(&state, &game_id, player);
-    if !drive_session(&state, &game_id, |session, emit| {
-        for (p, env) in session.pump() {
-            emit(p, env);
-        }
-        Ok(())
-    }) {
+    let attach = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
+        seat: seat as u32,
+        standing_json: standing_for_seat(&state, &game_id, seat),
+        resync: false,
+    });
+    if !to_engine(&state, &game_id, attach) {
         return;
     }
-    // The decision clock lives here, never in the engine or the session: the
-    // rules kernel is deterministic and must not read a wall clock. Each
-    // socket runs only its own seat's clock, so the seats of a duel cannot
-    // both fire the same timeout.
-    let timeout_secs = {
-        let lobby = state.lobby.lock();
-        lobby
-            .games
-            .get(&game_id)
-            .and_then(|g| g.session.as_ref())
-            .map_or(0, baylee_gamehost::Session::decision_timeout_secs)
-    };
-    // The deadline is anchored to the sequence number it was set for, so it
-    // restarts when the game actually moves — not every time an envelope
-    // addressed to the opponent happens to wake this task up.
-    let mut deadline: Option<tokio::time::Instant> = None;
-    let mut clocked_seq: Option<u64> = None;
     loop {
-        refresh_decision_clock(
-            &state,
-            &game_id,
-            player,
-            timeout_secs,
-            &mut deadline,
-            &mut clocked_seq,
-        );
         tokio::select! {
-            () = decision_clock(deadline) => {
-                // Out of time. The house agent answers for the seat, which is
-                // guaranteed to be legal for whatever was asked.
-                tracing::info!(game_id, seat, "decision timed out; answering for the seat");
-                let alive = drive_session(&state, &game_id, |session, emit| {
-                    let Some((p, action)) = session.timeout_action() else {
-                        return Ok(());
-                    };
-                    // Re-check under the lock. The deadline was armed while
-                    // this seat owed the answer, but the opponent may have
-                    // acted between the timer firing and this closure
-                    // running — and answering for whoever is being asked
-                    // *now* would let one seat's expired clock take another
-                    // seat's decision.
-                    if p != player {
-                        return Ok(());
-                    }
-                    for (q, env) in session.act(p, action)? {
-                        emit(q, env);
-                    }
-                    Ok(())
-                });
-                if !alive {
-                    return;
-                }
-            }
-            frame = futures_util::StreamExt::next(&mut socket) => {
+            frame = socket.recv() => {
                 match frame {
                     Some(Ok(Message::Binary(data))) => {
-                        let Ok(envelope) = Envelope::decode(data) else {
+                        if data.len() > MAX_SEAT_FRAME {
+                            tracing::warn!(game_id, seat, len = data.len(), "oversized seat frame");
                             continue;
-                        };
-                        if !handle_client_frame(&state, &game_id, player, envelope) {
-                            return;
+                        }
+                        let tagged = v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                            seat: seat as u32,
+                            envelope: data.into(),
+                        });
+                        if !to_engine(&state, &game_id, tagged) {
+                            break;
                         }
                     }
                     // Pings are answered by axum; ignore other frame kinds.
                     Some(Ok(_)) => {}
-                    Some(Err(_)) | None => return,
+                    Some(Err(_)) | None => break,
                 }
             }
             update = rx.recv() => {
                 match update {
-                    Ok((p, env)) => {
-                        if p == player.get() && send_envelope(&mut socket, env).await.is_err() {
-                            return;
+                    Ok((p, bytes)) => {
+                        if p == seat as u8
+                            && futures_util::SinkExt::send(&mut socket, Message::Binary(bytes.into()))
+                                .await
+                                .is_err()
+                        {
+                            break;
                         }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                         // Dropping the player was the old answer. Now that a
-                        // seat's whole state can be rebuilt on demand, resend
+                        // seat's whole state can be rebuilt on demand, ask for
                         // it instead: the gap in the stream stops mattering.
                         tracing::warn!(game_id, seat, n, "seat socket lagged; resyncing");
-                        if resync(&state, &game_id, player, &mut socket).await.is_err() {
-                            return;
+                        let resync = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
+                            seat: seat as u32,
+                            standing_json: b"[]".to_vec(),
+                            resync: true,
+                        });
+                        if !to_engine(&state, &game_id, resync) {
+                            break;
                         }
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
             }
         }
     }
-}
-
-async fn send_envelope(socket: &mut WebSocket, env: Envelope) -> Result<(), ()> {
-    let bytes = env.encode_to_vec();
-    futures_util::SinkExt::send(socket, Message::Binary(bytes.into()))
-        .await
-        .map_err(|_| ())
+    // The engine runs a decision clock only for a seat that can answer, so it
+    // has to be told when one walks away.
+    to_engine(
+        &state,
+        &game_id,
+        v1::envelope::Msg::SeatDetached(v1::SeatDetached { seat: seat as u32 }),
+    );
 }
 
 #[cfg(test)]
@@ -1423,9 +1280,10 @@ mod tests {
             .get()
     }
 
-    /// A stored answer has to arrive as the exact handle the engine keeps
-    /// its automation under. A wrong handle fails silently — the seat is
-    /// simply asked a question it believed it had answered for good.
+    /// A stored answer has to arrive as the exact handle the engine keeps its
+    /// automation under. The two ends of that are now in different processes,
+    /// so the test drives both: what the gateway sends, read by the code the
+    /// engine reads it with.
     #[test]
     fn a_stored_answer_becomes_the_handle_the_engine_uses() {
         let stored = vec![
@@ -1440,7 +1298,7 @@ mod tests {
                 yes: false,
             },
         ];
-        let actions = standing_actions(&stored);
+        let actions = baylee_engine_server::standing_answers(&standing_payload(&stored));
         assert_eq!(
             actions,
             vec![
@@ -1463,8 +1321,8 @@ mod tests {
     }
 
     /// The reserved indices address abilities that are not listed on the
-    /// card, so a round trip through the store must not confuse them with
-    /// ability 0.
+    /// card, so a round trip through the store and over the engine link must
+    /// not confuse them with ability 0.
     #[test]
     fn reserved_ability_handles_survive_the_store() {
         let stored = vec![store::StandingAnswer {
@@ -1475,10 +1333,20 @@ mod tests {
         let json = serde_json::to_string(&stored).expect("serializes");
         let back: Vec<store::StandingAnswer> = serde_json::from_str(&json).expect("round trips");
         assert_eq!(back, stored);
-        let PlayerAction::SetStandingAnswer { ability, .. } = &standing_actions(&back)[0] else {
+        let actions = baylee_engine_server::standing_answers(&standing_payload(&back));
+        let PlayerAction::SetStandingAnswer { ability, .. } = &actions[0] else {
             panic!("expected a standing answer")
         };
         assert!(!ability.is_listed_ability());
+    }
+
+    /// A seat with no account — the house playing an empty chair — has no
+    /// remembered answers, and must not send the engine something it cannot
+    /// parse in place of that.
+    #[test]
+    fn no_answers_is_an_empty_list_the_engine_can_read() {
+        assert!(baylee_engine_server::standing_answers(&standing_payload(&[])).is_empty());
+        assert!(baylee_engine_server::standing_answers(b"[]").is_empty());
     }
 
     /// A store written before standing answers existed still loads.

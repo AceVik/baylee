@@ -176,6 +176,119 @@ message StateDelta {
   bytes view_json = 3;
 }
 
+// ------------------------------------------------- control and engine planes
+//
+// The gateway runs no rules of its own. A game lives in an engine process that
+// an *agent* starts and that dials the gateway back; the gateway routes
+// between that process and the seats. None of the messages below ever reach a
+// player's socket, and a player's socket never carries one.
+//
+//   gateway ── StartEngine ──> agent ── spawn ──> engine
+//   gateway <──── EngineHello / SeatFrame ─────── engine
+//   gateway ──── GameSetup / SeatFrame ────────> engine
+
+// Agent → gateway, first frame on the control socket.
+message AgentHello {
+  // Shared secret from the gateway's configuration.
+  string token = 1;
+  // Human label, for logs and for the operator.
+  string name = 2;
+  // How many engines this agent will run at once. 0 means no limit.
+  uint32 capacity = 3;
+}
+
+// Gateway → agent, once the token checks out.
+message AgentWelcome {
+  string agent_id = 1;
+  // How often the agent should send a Heartbeat.
+  uint32 heartbeat_secs = 2;
+}
+
+// Gateway → agent: start an engine for this game.
+message StartEngine {
+  string game_id = 1;
+  // What the engine authenticates its own attach with. One game's worth of
+  // authority, and it never leaves the machine the agent runs on.
+  string engine_token = 2;
+  // Where the engine dials back (ws:// or wss://).
+  string gateway_url = 3;
+}
+
+// Gateway → agent: this game is over and its engine can go.
+message StopEngine {
+  string game_id = 1;
+}
+
+// Agent → gateway: what became of one engine.
+message EngineStatus {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    // The process is running.
+    KIND_STARTED = 1;
+    // It exited; `detail` carries the status.
+    KIND_EXITED = 2;
+    // It never started; `detail` says why.
+    KIND_FAILED = 3;
+  }
+  string game_id = 1;
+  Kind kind = 2;
+  string detail = 3;
+}
+
+// Engine → gateway, first frame on the engine socket.
+message EngineHello {
+  string game_id = 1;
+  string token = 2;
+}
+
+// Gateway → engine: everything needed to build the game.
+message GameSetup {
+  string game_id = 1;
+  // serde_json-encoded baylee_core::preset::GamePreset. JSON rather than
+  // GamePresetMsg for the same reason the choice taxonomy is JSON: this link
+  // is between two builds of the same workspace, and the preset gains fields
+  // faster than the wire should.
+  bytes preset_json = 2;
+  // Seat names in seat order. The rules kernel has never heard of an account,
+  // so the roster is assembled by the gateway.
+  repeated string seat_names = 3;
+}
+
+// Gateway → engine: a seat's socket opened.
+message SeatAttached {
+  uint32 seat = 1;
+  // serde_json list of the account's standing answers, replayed into the seat
+  // before the first pump so a question it never wanted to see is already
+  // covered when the opening hand arrives.
+  bytes standing_json = 2;
+  // The seat is already in the game and only lost frames: send it a snapshot
+  // rather than advancing the game on its behalf.
+  bool resync = 3;
+}
+
+// Gateway → engine: a seat's socket closed.
+message SeatDetached {
+  uint32 seat = 1;
+}
+
+// Either direction on the engine link: one player-facing Envelope, tagged with
+// the seat it belongs to.
+message SeatFrame {
+  uint32 seat = 1;
+  // An encoded Envelope. Nested rather than a field on Envelope itself, so the
+  // player-facing protocol keeps exactly the shape it had and the gateway can
+  // forward the bytes it was handed without decoding or re-encoding them.
+  bytes envelope = 2;
+}
+
+// Engine → gateway: the game is over. The gateway cannot read a `Pending` —
+// it does not link the engine — so the engine says so outright.
+message GameEnded {
+  string game_id = 1;
+  repeated uint32 winners = 2;
+  string reason = 3;
+}
+
 message Envelope {
   oneof msg {
     Hello hello = 1;
@@ -191,5 +304,19 @@ message Envelope {
     PlayerActionMsg player_action = 11;
     StateDelta state_delta = 12;
     GameStaticMsg game_static = 13;
+    // Control plane (gateway ↔ agent).
+    AgentHello agent_hello = 14;
+    AgentWelcome agent_welcome = 15;
+    StartEngine start_engine = 16;
+    StopEngine stop_engine = 17;
+    EngineStatus engine_status = 18;
+    // Engine plane (gateway ↔ engine process).
+    EngineHello engine_hello = 19;
+    GameSetup game_setup = 20;
+    SeatAttached seat_attached = 21;
+    SeatDetached seat_detached = 22;
+    SeatFrame seat_frame = 23;
+    GameEnded game_ended = 24;
   }
+
 }

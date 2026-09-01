@@ -11,6 +11,10 @@ workspace = true
 [dependencies]
 prost.workspace = true
 bytes.workspace = true
+# The engine link carries a couple of payloads as JSON, exactly as the client
+# link carries the choice taxonomy: a shape that changes with the workspace
+# has no business in a wire schema.
+serde.workspace = true
 
 [build-dependencies]
 prost-build.workspace = true

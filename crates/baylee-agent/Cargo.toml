@@ -1,0 +1,26 @@
+[package]
+name = "baylee-agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Runs game engines: takes StartEngine from a gateway and spawns one process per game"
+
+[lints]
+workspace = true
+
+[dependencies]
+# The control plane, and nothing else from the workspace. An agent starts
+# processes; it has never heard of a card, a rule or a deck, which is the
+# whole reason it can run on a machine the gateway does not.
+baylee-protocol.workspace = true
+futures-util.workspace = true
+prost.workspace = true
+tokio = { workspace = true }
+tokio-tungstenite.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[[bin]]
+name = "baylee-agent"
+path = "src/main.rs"

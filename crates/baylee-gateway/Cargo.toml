@@ -11,12 +11,9 @@ workspace = true
 [dependencies]
 argon2.workspace = true
 axum.workspace = true
-baylee-ai.workspace = true
 baylee-cards.workspace = true
 baylee-catalog.workspace = true
 baylee-core.workspace = true
-baylee-engine.workspace = true
-baylee-gamehost.workspace = true
 baylee-protocol.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
@@ -28,12 +25,17 @@ serde_json.workspace = true
 sha2.workspace = true
 subtle.workspace = true
 tokio.workspace = true
-tokio-tungstenite.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+# The gateway no longer links the rules kernel — that is the point of the
+# engine plane. Its tests still have to prove the two ends agree, so they link
+# what the engine reads with, and drive a real engine over the real link.
+baylee-engine.workspace = true
+baylee-engine-server.workspace = true
+tokio-tungstenite.workspace = true
 # The end-to-end tests read the opening payload a client is sent, so they
 # check it against the very version constant a client would refuse on.
 baylee-view.workspace = true

@@ -39,8 +39,9 @@
   every id we generate. v4 only when interoperating with external systems
   that require it. Scryfall ids are external and stay as-is.
 - **Async policy:** the engine crate is strictly synchronous (determinism +
-  speed; no I/O, no async). Async lives only at the edges: `engine-server`
-  and `gateway` use `tokio` (+ `tokio-tungstenite` for websockets). Do not
+  speed; no I/O, no async). Async lives only at the edges: `engine-server`,
+  `gateway` and `agent` use `tokio` (+ `tokio-tungstenite` for websockets),
+  and in all three it is transport, never rules. Do not
   introduce async into `baylee-engine`/`baylee-core`.
 - Git: commits after every working milestone; `rebase` over merge on feature
   branches. Remote: `git@github.com:AceVik/baylee.git`.

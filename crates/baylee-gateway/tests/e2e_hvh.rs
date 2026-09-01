@@ -1,48 +1,26 @@
-//! End-to-end regression test for human-vs-human over the gateway:
-//! spawns the real `baylee-gateway` binary, registers two accounts over
-//! HTTP, creates and joins a lobby game, then connects BOTH seat sockets
-//! and asserts that player B sees the game advance when player A acts.
+//! End-to-end regression test for human-vs-human over the gateway: spawns
+//! the real `baylee-gateway` binary, attaches an agent that runs a real
+//! engine, registers two accounts over HTTP, creates and joins a lobby game,
+//! then connects BOTH seat sockets and asserts that player B sees the game
+//! advance when player A acts.
 //!
 //! Before the per-game broadcast this failed: the gateway filtered every
-//! pumped envelope to the acting seat, so B's socket stayed silent until
-//! B acted — which B couldn't do, not knowing the game state.
+//! pumped envelope to the acting seat, so B's socket stayed silent until B
+//! acted — which B couldn't do, not knowing the game state.
+//!
+//! It now also covers the whole circle. The gateway runs no rules: it asks an
+//! agent for an engine, the engine dials back, and every frame in this test
+//! crosses both sockets.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
+mod common;
+
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::v1::{self, Envelope};
+use common::{attach_agent, http, json_field, login, spawn_gateway};
 use futures_util::{SinkExt, StreamExt};
 use prost::Message;
-use std::io::{Read, Write};
-
-/// Minimal blocking HTTP/1.1 client (the gateway is a separate process;
-/// nothing else needs this test's runtime thread).
-fn http_post(port: u16, path: &str, token: Option<&str>, body: &str) -> (u16, String) {
-    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect http");
-    let auth = token.map_or(String::new(), |t| format!("Authorization: Bearer {t}\r\n"));
-    let request = format!(
-        "POST {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n{auth}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
-        body.len()
-    );
-    stream.write_all(request.as_bytes()).expect("write http");
-    let mut raw = String::new();
-    stream.read_to_string(&mut raw).expect("read http");
-    let status: u16 = raw
-        .split_whitespace()
-        .nth(1)
-        .and_then(|s| s.parse().ok())
-        .expect("http status");
-    let body = raw.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
-    (status, body)
-}
-
-fn json_field<'a>(body: &'a str, field: &str) -> &'a str {
-    let marker = format!("\"{field}\":\"");
-    let start = body.find(&marker).expect("field present") + marker.len();
-    let rest = &body[start..];
-    let end = rest.find('"').expect("field ends");
-    &rest[..end]
-}
 
 async fn recv_until<F>(
     ws: &mut (
@@ -78,50 +56,15 @@ where
 #[tokio::test]
 #[allow(clippy::too_many_lines)] // e2e scenario script
 async fn human_vs_human_both_seats_receive_updates() {
-    let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = probe.local_addr().unwrap().port();
-    drop(probe);
-    let store_path =
-        std::env::temp_dir().join(format!("baylee-gateway-test-{}.json", std::process::id()));
-    let _ = std::fs::remove_file(&store_path);
+    let gw = spawn_gateway("hvh");
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
 
-    let mut server = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
-        .env("PORT", port.to_string())
-        .env("STORE_PATH", &store_path)
-        .stdout(std::process::Stdio::null())
-        .stderr(if std::env::var("HVH_DEBUG").is_ok() {
-            std::process::Stdio::inherit()
-        } else {
-            std::process::Stdio::null()
-        })
-        .spawn()
-        .expect("spawn gateway");
-
-    // Wait for the port to accept.
-    for _ in 0..50 {
-        if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
-
-    // Two accounts. Registration answers `{"ok":true}` without a token,
-    // so log in afterwards.
-    let mut tokens = Vec::new();
-    for (email, name) in [
-        ("alice@example.com", "alice_hvh"),
-        ("bob@example.com", "bob_hvh"),
-    ] {
-        let register = format!(
-            "{{\"email\":\"{email}\",\"display_name\":\"{name}\",\"password\":\"a-very-fine-password\"}}"
-        );
-        let (status, _) = http_post(port, "/auth/register", None, &register);
-        assert_eq!(status, 200, "register {email}");
-        let login = format!("{{\"email\":\"{email}\",\"password\":\"a-very-fine-password\"}}");
-        let (status, body) = http_post(port, "/auth/login", None, &login);
-        assert_eq!(status, 200, "login {email}");
-        tokens.push(json_field(&body, "token").to_string());
-    }
+    // Two accounts.
+    let tokens = [
+        login(port, "alice@example.com", "alice_hvh"),
+        login(port, "bob@example.com", "bob_hvh"),
+    ];
 
     // One deck each (basic lands pass the registry and the count rules).
     let mut deck_ids = Vec::new();
@@ -134,21 +77,22 @@ async fn human_vs_human_both_seats_receive_updates() {
             "\"40 Forest\",\"20 Swamp\""
         };
         let deck = format!("{{\"name\":\"d{i}\",\"cards\":[{cards}]}}");
-        let (status, body) = http_post(port, "/decks", Some(token), &deck);
+        let (status, body) = http(port, "POST", "/decks", Some(token), &deck);
         assert_eq!(status, 200, "create deck {i}: {body}");
         deck_ids.push(json_field(&body, "deck_id").to_string());
     }
 
     // A opens a waiting game, B joins it.
     let create = format!("{{\"deck_id\":\"{}\",\"mode\":\"open\"}}", deck_ids[0]);
-    let (status, body) = http_post(port, "/lobby/games", Some(&tokens[0]), &create);
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&tokens[0]), &create);
     assert_eq!(status, 200, "create open game: {body}");
     let game_id = json_field(&body, "game_id").to_string();
     let seat_token_a = json_field(&body, "seat_token").to_string();
 
     let join = format!("{{\"deck_id\":\"{}\"}}", deck_ids[1]);
-    let (status, body) = http_post(
+    let (status, body) = http(
         port,
+        "POST",
         &format!("/lobby/games/{game_id}/join"),
         Some(&tokens[1]),
         &join,
@@ -255,7 +199,64 @@ async fn human_vs_human_both_seats_receive_updates() {
     })
     .await;
 
-    let _ = server.kill();
-    let _ = server.wait();
-    let _ = std::fs::remove_file(&store_path);
+    agent.abort();
+}
+
+/// The gateway runs no rules of its own, so with nobody to run an engine there
+/// is no game to be had — and it has to say so rather than hand out a seat
+/// token for a table that will never start.
+#[tokio::test]
+async fn a_game_without_an_agent_is_refused() {
+    let gw = spawn_gateway("no-agent");
+    let token = login(gw.port, "solo@example.com", "solo_player");
+    let (status, body) = http(
+        gw.port,
+        "POST",
+        "/decks",
+        Some(&token),
+        "{\"name\":\"d\",\"cards\":[\"60 Forest\"]}",
+    );
+    assert_eq!(status, 200, "create deck: {body}");
+    let deck_id = json_field(&body, "deck_id").to_string();
+
+    let create = format!("{{\"deck_id\":\"{deck_id}\",\"mode\":\"ai\"}}");
+    let (status, body) = http(gw.port, "POST", "/lobby/games", Some(&token), &create);
+    assert_eq!(
+        status, 503,
+        "a game started with no engine to run it: {body}"
+    );
+
+    // And the table did not survive the failure as a ghost in the lobby.
+    let (status, body) = http(gw.port, "GET", "/lobby/games", Some(&token), "");
+    assert_eq!(status, 200);
+    assert_eq!(body.trim(), "[]", "a failed game was left in the lobby");
+}
+
+/// An agent is not a player. The control socket takes a shared secret from the
+/// gateway's own configuration, and nothing a player could ever hold.
+#[tokio::test]
+async fn the_control_socket_refuses_the_wrong_secret() {
+    let gw = spawn_gateway("agent-auth");
+    let url = format!("ws://127.0.0.1:{}/agent/ws", gw.port);
+    let (mut ws, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .expect("the upgrade itself is not the check");
+    let hello = Envelope {
+        msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
+            token: "not-the-secret".to_string(),
+            name: "impostor".to_string(),
+            capacity: 0,
+        })),
+    };
+    ws.send(tokio_tungstenite::tungstenite::Message::Binary(
+        hello.encode_to_vec().into(),
+    ))
+    .await
+    .expect("send hello");
+    let next = tokio::time::timeout(std::time::Duration::from_secs(5), ws.next()).await;
+    let welcomed = matches!(
+        next,
+        Ok(Some(Ok(tokio_tungstenite::tungstenite::Message::Binary(_))))
+    );
+    assert!(!welcomed, "an agent with the wrong secret was welcomed");
 }

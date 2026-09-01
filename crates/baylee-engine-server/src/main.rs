@@ -1,11 +1,18 @@
-//! baylee-engine-server — one process per game, websocket transport (M3).
+//! baylee-engine-server — one process per game, websocket transport.
 //!
 //! v1 protocol: protobuf `Envelope` framing over binary websocket frames;
 //! complex engine structures (`Pending`, `PlayerAction`) travel as
 //! `serde_json` payloads inside `ChoiceRequest` / `PlayerActionMsg`.
 //!
-//! The game logic (engine + AI seats) lives in [`session`]; this file is
-//! pure transport: decode frames → session → encode frames.
+//! Two ways in, and the game logic behind both is the same:
+//!
+//! - **Attached** (`--attach ws://… --game <id> --token <tok>`): the real
+//!   one. An agent started this process for one game; it dials the gateway,
+//!   proves it was asked for, and plays that game until it ends. Everything
+//!   it does goes through [`baylee_engine_server::EngineRunner`].
+//! - **Listening** (no arguments): a dev harness on loopback with no
+//!   authentication at all, kept because it is the shortest way to poke the
+//!   engine over the wire by hand.
 
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::PlayerAction;
@@ -37,6 +44,59 @@ const DEFAULT_BIND: &str = "127.0.0.1";
 #[tokio::main]
 async fn main() {
     tracing_subscriber_init();
+    if let Some(attach) = Attach::discover() {
+        let game_id = attach.game_id.clone();
+        match attached::run(attach).await {
+            Ok(()) => tracing::info!(game_id, "game finished"),
+            Err(err) => {
+                tracing::error!(game_id, %err, "engine link failed");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+    listen().await;
+}
+
+/// Where an attached engine dials, and what it proves it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Attach {
+    /// The gateway's engine socket (`ws://…/engine/ws`).
+    pub url: String,
+    /// The game this process was started for.
+    pub game_id: String,
+    /// One game's worth of authority, issued by the gateway and handed over
+    /// by the agent. It never leaves the machine the agent runs on.
+    pub token: String,
+}
+
+impl Attach {
+    /// The attachment this launch was given, if it was given one.
+    ///
+    /// Command line first (that is how the agent starts it), environment
+    /// second (that is how a person starts it by hand).
+    fn discover() -> Option<Self> {
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        let flag = |name: &str| {
+            args.iter()
+                .position(|a| a == name)
+                .and_then(|i| args.get(i + 1))
+                .cloned()
+        };
+        let env = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+        let url = flag("--attach").or_else(|| env("BAYLEE_ATTACH_URL"))?;
+        let game_id = flag("--game").or_else(|| env("BAYLEE_GAME"))?;
+        let token = flag("--token").or_else(|| env("BAYLEE_ENGINE_TOKEN"))?;
+        Some(Self {
+            url,
+            game_id,
+            token,
+        })
+    }
+}
+
+/// The dev harness: listen on loopback and serve whoever connects.
+async fn listen() {
     let port = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())
@@ -246,4 +306,101 @@ fn acceptance_duel_preset() -> GamePreset {
     // Seat 0 is the connecting human.
     preset.seats[0].controller = baylee_core::preset::SeatController::Open;
     preset
+}
+
+/// The attached engine: one socket to the gateway, one game, then exit.
+mod attached {
+    use super::{Attach, ws_config};
+    use baylee_engine_server::EngineRunner;
+    use baylee_protocol::v1::{self, Envelope};
+    use futures_util::{SinkExt, StreamExt};
+    use prost::Message as _;
+    use tokio_tungstenite::tungstenite::Message;
+
+    /// Plays one game against the gateway and returns when it ends.
+    pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let (mut ws, _) =
+            tokio_tungstenite::connect_async_with_config(&attach.url, Some(ws_config()), false)
+                .await?;
+        // The first frame proves this process is the one the gateway asked an
+        // agent to start. Nothing else on this socket is authenticated,
+        // because nothing else needs to be: the gateway closes it otherwise.
+        send(
+            &mut ws,
+            &Envelope {
+                msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
+                    game_id: attach.game_id.clone(),
+                    token: attach.token.clone(),
+                })),
+            },
+        )
+        .await?;
+        tracing::info!(game_id = attach.game_id, url = attach.url, "attached");
+
+        let mut runner = EngineRunner::new();
+        // The deadline is anchored to what it was armed for, so it restarts
+        // when the game actually moves rather than every time a frame from
+        // the other seat wakes this task up.
+        let mut armed: Option<(baylee_engine_server::Clock, tokio::time::Instant)> = None;
+        loop {
+            match (runner.clock(), armed) {
+                (Some(now), Some((was, _))) if was == now => {}
+                (Some(now), _) => {
+                    let at = tokio::time::Instant::now()
+                        + std::time::Duration::from_secs(u64::from(now.secs));
+                    armed = Some((now, at));
+                }
+                (None, _) => armed = None,
+            }
+            tokio::select! {
+                () = deadline(armed.map(|(_, at)| at)) => {
+                    // The clock is the one thing the rules kernel must not
+                    // own: it is deterministic and may not read a wall clock.
+                    let Some((clock, _)) = armed else { continue };
+                    tracing::info!(seat = clock.seat.get(), "decision timed out");
+                    armed = None;
+                    for envelope in runner.timeout(clock) {
+                        send(&mut ws, &envelope).await?;
+                    }
+                }
+                frame = ws.next() => {
+                    let Some(frame) = frame else { break };
+                    let frame = frame?;
+                    if !frame.is_binary() {
+                        continue;
+                    }
+                    let envelope = Envelope::decode(frame.into_data())?;
+                    for out in runner.handle(envelope) {
+                        send(&mut ws, &out).await?;
+                    }
+                }
+            }
+            if runner.finished() {
+                break;
+            }
+        }
+        // Everything queued is already flushed by `send`; this is the polite
+        // close the gateway logs as an ordinary end rather than a drop.
+        let _ = ws.close(None).await;
+        Ok(())
+    }
+
+    /// Sleeps until a seat's deadline, or forever when nothing is on the clock.
+    async fn deadline(at: Option<tokio::time::Instant>) {
+        match at {
+            Some(at) => tokio::time::sleep_until(at).await,
+            None => std::future::pending().await,
+        }
+    }
+
+    async fn send(
+        ws: &mut tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        envelope: &Envelope,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        ws.send(Message::Binary(envelope.encode_to_vec().into()))
+            .await?;
+        Ok(())
+    }
 }

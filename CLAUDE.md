@@ -43,8 +43,9 @@ Running things:
 ```bash
 cargo run -p baylee-client                               # Bevy duel client, solo vs AI
 trunk serve index.html --release                         # from crates/baylee-client/ — browser client on :8080
-./target/debug/baylee-gateway                            # accounts/decks/lobby, 0.0.0.0:28766
-./target/debug/baylee-engine-server                      # one process per game, 127.0.0.1:28765
+BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) ./target/debug/baylee-gateway   # accounts/decks/lobby/proxy, 0.0.0.0:28766
+BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent                  # starts one engine per game
+./target/debug/baylee-engine-server                      # dev harness only, 127.0.0.1:28765
 cargo bench -p baylee-engine -- --quick                  # numbers to compare against docs/perf-baseline.md
 ```
 
@@ -66,12 +67,25 @@ Without `DATABASE_URL` the gateway starts as before and simply serves no card
 text; the client then draws faces from what the engine projects. Copy
 `.env.example` to `.env` for the client's `BAYLEE_GATEWAY` and this URL.
 
+A gateway with no agent connected hosts no games — `POST /lobby/games` answers
+`503`. The gateway links neither the engine nor gamehost; see "The gateway runs
+no rules" in `docs/protocol.md` for the whole circle.
+
 Env vars: gateway takes `PORT`, `STORE_PATH` (default `gateway-store.json` in
 the working directory, and *not* gitignored), `BAYLEE_REGISTRATION=off`,
-`BAYLEE_TRUSTED_PROXIES`, `DATABASE_URL`. Engine-server takes `PORT` and
-`BAYLEE_BIND` — it defaults to loopback deliberately: it has no
-authentication, every action runs as seat 0, so binding it publicly hands out
-the game. The client takes `BAYLEE_GATEWAY` (card text, and the table it plays
+`BAYLEE_TRUSTED_PROXIES`, `DATABASE_URL`, `BAYLEE_AGENT_TOKEN` (the shared
+secret an agent presents; without it no agent may connect) and
+`BAYLEE_ENGINE_URL` (what an engine is told to dial, default
+`ws://127.0.0.1:{PORT}/engine/ws` — right for one box, wrong the moment an
+agent runs elsewhere). The agent takes `BAYLEE_GATEWAY`, `BAYLEE_AGENT_TOKEN`,
+`BAYLEE_AGENT_NAME`, `BAYLEE_AGENT_CAPACITY` (0 = no limit) and
+`BAYLEE_ENGINE_BIN` (default: `baylee-engine-server` beside the agent). An
+attached engine takes `--attach <ws>` `--game <id>` `--token <tok>`, or the
+same three as `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`; with
+none of them it falls back to the listening dev harness, which takes `PORT` and
+`BAYLEE_BIND` and defaults to loopback deliberately: it has no authentication,
+every action runs as seat 0, so binding it publicly hands out the game. The
+client takes `BAYLEE_GATEWAY` (card text, and the table it plays
 at) plus `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN` and optionally `BAYLEE_SEAT`: with
 those three it plays against the gateway instead of against the house AI in
 process. In a browser the same handover is `?game=…&token=…` on the page URL.
@@ -87,7 +101,7 @@ exactly 1.88, `cargo-deny`, and `cargo-audit`.
 ### One-way data flow, and why each seam exists
 
 ```
-baylee-core ──> baylee-engine ──> baylee-gamehost ──> baylee-{engine-server, gateway}
+baylee-core ──> baylee-engine ──> baylee-gamehost ──> baylee-engine-server
      │               │                   │
      │               │                   └── builds ──> baylee-view ──┐
      │               └── choice taxonomy ──┬──────────────────────────┤
@@ -95,6 +109,9 @@ baylee-core ──> baylee-engine ──> baylee-gamehost ──> baylee-{engine
      └──────────────────────────────────────> baylee-client-core <────┘
                                                      │
                                                      └──> baylee-client (Bevy)
+
+baylee-protocol ──> baylee-gateway   (axum, lobby, store — no engine, no gamehost)
+       └─────────> baylee-agent      (protocol and std::process, nothing else)
 ```
 
 Each arrow drops a capability on purpose, so test what you can without the
@@ -136,8 +153,8 @@ never repeats). `docs/engine-internals.md` is normative on all of this.
 Determinism is the constraint behind most engine rules: seeded ChaCha8, no
 `HashMap` iteration in hot paths, and `std::time`, `std::random` and the
 `algebraic_*` float methods are banned outright in `baylee-engine`/`-core`.
-The engine is also strictly synchronous — async lives only in `engine-server`
-and `gateway`.
+The engine is also strictly synchronous — async lives only in `engine-server`,
+`gateway` and `agent`, and in all three it is transport, never rules.
 
 ### Cards: generated stubs, hand-finished, machine-checked
 
@@ -194,6 +211,35 @@ down from `u32::MAX`. The same handle addresses per-account standing answers,
 which is how the gateway replays "always say yes to this trigger" into a new
 game.
 
+### The gateway runs no rules
+
+A game lives in an engine process an **agent** started and that dialled the
+gateway back. The gateway routes between that process and the seats, and links
+neither `baylee-engine` nor `baylee-gamehost`:
+
+```
+gateway ── StartEngine ──> agent ── spawn ──> baylee-engine-server
+gateway <── EngineHello / SeatFrame / GameEnded ──┘
+gateway ── GameSetup / SeatAttached / SeatFrame ──> engine
+gateway ── the seat sockets, byte for byte ──────> clients
+```
+
+`SeatFrame { seat, envelope }` nests an *encoded* player-facing `Envelope`, so
+the gateway forwards bytes it never decodes and the player-facing protocol
+keeps exactly the shape it had. Three sockets, three secrets, none of them
+interchangeable: `BAYLEE_AGENT_TOKEN` on `/agent/ws`, a per-game engine token
+on `/engine/ws`, a seat token on `/games/{id}/ws`.
+
+Two things moved out of the gateway with the rules. The **decision clock** now
+lives in the engine process, because that is where `awaiting_seat()` and
+`seq()` can be read; it is anchored to the sequence number it was armed at, and
+does not run for a seat with no socket. And one process per game *is* the
+**panic boundary**, so the `catch_unwind` around every rules call is gone.
+
+`docs/protocol.md` ("The gateway runs no rules") is normative, including why a
+seat's frames are dropped in the engine rather than at the gateway while it has
+no socket, and why losing the engine link ends the game.
+
 ### Hosts, and where the client actually gets its game
 
 The renderer never touches a socket; it talks to a `DuelHost`, of which there
@@ -230,12 +276,12 @@ there so nothing is typed twice. In a browser the gateway comes from
 `trunk serve` on :8080 and the gateway is not.
 
 The trap in that flow: a seat token is not always usable yet. `mode:"ai"` and a
-join both build the game's session before answering, but an **open** table
-holds a seat whose game does not exist — `opening_payload` has no session to
-describe, so a socket opened against it is accepted and closed again with
-nothing on it. The lobby stays put and re-reads `GET /lobby/games` until that
-table's state turns `"playing"`. Nothing pushes that news; there is no socket
-to push it on.
+join both order an engine before answering, so the socket can be opened at once
+and simply waits (up to 30 s) for that engine to attach. An **open** table
+orders nothing — it holds a seat whose game does not exist, so a socket opened
+against it is accepted and closed again with nothing on it. The lobby stays put
+and re-reads `GET /lobby/games` until that table's state turns `"playing"`.
+Nothing pushes that news; there is no socket to push it on.
 
 Known gap, easy to misread from the code: `client-core`'s `Interaction` exposes
 and tests `declare_attacker`, `declare_blocker` and `choose_index`, but

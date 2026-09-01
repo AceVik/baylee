@@ -21,7 +21,9 @@ markers: **[Implemented]** = code exists, **[Spec]** = design target only.
 | `baylee-cards` | Compiled card registry (one file per card) |
 | `baylee-cards-codegen` | Scryfall/catalog/forge-reference code generation |
 | `baylee-ai` | Heuristic AI controllers (difficulty profiles) |
-| `baylee-engine-server` | Binary: one process per game, WS transport |
+| `baylee-engine-server` | Binary: one process per game, WS transport; attaches to a gateway |
+| `baylee-agent` | Binary: starts engine processes for a gateway (protocol only — no rules, no cards) |
+| `baylee-gateway` | Binary: accounts, decks, lobby, and routing between seats and engines |
 | `baylee-view` | Per-seat wire view (projected characteristics, hidden-info filtered) |
 | `baylee-catalog` | Card text in PostgreSQL: Scryfall bulk ingest, i18n lookup, search |
 | `baylee-client-core` | Renderer-agnostic client brain: layout, board model, interaction, image policy |
