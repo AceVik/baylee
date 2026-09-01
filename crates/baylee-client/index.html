@@ -14,6 +14,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>baylee</title>
   <link data-trunk rel="rust" data-wasm-opt="z" data-bin="baylee-client">
+  <!-- Bevy's asset server resolves `fonts/Inter.ttf` against `./assets/` in a
+       browser exactly as it does natively, but nothing puts that directory in
+       `dist/` unless trunk is told to. Without this line the wasm build ships
+       no fonts, and every glyph the client draws — the icons, the mana
+       symbols — silently renders as nothing. -->
+  <link data-trunk rel="copy-dir" href="assets">
+
   <style>
     html, body {
       margin: 0;
