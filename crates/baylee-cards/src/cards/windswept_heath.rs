@@ -42,7 +42,6 @@ pub static CARD: CardDef = CardDef {
         effects: &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
             finds: &[Find::BATTLEFIELD],
-            shuffle: true,
             optional: false,
         }],
         target: None,

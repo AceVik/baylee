@@ -96,7 +96,6 @@ pub static CARD: CardDef = CardDef {
             effects: &[Effect::SearchLibrary {
                 filter: &ARTIFACT_CMC1,
                 finds: &[Find::BATTLEFIELD],
-                shuffle: true,
                 optional: false,
             }],
             target: None,

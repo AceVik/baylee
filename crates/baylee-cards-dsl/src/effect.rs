@@ -539,8 +539,6 @@ pub enum Effect {
         /// Where each found card goes, positionally. `finds.len()` is how
         /// many cards may be found.
         finds: &'static [Find],
-        /// Whether to shuffle afterwards.
-        shuffle: bool,
         /// Whether you may find fewer than `finds.len()` ("up to", "you may").
         optional: bool,
     },

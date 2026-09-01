@@ -64,11 +64,14 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
     /// A library search: chosen cards go to `finds`, positionally.
+    ///
+    /// The library is always shuffled afterwards. Of the 1014 printed cards
+    /// that search your library, three do not say "then shuffle", and all
+    /// three empty the library instead — so a flag here could only ever be a
+    /// way to leak the library order by accident.
     SearchLibrary {
         /// Where each found card goes, in order.
         finds: &'static [baylee_cards_dsl::effect::Find],
-        /// Shuffle afterwards.
-        shuffle: bool,
     },
     /// Scry: chosen cards go to the bottom, the rest stays on top.
     Scry {
@@ -442,7 +445,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
-        AwaitingOp::SearchLibrary { finds, shuffle } => {
+        AwaitingOp::SearchLibrary { finds } => {
             // Positional: the first card found takes the first destination.
             // Cultivate names the battlefield first and the hand second, and
             // finding only one card then puts that one onto the battlefield —
@@ -482,9 +485,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     }
                 }
             }
-            if shuffle {
-                state.shuffle_library(res.controller);
-            }
+            state.shuffle_library(res.controller);
         }
         AwaitingOp::Scry { .. } => {
             // Chosen cards go to the bottom in chosen order; the rest stays
@@ -757,7 +758,6 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
         Effect::SearchLibrary {
             filter,
             finds,
-            shuffle,
             optional,
         } => {
             // Ashiok, Dream Render: opponents can't search libraries.
@@ -791,9 +791,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 .collect();
             if options.is_empty() {
                 // Hidden zone: failing to find is always legal (CR 701.19).
-                if shuffle {
-                    state.shuffle_library(you);
-                }
+                state.shuffle_library(you);
                 return None;
             }
             // How many cards this search may produce, and how few it may
@@ -811,7 +809,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                     prompt: ChoicePrompt::SearchLibrary,
                 });
             }
-            res.awaiting = Some(AwaitingOp::SearchLibrary { finds, shuffle });
+            res.awaiting = Some(AwaitingOp::SearchLibrary { finds });
             Some(Pending::ChooseCards {
                 player: you,
                 options,
@@ -958,7 +956,6 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             }
             res.awaiting = Some(AwaitingOp::SearchLibrary {
                 finds: ONTO_BATTLEFIELD_TAPPED,
-                shuffle: true,
             });
             Some(Pending::ChooseCards {
                 player,

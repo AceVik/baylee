@@ -34,7 +34,6 @@ pub static CARD: CardDef = CardDef {
         effects: &[Effect::SearchLibrary {
             filter: &FIND,
             finds: &[Find::TOP_OF_LIBRARY],
-            shuffle: true,
             optional: false,
         }],
         targets: None,

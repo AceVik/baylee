@@ -72,7 +72,6 @@ pub static CARD: CardDef = CardDef {
                 Effect::SearchLibrary {
                     filter: &BASIC_LAND,
                     finds: &[Find::BATTLEFIELD],
-                    shuffle: true,
                     optional: true,
                 },
             ],

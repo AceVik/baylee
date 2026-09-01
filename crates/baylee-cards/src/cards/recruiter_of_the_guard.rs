@@ -41,7 +41,6 @@ pub static CARD: CardDef = CardDef {
         effects: &[Effect::SearchLibrary {
             filter: &TOUGH_CREATURE,
             finds: &[Find::HAND],
-            shuffle: true,
             optional: true,
         }],
         targets: None,

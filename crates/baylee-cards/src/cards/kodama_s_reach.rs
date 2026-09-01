@@ -39,7 +39,6 @@ pub static CARD: CardDef = CardDef {
         effects: &[Effect::SearchLibrary {
             filter: &BASIC_LAND,
             finds: &[Find::BATTLEFIELD_TAPPED, Find::HAND],
-            shuffle: true,
             optional: true, // "up to two"
         }],
         targets: None,
