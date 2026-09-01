@@ -97,6 +97,20 @@ pub struct PoolCard {
     /// Basic lands are the one card a deck may hold any number of.
     #[serde(default)]
     pub basic_land: bool,
+    /// The printing the registry names: the art key, and what a row that
+    /// picks nothing is served as.
+    #[serde(default)]
+    pub scryfall_id: String,
+    /// Rules identity — what `GET /printings` is keyed on.
+    #[serde(default)]
+    pub oracle_id: String,
+    /// Every other name this card is printed under, across languages.
+    ///
+    /// The pool sends one row per card, not one per printing, so this is how
+    /// a player who knows the card as "Blitzschlag" finds the row a deck
+    /// stores as "Lightning Bolt". Empty when the gateway has no catalog.
+    #[serde(default)]
+    pub alt_names: Vec<String>,
 }
 
 impl PoolCard {
@@ -586,10 +600,14 @@ impl DeckBuilder {
         if needle.is_empty() {
             return true;
         }
-        // Both names are searched: a player may know the card by either, and
-        // one of them is what they will have to type into a deck list.
+        // Every name the card answers to, in every language it was printed
+        // in. A player searching for their own copy types what is on it.
         card.name.to_lowercase().contains(needle)
             || card.english_name.to_lowercase().contains(needle)
+            || card
+                .alt_names
+                .iter()
+                .any(|n| n.to_lowercase().contains(needle))
             || card.type_line.to_lowercase().contains(needle)
             || card.oracle_text.to_lowercase().contains(needle)
     }
@@ -1085,6 +1103,7 @@ mod tests {
             note: None,
             commander: false,
             basic_land: kinds.contains(&"Land") && name == "Forest",
+            ..PoolCard::default()
         }
     }
 
@@ -1418,5 +1437,47 @@ mod tests {
         b.inspect(0);
         b.start_new();
         assert_eq!(b.inspecting(), None);
+    }
+    /// A player searches for the card they own, which is the card in their
+    /// hand, which is not necessarily printed in English.
+    #[test]
+    fn a_card_is_found_under_any_name_it_was_printed_with() {
+        let mut builder = DeckBuilder::default();
+        builder.set_pool(
+            vec![
+                PoolCard {
+                    index: 1,
+                    name: "Lightning Bolt".to_string(),
+                    english_name: "Lightning Bolt".to_string(),
+                    alt_names: vec!["Blitzschlag".to_string(), "稲妻".to_string()],
+                    kinds: vec!["Instant".to_string()],
+                    ..PoolCard::default()
+                },
+                PoolCard {
+                    index: 2,
+                    name: "Counterspell".to_string(),
+                    english_name: "Counterspell".to_string(),
+                    alt_names: vec!["Gegenzauber".to_string()],
+                    kinds: vec!["Instant".to_string()],
+                    ..PoolCard::default()
+                },
+            ],
+            false,
+        );
+
+        for needle in ["blitz", "稲妻", "Lightning"] {
+            builder.set_text(needle);
+            let hits = builder.results();
+            assert_eq!(hits.len(), 1, "{needle} matched {} cards", hits.len());
+            assert_eq!(hits[0], 0, "{needle} found the wrong card");
+        }
+
+        // One row per card, never one per name. "l" is in this card's English
+        // name *and* in its German one; a builder that searched printings
+        // would list it twice.
+        builder.set_text("l");
+        let hits = builder.results();
+        assert_eq!(hits.len(), 2, "{hits:?}");
+        assert_eq!(hits.iter().filter(|slot| **slot == 0).count(), 1);
     }
 }

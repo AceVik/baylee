@@ -236,3 +236,35 @@ fn a_printing_does_not_buy_a_fifth_copy() {
         assert_eq!(status, 400, "{why}: {answer}");
     }
 }
+
+/// The printing picker's one request. Without a catalog the gateway still
+/// answers with a printing to pick, because a picker that had to handle a
+/// 503 would need a second code path for every gateway without a database.
+#[test]
+fn a_card_always_has_at_least_one_printing_to_choose() {
+    let gateway = spawn_gateway("printing-list");
+
+    // The pool says which card, and carries the identity the picker asks on.
+    let (status, pool) = http(gateway.port, "GET", "/pool", None, "");
+    assert_eq!(status, 200, "{pool}");
+    assert!(
+        pool.contains("\"oracle_id\""),
+        "a row names the card behind its printing: {pool}"
+    );
+
+    let (status, one) = http(gateway.port, "GET", "/printings?card=1", None, "");
+    assert_eq!(status, 200, "{one}");
+    assert!(one.contains("\"printings\":["), "{one}");
+    assert!(
+        one.contains("\"nonfoil\""),
+        "every card can be had plain: {one}"
+    );
+    // No catalog is configured here, so the answer says the list is the
+    // registry's own reference rather than everything ever printed.
+    assert!(one.contains("\"from_catalog\":false"), "{one}");
+
+    // A card outside the registry is a 404, not an empty list: the picker
+    // asked about something this build cannot play.
+    let (status, answer) = http(gateway.port, "GET", "/printings?card=999999", None, "");
+    assert_eq!(status, 404, "{answer}");
+}

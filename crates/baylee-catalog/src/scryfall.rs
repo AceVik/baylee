@@ -36,6 +36,27 @@ pub struct Card {
     /// Release date (ISO-8601; sorts correctly as text).
     pub released_at: Option<String>,
 
+    // ---- what distinguishes one printing from another ------------------
+    /// Full set name, for a picker that shows more than a three-letter code.
+    pub set_name: Option<String>,
+    /// Illustrator of the front face.
+    pub artist: Option<String>,
+    /// Which finishes this printing was actually sold in — `nonfoil`, `foil`,
+    /// `etched`. A deck row may only name a finish the printing *has*, so this
+    /// is the one field that makes the picker's finish buttons truthful
+    /// rather than decorative.
+    #[serde(default)]
+    pub finishes: Vec<String>,
+    /// Frame treatments (`showcase`, `extendedart`, `etched`, …). What makes
+    /// two printings from the same set look different at a glance.
+    #[serde(default)]
+    pub frame_effects: Vec<String>,
+    /// `black`, `white`, `borderless`, `silver`, `gold`.
+    pub border_color: Option<String>,
+    /// Whether this printing is a promo.
+    #[serde(default)]
+    pub promo: bool,
+
     // ---- single-face fields (absent on multi-face layouts) --------------
     /// English name.
     #[serde(default)]
@@ -116,6 +137,20 @@ impl Card {
             toughness: self.toughness.clone(),
             loyalty: self.loyalty.clone(),
         }]
+    }
+
+    /// The finishes this printing was sold in, never empty.
+    ///
+    /// Scryfall omits the field on some older records rather than writing
+    /// `["nonfoil"]`, and an empty list here would reach the picker as a card
+    /// that cannot be added in any finish at all. Every printing exists in at
+    /// least the plain one, so that is the floor.
+    #[must_use]
+    pub fn finish_list(&self) -> Vec<String> {
+        if self.finishes.is_empty() {
+            return vec!["nonfoil".to_string()];
+        }
+        self.finishes.clone()
     }
 
     /// Whether the record is usable: without an id and an oracle id it can be

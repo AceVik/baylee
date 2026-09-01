@@ -234,17 +234,20 @@ which is what turned this from a curl recipe into a contract:
 | edit one | `PUT /decks/{id}` — same body | `204` |
 | throw one away | `DELETE /decks/{id}` | `204` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
+| a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |
 | tables | `GET /lobby/games` | `[{id, state, seats:[{seat, taken}]}]` |
 | open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open"}` | `{game_id, seat, seat_token}` |
 | sit down | `POST /lobby/games/{id}/join` `{deck_id}` | `{game_id, seat, seat_token}` |
 
-Everything but the two auth calls, `/auth/config` and `/pool` takes
-`Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a status,
-and the string is written to be shown to a player as-is — the lobby does.
+Everything but the two auth calls, `/auth/config`, `/pool` and `/printings`
+takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
+status, and the string is written to be shown to a player as-is — the lobby
+does.
 
-`/pool` is the deck builder's card list, and the one route with no account
-behind it: it is reference data about what this build can play, the same for
-everybody, and a sign-in page that cannot show it is worse than a public one.
+`/pool` is the deck builder's card list, and one of the two routes with no
+account behind it: it is reference data about what this build can play, the
+same for everybody, and a sign-in page that cannot show it is worse than a
+public one.
 Each row carries the registry `index` (the rules identity a saved deck line
 resolves to), the printed characteristics, and `coverage`
 (`implemented` / `partial` / `unimplemented`) with the author's `note` — a
@@ -255,6 +258,29 @@ in the language `lang` asks for, falling back field by field to English;
 `has_text` says whether rules text was available at all. The whole pool is a
 few hundred rows, so it is sent whole and filtered in the client; `total` and
 `pool_hash` are there for the day it is not.
+
+Each row also carries `oracle_id` and, when a catalog is configured,
+`alt_names` — every *other* name the card is printed under, across every
+language the catalog holds. That is what lets the builder show **one row per
+card** and still find it when a player types the name on the card in their
+hand: searching printings instead would list the same card once per set it
+appeared in, which is the wrong answer to "do I own this". `alt_names` is
+omitted when empty, because for two hundred cards in a dozen languages it is
+otherwise the largest field in the response.
+
+`GET /printings?card=<registry index>` is the other half of that trade: the
+list stays short by naming cards, and a player who wants a particular piece of
+cardboard asks for it. The answer is every printing of that card the catalog
+knows — set, collector number, language, rarity, artist, frame effects, and
+`finishes`, which is the list `docs/deck-format.md`'s `*F*` / `*E*` may name.
+Newest set first.
+
+Without a catalog it is **not** an error: the answer carries the one printing
+codegen recorded, in English, plain, and `from_catalog:false`. A picker that
+had to handle a `503` here would need a second code path for every gateway
+without a database; one that always gets at least one printing does not, and
+the deck row it writes is the same row either way. A card outside the registry
+is a `404` — the question was about something this build cannot play.
 
 Two distinctions the client has to keep straight. A `401` on a *signed*
 request means the account token is spent (sign out and start over); a `401` on

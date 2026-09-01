@@ -84,6 +84,61 @@ pub struct SearchHit {
     pub type_line: String,
 }
 
+/// One printing, as a picker has to show it.
+///
+/// Everything here is *about the piece of cardboard*, not about the card: two
+/// `Printing`s with the same `oracle_id` are the same card in the rules and
+/// two different things to own. The deck row that comes out of a pick is
+/// `set` + `collector_number` + `lang` + `finish`, and `scryfall_id` pins it
+/// exactly when the player wants no ambiguity at all.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct Printing {
+    /// Printing id — the deck row's `scryfall=` form, and the art key.
+    pub scryfall_id: String,
+    /// Rules identity, shared with every other printing of this card.
+    pub oracle_id: String,
+    /// Language of this printing.
+    pub lang: String,
+    /// Set code, as a deck row writes it.
+    pub set: String,
+    /// Full set name.
+    pub set_name: String,
+    /// Collector number within the set.
+    pub collector_number: String,
+    /// Rarity.
+    pub rarity: String,
+    /// Release date, ISO-8601.
+    pub released_at: String,
+    /// Illustrator.
+    pub artist: String,
+    /// Finishes this printing was sold in: `nonfoil`, `foil`, `etched`.
+    pub finishes: Vec<String>,
+    /// Frame treatments (`showcase`, `extendedart`, …).
+    pub frame_effects: Vec<String>,
+    /// Border color, `borderless` included.
+    pub border_color: String,
+    /// Whether it is a promo.
+    pub promo: bool,
+    /// Front-face name in this printing's language.
+    pub name: String,
+}
+
+/// A card's name in one language.
+///
+/// The deck builder searches in any language but shows one row per card, so
+/// it needs every name a card answers to without needing a row per printing:
+/// a few thousand strings for the whole registry, against a hundred thousand
+/// printings.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct LocalName {
+    /// Which card.
+    pub oracle_id: String,
+    /// Which language.
+    pub lang: String,
+    /// The name printed on it.
+    pub name: String,
+}
+
 /// A connection to the card catalog.
 #[derive(Clone, Debug)]
 pub struct Catalog {
@@ -100,6 +155,17 @@ const SEARCH_EXPR: &str = "to_tsvector('simple', \
      coalesce(f.printed_name, f.name) || ' ' || \
      coalesce(f.printed_type_line, f.type_line, '') || ' ' || \
      coalesce(f.printed_text, f.oracle_text, ''))";
+
+/// The columns one printing binds in `upsert_cards`, in bind order.
+///
+/// The placeholder run, the value pushes and the table definition are written
+/// three places apart; a mismatch makes Postgres reject the whole batch, so
+/// the list lives here and the tests hold the other two against it.
+const CARD_INSERT_COLUMNS: &str = "scryfall_id, oracle_id, lang, set_code, collector_number, \
+     rarity, layout, released_at, set_name, artist, finishes, frame_effects, border_color, promo";
+
+/// How many columns that is.
+const CARD_COLUMNS: usize = 14;
 
 impl Catalog {
     /// Connects to Postgres.
@@ -252,6 +318,113 @@ impl Catalog {
             .collect()
     }
 
+    /// Every printing of every named card, newest set first.
+    ///
+    /// Keyed on `oracle_id` rather than on a printing id, because the picker's
+    /// question is "what else is this card" and the answer crosses sets *and*
+    /// languages. A card the catalog has never seen simply contributes no
+    /// rows; the caller keeps whatever the registry knows.
+    ///
+    /// # Errors
+    /// When the query fails.
+    pub async fn printings(&self, oracle_ids: &[String]) -> Result<Vec<Printing>> {
+        if oracle_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let sql = "\
+            SELECT c.scryfall_id::text AS scryfall_id, c.oracle_id::text AS oracle_id, \
+                   c.lang AS lang, c.set_code AS set_code, \
+                   coalesce(c.set_name, '') AS set_name, \
+                   c.collector_number AS collector_number, \
+                   coalesce(c.rarity, '') AS rarity, \
+                   coalesce(c.released_at, '') AS released_at, \
+                   coalesce(c.artist, '') AS artist, \
+                   coalesce(c.finishes, 'nonfoil') AS finishes, \
+                   coalesce(c.frame_effects, '') AS frame_effects, \
+                   coalesce(c.border_color, '') AS border_color, \
+                   c.promo AS promo, \
+                   coalesce(f.printed_name, f.name) AS name \
+            FROM cards c \
+            JOIN card_faces f ON f.scryfall_id = c.scryfall_id AND f.face_index = 0 \
+            WHERE c.oracle_id = ANY(string_to_array($1, ',')::uuid[]) \
+            ORDER BY c.oracle_id, c.released_at DESC NULLS LAST, c.set_code, \
+                     length(c.collector_number), c.collector_number, c.lang";
+
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [Value::from(oracle_ids.join(","))],
+            ))
+            .await
+            .context("listing printings")?;
+
+        rows.into_iter()
+            .map(|row| {
+                let finishes: String = row.try_get("", "finishes")?;
+                let frames: String = row.try_get("", "frame_effects")?;
+                Ok(Printing {
+                    scryfall_id: row.try_get("", "scryfall_id")?,
+                    oracle_id: row.try_get("", "oracle_id")?,
+                    lang: row.try_get("", "lang")?,
+                    set: row.try_get("", "set_code")?,
+                    set_name: row.try_get("", "set_name")?,
+                    collector_number: row.try_get("", "collector_number")?,
+                    rarity: row.try_get("", "rarity")?,
+                    released_at: row.try_get("", "released_at")?,
+                    artist: row.try_get("", "artist")?,
+                    finishes: split_list(&finishes),
+                    frame_effects: split_list(&frames),
+                    border_color: row.try_get("", "border_color")?,
+                    promo: row.try_get("", "promo")?,
+                    name: row.try_get("", "name")?,
+                })
+            })
+            .collect()
+    }
+
+    /// Every distinct name the named cards are printed under.
+    ///
+    /// One row per (card, language), not per printing: forty printings of the
+    /// German Forest are one name, and the deck builder wants the name.
+    ///
+    /// # Errors
+    /// When the query fails.
+    pub async fn names(&self, oracle_ids: &[String]) -> Result<Vec<LocalName>> {
+        if oracle_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let sql = "\
+            SELECT DISTINCT c.oracle_id::text AS oracle_id, c.lang AS lang, \
+                   coalesce(f.printed_name, f.name) AS name \
+            FROM cards c \
+            JOIN card_faces f ON f.scryfall_id = c.scryfall_id AND f.face_index = 0 \
+            WHERE c.oracle_id = ANY(string_to_array($1, ',')::uuid[]) \
+              AND coalesce(f.printed_name, f.name) <> '' \
+            ORDER BY oracle_id, lang, name";
+
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [Value::from(oracle_ids.join(","))],
+            ))
+            .await
+            .context("listing localized names")?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(LocalName {
+                    oracle_id: row.try_get("", "oracle_id")?,
+                    lang: row.try_get("", "lang")?,
+                    name: row.try_get("", "name")?,
+                })
+            })
+            .collect()
+    }
+
     /// Inserts or updates a batch of printings.
     ///
     /// # Errors
@@ -268,29 +441,24 @@ impl Catalog {
 
     /// The `cards` half of a batch upsert.
     async fn upsert_cards(&self, cards: &[&scryfall::Card]) -> Result<()> {
-        let mut sql = String::from(
-            "INSERT INTO cards \
-             (scryfall_id, oracle_id, lang, set_code, collector_number, rarity, layout, released_at) \
-             VALUES ",
-        );
-        let mut values: Vec<Value> = Vec::with_capacity(cards.len() * 8);
+        let mut sql = format!("INSERT INTO cards ({CARD_INSERT_COLUMNS}) VALUES ");
+        let mut values: Vec<Value> = Vec::with_capacity(cards.len() * CARD_COLUMNS);
         for (i, card) in cards.iter().enumerate() {
-            let base = i * 8;
+            let base = i * CARD_COLUMNS;
             if i > 0 {
                 sql.push(',');
             }
-            let _ = write!(
-                sql,
-                "(${}::uuid,${}::uuid,${},${},${},${},${},${})",
-                base + 1,
-                base + 2,
-                base + 3,
-                base + 4,
-                base + 5,
-                base + 6,
-                base + 7,
-                base + 8
-            );
+            sql.push('(');
+            for k in 0..CARD_COLUMNS {
+                if k > 0 {
+                    sql.push(',');
+                }
+                // The two uuid columns come first; everything after them is
+                // text or boolean, which Postgres infers from the column.
+                let cast = if k < 2 { "::uuid" } else { "" };
+                let _ = write!(sql, "${}{cast}", base + k + 1);
+            }
+            sql.push(')');
             values.push(Value::from(card.id.clone()));
             values.push(Value::from(card.oracle_id.clone()));
             values.push(Value::from(card.lang.clone()));
@@ -299,13 +467,22 @@ impl Catalog {
             values.push(Value::from(card.rarity.clone()));
             values.push(Value::from(card.layout.clone()));
             values.push(Value::from(card.released_at.clone()));
+            values.push(Value::from(card.set_name.clone()));
+            values.push(Value::from(card.artist.clone()));
+            values.push(Value::from(card.finish_list().join(",")));
+            values.push(Value::from(card.frame_effects.join(",")));
+            values.push(Value::from(card.border_color.clone()));
+            values.push(Value::from(card.promo));
         }
         sql.push_str(
             " ON CONFLICT (scryfall_id) DO UPDATE SET \
              oracle_id = EXCLUDED.oracle_id, lang = EXCLUDED.lang, \
              set_code = EXCLUDED.set_code, collector_number = EXCLUDED.collector_number, \
              rarity = EXCLUDED.rarity, layout = EXCLUDED.layout, \
-             released_at = EXCLUDED.released_at, updated_at = now()",
+             released_at = EXCLUDED.released_at, set_name = EXCLUDED.set_name, \
+             artist = EXCLUDED.artist, finishes = EXCLUDED.finishes, \
+             frame_effects = EXCLUDED.frame_effects, border_color = EXCLUDED.border_color, \
+             promo = EXCLUDED.promo, updated_at = now()",
         );
         self.db
             .execute_raw(Statement::from_sql_and_values(
@@ -403,6 +580,20 @@ impl Catalog {
     }
 }
 
+/// A comma-joined column back into a list, without empty entries.
+///
+/// `finishes` and `frame_effects` are short, closed sets of tags; storing them
+/// as text keeps the whole crate on one `Value` type and one parameter
+/// binding, and neither is ever queried *into* — only read back with the row.
+fn split_list(joined: &str) -> Vec<String> {
+    joined
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
 /// The schema, as idempotent statements.
 ///
 /// Kept as plain DDL rather than a migration chain: the catalog is a cache of
@@ -425,9 +616,27 @@ fn schema_statements() -> Vec<String> {
             rarity           text,
             layout           text,
             released_at      text,
+            set_name         text,
+            artist           text,
+            finishes         text NOT NULL DEFAULT 'nonfoil',
+            frame_effects    text NOT NULL DEFAULT '',
+            border_color     text,
+            promo            boolean NOT NULL DEFAULT false,
             updated_at       timestamptz NOT NULL DEFAULT now()
         )"
         .to_string(),
+        // The printing columns arrived after the first ingests did. A catalog
+        // filled before them keeps its rows and gains empty columns, which the
+        // next ingest fills — dropping and re-ingesting 118k printings to add
+        // a set name would be an absurd price for a picker.
+        "ALTER TABLE cards \
+             ADD COLUMN IF NOT EXISTS set_name text, \
+             ADD COLUMN IF NOT EXISTS artist text, \
+             ADD COLUMN IF NOT EXISTS finishes text NOT NULL DEFAULT 'nonfoil', \
+             ADD COLUMN IF NOT EXISTS frame_effects text NOT NULL DEFAULT '', \
+             ADD COLUMN IF NOT EXISTS border_color text, \
+             ADD COLUMN IF NOT EXISTS promo boolean NOT NULL DEFAULT false"
+            .to_string(),
         "CREATE TABLE IF NOT EXISTS card_faces (
             scryfall_id       uuid NOT NULL REFERENCES cards(scryfall_id) ON DELETE CASCADE,
             face_index        smallint NOT NULL,
@@ -506,5 +715,111 @@ mod tests {
         for sql in schema_statements() {
             assert!(sql.contains("IF NOT EXISTS"), "not idempotent: {sql}");
         }
+    }
+    /// The insert binds one placeholder per column, and the count is written
+    /// separately from the list. Postgres would reject the batch, but only
+    /// against a live database — and nothing in CI has one.
+    #[test]
+    fn the_insert_binds_exactly_as_many_columns_as_it_names() {
+        assert_eq!(CARD_INSERT_COLUMNS.split(',').count(), CARD_COLUMNS);
+    }
+
+    /// A column added to the insert but not to the table, or added to the
+    /// table but never backfilled onto an existing one, both fail only at
+    /// ingest time against a real server.
+    #[test]
+    fn every_inserted_column_exists_and_can_be_added_to_an_older_catalog() {
+        let statements = schema_statements();
+        let create = statements
+            .iter()
+            .find(|s| s.contains("CREATE TABLE IF NOT EXISTS cards"))
+            .expect("the cards table is part of the schema");
+        let alter = statements
+            .iter()
+            .find(|s| s.starts_with("ALTER TABLE cards"))
+            .expect("the upgrade path is part of the schema");
+        // `scryfall_id` through `released_at` predate the printing columns and
+        // are in every catalog that ever existed; the rest arrived later and
+        // have to be reachable by an ALTER too.
+        let original = [
+            "scryfall_id",
+            "oracle_id",
+            "lang",
+            "set_code",
+            "collector_number",
+            "rarity",
+            "layout",
+            "released_at",
+        ];
+        for column in CARD_INSERT_COLUMNS.split(',').map(str::trim) {
+            assert!(
+                create.contains(&format!("{column} ")),
+                "{column} is inserted but not declared"
+            );
+            if !original.contains(&column) {
+                assert!(
+                    alter.contains(&format!("IF NOT EXISTS {column} ")),
+                    "{column} is new, so an existing catalog cannot gain it"
+                );
+            }
+        }
+    }
+
+    /// Scryfall omits `finishes` on some records rather than writing the
+    /// obvious value, and an empty list reaches the picker as a card that
+    /// cannot be added at all.
+    #[test]
+    fn a_printing_that_names_no_finish_is_still_available_plain() {
+        let quiet = scryfall::Card::default();
+        assert_eq!(quiet.finish_list(), vec!["nonfoil".to_string()]);
+
+        let shiny = scryfall::Card {
+            finishes: vec!["nonfoil".to_string(), "foil".to_string()],
+            ..scryfall::Card::default()
+        };
+        assert_eq!(shiny.finish_list(), vec!["nonfoil", "foil"]);
+    }
+
+    /// The tag columns are stored joined and read back split. A trailing
+    /// comma, an empty column and a single tag all have to survive that.
+    #[test]
+    fn a_joined_tag_column_round_trips() {
+        assert_eq!(split_list(""), Vec::<String>::new());
+        assert_eq!(split_list("foil"), vec!["foil"]);
+        assert_eq!(
+            split_list("nonfoil,foil,etched"),
+            vec!["nonfoil", "foil", "etched"]
+        );
+        assert_eq!(
+            split_list("showcase, extendedart,"),
+            vec!["showcase", "extendedart"]
+        );
+    }
+
+    /// A printing's wire shape is what the deck builder's picker renders, and
+    /// the client defines its own struct for it — same reason as the text
+    /// entry above, same protection.
+    #[test]
+    fn the_printing_wire_shape_is_pinned() {
+        let printing = Printing {
+            scryfall_id: "id".to_string(),
+            oracle_id: "oid".to_string(),
+            lang: "ja".to_string(),
+            set: "neo".to_string(),
+            set_name: "Kamigawa: Neon Dynasty".to_string(),
+            collector_number: "123".to_string(),
+            rarity: "rare".to_string(),
+            released_at: "2022-02-18".to_string(),
+            artist: "Someone".to_string(),
+            finishes: vec!["nonfoil".to_string(), "foil".to_string()],
+            frame_effects: vec!["showcase".to_string()],
+            border_color: "black".to_string(),
+            promo: false,
+            name: "御守り".to_string(),
+        };
+        assert_eq!(
+            serde_json::to_string(&printing).expect("serializes"),
+            r#"{"scryfall_id":"id","oracle_id":"oid","lang":"ja","set":"neo","set_name":"Kamigawa: Neon Dynasty","collector_number":"123","rarity":"rare","released_at":"2022-02-18","artist":"Someone","finishes":["nonfoil","foil"],"frame_effects":["showcase"],"border_color":"black","promo":false,"name":"御守り"}"#
+        );
     }
 }

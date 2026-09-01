@@ -73,6 +73,21 @@ pub struct PoolCard {
     pub basic_land: bool,
     /// The printing codegen referenced, for art and for the catalog.
     pub scryfall_id: &'static str,
+    /// Rules identity, shared by every printing and every language.
+    ///
+    /// This is what `GET /printings` is keyed on: a player picking the art
+    /// they own is asking about the *card*, and the answer crosses every set
+    /// it was ever printed in.
+    pub oracle_id: &'static str,
+    /// Every other name this card is printed under, across languages.
+    ///
+    /// The builder shows one row per card and lets a player find it by typing
+    /// any of its names — a German player types "Blitzschlag" and gets the
+    /// row that a deck stores as "Lightning Bolt". Empty without a catalog,
+    /// and omitted from the wire when empty: for two hundred cards in a dozen
+    /// languages this is the largest field in the answer.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub alt_names: Vec<String>,
 }
 
 /// The answer to `GET /pool`.
@@ -138,6 +153,8 @@ fn row(def: &'static CardDef) -> PoolCard {
             f.supertypes.contains(SupertypeSet::BASIC) && f.types.contains(TypeSet::LAND)
         }),
         scryfall_id: def.scryfall_id,
+        oracle_id: def.oracle_id,
+        alt_names: Vec::new(),
     }
 }
 
@@ -202,6 +219,18 @@ pub async fn pool(
             // rules text and their own language, not the deck builder.
             Err(e) => tracing::warn!(%e, "pool text lookup failed; serving the registry alone"),
         }
+        // Names in every language the catalog has. Separate query and separate
+        // failure: a builder that cannot translate still searches, and one
+        // that cannot search in Japanese still builds decks.
+        let oracle_ids: Vec<String> = cards
+            .iter()
+            .map(|c| c.oracle_id.to_string())
+            .filter(|id| !id.is_empty())
+            .collect();
+        match catalog.names(&oracle_ids).await {
+            Ok(names) => name_cards(&mut cards, &names),
+            Err(e) => tracing::warn!(%e, "pool name lookup failed; searching English only"),
+        }
     }
     if cards.is_empty() {
         return Err(err(StatusCode::INTERNAL_SERVER_ERROR, "empty card pool"));
@@ -247,6 +276,115 @@ fn enrich(cards: &mut [PoolCard], entries: &[baylee_catalog::CardTextEntry]) {
             .filter(|t| !t.is_empty())
             .collect::<Vec<_>>()
             .join("\n//\n");
+    }
+}
+
+/// Files every localized name onto the card it belongs to.
+///
+/// A card the catalog knows in one language only ends up with no alternates,
+/// which is correct: there is nothing else to type.
+fn name_cards(cards: &mut [PoolCard], names: &[baylee_catalog::LocalName]) {
+    for local in names {
+        let Some(card) = cards.iter_mut().find(|c| c.oracle_id == local.oracle_id) else {
+            continue;
+        };
+        // The card's own two names are already searchable; repeating them
+        // here would only make the answer bigger.
+        if local.name == card.english_name || local.name == card.name {
+            continue;
+        }
+        if !card.alt_names.contains(&local.name) {
+            card.alt_names.push(local.name.clone());
+        }
+    }
+}
+
+/// Query for `GET /printings`.
+#[derive(Deserialize)]
+pub struct PrintingsQuery {
+    /// Registry index of the card being picked for.
+    card: u32,
+}
+
+/// The answer to `GET /printings`.
+#[derive(Clone, Debug, Serialize)]
+pub struct PrintingsBody {
+    /// The card that was asked about.
+    pub card: u32,
+    /// Its English name, so a client can label the dialog before its own pool
+    /// row is to hand.
+    pub english_name: String,
+    /// Whether these came from the catalog. `false` means the one printing
+    /// below is the registry's own reference, and a picker should say so
+    /// rather than implying the card was printed exactly once.
+    pub from_catalog: bool,
+    /// Every printing, newest set first.
+    pub printings: Vec<baylee_catalog::Printing>,
+}
+
+/// `GET /printings?card=<index>` — every printing of one card.
+///
+/// Unauthenticated for the same reason `/pool` is: which sets a card appeared
+/// in is public reference data.
+///
+/// Without a catalog the answer is not an error but a single row — the
+/// printing codegen referenced, in English, plain. A picker that got a 503
+/// here would have to grow a second code path for a gateway with no database;
+/// one that always gets at least one printing does not, and the deck row it
+/// writes is the same row either way.
+pub async fn printings(
+    State(state): State<Shared>,
+    Query(params): Query<PrintingsQuery>,
+) -> Result<Json<PrintingsBody>, (StatusCode, Json<ErrorBody>)> {
+    let card = registry_rows()
+        .iter()
+        .find(|c| c.index == params.card)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such card"))?;
+
+    let mut body = PrintingsBody {
+        card: card.index,
+        english_name: card.english_name.clone(),
+        from_catalog: false,
+        printings: vec![reference_printing(card)],
+    };
+
+    if let Some(catalog) = state.catalog.as_ref()
+        && !card.oracle_id.is_empty()
+    {
+        match catalog.printings(&[card.oracle_id.to_string()]).await {
+            Ok(found) if !found.is_empty() => {
+                body.from_catalog = true;
+                body.printings = found;
+            }
+            // An empty answer is a card the ingest has not reached, which is
+            // the same situation as no catalog at all.
+            Ok(_) => {}
+            Err(e) => tracing::warn!(%e, "printing lookup failed; serving the reference printing"),
+        }
+    }
+    Ok(Json(body))
+}
+
+/// The one printing the registry itself names, as a `Printing`.
+///
+/// Everything a catalog would know about it is left empty rather than guessed:
+/// codegen records the id, not the set it came from.
+fn reference_printing(card: &PoolCard) -> baylee_catalog::Printing {
+    baylee_catalog::Printing {
+        scryfall_id: card.scryfall_id.to_string(),
+        oracle_id: card.oracle_id.to_string(),
+        lang: "en".to_string(),
+        set: String::new(),
+        set_name: String::new(),
+        collector_number: String::new(),
+        rarity: String::new(),
+        released_at: String::new(),
+        artist: String::new(),
+        finishes: vec!["nonfoil".to_string()],
+        frame_effects: Vec::new(),
+        border_color: String::new(),
+        promo: false,
+        name: card.english_name.clone(),
     }
 }
 
@@ -397,5 +535,78 @@ mod tests {
             }],
         );
         assert_eq!(cards, before);
+    }
+    /// The picker asks about a card, not about a printing, so every row has
+    /// to carry the identity that question is keyed on.
+    #[test]
+    fn every_row_names_the_card_behind_its_printing() {
+        for card in registry_rows() {
+            assert!(
+                !card.oracle_id.is_empty(),
+                "{} has no oracle id, so no printing of it can be found",
+                card.english_name
+            );
+        }
+    }
+
+    /// Without a catalog the picker still gets a printing to pick — the one
+    /// the registry itself names — and it is honestly marked as the only one
+    /// this build knows about.
+    #[test]
+    fn a_gateway_with_no_catalog_still_offers_one_printing() {
+        let strix = find("Baleful Strix");
+        let printing = reference_printing(&strix);
+        assert_eq!(printing.scryfall_id, strix.scryfall_id);
+        assert_eq!(printing.oracle_id, strix.oracle_id);
+        assert_eq!(printing.lang, "en");
+        assert_eq!(printing.finishes, vec!["nonfoil".to_string()]);
+        assert_eq!(printing.name, "Baleful Strix");
+    }
+
+    /// A German player types "Blitzschlag"; the deck stores "Lightning Bolt".
+    /// Both names have to reach the same row.
+    #[test]
+    fn a_card_collects_its_names_and_not_the_ones_it_already_has() {
+        let mut cards = vec![find("Counterspell")];
+        let oracle = cards[0].oracle_id.to_string();
+        let names = [
+            // The English name is already searchable.
+            ("en", "Counterspell"),
+            ("de", "Gegenzauber"),
+            ("ja", "対抗呪文"),
+            // A second German printing of the same card, same name.
+            ("de", "Gegenzauber"),
+            // Another card's name must not land here.
+            ("de", "Blitzschlag"),
+        ];
+        let locals: Vec<baylee_catalog::LocalName> = names
+            .iter()
+            .map(|(lang, name)| baylee_catalog::LocalName {
+                oracle_id: if *name == "Blitzschlag" {
+                    "someone-else".to_string()
+                } else {
+                    oracle.clone()
+                },
+                lang: (*lang).to_string(),
+                name: (*name).to_string(),
+            })
+            .collect();
+
+        name_cards(&mut cards, &locals);
+        assert_eq!(cards[0].alt_names, vec!["Gegenzauber", "対抗呪文"]);
+    }
+
+    /// The largest field in the answer is the one most rows do not have, so
+    /// it has to leave the wire entirely when it is empty.
+    #[test]
+    fn a_card_with_no_other_names_costs_nothing_to_send() {
+        let plain = find("Forest");
+        let json = serde_json::to_string(&plain).expect("serializes");
+        assert!(!json.contains("alt_names"), "{json}");
+
+        let mut named = [plain];
+        named[0].alt_names = vec!["Wald".to_string()];
+        let json = serde_json::to_string(&named[0]).expect("serializes");
+        assert!(json.contains(r#""alt_names":["Wald"]"#), "{json}");
     }
 }

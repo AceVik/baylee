@@ -140,6 +140,7 @@ async fn main() {
         .route("/agent/ws", get(engine::agent_ws))
         .route("/engine/ws", get(engine::engine_ws))
         .route("/pool", get(pool::pool))
+        .route("/printings", get(pool::printings))
         .route("/catalog/text", get(catalog_text))
         .route("/catalog/search", get(catalog_search))
         .with_state(state);
