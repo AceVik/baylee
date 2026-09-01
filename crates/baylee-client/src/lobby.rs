@@ -23,10 +23,11 @@
 use std::sync::{Arc, Mutex};
 
 use baylee_client_core::deckbuilder::{
-    BuildField, CURVE_BUCKETS, Coverage, DeckBuilder, Group, Zone,
+    BuildField, CURVE_BUCKETS, Coverage, DeckBuilder, Group, Picker, Zone,
 };
 use baylee_client_core::lobby::{Field, GameMode, Lobby, LobbyEvent, LobbyRequest, Screen};
 use baylee_core::ids::PlayerId;
+use baylee_core::preset::Finish;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::MouseScrollUnit;
 use bevy::prelude::*;
@@ -169,6 +170,8 @@ enum Expect {
     DeckSaved,
     /// The playable card pool.
     Pool,
+    /// Every printing of one card.
+    Printings,
     /// One deck, with its rows.
     DeckLoaded,
     /// A deck is gone; the gateway answers `204` with no body.
@@ -234,6 +237,12 @@ fn build(
             // translated, and it is the same one the duel reads card text in.
             ehttp::Request::get(format!("{base}/pool?lang={lang}")),
             Expect::Pool,
+        ),
+        LobbyRequest::LoadPrintings { card } => (
+            // Public for the same reason the pool is: which sets a card
+            // appeared in is reference data, not something about an account.
+            ehttp::Request::get(format!("{base}/printings?card={card}")),
+            Expect::Printings,
         ),
         LobbyRequest::LoadDeck { deck_id } => (
             ehttp::Request::get(format!("{base}/decks/{deck_id}")),
@@ -368,6 +377,15 @@ fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
         has_text: bool,
     }
 
+    /// `GET /printings`.
+    #[derive(serde::Deserialize)]
+    struct PrintingsBody {
+        card: u32,
+        printings: Vec<baylee_client_core::deckbuilder::Printing>,
+        #[serde(default)]
+        from_catalog: bool,
+    }
+
     /// `GET /decks/{id}`.
     #[derive(serde::Deserialize)]
     struct StoredDeck {
@@ -394,6 +412,14 @@ fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
             |b| LobbyEvent::Pool {
                 cards: b.cards,
                 has_text: b.has_text,
+            },
+        ),
+        Expect::Printings => serde_json::from_str::<PrintingsBody>(body).map_or_else(
+            |_| unreadable("the printings"),
+            |b| LobbyEvent::Printings {
+                card: b.card,
+                printings: b.printings,
+                from_catalog: b.from_catalog,
             },
         ),
         Expect::DeckLoaded => serde_json::from_str::<StoredDeck>(body).map_or_else(
@@ -788,8 +814,10 @@ fn clicks(
                 }
                 None => state.lobby.say("could not start the offline duel"),
             },
-            // Only ever spawned on the finished screen.
-            Press::Leave => {}
+            // `Leave` is only ever spawned on the finished screen, and
+            // `PickerNothing` exists to stop a tap inside the picker
+            // reaching the shade behind it. Neither does anything here.
+            Press::Leave | Press::PickerNothing => {}
             Press::NewDeck => {
                 let request = state.lobby.build_deck();
                 dispatch(&state, &mailbox, request);
@@ -824,9 +852,35 @@ fn clicks(
                     state.lobby.say("no room for another copy of that");
                 }
             }
-            Press::RemoveCard(slot) => {
+            Press::PickPrint(slot) => {
                 let zone = state.lobby.builder().zone();
-                state.lobby.builder_mut().remove(slot, zone);
+                let request = state.lobby.builder_mut().open_picker(slot, zone);
+                dispatch(&state, &mailbox, request);
+            }
+            Press::PickerStep(by) => state.lobby.builder_mut().picker_step(by),
+            Press::PickerGo(at) => state.lobby.builder_mut().picker_go(at),
+            Press::PickerLang(which) => {
+                // The list the index came from is the one being read here, so
+                // a stale index simply selects nothing rather than panicking.
+                let lang = which.and_then(|i| {
+                    state
+                        .lobby
+                        .builder()
+                        .picker()
+                        .and_then(|p| p.langs().get(i).cloned())
+                });
+                state.lobby.builder_mut().picker_set_lang(lang.as_deref());
+            }
+            Press::PickerFinish(finish) => state.lobby.builder_mut().picker_set_finish(finish),
+            Press::PickerConfirm => {
+                if !state.lobby.builder_mut().picker_confirm() {
+                    state.lobby.say("no room for another copy of that");
+                }
+            }
+            Press::PickerClose => state.lobby.builder_mut().close_picker(),
+            Press::RemoveRow(at) => {
+                let zone = state.lobby.builder().zone();
+                state.lobby.builder_mut().remove_at(at, zone);
             }
             Press::SetZone(zone) => state.lobby.builder_mut().set_zone(zone),
             Press::ToggleColor(color) => state.lobby.builder_mut().toggle_color(color),
@@ -1048,8 +1102,6 @@ enum Press {
     FocusBuild(BuildField),
     /// Add one copy of a pool card, by its slot, to the open zone.
     AddCard(usize),
-    /// Take one copy of a pool card, by its slot, out of the open zone.
-    RemoveCard(usize),
     /// Build into the main deck or the sideboard.
     SetZone(Zone),
     /// Turn one colour of the identity filter on or off.
@@ -1071,6 +1123,27 @@ enum Press {
     ShowPane(Pane),
     /// Read a card in full, by its slot in the pool.
     Inspect(usize),
+    /// Open the printing picker on a pool card, by its slot.
+    PickPrint(usize),
+    /// Move the picker's carousel.
+    PickerStep(i32),
+    /// Jump the carousel to one printing, by its place in the visible list.
+    PickerGo(usize),
+    /// Limit the carousel to one language, by its place in the picker's list,
+    /// or `None` for all of them. An index rather than the code itself
+    /// because a `Press` is `Copy` and a language code is a `String`.
+    PickerLang(Option<usize>),
+    /// Choose a finish for the printing the carousel is on.
+    PickerFinish(Finish),
+    /// Add the picked printing to the deck.
+    PickerConfirm,
+    /// Put the picker away, adding nothing.
+    PickerClose,
+    /// Nothing. Carried by the picker's own panel so a tap inside it is
+    /// not also a tap on the shade behind it, which would close it.
+    PickerNothing,
+    /// Take one copy out of a named row of the deck list.
+    RemoveRow(usize),
     /// Put it away again.
     CloseCard,
     /// Show or hide the filter chips on a narrow screen.
@@ -1243,6 +1316,7 @@ fn teardown(mut commands: Commands, screen: Query<Entity, With<LobbyScreen>>) {
 /// The same retained-UI trick the HUD uses, with change detection standing in
 /// for a revision struct. Resizing *within* a frame is left to flexbox — the
 /// layout is written in percentages and gaps for exactly that reason.
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 fn ui(
     mut commands: Commands,
     state: Res<LobbyState>,
@@ -1250,6 +1324,9 @@ fn ui(
     fonts: Option<Res<UiFonts>>,
     windows: Query<&Window>,
     root: Query<Entity, With<LobbyRoot>>,
+    // Only the printing picker draws a remote image, and a headless test has
+    // no asset server {2014} nor should it reach the CDN to build a tree.
+    assets: Option<Res<AssetServer>>,
     mut drawn: Local<Option<Frame>>,
 ) {
     let width = windows
@@ -1314,7 +1391,15 @@ fn ui(
             commands.entity(root).add_child(panel);
         }
         Screen::Table => table(&mut commands, root, &state, &fonts, metrics, &scrolled_to),
-        Screen::Build => builder(&mut commands, root, &state, &fonts, metrics, &scrolled_to),
+        Screen::Build => builder(
+            &mut commands,
+            root,
+            &state,
+            &fonts,
+            metrics,
+            &scrolled_to,
+            assets.as_deref(),
+        ),
         Screen::Seated(_) => {
             let note = commands
                 .spawn((
@@ -1845,6 +1930,7 @@ fn builder(
     fonts: &UiFonts,
     metrics: Metrics,
     scrolled_to: &Scrolled,
+    assets: Option<&AssetServer>,
 ) {
     let deck = state.lobby.builder();
     let phone = metrics.frame == Frame::Phone;
@@ -1915,6 +2001,12 @@ fn builder(
     if !phone || state.pane == Pane::Deck {
         let list = deck_panel(commands, state, fonts, metrics, scrolled_to);
         commands.entity(body).add_child(list);
+    }
+
+    // Last, so it sits over both halves whatever the frame is.
+    if let Some(picker) = deck.picker() {
+        let dialog = printing_picker(commands, fonts, metrics, deck, picker, assets);
+        commands.entity(root).add_child(dialog);
     }
 }
 
@@ -2286,6 +2378,19 @@ fn pool_panel(
         // way to add — a builder is mostly typing a name and tapping once.
         let read = chip(commands, fonts, metrics, "?", Press::Inspect(slot), false);
         commands.entity(entry).add_child(read);
+        // And so is choosing which printing. Adding a card is the common
+        // action and stays one tap on the row; wanting a particular piece of
+        // cardboard is the rarer one and gets its own button rather than a
+        // long-press nobody would find.
+        let pick = chip(
+            commands,
+            fonts,
+            metrics,
+            "\u{25c8}",
+            Press::PickPrint(slot),
+            false,
+        );
+        commands.entity(entry).add_child(pick);
         commands.entity(list).add_child(entry);
     }
     if deck.loaded() && deck.results().is_empty() {
@@ -2302,6 +2407,339 @@ fn pool_panel(
         commands.entity(panel).add_child(card);
     }
     panel
+}
+
+/// The printing picker: the carousel, the language, the finish.
+///
+/// Drawn over the whole builder rather than beside it, on every frame size.
+/// This is one question with one answer — which piece of cardboard — and a
+/// panel wedged next to a card list would be the narrowest place to look at
+/// art on a phone, which is the one thing this dialog exists to show.
+#[allow(clippy::too_many_lines)] // one dialog, six rows, each trivial
+fn printing_picker(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    deck: &DeckBuilder,
+    picker: &Picker,
+    assets: Option<&AssetServer>,
+) -> Entity {
+    let shade = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                top: px(0),
+                width: percent(100),
+                height: percent(100),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::all(px(metrics.pad)),
+                ..default()
+            },
+            BackgroundColor(palette::SHADOW.with_alpha(0.82)),
+            // Tapping the dark outside puts it away — the same gesture every
+            // dialog on a phone answers to.
+            Press::PickerClose,
+            ZIndex(20),
+        ))
+        .id();
+
+    let panel = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                max_width: px(if metrics.frame == Frame::Phone {
+                    520.0
+                } else {
+                    620.0
+                }),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(metrics.gap),
+                padding: UiRect::all(px(metrics.pad)),
+                border_radius: BorderRadius::all(px(14)),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL),
+            // Swallows the tap so a press inside the dialog is not also a
+            // press on the shade behind it.
+            Press::PickerNothing,
+        ))
+        .id();
+    commands.entity(shade).add_child(panel);
+
+    // ---- what card this is, and the way out
+    let head = row(commands, metrics, false);
+    let name = deck
+        .card(picker.slot())
+        .map_or_else(String::new, |c| c.name.clone());
+    let title = commands
+        .spawn((
+            Text::new(name),
+            tf(fonts, metrics.head),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+    let close = chip(
+        commands,
+        fonts,
+        metrics,
+        "\u{d7}",
+        Press::PickerClose,
+        false,
+    );
+    for child in [title, gap, close] {
+        commands.entity(head).add_child(child);
+    }
+    commands.entity(panel).add_child(head);
+
+    // ---- the carousel
+    let stage = row(commands, metrics, false);
+    commands.entity(stage).insert(Node {
+        width: percent(100),
+        align_items: AlignItems::Center,
+        column_gap: px(metrics.gap),
+        ..default()
+    });
+    let back = chip(
+        commands,
+        fonts,
+        metrics,
+        "\u{2039}",
+        Press::PickerStep(-1),
+        false,
+    );
+    let art = picker_art(commands, fonts, metrics, picker, assets);
+    let forward = chip(
+        commands,
+        fonts,
+        metrics,
+        "\u{203a}",
+        Press::PickerStep(1),
+        false,
+    );
+    for child in [back, art, forward] {
+        commands.entity(stage).add_child(child);
+    }
+    commands.entity(panel).add_child(stage);
+
+    // ---- which printing, in words
+    let current = picker.current();
+    let caption = match current {
+        Some(printing) => {
+            let mut line = printing.label();
+            if !printing.set_name.is_empty() {
+                line = format!("{} \u{2014} {line}", printing.set_name);
+            }
+            if !printing.artist.is_empty() {
+                line = format!("{line}\n{}", printing.artist);
+            }
+            line
+        }
+        None => "no printings".to_string(),
+    };
+    let label = commands
+        .spawn((
+            Text::new(caption),
+            tf(fonts, metrics.small),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(panel).add_child(label);
+
+    let count = note(
+        commands,
+        fonts,
+        metrics,
+        &if picker.loading() {
+            "looking for other printings\u{2026}".to_string()
+        } else if picker.from_catalog() {
+            format!("{} of {}", picker.at() + 1, picker.len())
+        } else {
+            // Saying so beats implying the card was printed exactly once.
+            "this gateway has no card catalog \u{2014} only this build's printing".to_string()
+        },
+    );
+    commands.entity(panel).add_child(count);
+
+    // ---- where in the ring, and a way to jump
+    //
+    // Only when there are few enough to be targets: forty dots at 44 logical
+    // pixels is not a control, it is a second list.
+    if picker.len() > 1 && picker.len() <= 12 {
+        let dots = row(commands, metrics, true);
+        for at in 0..picker.len() {
+            let dot = chip(
+                commands,
+                fonts,
+                metrics,
+                if at == picker.at() {
+                    "\u{25cf}"
+                } else {
+                    "\u{25cb}"
+                },
+                Press::PickerGo(at),
+                at == picker.at(),
+            );
+            commands.entity(dots).add_child(dot);
+        }
+        commands.entity(panel).add_child(dots);
+    }
+
+    // ---- language
+    if picker.langs().len() > 1 {
+        let langs = row(commands, metrics, true);
+        let all = chip(
+            commands,
+            fonts,
+            metrics,
+            "All",
+            Press::PickerLang(None),
+            picker.lang().is_none(),
+        );
+        commands.entity(langs).add_child(all);
+        for (i, code) in picker.langs().iter().enumerate() {
+            let on = picker.lang() == Some(code.as_str());
+            let c = chip(
+                commands,
+                fonts,
+                metrics,
+                &code.to_uppercase(),
+                Press::PickerLang(Some(i)),
+                on,
+            );
+            commands.entity(langs).add_child(c);
+        }
+        commands.entity(panel).add_child(langs);
+    }
+
+    // ---- finish
+    let finishes = row(commands, metrics, true);
+    let offered = picker.finishes();
+    for (finish, label) in [
+        (Finish::Normal, "Plain"),
+        (Finish::Foil, "Foil"),
+        (Finish::Etched, "Etched"),
+    ] {
+        let sold = offered.contains(&finish);
+        let c = chip(
+            commands,
+            fonts,
+            metrics,
+            label,
+            Press::PickerFinish(finish),
+            sold && picker.finish() == finish,
+        );
+        // A finish this printing was never sold in is shown dead rather than
+        // hidden: which finishes exist is part of what a player is choosing
+        // between, and a row of buttons that changes length as the carousel
+        // moves is harder to read than one that greys out.
+        if !sold {
+            commands.entity(c).insert(Pickable::IGNORE);
+            commands.entity(c).insert(BackgroundColor(Color::NONE));
+        }
+        commands.entity(finishes).add_child(c);
+    }
+    commands.entity(panel).add_child(finishes);
+
+    // ---- the way in
+    let foot = row(commands, metrics, false);
+    let held = note(
+        commands,
+        fonts,
+        metrics,
+        &format!(
+            "{} in the {}",
+            deck.count_of(picker.slot(), picker.zone()),
+            match picker.zone() {
+                Zone::Main => "deck",
+                Zone::Side => "sideboard",
+            }
+        ),
+    );
+    let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+    let add = chip(commands, fonts, metrics, "Add", Press::PickerConfirm, true);
+    commands.entity(add).insert(Node {
+        min_height: px(metrics.tap),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.4)),
+        border_radius: btn_radius(),
+        ..default()
+    });
+    for child in [held, gap, add] {
+        commands.entity(foot).add_child(child);
+    }
+    commands.entity(panel).add_child(foot);
+
+    shade
+}
+
+/// The art for the printing the carousel is on.
+///
+/// The URL is built the same way the duel builds one, so a printing that
+/// renders on the table renders here. A printing whose id is not a plausible
+/// Scryfall id — the registry's own reference row, in a build with no catalog
+/// — gets a plain panel instead of a guaranteed 404.
+fn picker_art(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    picker: &Picker,
+    assets: Option<&AssetServer>,
+) -> Entity {
+    let height = if metrics.frame == Frame::Phone {
+        240.0
+    } else {
+        310.0
+    };
+    let holder = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                height: px(height),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
+                border_radius: BorderRadius::all(px(10)),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    let url = picker.current().and_then(|printing| {
+        baylee_client_core::images::image_url(
+            &baylee_view::PrintEntry {
+                scryfall_id: printing.scryfall_id.clone(),
+                lang: printing.lang.clone(),
+                finish: baylee_view::Finish::Normal,
+            },
+            baylee_client_core::images::Face::Front,
+            baylee_client_core::images::ArtSize::Normal,
+        )
+    });
+    if let (Some(url), Some(assets)) = (url, assets) {
+        let art = commands
+            .spawn((
+                ImageNode::new(assets.load(url)),
+                Node {
+                    height: percent(100),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(holder).add_child(art);
+    } else {
+        let empty = note(commands, fonts, metrics, "no art for this printing");
+        commands.entity(holder).add_child(empty);
+    }
+    holder
 }
 
 /// One card, read in full: what is printed on it, and what this build does
@@ -2515,7 +2953,7 @@ fn deck_panel(
         commands.entity(list).add_child(empty);
     }
     let mut group: Option<Group> = None;
-    for entry in entries {
+    for (at, entry) in entries.iter().enumerate() {
         let Some(card) = deck.card(entry.slot) else {
             continue;
         };
@@ -2582,11 +3020,27 @@ fn deck_panel(
         for child in [count, title, gap, cost] {
             commands.entity(row_id).add_child(child);
         }
+        // A row that names a printing has to show it, or two lines of the
+        // same card would look like a bug in the list.
+        let chosen = print_mark(&entry.print);
+        if !chosen.is_empty() {
+            let mark = commands
+                .spawn((
+                    Text::new(chosen),
+                    tf(fonts, metrics.small * 0.9),
+                    TextColor(palette::ACCENT),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(row_id).add_child(mark);
+        }
         // Two targets rather than "click removes": a deck list is read far
         // more often than it is edited, and a stray tap that silently took a
         // card out would be found much later, if at all.
         for (label, press) in [
-            ("−", Press::RemoveCard(entry.slot)),
+            // Removal is by *row*, not by card: two printings of one card are
+            // two lines, and a tap on one of them means that one.
+            ("−", Press::RemoveRow(at)),
             ("+", Press::AddCard(entry.slot)),
         ] {
             let step = chip(commands, fonts, metrics, label, press, false);
@@ -3160,6 +3614,33 @@ fn note(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, label: &str)
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// A deck row's printing, short enough to sit at the end of a list line.
+///
+/// Not the row's own text form: that repeats the count and the name, both of
+/// which are already on the line, and it would be the widest thing on it.
+fn print_mark(print: &baylee_core::deckrow::PrintChoice) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(set) = &print.set {
+        parts.push(match &print.collector_number {
+            Some(number) => format!("{set} {number}"),
+            None => set.clone(),
+        });
+    } else if print.scryfall_id.is_some() {
+        // A row pinned to one printing by id has nothing readable to show; it
+        // still must not look like the plain row next to it.
+        parts.push("pinned".to_string());
+    }
+    if let Some(lang) = &print.lang {
+        parts.push(lang.to_uppercase());
+    }
+    match print.finish {
+        Some(Finish::Foil) => parts.push("foil".to_string()),
+        Some(Finish::Etched) => parts.push("etched".to_string()),
+        Some(Finish::Normal) | None => {}
+    }
+    parts.join(" \u{b7} ")
 }
 
 /// The stretch between the left and right halves of a row.
@@ -3917,7 +4398,7 @@ mod tests {
         let found = presses(&mut app);
         assert!(found.contains(&Press::SaveDeck), "{found:?}");
         assert!(
-            found.contains(&Press::RemoveCard(0)),
+            found.contains(&Press::RemoveRow(0)),
             "a card in the deck can come back out: {found:?}"
         );
     }
@@ -4367,5 +4848,70 @@ mod tests {
                 "{name} is not in the registry"
             );
         }
+    }
+    /// The picker is a dialog over the whole builder, and every control it
+    /// offers has to be reachable — a carousel with no way to move it, or a
+    /// finish with no way to choose it, is a dialog a player is stuck in.
+    #[test]
+    fn the_printing_picker_offers_every_control_it_needs() {
+        let mut app = headless();
+        stocked(&mut app);
+        sized(&mut app, 1400.0);
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            state.lobby.build_deck();
+            let asked = state.lobby.builder_mut().open_picker(0, Zone::Main);
+            assert_eq!(asked, Some(LobbyRequest::LoadPrintings { card: 1 }));
+            state.lobby.apply(LobbyEvent::Printings {
+                card: 1,
+                printings: serde_json::from_value(serde_json::json!([
+                    {
+                        "scryfall_id": "11111111-2222-3333-4444-555555555555",
+                        "oracle_id": "o", "lang": "en", "set": "m19",
+                        "set_name": "Core Set 2019", "collector_number": "314",
+                        "finishes": ["nonfoil", "foil"], "name": "Llanowar Elves"
+                    },
+                    {
+                        "scryfall_id": "66666666-7777-8888-9999-aaaaaaaaaaaa",
+                        "oracle_id": "o", "lang": "de", "set": "dom",
+                        "set_name": "Dominaria", "collector_number": "168",
+                        "finishes": ["nonfoil"], "name": "Elfen von Llanowar"
+                    }
+                ]))
+                .expect("printings decode"),
+                from_catalog: true,
+            });
+        }
+        app.update();
+        let found = presses(&mut app);
+        for wanted in [
+            Press::PickerStep(-1),
+            Press::PickerStep(1),
+            Press::PickerGo(1),
+            Press::PickerLang(None),
+            Press::PickerLang(Some(0)),
+            Press::PickerLang(Some(1)),
+            Press::PickerFinish(Finish::Foil),
+            Press::PickerConfirm,
+            Press::PickerClose,
+        ] {
+            assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
+        }
+    }
+
+    /// The row the pool draws is the one that opens the picker; without it
+    /// the whole feature is unreachable from the builder.
+    #[test]
+    fn a_pool_row_offers_a_way_to_choose_its_printing() {
+        let mut app = headless();
+        stocked(&mut app);
+        sized(&mut app, 1400.0);
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            state.lobby.build_deck();
+        }
+        app.update();
+        let found = presses(&mut app);
+        assert!(found.contains(&Press::PickPrint(0)), "{found:?}");
     }
 }

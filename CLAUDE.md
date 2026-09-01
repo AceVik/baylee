@@ -287,6 +287,21 @@ is live, the deck saves. The pool arrives whole once per session and every
 filter runs locally, so search costs no request. A sideboard is a real second
 list now — through the store, `DeckBody`, `LoadedDeck` and into `SeatSpec`.
 
+**The printing picker** is the third thing that fixes the builder's shape. The
+pool is one row per *card* and searches every name that card is printed under
+(`alt_names`, from `/pool`), because "do I own this" has one answer and a list
+that repeated a card once per set would be answering a different question.
+Which piece of cardboard is a separate question, asked in a dialog:
+`DeckBuilder::open_picker` fires `GET /printings`, and the carousel over the
+answer picks the set, the language and the finish. What comes out is a
+`baylee_core::deckrow::PrintChoice`, which is why a `DeckBuilder::Entry` is
+`(slot, count, print)` and two printings of one card are two rows — while the
+copy limit stays on the card, as the gateway enforces it.
+
+The rule that keeps old decks clean: a choice that changes nothing writes
+nothing. Picking the default printing leaves `4 Lightning Bolt` exactly as it
+was, so re-saving a deck built before any of this existed adds no noise.
+
 The lobby is the client's one responsive screen: `Metrics::of(width)` picks a
 phone / tablet / desktop frame and every size comes from it, so a phone stacks
 the panels, drops the gateway line and gives every target 44 logical pixels.

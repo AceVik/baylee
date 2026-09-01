@@ -20,6 +20,8 @@
 //! is live, the deck saves.
 
 use crate::lobby::{FieldKind, LobbyRequest};
+use baylee_core::deckrow::{PrintChoice, Row};
+use baylee_core::preset::Finish;
 use serde::{Deserialize, Serialize};
 
 /// Hard cap on a deck's expanded card count, matching the gateway.
@@ -153,6 +155,136 @@ impl PoolCard {
     }
 }
 
+/// One printing of a card, as `GET /printings` sends it.
+///
+/// A printing is a piece of cardboard, not a card: two of these with the same
+/// `oracle_id` are the same card in the rules and two different things to
+/// own. Every field defaults, because a gateway with no catalog answers with
+/// one printing that knows only its own id.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Printing {
+    /// Printing id — the art key, and the deck row's `scryfall=` form.
+    #[serde(default)]
+    pub scryfall_id: String,
+    /// Rules identity, shared with every other printing of this card.
+    #[serde(default)]
+    pub oracle_id: String,
+    /// Two-letter language code.
+    #[serde(default)]
+    pub lang: String,
+    /// Set code, as a deck row writes it.
+    #[serde(default)]
+    pub set: String,
+    /// Full set name.
+    #[serde(default)]
+    pub set_name: String,
+    /// Collector number within the set.
+    #[serde(default)]
+    pub collector_number: String,
+    /// Rarity.
+    #[serde(default)]
+    pub rarity: String,
+    /// Release date, ISO-8601 — the order the carousel runs in.
+    #[serde(default)]
+    pub released_at: String,
+    /// Illustrator.
+    #[serde(default)]
+    pub artist: String,
+    /// Finishes it was sold in: `nonfoil`, `foil`, `etched`.
+    #[serde(default)]
+    pub finishes: Vec<String>,
+    /// Frame treatments (`showcase`, `extendedart`, …).
+    #[serde(default)]
+    pub frame_effects: Vec<String>,
+    /// Border color, `borderless` included.
+    #[serde(default)]
+    pub border_color: String,
+    /// Front-face name in this printing's language.
+    #[serde(default)]
+    pub name: String,
+    /// Whether it is a promo.
+    #[serde(default)]
+    pub promo: bool,
+}
+
+impl Printing {
+    /// The finishes this printing was sold in, in the order a picker shows
+    /// them, and never empty.
+    ///
+    /// A printing that names no finish at all was still sold plain — offering
+    /// nothing would be a card that cannot be added in any form.
+    #[must_use]
+    pub fn offered(&self) -> Vec<Finish> {
+        let mut out = Vec::new();
+        for (tag, finish) in [
+            ("nonfoil", Finish::Normal),
+            ("foil", Finish::Foil),
+            ("etched", Finish::Etched),
+        ] {
+            if self.finishes.iter().any(|f| f == tag) {
+                out.push(finish);
+            }
+        }
+        if out.is_empty() {
+            out.push(Finish::Normal);
+        }
+        out
+    }
+
+    /// Whether it was sold in this finish.
+    #[must_use]
+    pub fn has(&self, finish: Finish) -> bool {
+        self.offered().contains(&finish)
+    }
+
+    /// What the carousel writes under the art: set, number, and whatever
+    /// makes this printing look different from the plain one.
+    #[must_use]
+    pub fn label(&self) -> String {
+        let mut parts: Vec<String> = Vec::new();
+        if !self.set.is_empty() {
+            parts.push(self.set.to_uppercase());
+        }
+        if !self.collector_number.is_empty() {
+            parts.push(format!("#{}", self.collector_number));
+        }
+        for effect in &self.frame_effects {
+            parts.push(pretty_effect(effect));
+        }
+        if self.border_color == "borderless" {
+            parts.push("Borderless".to_string());
+        }
+        if self.promo {
+            parts.push("Promo".to_string());
+        }
+        if parts.is_empty() {
+            // The registry's own reference printing knows nothing but its id.
+            return "This build's printing".to_string();
+        }
+        parts.join(" · ")
+    }
+}
+
+/// Scryfall's frame-effect tags as words a player would recognise.
+fn pretty_effect(effect: &str) -> String {
+    match effect {
+        "extendedart" => "Extended art".to_string(),
+        "showcase" => "Showcase".to_string(),
+        "inverted" => "Inverted".to_string(),
+        "etched" => "Etched".to_string(),
+        "fullart" => "Full art".to_string(),
+        // Anything Scryfall adds later still reads as *something*, which is
+        // better than a printing that looks identical to the one above it.
+        other => {
+            let mut chars = other.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        }
+    }
+}
+
 /// The sections a deck list is drawn in, in the order they are drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Group {
@@ -245,6 +377,149 @@ pub struct Entry {
     pub slot: usize,
     /// How many copies.
     pub count: u16,
+    /// The printing its owner chose, if they chose one.
+    ///
+    /// Two entries with the same slot and different printings are two rows
+    /// — that is what a deck list says and what a collection holds. The copy
+    /// limit does not follow: it is on the card.
+    pub print: PrintChoice,
+}
+
+/// The printing picker: one card, every printing of it, and the choice.
+///
+/// The pool shows one row per *card* — a player asking "do I own this" wants
+/// one answer, not one per set it appeared in. The picker is where the other
+/// question is asked, and it is only ever open for one card at a time.
+#[derive(Clone, Debug, Default)]
+pub struct Picker {
+    /// The pool slot being picked for.
+    slot: usize,
+    /// Which list the confirmed pick lands in.
+    zone: Zone,
+    /// Registry index, so an answer that arrives after the dialog was closed
+    /// and reopened on another card is dropped instead of misfiled.
+    card: u32,
+    /// Every printing the gateway knew, newest set first.
+    printings: Vec<Printing>,
+    /// Distinct languages, in the order they first appear.
+    langs: Vec<String>,
+    /// Which language the carousel is limited to; `None` is all of them.
+    lang: Option<String>,
+    /// Where the carousel is, as an index into [`Picker::visible`].
+    at: usize,
+    /// The finish the pick will name.
+    finish: Finish,
+    /// Whether the answer is still in flight.
+    loading: bool,
+    /// Whether these came from a catalog, or are the one printing this build
+    /// records. A picker that did not say so would imply a card was printed
+    /// exactly once.
+    from_catalog: bool,
+}
+
+impl Picker {
+    /// The pool slot being picked for.
+    #[must_use]
+    pub fn slot(&self) -> usize {
+        self.slot
+    }
+
+    /// Which list the pick lands in.
+    #[must_use]
+    pub fn zone(&self) -> Zone {
+        self.zone
+    }
+
+    /// Whether the printings are still on their way.
+    #[must_use]
+    pub fn loading(&self) -> bool {
+        self.loading
+    }
+
+    /// Whether a catalog answered, or this is the build's own printing.
+    #[must_use]
+    pub fn from_catalog(&self) -> bool {
+        self.from_catalog
+    }
+
+    /// Every language these printings exist in, in first-seen order.
+    #[must_use]
+    pub fn langs(&self) -> &[String] {
+        &self.langs
+    }
+
+    /// The language filter, or `None` for all of them.
+    #[must_use]
+    pub fn lang(&self) -> Option<&str> {
+        self.lang.as_deref()
+    }
+
+    /// The chosen finish.
+    #[must_use]
+    pub fn finish(&self) -> Finish {
+        self.finish
+    }
+
+    /// Where the carousel is.
+    #[must_use]
+    pub fn at(&self) -> usize {
+        self.at
+    }
+
+    /// The printings the language filter admits, in carousel order.
+    #[must_use]
+    pub fn visible(&self) -> Vec<&Printing> {
+        self.printings
+            .iter()
+            .filter(|p| self.lang.as_ref().is_none_or(|l| &p.lang == l))
+            .collect()
+    }
+
+    /// How many the carousel can move through.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.visible().len()
+    }
+
+    /// Whether there is nothing to pick. Only true while loading, or when the
+    /// language filter admits nothing — which the filter itself prevents.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The printing the carousel is on.
+    #[must_use]
+    pub fn current(&self) -> Option<&Printing> {
+        let visible = self.visible();
+        visible.get(self.at).copied()
+    }
+
+    /// The finishes the current printing can be had in.
+    #[must_use]
+    pub fn finishes(&self) -> Vec<Finish> {
+        self.current().map(Printing::offered).unwrap_or_default()
+    }
+
+    /// Keeps the carousel and the finish inside what the current filter
+    /// admits. Called after anything that changes either.
+    fn settle(&mut self) {
+        let len = self.len();
+        if len == 0 {
+            self.at = 0;
+            return;
+        }
+        if self.at >= len {
+            self.at = len - 1;
+        }
+        // A printing sold only plain must not stay marked as a foil pick:
+        // the row would name a finish that was never printed.
+        if let Some(printing) = self.current()
+            && !printing.has(self.finish)
+        {
+            self.finish = Finish::Normal;
+        }
+    }
 }
 
 /// Something worth telling the player about the deck.
@@ -320,7 +595,7 @@ pub struct DeckBuilder {
     /// Rows a loaded deck named that the pool cannot resolve *yet*, because
     /// the pool has not arrived. Held rather than dropped; see
     /// [`DeckBuilder::load`].
-    pending: Vec<(u16, String, Zone)>,
+    pending: Vec<(u16, String, Zone, PrintChoice)>,
     /// Cards a loaded deck named that the pool does not have. Kept so the
     /// player is told, rather than losing them silently on the next save.
     missing: Vec<String>,
@@ -328,6 +603,8 @@ pub struct DeckBuilder {
     has_text: bool,
     /// The card whose full text is on screen, as a slot in the pool.
     inspecting: Option<usize>,
+    /// The open printing picker, if a card is being picked for.
+    picker: Option<Picker>,
     focus: BuildField,
     /// Bumped on every placement of the caret, including onto the box it is
     /// already in — a shell that raises a keyboard needs the tap, not the
@@ -452,13 +729,17 @@ impl DeckBuilder {
         &self.missing
     }
 
-    /// How many copies of a pool card the deck holds.
+    /// How many copies of a pool card the deck holds, across every
+    /// printing of it.
+    ///
+    /// The copy limit is on the card: four Lightning Bolts are four
+    /// Lightning Bolts however many different pieces of cardboard they are.
     #[must_use]
     pub fn count_of(&self, slot: usize, zone: Zone) -> u16 {
         self.entries(zone)
             .iter()
-            .find(|e| e.slot == slot)
-            .map_or(0, |e| e.count)
+            .filter(|e| e.slot == slot)
+            .fold(0u16, |sum, e| sum.saturating_add(e.count))
     }
 
     // ------------------------------------------------------------- the pool
@@ -621,6 +902,185 @@ impl DeckBuilder {
         card.identity.chars().all(|c| self.colors.contains(&c))
     }
 
+    // -------------------------------------------------- the printing picker
+
+    /// The open picker, if there is one.
+    #[must_use]
+    pub fn picker(&self) -> Option<&Picker> {
+        self.picker.as_ref()
+    }
+
+    /// Opens the picker on a pool card, and asks the gateway for its
+    /// printings.
+    ///
+    /// The dialog opens *before* the answer arrives, showing the printing the
+    /// pool row already names: a picker that appeared only once the network
+    /// answered would feel like a dropped tap.
+    pub fn open_picker(&mut self, slot: usize, zone: Zone) -> Option<LobbyRequest> {
+        let card = self.pool.get(slot)?;
+        let reference = Printing {
+            scryfall_id: card.scryfall_id.clone(),
+            oracle_id: card.oracle_id.clone(),
+            lang: "en".to_string(),
+            name: card.english_name.clone(),
+            ..Printing::default()
+        };
+        let index = card.index;
+        self.picker = Some(Picker {
+            slot,
+            zone,
+            card: index,
+            langs: vec!["en".to_string()],
+            printings: vec![reference],
+            loading: true,
+            ..Picker::default()
+        });
+        Some(LobbyRequest::LoadPrintings { card: index })
+    }
+
+    /// Closes the picker without adding anything.
+    pub fn close_picker(&mut self) {
+        self.picker = None;
+    }
+
+    /// The gateway's answer.
+    ///
+    /// Matched on the registry index rather than accepted blindly: a slow
+    /// answer for a card the player has already moved on from would otherwise
+    /// replace the printings of the one they are looking at.
+    pub fn set_printings(&mut self, card: u32, printings: Vec<Printing>, from_catalog: bool) {
+        let Some(picker) = self.picker.as_mut() else {
+            return;
+        };
+        if picker.card != card {
+            return;
+        }
+        picker.loading = false;
+        picker.from_catalog = from_catalog;
+        if printings.is_empty() {
+            return;
+        }
+        let mut langs: Vec<String> = Vec::new();
+        for printing in &printings {
+            if !printing.lang.is_empty() && !langs.contains(&printing.lang) {
+                langs.push(printing.lang.clone());
+            }
+        }
+        picker.printings = printings;
+        picker.langs = langs;
+        picker.at = 0;
+        picker.settle();
+    }
+
+    /// Moves the carousel, wrapping at both ends.
+    ///
+    /// Wrapping rather than stopping because the carousel is a ring of art
+    /// with no beginning: a player flicking through twelve printings should
+    /// not have to notice which one the list happened to start at.
+    pub fn picker_step(&mut self, by: i32) {
+        let Some(picker) = self.picker.as_mut() else {
+            return;
+        };
+        let len = picker.len();
+        if len == 0 {
+            return;
+        }
+        let len_i = i64::try_from(len).unwrap_or(1);
+        let at = i64::try_from(picker.at).unwrap_or(0);
+        let next = (at + i64::from(by)).rem_euclid(len_i);
+        picker.at = usize::try_from(next).unwrap_or(0);
+        picker.settle();
+    }
+
+    /// Jumps the carousel to one printing.
+    pub fn picker_go(&mut self, at: usize) {
+        let Some(picker) = self.picker.as_mut() else {
+            return;
+        };
+        picker.at = at;
+        picker.settle();
+    }
+
+    /// Limits the carousel to one language, or to all of them.
+    pub fn picker_set_lang(&mut self, lang: Option<&str>) {
+        let Some(picker) = self.picker.as_mut() else {
+            return;
+        };
+        picker.lang = lang.map(str::to_string);
+        // The card the player was looking at is almost certainly not at the
+        // same offset in a shorter list, so the carousel restarts rather than
+        // landing somewhere arbitrary.
+        picker.at = 0;
+        picker.settle();
+    }
+
+    /// Chooses a finish, if the current printing was sold in it.
+    pub fn picker_set_finish(&mut self, finish: Finish) {
+        let Some(picker) = self.picker.as_mut() else {
+            return;
+        };
+        if picker.current().is_some_and(|p| p.has(finish)) {
+            picker.finish = finish;
+        }
+    }
+
+    /// Adds the picked printing to the deck and closes the dialog.
+    ///
+    /// Returns whether it was added: the copy limit still applies, and it
+    /// applies to the *card* — four Lightning Bolts are four Lightning Bolts
+    /// however many different pieces of cardboard they are.
+    pub fn picker_confirm(&mut self) -> bool {
+        let Some(picker) = self.picker.as_ref() else {
+            return false;
+        };
+        let (slot, zone) = (picker.slot, picker.zone);
+        let choice = self.picked_choice();
+        let added = self.add_print(slot, zone, choice);
+        self.picker = None;
+        added
+    }
+
+    /// The deck row the current pick writes.
+    ///
+    /// Narrow, not exhaustive: a row records what the player *chose*, and a
+    /// choice that changes nothing writes nothing. Picking the default
+    /// printing of a card leaves `4 Lightning Bolt` exactly as it was, which
+    /// is what keeps a deck built before this feature existed from growing
+    /// noise the first time it is saved.
+    #[must_use]
+    fn picked_choice(&self) -> PrintChoice {
+        let Some(picker) = self.picker.as_ref() else {
+            return PrintChoice::default();
+        };
+        let Some(printing) = picker.current() else {
+            return PrintChoice::default();
+        };
+        let reference = self
+            .pool
+            .get(picker.slot)
+            .map(|c| c.scryfall_id.as_str())
+            .unwrap_or_default();
+
+        let mut choice = PrintChoice {
+            finish: (picker.finish != Finish::Normal).then_some(picker.finish),
+            ..PrintChoice::default()
+        };
+        if !printing.lang.is_empty() && printing.lang != "en" {
+            choice.lang = Some(printing.lang.clone());
+        }
+        if !printing.set.is_empty() {
+            choice.set = Some(printing.set.to_uppercase());
+            if !printing.collector_number.is_empty() {
+                choice.collector_number = Some(printing.collector_number.clone());
+            }
+        } else if !printing.scryfall_id.is_empty() && printing.scryfall_id != reference {
+            // No set to name it by, and not the printing the row would
+            // resolve to anyway: the id is the only thing that pins it.
+            choice.scryfall_id = Some(printing.scryfall_id.clone());
+        }
+        choice
+    }
+
     // ------------------------------------------------------------ the deck
 
     /// Which list the next add goes to.
@@ -633,6 +1093,16 @@ impl DeckBuilder {
     /// Returns whether anything changed, so a shell can say why a click did
     /// nothing rather than looking broken.
     pub fn add(&mut self, slot: usize, zone: Zone) -> bool {
+        self.add_print(slot, zone, PrintChoice::default())
+    }
+
+    /// Adds one copy of a card in a printing the player chose.
+    ///
+    /// Two copies with different printings are two rows, because that is what
+    /// a deck list says and what a collection holds — but the copy limit is
+    /// on the *card*: four Lightning Bolts are four Lightning Bolts however
+    /// many different pieces of cardboard they are.
+    pub fn add_print(&mut self, slot: usize, zone: Zone, print: PrintChoice) -> bool {
         let Some(card) = self.pool.get(slot) else {
             return false;
         };
@@ -648,43 +1118,74 @@ impl DeckBuilder {
             Zone::Main => counts.main,
             Zone::Side => counts.side,
         };
-        if filled >= MAX_DECK_CARDS {
+        if filled >= MAX_DECK_CARDS || self.count_of(slot, zone) >= limit {
             return false;
         }
         let entries = match zone {
             Zone::Main => &mut self.main,
             Zone::Side => &mut self.side,
         };
-        match entries.iter_mut().find(|e| e.slot == slot) {
-            Some(entry) if entry.count >= limit => return false,
-            Some(entry) => entry.count += 1,
-            None => {
-                if entries.len() >= MAX_DECK_LINES {
-                    return false;
-                }
-                entries.push(Entry { slot, count: 1 });
+        if let Some(entry) = entries
+            .iter_mut()
+            .find(|e| e.slot == slot && e.print == print)
+        {
+            entry.count += 1;
+        } else {
+            if entries.len() >= MAX_DECK_LINES {
+                return false;
             }
+            entries.push(Entry {
+                slot,
+                count: 1,
+                print,
+            });
         }
-        self.sort_zone(zone);
         self.dirty = true;
+        self.sort_zone(zone);
         true
     }
 
     /// Removes one copy, dropping the row when the last one goes.
+    ///
+    /// From the *last* row of that card, so it undoes the most recent add:
+    /// picking a foil and then changing your mind takes the foil back, not
+    /// one of the plain copies that were already there.
     pub fn remove(&mut self, slot: usize, zone: Zone) -> bool {
         let entries = match zone {
             Zone::Main => &mut self.main,
             Zone::Side => &mut self.side,
         };
-        let Some(at) = entries.iter().position(|e| e.slot == slot) else {
+        let Some(at) = entries.iter().rposition(|e| e.slot == slot) else {
             return false;
         };
+        Self::take_one(entries, at);
+        self.dirty = true;
+        true
+    }
+
+    /// Removes one copy from a named row of the deck list.
+    ///
+    /// The list addresses rows, not cards: two printings of the same card are
+    /// two lines, and a player tapping one of them means that one.
+    pub fn remove_at(&mut self, at: usize, zone: Zone) -> bool {
+        let entries = match zone {
+            Zone::Main => &mut self.main,
+            Zone::Side => &mut self.side,
+        };
+        if at >= entries.len() {
+            return false;
+        }
+        Self::take_one(entries, at);
+        self.dirty = true;
+        true
+    }
+
+    /// One copy off a row, and the row itself when that was the last.
+    fn take_one(entries: &mut Vec<Entry>, at: usize) {
         entries[at].count -= 1;
         if entries[at].count == 0 {
             entries.remove(at);
         }
-        self.dirty = true;
-        true
     }
 
     /// Empties both lists, keeping the name and the deck being edited.
@@ -796,6 +1297,11 @@ impl DeckBuilder {
     }
 
     /// Keeps a zone in deck-list order: by group, then cost, then name.
+    /// Files a zone's entries the way a deck list is printed.
+    ///
+    /// Same-card entries sort next to each other and then by the printing, so
+    /// the plain copies come before the foils and the order does not shuffle
+    /// between saves.
     fn sort_zone(&mut self, zone: Zone) {
         let pool = &self.pool;
         let entries = match zone {
@@ -808,6 +1314,7 @@ impl DeckBuilder {
                 .cmp(&y.group())
                 .then_with(|| x.cmc.cmp(&y.cmc))
                 .then_with(|| x.name.cmp(&y.name))
+                .then_with(|| print_key(&a.print).cmp(&print_key(&b.print)))
         });
     }
 
@@ -967,13 +1474,26 @@ impl DeckBuilder {
     ///
     /// Always the English name: a deck saved by a player reading German has to
     /// be the same deck when the gateway resolves it against the registry.
+    /// The deck as rows, in the form `docs/deck-format.md` specifies.
+    ///
+    /// This is the stored form *and* the exported form: what comes out here
+    /// is what a player can paste into a text file, and what
+    /// `baylee_core::deckrow::parse` reads back is this deck. A printing the
+    /// player chose travels with the row.
     #[must_use]
     pub fn rows(&self, zone: Zone) -> Vec<String> {
         self.entries(zone)
             .iter()
             .filter_map(|entry| {
                 let card = self.pool.get(entry.slot)?;
-                Some(format!("{} {}", entry.count, card.english_name))
+                Some(
+                    Row {
+                        count: u32::from(entry.count),
+                        name: card.english_name.clone(),
+                        print: entry.print.clone(),
+                    }
+                    .to_string(),
+                )
             })
             .collect()
     }
@@ -1032,11 +1552,20 @@ impl DeckBuilder {
         self.name = name.to_string();
         for (rows, zone) in [(cards, Zone::Main), (sideboard, Zone::Side)] {
             for row in rows {
-                match parse_row(row) {
-                    Some((count, card_name)) => self.pending.push((count, card_name, zone)),
+                match baylee_core::deckrow::parse(row) {
+                    // The printing travels with the row: a deck reopened and
+                    // saved again has to come back out the way it went in, or
+                    // editing one line would quietly strip every other line's
+                    // foils.
+                    Ok(parsed) => self.pending.push((
+                        u16::try_from(parsed.count).unwrap_or(u16::MAX),
+                        parsed.name,
+                        zone,
+                        parsed.print,
+                    )),
                     // A malformed row will never resolve, whatever the pool
                     // holds, so it is missing right away.
-                    None => self.missing.push(row.clone()),
+                    Err(_) => self.missing.push(row.clone()),
                 }
             }
         }
@@ -1052,21 +1581,26 @@ impl DeckBuilder {
             return;
         }
         let held = std::mem::take(&mut self.pending);
-        for (count, name, zone) in held {
+        for (count, name, zone, print) in held {
             match self.slot_of(&name) {
                 Some(slot) => {
                     let entries = match zone {
                         Zone::Main => &mut self.main,
                         Zone::Side => &mut self.side,
                     };
-                    match entries.iter_mut().find(|e| e.slot == slot) {
+                    // Rows merge only when they name the same printing; two
+                    // that do not are two lines in the list they came from.
+                    match entries
+                        .iter_mut()
+                        .find(|e| e.slot == slot && e.print == print)
+                    {
                         Some(entry) => entry.count = entry.count.saturating_add(count),
-                        None => entries.push(Entry { slot, count }),
+                        None => entries.push(Entry { slot, count, print }),
                     }
                 }
                 None if self.loaded() => self.missing.push(name),
                 // No pool yet: keep holding it.
-                None => self.pending.push((count, name, zone)),
+                None => self.pending.push((count, name, zone, print)),
             }
         }
         self.sort_zone(Zone::Main);
@@ -1074,11 +1608,21 @@ impl DeckBuilder {
     }
 }
 
-/// Splits a `"N Card Name"` row. `None` when it is not one.
-fn parse_row(row: &str) -> Option<(u16, String)> {
-    let (count, name) = row.split_once(' ')?;
-    let count = count.trim().parse::<u16>().ok()?;
-    Some((count, name.trim().to_string()))
+/// A printing choice as something sortable.
+///
+/// `PrintChoice` is a bag of options with no natural order; a deck list needs
+/// one, or two saves of the same deck would differ only in row order.
+fn print_key(print: &PrintChoice) -> (String, String, String, u8) {
+    (
+        print.set.clone().unwrap_or_default(),
+        print.collector_number.clone().unwrap_or_default(),
+        print.lang.clone().unwrap_or_default(),
+        match print.finish.unwrap_or_default() {
+            Finish::Normal => 0,
+            Finish::Foil => 1,
+            Finish::Etched => 2,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -1479,5 +2023,263 @@ mod tests {
         let hits = builder.results();
         assert_eq!(hits.len(), 2, "{hits:?}");
         assert_eq!(hits.iter().filter(|slot| **slot == 0).count(), 1);
+    }
+    /// A printing, as the picker's tests need one.
+    fn printing(set: &str, number: &str, lang: &str, finishes: &[&str]) -> Printing {
+        Printing {
+            scryfall_id: format!("{set}-{number}-{lang}"),
+            oracle_id: "bolt".to_string(),
+            lang: lang.to_string(),
+            set: set.to_string(),
+            set_name: format!("Set {set}"),
+            collector_number: number.to_string(),
+            finishes: finishes.iter().map(|f| (*f).to_string()).collect(),
+            name: "Lightning Bolt".to_string(),
+            ..Printing::default()
+        }
+    }
+
+    /// A builder holding one card, with the picker open on it.
+    fn picking() -> DeckBuilder {
+        let mut builder = DeckBuilder::new();
+        builder.set_pool(
+            vec![PoolCard {
+                index: 7,
+                name: "Lightning Bolt".to_string(),
+                english_name: "Lightning Bolt".to_string(),
+                oracle_id: "bolt".to_string(),
+                scryfall_id: "reference".to_string(),
+                kinds: vec!["Instant".to_string()],
+                type_line: "Instant".to_string(),
+                coverage: Coverage::Implemented,
+                ..PoolCard::default()
+            }],
+            false,
+        );
+        let asked = builder.open_picker(0, Zone::Main);
+        assert_eq!(asked, Some(LobbyRequest::LoadPrintings { card: 7 }));
+        builder
+    }
+
+    /// The dialog opens before the answer arrives, or a tap would feel
+    /// dropped. What it shows meanwhile is the printing the row already
+    /// names.
+    #[test]
+    fn the_picker_has_something_to_show_while_it_waits() {
+        let builder = picking();
+        let picker = builder.picker().expect("the picker is open");
+        assert!(picker.loading());
+        assert!(!picker.from_catalog());
+        assert_eq!(picker.len(), 1);
+        assert_eq!(
+            picker.current().map(|p| p.scryfall_id.as_str()),
+            Some("reference")
+        );
+        assert_eq!(picker.finish(), Finish::Normal);
+    }
+
+    /// An answer for a card the player has already moved on from must not
+    /// replace the printings of the one they are looking at.
+    #[test]
+    fn a_late_answer_for_another_card_is_dropped() {
+        let mut builder = picking();
+        builder.set_printings(999, vec![printing("m11", "149", "de", &["foil"])], true);
+        let picker = builder.picker().expect("still open");
+        assert!(
+            picker.loading(),
+            "the answer it is waiting for has not come"
+        );
+        assert_eq!(picker.current().map(|p| p.set.as_str()), Some(""));
+    }
+
+    /// The carousel is a ring: twelve printings have no beginning, and a
+    /// player flicking through them should not have to notice which one the
+    /// list happened to start at.
+    #[test]
+    fn the_carousel_wraps_at_both_ends() {
+        let mut builder = picking();
+        builder.set_printings(
+            7,
+            vec![
+                printing("m11", "149", "en", &["nonfoil", "foil"]),
+                printing("a25", "141", "en", &["nonfoil"]),
+                printing("sta", "42", "ja", &["nonfoil", "etched"]),
+            ],
+            true,
+        );
+        let at = |b: &DeckBuilder| b.picker().and_then(Picker::current).map(|p| p.set.clone());
+
+        assert_eq!(at(&builder).as_deref(), Some("m11"));
+        builder.picker_step(-1);
+        assert_eq!(at(&builder).as_deref(), Some("sta"), "back from the first");
+        builder.picker_step(1);
+        assert_eq!(at(&builder).as_deref(), Some("m11"), "and forward again");
+        builder.picker_step(2);
+        assert_eq!(at(&builder).as_deref(), Some("sta"));
+    }
+
+    /// A finish that was never printed must not survive a move to a printing
+    /// that does not have it, or the row would name cardboard that does not
+    /// exist.
+    #[test]
+    fn a_finish_does_not_outlive_the_printing_that_offered_it() {
+        let mut builder = picking();
+        builder.set_printings(
+            7,
+            vec![
+                printing("m11", "149", "en", &["nonfoil", "foil"]),
+                printing("a25", "141", "en", &["nonfoil"]),
+            ],
+            true,
+        );
+        builder.picker_set_finish(Finish::Foil);
+        assert_eq!(builder.picker().map(Picker::finish), Some(Finish::Foil));
+
+        builder.picker_step(1);
+        assert_eq!(
+            builder.picker().map(Picker::finish),
+            Some(Finish::Normal),
+            "this one was only ever sold plain"
+        );
+        // And it cannot be chosen while that printing is showing.
+        builder.picker_set_finish(Finish::Foil);
+        assert_eq!(builder.picker().map(Picker::finish), Some(Finish::Normal));
+    }
+
+    /// Filtering by language narrows the carousel and never leaves it
+    /// pointing past the end.
+    #[test]
+    fn a_language_filter_narrows_the_carousel() {
+        let mut builder = picking();
+        builder.set_printings(
+            7,
+            vec![
+                printing("m11", "149", "en", &["nonfoil"]),
+                printing("a25", "141", "en", &["nonfoil"]),
+                printing("sta", "42", "ja", &["nonfoil"]),
+            ],
+            true,
+        );
+        assert_eq!(
+            builder.picker().map(Picker::langs),
+            Some(&["en".to_string(), "ja".to_string()][..])
+        );
+
+        builder.picker_step(2);
+        builder.picker_set_lang(Some("ja"));
+        let picker = builder.picker().expect("open");
+        assert_eq!(picker.len(), 1);
+        assert_eq!(picker.at(), 0, "a shorter list starts over");
+        assert_eq!(picker.current().map(|p| p.set.as_str()), Some("sta"));
+
+        builder.picker_set_lang(None);
+        assert_eq!(builder.picker().map(Picker::len), Some(3));
+    }
+
+    /// A choice that changes nothing writes nothing: picking the default
+    /// printing leaves the row exactly as a deck built before any of this
+    /// existed would have written it.
+    #[test]
+    fn picking_the_default_printing_writes_a_plain_row() {
+        let mut builder = picking();
+        builder.set_printings(7, Vec::new(), false);
+        assert!(builder.picker_confirm());
+        assert_eq!(builder.rows(Zone::Main), vec!["1 Lightning Bolt"]);
+    }
+
+    /// And a real pick writes every part of itself, in a form
+    /// `baylee_core::deckrow::parse` reads back.
+    #[test]
+    fn a_picked_printing_reaches_the_deck_row() {
+        let mut builder = picking();
+        builder.set_printings(
+            7,
+            vec![printing("m11", "149", "de", &["nonfoil", "foil"])],
+            true,
+        );
+        builder.picker_set_finish(Finish::Foil);
+        assert!(builder.picker_confirm());
+        assert!(builder.picker().is_none(), "confirming closes it");
+
+        let rows = builder.rows(Zone::Main);
+        assert_eq!(rows, vec!["1 Lightning Bolt (M11) 149 [de] *F*"]);
+        // The row the builder writes is the row the parser reads.
+        let parsed = baylee_core::deckrow::parse(&rows[0]).expect("round-trips");
+        assert_eq!(parsed.name, "Lightning Bolt");
+        assert_eq!(parsed.print.finish, Some(Finish::Foil));
+        assert_eq!(parsed.print.lang.as_deref(), Some("de"));
+    }
+
+    /// Two printings of one card are two rows and still four copies: the
+    /// limit is on the card, which is the rule the gateway enforces.
+    #[test]
+    fn a_second_printing_is_a_second_row_and_not_a_fifth_copy() {
+        let mut builder = picking();
+        for _ in 0..2 {
+            builder.add(0, Zone::Main);
+        }
+        builder.set_printings(
+            7,
+            vec![printing("m11", "149", "en", &["nonfoil", "foil"])],
+            true,
+        );
+        builder.picker_set_finish(Finish::Foil);
+        assert!(builder.picker_confirm());
+
+        assert_eq!(builder.count_of(0, Zone::Main), 3);
+        assert_eq!(builder.entries(Zone::Main).len(), 2, "two rows");
+
+        // Up to four, and no further.
+        assert!(builder.add(0, Zone::Main));
+        assert!(!builder.add(0, Zone::Main), "the fifth copy is refused");
+        assert_eq!(builder.count_of(0, Zone::Main), 4);
+    }
+
+    /// A deck reopened and saved again has to come back out the way it went
+    /// in — editing one line must not strip every other line's printing.
+    #[test]
+    fn a_loaded_deck_keeps_the_printings_it_was_saved_with() {
+        let mut builder = picking();
+        builder.close_picker();
+        builder.load(
+            "id",
+            "Shiny",
+            &[
+                "2 Lightning Bolt (M11) 149 [de] *F*".to_string(),
+                "1 Lightning Bolt".to_string(),
+            ],
+            &[],
+        );
+        assert!(builder.missing().is_empty(), "{:?}", builder.missing());
+        assert_eq!(
+            builder.entries(Zone::Main).len(),
+            2,
+            "two printings, two rows"
+        );
+        assert_eq!(builder.count_of(0, Zone::Main), 3);
+        assert_eq!(
+            builder.rows(Zone::Main),
+            vec!["1 Lightning Bolt", "2 Lightning Bolt (M11) 149 [de] *F*"],
+            "plain before foil, and stable between saves"
+        );
+    }
+
+    /// Undoing an add takes back what was just added, not one of the copies
+    /// that were already there.
+    #[test]
+    fn removing_takes_the_most_recent_printing_first() {
+        let mut builder = picking();
+        builder.close_picker();
+        builder.load(
+            "id",
+            "Shiny",
+            &[
+                "1 Lightning Bolt".to_string(),
+                "1 Lightning Bolt (M11) 149 *F*".to_string(),
+            ],
+            &[],
+        );
+        assert!(builder.remove(0, Zone::Main));
+        assert_eq!(builder.rows(Zone::Main), vec!["1 Lightning Bolt"]);
     }
 }

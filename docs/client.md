@@ -158,6 +158,35 @@ note in the card panel; turning the switch off brings the stubs back, marked
 filter — text, colour identity, type, mana value, sort — runs locally, so
 search answers at keystroke latency and never at the gateway's.
 
+**One row per card, in every language.** The pool sends the card, not its
+printings, and each row carries `alt_names` — every name that card is printed
+under, anywhere. So a German player types "Blitzschlag" and finds the row a
+deck stores as "Lightning Bolt", and finds it *once*: a list that repeated the
+card for each of the forty sets it appeared in would be answering a question
+nobody asked.
+
+Which piece of cardboard is the other question, and it gets its own dialog.
+`◈` on a pool row opens the **printing picker**: `DeckBuilder::open_picker`
+fires `GET /printings?card=<index>`, the dialog opens immediately on the
+printing the row already names, and the answer fills a carousel — art from the
+Scryfall CDN, the set and collector number underneath, language chips, and
+finish chips for plain / foil / etched. A finish the printing was never sold
+in is drawn dead rather than hidden, because which finishes exist is part of
+what is being chosen between; and moving the carousel onto a printing that was
+only ever sold plain takes the finish back to plain, so a row can never name
+cardboard that does not exist.
+
+The pick becomes a `baylee_core::deckrow::PrintChoice`, which is why an
+`Entry` is `(slot, count, print)`: two printings of one card are two rows in
+the list, addressed by row (`Press::RemoveRow`) rather than by card. The copy
+limit is not fooled by that — it counts every printing of the card, which is
+the rule `POST /decks` enforces.
+
+The rule that keeps old decks clean: **a choice that changes nothing writes
+nothing.** Picking the default printing leaves `4 Lightning Bolt` exactly as
+it was, so a deck built before any of this existed can be re-saved without
+gaining a single character.
+
 **Saving must not surprise.** `DeckBuilder::problems` is a mirror of what
 `POST /decks` enforces, split into blocking and advisory. Blocking is the
 gateway's own list (a name, a non-empty deck, 250 lines and 250 cards *per

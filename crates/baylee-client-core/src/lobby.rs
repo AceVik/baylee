@@ -178,6 +178,11 @@ pub enum LobbyRequest {
     ListDecks,
     /// `GET /pool` — every card a deck may be built from.
     LoadPool,
+    /// `GET /printings` — every printing of one card, for the picker.
+    LoadPrintings {
+        /// Registry index of the card being picked for.
+        card: u32,
+    },
     /// `GET /decks/{id}` — one deck, with its rows, for editing.
     LoadDeck {
         /// Which deck.
@@ -235,6 +240,16 @@ pub enum LobbyEvent {
         cards: Vec<crate::deckbuilder::PoolCard>,
         /// Whether the gateway could serve rules text with them.
         has_text: bool,
+    },
+    /// Every printing of one card.
+    Printings {
+        /// Which card was asked about.
+        card: u32,
+        /// Its printings, newest set first.
+        printings: Vec<crate::deckbuilder::Printing>,
+        /// Whether a catalog answered. `false` means the single printing
+        /// below is this build's own reference, not the whole history.
+        from_catalog: bool,
     },
     /// One deck, with its rows, ready to edit.
     DeckLoaded {
@@ -704,6 +719,14 @@ impl Lobby {
             LobbyEvent::Pool { cards, has_text } => {
                 self.builder.set_pool(cards, has_text);
                 self.status = String::new();
+                None
+            }
+            LobbyEvent::Printings {
+                card,
+                printings,
+                from_catalog,
+            } => {
+                self.builder.set_printings(card, printings, from_catalog);
                 None
             }
             LobbyEvent::DeckLoaded {
