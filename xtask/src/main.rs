@@ -475,7 +475,12 @@ fn check_header_matches_code(slug: &str, content: &str, problems: &mut usize) {
 fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
-    let names = acceptance::unique_names(&rows);
+    // The same set `codegen` writes. Reading only the acceptance decks here
+    // meant every card added for its own sake was generated and then never
+    // checked — the header-vs-code comparison below is the whole point of
+    // this command, and it silently skipped them.
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    let names = acceptance::all_names(&rows, &pool_text);
     let mut problems = 0usize;
     for name in &names {
         let slug = baylee_cards_codegen::stubgen::slug(name);
