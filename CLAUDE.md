@@ -87,7 +87,8 @@ exactly 1.88, `cargo-deny`, and `cargo-audit`.
 baylee-core ──> baylee-engine ──> baylee-gamehost ──> baylee-{engine-server, gateway}
      │               │                   │
      │               │                   └── builds ──> baylee-view ──┐
-     │               └── choice taxonomy ─────────────────────────────┤
+     │               └── choice taxonomy ──┬──────────────────────────┤
+     │                                     └──> baylee-ai (plays from the view)
      └──────────────────────────────────────> baylee-client-core <────┘
                                                      │
                                                      └──> baylee-client (Bevy)
@@ -163,9 +164,17 @@ Expect that shape when adding data.
 clone's name, an animated land's types), because a client cannot run the layer
 system. Hidden information has no field to leak through: libraries are counts,
 another seat's hand is a count, a face-down permanent's `card` is `None` for
-anyone not entitled to look. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`,
-currently 3) is asserted in gamehost and client tests — bump it on any breaking
+anyone not entitled to look, and `crates/baylee-gamehost/src/view.rs` has a
+test per sentence of that. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`,
+currently 6) is asserted in gamehost and client tests — bump it on any breaking
 view change so a client refuses a host it cannot render.
+
+The house AI is held to the same line, and by the type system rather than by
+convention: `HeuristicAgent::act` takes `(&PlayerView, &Pending)` — what a
+networked seat gets — so `baylee-ai` cannot reach an opponent's hand even by
+mistake. That is also why the AI-vs-AI harness (`gamehost::harness::play_game`,
+with the acceptance-deck soak) lives in gamehost: building a view takes the
+engine, which is the boundary the agent may not cross.
 
 The engine never carries card text, so a client names an ability through
 `AbilityRef { card, index }`; reserved indices (`SPELL`, `ENTERS`, …) count

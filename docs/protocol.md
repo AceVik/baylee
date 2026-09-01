@@ -78,6 +78,35 @@ planeswalkers all shipped as `Pending`/`PlayerAction` changes with **no
 proto change at all**. Before scheduling something behind protocol v2,
 check whether it needs the wire or only the taxonomy the wire carries.
 
+## The AI is a client (view version 6)
+
+`HeuristicAgent::act` took `&Engine` and could read the whole `GameState`
+— the opponent's hand, every library, every face-down permanent. The
+crate's own header called that "convention, not enforcement". It now takes
+`(&PlayerView, &Pending)`, the same pair a networked seat gets, so the
+leak is not policed but absent: `baylee-ai` no longer depends on
+`baylee-engine`'s state at all, and the acceptance-deck soak plays every
+one of its games through the filtered view.
+
+Two fields moved into the view to make that possible, and both are things
+a human client wanted anyway: `SeatView::mana_pool` (floating mana is
+public at a real table, and the seat deciding whether to tap another land
+needs it) and `PublicObject::mana_value` (what a spell on the stack
+actually cost). That is **`VIEW_VERSION` 5 → 6**.
+
+`play_game` moved from `baylee-ai` to `baylee-gamehost::harness` for the
+same reason: building a view takes the engine, which is the boundary the
+agent may not cross.
+
+## Combat enumerates its own answers
+
+`Pending::ChooseAttackers` carries `attackers` beside `defenders`, and
+`Pending::ChooseBlockers` carries a `BlockOption` per creature that may
+block, naming the attackers it may block. Evasion is a pairing question,
+so a flat list of "creatures that may block" would be wrong for every
+flier on the table. `CombatCandidates` — the client's own guess at both —
+is gone. No proto change: the taxonomy travels as JSON.
+
 ## Attacking a planeswalker (view version 3)
 
 `PlayerAction::DeclareAttackers` carries `(ObjectId, Defender)` pairs

@@ -36,7 +36,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 5;
+pub const VIEW_VERSION: u32 = 6;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -433,6 +433,12 @@ pub struct PublicObject {
     pub token: Option<u16>,
     /// Projected colors.
     pub colors: ColorSet,
+    /// Projected mana value.
+    ///
+    /// The stack shows what a spell actually cost to cast rather than what
+    /// its card prints, and a graveyard or exile card is often the one whose
+    /// cost decides whether it can be played from there.
+    pub mana_value: u32,
     /// Projected keyword bitset (`baylee_cards_dsl::KeywordSet` bits).
     pub keywords: u128,
     /// Projected power, for creatures.
@@ -565,6 +571,51 @@ pub struct HandObject {
 
 // --------------------------------------------------------------------- seats
 
+/// Mana floating in a seat's pool.
+///
+/// Public information: everyone at a real table can see what you have
+/// floating, and the seat that has to decide whether to tap another land
+/// needs it — which is why it lives here and not only in the engine.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug, Serialize, Deserialize)]
+pub struct ManaPoolView {
+    /// White mana.
+    pub white: u16,
+    /// Blue mana.
+    pub blue: u16,
+    /// Black mana.
+    pub black: u16,
+    /// Red mana.
+    pub red: u16,
+    /// Green mana.
+    pub green: u16,
+    /// Colorless mana.
+    pub colorless: u16,
+    /// Mana that may only be spent on certain spells (Cavern of Souls).
+    /// Counted as a total: what it may pay for is a rules question the
+    /// engine answers when the payment is attempted.
+    pub restricted: u16,
+}
+
+impl ManaPoolView {
+    /// Everything in the pool, restricted mana included.
+    #[must_use]
+    pub const fn total(&self) -> u32 {
+        self.white as u32
+            + self.blue as u32
+            + self.black as u32
+            + self.red as u32
+            + self.green as u32
+            + self.colorless as u32
+            + self.restricted as u32
+    }
+
+    /// Whether nothing is floating.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.total() == 0
+    }
+}
+
 /// The public line of one seat: life, counters, and zone sizes.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct SeatView {
@@ -586,6 +637,8 @@ pub struct SeatView {
     pub graveyard_count: u32,
     /// Whether the seat has lost.
     pub has_lost: bool,
+    /// Mana floating in this seat's pool.
+    pub mana_pool: ManaPoolView,
     /// How many times this seat's commander has been cast (commander tax).
     pub commander_casts: Vec<u32>,
 }
@@ -756,6 +809,7 @@ mod tests {
 
     fn obj(id: u32, controller: u8) -> PublicObject {
         PublicObject {
+            mana_value: 0,
             id: ObjectId::new(id, 0),
             card: None,
             name: "Soldier".to_string(),
@@ -792,6 +846,7 @@ mod tests {
             monarch: None,
             seats: (0..seats)
                 .map(|i| SeatView {
+                    mana_pool: ManaPoolView::default(),
                     player: PlayerId::new(i),
                     life: 40,
                     poison: 0,

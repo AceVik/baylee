@@ -119,6 +119,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         power: chars.power,
         toughness: chars.toughness,
         loyalty: chars.loyalty,
+        mana_value: chars.mana_cost.cmc(),
         damage: obj.damage,
         counters: obj
             .counters
@@ -178,6 +179,20 @@ fn per_seat_zone(
         .collect()
 }
 
+/// The floating mana of one seat, for the view.
+fn mana_pool(pool: &baylee_core::mana::ManaPool) -> baylee_view::ManaPoolView {
+    use baylee_core::mana::ManaColor;
+    baylee_view::ManaPoolView {
+        white: pool.available(ManaColor::White),
+        blue: pool.available(ManaColor::Blue),
+        black: pool.available(ManaColor::Black),
+        red: pool.available(ManaColor::Red),
+        green: pool.available(ManaColor::Green),
+        colorless: pool.available(ManaColor::Colorless),
+        restricted: pool.restricted().iter().map(|r| r.amount).sum(),
+    }
+}
+
 /// Builds the hidden-information-filtered view of `state` for `seat`.
 ///
 /// `priority` is the seat that currently holds priority, which the engine
@@ -233,6 +248,7 @@ pub fn player_view(
                 library_count: state.zones.list(ZoneLocation::Library(p.id)).len() as u32,
                 graveyard_count: state.zones.list(ZoneLocation::Graveyard(p.id)).len() as u32,
                 has_lost: p.has_lost,
+                mana_pool: mana_pool(&p.mana_pool),
                 commander_casts: state.commander_casts.clone(),
             })
             .collect(),
@@ -532,5 +548,114 @@ mod tests {
             !view.hand.iter().any(|o| o.id == card),
             "the land is still shown in hand"
         );
+    }
+    /// Every object id that appears anywhere in a view.
+    fn ids_in(view: &baylee_view::PlayerView) -> Vec<ObjectId> {
+        let mut ids: Vec<ObjectId> = view.hand.iter().map(|c| c.id).collect();
+        for zone in [&view.battlefield, &view.stack] {
+            ids.extend(zone.iter().map(|o| o.id));
+        }
+        for per_seat in [&view.graveyards, &view.exile, &view.command] {
+            for zone in per_seat {
+                ids.extend(zone.iter().map(|o| o.id));
+            }
+        }
+        ids.extend(view.combat.attackers.iter().map(|a| a.creature));
+        ids.extend(view.combat.blockers.iter().map(|b| b.blocker));
+        ids
+    }
+
+    /// The opponent's hand is a number. Not a list the client is trusted to
+    /// hide, not ids with the names stripped — a count, with no field the
+    /// contents could travel in.
+    #[test]
+    fn an_opponents_hand_is_a_count_and_nothing_else() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let me = PlayerId::new(0);
+        let them = PlayerId::new(1);
+        let view = player_view(engine.state(), me, None, 1);
+
+        let their_hand = engine.state().zones.list(ZoneLocation::Hand(them));
+        assert!(!their_hand.is_empty(), "the opponent holds cards");
+        assert_eq!(
+            view.seat(them).map(|s| s.hand_count),
+            Some(their_hand.len() as u32),
+            "the count is what a client gets"
+        );
+        let visible = ids_in(&view);
+        for id in their_hand {
+            assert!(
+                !visible.contains(id),
+                "an opponent's hand card reached seat 0's view: {id:?}"
+            );
+        }
+    }
+
+    /// Nobody's library is in the view — not even the viewing seat's own.
+    /// A player who could read their own library order would know every
+    /// draw, which is the same leak wearing a friendlier hat.
+    #[test]
+    fn no_library_card_reaches_any_view() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        for seat in [PlayerId::new(0), PlayerId::new(1)] {
+            let view = player_view(engine.state(), seat, None, 1);
+            let visible = ids_in(&view);
+            for owner in [PlayerId::new(0), PlayerId::new(1)] {
+                let library = engine.state().zones.list(ZoneLocation::Library(owner));
+                assert!(
+                    library.len() > 40,
+                    "the library should still be nearly whole"
+                );
+                for id in library {
+                    assert!(
+                        !visible.contains(id),
+                        "a library card reached {seat:?}'s view: {id:?}"
+                    );
+                }
+                assert_eq!(
+                    view.seat(owner).map(|s| s.library_count),
+                    Some(library.len() as u32)
+                );
+            }
+        }
+    }
+
+    /// Two seats looking at the same battlefield see different things when a
+    /// permanent is face down (CR 707.2): its controller knows what they
+    /// played, everyone else gets a blank with no card identity at all.
+    #[test]
+    fn a_face_down_permanent_is_blank_to_everyone_but_its_controller() {
+        let preset = mixed_print_preset();
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        let me = PlayerId::new(0);
+        let them = PlayerId::new(1);
+        let land = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+        engine
+            .state_mut_dev()
+            .object_mut(land)
+            .expect("the permanent is there")
+            .status
+            .insert(baylee_engine::object::Status::FACE_DOWN);
+
+        let mine = player_view(engine.state(), me, None, 1);
+        let theirs = player_view(engine.state(), them, None, 1);
+        let of = |v: &baylee_view::PlayerView| {
+            v.battlefield
+                .iter()
+                .find(|o| o.id == land)
+                .expect("the permanent is on the shared battlefield")
+                .clone()
+        };
+        assert!(
+            of(&mine).card.is_some(),
+            "its controller knows what they played"
+        );
+        assert!(
+            of(&theirs).card.is_none(),
+            "the opponent was handed the card identity of a face-down permanent"
+        );
+        assert_eq!(of(&theirs).name, "Face-down");
     }
 }

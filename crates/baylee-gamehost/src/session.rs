@@ -2,7 +2,7 @@
 //! tests and both servers (engine-server dev harness, gateway) drive it
 //! directly; transport lives with the callers.
 
-use baylee_ai::HeuristicAgent;
+use baylee_ai::{HeuristicAgent, pending_player};
 use baylee_cards::dsl::CardDef;
 use baylee_core::ids::{CardIndex, PlayerId};
 use baylee_core::preset::{AIProfile, GamePreset, HouseRules, SeatController};
@@ -109,7 +109,18 @@ impl Session {
                 return out;
             }
             let action = match &self.seats[player.get() as usize] {
-                SeatKind::Ai(agent) => agent.act(&self.engine, player),
+                // An AI seat is handed exactly what a networked client is
+                // handed: its own filtered view, and the choice addressed
+                // to it. Nothing else is reachable from here.
+                SeatKind::Ai(agent) => {
+                    let view = crate::view::player_view(
+                        self.engine.state(),
+                        player,
+                        priority_holder(&pending),
+                        self.seq,
+                    );
+                    agent.act(&view, &pending)
+                }
                 SeatKind::Human => unreachable!(),
             };
             if self.engine.apply(player, action).is_err() {
@@ -153,7 +164,14 @@ impl Session {
     pub fn timeout_action(&self) -> Option<(PlayerId, PlayerAction)> {
         let player = self.awaiting_seat()?;
         let agent = HeuristicAgent::new(AIProfile::default());
-        Some((player, agent.act(&self.engine, player)))
+        let pending = self.engine.pending();
+        let view = crate::view::player_view(
+            self.engine.state(),
+            player,
+            priority_holder(pending),
+            self.seq,
+        );
+        Some((player, agent.act(&view, pending)))
     }
 
     /// The sequence number a client should report back when it resumes.
@@ -217,34 +235,11 @@ impl Session {
     }
 }
 
-/// The player who must answer a pending choice.
-fn pending_player(pending: &Pending) -> Option<PlayerId> {
-    match pending {
-        Pending::Mulligan { player, .. }
-        | Pending::MulliganBottom { player, .. }
-        | Pending::Priority { player, .. }
-        | Pending::ChooseAttackers { player, .. }
-        | Pending::ChooseBlockers { player, .. }
-        | Pending::DiscardChoice { player, .. }
-        | Pending::LegendChoice { player, .. }
-        | Pending::ChooseCards { player, .. }
-        | Pending::ChooseTargets { player, .. }
-        | Pending::ChooseSubtype { player, .. }
-        | Pending::ChooseColor { player, .. }
-        | Pending::ChooseNumber { player, .. }
-        | Pending::ChoosePlayer { player, .. }
-        | Pending::ChooseCastMode { player, .. }
-        | Pending::OrderObjects { player, .. }
-        | Pending::YesNo { player, .. } => Some(*player),
-        Pending::GameOver(_) => None,
-    }
-}
-
 /// The seat holding priority, if the game is currently offering it.
 ///
 /// Priority is not stored on the state; it only exists as the pending choice,
 /// so a view has to be told about it rather than deriving it.
-fn priority_holder(pending: &Pending) -> Option<PlayerId> {
+pub(crate) fn priority_holder(pending: &Pending) -> Option<PlayerId> {
     match pending {
         Pending::Priority { player, .. } => Some(*player),
         _ => None,

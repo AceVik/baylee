@@ -16,6 +16,7 @@ use baylee_view::{
 #[must_use]
 pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) -> PublicObject {
     PublicObject {
+        mana_value: 0,
         id: ObjectId::new(slot, 0),
         card: None,
         name: name.to_string(),
@@ -74,6 +75,7 @@ impl ViewBuilder {
                 monarch: None,
                 seats: (0..seats)
                     .map(|i| SeatView {
+                        mana_pool: baylee_view::ManaPoolView::default(),
                         player: PlayerId::new(i),
                         life: 40,
                         poison: 0,

@@ -7,6 +7,7 @@
 
 #![warn(missing_docs)]
 
+pub mod harness;
 pub mod preset;
 pub mod session;
 pub mod view;
