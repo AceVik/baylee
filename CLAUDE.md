@@ -240,6 +240,15 @@ does not run for a seat with no socket. And one process per game *is* the
 seat's frames are dropped in the engine rather than at the gateway while it has
 no socket, and why losing the engine link ends the game.
 
+The gateway's e2e tests run the engine in-process (`EngineRunner` over the real
+`/engine/ws`), which is what keeps them fast and independent of what happens to
+be built. The version with all three real processes is `#[ignore]`d:
+
+```bash
+cargo build --workspace --bins
+cargo test -p baylee-gateway --test e2e_processes -- --ignored
+```
+
 ### Hosts, and where the client actually gets its game
 
 The renderer never touches a socket; it talks to a `DuelHost`, of which there
