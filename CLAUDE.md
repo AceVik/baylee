@@ -203,9 +203,28 @@ the gateway's `/games/{id}/ws`. `crates/baylee-client/src/main.rs` picks
 between them on whether this launch was handed a `SeatTicket` — `BAYLEE_GAME`
 + `BAYLEE_SEAT_TOKEN` natively, `?game=…&token=…` in a browser — and nothing
 above the host can tell which it got, because both decode the same protobuf
-envelopes with the same function. The client has no lobby of its own yet: the
-HTTP calls that produce a ticket (login, list, join) are somebody else's for
-now.
+envelopes with the same function.
+
+Without a ticket the binary adds `LobbyPlugin` (`crates/baylee-client/src/lobby.rs`)
+instead of opening a duel, and makes those HTTP calls itself: register/login,
+`POST /decks`, `POST /lobby/games` or `.../join`, then the same `SeatTicket`
+into the same `NetworkHost`. The decisions live in
+`crates/baylee-client-core/src/lobby.rs` and answer input with a
+`LobbyRequest` the shell performs — so the flow is tested headless and the
+route mapping is tested without a gateway. The lobby runs only in
+`DuelPhase::Closed` and brings its own 2D camera; it is a separate plugin
+because `DuelPlugin` has to stay embeddable in an application that already has
+a front door. Two buttons exist only because nothing else does yet: "add the
+starter deck" (no deck builder; it posts the acceptance file's `Allytifact`
+rows) and "play the house AI offline" (a `LocalHost`, no account).
+
+The trap in that flow: a seat token is not always usable yet. `mode:"ai"` and a
+join both build the game's session before answering, but an **open** table
+holds a seat whose game does not exist — `opening_payload` has no session to
+describe, so a socket opened against it is accepted and closed again with
+nothing on it. The lobby stays put and re-reads `GET /lobby/games` until that
+table's state turns `"playing"`. Nothing pushes that news; there is no socket
+to push it on.
 
 Known gap, easy to misread from the code: `client-core`'s `Interaction` exposes
 and tests `declare_attacker`, `declare_blocker` and `choose_index`, but

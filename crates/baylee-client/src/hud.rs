@@ -44,7 +44,7 @@ pub fn setup_fonts(mut commands: Commands, assets: Res<AssetServer>) {
 }
 
 /// A text-font handle at a size.
-fn tf(fonts: &UiFonts, size: f32) -> TextFont {
+pub(crate) fn tf(fonts: &UiFonts, size: f32) -> TextFont {
     TextFont {
         font: bevy::text::FontSource::Handle(fonts.text.clone()),
         font_size: bevy::text::FontSize::Px(size),
@@ -260,7 +260,7 @@ pub struct HudRevision {
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
-mod palette {
+pub(crate) mod palette {
     use bevy::prelude::Color;
 
     /// Panel background.
@@ -288,7 +288,7 @@ mod palette {
 }
 
 /// The soft radius + shadow every button and panel shares.
-fn soft_shadow() -> BoxShadow {
+pub(crate) fn soft_shadow() -> BoxShadow {
     BoxShadow::new(
         palette::SHADOW,
         Val::Px(0.0),
@@ -310,7 +310,7 @@ fn overlay_shadow() -> BoxShadow {
 }
 
 /// The soft corner radius for buttons and tabs.
-fn btn_radius() -> BorderRadius {
+pub(crate) fn btn_radius() -> BorderRadius {
     BorderRadius::all(px(6))
 }
 
@@ -423,6 +423,24 @@ pub fn team_color(team: Option<u8>) -> Color {
         Some(3) => Color::srgb(0.88, 0.55, 0.55),
         _ => Color::srgb(0.80, 0.80, 0.60),
     }
+}
+
+/// Removes the overlay when the duel hands the screen back.
+///
+/// The 3D stage has always been torn down on `Close`; the overlay was not,
+/// because until the client grew a lobby nothing ever closed a duel and came
+/// back to something else. The revision goes with it: it describes a tree that
+/// no longer exists, and the next duel's first frame has to rebuild rather
+/// than compare against it.
+pub fn despawn_overlay(
+    mut commands: Commands,
+    existing: Query<Entity, With<HudRoot>>,
+    mut revision: ResMut<HudRevision>,
+) {
+    for entity in &existing {
+        commands.entity(entity).despawn();
+    }
+    *revision = HudRevision::default();
 }
 
 /// Rebuilds the overlay when anything it shows changes.
@@ -1852,5 +1870,37 @@ mod tests {
         let layout = hand_layout(0, 100.0, 400.0);
         assert!(!layout.scrollable);
         assert!(layout.content_width.abs() < 1e-4);
+    }
+}
+
+#[cfg(test)]
+mod close_tests {
+    use super::*;
+
+    #[test]
+    fn closing_the_duel_takes_the_overlay_with_it() {
+        let mut app = App::new();
+        app.init_resource::<HudRevision>()
+            .add_systems(Update, despawn_overlay);
+        let root = app.world_mut().spawn(HudRoot).id();
+        let child = app.world_mut().spawn(Node::default()).id();
+        app.world_mut().entity_mut(root).add_child(child);
+        app.world_mut().resource_mut::<HudRevision>().overlay_closed = true;
+
+        app.update();
+
+        let mut roots = app.world_mut().query_filtered::<Entity, With<HudRoot>>();
+        assert_eq!(roots.iter(app.world()).count(), 0, "the root is gone");
+        let mut nodes = app.world_mut().query_filtered::<Entity, With<Node>>();
+        assert_eq!(
+            nodes.iter(app.world()).count(),
+            0,
+            "and its children went with it"
+        );
+        assert!(
+            !app.world().resource::<HudRevision>().overlay_closed,
+            "a revision describing a tree that no longer exists would make the \
+             next duel's first frame skip its own rebuild"
+        );
     }
 }

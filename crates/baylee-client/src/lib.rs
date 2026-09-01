@@ -40,6 +40,7 @@ pub mod face;
 pub mod host;
 pub mod hud;
 pub mod input;
+pub mod lobby;
 pub mod net;
 pub mod settings;
 pub mod table;
@@ -57,6 +58,7 @@ use bevy::prelude::*;
 use host::{DuelHost, HostMessage};
 
 pub use host::LocalHost;
+pub use lobby::{LobbyPlugin, LobbyState};
 pub use net::{NetworkHost, SeatTicket};
 
 /// Whether a duel is on screen.
@@ -259,7 +261,10 @@ impl Plugin for DuelPlugin {
                     .run_if(not(in_state(DuelPhase::Closed))),
             )
             .add_systems(OnEnter(DuelPhase::Opening), table::spawn_stage)
-            .add_systems(OnEnter(DuelPhase::Closed), table::despawn_stage);
+            .add_systems(
+                OnEnter(DuelPhase::Closed),
+                (table::despawn_stage, hud::despawn_overlay),
+            );
     }
 }
 

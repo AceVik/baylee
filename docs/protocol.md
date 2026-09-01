@@ -131,6 +131,44 @@ so a flat list of "creatures that may block" would be wrong for every
 flier on the table. `CombatCandidates` — the client's own guess at both —
 is gone. No proto change: the taxonomy travels as JSON.
 
+## From an account to a seat
+
+The websocket below is opened with a *seat token*, and there is exactly one
+way to get one. The client walks it itself now (`crates/baylee-client/src/lobby.rs`),
+which is what turned this from a curl recipe into a contract:
+
+| step | call | answer |
+| --- | --- | --- |
+| sign up | `POST /auth/register` `{email, display_name, password}` | `{"ok":true}` |
+| sign in | `POST /auth/login` `{email, password}` | `{token, expires_at}` |
+| decks | `GET /decks` | `[{id, name, cards, commander}]` |
+| save a deck | `POST /decks` `{name, cards:["N Card Name"], commander}` | `{deck_id}` |
+| tables | `GET /lobby/games` | `[{id, state, seats:[{seat, taken}]}]` |
+| open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open"}` | `{game_id, seat, seat_token}` |
+| sit down | `POST /lobby/games/{id}/join` `{deck_id}` | `{game_id, seat, seat_token}` |
+
+Everything but the two auth calls and `/auth/config` takes
+`Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a status,
+and the string is written to be shown to a player as-is — the lobby does.
+
+Two distinctions the client has to keep straight. A `401` on a *signed*
+request means the account token is spent (sign out and start over); a `401` on
+the sign-in form means the password was wrong. And the seat token is not the
+account token: it is scoped to one seat at one game, so losing it costs a game
+rather than an account, which is why it is the only one that ever appears in a
+URL.
+
+`seat` in the answer is a hint. The table states which chair this is, in the
+opening payload below, and the client believes the table.
+
+**A seat token is not always usable yet.** `mode:"ai"` and a join both build
+the game's session before answering, so the socket can be opened at once. An
+`"open"` table does not: it holds the seat and waits, and a socket opened
+against it is accepted and then closed with nothing on it, because
+`opening_payload` has no session to describe. The host of an open table has to
+wait for its `state` to turn `"playing"` — there is nothing to push the news
+on, so the lobby re-reads `GET /lobby/games` every two seconds until it does.
+
 ## The opening payload, and a client that is not the server
 
 `GameStaticMsg{game_id, view_version, static_json}` is the one message a

@@ -40,6 +40,7 @@ pub mod card_face;
 pub mod images;
 pub mod interaction;
 pub mod layout;
+pub mod lobby;
 
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -52,6 +53,10 @@ pub use card_face::{
 pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
 pub use interaction::{Interaction, Prompt, SelectionOutcome};
 pub use layout::{LaneKind, SeatSlot, TableLayout};
+pub use lobby::{
+    DeckSummary, Field, GameMode, GameSeat, GameSummary, Lobby, LobbyEvent, LobbyRequest, Screen,
+    SeatHandover,
+};
 
 /// Re-exported wire types, so a downstream crate needs one dependency to talk
 /// to a host and render the result.

@@ -175,6 +175,61 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
     Some(preset)
 }
 
+/// The acceptance deck file, wherever this build can find it.
+///
+/// Looked for beside the working directory first and then beside the source
+/// tree, so `cargo run` from anywhere in the workspace works and so does a
+/// binary run from the repository root. The final fallback is the copy
+/// embedded at build time — a browser has no filesystem at all.
+#[must_use]
+pub fn acceptance_text() -> String {
+    /// Embedded copy of the deck file (the only source in a browser build).
+    const EMBEDDED: &str = include_str!("../../../data/acceptance-decks.txt");
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        const CANDIDATES: [&str; 3] = [
+            "data/acceptance-decks.txt",
+            "../data/acceptance-decks.txt",
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../data/acceptance-decks.txt"
+            ),
+        ];
+        if let Some(text) = CANDIDATES
+            .iter()
+            .find_map(|path| std::fs::read_to_string(path).ok())
+        {
+            return text;
+        }
+    }
+    EMBEDDED.to_string()
+}
+
+/// A fresh shuffle per launch.
+///
+/// The engine is deterministic given a seed, which is what makes replays work;
+/// that is a reason to *record* the seed, never a reason to reuse one. The
+/// seed comes from the platform CSPRNG (Web Crypto in the browser) —
+/// `std::time` panics on wasm32, so it is not an option here.
+#[must_use]
+pub fn fresh_seed() -> u64 {
+    let mut bytes = [0u8; 8];
+    match getrandom::fill(&mut bytes) {
+        Ok(()) => u64::from_le_bytes(bytes),
+        Err(_) => 0x5eed_1234,
+    }
+}
+
+/// A solo duel against the house AI, ready to install.
+///
+/// Everything the standalone binary needs for offline play, and the same thing
+/// the lobby's "play the house" button installs — so the two cannot drift.
+#[must_use]
+pub fn house_duel() -> Option<LocalHost> {
+    let preset = demo_duel(&acceptance_text(), fresh_seed())?;
+    LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

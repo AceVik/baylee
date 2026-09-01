@@ -107,9 +107,37 @@ the environment, or `?game=…&token=…` in the page URL in a browser. A ticket
 that will not connect is a hard stop, not a quiet fall back to solo play —
 somebody is waiting at that table.
 
-The client has no lobby of its own yet. The HTTP calls that produce a ticket
-(register, login, create or join a game) are still made from outside it; see
-`docs/protocol.md`.
+## The lobby
+
+Without a ticket the binary adds `LobbyPlugin` (`src/lobby.rs`) instead of
+opening a duel, and the client produces its own ticket: register or sign in,
+save a deck, open a table or join one. On a granted seat it builds the same
+`SeatTicket`, connects the same `NetworkHost`, and sends `DuelCommand::Open` —
+from there nothing above the host can tell this game from one the command line
+handed it.
+
+The split is the same one the duel uses. `baylee_client_core::lobby::Lobby` is
+the whole state machine — screens, form fields, one request in flight at a
+time — and answers input with a `LobbyRequest` rather than performing it; the
+plugin turns that into an `ehttp` call and feeds the outcome back as a
+`LobbyEvent`. So the flow is tested without a window, and the mapping onto the
+gateway's routes is tested without a gateway.
+
+Hosting an open table is the one asymmetric case. A game against the house and
+a join are both playable the moment the gateway answers; an open table holds a
+seat whose game does not exist yet, so the lobby keeps the table screen up with
+a banner and re-reads the game list until somebody sits down opposite. Opening
+the socket earlier would connect and close again with nothing on it.
+
+Two things the lobby carries because nothing else does yet: an "add the starter
+deck" button (there is no deck builder, and a fresh account cannot sit down
+without a deck) that posts the acceptance file's `Allytifact` rows, and a "play
+the house AI offline" button that installs a `LocalHost` and needs no account
+at all. A finished game gets a "back to the lobby" button, which closes the
+duel and drops the host with it.
+
+The lobby is `DuelPhase::Closed` only, and brings its own 2D camera — the duel
+brings its own and the two never coexist.
 
 ## Embedding (the open-world plan)
 
@@ -117,6 +145,12 @@ The client has no lobby of its own yet. The HTTP calls that produce a ticket
 it, installs a host, and sends `DuelCommand::Open`; the duel takes the screen
 and returns it on `Close`, reporting through `DuelReport`. `DuelSet::{Sync,
 Input, Present}` let the host application order its own systems around it.
+
+`Close` now really does hand the screen back: the 3D stage was always torn down
+there, but the overlay was not, because nothing had ever closed a duel and come
+back to something else. `hud::despawn_overlay` runs beside `table::despawn_stage`
+and resets `HudRevision` with it — a revision describing a tree that no longer
+exists would make the next duel's first frame skip its own rebuild.
 
 ## In the browser
 
