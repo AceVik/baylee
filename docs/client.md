@@ -27,6 +27,62 @@ Cards are textured quads lying on a 3D table; everything a player *reads*
 (prompt, hand, stack, life, threat lines) is a 2D overlay. Tapping is a
 rotation, and focusing an opponent is a camera move rather than a re-layout.
 
+The quad is a rounded rectangle built by hand
+(`table.rs::rounded_card_mesh`), and it is worth knowing why it has four
+tests of its own. It shipped once with every corner arc sweeping the quarter
+turn belonging to its neighbour: the outline folded through the middle twice
+and every permanent on the battlefield drew as a small bright X. Nothing
+caught it, because the test that existed —
+`an_untapped_card_lies_flat_on_the_table` — asks whether the *transform* is
+flat, and it always was. The mesh is now checked for what actually went
+wrong: that the outline turns one way and closes exactly once, that it covers
+the area a card of that size should, and that every triangle faces the
+printed side (back-face culling is on, so the other winding is an invisible
+card).
+
+## The table itself
+
+Under the cards, everything is generated rather than shipped:
+`baylee-client-core/src/tabletop.rs` computes the felt, the medallion and a
+seat's mat into plain RGBA8 buffers. Three reasons, and the first is the one
+that decided it: `docs/legal.md` §2 rules out WotC assets, and a fantasy
+table wants exactly the kind of ornament that is easiest to borrow by
+accident — arithmetic borrows nothing. It also ships no bytes (a 1024² felt
+is a megabyte and a half the wasm build does not have to carry), and being
+pure functions over a pixel buffer it is all testable in the renderer-free
+crate, with no GPU anywhere.
+
+The noise is a hashed value-noise fbm with fixed seeds — no `rand`, no clock
+— so every player at a table sees the same grain in the same place, which
+starts to matter the moment anyone screenshots anything.
+
+**Every seat gets a zone.** A shared battlefield with no divisions is a pile;
+each seat now plays on its own mat, sized from its `SeatSlot` and rotated to
+face it, with three bands across it for the three lanes so an opponent's rows
+can be read without counting cards. The rim carries the seat's colour: the
+viewing seat is gilt, matching the medallion's rings, so "mine" is the one
+edge a player never has to look for; the others take the colours of the pie
+in ring order, which makes a four-way game four distinguishable places rather
+than three anonymous opponents.
+
+That rim is also the cheapest place to answer the two questions asked on
+every priority pass. A seat's `Mood` is `local` plus a `Standing` — lost,
+holding priority, active, waiting — and brightness follows it: the seat
+everyone is waiting for is the brightest thing on the felt, and a seat that
+has lost fades most of the way out, because its permanents are gone and its
+zone should stop competing for attention. `Standing` is an ordered enum
+rather than three booleans on purpose: holding priority and being the active
+seat are true together nine times out of ten, and drawing both would mean
+adding two brightnesses and hoping.
+
+The medallion inlaid at the centre is the colour wheel, in the arrangement
+every player already has in their head — so it is orientation as much as
+ornament, and it sits on the one patch of felt no seat ever plays on.
+Everything down here is `unlit`, and stays that way: card art must never be
+tinted by scene lighting, because colour identity has to be readable at a
+glance. The table gets its depth from shading painted into the textures
+instead.
+
 ## Eight seats
 
 - Seats sit on a ring, local seat at the near edge, opponents clockwise **in

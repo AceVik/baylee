@@ -43,6 +43,7 @@ pub mod interaction;
 pub mod layout;
 pub mod lobby;
 pub mod manapip;
+pub mod tabletop;
 
 #[cfg(test)]
 pub(crate) mod test_support;

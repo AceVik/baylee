@@ -27,19 +27,38 @@ use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH, SeatSlot, pack_lane};
+use baylee_client_core::tabletop;
 use baylee_core::color::ColorSet;
 use baylee_core::ids::ObjectId;
+use baylee_core::ids::PlayerId;
 use bevy::asset::RenderAssetUsages;
 use bevy::light::NotShadowCaster;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 /// Height of the table surface; cards float a hair above it so they never
 /// z-fight with the felt.
 const TABLE_Y: f32 = 0.0;
 /// Vertical gap between the felt and a card.
 const CARD_LIFT: f32 = 0.01;
+/// Where a seat's mat sits: above the felt, below everything played on it.
+const ZONE_LIFT: f32 = 0.002;
+/// Where the glow under a mat sits — below the mat, above the felt.
+const GLOW_LIFT: f32 = 0.001;
+/// Where the centre medallion is inlaid.
+const MEDALLION_LIFT: f32 = 0.0015;
+/// The felt's extent. Big enough that no seat sees its edge.
+const FELT: Vec2 = Vec2::new(60.0, 44.0);
+/// How wide the medallion is inlaid, in table units.
+const MEDALLION_SIZE: f32 = 9.5;
+/// Margin around a seat's pod, so its mat is a table the cards sit on rather
+/// than a box drawn tight around them.
+const ZONE_MARGIN: f32 = 0.55;
+/// How far past the mat the glow beneath it spreads.
+const GLOW_SPREAD: f32 = 2.4;
+
 /// Extra lift per card in a counted stack, so a stack reads as a stack.
 const STACK_LIFT: f32 = 0.006;
 /// The back of a card: what a stack behind a counted group is made of, and
@@ -160,6 +179,73 @@ pub struct SceneIndex {
     /// One material per colour identity and look, for cards drawing their
     /// own face rather than artwork.
     face_materials: HashMap<CardLook, Handle<CardMaterial>>,
+    /// A seat's zone: the mat and the glow under it, with the mood they were
+    /// last drawn in. Held here for the same reason the cards are — so a
+    /// frame in which nothing changed costs a lookup and no allocation.
+    zones: HashMap<PlayerId, Zone>,
+    /// The two generated images every zone shares: the rounded mat with its
+    /// lane bands, and the soft glow. One each for the whole table; the seat
+    /// colour is the material's tint, not a second texture.
+    mat_image: Option<Handle<Image>>,
+    glow_image: Option<Handle<Image>>,
+}
+
+/// One seat's zone on the table.
+struct Zone {
+    /// The mat itself.
+    mat: Entity,
+    /// The pool of colour under it.
+    glow: Entity,
+    /// What the mat was last tinted for.
+    mood: Mood,
+}
+
+/// What a zone's colour is saying.
+///
+/// The rim of a seat's mat is the cheapest place to answer "whose turn is
+/// it?" and "who is holding everyone up?" — questions a player asks on every
+/// single priority pass, and that otherwise cost a trip to the overlay.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Mood {
+    /// Whether this is the viewing seat.
+    local: bool,
+    /// Where the seat stands in the turn.
+    standing: Standing,
+}
+
+/// What a seat is doing, in the order the zone cares about it.
+///
+/// Ordered rather than flagged because these do not stack: a seat holding
+/// priority is *also* the active seat nine times out of ten, and drawing both
+/// would only mean adding two brightnesses together and hoping.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Standing {
+    /// Out of the game.
+    Lost,
+    /// Holding priority — this is the seat everyone else is waiting for.
+    Priority,
+    /// Their turn, but not currently holding anyone up.
+    Active,
+    /// Waiting their turn.
+    Waiting,
+}
+
+impl Mood {
+    /// How a seat's pod reads right now.
+    fn of(pod: &baylee_client_core::board::SeatPod) -> Self {
+        Self {
+            local: pod.is_local,
+            standing: if pod.has_lost {
+                Standing::Lost
+            } else if pod.has_priority {
+                Standing::Priority
+            } else if pod.is_active {
+                Standing::Active
+            } else {
+                Standing::Waiting
+            },
+        }
+    }
 }
 
 /// A card's corner radius (~10% of the width — clearly rounded, matching
@@ -173,13 +259,19 @@ pub const CARD_CORNER: f32 = CARD_WIDTH * 0.10;
 fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
     const SEGMENTS: usize = 4; // per corner — plenty at card scale
     let (hw, hh, r) = (width / 2.0, height / 2.0, radius);
-    // Corner arc centres in CCW order: top-left, bottom-left, bottom-right,
-    // top-right, with their angle ranges (CCW from +Z).
+    // Corner arc centres in CCW order with the quarter turn each one sweeps,
+    // angles measured the usual way (0° = +x, 90° = +y).
+    //
+    // Every centre owns the quarter that points *away* from the middle of the
+    // card, and it has to: pair a centre with any other quarter and the
+    // outline folds back through the centre, so the fan below stitches
+    // crossing slivers instead of a card. On a table that reads as a small
+    // bright X where a permanent should be.
     let corners: [([f32; 2], f32); 4] = [
-        ([-hw + r, hh - r], 90.0),
-        ([-hw + r, -hh + r], 180.0),
-        ([hw - r, -hh + r], 270.0),
-        ([hw - r, hh - r], 360.0),
+        ([hw - r, hh - r], 90.0),
+        ([-hw + r, hh - r], 180.0),
+        ([-hw + r, -hh + r], 270.0),
+        ([hw - r, -hh + r], 360.0),
     ];
     let mut positions: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0]];
     let mut uvs: Vec<[f32; 2]> = vec![[0.5, 0.5]];
@@ -193,12 +285,16 @@ fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
             uvs.push([f32::midpoint(x / hw, 1.0), (1.0 - y / hh) * 0.5]);
         }
     }
+    // A triangle fan from the centre, wound counter-clockwise as seen from
+    // +z — the side the printed face is on, and the side the camera is on
+    // once the card is laid down. The material does not disable back-face
+    // culling, so the other winding is an invisible card.
     let m = positions.len() - 1;
     let mut indices = Vec::with_capacity(m * 3);
     for i in 1..m {
-        indices.extend_from_slice(&[0, i as u32 + 1, i as u32]);
+        indices.extend_from_slice(&[0, i as u32, i as u32 + 1]);
     }
-    indices.extend_from_slice(&[0, 1, m as u32]);
+    indices.extend_from_slice(&[0, m as u32, 1]);
     Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
@@ -215,6 +311,7 @@ pub fn spawn_stage(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut cards: ResMut<Assets<CardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     mut index: ResMut<SceneIndex>,
 ) {
     index.quad = Some(meshes.add(rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER)));
@@ -250,13 +347,19 @@ pub fn spawn_stage(
         Transform::from_xyz(0.0, 20.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    // The felt. Unlit so card art is never tinted by scene lighting: a player
-    // must be able to tell a card's colour identity at a glance.
+    // Everything below is unlit, and stays unlit: card art must never be
+    // tinted by scene lighting, because a player has to be able to read a
+    // card's colour identity at a glance. The table gets its depth from
+    // painted-in shading instead — which is what `tabletop` generates.
+    index.mat_image = Some(images.add(image_of(&tabletop::seat_mat(512, 256, 0.06, 0.018))));
+    index.glow_image = Some(images.add(image_of(&tabletop::glow(128))));
+
+    // The felt.
     commands.spawn((
         DuelStage,
-        Mesh3d(meshes.add(Rectangle::new(60.0, 44.0))),
+        Mesh3d(meshes.add(Rectangle::new(FELT.x, FELT.y))),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(0.07, 0.09, 0.11),
+            base_color_texture: Some(images.add(image_of(&tabletop::felt(1024)))),
             unlit: true,
             ..default()
         })),
@@ -264,6 +367,187 @@ pub fn spawn_stage(
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         NotShadowCaster,
     ));
+
+    // The medallion inlaid at the centre — the colour wheel every player
+    // already has in their head, which is what makes it orientation rather
+    // than decoration. It sits in the middle of the table, which is the one
+    // patch of felt no seat ever plays on.
+    commands.spawn((
+        DuelStage,
+        Mesh3d(meshes.add(Rectangle::new(MEDALLION_SIZE, MEDALLION_SIZE))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(images.add(image_of(&tabletop::medallion(512)))),
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            ..default()
+        })),
+        Transform::from_xyz(0.0, TABLE_Y + MEDALLION_LIFT, 0.0)
+            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        NotShadowCaster,
+    ));
+}
+
+/// Wraps a generated texture in an `Image` the renderer can bind.
+fn image_of(texture: &tabletop::Texture) -> Image {
+    let mut image = Image::new(
+        Extent3d {
+            width: texture.width,
+            height: texture.height,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        texture.rgba.clone(),
+        // sRGB: the generator writes what the table should *look* like, not
+        // light values, so the samples are display-referred.
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    // The mat and the medallion are stretched over quads much larger than
+    // they are; without a linear filter their soft edges come out as stairs.
+    image.sampler = bevy::image::ImageSampler::linear();
+    image
+}
+
+/// The colour a seat's zone is drawn in.
+///
+/// The viewing seat is gilt, matching the medallion's rings: whatever else is
+/// on the table, "mine" is the one edge a player never has to look for. The
+/// others take the colours of the pie in ring order, which makes a four-way
+/// game four distinguishable places rather than three anonymous opponents.
+fn seat_accent(slot: &SeatSlot) -> Color {
+    if slot.is_local {
+        return Color::srgb(0.78, 0.63, 0.33);
+    }
+    let hue = tabletop::PIE[(slot.ring_index + 3) % tabletop::PIE.len()];
+    Color::srgb(hue[0], hue[1], hue[2])
+}
+
+/// How bright a zone's mat is drawn, given what it is saying.
+///
+/// A seat that has lost fades most of the way out — its permanents are gone
+/// and its zone should stop competing for attention — and a seat holding
+/// priority is the brightest thing on the felt, because that is the seat
+/// everyone else is waiting for.
+fn zone_brightness(mood: Mood) -> f32 {
+    let base: f32 = if mood.local { 0.95 } else { 0.72 };
+    match mood.standing {
+        Standing::Lost => 0.22,
+        Standing::Priority => (base * 1.38).min(1.6),
+        Standing::Active => base * 1.15,
+        Standing::Waiting => base,
+    }
+}
+
+/// Keeps one mat and one glow per seat in step with the table.
+///
+/// Zones are spawned when a seat first appears and only ever re-tinted after
+/// that: the layout does not move once a game has begun, and a mat rebuilt
+/// every frame would be four meshes and four materials of pure garbage per
+/// frame for a table nobody is looking at that hard.
+pub fn sync_zones(
+    mut commands: Commands,
+    duel: Res<Duel>,
+    mut index: ResMut<SceneIndex>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mats: Query<&MeshMaterial3d<StandardMaterial>>,
+) {
+    let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
+        return;
+    };
+    let (Some(mat_image), Some(glow_image)) = (index.mat_image.clone(), index.glow_image.clone())
+    else {
+        return;
+    };
+
+    let mut seen: HashSet<PlayerId> = HashSet::new();
+    for pod in &board.pods {
+        let Some(slot) = layout.slot(pod.player) else {
+            continue;
+        };
+        seen.insert(pod.player);
+        let mood = Mood::of(pod);
+        let accent = seat_accent(slot);
+        let tint = accent.to_linear() * zone_brightness(mood);
+
+        if let Some(zone) = index.zones.get(&pod.player) {
+            if zone.mood == mood {
+                continue;
+            }
+            // Only the colour changes, so only the colour is written: the
+            // mesh, the transform and the texture all still hold.
+            for entity in [zone.mat, zone.glow] {
+                if let Ok(handle) = mats.get(entity)
+                    && let Some(mut material) = materials.get_mut(&handle.0)
+                {
+                    let dim = if entity == zone.glow { 0.30 } else { 1.0 };
+                    material.base_color = Color::LinearRgba(tint * dim);
+                }
+            }
+            index
+                .zones
+                .entry(pod.player)
+                .and_modify(|zone| zone.mood = mood);
+            continue;
+        }
+
+        let size = slot.half_extent * 2.0 + Vec2::splat(ZONE_MARGIN * 2.0);
+        let flat = Quat::from_rotation_y(-slot.facing)
+            * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
+        let mat = commands
+            .spawn((
+                DuelStage,
+                Mesh3d(meshes.add(Rectangle::new(size.x, size.y))),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::LinearRgba(tint),
+                    base_color_texture: Some(mat_image.clone()),
+                    alpha_mode: AlphaMode::Blend,
+                    unlit: true,
+                    ..default()
+                })),
+                Transform {
+                    translation: to_world(slot.center, TABLE_Y + ZONE_LIFT),
+                    rotation: flat,
+                    scale: Vec3::ONE,
+                },
+                NotShadowCaster,
+            ))
+            .id();
+        let glow = commands
+            .spawn((
+                DuelStage,
+                Mesh3d(meshes.add(Rectangle::new(
+                    size.x + GLOW_SPREAD * 2.0,
+                    size.y + GLOW_SPREAD * 2.0,
+                ))),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::LinearRgba(tint * 0.30),
+                    base_color_texture: Some(glow_image.clone()),
+                    alpha_mode: AlphaMode::Blend,
+                    unlit: true,
+                    ..default()
+                })),
+                Transform {
+                    translation: to_world(slot.center, TABLE_Y + GLOW_LIFT),
+                    rotation: flat,
+                    scale: Vec3::ONE,
+                },
+                NotShadowCaster,
+            ))
+            .id();
+        index.zones.insert(pod.player, Zone { mat, glow, mood });
+    }
+
+    // A seat that left the table takes its zone with it.
+    index.zones.retain(|player, zone| {
+        if seen.contains(player) {
+            return true;
+        }
+        for entity in [zone.mat, zone.glow] {
+            commands.entity(entity).despawn();
+        }
+        false
+    });
 }
 
 /// Tears the stage down.
@@ -278,6 +562,10 @@ pub fn despawn_stage(
     }
     index.cards.clear();
     index.faces.clear();
+    // The zones were spawned with `DuelStage`, so they have just gone with
+    // it; what is left is the bookkeeping that would otherwise point at
+    // entities that no longer exist.
+    index.zones.clear();
 }
 
 /// Places table-space coordinates into the world.
@@ -573,6 +861,140 @@ mod tests {
             facing,
             half_extent: Vec2::new(6.0, 3.0),
             is_local: true,
+        }
+    }
+
+    /// The rim of the card mesh, in order, as (x, y) pairs. Vertex 0 is the
+    /// fan's centre and is not part of the outline.
+    fn rim(mesh: &Mesh) -> Vec<(f32, f32)> {
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(p)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("card mesh has positions")
+        };
+        p[1..].iter().map(|v| (v[0], v[1])).collect()
+    }
+
+    /// Triangles as index triples.
+    fn triangles(mesh: &Mesh) -> Vec<[u32; 3]> {
+        let Some(Indices::U32(idx)) = mesh.indices() else {
+            panic!("card mesh is indexed")
+        };
+        idx.as_chunks::<3>().0.to_vec()
+    }
+
+    /// Twice the signed area of a triangle, positive when it is wound
+    /// counter-clockwise seen from +z.
+    fn cross(a: (f32, f32), b: (f32, f32), c: (f32, f32)) -> f32 {
+        (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0)
+    }
+
+    // The card that shipped as a bowtie: every corner arc swept the quarter
+    // turn belonging to its neighbour, so the outline crossed itself twice
+    // through the middle and a permanent on the battlefield was drawn as a
+    // small bright X. `an_untapped_card_lies_flat_on_the_table` passed the
+    // whole time — the transform was never the problem — so the mesh needs
+    // tests of its own.
+    #[test]
+    fn the_card_outline_never_folds_through_its_own_middle() {
+        let mesh = rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER);
+        let rim = rim(&mesh);
+        // Walking a convex outline turns the same way at every vertex and
+        // comes back around exactly once. A bowtie turns back on itself.
+        let mut turn = 0.0_f32;
+        for i in 0..rim.len() {
+            let (a, b, c) = (rim[i], rim[(i + 1) % rim.len()], rim[(i + 2) % rim.len()]);
+            assert!(
+                cross(a, b, c) >= 0.0,
+                "the outline turns back on itself at vertex {i}: {a:?} {b:?} {c:?}"
+            );
+            let before = (b.1 - a.1).atan2(b.0 - a.0);
+            let after = (c.1 - b.1).atan2(c.0 - b.0);
+            let mut delta = after - before;
+            while delta > std::f32::consts::PI {
+                delta -= std::f32::consts::TAU;
+            }
+            while delta < -std::f32::consts::PI {
+                delta += std::f32::consts::TAU;
+            }
+            turn += delta;
+        }
+        assert!(
+            (turn - std::f32::consts::TAU).abs() < 1e-3,
+            "a closed convex outline turns through exactly one full circle, not {turn}"
+        );
+    }
+
+    #[test]
+    fn the_card_mesh_covers_the_card() {
+        let mesh = rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER);
+        let rim = rim(&mesh);
+        let area: f32 = (0..rim.len())
+            .map(|i| {
+                let (a, b) = (rim[i], rim[(i + 1) % rim.len()]);
+                a.0.mul_add(b.1, -(b.0 * a.1))
+            })
+            .sum::<f32>()
+            / 2.0;
+        // The rounded rectangle, minus what the four corner arcs cut away.
+        // The arcs are drawn in segments, so the mesh is a hair under.
+        let ideal =
+            CARD_WIDTH * CARD_HEIGHT - (4.0 - std::f32::consts::PI) * CARD_CORNER * CARD_CORNER;
+        assert!(
+            area > ideal * 0.99 && area <= ideal,
+            "a card of {CARD_WIDTH}×{CARD_HEIGHT} covers about {ideal}, not {area}"
+        );
+        // And it stays inside the card: no vertex may stick out past an edge.
+        for (x, y) in rim {
+            assert!(
+                x.abs() <= CARD_WIDTH / 2.0 + 1e-5 && y.abs() <= CARD_HEIGHT / 2.0 + 1e-5,
+                "({x}, {y}) is outside the card"
+            );
+        }
+    }
+
+    #[test]
+    fn every_card_triangle_faces_the_printed_side() {
+        let mesh = rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER);
+        let rim = rim(&mesh);
+        let point = |i: u32| {
+            if i == 0 {
+                (0.0, 0.0)
+            } else {
+                rim[i as usize - 1]
+            }
+        };
+        // Back-face culling is on, so a triangle wound the other way is an
+        // invisible sliver of card.
+        for tri in triangles(&mesh) {
+            let (a, b, c) = (point(tri[0]), point(tri[1]), point(tri[2]));
+            assert!(
+                cross(a, b, c) > 0.0,
+                "triangle {tri:?} faces away from the camera"
+            );
+        }
+    }
+
+    #[test]
+    fn the_card_face_is_mapped_corner_to_corner() {
+        let mesh = rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER);
+        let Some(bevy::mesh::VertexAttributeValues::Float32x2(uvs)) =
+            mesh.attribute(Mesh::ATTRIBUTE_UV_0)
+        else {
+            panic!("card mesh has uvs")
+        };
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(pos)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("card mesh has positions")
+        };
+        // The printed face runs left→right and top→bottom, so the top-left
+        // of the card is (0,0) in the image and the bottom-right is (1,1).
+        for (p, uv) in pos.iter().zip(uvs) {
+            let want_u = f32::midpoint(p[0] / (CARD_WIDTH / 2.0), 1.0);
+            let want_v = (1.0 - p[1] / (CARD_HEIGHT / 2.0)) * 0.5;
+            assert!((uv[0] - want_u).abs() < 1e-5 && (uv[1] - want_v).abs() < 1e-5);
+            assert!((0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]));
         }
     }
 

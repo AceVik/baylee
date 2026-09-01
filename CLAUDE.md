@@ -353,6 +353,25 @@ against it is accepted and closed again with nothing on it. The lobby stays put
 and re-reads `GET /lobby/games` until that table's state turns `"playing"`.
 Nothing pushes that news; there is no socket to push it on.
 
+The 3D table under the cards is **generated, not shipped**:
+`baylee-client-core/src/tabletop.rs` computes the felt, the centre medallion
+and a seat's mat into RGBA8 buffers with a seeded value-noise fbm (no `rand`,
+no clock — every player sees the same grain). `docs/legal.md` §2 decided it:
+ornament is the easiest thing to borrow by accident, and arithmetic borrows
+nothing. Every seat plays on its own mat, sized from its `SeatSlot`, banded
+for the three lanes, with the rim carrying the seat's colour — gilt for the
+viewing seat, the pie in ring order for the rest — and its brightness
+carrying `Mood { local, Standing }`, so "whose turn" and "who is everyone
+waiting for" are answered on the felt. Everything down there is `unlit`
+deliberately: scene lighting on card art would make colour identity
+unreadable.
+
+The card quad has four mesh tests because it shipped once as a bowtie — every
+corner arc swept its neighbour's quarter turn, the outline folded through the
+middle, and each permanent drew as a small bright X.
+`an_untapped_card_lies_flat_on_the_table` passed the whole time: it checks the
+*transform*, which was never wrong. Geometry needs tests about geometry.
+
 Known gap, easy to misread from the code: `client-core`'s `Interaction` exposes
 and tests `declare_attacker`, `declare_blocker` and `choose_index`, but
 `crates/baylee-client/src/input.rs` calls none of them. Combat is currently

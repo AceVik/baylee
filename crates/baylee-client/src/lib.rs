@@ -254,6 +254,7 @@ impl Plugin for DuelPlugin {
                 Update,
                 (
                     table::sync_scene,
+                    table::sync_zones,
                     table::apply_camera_rig,
                     hud::sync_overlay,
                     hud::apply_hand_scroll,
