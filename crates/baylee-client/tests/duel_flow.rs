@@ -12,7 +12,7 @@
 
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
 use baylee_client_core::board::{BoardModel, SeatPod};
-use baylee_client_core::interaction::Interaction;
+use baylee_client_core::interaction::{CombatFocus, Interaction};
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
@@ -66,6 +66,34 @@ fn duel_preset(seed: u64) -> GamePreset {
     }
 }
 
+/// The same duel with a squad already on the table for seat 0.
+///
+/// Creatures have to come from somewhere for combat to be reachable at all,
+/// and casting them would test the engine's mana, not the client's combat.
+/// `starting_battlefield` is the preset field that exists for exactly this.
+fn combat_preset(seed: u64) -> GamePreset {
+    let mut preset = duel_preset(seed);
+    let squad = card("79e69a91-d580-47fb-be76-1e32c50d2fa0"); // Great Divide Guide, 1/2
+    preset.seats[0].starting_battlefield = (0..10)
+        .map(|_| DeckEntry {
+            card: squad,
+            print: PrintRef::new(0),
+        })
+        .collect();
+    preset
+}
+
+/// How the headless player answers a combat declaration.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum Fight {
+    /// Declare nothing. What a player holding the pass key would do, and what
+    /// every test that is not about combat wants.
+    #[default]
+    Never,
+    /// Attack with everything that may attack.
+    Always,
+}
+
 /// The client state a headless run needs: exactly what the Bevy resource holds,
 /// minus anything that touches a device.
 #[derive(Default)]
@@ -75,6 +103,7 @@ struct Client {
     board: Option<BoardModel>,
     pending: Option<Pending>,
     errors: Vec<String>,
+    fight: Fight,
 }
 
 impl Client {
@@ -97,7 +126,7 @@ impl Client {
     /// nothing, and pass priority.
     fn answer(&self, seat: PlayerId) -> Option<PlayerAction> {
         let pending = self.pending.clone()?;
-        let interaction = Interaction::new(pending.clone(), seat);
+        let mut interaction = Interaction::new(pending.clone(), seat);
         if !interaction.is_mine() {
             return None;
         }
@@ -136,6 +165,22 @@ impl Client {
             Pending::ChooseSubtype { options, .. } => {
                 Some(PlayerAction::ChooseSubtype(*options.first()?))
             }
+            // Combat, driven the way `input.rs` drives it: aim, declare each
+            // candidate against the aim, confirm. Nothing here reaches past
+            // the interaction layer, so a client that cannot express an attack
+            // fails this test rather than quietly passing the turn.
+            Pending::ChooseAttackers { .. } if self.fight == Fight::Always => {
+                let CombatFocus::Defender(defender) = interaction.combat_focus() else {
+                    return interaction.confirm();
+                };
+                for attacker in interaction.selectable().to_vec() {
+                    assert!(
+                        interaction.declare_attacker(attacker, defender),
+                        "the engine offered a candidate the client then refused"
+                    );
+                }
+                interaction.confirm()
+            }
             Pending::GameOver(_) => None,
             // Priority, attackers, blockers, and X all confirm to a safe
             // default through the interaction itself.
@@ -144,12 +189,19 @@ impl Client {
     }
 }
 
-/// Plays up to `steps` decisions and returns the final client state.
+/// Plays up to `steps` decisions of the standard duel and returns the state.
 fn play(seed: u64, steps: usize) -> (Client, LocalHost) {
-    let preset = duel_preset(seed);
+    run(&duel_preset(seed), steps, Fight::Never)
+}
+
+/// Plays up to `steps` decisions and returns the final client state.
+fn run(preset: &GamePreset, steps: usize, fight: Fight) -> (Client, LocalHost) {
     let mut host =
-        LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"]).expect("the duel starts");
-    let mut client = Client::default();
+        LocalHost::new(preset, PlayerId::new(0), &["You", "House AI"]).expect("the duel starts");
+    let mut client = Client {
+        fight,
+        ..Client::default()
+    };
     client.absorb(host.poll());
 
     for _ in 0..steps {
@@ -282,5 +334,43 @@ fn hidden_information_never_reaches_the_client() {
             object.card.is_some() || object.name == "Face-down" || !object.name.is_empty(),
             "a visible permanent must be identifiable or explicitly hidden"
         );
+    }
+}
+
+#[test]
+fn a_whole_game_can_be_won_through_the_clients_combat_path() {
+    // The claim this test exists to make: a player can finish a game with
+    // nothing but the client. Every decision below is built by `Interaction`
+    // from what the engine offered, combat included, and the game ends because
+    // ten 1/2s walked across the table — not because a deck ran out.
+    let (client, _) = run(&combat_preset(9), 4_000, Fight::Always);
+
+    let Some(Pending::GameOver(result)) = client.pending else {
+        panic!("the game never ended: {:?}", client.pending);
+    };
+    assert_eq!(result.winner, Some(PlayerId::new(0)));
+    assert!(client.errors.is_empty(), "{:?}", client.errors);
+
+    let view = client.view.expect("a final view");
+    let them = view.seat(PlayerId::new(1)).expect("opponent seat line");
+    assert!(
+        them.life <= 0,
+        "the opponent should be dead, at {}",
+        them.life
+    );
+}
+
+#[test]
+fn declaring_no_attackers_is_the_same_answer_as_declaring_none() {
+    // `input.rs` answers "None" by cancelling and confirming, which has to
+    // produce the empty declaration the engine accepts — not a refusal to
+    // answer, which would hang the turn.
+    let (client, _) = run(&combat_preset(9), 4_000, Fight::Never);
+    assert!(client.errors.is_empty(), "{:?}", client.errors);
+
+    // Nobody attacked, so nobody is dead and the client is still being asked.
+    let view = client.view.expect("a view");
+    for seat in [PlayerId::new(0), PlayerId::new(1)] {
+        assert!(view.seat(seat).expect("seat line").life > 0);
     }
 }

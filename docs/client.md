@@ -308,7 +308,11 @@ brings its own and the two never coexist.
 
 A screen of its own (`Screen::Build`), and the same split again: every
 decision is in `baylee_client_core::deckbuilder::DeckBuilder`, tested as
-arithmetic, and the plugin only draws it and forwards the taps.
+arithmetic, and the plugin only draws it and forwards the taps. The drawing
+is `buildui.rs`, for the same reason `settingsui.rs` exists: it is a screen,
+not a lobby, and the two together were four thousand lines with no seam in
+the middle. It borrows the lobby's `Metrics`, `Press` and widget helpers, so
+a deck row looks like a lobby row without a second copy of either.
 
 Two things decide its shape.
 

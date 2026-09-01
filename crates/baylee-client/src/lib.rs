@@ -35,6 +35,7 @@
 // cases where it is right.
 #![allow(clippy::needless_pass_by_value)]
 
+pub mod buildui;
 pub mod cardmat;
 pub mod cardtext;
 pub mod face;

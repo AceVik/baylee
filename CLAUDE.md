@@ -387,6 +387,12 @@ the attacker) it means. Both halves are wired — `input.rs` for the keyboard,
 `hud.rs` for the buttons — which they were not before: `toggle` used to write
 to `selected` while `confirm` read `pairs`, so a player could light up their
 whole board and still declare nothing.
+`crates/baylee-client/tests/duel_flow.rs` is where that stops being a claim:
+`a_whole_game_can_be_won_through_the_clients_combat_path` starts seat 0 with a
+squad on `starting_battlefield` and plays the duel out to `GameOver` with every
+decision — combat included — built by `Interaction` from what the engine
+offered. A client that cannot express an attack fails it instead of quietly
+passing the turn.
 
 Every key comes from the account's `Keymap` (`baylee-client-core/src/prefs.rs`),
 resolved through `crates/baylee-client/src/keys.rs` — the one place that knows
