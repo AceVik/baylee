@@ -157,10 +157,9 @@ impl Characteristics {
                             add_color(&mut produced, &mut produced_colorless, c);
                         }
                     }
-                    // Command Tower, orchard/pool: which colors depends on
-                    // the game, so the printed card promises all five.
-                    baylee_cards_dsl::ManaSource::CommanderIdentity
-                    | baylee_cards_dsl::ManaSource::LandColor { .. } => {
+                    // Command Tower: which colors depends on the command
+                    // zone, so the printed card promises all five.
+                    baylee_cards_dsl::ManaSource::CommanderIdentity => {
                         produced = produced.union(ColorSet::from_slice(&[
                             Color::White,
                             Color::Blue,
@@ -169,6 +168,12 @@ impl Characteristics {
                             Color::Green,
                         ]));
                     }
+                    // Reflecting Pool and Exotic Orchard produce nothing on
+                    // their own: what they could produce is read *off* this
+                    // very field of the other lands, so claiming all five
+                    // here would let a lone Pool tap for any color and would
+                    // make two Pools promise each other the rainbow.
+                    baylee_cards_dsl::ManaSource::LandColor { .. } => {}
                 }
             }
         }

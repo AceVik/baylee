@@ -25,6 +25,12 @@ fn command_tower() -> CardIndex {
 fn cavern_of_souls() -> CardIndex {
     card_index("89ca686a-7c72-4d8f-9290-e89635624a83")
 }
+fn reflecting_pool() -> CardIndex {
+    card_index("67f43ac6-2a58-4b53-b5d7-0330e2a252e2")
+}
+fn badlands() -> CardIndex {
+    card_index("13ff3222-91cb-4796-a34e-899ed817694c")
+}
 
 /// Activates printed ability `index` of `card`.
 #[track_caller]
@@ -164,5 +170,52 @@ fn cavern_of_souls_mana_stays_restricted_after_the_colour_choice() {
             .restriction_info
             .contains_key(&restricted[0].restriction.0),
         "the spend restriction is registered, or nothing can check it"
+    );
+}
+
+/// "Add one mana of any type that a land you control could produce." A
+/// Reflecting Pool reads that off the *other* lands — it produces nothing
+/// by itself, so it must not read its own promise back. Next to a Badlands
+/// it makes black or red, and nothing else.
+#[test]
+fn reflecting_pool_offers_what_the_other_lands_produce() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(14, forest())
+        .battlefield(0, &[reflecting_pool(), badlands()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    activate(&mut engine, p0, reflecting_pool(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected a colour choice, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::Black, ManaColor::Red],
+        "the Badlands' two colours, not the rainbow the Pool would promise itself"
+    );
+}
+
+/// With no other land, the Pool has nothing to reflect and produces no mana
+/// at all — the ability still resolves (CR 106.6a), it just adds nothing.
+#[test]
+fn a_lone_reflecting_pool_produces_nothing() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(15, forest())
+        .battlefield(0, &[reflecting_pool()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    activate(&mut engine, p0, reflecting_pool(), 0);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "nothing to choose from: {:?}",
+        engine.pending()
+    );
+    assert!(
+        engine.state().players[0].mana_pool.is_empty(),
+        "a Pool reflecting only itself is not a rainbow land"
     );
 }
