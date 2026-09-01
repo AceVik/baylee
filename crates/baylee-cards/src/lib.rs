@@ -299,4 +299,49 @@ mod tests {
              — fix the card or downgrade it to `Coverage::Partial`: {offenders:?}"
         );
     }
+
+    /// "Basic land card" is the Basic *supertype* (CR 205.4a), and spelling it
+    /// as the five basic land subtypes is a rules error, not a style choice:
+    /// Breeding Pool has the Forest subtype and is not a basic land, so a
+    /// Rampant Growth written that way fetches shocklands.
+    ///
+    /// Naming a few of the subtypes is normal and correct — a fetchland asks
+    /// for "a Plains or Island card", a checkland looks for one you control.
+    /// Naming all five at once never means anything but "basic", which is why
+    /// that is the shape this test forbids. Two generated cards were written
+    /// exactly this way, past `clippy`, the card tests and a review pass, and
+    /// nothing here noticed until they were read by hand.
+    #[test]
+    fn no_card_spells_basic_land_as_the_five_basic_subtypes() {
+        const SUBTYPES: [&str; 5] = ["PLAINS", "ISLAND", "SWAMP", "MOUNTAIN", "FOREST"];
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/src/cards");
+        let mut offenders = Vec::new();
+        for entry in std::fs::read_dir(dir).expect("cards dir") {
+            let path = entry.expect("dir entry").path();
+            if path.extension().is_none_or(|e| e != "rs") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("read card");
+            let names_all_five = SUBTYPES
+                .iter()
+                .all(|s| text.contains(&format!("HasSubtype(land::{s})")))
+                || SUBTYPES
+                    .iter()
+                    .all(|s| text.contains(&format!("HasSubtype(subtypes::land::{s})")));
+            if names_all_five {
+                offenders.push(
+                    path.file_name()
+                        .expect("file name")
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+            }
+        }
+        offenders.sort();
+        assert!(
+            offenders.is_empty(),
+            "these files spell \"basic land\" as five subtypes — use \
+             `Filter::HasSupertype(SupertypeSet::BASIC)`: {offenders:?}"
+        );
+    }
 }
