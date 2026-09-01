@@ -35,6 +35,7 @@
 // cases where it is right.
 #![allow(clippy::needless_pass_by_value)]
 
+pub mod cardmat;
 pub mod cardtext;
 pub mod face;
 pub mod host;
@@ -202,7 +203,8 @@ pub struct DuelPlugin {
 
 impl Plugin for DuelPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<DuelPhase>()
+        app.add_plugins(cardmat::CardMaterialPlugin)
+            .init_state::<DuelPhase>()
             .insert_resource(self.config.clone())
             .insert_resource(settings::ClientSettings::load())
             .init_resource::<Duel>()

@@ -91,6 +91,51 @@ Board cards are fetched `small` (146×204); only the focused card is fetched
 A byte-budgeted LRU (`TextureBudget`) decides evictions; the browser budget is
 deliberately below the desktop one and the ordering is checked at compile time.
 
+## The card surface
+
+Art is the texture; the *finish* and the keywords are the shader. One material
+(`cardmat::CardMaterial`, one WGSL file shipped inside the binary with
+`embedded_asset!`) draws all three, because a foil that is also indestructible
+is one card and not three draws, and a board of three hundred permanents can
+afford one pipeline.
+
+Materials are shared on a `CardLook` — art, finish, glow — which is exactly
+what the shader draws differently and nothing more. Forty plain Islands stay
+one material; a foil Island is a second; an Island the rules have made
+indestructible is a third until it stops being one.
+
+**The finish comes from the print table, never from the card.** `GameStatic`'s
+print table is per seat, so a printing a seat has not earned resolves to
+`None` and is drawn plain — a hole rather than a foil. Reading the finish off
+the card instead would be a hidden-information leak with no game object to
+hide behind.
+
+**The glows come from `PublicObject.keywords`**, which is already projected —
+the layer system has run, so a creature that gained indestructible this turn
+glows this turn. `cardmat::glow_bits` narrows the engine's `u128` to the three
+bits the shader reads; a test pins each one against `KeywordSet`, because that
+numbering is generated and a card glowing for the wrong keyword would be a
+rules lie a player would believe. Indestructible is darksteel — a hard dark
+blue-grey with a specular line, the card made of something rather than lit by
+something; hexproof is a steady green sheath; shroud is the same idea taken
+further, colder and hazier, since not even its controller may target it. Two
+keywords share the border rather than stacking to white.
+
+The border is drawn *inside* the card, over its printed frame. The mesh is
+exactly the card, and a glow that needed room around it would need every
+layout in the client to leave room for it.
+
+The whole thing is WebGL2-safe: uniforms only, no storage buffers, no texture
+arrays. Animation reads `globals.time` from the view bind group, so nothing is
+written per frame — a material is created once and never touched again while
+it is on screen.
+
+`cardmat::tests::the_card_shader_compiles` parses and validates the WGSL with
+naga, the same front end wgpu uses. Without it a shader error would surface
+only when a real pipeline is built, which on the web is the one environment
+that cannot be debugged by looking at a filesystem. It caught a reserved
+keyword on its first run.
+
 ## Hosts
 
 The renderer never touches a socket. It talks to a `DuelHost`:

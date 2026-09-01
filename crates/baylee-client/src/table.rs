@@ -21,10 +21,11 @@
 //! table at frame rate on a phone.
 
 use crate::Duel;
+use crate::cardmat::{CardLook, CardMaterial, glow_bits, material};
 use crate::face;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
-use baylee_client_core::images::ImageKey;
+use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH, SeatSlot, pack_lane};
 use baylee_core::color::ColorSet;
 use baylee_core::ids::ObjectId;
@@ -41,6 +42,9 @@ const TABLE_Y: f32 = 0.0;
 const CARD_LIFT: f32 = 0.01;
 /// Extra lift per card in a counted stack, so a stack reads as a stack.
 const STACK_LIFT: f32 = 0.006;
+/// The back of a card: what a stack behind a counted group is made of, and
+/// what a card whose art never arrives falls back to.
+const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
 /// How many cards of a group are drawn behind the representative.
 const MAX_STACK_DEPTH: usize = 4;
 /// Lift and scale for the card under the cursor (subtle — a glance, not a jump).
@@ -135,11 +139,14 @@ pub struct CardVisual {
 #[derive(Resource, Default)]
 pub struct SceneIndex {
     cards: HashMap<ObjectId, Entity>,
-    /// One material per texture, shared by every card using it — a board of
-    /// forty Islands is one material, not forty.
-    materials: HashMap<ImageKey, Handle<StandardMaterial>>,
+    /// One material per *look*, shared by every card wearing it — a board of
+    /// forty plain Islands is one material, not forty. A foil Island is a
+    /// second, and an Island the rules have made indestructible is a third
+    /// until it stops being one: those are the differences the shader draws,
+    /// so they are exactly the differences the key carries.
+    materials: HashMap<CardLook, Handle<CardMaterial>>,
     quad: Option<Handle<Mesh>>,
-    blank: Option<Handle<StandardMaterial>>,
+    blank: Option<Handle<CardMaterial>>,
     /// Text entities of the constructed face, per card currently showing one,
     /// with the snapshot they were built from.
     ///
@@ -150,8 +157,9 @@ pub struct SceneIndex {
     /// whose card changed (an anthem, a counter, a clone) without rebuilding
     /// every face every frame.
     faces: HashMap<ObjectId, (u64, Vec<Entity>)>,
-    /// One material per colour identity, for cards drawing their face.
-    face_materials: HashMap<u8, Handle<StandardMaterial>>,
+    /// One material per colour identity and look, for cards drawing their
+    /// own face rather than artwork.
+    face_materials: HashMap<CardLook, Handle<CardMaterial>>,
 }
 
 /// A card's corner radius (~10% of the width — clearly rounded, matching
@@ -206,14 +214,18 @@ pub fn spawn_stage(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut cards: ResMut<Assets<CardMaterial>>,
     mut index: ResMut<SceneIndex>,
 ) {
     index.quad = Some(meshes.add(rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER)));
-    index.blank = Some(materials.add(StandardMaterial {
-        base_color: Color::srgb(0.12, 0.14, 0.18),
-        unlit: true,
-        ..default()
-    }));
+    // The card back: no art, no finish, no glow. It is what the stack behind
+    // a counted group is made of, and what a card whose art never arrives
+    // falls back to.
+    index.blank = Some(cards.add(material(
+        CardLook::flat(BACK_COLOR, FinishTreatment::Plain, 0),
+        None,
+        BACK_COLOR,
+    )));
 
     commands.spawn((
         DuelStage,
@@ -344,7 +356,7 @@ pub fn sync_scene(
     duel: Res<Duel>,
     mut index: ResMut<SceneIndex>,
     mut textures: Option<ResMut<CardTextures>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut card_materials: ResMut<Assets<CardMaterial>>,
     assets: Res<AssetServer>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
@@ -353,7 +365,7 @@ pub fn sync_scene(
     mut cards: Query<(
         &mut Transform,
         &mut CardVisual,
-        &mut MeshMaterial3d<StandardMaterial>,
+        &mut MeshMaterial3d<CardMaterial>,
     )>,
 ) {
     let (Some(statics), Some(textures)) = (duel.statics.as_ref(), textures.as_mut()) else {
@@ -391,35 +403,43 @@ pub fn sync_scene(
             .as_ref()
             .and_then(|view| view.object(placement.object));
 
+        // What the card is physically, and what the rules have made it. Both
+        // ride on the material, so a foil that gains indestructible becomes a
+        // different material and needs no second pass.
+        //
+        // The finish is a property of the printing, so it comes from the
+        // print table — which is per seat, and a printing this seat has not
+        // earned reads as plain rather than as a leak.
+        let finish = placement
+            .art
+            .and_then(|key| statics.print(key.print))
+            .map_or(FinishTreatment::Plain, |entry| entry.finish.into());
+        let glow = object.map_or(0, |o| glow_bits(o.keywords));
+
         let material = if show_face {
             // One material per colour identity, so a mono-green board is one
             // material however many creatures are on it.
             let colors = object.map_or(ColorSet::EMPTY, |o| o.colors);
-            if let Some(handle) = index.face_materials.get(&colors.bits()) {
+            let tint = face::table_color(colors);
+            let look = CardLook::flat(tint, finish, glow);
+            if let Some(handle) = index.face_materials.get(&look) {
                 handle.clone()
             } else {
-                let handle = materials.add(StandardMaterial {
-                    base_color: face::table_color(colors),
-                    unlit: true,
-                    ..default()
-                });
-                index.face_materials.insert(colors.bits(), handle.clone());
+                let handle = card_materials.add(material(look, None, tint));
+                index.face_materials.insert(look, handle.clone());
                 handle
             }
         } else {
-            // One material per texture, created on first use.
+            // One material per look, created on first use.
             match placement.art {
                 Some(key) => {
-                    if let Some(handle) = index.materials.get(&key) {
+                    let look = CardLook::art(key, finish, glow);
+                    if let Some(handle) = index.materials.get(&look) {
                         handle.clone()
                     } else {
                         let image = textures.get(key, statics, &assets);
-                        let handle = materials.add(StandardMaterial {
-                            base_color_texture: Some(image),
-                            unlit: true,
-                            ..default()
-                        });
-                        index.materials.insert(key, handle.clone());
+                        let handle = card_materials.add(material(look, Some(image), BACK_COLOR));
+                        index.materials.insert(look, handle.clone());
                         handle
                     }
                 }
@@ -637,5 +657,43 @@ mod tests {
         group.members.push(ObjectId::new(2, 0));
         group.members.push(ObjectId::new(3, 0));
         assert_eq!(stack_badge(&group).as_deref(), Some("×3"));
+    }
+    /// The finish is a property of the *printing*, and the print table is per
+    /// seat: a printing this seat has not earned reads as plain rather than
+    /// as a hole in the hidden-information rule. This pins the lookup that
+    /// makes that true, because the alternative — reading a finish off the
+    /// card — would be the leak.
+    #[test]
+    fn a_printing_a_seat_has_not_earned_is_drawn_plain() {
+        use baylee_client_core::images::{ArtSize, Face};
+        use baylee_core::ids::PrintRef;
+
+        let statics = baylee_view::GameStatic {
+            view_version: baylee_view::VIEW_VERSION,
+            game_id: String::new(),
+            your_seat: baylee_core::ids::PlayerId::new(0),
+            seats: Vec::new(),
+            prints: vec![
+                Some(baylee_view::PrintEntry {
+                    scryfall_id: "11111111-2222-3333-4444-555555555555".to_string(),
+                    lang: "en".to_string(),
+                    finish: baylee_view::Finish::Foil,
+                }),
+                // Earned by nobody: the seat has not seen this card.
+                None,
+            ],
+        };
+        let look = |slot: u16| {
+            let key = ImageKey {
+                print: PrintRef(slot),
+                face: Face::Front,
+                size: ArtSize::Normal,
+            };
+            statics
+                .print(key.print)
+                .map_or(FinishTreatment::Plain, |entry| entry.finish.into())
+        };
+        assert_eq!(look(0), FinishTreatment::Foil, "its own deck's printing");
+        assert_eq!(look(1), FinishTreatment::Plain, "a hole is not a foil");
     }
 }

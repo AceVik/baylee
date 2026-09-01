@@ -79,6 +79,10 @@ ewebsock = { version = "0.8", features = ["tls"] }
 # Lets the browser's WebSocket handle live in a Bevy resource, which must be
 # Send + Sync. Checked at run time (a panic, never UB) and wasm-only.
 send_wrapper = "0.6"
+# The card shader is validated at build time. Without this it would compile
+# only when a real GPU pipeline is built — which in the browser means the one
+# environment that cannot be debugged by looking at a filesystem.
+naga = { version = "29", features = ["wgsl-in"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 bevy = { version = "0.19", default-features = false, features = [
     "std", "async_executor", "multi_threaded",

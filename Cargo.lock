@@ -602,6 +602,7 @@ version = "0.1.0"
 dependencies = [
  "baylee-ai",
  "baylee-cards",
+ "baylee-cards-dsl",
  "baylee-client-core",
  "baylee-core",
  "baylee-engine",
@@ -613,6 +614,7 @@ dependencies = [
  "ewebsock",
  "futures-util",
  "getrandom 0.3.4",
+ "naga",
  "prost",
  "send_wrapper",
  "serde",

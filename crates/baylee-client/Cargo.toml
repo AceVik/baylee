@@ -31,6 +31,11 @@ ewebsock.workspace = true
 
 [dev-dependencies]
 uuid.workspace = true
+# Only to pin the keyword numbering the card shader's glow bits translate
+# from. That numbering is generated; a card glowing for the wrong keyword
+# would be a rules lie a player would believe.
+baylee-cards-dsl.workspace = true
+naga.workspace = true
 # The networked host is tested against a real websocket server built from a
 # real `Session` — the transport is the part that cannot be unit-tested.
 tokio = { workspace = true }
