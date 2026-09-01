@@ -181,9 +181,7 @@ mod tests {
                     let AbilityDef::Activated { effects, .. } = a else {
                         return false;
                     };
-                    effects
-                        .iter()
-                        .any(|e| matches!(e, Effect::AddMana { .. } | Effect::AddManaChoice { .. }))
+                    effects.iter().any(|e| matches!(e, Effect::AddMana { .. }))
                 });
                 if !makes_mana {
                     offenders.push(format!("{} (face {i})", def.name()));

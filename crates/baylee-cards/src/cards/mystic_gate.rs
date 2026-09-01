@@ -28,10 +28,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Activated {
             cost: Cost::TAP,
-            effects: &[Effect::AddMana {
-                color: ManaColor::Colorless,
-                amount: 1,
-            }],
+            effects: &[Effect::mana(ManaColor::Colorless, 1)],
             target: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
@@ -42,11 +39,10 @@ pub static CARD: CardDef = CardDef {
                 mana: baylee_core::mana!("{1}"),
                 parts: &[baylee_cards_dsl::CostPart::TapSelf],
             },
-            effects: &[Effect::AddManaChoice {
-                colors: &[ManaColor::White, ManaColor::Blue],
-                amount: Amount::Fixed(2),
-                combination: true,
-            }],
+            effects: &[Effect::mana_combination(
+                &[ManaColor::White, ManaColor::Blue],
+                Amount::Fixed(2),
+            )],
             target: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,

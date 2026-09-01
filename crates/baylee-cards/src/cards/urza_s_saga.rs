@@ -24,10 +24,7 @@ use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
 static ARTIFACT_F: Filter = Filter::HasType(TypeSet::ARTIFACT);
 static ARTIFACT_CMC1: Filter =
     Filter::And(&[Filter::HasType(TypeSet::ARTIFACT), Filter::CmcAtMost(1)]);
-static CHAPTER_I_FX: &[Effect] = &[Effect::AddMana {
-    color: ManaColor::Colorless,
-    amount: 1,
-}];
+static CHAPTER_I_FX: &[Effect] = &[Effect::mana(ManaColor::Colorless, 1)];
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(179),
@@ -46,10 +43,7 @@ pub static CARD: CardDef = CardDef {
         // permanently, so the approximation is exact from chapter I on).
         AbilityDef::Activated {
             cost: Cost::TAP,
-            effects: &[Effect::AddMana {
-                color: ManaColor::Colorless,
-                amount: 1,
-            }],
+            effects: &[Effect::mana(ManaColor::Colorless, 1)],
             target: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,

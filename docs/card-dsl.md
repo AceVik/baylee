@@ -170,9 +170,7 @@ Tokens/copy: `CreateToken`, `CreateTokenN`, `CreateTokenForTargetController`,
 `CreateTokenFromLinked`, `CreateTokenCopyOf`, `CreateTokenCopyOfEquipped`,
 `CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `Amass`.
 Costs/taxes: `PlayerMayPayOr`, `AddCounter`, `AddCounterFilter`,
-`DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`, `AddManaChoice`
-(Amount-driven), `AddManaDynamic`, `AddManaCommanderIdentity` (Command
-Tower), `AddManaLandColor` (Exotic Orchard/Reflecting Pool),
+`DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
 `PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
 Conditional: `IfEventPowerAtLeast` (Tribute to the World Tree).
@@ -211,11 +209,7 @@ for nothing at all unless the card supplies the choice itself:
 ```rust
 abilities: &[AbilityDef::Activated {
     cost: Cost::TAP,
-    effects: &[Effect::AddManaChoice {
-        colors: &[ManaColor::White, ManaColor::Black],
-        amount: Amount::Fixed(1),
-        combination: false,
-    }],
+    effects: &[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])],
     target: None,
     timing: ActivationTiming::InstantSpeed,
     mana_ability: true,
@@ -227,6 +221,27 @@ abilities: &[AbilityDef::Activated {
 turns that into a build failure. A land with exactly one basic type (a plain
 Swamp) may rely on the shortcut, though every basic in the pool prints the
 ability anyway.
+
+Every mana line is one `Effect::AddMana`, which answers three independent
+questions — which colors (`ManaSource`), how much (`Amount`), and what the
+mana may be spent on (`ManaRestriction`). Card files say it through the
+constructors, which read like the printed line:
+
+```rust
+Effect::mana(ManaColor::Green, 1)                      // Add {G}.
+Effect::mana(ManaColor::Colorless, 2)                  // Add {C}{C}.
+Effect::mana_choice(&[ManaColor::White, ManaColor::Black])  // Add {W} or {B}.
+Effect::mana_of_any_color()                            // Add one mana of any color.
+Effect::mana_combination(COLORS, Amount::Fixed(2))     // …in any combination of colors.
+Effect::mana_commander_identity()                      // …in your commander's color identity.
+Effect::mana_land_color(true)                          // …a land you control could produce.
+Effect::mana_dynamic(ManaColor::Black, Amount::CountOf { .. })
+Effect::mana_of_any_color().restricted(&FILTER, SpendRider::Uncounterable)
+```
+
+`mana_combination` is not decoration: "in any combination of colors" is one
+color pick *per mana*, while a plain choice picks one color for the whole
+amount. Harabaz Druid was written with the wrong one and paid X² mana.
 
 Fetchland (activated with composite cost + filtered search):
 

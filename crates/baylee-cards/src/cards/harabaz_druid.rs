@@ -34,20 +34,19 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
-        effects: &[Effect::AddManaChoice {
-            colors: &[
+        effects: &[Effect::mana_combination(
+            &[
                 ManaColor::White,
                 ManaColor::Blue,
                 ManaColor::Black,
                 ManaColor::Red,
                 ManaColor::Green,
             ],
-            amount: Amount::CountOf {
+            Amount::CountOf {
                 filter: &ALLIES_YOU,
                 zone: ZoneSel::Battlefield,
             },
-            combination: false,
-        }],
+        )],
         target: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,
@@ -56,5 +55,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-// X = Allies is delivered by AddManaChoice's dynamic Amount::CountOf
+// X = Allies is delivered by the mana effect.s dynamic Amount::CountOf
 // (evaluated at resolution against your battlefield).

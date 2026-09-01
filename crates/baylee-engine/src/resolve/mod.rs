@@ -150,38 +150,20 @@ pub enum AwaitingOp {
     },
     /// Chosen hand cards go on top of the library in chosen order.
     PutBackOnTop,
-    /// One mana of a color in your commander's color identity
-    /// (Command Tower).
-    CommanderMana,
-    /// Restricted mana with dynamic (commander-identity) color options
-    /// (Path of Ancestry).
-    RestrictedManaColors {
-        /// Amount.
-        amount: u16,
-        /// Spend restriction filter.
-        filter: &'static baylee_cards_dsl::Filter,
-        /// Spend rider.
-        rider: baylee_cards_dsl::SpendRider,
-    },
-    /// Restricted mana with a color choice (Cavern of Souls & co.).
-    RestrictedMana {
-        /// Choosable colors.
-        colors: &'static [ManaColor],
-        /// Amount.
-        amount: u16,
-        /// Spend restriction filter.
-        filter: &'static baylee_cards_dsl::Filter,
-        /// Spend rider.
-        rider: baylee_cards_dsl::SpendRider,
-    },
-    /// A mana color choice (choice-restricted mana abilities).
+    /// A mana color choice.
+    ///
+    /// The options are already a concrete list: commander identity and the
+    /// colors the lands on the battlefield produce are game state, so they
+    /// are settled when the effect runs, not when the answer arrives.
     ManaChoice {
-        /// Allowed colors.
-        colors: &'static [ManaColor],
-        /// Mana still to choose (combination lands pick per mana).
+        /// Colors offered.
+        colors: Vec<ManaColor>,
+        /// Picks still to make (a combination picks once per mana).
         remaining: u16,
-        /// Mana added per pick (1 for combination, all for single-choice).
+        /// Mana added per pick (1 for combination, all of it otherwise).
         per_pick: u16,
+        /// What the mana may be spent on, if restricted.
+        restriction: Option<baylee_cards_dsl::effect::ManaRestriction>,
     },
     /// "You may pay N life; if you don't, this enters tapped".
     PayLifeOrTapSelf {
@@ -255,97 +237,33 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     Flow::Complete
 }
 
-/// Resumes a color choice suspended on [`AwaitingOp::ManaChoice`] or
-/// [`AwaitingOp::CommanderMana`].
+/// Resumes a color choice suspended on [`AwaitingOp::ManaChoice`].
 ///
 /// # Panics
 /// When the suspended operation is not a mana choice.
 #[must_use]
 pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: ManaColor) -> Flow {
-    if matches!(res.awaiting, Some(AwaitingOp::CommanderMana)) {
-        res.awaiting = None;
-        state.players[res.controller.get() as usize]
-            .mana_pool
-            .add(color, 1);
-        state.journal.record(GameEvent::ManaProduced {
-            player: res.controller,
-            color,
-            amount: 1,
-            source: Some(res.source),
-        });
-        res.pc += 1;
-        return run(state, res);
-    }
-    let restricted = match res.awaiting.take() {
-        Some(
-            AwaitingOp::RestrictedMana {
-                amount,
-                filter,
-                rider,
-                ..
-            }
-            | AwaitingOp::RestrictedManaColors {
-                amount,
-                filter,
-                rider,
-            },
-        ) => Some((amount, filter, rider)),
-        other => {
-            res.awaiting = other;
-            None
-        }
-    };
-    if let Some((amount, filter, rider)) = restricted {
-        let you = res.controller;
-        let id = state.next_restriction_id;
-        state.next_restriction_id += 1;
-        state
-            .restriction_info
-            .insert(id, (res.source, filter, rider));
-        state.players[you.get() as usize].mana_pool.add_restricted(
-            baylee_core::mana::RestrictedMana {
-                color,
-                amount,
-                flags: baylee_core::mana::ManaFlags::default(),
-                restriction: baylee_core::mana::RestrictionId(id),
-            },
-        );
-        state.journal.record(GameEvent::ManaProduced {
-            player: you,
-            color,
-            amount,
-            source: Some(res.source),
-        });
-        res.pc += 1;
-        return run(state, res);
-    }
     let AwaitingOp::ManaChoice {
         colors,
         remaining,
         per_pick,
+        restriction,
     } = res.awaiting.take().expect("resume without awaiting op")
     else {
         panic!("resume_with_color on non-mana choice");
     };
     debug_assert!(colors.contains(&color));
-    state.players[res.controller.get() as usize]
-        .mana_pool
-        .add(color, per_pick);
-    state.journal.record(GameEvent::ManaProduced {
-        player: res.controller,
-        color,
-        amount: per_pick,
-        source: Some(res.source),
-    });
+    mana::add(state, res, color, per_pick, restriction);
     if remaining > 1 {
         res.awaiting = Some(AwaitingOp::ManaChoice {
-            colors,
+            colors: colors.clone(),
             remaining: remaining - 1,
             per_pick,
+            restriction,
         });
         return Flow::Wait(Pending::ChooseColor {
             player: res.controller,
-            options: colors.to_vec(),
+            options: colors,
         });
     }
     res.pc += 1;
@@ -716,11 +634,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
-        AwaitingOp::ManaChoice { .. }
-        | AwaitingOp::CommanderMana
-        | AwaitingOp::RestrictedMana { .. }
-        | AwaitingOp::RestrictedManaColors { .. }
-        | AwaitingOp::PayLifeOrTapSelf { .. } => {
+        AwaitingOp::ManaChoice { .. } | AwaitingOp::PayLifeOrTapSelf { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
         AwaitingOp::PlayerMayPay { .. } => {
@@ -741,10 +655,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::ReorderTopLibrary { .. }
-        | Effect::AddManaChoice { .. }
-        | Effect::AddManaCommanderIdentity
-        | Effect::AddManaRestricted { .. }
-        | Effect::AddManaRestrictedCommanderIdentity { .. }
+        | Effect::AddMana { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
@@ -965,143 +876,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 prompt: ChoicePrompt::SearchLibrary,
             })
         }
-        Effect::AddManaRestricted {
-            colors,
-            amount,
-            filter,
-            rider,
-        } => {
-            let register = |state: &mut GameState, color: ManaColor| {
-                let id = state.next_restriction_id;
-                state.next_restriction_id += 1;
-                state
-                    .restriction_info
-                    .insert(id, (res.source, filter, rider));
-                state.players[you.get() as usize].mana_pool.add_restricted(
-                    baylee_core::mana::RestrictedMana {
-                        color,
-                        amount,
-                        flags: baylee_core::mana::ManaFlags::default(),
-                        restriction: baylee_core::mana::RestrictionId(id),
-                    },
-                );
-            };
-            if colors.len() == 1 {
-                register(state, colors[0]);
-                return None;
-            }
-            res.awaiting = Some(AwaitingOp::RestrictedMana {
-                colors,
-                amount,
-                filter,
-                rider,
-            });
-            Some(Pending::ChooseColor {
-                player: you,
-                options: colors.to_vec(),
-            })
-        }
-        Effect::AddManaRestrictedCommanderIdentity { filter, rider } => {
-            // Commander-identity colors, restricted + rider (Path of
-            // Ancestry).
-            let mut colors = ColorSet::EMPTY;
-            for id in state.zones.list(ZoneLocation::Command(you)) {
-                if let Some(obj) = state.object(*id) {
-                    colors = colors.union(obj.characteristics().color_identity);
-                }
-            }
-            let options: Vec<ManaColor> = [
-                ManaColor::White,
-                ManaColor::Blue,
-                ManaColor::Black,
-                ManaColor::Red,
-                ManaColor::Green,
-            ]
-            .into_iter()
-            .filter(|c| {
-                colors.contains(match c {
-                    ManaColor::White => baylee_core::color::Color::White,
-                    ManaColor::Blue => baylee_core::color::Color::Blue,
-                    ManaColor::Black => baylee_core::color::Color::Black,
-                    ManaColor::Red => baylee_core::color::Color::Red,
-                    ManaColor::Green => baylee_core::color::Color::Green,
-                    ManaColor::Colorless => return false,
-                })
-            })
-            .collect();
-            if options.is_empty() {
-                return None;
-            }
-            res.awaiting = Some(AwaitingOp::RestrictedManaColors {
-                amount: 1,
-                filter,
-                rider,
-            });
-            Some(Pending::ChooseColor {
-                player: you,
-                options,
-            })
-        }
-        Effect::AddManaCommanderIdentity => {
-            // Union the color identities of your command-zone cards.
-            let mut colors = ColorSet::EMPTY;
-            for id in state.zones.list(ZoneLocation::Command(you)) {
-                if let Some(obj) = state.object(*id) {
-                    colors = colors.union(obj.characteristics().color_identity);
-                }
-            }
-            let options: Vec<ManaColor> = [
-                ManaColor::White,
-                ManaColor::Blue,
-                ManaColor::Black,
-                ManaColor::Red,
-                ManaColor::Green,
-            ]
-            .into_iter()
-            .filter(|c| {
-                colors.contains(match c {
-                    ManaColor::White => baylee_core::color::Color::White,
-                    ManaColor::Blue => baylee_core::color::Color::Blue,
-                    ManaColor::Black => baylee_core::color::Color::Black,
-                    ManaColor::Red => baylee_core::color::Color::Red,
-                    ManaColor::Green => baylee_core::color::Color::Green,
-                    ManaColor::Colorless => return false,
-                })
-            })
-            .collect();
-            if options.is_empty() {
-                // No commander (non-commander game): colorless.
-                state.players[you.get() as usize]
-                    .mana_pool
-                    .add(ManaColor::Colorless, 1);
-                return None;
-            }
-            res.awaiting = Some(AwaitingOp::CommanderMana);
-            Some(Pending::ChooseColor {
-                player: you,
-                options,
-            })
-        }
-        Effect::AddManaChoice {
-            colors,
-            amount,
-            combination,
-        } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
-            if n == 0 {
-                return None;
-            }
-            let per_pick = if combination { 1 } else { n };
-            res.awaiting = Some(AwaitingOp::ManaChoice {
-                colors,
-                remaining: n,
-                per_pick,
-            });
-            Some(Pending::ChooseColor {
-                player: you,
-                options: colors.to_vec(),
-            })
-        }
+        Effect::AddMana { .. } => mana::exec(state, res, op),
         Effect::PayLifeOrEnterTapped { amount } => {
             // Not payable at all → no choice, enters tapped (CR 614.1c).
             if state.players[you.get() as usize].life <= i32::from(amount) {
@@ -1233,10 +1008,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::CounterTargetSpellOrAbility
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
-        Effect::AddMana { .. }
-        | Effect::AddManaDynamic { .. }
-        | Effect::AddManaLandColor { .. }
-        | Effect::DelayedManaAtNextFirstMain { .. } => mana::exec(state, res, op),
+        Effect::DelayedManaAtNextFirstMain { .. } => mana::exec(state, res, op),
         Effect::AddCounter { .. }
         | Effect::AddCounterFilter { .. }
         | Effect::DrainAllCountersIntoSelf
@@ -1677,10 +1449,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::ReorderTopLibrary { .. }
-        | Effect::AddManaChoice { .. }
-        | Effect::AddManaCommanderIdentity
-        | Effect::AddManaRestricted { .. }
-        | Effect::AddManaRestrictedCommanderIdentity { .. }
+        | Effect::AddMana { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }

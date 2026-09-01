@@ -31,11 +31,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
-        effects: &[Effect::AddManaChoice {
-            colors: &[ManaColor::Green, ManaColor::White],
-            amount: Amount::Fixed(1),
-            combination: false,
-        }],
+        effects: &[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])],
         target: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,

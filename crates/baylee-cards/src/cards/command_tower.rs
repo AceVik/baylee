@@ -26,7 +26,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
-        effects: &[Effect::AddManaCommanderIdentity],
+        effects: &[Effect::mana_commander_identity()],
         target: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,

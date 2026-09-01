@@ -29,10 +29,7 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
-        effects: &[Effect::AddMana {
-            color: ManaColor::Blue,
-            amount: 1,
-        }],
+        effects: &[Effect::mana(ManaColor::Blue, 1)],
         target: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,

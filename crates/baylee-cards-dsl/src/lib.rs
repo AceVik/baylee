@@ -24,11 +24,7 @@ pub const ALL_MANA_COLORS: &[baylee_core::mana::ManaColor] = &[
 
 /// The reusable "add one mana of any color" effect (Chromatic Lantern,
 /// City of Brass, Great Divide Guide).
-pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::AddManaChoice {
-    colors: ALL_MANA_COLORS,
-    amount: crate::effect::Amount::Fixed(1),
-    combination: false,
-}];
+pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::mana_of_any_color()];
 
 pub use ability::{
     AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, CopyMod, SpellMode,
@@ -36,8 +32,8 @@ pub use ability::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, Find, PlayerRel, SearchDest, SpendRider, TargetReq, TargetSpec,
-    TokenDef, ZoneSel,
+    Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, SearchDest,
+    SpendRider, TargetReq, TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
 pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility};

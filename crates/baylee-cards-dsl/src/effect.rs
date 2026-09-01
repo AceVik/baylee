@@ -138,6 +138,40 @@ pub enum ZoneSel {
     HandYou,
 }
 
+/// Which colors a mana effect may produce.
+///
+/// The colors, the amount and the spend restriction are three independent
+/// questions, and they used to be answered by seven separate `Effect`
+/// variants that each fixed all three — `AddMana`, `AddManaDynamic`,
+/// `AddManaChoice`, `AddManaCommanderIdentity`,
+/// `AddManaRestrictedCommanderIdentity`, `AddManaRestricted` and
+/// `AddManaLandColor`. Anything the printed cards combined differently had
+/// no way to be said.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ManaSource {
+    /// One named color, or colorless.
+    Fixed(ManaColor),
+    /// A choice among the listed colors, made on resolution.
+    Choice(&'static [ManaColor]),
+    /// A color in your commander's color identity (Command Tower).
+    CommanderIdentity,
+    /// A color some land could produce: yours (Reflecting Pool) or an
+    /// opponent's (Exotic Orchard).
+    LandColor {
+        /// `true` = your lands, `false` = opponents' lands.
+        mine: bool,
+    },
+}
+
+/// What produced mana may be spent on (Cavern of Souls, Path of Ancestry).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct ManaRestriction {
+    /// The mana is spendable only on spells matching this.
+    pub filter: &'static Filter,
+    /// What happens when it is spent on a matching spell.
+    pub rider: SpendRider,
+}
+
 /// Relative player references.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum PlayerRel {
@@ -517,12 +551,6 @@ pub enum Effect {
         /// Effects otherwise.
         otherwise: &'static [Effect],
     },
-    /// Add one mana of any color that a land (yours or an opponent's)
-    /// could produce (Exotic Orchard / Reflecting Pool).
-    AddManaLandColor {
-        /// `true` = your lands, `false` = opponents' lands.
-        mine: bool,
-    },
     /// Twice X (Heliod's Intervention lifegain mode) — helper amount.
     GainLifeDoubleX,
     /// Search your library for matching cards (server-side filtered).
@@ -580,18 +608,19 @@ pub enum Effect {
         target: PlayerRel,
     },
     /// Add mana to your pool.
+    ///
+    /// Prefer the constructors — [`Effect::mana`], [`Effect::mana_choice`],
+    /// [`Effect::mana_of_any_color`] — which read like the printed line.
     AddMana {
-        /// Color.
-        color: ManaColor,
-        /// Amount.
-        amount: u16,
-    },
-    /// Add a computed amount of one color (Harabaz Druid: X = Allies).
-    AddManaDynamic {
-        /// Color.
-        color: ManaColor,
-        /// How much.
+        /// Which colors are available.
+        source: ManaSource,
+        /// How much (dynamic amounts evaluate on resolution: Harabaz Druid
+        /// produces one per Ally).
         amount: Amount,
+        /// Whether each mana may be a different color (filter lands).
+        combination: bool,
+        /// What the mana may be spent on, if restricted.
+        restriction: Option<ManaRestriction>,
     },
     /// Add a subtype-granting note — placeholder for M2 (changeling etc.).
     GrantSubtype {
@@ -652,40 +681,6 @@ pub enum Effect {
     GraveyardToBattlefield {
         /// What (`CardInGraveyard`).
         target: TargetSpec,
-    },
-    /// Add one mana of any color in your commander's color identity
-    /// (Command Tower); the choice is made on resolution.
-    AddManaCommanderIdentity,
-    /// Add restricted mana in a commander-identity color (Path of
-    /// Ancestry): color choice from your commander's identity; spendable
-    /// only on spells matching `filter`; `rider` applies on spend.
-    AddManaRestrictedCommanderIdentity {
-        /// What the mana may be spent on.
-        filter: &'static Filter,
-        /// What happens when it's spent on a matching spell.
-        rider: SpendRider,
-    },
-    /// Add restricted mana (Cavern of Souls, Path of Ancestry, Jasmine
-    /// Dragon): it can only be spent on spells matching `filter`, and
-    /// spending it applies `rider`.
-    AddManaRestricted {
-        /// Choosable colors (one = fixed).
-        colors: &'static [ManaColor],
-        /// Amount.
-        amount: u16,
-        /// What the mana may be spent on.
-        filter: &'static Filter,
-        /// What happens when it's spent on a matching spell.
-        rider: SpendRider,
-    },
-    /// Add mana of a chosen color (choice per mana when `combination`).
-    AddManaChoice {
-        /// Allowed colors.
-        colors: &'static [ManaColor],
-        /// How much mana (dynamic amounts evaluate at resolution).
-        amount: Amount,
-        /// Whether each mana may be a different color (filter lands).
-        combination: bool,
     },
     /// Create a token that gets +P/+T for each filter-matching permanent
     /// you control (Urza's Saga's Construct; registered as its own
@@ -881,4 +876,110 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+}
+
+impl Effect {
+    /// `Add {G}` / `Add {C}{C}` — a fixed amount of one named color.
+    ///
+    /// The unified [`Effect::AddMana`] answers three questions at once, and
+    /// spelling all three out for the commonest line on a card would be a
+    /// step backwards from the variant it replaced. These constructors are
+    /// what card files use.
+    #[must_use]
+    pub const fn mana(color: ManaColor, amount: u32) -> Self {
+        Self::AddMana {
+            source: ManaSource::Fixed(color),
+            amount: Amount::Fixed(amount),
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Add {G} or {U}.` — one mana, colour chosen on resolution.
+    #[must_use]
+    pub const fn mana_choice(colors: &'static [ManaColor]) -> Self {
+        Self::AddMana {
+            source: ManaSource::Choice(colors),
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Add one mana of any color.`
+    #[must_use]
+    pub const fn mana_of_any_color() -> Self {
+        Self::mana_choice(crate::ALL_MANA_COLORS)
+    }
+
+    /// `Add one mana of any color in your commander's color identity.`
+    #[must_use]
+    pub const fn mana_commander_identity() -> Self {
+        Self::AddMana {
+            source: ManaSource::CommanderIdentity,
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Add {G} for each Ally you control` — one color, counted amount.
+    #[must_use]
+    pub const fn mana_dynamic(color: ManaColor, amount: Amount) -> Self {
+        Self::AddMana {
+            source: ManaSource::Fixed(color),
+            amount,
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Add {W}{U} in any combination of colors.` — one pick per mana,
+    /// which is what "in any combination" means and what a single choice
+    /// for the whole amount does not.
+    #[must_use]
+    pub const fn mana_combination(colors: &'static [ManaColor], amount: Amount) -> Self {
+        Self::AddMana {
+            source: ManaSource::Choice(colors),
+            amount,
+            combination: true,
+            restriction: None,
+        }
+    }
+
+    /// `Add one mana of any color that a land you control could produce`
+    /// (Reflecting Pool), or an opponent's (Exotic Orchard).
+    #[must_use]
+    pub const fn mana_land_color(mine: bool) -> Self {
+        Self::AddMana {
+            source: ManaSource::LandColor { mine },
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Spend this mana only to cast …` — the tail of a mana line, written
+    /// where the card writes it (Cavern of Souls, Path of Ancestry).
+    ///
+    /// # Panics
+    /// At compile time, when applied to anything but a mana effect.
+    #[must_use]
+    pub const fn restricted(self, filter: &'static Filter, rider: SpendRider) -> Self {
+        let Self::AddMana {
+            source,
+            amount,
+            combination,
+            ..
+        } = self
+        else {
+            panic!("restricted() describes mana, and only Effect::AddMana produces it")
+        };
+        Self::AddMana {
+            source,
+            amount,
+            combination,
+            restriction: Some(ManaRestriction { filter, rider }),
+        }
+    }
 }

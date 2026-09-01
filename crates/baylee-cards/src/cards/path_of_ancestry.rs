@@ -36,10 +36,10 @@ pub static CARD: CardDef = CardDef {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Activated {
         cost: Cost::TAP,
-        effects: &[Effect::AddManaRestrictedCommanderIdentity {
-            filter: &COMMANDER_TYPE_CREATURE_SPELL,
-            rider: baylee_cards_dsl::SpendRider::Scry(1),
-        }],
+        effects: &[Effect::mana_commander_identity().restricted(
+            &COMMANDER_TYPE_CREATURE_SPELL,
+            baylee_cards_dsl::SpendRider::Scry(1),
+        )],
         target: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,

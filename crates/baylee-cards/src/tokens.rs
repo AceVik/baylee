@@ -45,11 +45,7 @@ static SACRIFICE_FOR_ANY_COLOR: &[AbilityDef] = &[AbilityDef::Activated {
         mana: ManaCost::ZERO,
         parts: &[CostPart::TapSelf, CostPart::SacrificeSelf],
     },
-    effects: &[Effect::AddManaChoice {
-        colors: ANY_COLOR,
-        amount: Amount::Fixed(1),
-        combination: false,
-    }],
+    effects: &[Effect::mana_choice(ANY_COLOR)],
     target: None,
     timing: ActivationTiming::InstantSpeed,
     // A mana ability (CR 605.1a): no target, adds mana, is not itself an

@@ -34,10 +34,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Activated {
             cost: Cost::TAP,
-            effects: &[Effect::AddMana {
-                color: ManaColor::Colorless,
-                amount: 1,
-            }],
+            effects: &[Effect::mana(ManaColor::Colorless, 1)],
             target: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
@@ -45,18 +42,17 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Activated {
             cost: Cost::TAP,
-            effects: &[Effect::AddManaRestricted {
-                colors: &[
-                    ManaColor::White,
-                    ManaColor::Blue,
-                    ManaColor::Black,
-                    ManaColor::Red,
-                    ManaColor::Green,
-                ],
-                amount: 1,
-                filter: &Filter::HasSubtype(creature::ALLY),
-                rider: baylee_cards_dsl::SpendRider::None,
-            }],
+            effects: &[Effect::mana_choice(&[
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green,
+            ])
+            .restricted(
+                &Filter::HasSubtype(creature::ALLY),
+                baylee_cards_dsl::SpendRider::None,
+            )],
             target: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,

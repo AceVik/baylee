@@ -145,21 +145,22 @@ impl Characteristics {
                 }
             };
             for effect in *effects {
-                match effect {
-                    baylee_cards_dsl::Effect::AddMana { color, .. } => {
-                        add_color(&mut produced, &mut produced_colorless, color);
+                let baylee_cards_dsl::Effect::AddMana { source, .. } = effect else {
+                    continue;
+                };
+                match source {
+                    baylee_cards_dsl::ManaSource::Fixed(c) => {
+                        add_color(&mut produced, &mut produced_colorless, c);
                     }
-                    baylee_cards_dsl::Effect::AddManaChoice { colors, .. }
-                    | baylee_cards_dsl::Effect::AddManaRestricted { colors, .. } => {
+                    baylee_cards_dsl::ManaSource::Choice(colors) => {
                         for c in *colors {
                             add_color(&mut produced, &mut produced_colorless, c);
                         }
                     }
-                    // "Any color" families (Command Tower, orchard/pool,
-                    // commander-identity restricted mana).
-                    baylee_cards_dsl::Effect::AddManaCommanderIdentity
-                    | baylee_cards_dsl::Effect::AddManaRestrictedCommanderIdentity { .. }
-                    | baylee_cards_dsl::Effect::AddManaLandColor { .. } => {
+                    // Command Tower, orchard/pool: which colors depends on
+                    // the game, so the printed card promises all five.
+                    baylee_cards_dsl::ManaSource::CommanderIdentity
+                    | baylee_cards_dsl::ManaSource::LandColor { .. } => {
                         produced = produced.union(ColorSet::from_slice(&[
                             Color::White,
                             Color::Blue,
@@ -168,7 +169,6 @@ impl Characteristics {
                             Color::Green,
                         ]));
                     }
-                    _ => {}
                 }
             }
         }

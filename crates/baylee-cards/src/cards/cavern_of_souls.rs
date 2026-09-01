@@ -36,10 +36,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Activated {
             cost: Cost::TAP,
-            effects: &[Effect::AddMana {
-                color: ManaColor::Colorless,
-                amount: 1,
-            }],
+            effects: &[Effect::mana(ManaColor::Colorless, 1)],
             target: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
@@ -47,12 +44,10 @@ pub static CARD: CardDef = CardDef {
         },
         AbilityDef::Activated {
             cost: Cost::TAP,
-            effects: &[Effect::AddManaRestricted {
-                colors: ALL_MANA_COLORS,
-                amount: 1,
-                filter: &CHOSEN_TYPE_CREATURE_SPELL,
-                rider: baylee_cards_dsl::SpendRider::Uncounterable,
-            }],
+            effects: &[Effect::mana_choice(ALL_MANA_COLORS).restricted(
+                &CHOSEN_TYPE_CREATURE_SPELL,
+                baylee_cards_dsl::SpendRider::Uncounterable,
+            )],
             target: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
