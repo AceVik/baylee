@@ -188,6 +188,23 @@ plugin turns that into an `ehttp` call and feeds the outcome back as a
 `LobbyEvent`. So the flow is tested without a window, and the mapping onto the
 gateway's routes is tested without a gateway.
 
+**Rooms.** The table screen lists every room the gateway knows and draws each
+one seat by seat: who is sitting there, whether they are a person or the AI,
+at what difficulty, what they brought, and whether that chair is ready. A host
+opens a room by picking a size (2 to 4) instead of pressing one "host" button,
+and from then on every chair is a row of controls — the host's rows switch a
+chair between a person and the AI and pick the AI's difficulty, everyone
+else's row is read-only except for the one chair that is theirs, where the
+only control is which deck to bring. Sitting down is a tap on an open chair;
+standing up is a tap on your own. There is no start button anywhere, because
+the gateway has no start route: the table starts when the last chair goes
+ready, and the lobby finds that out the same way it always has, by re-reading
+the list.
+
+The seat rows are drawn from the listing verbatim, which is why they carry no
+account ids — the client is shown display names and a `you` flag, and has
+nothing else to leak.
+
 Hosting an open table is the one asymmetric case. A game against the house and
 a join are both playable the moment the gateway answers; an open table holds a
 seat whose game does not exist yet, so the lobby keeps the table screen up with
@@ -265,7 +282,41 @@ value filter, the coloured pips the main deck asks for, and `+`/`−` on every
 row rather than "click to remove" — a list is read far more often than it is
 edited. Reading a card is its own target (`?` on the row, closed with `×`),
 because a touch screen has no hover to read one with and the row itself has to
-stay the fast way to add. Leaving a deck with unsaved changes takes two
+stay the fast way to add.
+
+**Hover shows the card, and it is not part of the tree.** A pointer resting on
+a row — in the pool or in either deck list — draws that printing's art beside
+it, at the size a card is actually read at, flipped to the other side of the
+pointer when there is no room and clamped so a row near the bottom does not
+push it off screen. It lives on its own entity behind its own epoch counter
+(`Hovered` → `CardPreview`), spawned and despawned by a system of its own:
+routing it through the retained tree would mean tearing down two hundred rows
+to show one picture, on every pointer move. The row works out its own URL when
+it is spawned rather than when it is hovered, because a row already knows which
+printing it is showing and a hover that had to go looking would be doing it on
+the pointer's schedule. A preview is `Pickable::IGNORE` — it must never eat the
+click that would add the card underneath it.
+
+**The card panel is where a card is moved, not just read.** `?` opens a menu
+over the card: add it to the deck or to the sideboard, move the copy that is
+already there from one to the other, remove it, or set it as the commander.
+Moving keeps the printing — the whole point of having chosen one — and the
+panel says what is where ("2 in the deck, 1 in the sideboard") so the buttons
+are not the only way to find out. A card that cannot lead a deck is refused as
+a commander rather than offered and then rejected on save; naming one that is
+not in the deck yet seats a copy, because a commander that is not in its own
+deck is not a legal deck and the builder should not need to be told twice.
+
+**Mana costs are symbols.** `crates/baylee-client-core/src/manapip.rs` turns a
+`ManaCost` into a list of pips — renderer-free and tested as a table — and
+`manaui.rs` draws them with the OFL-licensed Mana font (`docs/legal.md` §2; no
+WotC artwork anywhere). The font gives a monochrome mark only, so the coloured
+disc behind it is the client's, which is also what makes hybrids drawable: a
+hybrid has no single glyph, so the pip is one disc with two glyphs clipped to
+opposite halves. Generic costs run out of glyphs at 20 and fall back to digits
+rather than drawing the wrong number.
+
+Leaving a deck with unsaved changes takes two
 presses — the first turns the back button into *Leave without saving*, and
 anything else answers the question — because a deck is half an hour of work
 and the way out sits in the busiest corner of the screen.
@@ -311,6 +362,14 @@ index.html --release` and host the resulting `dist/` statically. Two notes:
 always build `--release` (a dev-profile wasm is ~350 MB vs ~36 MB optimized),
 and the acceptance deck file is embedded with `include_str!` because a browser
 has no filesystem.
+
+Fonts are not embedded, and that is what `<link data-trunk rel="copy-dir"
+href="assets">` in `index.html` is for. Bevy's asset server resolves
+`fonts/Inter.ttf` against `./assets/` in a browser exactly as it does
+natively, but nothing puts that directory into `dist/` unless trunk is told
+to — and the failure is silent: no error, just every glyph the client draws
+rendering as nothing. The icons and the mana symbols are that; a native run
+never shows it, because a native run reads the directory in place.
 
 **Which gateway.** The page's own origin is only the right answer when the
 gateway served the page, and a `trunk serve` build comes off `:8080` while the

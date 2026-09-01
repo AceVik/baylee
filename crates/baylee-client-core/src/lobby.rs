@@ -93,13 +93,57 @@ pub struct DeckSummary {
     pub commander: Option<String>,
 }
 
-/// A seat in a listed game.
+/// The fewest chairs a table may have.
+pub const MIN_CHAIRS: usize = 2;
+/// The most chairs a table may have. The gateway enforces the same bound;
+/// this is what stops a client offering a number that would be refused.
+pub const MAX_CHAIRS: usize = 4;
+
+/// Who a chair is meant for.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SeatKind {
+    /// A person, once one takes it.
+    #[default]
+    Human,
+    /// The house AI, at a named difficulty.
+    Ai,
+}
+
+/// A seat in a listed game.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GameSeat {
     /// Seat number at the table.
     pub seat: u32,
+    /// Whether this chair is for a person or for the AI.
+    #[serde(default)]
+    pub kind: SeatKind,
+    /// The AI's difficulty, when it is one.
+    #[serde(default)]
+    pub ai: Option<String>,
     /// Whether somebody is already sitting there.
     pub taken: bool,
+    /// Who is sitting there, by display name. Never an account id: knowing
+    /// who is at a table does not require knowing their account.
+    #[serde(default)]
+    pub player: Option<String>,
+    /// Whether that is the player reading the list.
+    #[serde(default)]
+    pub you: bool,
+    /// The deck this chair plays, as far as it is decided.
+    #[serde(default)]
+    pub deck: String,
+    /// Whether the chair is settled enough for the game to start.
+    #[serde(default)]
+    pub ready: bool,
+}
+
+impl GameSeat {
+    /// Whether a person could sit down here.
+    #[must_use]
+    pub fn open(&self) -> bool {
+        self.kind == SeatKind::Human && !self.taken
+    }
 }
 
 /// A table, as `GET /lobby/games` lists it.
@@ -107,6 +151,15 @@ pub struct GameSeat {
 pub struct GameSummary {
     /// Opaque game id.
     pub id: String,
+    /// What the host called it. May be empty.
+    #[serde(default)]
+    pub name: String,
+    /// Who arranges it, by display name.
+    #[serde(default)]
+    pub host: Option<String>,
+    /// Whether the player reading the list is that host.
+    #[serde(default)]
+    pub yours: bool,
     /// `"waiting"`, `"playing"` or `"over"`.
     pub state: String,
     /// Every seat at the table, taken or not.
@@ -118,7 +171,31 @@ impl GameSummary {
     /// Whether another player can still sit down here.
     #[must_use]
     pub fn joinable(&self) -> bool {
-        self.state == "waiting" && self.seats.iter().any(|s| !s.taken)
+        self.state == "waiting" && self.seats.iter().any(GameSeat::open)
+    }
+
+    /// Which seat is this player's, if any.
+    #[must_use]
+    pub fn my_seat(&self) -> Option<u32> {
+        self.seats.iter().find(|s| s.you).map(|s| s.seat)
+    }
+
+    /// Whether this player is at the table at all.
+    #[must_use]
+    pub fn seated(&self) -> bool {
+        self.my_seat().is_some()
+    }
+
+    /// How the table reads in a list: what it is called, and how full it is.
+    #[must_use]
+    pub fn headline(&self) -> String {
+        let taken = self.seats.iter().filter(|s| s.ready).count();
+        let name = if self.name.trim().is_empty() {
+            "table".to_string()
+        } else {
+            self.name.clone()
+        };
+        format!("{name}  \u{b7}  {taken}/{} seated", self.seats.len())
     }
 }
 
@@ -214,6 +291,11 @@ pub enum LobbyRequest {
         deck_id: String,
         /// Against the house, or against whoever shows up.
         mode: GameMode,
+        /// How many chairs the table has. Ignored for [`GameMode::Ai`],
+        /// which is a whole table decided in one request.
+        chairs: usize,
+        /// What to call it in the list.
+        name: String,
     },
     /// `POST /lobby/games/{id}/join`.
     JoinGame {
@@ -221,6 +303,26 @@ pub enum LobbyRequest {
         game_id: String,
         /// The deck to bring.
         deck_id: String,
+        /// Which chair, or the first free one.
+        seat: Option<u32>,
+    },
+    /// `POST /lobby/games/{id}/seats/{seat}` — arrange one chair.
+    SetSeat {
+        /// The table.
+        game_id: String,
+        /// The chair.
+        seat: u32,
+        /// Make it a person's or the AI's. `None` leaves it alone.
+        kind: Option<SeatKind>,
+        /// Which difficulty an AI chair plays at.
+        ai: Option<String>,
+        /// The deck the chair plays.
+        deck_id: Option<String>,
+    },
+    /// `POST /lobby/games/{id}/leave` — give up a chair, or close the room.
+    LeaveGame {
+        /// The table to get up from.
+        game_id: String,
     },
 }
 
@@ -274,6 +376,8 @@ pub enum LobbyEvent {
     },
     /// A deck was deleted.
     DeckDeleted,
+    /// A chair was given up, or a room closed.
+    Left,
     /// The tables that are open.
     Games(Vec<GameSummary>),
     /// A seat, and the ticket that proves it.
@@ -637,24 +741,98 @@ impl Lobby {
 
     /// Opens a new table with the selected deck.
     pub fn host(&mut self, mode: GameMode) -> Option<LobbyRequest> {
+        self.open_room(mode, 2, String::new())
+    }
+
+    /// Opens a table of a chosen size, under a chosen name.
+    pub fn open_room(
+        &mut self,
+        mode: GameMode,
+        chairs: usize,
+        name: String,
+    ) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
         self.busy = true;
         self.asked_for = Some(mode);
         self.status = "opening a table…".to_string();
-        Some(LobbyRequest::CreateGame { deck_id, mode })
+        Some(LobbyRequest::CreateGame {
+            deck_id,
+            mode,
+            chairs: chairs.clamp(MIN_CHAIRS, MAX_CHAIRS),
+            name,
+        })
     }
 
     /// Sits down at somebody else's table with the selected deck.
     pub fn join(&mut self, game_id: &str) -> Option<LobbyRequest> {
+        self.join_seat(game_id, None)
+    }
+
+    /// Sits down in a named chair.
+    pub fn join_seat(&mut self, game_id: &str, seat: Option<u32>) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
         self.busy = true;
-        // Joining starts the game there and then; only hosting can leave us
-        // holding a seat at a table nobody else is at.
+        // A table only starts once every chair is settled, so sitting down no
+        // longer means the game begins — the seat screen waits either way.
         self.asked_for = None;
         self.status = "sitting down…".to_string();
         Some(LobbyRequest::JoinGame {
             game_id: game_id.to_string(),
             deck_id,
+            seat,
+        })
+    }
+
+    /// Arranges one chair of a table this account hosts.
+    ///
+    /// Nothing is checked here that the gateway does not check again: the
+    /// client hides what a player may not do, and the gateway is what makes
+    /// it true.
+    pub fn set_seat(
+        &mut self,
+        game_id: &str,
+        seat: u32,
+        kind: Option<SeatKind>,
+        ai: Option<String>,
+    ) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.status = "arranging the table…".to_string();
+        Some(LobbyRequest::SetSeat {
+            game_id: game_id.to_string(),
+            seat,
+            kind,
+            ai,
+            deck_id: None,
+        })
+    }
+
+    /// Puts the selected deck in a chair — one's own, or an AI's.
+    pub fn seat_deck(&mut self, game_id: &str, seat: u32) -> Option<LobbyRequest> {
+        let deck_id = self.picked_deck()?;
+        self.busy = true;
+        self.status = "arranging the table…".to_string();
+        Some(LobbyRequest::SetSeat {
+            game_id: game_id.to_string(),
+            seat,
+            kind: None,
+            ai: None,
+            deck_id: Some(deck_id),
+        })
+    }
+
+    /// Gets up from a table, or closes it when this account is the host.
+    pub fn leave_table(&mut self, game_id: &str) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.asked_for = None;
+        self.status = "leaving the table…".to_string();
+        Some(LobbyRequest::LeaveGame {
+            game_id: game_id.to_string(),
         })
     }
 
@@ -758,6 +936,14 @@ impl Lobby {
                 self.status = "deck deleted".to_string();
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
+            }
+            LobbyEvent::Left => {
+                // The seat we were holding at that table is gone with it, so
+                // nothing is being waited for any more.
+                self.awaiting = None;
+                self.status = String::new();
+                self.busy = true;
+                Some(LobbyRequest::ListGames)
             }
             LobbyEvent::Games(games) => {
                 self.games = games;
@@ -938,6 +1124,8 @@ mod tests {
             Some(LobbyRequest::CreateGame {
                 deck_id: "d1".to_string(),
                 mode: GameMode::Ai,
+                chairs: 2,
+                name: String::new(),
             })
         );
     }
@@ -990,6 +1178,7 @@ mod tests {
             Some(LobbyRequest::JoinGame {
                 game_id: "g7".to_string(),
                 deck_id: "d1".to_string(),
+                seat: None,
             })
         );
     }
@@ -1019,12 +1208,15 @@ mod tests {
                 GameSeat {
                     seat: 0,
                     taken: true,
+                    ..GameSeat::default()
                 },
                 GameSeat {
                     seat: 1,
                     taken: false,
+                    ..GameSeat::default()
                 },
             ],
+            ..GameSummary::default()
         }]));
         assert_eq!(*lobby.screen(), Screen::Table);
 
@@ -1035,12 +1227,15 @@ mod tests {
                 GameSeat {
                     seat: 0,
                     taken: true,
+                    ..GameSeat::default()
                 },
                 GameSeat {
                     seat: 1,
                     taken: true,
+                    ..GameSeat::default()
                 },
             ],
+            ..GameSummary::default()
         }]));
         assert_eq!(*lobby.screen(), Screen::Seated(handover));
         assert_eq!(lobby.awaiting(), None);
@@ -1254,12 +1449,15 @@ mod tests {
                 GameSeat {
                     seat: 0,
                     taken: true,
+                    ..GameSeat::default()
                 },
                 GameSeat {
                     seat: 1,
                     taken: false,
+                    ..GameSeat::default()
                 },
             ],
+            ..GameSummary::default()
         };
         assert!(waiting.joinable());
         let playing = GameSummary {
@@ -1272,10 +1470,12 @@ mod tests {
                 GameSeat {
                     seat: 0,
                     taken: true,
+                    ..GameSeat::default()
                 },
                 GameSeat {
                     seat: 1,
                     taken: true,
+                    ..GameSeat::default()
                 },
             ],
             ..waiting
@@ -1474,5 +1674,99 @@ mod tests {
             lobby.apply(LobbyEvent::DeckDeleted),
             Some(LobbyRequest::ListDecks)
         );
+    }
+    /// A table with one seat left is joinable; the same table with that seat
+    /// handed to the AI is not, because there is no chair for a person.
+    #[test]
+    fn a_table_is_joinable_only_while_a_chair_is_free_for_a_person() {
+        let mut room = GameSummary {
+            id: "g".to_string(),
+            name: "Kitchen table".to_string(),
+            host: Some("ada".to_string()),
+            yours: false,
+            state: "waiting".to_string(),
+            seats: vec![
+                GameSeat {
+                    seat: 0,
+                    taken: true,
+                    player: Some("ada".to_string()),
+                    ready: true,
+                    ..GameSeat::default()
+                },
+                GameSeat {
+                    seat: 1,
+                    ..GameSeat::default()
+                },
+            ],
+        };
+        assert!(room.joinable());
+        room.seats[1].kind = SeatKind::Ai;
+        room.seats[1].ai = Some("sharp".to_string());
+        room.seats[1].ready = true;
+        assert!(!room.joinable(), "the AI has that chair");
+        assert_eq!(room.headline(), "Kitchen table  \u{b7}  2/2 seated");
+
+        // A table already playing is never joinable, free chair or not.
+        room.seats[1].kind = SeatKind::Human;
+        room.seats[1].taken = false;
+        room.state = "playing".to_string();
+        assert!(!room.joinable());
+    }
+
+    /// Which chair is mine comes from the gateway saying so, not from the
+    /// client comparing account ids it should not have.
+    #[test]
+    fn the_gateway_says_which_chair_is_mine() {
+        let room = GameSummary {
+            id: "g".to_string(),
+            state: "waiting".to_string(),
+            seats: vec![
+                GameSeat {
+                    seat: 0,
+                    taken: true,
+                    player: Some("ada".to_string()),
+                    ..GameSeat::default()
+                },
+                GameSeat {
+                    seat: 1,
+                    taken: true,
+                    you: true,
+                    player: Some("grace".to_string()),
+                    ..GameSeat::default()
+                },
+            ],
+            ..GameSummary::default()
+        };
+        assert_eq!(room.my_seat(), Some(1));
+        assert!(room.seated());
+        assert!(!GameSummary::default().seated());
+    }
+
+    /// A table with no name still reads as something in the list.
+    #[test]
+    fn a_nameless_table_still_has_a_headline() {
+        let room = GameSummary {
+            state: "waiting".to_string(),
+            seats: vec![GameSeat::default(), GameSeat::default()],
+            ..GameSummary::default()
+        };
+        assert_eq!(room.headline(), "table  \u{b7}  0/2 seated");
+    }
+
+    /// The size a room is opened at is clamped to what the gateway accepts,
+    /// so a client can never ask for a table that would be refused.
+    #[test]
+    fn a_room_is_opened_at_a_size_the_gateway_allows() {
+        let mut lobby = seated_lobby();
+        for (asked, expected) in [(1, MIN_CHAIRS), (3, 3), (9, MAX_CHAIRS)] {
+            // Each open_room marks the lobby busy; the answer clears it.
+            lobby.apply(LobbyEvent::Games(vec![]));
+            let Some(LobbyRequest::CreateGame { chairs, .. }) =
+                lobby.open_room(GameMode::Open, asked, "Kitchen".to_string())
+            else {
+                panic!("a picked deck opens a room");
+            };
+            assert_eq!(chairs, expected, "asked for {asked}");
+        }
     }
 }

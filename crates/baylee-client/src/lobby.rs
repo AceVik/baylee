@@ -27,7 +27,10 @@ use baylee_client_core::deckbuilder::{
     BuildField, CURVE_BUCKETS, Coverage, DeckBuilder, Group, Picker, Zone,
 };
 use baylee_client_core::images::FinishTreatment;
-use baylee_client_core::lobby::{Field, GameMode, Lobby, LobbyEvent, LobbyRequest, Screen};
+use baylee_client_core::lobby::{
+    Field, GameMode, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS, MIN_CHAIRS, Screen,
+    SeatKind,
+};
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::Finish;
 use bevy::input::keyboard::{Key, KeyboardInput};
@@ -187,6 +190,8 @@ enum Expect {
     Games,
     /// A seat handover.
     Seat,
+    /// A chair given up; the gateway answers `204` with no body.
+    Left,
 }
 
 // ------------------------------------------------------------------ HTTP
@@ -206,6 +211,7 @@ fn dispatch(state: &LobbyState, mailbox: &Mailbox, request: Option<LobbyRequest>
 /// Separate from [`dispatch`] so the mapping onto the gateway's routes can be
 /// tested without a socket: a wrong path or a misspelled field would otherwise
 /// only show up as a 404 in somebody's hands.
+#[allow(clippy::too_many_lines)] // one arm per route, read top to bottom
 fn build(
     base: &str,
     token: Option<&str>,
@@ -293,19 +299,62 @@ fn build(
             ehttp::Request::get(format!("{base}/lobby/games")),
             Expect::Games,
         ),
-        LobbyRequest::CreateGame { deck_id, mode } => (
+        LobbyRequest::CreateGame {
+            deck_id,
+            mode,
+            chairs,
+            name,
+        } => (
             json_post(
                 &format!("{base}/lobby/games"),
-                &serde_json::json!({ "deck_id": deck_id, "mode": mode.wire() }),
+                &serde_json::json!({
+                    "deck_id": deck_id,
+                    "mode": mode.wire(),
+                    "seats": chairs,
+                    "name": name,
+                }),
             ),
             Expect::Seat,
         ),
-        LobbyRequest::JoinGame { game_id, deck_id } => (
+        LobbyRequest::JoinGame {
+            game_id,
+            deck_id,
+            seat,
+        } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/join"),
-                &serde_json::json!({ "deck_id": deck_id }),
+                &serde_json::json!({ "deck_id": deck_id, "seat": seat }),
             ),
             Expect::Seat,
+        ),
+        LobbyRequest::SetSeat {
+            game_id,
+            seat,
+            kind,
+            ai,
+            deck_id,
+        } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/seats/{seat}"),
+                &serde_json::json!({
+                    "kind": kind.map(|k| match k {
+                        SeatKind::Human => "human",
+                        SeatKind::Ai => "ai",
+                    }),
+                    "ai": ai,
+                    "deck_id": deck_id,
+                }),
+            ),
+            // Arranging a chair answers with the listing, so the room the
+            // player is looking at redraws without a second round trip.
+            Expect::Games,
+        ),
+        LobbyRequest::LeaveGame { game_id } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/leave"),
+                &serde_json::json!({}),
+            ),
+            Expect::Left,
         ),
     };
     (bearer(request, token), expect)
@@ -453,6 +502,9 @@ fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
         Expect::Seat => {
             serde_json::from_str(body).map_or_else(|_| unreadable("the seat"), LobbyEvent::Seated)
         }
+        // Nothing comes back, so the lobby re-reads the list to find out what
+        // the table looks like without us.
+        Expect::Left => LobbyEvent::Left,
     }
 }
 
@@ -817,6 +869,48 @@ fn clicks(
                     dispatch(&state, &mailbox, request);
                 }
             }
+            Press::OpenRoom(chairs) => {
+                let request = state.lobby.open_room(GameMode::Open, chairs, String::new());
+                dispatch(&state, &mailbox, request);
+            }
+            Press::JoinSeat(index, seat) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.join_seat(&game, Some(seat));
+                    dispatch(&state, &mailbox, request);
+                }
+            }
+            Press::LeaveTable(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.leave_table(&game);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
+            Press::SeatKind(index, seat, kind) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.set_seat(&game, seat, Some(kind), None);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
+            Press::SeatAi(index, seat, profile) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request =
+                        state
+                            .lobby
+                            .set_seat(&game, seat, None, Some(profile.to_string()));
+                    dispatch(&state, &mailbox, request);
+                }
+            }
+            Press::SeatDeck(index, seat) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.seat_deck(&game, seat);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
             Press::PlayOffline => match crate::host::house_duel() {
                 Some(host) => {
                     state.connected = true;
@@ -1110,8 +1204,20 @@ enum Press {
     SelectDeck(usize),
     /// Open a new table.
     Host(GameMode),
+    /// Open a table with a chosen number of chairs.
+    OpenRoom(usize),
     /// Sit down at a listed table by its index.
     Join(usize),
+    /// Sit down in a named chair of a listed table.
+    JoinSeat(usize, u32),
+    /// Give up a chair, or close the room when hosting it.
+    LeaveTable(usize),
+    /// Make a chair a person's or the AI's.
+    SeatKind(usize, u32, SeatKind),
+    /// Set an AI chair's difficulty.
+    SeatAi(usize, u32, &'static str),
+    /// Put the selected deck in a chair.
+    SeatDeck(usize, u32),
     /// Leave a finished game.
     Leave,
     /// Open the builder on a new deck.
@@ -2054,13 +2160,22 @@ fn table(
     for (label, press, tone) in [
         ("Refresh", Press::Refresh, palette::PANEL_LIT),
         ("Play the house", Press::Host(GameMode::Ai), palette::ACCENT),
-        (
-            "Open a table",
-            Press::Host(GameMode::Open),
-            palette::PANEL_LIT,
-        ),
     ] {
         let b = button(commands, fonts, metrics, label, press, tone, !lobby.busy());
+        commands.entity(head_row).add_child(b);
+    }
+    // How many chairs is the one thing that cannot be changed after the
+    // table exists, so it is asked before it does.
+    for chairs in MIN_CHAIRS..=MAX_CHAIRS {
+        let b = button(
+            commands,
+            fonts,
+            metrics,
+            &format!("Open a table for {chairs}"),
+            Press::OpenRoom(chairs),
+            palette::PANEL_LIT,
+            !lobby.busy(),
+        );
         commands.entity(head_row).add_child(b);
     }
     commands.entity(games).add_child(head_row);
@@ -2087,22 +2202,27 @@ fn table(
                 Pickable::IGNORE,
             ))
             .id();
-        let taken = game.seats.iter().filter(|s| s.taken).count();
+        // The headline: what the table is called, who opened it, how it is
+        // going, and the one button that applies to the whole thing.
         let label = commands
             .spawn((
-                Text::new(short_id(&game.id)),
+                Text::new(if game.name.trim().is_empty() {
+                    short_id(&game.id)
+                } else {
+                    game.name.clone()
+                }),
                 tf(fonts, metrics.text),
                 TextColor(palette::INK),
                 Pickable::IGNORE,
             ))
             .id();
+        let by = match &game.host {
+            Some(host) => format!("{}  ·  {host}  ·  {}", game.state, host_note(game)),
+            None => format!("{}  ·  {}", game.state, host_note(game)),
+        };
         let seats = commands
             .spawn((
-                Text::new(format!(
-                    "{}  ·  {taken}/{} seated",
-                    game.state,
-                    game.seats.len()
-                )),
+                Text::new(by),
                 tf(fonts, metrics.small),
                 TextColor(palette::MUTED),
                 Pickable::IGNORE,
@@ -2112,7 +2232,7 @@ fn table(
         commands.entity(row).add_child(label);
         commands.entity(row).add_child(seats);
         commands.entity(row).add_child(gap);
-        if game.joinable() {
+        if game.joinable() && !game.seated() {
             let join = button(
                 commands,
                 fonts,
@@ -2124,9 +2244,172 @@ fn table(
             );
             commands.entity(row).add_child(join);
         }
+        if game.seated() && game.state == "waiting" {
+            let leave = button(
+                commands,
+                fonts,
+                metrics,
+                if game.yours { "Close" } else { "Leave" },
+                Press::LeaveTable(index),
+                palette::PANEL,
+                !lobby.busy(),
+            );
+            commands.entity(row).add_child(leave);
+        }
         commands.entity(games).add_child(row);
+
+        // Its chairs, one row each. A room is arranged in the open, so this
+        // is drawn for every table and not only for the one you are at.
+        if game.state == "waiting" {
+            let chairs = seat_rows(commands, fonts, metrics, game, index, lobby.busy());
+            commands.entity(games).add_child(chairs);
+        }
     }
     commands.entity(body).add_child(games);
+}
+
+/// How a table reads under its name: how full it is, and what it waits for.
+fn host_note(game: &GameSummary) -> String {
+    let ready = game.seats.iter().filter(|s| s.ready).count();
+    let total = game.seats.len();
+    if game.state != "waiting" {
+        return format!("{total} seats");
+    }
+    let waiting = total - ready;
+    if waiting == 0 {
+        format!("{ready}/{total} seated")
+    } else {
+        format!("{ready}/{total} seated · waiting for {waiting}")
+    }
+}
+
+/// One row per chair: who is in it, what they brought, and — for the host —
+/// the controls that arrange it.
+#[allow(clippy::too_many_lines)] // one chair, and everything offered on it
+fn seat_rows(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    game: &GameSummary,
+    index: usize,
+    busy: bool,
+) -> Entity {
+    let holder = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(4),
+                padding: UiRect::new(
+                    px(metrics.pad * 1.4),
+                    px(metrics.pad * 0.7),
+                    px(2),
+                    px(metrics.pad * 0.4),
+                ),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for seat in &game.seats {
+        let line = row(commands, metrics, true);
+        let who = match (seat.kind, seat.player.as_deref()) {
+            (SeatKind::Ai, _) => format!(
+                "seat {} · AI ({})",
+                seat.seat,
+                seat.ai.as_deref().unwrap_or("steady")
+            ),
+            (SeatKind::Human, Some(name)) if seat.you => {
+                format!("seat {} · {name} (you)", seat.seat)
+            }
+            (SeatKind::Human, Some(name)) => format!("seat {} · {name}", seat.seat),
+            (SeatKind::Human, None) => format!("seat {} · open", seat.seat),
+        };
+        let label = commands
+            .spawn((
+                Text::new(who),
+                tf(fonts, metrics.small),
+                TextColor(if seat.ready {
+                    palette::INK
+                } else {
+                    palette::MUTED
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(line).add_child(label);
+        if !seat.deck.is_empty() {
+            let deck = note(commands, fonts, metrics, &seat.deck);
+            commands.entity(line).add_child(deck);
+        }
+        let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+        commands.entity(line).add_child(gap);
+
+        // A player brings their own deck; the host brings an AI's. The
+        // gateway checks both again — this only decides what to offer.
+        let mine = seat.you;
+        let ai_chair = seat.kind == SeatKind::Ai;
+        if mine || (game.yours && ai_chair) {
+            let set = chip(
+                commands,
+                fonts,
+                metrics,
+                "use my deck",
+                Press::SeatDeck(index, seat.seat),
+                false,
+            );
+            commands.entity(line).add_child(set);
+        }
+        // Only the host arranges chairs, and never one somebody is sitting in.
+        if game.yours && (mine || !seat.taken) {
+            let (label, press) = if ai_chair {
+                (
+                    "\u{2192} open",
+                    Press::SeatKind(index, seat.seat, SeatKind::Human),
+                )
+            } else {
+                (
+                    "\u{2192} AI",
+                    Press::SeatKind(index, seat.seat, SeatKind::Ai),
+                )
+            };
+            // The host's own chair is theirs as a player, not as the host:
+            // handing it to the AI would seat them out of their own table.
+            if !mine {
+                let swap = chip(commands, fonts, metrics, label, press, false);
+                commands.entity(line).add_child(swap);
+            }
+            if ai_chair {
+                for name in ["novice", "steady", "sharp"] {
+                    let lit = seat.ai.as_deref() == Some(name);
+                    let pick = chip(
+                        commands,
+                        fonts,
+                        metrics,
+                        name,
+                        Press::SeatAi(index, seat.seat, name),
+                        lit,
+                    );
+                    commands.entity(line).add_child(pick);
+                }
+            }
+        }
+        // A free chair is one anyone else can take, by name rather than by
+        // whichever one the gateway would have picked.
+        if seat.open() && !game.seated() && !busy {
+            let sit = chip(
+                commands,
+                fonts,
+                metrics,
+                "sit here",
+                Press::JoinSeat(index, seat.seat),
+                false,
+            );
+            commands.entity(line).add_child(sit);
+        }
+        commands.entity(holder).add_child(line);
+    }
+    holder
 }
 
 // --------------------------------------------------------- the deck builder
@@ -4115,6 +4398,8 @@ mod tests {
                 LobbyRequest::CreateGame {
                     deck_id: "d1".to_string(),
                     mode: GameMode::Ai,
+                    chairs: 2,
+                    name: String::new(),
                 },
                 "POST",
                 "http://gw/lobby/games",
@@ -4123,6 +4408,7 @@ mod tests {
                 LobbyRequest::JoinGame {
                     game_id: "g1".to_string(),
                     deck_id: "d1".to_string(),
+                    seat: None,
                 },
                 "POST",
                 "http://gw/lobby/games/g1/join",
@@ -4192,11 +4478,13 @@ mod tests {
             LobbyRequest::CreateGame {
                 deck_id: "d1".to_string(),
                 mode: GameMode::Open,
+                chairs: 2,
+                name: String::new(),
             },
         );
         assert_eq!(
             body(&game),
-            serde_json::json!({ "deck_id": "d1", "mode": "open" })
+            serde_json::json!({ "deck_id": "d1", "mode": "open", "seats": 2, "name": "" })
         );
         let (join, _) = build(
             "http://gw",
@@ -4205,9 +4493,36 @@ mod tests {
             LobbyRequest::JoinGame {
                 game_id: "g1".to_string(),
                 deck_id: "d1".to_string(),
+                seat: None,
             },
         );
-        assert_eq!(body(&join), serde_json::json!({ "deck_id": "d1" }));
+        assert_eq!(
+            body(&join),
+            serde_json::json!({ "deck_id": "d1", "seat": null })
+        );
+
+        // Arranging a chair, which is the room's own verb.
+        let (chair, expect) = build(
+            "http://gw",
+            None,
+            "en",
+            LobbyRequest::SetSeat {
+                game_id: "g1".to_string(),
+                seat: 2,
+                kind: Some(SeatKind::Ai),
+                ai: Some("sharp".to_string()),
+                deck_id: None,
+            },
+        );
+        assert_eq!(chair.url, "http://gw/lobby/games/g1/seats/2");
+        assert_eq!(
+            body(&chair),
+            serde_json::json!({ "kind": "ai", "ai": "sharp", "deck_id": null })
+        );
+        assert!(
+            matches!(expect, Expect::Games),
+            "the answer redraws the room"
+        );
     }
 
     #[test]
@@ -4336,6 +4651,12 @@ mod tests {
                 mana: Handle::default(),
             })
             .add_plugins(LobbyPlugin);
+        // The startup probe asks a gateway whether sign-ups are open. Left
+        // pointing at the default address it reaches a gateway that happens to
+        // be running on this machine, and that answer lands a frame or two
+        // later — inside whatever the test is measuring. An address no request
+        // can be built from keeps a headless test off the network entirely.
+        app.world_mut().resource_mut::<LobbyState>().gateway = String::new();
         app.update();
         app
     }
@@ -4441,12 +4762,15 @@ mod tests {
                     GameSeat {
                         seat: 0,
                         taken: true,
+                        ..GameSeat::default()
                     },
                     GameSeat {
                         seat: 1,
                         taken: false,
+                        ..GameSeat::default()
                     },
                 ],
+                ..GameSummary::default()
             }]));
         }
         app.update();
@@ -4457,8 +4781,13 @@ mod tests {
             Press::StarterDeck,
             Press::SelectDeck(0),
             Press::Host(GameMode::Ai),
-            Press::Host(GameMode::Open),
+            Press::OpenRoom(2),
+            Press::OpenRoom(4),
             Press::Join(0),
+            // The chairs of a waiting table are drawn for everyone, so a
+            // player can take the one they want rather than whichever the
+            // gateway would have handed them.
+            Press::JoinSeat(0, 1),
         ] {
             assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
         }
@@ -4642,12 +4971,15 @@ mod tests {
                     GameSeat {
                         seat: 0,
                         taken: true,
+                        ..GameSeat::default()
                     },
                     GameSeat {
                         seat: 1,
                         taken: true,
+                        ..GameSeat::default()
                     },
                 ],
+                ..GameSummary::default()
             }]));
         }
         app.update();

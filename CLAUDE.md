@@ -273,6 +273,18 @@ a front door. Two buttons survive from before there was a builder: "add the
 starter deck" (it posts the acceptance file's `Allytifact` rows in one tap)
 and "play the house AI offline" (a `LocalHost`, no account).
 
+A table of more than two chairs is a **room**, arranged in the open before
+anyone plays: `POST /lobby/games {seats: 2..=4, name}` opens one, `POST
+/lobby/games/{id}/seats/{seat}` arranges a chair, `POST .../leave` frees one.
+Two authorities that do not overlap — the host sets `kind`/`ai` on any chair
+nobody is sitting in, every player sets `deck_id` on their own and nothing
+else. There is deliberately **no start route**: a room starts the moment every
+chair is ready (a human chair with an account and a deck, or an AI chair, which
+is ready as soon as it is configured), which is the same rule the two-seat open
+table always followed when its second player sat down. `GET /lobby/games`
+describes the whole arrangement in display names, never account ids, with
+`you`/`yours` answering "is that me". `docs/protocol.md` §Rooms is normative.
+
 The deck builder is `Screen::Build`, and the same split once more: all of it
 decides in `crates/baylee-client-core/src/deckbuilder.rs`. Two things fix its
 shape. Its pool is `GET /pool` — the compiled **registry**, not the catalog's
@@ -301,6 +313,18 @@ copy limit stays on the card, as the gateway enforces it.
 The rule that keeps old decks clean: a choice that changes nothing writes
 nothing. Picking the default printing leaves `4 Lightning Bolt` exactly as it
 was, so re-saving a deck built before any of this existed adds no noise.
+
+Three things about the builder's surface that are easy to break by accident.
+Mana costs are drawn, not printed: `baylee-client-core/src/manapip.rs` is the
+renderer-free pip table and `baylee-client/src/manaui.rs` draws it with the
+OFL Mana font (`docs/legal.md` §2) — the font supplies a monochrome mark only,
+so the coloured disc is the client's, and a hybrid is one disc with two glyphs
+clipped to opposite halves because hybrids have no single glyph. The hover
+preview is **not** part of the retained tree: it is its own entity behind an
+epoch counter (`Hovered` → `CardPreview`), because rebuilding two hundred rows
+per pointer move would make the list unusable. And a card's `?` panel is a
+menu, not a label — add, move between deck and sideboard (keeping the
+printing), remove, set as commander.
 
 The lobby is the client's one responsive screen: `Metrics::of(width)` picks a
 phone / tablet / desktop frame and every size comes from it, so a phone stacks
