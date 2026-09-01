@@ -68,9 +68,6 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage lives in baylee-engine (m2 cross-zone test):
-    // with Nexus out, a non-Ally creature card in the library counts as an
-    // Ally for General Tazri's ETB tutor.
-}
+// Engine-level coverage lives in baylee-engine (m2 cross-zone test):
+// with Nexus out, a non-Ally creature card in the library counts as an
+// Ally for General Tazri's ETB tutor.

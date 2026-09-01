@@ -69,6 +69,3 @@ pub static CARD: CardDef = CardDef {
     ],
     ..CardDef::DEFAULT
 };
-
-#[cfg(test)]
-mod tests {}

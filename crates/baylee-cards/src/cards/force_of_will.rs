@@ -44,8 +44,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage in baylee-engine s7 tests: pitching (life +
-    // exiled blue card) casts Force of Will with an empty mana pool.
-}
+// Engine-level coverage in baylee-engine s7 tests: pitching (life +
+// exiled blue card) casts Force of Will with an empty mana pool.

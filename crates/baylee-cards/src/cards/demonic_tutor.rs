@@ -40,8 +40,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage via s4 scenario tests: tutoring puts any chosen
-    // library card into hand and shuffles.
-}
+// Engine-level coverage via s4 scenario tests: tutoring puts any chosen
+// library card into hand and shuffles.

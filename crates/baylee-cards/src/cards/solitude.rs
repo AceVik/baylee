@@ -71,8 +71,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Pitch path: exile a white card from hand, no mana spent; creature is
-    // sacrificed after its ETB.
-}
+// Pitch path: exile a white card from hand, no mana spent; creature is
+// sacrificed after its ETB.

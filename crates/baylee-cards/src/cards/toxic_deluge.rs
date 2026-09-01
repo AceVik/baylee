@@ -42,7 +42,4 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // X life paid at cast; all creatures get -X/-X until end of turn.
-}
+// X life paid at cast; all creatures get -X/-X until end of turn.

@@ -54,8 +54,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Fetchland family coverage lives in baylee-engine (fetchland test with
-    // Polluted Delta + the land-wave group test).
-}
+// Fetchland family coverage lives in baylee-engine (fetchland test with
+// Polluted Delta + the land-wave group test).

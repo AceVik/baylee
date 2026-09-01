@@ -55,9 +55,6 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level test lives in baylee-engine (cleric_rally_gains_life):
-    // own ETB triggers once, another Ally's ETB triggers again, non-Ally
-    // creatures do not trigger.
-}
+// Engine-level test lives in baylee-engine (cleric_rally_gains_life):
+// own ETB triggers once, another Ally's ETB triggers again, non-Ally
+// creatures do not trigger.

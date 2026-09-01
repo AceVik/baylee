@@ -37,7 +37,4 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // X creatures exiled; each controller gets a Boar per exiled creature.
-}
+// X creatures exiled; each controller gets a Boar per exiled creature.

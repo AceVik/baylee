@@ -19,6 +19,9 @@ use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 static EQUIPPED: Filter = Filter::AttachedToBySource;
+/// Equip targets "target creature you control" (CR 702.6a).
+static CREATURE_YOU_CONTROL: Filter =
+    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]);
 static GREEN_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Green]));
 static WHITE_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White]));
 static CREATURE_YOU_OWN: Filter =
@@ -87,9 +90,9 @@ pub static CARD: CardDef = CardDef {
                 parts: &[],
             },
             effects: &[Effect::AttachSelf {
-                target: TargetSpec::Object(&Filter::HasType(TypeSet::CREATURE)),
+                target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
             }],
-            target: Some(TargetSpec::Object(&Filter::HasType(TypeSet::CREATURE))),
+            target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
             timing: ActivationTiming::SorcerySpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
@@ -97,6 +100,3 @@ pub static CARD: CardDef = CardDef {
     ],
     ..CardDef::DEFAULT
 };
-
-#[cfg(test)]
-mod tests {}

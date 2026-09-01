@@ -54,9 +54,6 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level test lives in baylee-engine (fetchland_works): activation
-    // pays tap+sacrifice+1 life, offers only Island/Swamp options, puts the
-    // chosen card onto the battlefield tapped, and shuffles.
-}
+// Engine-level test lives in baylee-engine (fetchland_works): activation
+// pays tap+sacrifice+1 life, offers only Island/Swamp options, puts the
+// chosen card onto the battlefield tapped, and shuffles.

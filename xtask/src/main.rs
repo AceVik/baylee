@@ -496,7 +496,6 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             ("scryfall id", content.contains("Scryfall ID:")),
             ("oracle id", content.contains("Oracle ID:")),
             ("coverage flag", content.contains("coverage: Coverage::")),
-            ("tests module", content.contains("mod tests")),
         ] {
             if !check.1 {
                 println!("{slug}: missing {}", check.0);

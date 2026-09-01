@@ -35,8 +35,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage in baylee-engine s6 tests: a rally trigger
-    // fires twice with Panharmonicon on the battlefield.
-}
+// Engine-level coverage in baylee-engine s6 tests: a rally trigger
+// fires twice with Panharmonicon on the battlefield.

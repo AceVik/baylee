@@ -58,7 +58,4 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage in baylee-engine s7 tests: both modes resolve.
-}
+// Engine-level coverage in baylee-engine s7 tests: both modes resolve.

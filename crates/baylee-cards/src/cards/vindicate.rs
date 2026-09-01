@@ -36,8 +36,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage via s4 scenario tests: the chosen permanent is
-    // destroyed (battlefield → graveyard).
-}
+// Engine-level coverage via s4 scenario tests: the chosen permanent is
+// destroyed (battlefield → graveyard).

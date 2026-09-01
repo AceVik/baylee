@@ -57,8 +57,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Evoke path: cast for {2}{U}, ETB draws 2, then it is sacrificed.
-    // Full path: cast for {4}{U}, it stays.
-}
+// Evoke path: cast for {2}{U}, ETB draws 2, then it is sacrificed.
+// Full path: cast for {4}{U}, it stays.

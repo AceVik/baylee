@@ -51,8 +51,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage in baylee-engine s6 tests: your rally fires
-    // twice, the opponent's rally is fully suppressed.
-}
+// Engine-level coverage in baylee-engine s6 tests: your rally fires
+// twice, the opponent's rally is fully suppressed.

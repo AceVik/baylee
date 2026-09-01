@@ -54,7 +54,4 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Overload destroys everything; normal mode only the target.
-}
+// Overload destroys everything; normal mode only the target.

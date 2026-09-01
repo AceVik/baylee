@@ -37,7 +37,4 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // X cards for the chosen player.
-}
+// X cards for the chosen player.

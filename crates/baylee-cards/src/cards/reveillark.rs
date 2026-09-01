@@ -65,7 +65,4 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // LTB returns up to two small creatures from your graveyard.
-}
+// LTB returns up to two small creatures from your graveyard.

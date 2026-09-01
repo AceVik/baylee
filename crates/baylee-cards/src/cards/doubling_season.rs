@@ -40,8 +40,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage in baylee-engine s6 tests: Maskwood Nexus's
-    // token ability creates two Shapeshifters with Doubling Season out.
-}
+// Engine-level coverage in baylee-engine s6 tests: Maskwood Nexus's
+// token ability creates two Shapeshifters with Doubling Season out.

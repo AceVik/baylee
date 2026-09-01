@@ -62,8 +62,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage in baylee-engine s6 tests: ETB exiles a target,
-    // LTB makes the owner an X/X Illusion with X = its mana value.
-}
+// Engine-level coverage in baylee-engine s6 tests: ETB exiles a target,
+// LTB makes the owner an X/X Illusion with X = its mana value.

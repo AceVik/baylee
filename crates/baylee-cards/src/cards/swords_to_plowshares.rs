@@ -42,8 +42,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage via s4 scenario tests: the creature is exiled
-    // (not destroyed) and its controller gains life equal to its power.
-}
+// Engine-level coverage via s4 scenario tests: the creature is exiled
+// (not destroyed) and its controller gains life equal to its power.

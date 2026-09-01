@@ -34,8 +34,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage via s4 scenario tests: countering a creature
-    // spell moves it to the graveyard instead of the battlefield.
-}
+// Engine-level coverage via s4 scenario tests: countering a creature
+// spell moves it to the graveyard instead of the battlefield.

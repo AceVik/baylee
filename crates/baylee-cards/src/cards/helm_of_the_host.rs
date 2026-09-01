@@ -15,7 +15,9 @@ use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 
-static ANY_CREATURE: Filter = Filter::HasType(TypeSet::CREATURE);
+/// Equip targets "target creature you control" (CR 702.6a).
+static CREATURE_YOU_CONTROL: Filter =
+    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]);
 
 pub static CARD: CardDef = CardDef {
     index: CardIndex::new(68),
@@ -53,9 +55,9 @@ pub static CARD: CardDef = CardDef {
                 parts: &[],
             },
             effects: &[Effect::AttachSelf {
-                target: TargetSpec::Object(&ANY_CREATURE),
+                target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
             }],
-            target: Some(TargetSpec::Object(&ANY_CREATURE)),
+            target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
             timing: ActivationTiming::SorcerySpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
@@ -63,6 +65,3 @@ pub static CARD: CardDef = CardDef {
     ],
     ..CardDef::DEFAULT
 };
-
-#[cfg(test)]
-mod tests {}

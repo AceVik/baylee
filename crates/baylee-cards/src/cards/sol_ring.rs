@@ -38,8 +38,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage via s4 scenario tests: tapping adds {C}{C}
-    // immediately (no stack object created).
-}
+// Engine-level coverage via s4 scenario tests: tapping adds {C}{C}
+// immediately (no stack object created).

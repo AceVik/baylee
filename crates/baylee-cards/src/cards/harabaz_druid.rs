@@ -56,8 +56,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // X = Allies is delivered by AddManaChoice's dynamic Amount::CountOf
-    // (evaluated at resolution against your battlefield).
-}
+// X = Allies is delivered by AddManaChoice's dynamic Amount::CountOf
+// (evaluated at resolution against your battlefield).

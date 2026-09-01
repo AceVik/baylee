@@ -344,4 +344,63 @@ mod tests {
              `Filter::HasSupertype(SupertypeSet::BASIC)`: {offenders:?}"
         );
     }
+
+    /// Equip is `[cost]: Attach this permanent to target creature you control.
+    /// Activate only as a sorcery.` (CR 702.6a-b). Three things follow that a
+    /// card can get wrong while compiling perfectly: it does not tap the
+    /// Equipment, it is not instant speed, and it cannot target a creature an
+    /// opponent controls.
+    ///
+    /// Lightning Greaves got all three wrong while Swiftfoot Boots, the same
+    /// shape, had them right — so this is not something the DSL fails to
+    /// express, it is a rule that was being restated once per card instead of
+    /// held in one place.
+    #[test]
+    fn every_equip_ability_is_sorcery_speed_untapped_and_targets_your_own() {
+        use baylee_cards_dsl::{AbilityDef, ActivationTiming, CostPart, Effect};
+        use baylee_core::generated::subtypes;
+
+        let mut offenders = Vec::new();
+        for (_, def) in generated::ALL {
+            if !def
+                .faces
+                .iter()
+                .any(|f| f.subtypes.contains(&subtypes::artifact::EQUIPMENT))
+            {
+                continue;
+            }
+            for (i, _) in def.faces.iter().enumerate() {
+                for ability in def.abilities_for_face(i) {
+                    let AbilityDef::Activated {
+                        cost,
+                        effects,
+                        target,
+                        timing,
+                        ..
+                    } = ability
+                    else {
+                        continue;
+                    };
+                    if !effects
+                        .iter()
+                        .any(|e| matches!(e, Effect::AttachSelf { .. }))
+                    {
+                        continue;
+                    }
+                    let name = def.name();
+                    if *timing != ActivationTiming::SorcerySpeed {
+                        offenders.push(format!("{name}: equip at {timing:?}"));
+                    }
+                    if cost.parts.contains(&CostPart::TapSelf) {
+                        offenders.push(format!("{name}: equip taps the Equipment"));
+                    }
+                    if !format!("{target:?}").contains("ControlledByYou") {
+                        offenders.push(format!("{name}: equip targets any creature"));
+                    }
+                }
+            }
+        }
+        offenders.sort();
+        assert!(offenders.is_empty(), "equip breaks CR 702.6: {offenders:?}");
+    }
 }

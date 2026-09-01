@@ -36,8 +36,5 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage via s4 scenario tests: draw 3 then put 2 back;
-    // the top card of the library afterwards is the second chosen card.
-}
+// Engine-level coverage via s4 scenario tests: draw 3 then put 2 back;
+// the top card of the library afterwards is the second chosen card.

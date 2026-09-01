@@ -57,6 +57,3 @@ pub static CARD: CardDef = CardDef {
     abilities: &[AbilityDef::Ward { mana: 1 }],
     ..CardDef::DEFAULT
 };
-
-#[cfg(test)]
-mod tests {}

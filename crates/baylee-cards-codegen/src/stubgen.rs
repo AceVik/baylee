@@ -439,9 +439,14 @@ pub fn render_stub(
     out.push_str(&render_card_literal(
         card, index, &oracle_id, &faces, &face_defs,
     ));
-    out.push_str(
-        "#[cfg(test)]\nmod tests {\n    // TODO(card): implement abilities + tests, see docs/card-dsl.md.\n}\n",
-    );
+    // No test module. A card file is data, and a test that reads the literal
+    // it sits under proves nothing — every one of the 194 hand-written cards
+    // left the module empty, and the generated cards that filled it produced
+    // assertions like `assert_eq!(*filter, BASIC_LAND_FILTER)`, which compares
+    // the filter with itself. Behaviour is tested in baylee-engine, and a rule
+    // that must hold for *every* card belongs in the cross-cutting tests at
+    // the foot of baylee-cards/src/lib.rs.
+    out.push_str("// TODO(card): implement abilities, see docs/card-dsl.md.\n");
 
     Ok((
         StubInfo {

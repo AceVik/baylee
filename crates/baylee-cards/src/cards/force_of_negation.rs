@@ -44,7 +44,4 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Countering noncreature spells only; pitch only on opponents' turns.
-}
+// Countering noncreature spells only; pitch only on opponents' turns.

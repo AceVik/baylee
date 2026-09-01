@@ -78,6 +78,3 @@ static EMBLEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Triggered {
         &ANY_PERMANENT,
     ))),
 }];
-
-#[cfg(test)]
-mod tests {}

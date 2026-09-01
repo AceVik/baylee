@@ -83,9 +83,6 @@ pub static CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-#[cfg(test)]
-mod tests {
-    // Engine-level coverage lives in baylee-engine m2 tests: with Maskwood
-    // Nexus on the battlefield, a non-Ally creature card in the library is
-    // a legal tutor option (cross-zone projection).
-}
+// Engine-level coverage lives in baylee-engine m2 tests: with Maskwood
+// Nexus on the battlefield, a non-Ally creature card in the library is
+// a legal tutor option (cross-zone projection).
