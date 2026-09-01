@@ -237,6 +237,11 @@ pub struct PrefsPlugin;
 impl Plugin for PrefsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Prefs::local())
+            // The keymap is resolved against this, and a headless test has no
+            // `InputPlugin` to create it. `init_resource` is what both do, so
+            // whichever runs first wins and the other is a no-op — a real
+            // keyboard still writes into the same resource.
+            .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(Update, sync);
     }
 }

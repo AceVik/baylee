@@ -27,18 +27,39 @@ Cards are textured quads lying on a 3D table; everything a player *reads*
 (prompt, hand, stack, life, threat lines) is a 2D overlay. Tapping is a
 rotation, and focusing an opponent is a camera move rather than a re-layout.
 
-The quad is a rounded rectangle built by hand
-(`table.rs::rounded_card_mesh`), and it is worth knowing why it has four
-tests of its own. It shipped once with every corner arc sweeping the quarter
-turn belonging to its neighbour: the outline folded through the middle twice
-and every permanent on the battlefield drew as a small bright X. Nothing
-caught it, because the test that existed —
-`an_untapped_card_lies_flat_on_the_table` — asks whether the *transform* is
-flat, and it always was. The mesh is now checked for what actually went
-wrong: that the outline turns one way and closes exactly once, that it covers
-the area a card of that size should, and that every triangle faces the
-printed side (back-face culling is on, so the other winding is an invisible
-card).
+The card is a rounded slab built by hand (`table.rs::rounded_card_mesh`): a
+rounded rectangle carrying the printed face, with a thin wall around its edge
+and no bottom (the camera never goes under the table). The wall borrows the
+UV of the face vertex above it, so a card's edge is whatever colour its
+border is — black for most cards, which is exactly right. `CARD_THICKNESS` is
+far more than a card's real proportion, and deliberately: at any camera
+distance a player uses, a true 1/50th would be a fraction of a pixel.
+
+Under it is a **contact shadow** — one quad a little larger than the card,
+carrying a painted halo that is dense under the card and gone by its own
+edge. It is a child of the card, so it follows the tap rotation and the hover
+lift with nothing to keep in step. It is a shape, not a cast shadow: a real
+one would need the table to be lit, and everything down there is unlit on
+purpose.
+
+Neither reads at a purely top-down camera, which is why `CAMERA_LEAN` exists.
+The table is read from above — a four-seat pod ring is laid out for a plan
+view — but a camera exactly overhead throws away every cue that a card is an
+object: the edge projects to nothing and the shadow hides underneath. About
+22° off vertical is the compromise, and it is also why there is **no sky
+behind the table**: at that angle the top of the frame still looks 48° below
+the horizon, so a backdrop with a horizon in it would render nothing.
+
+The mesh has five tests of its own, and it is worth knowing why. It shipped
+once with every corner arc sweeping the quarter turn belonging to its
+neighbour: the outline folded through the middle twice and every permanent on
+the battlefield drew as a small bright X. Nothing caught it, because the test
+that existed — `an_untapped_card_lies_flat_on_the_table` — asks whether the
+*transform* is flat, and it always was. The mesh is now checked for what
+actually went wrong: that the outline turns one way and closes exactly once,
+that it covers the area a card of that size should, that every face triangle
+faces the printed side, that the wall closes around the card facing outwards,
+and that the face sits on top of the slab rather than level with it.
 
 ## The table itself
 
@@ -77,7 +98,13 @@ adding two brightnesses and hoping.
 
 The medallion inlaid at the centre is the colour wheel, in the arrangement
 every player already has in their head — so it is orientation as much as
-ornament, and it sits on the one patch of felt no seat ever plays on.
+ornament, and it sits on the one patch of felt no seat ever plays on. Around
+it, `tabletop::hearth` paints a pool of lamplight with a ring of faint arcs
+and tick marks inlaid in it — one texture, because they are one thing to look
+at, and because a table with nothing between the seat mats reads as an
+infinite green plane however good the grain is. The pool is candlelight and
+the inlay is gilt; a test asserts neither ever goes cold, since a blue light
+over a green table makes colour identity a guess.
 Everything down here is `unlit`, and stays that way: card art must never be
 tinted by scene lighting, because colour identity has to be readable at a
 glance. The table gets its depth from shading painted into the textures
@@ -394,6 +421,48 @@ deliberately outside `LobbyState`: the tree is rebuilt whenever *that* changes,
 so adding a card would otherwise throw the list back to the top, and keeping
 the offsets inside it would rebuild sixty rows on every notch of the wheel. A
 new search does start at the top, because it is a different list.
+
+## Settings, and what belongs to whom
+
+Two stores, split on one question: is this about the *player* or about *this
+screen*?
+
+`baylee_client_core::prefs::Preferences` is the player's — the keymap, the
+phase rail, and the `AutoRules` switches. It follows the account: the client
+`PUT`s it to the gateway (`docs/protocol.md` §"Client preferences"), which
+keeps it as an opaque blob because knowing what a keymap is would mean
+linking the client's brain. `crate::prefs::Prefs` holds it, and every change
+goes through `Prefs::edit`, a borrow that marks the value dirty when it is
+dropped — a `pub` field would let one caller forget, and the symptom would be
+a setting that survives until the next restart and then silently reverts.
+Writes are debounced, so dragging a slider costs one request rather than
+twenty.
+
+`settings::ClientSettings` is the screen's: preview size, interface language,
+the text-view latch, and the gateway address. Those are properties of a
+device, and putting them in the account would mean a phone and a desktop
+fighting over one number.
+
+A client that is *not* signed in still has all of it — an offline duel
+against the house AI is played with the same keys — kept in the same local
+file or `localStorage` as the client settings. Signing in replaces the local
+copy with the account's, which is the only ordering that does not quietly
+upload one machine's defaults over a player's real bindings.
+
+The screen itself is `settingsui.rs`, drawn over the lobby rather than beside
+it: coming back has to land exactly where the player left, including halfway
+through a deck. It is its own module because `lobby.rs` is already the
+largest file in the crate, and it borrows that module's `Metrics`, `Press`
+and widget helpers so it looks like every other screen without a second copy
+of any of them. `SettingsPane` is an enum rather than a flag plus an
+`Option<Action>`, because "waiting for a key while closed" is not a state —
+and a pair of fields would let it happen, with the symptom that the next key
+pressed anywhere rebinds something.
+
+Rebinding takes every key while a row is armed, including the ones that mean
+something everywhere else: a player who wants `Esc` on some other action has
+to be able to press it. Escape backs out, backspace unbinds, and unbinding is
+a real answer because a pointer still reaches everything.
 
 ## Embedding (the open-world plan)
 

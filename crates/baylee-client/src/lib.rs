@@ -47,6 +47,7 @@ pub mod manaui;
 pub mod net;
 pub mod prefs;
 pub mod settings;
+pub mod settingsui;
 pub mod softkeys;
 pub mod table;
 pub mod textures;

@@ -353,6 +353,125 @@ pub fn glow(size: u32) -> Texture {
     texture
 }
 
+/// The soft dark patch a card sits in.
+///
+/// A card with thickness but no shadow reads as a sticker: the eye takes
+/// contact shadow, not the edge, as the cue that an object is *on* something.
+/// So this is drawn a little larger than the card and slid underneath it,
+/// where only the halo around the edges shows.
+///
+/// It is a shape, not a cast shadow. A real one would need the table to be
+/// lit, and everything down there is unlit on purpose — scene lighting on
+/// card art would make colour identity unreadable. A painted halo is honest
+/// about what it is, costs one quad, and is correct from every angle the
+/// camera can reach.
+///
+/// `spread` is how much of the texture's short side the falloff takes on each
+/// side (the rest is the card's own silhouette); `radius` is the card's
+/// corner radius as a fraction of the card's short side, so the shadow's
+/// corners match the mesh's.
+#[must_use]
+pub fn card_shadow(width: u32, height: u32, spread: f32, radius: f32) -> Texture {
+    /// How dark the shadow gets right under the card. Well below opaque: a
+    /// shadow darker than the felt's own shading reads as a hole in the table.
+    const DENSITY: f32 = 0.55;
+
+    let mut texture = Texture::blank(width, height);
+    let (w, h) = (width as f32, height as f32);
+    let inset = (spread * w.min(h)).max(1.0);
+    let (half_w, half_h) = (w.mul_add(0.5, -inset), h.mul_add(0.5, -inset));
+    let corner = (radius * (half_w * 2.0).min(half_h * 2.0)).max(1.0);
+    for y in 0..height {
+        for x in 0..width {
+            let px = (x as f32 + 0.5) - w * 0.5;
+            let py = (y as f32 + 0.5) - h * 0.5;
+            // Distance outside the rounded rectangle the card covers: zero
+            // beneath it, growing to `inset` at the texture's own edge.
+            let dx = (px.abs() - (half_w - corner)).max(0.0);
+            let dy = (py.abs() - (half_h - corner)).max(0.0);
+            let outside = dx.hypot(dy) - corner;
+            let t = (outside / inset).clamp(0.0, 1.0);
+            texture.put(x, y, [0.0, 0.0, 0.0, (1.0 - t).powi(2) * DENSITY]);
+        }
+    }
+    texture
+}
+
+/// The pool of lamplight over the middle of the table, with the arcane ring
+/// inlaid in it.
+///
+/// Two things in one texture because they are one thing to look at: a warm
+/// glow that says "this is where the light is", and a set of faint concentric
+/// arcs with tick marks that give the felt some structure to read against.
+/// A table with nothing between the seat mats reads as an infinite green
+/// plane no matter how good the grain is.
+///
+/// The geometry is arithmetic, not ornament borrowed from anywhere:
+/// `docs/legal.md` §2, and rings and ticks are about as far from anyone's
+/// trade dress as a shape can get.
+///
+/// `inner` and `outer` are where the ring band sits, as fractions of the
+/// texture's half-width; the light pool fills the whole thing.
+#[must_use]
+pub fn hearth(size: u32, inner: f32, outer: f32) -> Texture {
+    /// The lamp's colour: candle, not daylight.
+    const WARM: [f32; 3] = [1.0, 0.86, 0.62];
+    /// The inlay's: old gilt, dim enough to sit under the cards.
+    const GILT: [f32; 3] = [0.86, 0.72, 0.40];
+
+    let mut texture = Texture::blank(size, size);
+    let extent = size as f32;
+    // One tick every 15°, so the ring reads as a dial rather than as a
+    // circle somebody drew twice.
+    let ticks = 24.0;
+    for y in 0..size {
+        for x in 0..size {
+            let u = (x as f32 + 0.5) / extent * 2.0 - 1.0;
+            let v = (y as f32 + 0.5) / extent * 2.0 - 1.0;
+            let radius = u.hypot(v);
+            if radius > 1.0 {
+                continue;
+            }
+            // The pool: brightest at the middle, gone before the edge, so
+            // the quad never shows as a square against the felt.
+            let pool = (1.0 - radius).clamp(0.0, 1.0).powf(2.2) * 0.16;
+
+            // Two hairlines bounding the band, and the band itself barely
+            // lifted — an inlay, not a painted circle.
+            let line = [inner, outer]
+                .iter()
+                .map(|edge| (radius - edge).abs())
+                .fold(f32::MAX, f32::min);
+            let hairline = (1.0 - line / 0.006).clamp(0.0, 1.0) * 0.30;
+            let inside_band = radius > inner && radius < outer;
+            let band = f32::from(u8::from(inside_band)) * 0.045;
+
+            // Ticks: short radial marks across the band, deterministic and
+            // evenly spaced.
+            let angle = v.atan2(u);
+            let phase = (angle / TAU * ticks).fract().abs();
+            let near_tick = phase.min(1.0 - phase);
+            let tick = if inside_band {
+                (1.0 - near_tick / 0.06).clamp(0.0, 1.0) * 0.22
+            } else {
+                0.0
+            };
+
+            let alpha = pool + hairline + band + tick;
+            if alpha <= 0.0 {
+                continue;
+            }
+            // The inlay is gilt, the pool is candlelight; blend by how much
+            // of the alpha each contributed, so the ring stays gold where it
+            // crosses the bright middle.
+            let gold = ((hairline + tick + band) / alpha).clamp(0.0, 1.0);
+            let colour = mix(WARM, GILT, gold);
+            texture.put(x, y, [colour[0], colour[1], colour[2], alpha.min(1.0)]);
+        }
+    }
+    texture
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,6 +629,125 @@ mod tests {
         assert!(g.pixel(0, 32)[3] < 1e-6, "and gone by the edge");
         for (_, _, px) in pixels(&g) {
             assert!((px[0] - 1.0).abs() < 1e-6, "white, so it can be tinted");
+        }
+    }
+
+    #[test]
+    fn a_card_shadow_is_densest_where_the_card_touches_the_table() {
+        let s = card_shadow(128, 160, 0.15, 0.1);
+        assert!(s.pixel(64, 80)[3] > 0.5, "no shadow under the card");
+        // Out through the falloff: fading, and monotonically.
+        let mut previous = 1.0;
+        for y in (0..19).rev() {
+            let alpha = s.pixel(64, y)[3];
+            assert!(
+                alpha <= previous,
+                "the falloff runs the wrong way at row {y}"
+            );
+            previous = alpha;
+        }
+    }
+
+    /// A quad whose texture is still dark at its own edge draws as a square,
+    /// and a square shadow under a rounded card is the most visible bug there
+    /// is.
+    #[test]
+    fn a_card_shadow_reaches_nothing_before_its_own_edge() {
+        let s = card_shadow(128, 160, 0.15, 0.1);
+        for x in 0..128 {
+            assert!(
+                s.pixel(x, 0)[3] < 1e-6 && s.pixel(x, 159)[3] < 1e-6,
+                "the shadow is still dark at column {x} of its own edge"
+            );
+        }
+        for y in 0..160 {
+            assert!(s.pixel(0, y)[3] < 1e-6 && s.pixel(127, y)[3] < 1e-6);
+        }
+    }
+
+    #[test]
+    fn the_hearth_is_brightest_in_the_middle_and_gone_at_its_edge() {
+        let h = hearth(256, 0.55, 0.72);
+        assert!(h.pixel(128, 128)[3] > 0.1, "no light in the middle");
+        for x in 0..256 {
+            assert!(h.pixel(x, 0)[3] < 1e-6, "still lit at the texture's edge");
+            assert!(h.pixel(0, x)[3] < 1e-6);
+        }
+    }
+
+    #[test]
+    fn the_arcane_ring_is_where_it_was_asked_for() {
+        let h = hearth(512, 0.55, 0.72);
+        // Sampled *between* two ticks: on a tick every radius in the band is
+        // bright, and the hairlines would have nothing to stand out from.
+        let at = |r: f32| {
+            let angle = (360.0f32 / 24.0 / 2.0).to_radians();
+            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let (x, y) = (
+                (256.0 + r * 256.0 * angle.cos()) as u32,
+                (256.0 + r * 256.0 * angle.sin()) as u32,
+            );
+            h.pixel(x.min(511), y.min(511))[3]
+        };
+        // Each hairline is a local maximum, which is what a line *is*.
+        for edge in [0.55_f32, 0.72] {
+            let on = at(edge);
+            assert!(
+                on > at(edge - 0.04) && on > at(edge + 0.04),
+                "no hairline at {edge}: {} / {on} / {}",
+                at(edge - 0.04),
+                at(edge + 0.04)
+            );
+        }
+        // And the band between them is lifted above the felt outside it, at
+        // radii where the pool alone would have it the other way round.
+        assert!(
+            at(0.66) > at(0.78),
+            "the band is not there: {} vs {}",
+            at(0.66),
+            at(0.78)
+        );
+    }
+
+    #[test]
+    fn the_ring_carries_its_ticks_all_the_way_round() {
+        let h = hearth(512, 0.55, 0.72);
+        let at = |degrees: f32| {
+            let angle = degrees.to_radians();
+            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let (x, y) = (
+                (256.0 + 0.635 * 256.0 * angle.cos()) as u32,
+                (256.0 + 0.635 * 256.0 * angle.sin()) as u32,
+            );
+            h.pixel(x.min(511), y.min(511))[3]
+        };
+        // Twenty-four of them, so every fifteenth degree is a mark and every
+        // seventh-and-a-half is not.
+        for step in 0..24 {
+            let on = at(step as f32 * 15.0);
+            let off = at(step as f32 * 15.0 + 7.5);
+            assert!(on > off, "tick {step} is missing: {on} vs {off}");
+        }
+    }
+
+    /// The pool is candlelight and the inlay is gilt. Neither may go blue:
+    /// a cold light over a green table makes every card's colour identity a
+    /// guess, which is the one thing the whole unlit design exists to avoid.
+    #[test]
+    fn nothing_in_the_hearth_is_a_cold_colour() {
+        for (_, _, px) in pixels(&hearth(64, 0.55, 0.72)) {
+            if px[3] < 1e-6 {
+                continue;
+            }
+            assert!(px[0] >= px[1] && px[1] >= px[2], "a cold pixel: {px:?}");
+        }
+    }
+
+    #[test]
+    fn a_card_shadow_is_black_so_it_only_ever_darkens_the_table() {
+        for (_, _, px) in pixels(&card_shadow(32, 40, 0.15, 0.1)) {
+            assert!(px[0] < 1e-6 && px[1] < 1e-6 && px[2] < 1e-6);
+            assert!(px[3] <= 0.56, "dense enough to read as a hole in the table");
         }
     }
 }

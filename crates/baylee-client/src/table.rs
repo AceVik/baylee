@@ -51,6 +51,11 @@ const GLOW_LIFT: f32 = 0.001;
 const MEDALLION_LIFT: f32 = 0.0015;
 /// The felt's extent. Big enough that no seat sees its edge.
 const FELT: Vec2 = Vec2::new(60.0, 44.0);
+/// Where the lamplight pool lies: on the felt, under everything else.
+const HEARTH_LIFT: f32 = 0.0008;
+/// How far the lamplight and its inlaid ring reach, in table units. Sized to
+/// the deepest zoom-out, so the ring is on screen rather than beyond it.
+const HEARTH_SIZE: f32 = 34.0;
 /// How wide the medallion is inlaid, in table units.
 const MEDALLION_SIZE: f32 = 9.5;
 /// Margin around a seat's pod, so its mat is a table the cards sit on rather
@@ -125,14 +130,29 @@ impl CameraRig {
     }
 }
 
-/// Turns the rig into the camera transform: a frontal, 90° top-down look
-/// at the battlefield canvas (a hair of tilt keeps the up-vector
-/// stable); the rig decides target, zoom, and azimuth.
+/// How far the camera stands off to the side, as a fraction of its height.
+///
+/// The table is read from above, and it has to be: a four-seat pod ring is
+/// laid out for a plan view, and the further the camera leans the more a far
+/// seat's cards shrink against a near seat's. But a *purely* top-down camera
+/// throws away every cue that a card is an object — its edge projects to
+/// nothing, its contact shadow hides underneath it, and the board reads as
+/// artwork printed into the felt.
+///
+/// This is the compromise: about 22° off vertical, which is enough that a
+/// card's edge and the shadow around it are both visible, and far too little
+/// to bring a horizon into frame — which is why there is no sky behind the
+/// table and no point drawing one.
+const CAMERA_LEAN: f32 = 0.40;
+
+/// Turns the rig into the camera transform: a near-plan view of the
+/// battlefield canvas, leaning by [`CAMERA_LEAN`] so the cards have
+/// somewhere to cast a shadow; the rig decides target, zoom, and azimuth.
 pub fn apply_camera_rig(rig: Res<CameraRig>, mut cams: Query<&mut Transform, With<TableCamera>>) {
     if !rig.is_changed() {
         return;
     }
-    let horizontal = rig.distance * 0.02;
+    let horizontal = rig.distance * CAMERA_LEAN;
     let height = rig.distance;
     let offset = Vec3::new(
         rig.yaw.sin() * horizontal,
@@ -188,6 +208,11 @@ pub struct SceneIndex {
     /// colour is the material's tint, not a second texture.
     mat_image: Option<Handle<Image>>,
     glow_image: Option<Handle<Image>>,
+    /// The contact shadow every card sits in: one quad, one material, shared
+    /// by the whole table. It is a child of the card, so it follows the tap
+    /// rotation and the hover lift with nothing to keep in step.
+    shadow_quad: Option<Handle<Mesh>>,
+    shadow_material: Option<Handle<StandardMaterial>>,
 }
 
 /// One seat's zone on the table.
@@ -253,12 +278,32 @@ impl Mood {
 /// visible because the mesh itself is rounded).
 pub const CARD_CORNER: f32 = CARD_WIDTH * 0.10;
 
-/// A rounded-rectangle card mesh: the flat card quad with its corners
-/// clipped, UV-mapped exactly like Bevy's `Rectangle` (uv.x left→right,
-/// uv.y top→bottom of the printed face).
+/// How thick a card is, in table units.
+///
+/// A real card at this scale is about a fiftieth of this — it would be a
+/// single pixel at any camera distance a player uses. The point of the
+/// thickness is not accuracy but that a card reads as an *object lying on*
+/// the table rather than a decal printed into it, so it is exaggerated until
+/// the edge is visible and stopped well before a card looks like a tile.
+pub const CARD_THICKNESS: f32 = CARD_WIDTH * 0.055;
+
+/// How far past the card its contact shadow spreads, as a fraction of the
+/// card's width.
+const SHADOW_SPREAD: f32 = 0.22;
+
+/// A card: a rounded rectangle with the printed face on top and a thin wall
+/// around its edge.
+///
+/// The face is UV-mapped exactly like Bevy's `Rectangle` (uv.x left→right,
+/// uv.y top→bottom of the printed face) and the wall borrows the UV of the
+/// face vertex above it — so a card's edge is whatever colour its border is,
+/// which for most cards is the black frame and reads as exactly the right
+/// thing. There is no bottom face: the camera rig never goes below the table,
+/// and two hundred cards is four hundred triangles worth saving.
 fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
     const SEGMENTS: usize = 4; // per corner — plenty at card scale
     let (hw, hh, r) = (width / 2.0, height / 2.0, radius);
+    let top = CARD_THICKNESS;
     // Corner arc centres in CCW order with the quarter turn each one sweeps,
     // angles measured the usual way (0° = +x, 90° = +y).
     //
@@ -273,35 +318,72 @@ fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
         ([-hw + r, -hh + r], 270.0),
         ([hw - r, -hh + r], 360.0),
     ];
-    let mut positions: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0]];
-    let mut uvs: Vec<[f32; 2]> = vec![[0.5, 0.5]];
+    // The outline, with the outward direction at each point — which for an
+    // arc point is simply the angle it was drawn at, and is what the wall's
+    // normals are.
+    let mut outline: Vec<([f32; 2], [f32; 2])> = Vec::new();
     for ([cx, cy], end_deg) in corners {
         let start_deg = end_deg - 90.0;
         for i in 0..=SEGMENTS {
             let a = (start_deg + (end_deg - start_deg) * i as f32 / SEGMENTS as f32).to_radians();
-            let (x, y) = (cx + r * a.cos(), cy + r * a.sin());
-            positions.push([x, y, 0.0]);
-            // Same mapping as Rectangle: [hw,hh]→[1,0], [-hw,-hh]→[0,1].
-            uvs.push([f32::midpoint(x / hw, 1.0), (1.0 - y / hh) * 0.5]);
+            let (dx, dy) = (a.cos(), a.sin());
+            outline.push(([cx + r * dx, cy + r * dy], [dx, dy]));
         }
+    }
+
+    // Same mapping as Rectangle: [hw,hh]→[1,0], [-hw,-hh]→[0,1].
+    let uv_of = |x: f32, y: f32| [f32::midpoint(x / hw, 1.0), (1.0 - y / hh) * 0.5];
+
+    // The face: a centre vertex and the outline, all facing straight up.
+    let mut positions: Vec<[f32; 3]> = vec![[0.0, 0.0, top]];
+    let mut normals: Vec<[f32; 3]> = vec![[0.0, 0.0, 1.0]];
+    let mut uvs: Vec<[f32; 2]> = vec![[0.5, 0.5]];
+    for ([x, y], _) in &outline {
+        positions.push([*x, *y, top]);
+        normals.push([0.0, 0.0, 1.0]);
+        uvs.push(uv_of(*x, *y));
     }
     // A triangle fan from the centre, wound counter-clockwise as seen from
     // +z — the side the printed face is on, and the side the camera is on
     // once the card is laid down. The material does not disable back-face
     // culling, so the other winding is an invisible card.
-    let m = positions.len() - 1;
-    let mut indices = Vec::with_capacity(m * 3);
+    let m = outline.len();
+    let mut indices = Vec::with_capacity(m * 9);
     for i in 1..m {
         indices.extend_from_slice(&[0, i as u32, i as u32 + 1]);
     }
     indices.extend_from_slice(&[0, m as u32, 1]);
+
+    // The wall: the outline again at both heights, with its own normals, so
+    // the face above it keeps a clean flat shade.
+    let wall = positions.len() as u32;
+    for ([x, y], [nx, ny]) in &outline {
+        positions.push([*x, *y, top]);
+        normals.push([*nx, *ny, 0.0]);
+        uvs.push(uv_of(*x, *y));
+    }
+    for ([x, y], [nx, ny]) in &outline {
+        positions.push([*x, *y, 0.0]);
+        normals.push([*nx, *ny, 0.0]);
+        uvs.push(uv_of(*x, *y));
+    }
+    for i in 0..m {
+        let next = (i + 1) % m;
+        let (t0, t1) = (wall + i as u32, wall + next as u32);
+        let (b0, b1) = (t0 + m as u32, t1 + m as u32);
+        // Down the near edge, along the bottom, back up: that is the order
+        // whose normal points away from the card. The other one is a card you
+        // can see straight through from the side.
+        indices.extend_from_slice(&[t0, b0, b1, t0, b1, t1]);
+    }
+
     Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     )
     .with_inserted_indices(Indices::U32(indices))
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; m + 1])
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
     .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
 }
 
@@ -315,6 +397,33 @@ pub fn spawn_stage(
     mut index: ResMut<SceneIndex>,
 ) {
     index.quad = Some(meshes.add(rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER)));
+
+    // The contact shadow: a quad a little larger than a card, carrying a
+    // painted halo that is dense under the card and gone by its own edge.
+    // Sized from the card so the falloff is the same width on all four sides
+    // — a square texture stretched over a card-shaped quad would be wider at
+    // the top than at the sides, which is the sort of thing nobody can name
+    // but everybody sees.
+    let spread = CARD_WIDTH * SHADOW_SPREAD;
+    let (shadow_w, shadow_h) = (CARD_WIDTH + 2.0 * spread, CARD_HEIGHT + 2.0 * spread);
+    index.shadow_quad = Some(meshes.add(Rectangle::new(shadow_w, shadow_h)));
+    #[expect(
+        clippy::cast_sign_loss,
+        clippy::cast_possible_truncation,
+        reason = "a texture size derived from two positive constants"
+    )]
+    let shadow_px = (128.0 * shadow_h / shadow_w).round() as u32;
+    index.shadow_material = Some(materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(image_of(&tabletop::card_shadow(
+            128,
+            shadow_px,
+            spread / shadow_w,
+            CARD_CORNER / CARD_WIDTH,
+        )))),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    }));
     // The card back: no art, no finish, no glow. It is what the stack behind
     // a counted group is made of, and what a card whose art never arrives
     // falls back to.
@@ -364,6 +473,24 @@ pub fn spawn_stage(
             ..default()
         })),
         Transform::from_xyz(0.0, TABLE_Y, 0.0)
+            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        NotShadowCaster,
+    ));
+
+    // The pool of lamplight over the middle of the table, with the arcane
+    // ring inlaid in it. It sits under the seat mats — the mats draw over it
+    // where they overlap, so it reads as something the table has and they
+    // are lying on rather than as a decal floating above everything.
+    commands.spawn((
+        DuelStage,
+        Mesh3d(meshes.add(Rectangle::new(HEARTH_SIZE, HEARTH_SIZE))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(images.add(image_of(&tabletop::hearth(1024, 0.46, 0.60)))),
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            ..default()
+        })),
+        Transform::from_xyz(0.0, TABLE_Y + HEARTH_LIFT, 0.0)
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         NotShadowCaster,
     ));
@@ -663,6 +790,7 @@ pub fn sync_scene(
         return;
     };
     let blank = index.blank.clone();
+    let shadow = index.shadow_quad.clone().zip(index.shadow_material.clone());
 
     let wanted = placements(&duel);
     let mut live: HashSet<ObjectId> = HashSet::new();
@@ -775,6 +903,21 @@ pub fn sync_scene(
                 .id();
             index.cards.insert(placement.object, entity);
 
+            // The contact shadow rides along as a child, which is what keeps
+            // it under a tapped card without anything having to rotate it,
+            // and what makes it grow out from under a card as that card is
+            // lifted. It sits between the felt and the card, and is not
+            // pickable — a click near a card's edge means the table.
+            if let Some((mesh, material)) = shadow.clone() {
+                commands.entity(entity).with_child((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(material),
+                    Transform::from_xyz(0.0, 0.0, -CARD_LIFT * 0.5),
+                    Pickable::IGNORE,
+                    NotShadowCaster,
+                ));
+            }
+
             // A counted group gets a few offset cards behind it so the stack
             // reads as physical depth rather than as a number floating on one
             // card.
@@ -864,15 +1007,29 @@ mod tests {
         }
     }
 
-    /// The rim of the card mesh, in order, as (x, y) pairs. Vertex 0 is the
-    /// fan's centre and is not part of the outline.
-    fn rim(mesh: &Mesh) -> Vec<(f32, f32)> {
+    /// Every vertex of the card mesh, as (x, y, z).
+    fn points(mesh: &Mesh) -> Vec<(f32, f32, f32)> {
         let Some(bevy::mesh::VertexAttributeValues::Float32x3(p)) =
             mesh.attribute(Mesh::ATTRIBUTE_POSITION)
         else {
             panic!("card mesh has positions")
         };
-        p[1..].iter().map(|v| (v[0], v[1])).collect()
+        p.iter().map(|v| (v[0], v[1], v[2])).collect()
+    }
+
+    /// The outline of the printed face, in order, as (x, y) pairs.
+    ///
+    /// Vertex 0 is the fan's centre and is not part of the outline; the wall
+    /// vertices that follow the face are told apart by their normal, which is
+    /// the thing that actually distinguishes them.
+    fn rim(mesh: &Mesh) -> Vec<(f32, f32)> {
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(n)) =
+            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+        else {
+            panic!("card mesh has normals")
+        };
+        let face = n.iter().take_while(|v| v[2] > 0.5).count();
+        points(mesh)[1..face].iter().map(|v| (v.0, v.1)).collect()
     }
 
     /// Triangles as index triples.
@@ -954,25 +1111,90 @@ mod tests {
     }
 
     #[test]
-    fn every_card_triangle_faces_the_printed_side() {
+    fn every_face_triangle_faces_the_printed_side() {
         let mesh = rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER);
-        let rim = rim(&mesh);
-        let point = |i: u32| {
-            if i == 0 {
-                (0.0, 0.0)
-            } else {
-                rim[i as usize - 1]
-            }
-        };
+        let points = points(&mesh);
+        let outline = rim(&mesh).len();
         // Back-face culling is on, so a triangle wound the other way is an
         // invisible sliver of card.
         for tri in triangles(&mesh) {
-            let (a, b, c) = (point(tri[0]), point(tri[1]), point(tri[2]));
+            if tri.iter().any(|i| *i as usize > outline) {
+                continue; // a wall triangle; checked below
+            }
+            let flat = |i: u32| (points[i as usize].0, points[i as usize].1);
+            let (a, b, c) = (flat(tri[0]), flat(tri[1]), flat(tri[2]));
             assert!(
                 cross(a, b, c) > 0.0,
-                "triangle {tri:?} faces away from the camera"
+                "face triangle {tri:?} faces away from the camera"
             );
         }
+    }
+
+    /// A card is a slab, not a decal: it has a wall around its edge so it
+    /// reads as lying *on* the table. Wound the other way, that wall is a
+    /// card you can see straight through from the side.
+    #[test]
+    fn the_card_wall_faces_outwards_and_stands_on_the_table() {
+        let mesh = rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER);
+        let points = points(&mesh);
+        let outline = rim(&mesh).len();
+        let mut walls = 0;
+        for tri in triangles(&mesh) {
+            if tri.iter().all(|i| *i as usize <= outline) {
+                continue;
+            }
+            walls += 1;
+            let corner = |i: u32| points[i as usize];
+            let (first, second, third) = (corner(tri[0]), corner(tri[1]), corner(tri[2]));
+            // The triangle's normal, and the direction away from the card's
+            // axis at its centroid. A wall faces out when they agree.
+            let edge_a = (second.0 - first.0, second.1 - first.1, second.2 - first.2);
+            let edge_b = (third.0 - first.0, third.1 - first.1, third.2 - first.2);
+            let normal = (
+                edge_a.1 * edge_b.2 - edge_a.2 * edge_b.1,
+                edge_a.2 * edge_b.0 - edge_a.0 * edge_b.2,
+                edge_a.0 * edge_b.1 - edge_a.1 * edge_b.0,
+            );
+            let out = (
+                (first.0 + second.0 + third.0) / 3.0,
+                (first.1 + second.1 + third.1) / 3.0,
+            );
+            assert!(
+                normal.0.mul_add(out.0, normal.1 * out.1) > 0.0,
+                "wall triangle {tri:?} faces into the card"
+            );
+            for point in [first, second, third] {
+                assert!(
+                    point.2 >= -1e-6 && point.2 <= CARD_THICKNESS + 1e-6,
+                    "the wall runs past the card's own thickness at {point:?}"
+                );
+            }
+        }
+        assert_eq!(
+            walls,
+            outline * 2,
+            "the wall does not close around the card"
+        );
+    }
+
+    /// The printed face is what a player looks at, and it has to be the
+    /// topmost surface — a face level with the wall would z-fight along every
+    /// edge of every card on the table.
+    #[test]
+    fn the_printed_face_sits_on_top_of_the_slab() {
+        let mesh = rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER);
+        let points = points(&mesh);
+        let outline = rim(&mesh).len();
+        for point in &points[..=outline] {
+            assert!(
+                (point.2 - CARD_THICKNESS).abs() < 1e-6,
+                "a face vertex is not on top: {point:?}"
+            );
+        }
+        assert!(
+            points.iter().any(|p| p.2.abs() < 1e-6),
+            "nothing touches the table, so the card floats"
+        );
     }
 
     #[test]

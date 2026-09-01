@@ -119,11 +119,48 @@ pub struct LobbyState {
     /// much room there is, so it lives here and not in the state machine:
     /// every wider frame shows both halves and never reads it.
     pane: Pane,
+    /// Whether the settings screen is up, and what it is waiting for.
+    settings: SettingsPane,
+}
+
+/// The settings overlay's state.
+///
+/// Not a `Screen`: the lobby's state machine is about what the *gateway* has
+/// told us, and settings are neither asked for nor answered by it. This draws
+/// over whatever the lobby was showing and puts it back untouched.
+///
+/// One enum rather than a flag plus an `Option`, because "waiting for a key
+/// while closed" is not a state — and a pair of fields would let it happen,
+/// with the symptom that the next key pressed anywhere rebinds something.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+enum SettingsPane {
+    /// Not showing.
+    #[default]
+    Closed,
+    /// Showing.
+    Open,
+    /// Showing, with one action's row listening for the next keystroke.
+    Rebinding(baylee_client_core::prefs::Action),
+}
+
+impl SettingsPane {
+    /// Whether the screen is up at all.
+    const fn is_open(self) -> bool {
+        !matches!(self, Self::Closed)
+    }
+
+    /// The action waiting for a key, if any.
+    const fn capturing(self) -> Option<baylee_client_core::prefs::Action> {
+        match self {
+            Self::Rebinding(action) => Some(action),
+            _ => None,
+        }
+    }
 }
 
 /// The half of the deck builder a narrow screen is showing.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-enum Pane {
+pub(crate) enum Pane {
     /// The searchable pool.
     #[default]
     Cards,
@@ -143,6 +180,7 @@ impl LobbyState {
             confirm_leave: false,
             filters_open: false,
             pane: Pane::Cards,
+            settings: SettingsPane::Closed,
         }
     }
 }
@@ -730,10 +768,35 @@ fn softkeys(
 /// would be entered twice.
 fn keyboard(
     mut keys: MessageReader<KeyboardInput>,
+    codes: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<LobbyState>,
+    mut prefs: ResMut<crate::prefs::Prefs>,
     mut scrolled: ResMut<Scrolled>,
     mailbox: Res<Mailbox>,
 ) {
+    // A rebinding in progress takes every key, including the ones that mean
+    // something everywhere else — a player who wants `Esc` on some other
+    // action has to be able to press it. Escape and backspace are the two
+    // exceptions, and they are what makes the row escapable at all.
+    if let Some(action) = state.settings.capturing() {
+        keys.clear();
+        if codes.just_pressed(KeyCode::Escape) {
+            state.settings = SettingsPane::Open;
+        } else if codes.any_just_pressed([KeyCode::Backspace, KeyCode::Delete]) {
+            // Unbinding is a real answer: a pointer still reaches everything.
+            prefs.edit().keymap.bind(action, vec![]);
+            state.settings = SettingsPane::Open;
+        } else if let Some(chord) = crate::keys::captured(&codes) {
+            prefs.edit().keymap.bind(action, vec![chord]);
+            state.settings = SettingsPane::Open;
+        }
+        return;
+    }
+    if state.settings.is_open() {
+        // Nothing on the settings screen is typed into.
+        keys.clear();
+        return;
+    }
     if SoftKeyboard::owns_typing() {
         keys.clear();
         return;
@@ -818,6 +881,7 @@ fn clicks(
     presses: Query<&Press>,
     parents: Query<&ChildOf>,
     mut state: ResMut<LobbyState>,
+    mut prefs: ResMut<crate::prefs::Prefs>,
     mailbox: Res<Mailbox>,
     mut commands: Commands,
     mut opens: MessageWriter<DuelCommand>,
@@ -852,7 +916,33 @@ fn clicks(
         ) {
             scrolled.set(List::Pool, 0.0);
         }
+        // Any click that is not the rebinding chip itself calls off a
+        // rebinding in progress. Leaving it armed would mean the next key
+        // pressed anywhere lands on whichever row was last tapped.
+        if state.settings.is_open() && !matches!(*press, Press::Rebind(_)) {
+            state.settings = SettingsPane::Open;
+        }
         match *press {
+            Press::OpenSettings => state.settings = SettingsPane::Open,
+            Press::CloseSettings => state.settings = SettingsPane::Closed,
+            Press::Rebind(action) => {
+                // Tapping the armed row again disarms it, so the chip is its
+                // own cancel and there is no way to get stuck waiting.
+                state.settings = if state.settings.capturing() == Some(action) {
+                    SettingsPane::Open
+                } else {
+                    SettingsPane::Rebinding(action)
+                };
+            }
+            Press::ResetBinding(action) => prefs.edit().keymap.reset(action),
+            Press::ResetAllBindings => {
+                prefs.edit().keymap = baylee_client_core::prefs::Keymap::standard();
+            }
+            Press::ToggleAuto(rule) => {
+                let mut edit = prefs.edit();
+                rule.toggle(&mut edit.auto);
+            }
+            Press::ToggleRail(side, row) => prefs.edit().orders.toggle(side, row),
             Press::Focus(field) => state.lobby.focus_on(field),
             Press::ToggleRegistering => state.lobby.toggle_registering(),
             Press::Submit => {
@@ -1197,7 +1287,7 @@ fn came_back(mut commands: Commands, mut state: ResMut<LobbyState>, mailbox: Res
 
 /// A component whose click means something.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
-enum Press {
+pub(crate) enum Press {
     /// Put the caret in this field.
     Focus(Field),
     /// Swap the form between log-in and sign-up.
@@ -1232,6 +1322,23 @@ enum Press {
     SeatDeck(usize, u32),
     /// Leave a finished game.
     Leave,
+    /// Open the settings screen.
+    OpenSettings,
+    /// Leave it.
+    CloseSettings,
+    /// Wait for a key and bind it to this action.
+    Rebind(baylee_client_core::prefs::Action),
+    /// Put one action back to its default key.
+    ResetBinding(baylee_client_core::prefs::Action),
+    /// Put every key back.
+    ResetAllBindings,
+    /// Flip one automation switch.
+    ToggleAuto(baylee_client_core::prefs::AutoRule),
+    /// Turn one step of the phase rail red or green.
+    ToggleRail(
+        baylee_client_core::automation::RailSide,
+        baylee_client_core::automation::RailRow,
+    ),
     /// Open the builder on a new deck.
     NewDeck,
     /// Open the builder on a saved deck, by its index in the list.
@@ -1550,7 +1657,7 @@ struct LeaveButton;
 /// and a desktop is the *shape* of the screen — one column or two, a card that
 /// fills the width or one that floats — and shape does not interpolate.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Frame {
+pub(crate) enum Frame {
     /// A phone held upright, or a very narrow window.
     Phone,
     /// A tablet, or a half-screen window.
@@ -1574,21 +1681,21 @@ impl Frame {
 
 /// Every size the layout takes from the frame, in one place.
 #[derive(Clone, Copy)]
-struct Metrics {
-    frame: Frame,
+pub(crate) struct Metrics {
+    pub(crate) frame: Frame,
     /// Body text.
-    text: f32,
+    pub(crate) text: f32,
     /// Headings.
-    head: f32,
+    pub(crate) head: f32,
     /// Captions and secondary lines.
-    small: f32,
+    pub(crate) small: f32,
     /// The minimum height of anything meant to be tapped. 44 logical pixels
     /// is the smallest target a finger hits reliably.
-    tap: f32,
+    pub(crate) tap: f32,
     /// Padding around and inside panels.
-    pad: f32,
+    pub(crate) pad: f32,
     /// Gap between stacked controls.
-    gap: f32,
+    pub(crate) gap: f32,
 }
 
 impl Metrics {
@@ -1679,6 +1786,7 @@ fn ui(
     assets: Option<Res<AssetServer>>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
+    prefs: Res<crate::prefs::Prefs>,
     mut drawn: Local<Option<Frame>>,
 ) {
     let mut cards = match (ui_materials, material_assets) {
@@ -1694,7 +1802,11 @@ fn ui(
         .next()
         .map_or(1280.0, |w| w.resolution.width());
     let metrics = Metrics::of(width);
-    if !state.is_changed() && !root.is_empty() && *drawn == Some(metrics.frame) {
+    if !state.is_changed()
+        && !prefs.is_changed()
+        && !root.is_empty()
+        && *drawn == Some(metrics.frame)
+    {
         return;
     }
     // The fonts are inserted by the duel plugin's startup system, so the first
@@ -1708,7 +1820,8 @@ fn ui(
     }
     *drawn = Some(metrics.frame);
 
-    let full_bleed = matches!(state.lobby.screen(), Screen::Table | Screen::Build);
+    let full_bleed =
+        state.settings.is_open() || matches!(state.lobby.screen(), Screen::Table | Screen::Build);
     // A phone puts the sign-in form near the top instead of centring it: the
     // soft keyboard takes the bottom half of the screen, and a centred form
     // ends up underneath it.
@@ -1744,6 +1857,22 @@ fn ui(
             BackgroundColor(BACKDROP),
         ))
         .id();
+
+    // Settings sit over the lobby rather than beside it: they are the
+    // account's, not the gateway's, and coming back has to land exactly where
+    // the player left — including halfway through a deck.
+    if state.settings.is_open() {
+        crate::settingsui::screen(
+            &mut commands,
+            root,
+            prefs.all(),
+            state.settings.capturing(),
+            state.lobby.token().is_some(),
+            &fonts,
+            metrics,
+        );
+        return;
+    }
 
     match state.lobby.screen() {
         Screen::SignIn { registering } => {
@@ -1922,8 +2051,21 @@ fn sign_in(
         palette::PANEL,
         true,
     );
+    // Reachable before signing in as well: an offline duel against the house
+    // AI is played with the same keys, and a player with a keyboard they
+    // cannot use is not going to make an account first.
+    let settings = button(
+        commands,
+        fonts,
+        metrics,
+        "Settings",
+        Press::OpenSettings,
+        palette::PANEL,
+        true,
+    );
     commands.entity(panel).add_child(rule);
     commands.entity(panel).add_child(offline);
+    commands.entity(panel).add_child(settings);
     panel
 }
 
@@ -1987,6 +2129,15 @@ fn table(
             Pickable::IGNORE,
         ))
         .id();
+    let settings = button(
+        commands,
+        fonts,
+        metrics,
+        "Settings",
+        Press::OpenSettings,
+        palette::PANEL_LIT,
+        true,
+    );
     let out = button(
         commands,
         fonts,
@@ -1998,6 +2149,7 @@ fn table(
     );
     commands.entity(bar).add_child(gap);
     commands.entity(bar).add_child(status);
+    commands.entity(bar).add_child(settings);
     commands.entity(bar).add_child(out);
     commands.entity(root).add_child(bar);
 
@@ -3921,7 +4073,7 @@ fn build_panel(commands: &mut Commands, metrics: Metrics, width: Val, grow: f32)
 }
 
 /// A wrapping row of controls.
-fn row(commands: &mut Commands, metrics: Metrics, wrap: bool) -> Entity {
+pub(crate) fn row(commands: &mut Commands, metrics: Metrics, wrap: bool) -> Entity {
     commands
         .spawn((
             Node {
@@ -3971,7 +4123,7 @@ fn scroller(commands: &mut Commands, metrics: Metrics, which: List, at: f32) -> 
 }
 
 /// A small toggle. Same shape as [`button`], sized for a row of them.
-fn chip(
+pub(crate) fn chip(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
@@ -4208,7 +4360,7 @@ fn text_field(
 }
 
 /// A button. A disabled one carries no [`Press`], so a click cannot find it.
-fn button(
+pub(crate) fn button(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
@@ -4249,7 +4401,7 @@ fn button(
 
 /// A column panel: a fixed width beside its neighbour, or the full width
 /// above it.
-fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow: f32) -> Entity {
+pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow: f32) -> Entity {
     commands
         .spawn((
             Node {
@@ -4269,7 +4421,12 @@ fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow: f32) -> En
 }
 
 /// A panel heading.
-fn heading(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, label: &str) -> Entity {
+pub(crate) fn heading(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+) -> Entity {
     commands
         .spawn((
             Text::new(label),
@@ -5282,6 +5439,195 @@ mod tests {
                 "an overflow with no ScrollPosition only clips"
             );
         }
+    }
+
+    /// Presses one control by name, in one line.
+    fn press(app: &mut App, wanted: Press) {
+        let target = press_target(app, wanted);
+        tap(app, target);
+        app.update();
+    }
+
+    /// The whole rebinding flow, without a window: open the screen, arm a
+    /// row, press a key, and find it bound. Every step of it is a place the
+    /// keymap could quietly not be written.
+    #[test]
+    fn a_key_can_be_rebound_from_the_settings_screen() {
+        use baylee_client_core::prefs::{Action, Chord};
+
+        let mut app = headless();
+        stocked(&mut app);
+        sized(&mut app, 1400.0);
+        app.update();
+
+        press(&mut app, Press::OpenSettings);
+        assert!(app.world().resource::<LobbyState>().settings.is_open());
+
+        press(&mut app, Press::Rebind(Action::Confirm));
+        assert_eq!(
+            app.world().resource::<LobbyState>().settings.capturing(),
+            Some(Action::Confirm),
+            "the row is not waiting for a key"
+        );
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyP);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<crate::prefs::Prefs>()
+                .keymap()
+                .chords(Action::Confirm),
+            &[Chord::key("KeyP")],
+            "the key was not bound"
+        );
+        assert_eq!(
+            app.world().resource::<LobbyState>().settings.capturing(),
+            None,
+            "the row is still armed after taking a key"
+        );
+
+        // And it can be put back, one row at a time.
+        press(&mut app, Press::ResetBinding(Action::Confirm));
+        assert_eq!(
+            app.world()
+                .resource::<crate::prefs::Prefs>()
+                .keymap()
+                .chords(Action::Confirm),
+            &[Chord::key("Enter")]
+        );
+    }
+
+    /// Escape is a key a player may legitimately want to bind, so while a row
+    /// is armed it means "never mind" rather than "cancel". Backspace is the
+    /// other way out: unbinding is a real answer, since a pointer still
+    /// reaches everything.
+    #[test]
+    fn arming_a_row_can_be_backed_out_of_or_used_to_unbind() {
+        use baylee_client_core::prefs::Action;
+
+        let mut app = headless();
+        stocked(&mut app);
+        sized(&mut app, 1400.0);
+        app.update();
+        press(&mut app, Press::OpenSettings);
+
+        press(&mut app, Press::Rebind(Action::Cancel));
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Escape);
+        app.update();
+        assert_eq!(
+            app.world().resource::<LobbyState>().settings.capturing(),
+            None
+        );
+        assert!(
+            !app.world()
+                .resource::<crate::prefs::Prefs>()
+                .keymap()
+                .chords(Action::Cancel)
+                .is_empty(),
+            "escape rebound the row instead of backing out of it"
+        );
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .clear();
+        press(&mut app, Press::Rebind(Action::Cancel));
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Backspace);
+        app.update();
+        assert!(
+            app.world()
+                .resource::<crate::prefs::Prefs>()
+                .keymap()
+                .chords(Action::Cancel)
+                .is_empty(),
+            "backspace did not unbind the row"
+        );
+    }
+
+    #[test]
+    fn the_settings_screen_offers_every_switch_and_both_rails() {
+        use baylee_client_core::automation::{RAIL_ROWS, RailSide};
+        use baylee_client_core::prefs::{Action, AutoRule};
+
+        let mut app = headless();
+        stocked(&mut app);
+        sized(&mut app, 1400.0);
+        app.update();
+        press(&mut app, Press::OpenSettings);
+
+        let found = presses(&mut app);
+        for action in Action::ALL {
+            assert!(
+                found.contains(&Press::Rebind(action)),
+                "{action:?} cannot be rebound from the screen"
+            );
+        }
+        for rule in AutoRule::ALL {
+            assert!(
+                found.contains(&Press::ToggleAuto(rule)),
+                "{rule:?} is missing"
+            );
+        }
+        for side in RailSide::BOTH {
+            for row in RAIL_ROWS {
+                assert!(
+                    found.contains(&Press::ToggleRail(side, row)),
+                    "{side:?}/{row:?} is missing from the rail"
+                );
+            }
+        }
+        assert!(found.contains(&Press::CloseSettings), "no way back");
+
+        // A switch actually flips, and the screen redraws to say so.
+        press(&mut app, Press::ToggleAuto(AutoRule::SkipEmptyBlocks));
+        assert!(
+            app.world()
+                .resource::<crate::prefs::Prefs>()
+                .auto()
+                .skip_empty_blocks,
+            "the switch did not take"
+        );
+    }
+
+    /// Settings sit *over* the lobby: coming back has to land exactly where
+    /// the player left, including halfway through a deck.
+    #[test]
+    fn closing_the_settings_puts_the_lobby_back_as_it_was() {
+        let mut app = headless();
+        stocked(&mut app);
+        sized(&mut app, 1400.0);
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .lobby
+            .build_deck();
+        app.update();
+        assert!(matches!(
+            app.world().resource::<LobbyState>().lobby.screen(),
+            Screen::Build
+        ));
+
+        // The builder has no settings button of its own — the screen is
+        // reached from the tables or from sign-in — so it is opened here the
+        // way a press would.
+        app.world_mut().resource_mut::<LobbyState>().settings = SettingsPane::Open;
+        app.update();
+        press(&mut app, Press::CloseSettings);
+        assert!(
+            matches!(
+                app.world().resource::<LobbyState>().lobby.screen(),
+                Screen::Build
+            ),
+            "the builder was lost"
+        );
+        assert!(
+            presses(&mut app).contains(&Press::CloseBuilder),
+            "not redrawn"
+        );
     }
 
     /// The entity carrying a control, so a test can press it.

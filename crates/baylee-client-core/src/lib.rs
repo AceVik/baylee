@@ -64,7 +64,7 @@ pub use lobby::{
     DeckSummary, Field, FieldKind, GameMode, GameSeat, GameSummary, Lobby, LobbyEvent,
     LobbyRequest, Screen, SeatHandover,
 };
-pub use prefs::{Action, AutoRules, Chord, Keymap, Preferences};
+pub use prefs::{Action, AutoRule, AutoRules, Chord, Keymap, Preferences};
 
 /// Re-exported wire types, so a downstream crate needs one dependency to talk
 /// to a host and render the result.

@@ -353,6 +353,13 @@ against it is accepted and closed again with nothing on it. The lobby stays put
 and re-reads `GET /lobby/games` until that table's state turns `"playing"`.
 Nothing pushes that news; there is no socket to push it on.
 
+A card is a **slab**, not a decal: a rounded face with a thin wall around its
+edge (whose UVs borrow the face's, so the edge is the card's own border
+colour) and a contact-shadow child under it. Neither reads at a camera exactly
+overhead, which is what `table::CAMERA_LEAN` is for — about 22° off vertical,
+enough for both and far too little to bring a horizon into frame, which is
+also why there is no sky behind the table and no point drawing one.
+
 The 3D table under the cards is **generated, not shipped**:
 `baylee-client-core/src/tabletop.rs` computes the felt, the centre medallion
 and a seat's mat into RGBA8 buffers with a seeded value-noise fbm (no `rand`,
@@ -372,9 +379,19 @@ middle, and each permanent drew as a small bright X.
 `an_untapped_card_lies_flat_on_the_table` passed the whole time: it checks the
 *transform*, which was never wrong. Geometry needs tests about geometry.
 
-Known gap, easy to misread from the code: `client-core`'s `Interaction` exposes
-and tests `declare_attacker`, `declare_blocker` and `choose_index`, but
-`crates/baylee-client/src/input.rs` calls none of them. Combat is currently
-answered only by `automation::AutoAnswer::DeclareNoAttackers/DeclareNoBlockers`
-— i.e. with empty lists. The client looks like it has combat and does not; the
-missing wiring is in `input.rs`/`hud.rs`, not in `interaction.rs`.
+Combat goes through a **focus**: the defender (or attacker) the next
+declaration is pointed at. `Interaction::toggle` pairs a creature against it,
+`cycle_focus` moves it, `assignment` and `focus_position` are what the prompt
+bar draws, and a pointer can skip the aiming by tapping the planeswalker (or
+the attacker) it means. Both halves are wired — `input.rs` for the keyboard,
+`hud.rs` for the buttons — which they were not before: `toggle` used to write
+to `selected` while `confirm` read `pairs`, so a player could light up their
+whole board and still declare nothing.
+
+Every key comes from the account's `Keymap` (`baylee-client-core/src/prefs.rs`),
+resolved through `crates/baylee-client/src/keys.rs` — the one place that knows
+a stored key name is a Bevy `KeyCode`. Input handlers ask *actions*, never
+keys; `W` and `⇧W` are two chords and telling them apart is the keymap's job.
+The keymap, the phase rail and the automation switches travel with the account
+over `GET`/`PUT /settings`, and `crates/baylee-client/src/settingsui.rs` is
+where a player changes them.

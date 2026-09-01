@@ -94,6 +94,8 @@ impl Action {
         Self::CursorDown,
         Self::CursorLeft,
         Self::CursorRight,
+        Self::FocusNextSeat,
+        Self::FocusHome,
         Self::CombatFocusNext,
         Self::CombatFocusPrev,
         Self::CombatNone,
@@ -107,8 +109,6 @@ impl Action {
         Self::AnswerNo,
         Self::NumberUp,
         Self::NumberDown,
-        Self::FocusNextSeat,
-        Self::FocusHome,
         Self::ToggleOverlay,
         Self::ToggleTextView,
     ];
@@ -425,6 +425,80 @@ pub struct AutoRules {
     pub skip_empty_blocks: bool,
 }
 
+/// One switch on the automation panel.
+///
+/// Named separately from the fields so a settings screen can draw four rows
+/// from one loop instead of four near-identical blocks — and so adding a
+/// fifth rule is one arm here rather than a fifth copy of the same code.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AutoRule {
+    /// [`AutoRules::pass_when_nothing_to_do`].
+    PassWhenNothingToDo,
+    /// [`AutoRules::skip_opponent_turns`].
+    SkipOpponentTurns,
+    /// [`AutoRules::skip_empty_attacks`].
+    SkipEmptyAttacks,
+    /// [`AutoRules::skip_empty_blocks`].
+    SkipEmptyBlocks,
+}
+
+impl AutoRule {
+    /// Every switch, in the order a settings screen should list them.
+    pub const ALL: [Self; 4] = [
+        Self::PassWhenNothingToDo,
+        Self::SkipOpponentTurns,
+        Self::SkipEmptyAttacks,
+        Self::SkipEmptyBlocks,
+    ];
+
+    /// The switch's name.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::PassWhenNothingToDo => "Pass when there is nothing to do",
+            Self::SkipOpponentTurns => "Pass through opponents' turns",
+            Self::SkipEmptyAttacks => "Skip an empty attack step",
+            Self::SkipEmptyBlocks => "Skip an empty block step",
+        }
+    }
+
+    /// The sentence under it, saying exactly what it will and will not do.
+    #[must_use]
+    pub const fn detail(self) -> &'static str {
+        match self {
+            Self::PassWhenNothingToDo => {
+                "No land, no spell, no ability, nothing to suspend: pass without asking."
+            }
+            Self::SkipOpponentTurns => "Priority only. It never declines a block for you.",
+            Self::SkipEmptyAttacks => "Only when nothing you control can attack.",
+            Self::SkipEmptyBlocks => "Only when nothing you control can block.",
+        }
+    }
+
+    /// Whether the switch is on.
+    #[must_use]
+    pub const fn get(self, rules: &AutoRules) -> bool {
+        match self {
+            Self::PassWhenNothingToDo => rules.pass_when_nothing_to_do,
+            Self::SkipOpponentTurns => rules.skip_opponent_turns,
+            Self::SkipEmptyAttacks => rules.skip_empty_attacks,
+            Self::SkipEmptyBlocks => rules.skip_empty_blocks,
+        }
+    }
+
+    /// Flips it.
+    pub const fn toggle(self, rules: &mut AutoRules) {
+        match self {
+            Self::PassWhenNothingToDo => {
+                rules.pass_when_nothing_to_do = !rules.pass_when_nothing_to_do;
+            }
+            Self::SkipOpponentTurns => rules.skip_opponent_turns = !rules.skip_opponent_turns,
+            Self::SkipEmptyAttacks => rules.skip_empty_attacks = !rules.skip_empty_attacks,
+            Self::SkipEmptyBlocks => rules.skip_empty_blocks = !rules.skip_empty_blocks,
+        }
+    }
+}
+
 /// A player's account-level preferences, as stored by the gateway.
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -599,6 +673,25 @@ mod tests {
         assert!(!auto.skip_empty_attacks);
         assert!(!auto.skip_empty_blocks);
         assert!(Preferences::default().is_default());
+    }
+
+    #[test]
+    fn every_automation_switch_reads_and_writes_its_own_field() {
+        // Four near-identical booleans is exactly the shape where a copied
+        // arm reads one field and writes another, and nothing ever notices.
+        for rule in AutoRule::ALL {
+            let mut rules = AutoRules::default();
+            assert!(!rule.get(&rules), "{rule:?} does not start off");
+            rule.toggle(&mut rules);
+            assert!(rule.get(&rules), "{rule:?} did not turn on");
+            for other in AutoRule::ALL {
+                if other != rule {
+                    assert!(!other.get(&rules), "{rule:?} also flipped {other:?}");
+                }
+            }
+            rule.toggle(&mut rules);
+            assert_eq!(rules, AutoRules::default(), "{rule:?} did not flip back");
+        }
     }
 
     #[test]
