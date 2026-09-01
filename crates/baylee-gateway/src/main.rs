@@ -19,7 +19,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
 use axum::routing::{get, post};
 use baylee_protocol::v1::{self, Envelope};
-use lobby::{Lobby, LobbyGame, LobbySeat, LobbyState};
+use lobby::{Lobby, LobbyGame, LobbyState};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -134,6 +134,8 @@ async fn main() {
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/automation", get(list_automation).put(set_automation))
         .route("/lobby/games/{id}/join", post(join_game))
+        .route("/lobby/games/{id}/seats/{seat}", post(set_seat))
+        .route("/lobby/games/{id}/leave", post(leave_game))
         .route("/games/{id}/ws", get(game_ws))
         // The control and engine planes. Neither carries a player's traffic
         // and neither accepts a player's token; see `engine.rs`.
@@ -811,13 +813,28 @@ async fn list_games(
     let lobby = state.lobby.lock();
     Ok(Json(serde_json::json!(lobby.list())))
 }
-
 #[derive(Deserialize)]
 struct CreateGameBody {
     deck_id: String,
-    /// "ai" or "open" (waiting for a second human).
+    /// `"ai"` is the one-tap game against the house AI and starts at once.
+    /// Anything else opens a room the host configures.
+    #[serde(default)]
     mode: String,
+    /// How many chairs the table has. Two unless the host says otherwise.
+    #[serde(default)]
+    seats: Option<usize>,
+    /// What the table is called in the list.
+    #[serde(default)]
+    name: String,
 }
+
+/// The most seats a room may have.
+///
+/// The rules kernel is written for any number of players and the preset
+/// carries a `Vec` of seats, but three- and four-player games have had far
+/// less play than duels. Four is where that gets uncomfortable rather than
+/// where the engine stops.
+const MAX_SEATS: usize = 4;
 
 /// Builds a `LoadedDeck` from a stored deck.
 /// Uses the same parser as validation, so counts are already bounded.
@@ -834,15 +851,12 @@ fn loaded_deck(
     })
 }
 
-/// Preset for a human-vs-human game from both seats' decks.
-fn hvh_preset(
-    a: &Deck,
-    b: &Deck,
-    seed: u64,
-) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
-    let da = loaded_deck(a)?;
-    let db = loaded_deck(b)?;
-    Ok(baylee_cards::decks::preset_for(seed, &da, &db))
+/// The deck an AI seat plays when the host did not give it one.
+fn house_deck() -> Result<baylee_cards::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)> {
+    let text = std::fs::read_to_string("data/acceptance-decks.txt")
+        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "deck data missing"))?;
+    baylee_cards::decks::load_acceptance(&text, "Victory")
+        .map_err(|_e| err(StatusCode::INTERNAL_SERVER_ERROR, "house deck missing"))
 }
 
 /// Preset for a human-vs-AI game (house AI plays Victory).
@@ -850,12 +864,96 @@ fn ai_preset(
     deck: &Deck,
     seed: u64,
 ) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
-    let text = std::fs::read_to_string("data/acceptance-decks.txt")
-        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "deck data missing"))?;
-    let house = baylee_cards::decks::load_acceptance(&text, "Victory")
-        .map_err(|_e| err(StatusCode::INTERNAL_SERVER_ERROR, "house deck missing"))?;
+    let house = house_deck()?;
     let player = loaded_deck(deck)?;
     Ok(baylee_cards::decks::preset_for(seed, &player, &house))
+}
+
+/// Looks a deck up and checks it belongs to the account asking for it.
+fn own_deck(
+    state: &Shared,
+    account_id: &str,
+    deck_id: &str,
+) -> Result<(String, Deck), (StatusCode, Json<ErrorBody>)> {
+    let store = state.store.lock();
+    let deck = store
+        .decks
+        .get(deck_id)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
+    if deck.account_id != account_id {
+        return Err(err(StatusCode::FORBIDDEN, "not your deck"));
+    }
+    Ok((deck.name.clone(), deck.clone()))
+}
+
+/// Builds the preset a room's seats add up to.
+///
+/// The controller is set per seat here and nowhere else: the deck helper
+/// presets every chair as an AI, which is right for the print table and wrong
+/// for everyone at the table who is a person.
+fn room_preset(
+    seats: &[lobby::LobbySeat],
+    seed: u64,
+) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
+    let mut loaded = Vec::with_capacity(seats.len());
+    for seat in seats {
+        match &seat.deck {
+            Some(deck) => loaded.push(loaded_deck(deck)?),
+            // Only reachable for an AI seat the host left alone; a human seat
+            // with no deck is not ready and the room has not started.
+            None => loaded.push(house_deck()?),
+        }
+    }
+    let refs: Vec<&baylee_cards::decks::LoadedDeck> = loaded.iter().collect();
+    let mut preset = baylee_cards::decks::preset_for_all(seed, &refs);
+    for (spec, seat) in preset.seats.iter_mut().zip(seats) {
+        spec.controller = match seat.kind {
+            // `Open` rather than `Human`: the gateway knows the account, the
+            // engine knows only that a person answers for this chair.
+            lobby::SeatKind::Human => baylee_core::preset::SeatController::Open,
+            lobby::SeatKind::Ai => baylee_core::preset::SeatController::Ai(
+                seat.ai
+                    .as_deref()
+                    .and_then(baylee_core::preset::AIProfile::named)
+                    .unwrap_or_default(),
+            ),
+        };
+    }
+    Ok(preset)
+}
+
+/// Starts a room whose seats are all settled, if they are.
+///
+/// There is no "start" button on the wire on purpose: a room starts when
+/// every chair is ready, which is the same rule the two-seat open table has
+/// always followed when its second player sat down. A host who has given up
+/// waiting for a friend hands that chair to the AI, and that is the start.
+///
+/// Returns whether the game was started. The engine is ordered *outside* the
+/// lobby lock, and a failure to order one puts the room back the way it was
+/// rather than leaving a table nobody can play at.
+fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, Json<ErrorBody>)> {
+    {
+        let mut lobby = state.lobby.lock();
+        let Some(game) = lobby.games.get_mut(id) else {
+            return Ok(false);
+        };
+        if game.state != LobbyState::Waiting || !game.seats.iter().all(lobby::LobbySeat::ready) {
+            return Ok(false);
+        }
+        game.preset = Some(room_preset(&game.seats, auth::new_game_seed())?);
+        game.state = LobbyState::Playing;
+    }
+    if let Err(reason) = engine::start_engine(state, id) {
+        let mut lobby = state.lobby.lock();
+        if let Some(game) = lobby.games.get_mut(id) {
+            game.state = LobbyState::Waiting;
+            game.preset = None;
+        }
+        tracing::error!(game_id = id, reason, "could not start a game");
+        return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
+    }
+    Ok(true)
 }
 
 async fn create_game(
@@ -864,71 +962,63 @@ async fn create_game(
     Json(body): Json<CreateGameBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
-    let (deck_name, deck) = {
-        let store = state.store.lock();
-        let deck = store
-            .decks
-            .get(&body.deck_id)
-            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
-        if deck.account_id != account_id {
-            return Err(err(StatusCode::FORBIDDEN, "not your deck"));
-        }
-        (deck.name.clone(), deck.clone())
-    };
+    let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id)?;
     let game_id = auth::new_id();
     let seat_token = auth::new_token();
-    let mut starts_now = false;
+
+    // The one-tap game against the house AI keeps its own path: it is a whole
+    // table decided in one request, and nobody is going to configure it.
+    if body.mode == "ai" {
+        {
+            let mut preset = ai_preset(&deck, auth::new_game_seed())?;
+            preset.seats[0].controller = baylee_core::preset::SeatController::Open;
+            let mut seats = vec![lobby::LobbySeat::open(0), lobby::LobbySeat::open(1)];
+            seats[0].account_id = Some(account_id.clone());
+            seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
+            seats[0].deck_name = deck_name;
+            seats[0].deck = Some(deck.clone());
+            seats[1].kind = lobby::SeatKind::Ai;
+            seats[1].ai = Some("steady".to_string());
+            seats[1].deck_name = "house AI".to_string();
+            let game = LobbyGame::playing(game_id.clone(), seats, preset, auth::now_secs());
+            state.lobby.lock().games.insert(game_id.clone(), game);
+        }
+        if let Err(reason) = engine::start_engine(&state, &game_id) {
+            state.lobby.lock().games.remove(&game_id);
+            tracing::error!(game_id, reason, "could not start a game");
+            return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
+        }
+        return Ok(Json(serde_json::json!({
+            "game_id": game_id,
+            "seat": 0,
+            "seat_token": seat_token,
+        })));
+    }
+
+    let chairs = body.seats.unwrap_or(2);
+    if !(2..=MAX_SEATS).contains(&chairs) {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "a table seats between two and four",
+        ));
+    }
     {
         let mut lobby = state.lobby.lock();
-        match body.mode.as_str() {
-            "ai" => {
-                let mut preset = ai_preset(&deck, auth::new_game_seed())?;
-                preset.seats[0].controller = baylee_core::preset::SeatController::Open;
-                let game = LobbyGame::playing(
-                    game_id.clone(),
-                    vec![
-                        LobbySeat {
-                            seat: 0,
-                            account_id: Some(account_id.clone()),
-                            seat_token_hash: Some(auth::token_hash(&seat_token)),
-                            deck_name,
-                            deck: Some(deck.clone()),
-                        },
-                        LobbySeat {
-                            seat: 1,
-                            account_id: None,
-                            seat_token_hash: None,
-                            deck_name: "house AI".to_string(),
-                            deck: None,
-                        },
-                    ],
-                    preset,
-                    auth::now_secs(),
-                );
-                lobby.games.insert(game_id.clone(), game);
-                starts_now = true;
-            }
-            "open" => {
-                let mut game = LobbyGame::waiting(
-                    game_id.clone(),
-                    account_id,
-                    deck_name,
-                    deck.clone(),
-                    auth::now_secs(),
-                );
-                game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
-                lobby.games.insert(game_id.clone(), game);
-            }
-            _ => return Err(err(StatusCode::BAD_REQUEST, "mode must be ai or open")),
-        }
+        let mut game = LobbyGame::room(
+            game_id.clone(),
+            account_id,
+            deck_name,
+            deck,
+            chairs,
+            body.name.chars().take(60).collect(),
+            auth::now_secs(),
+        );
+        game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
+        lobby.games.insert(game_id.clone(), game);
     }
-    // Outside the lobby lock: ordering an engine takes the agent registry too,
-    // and a game nobody can run is not a game to hand a seat token for.
-    if starts_now && let Err(reason) = engine::start_engine(&state, &game_id) {
-        state.lobby.lock().games.remove(&game_id);
-        tracing::error!(game_id, reason, "could not start a game");
-        return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
-    }
+    // A two-seat room with the host in it is never ready yet, but a host who
+    // asked for something else might be — and the rule is one rule.
+    try_start(&state, &game_id)?;
     Ok(Json(serde_json::json!({
         "game_id": game_id,
         "seat": 0,
@@ -939,6 +1029,9 @@ async fn create_game(
 #[derive(Deserialize)]
 struct JoinGameBody {
     deck_id: String,
+    /// Which chair to take. The first free one when the body does not say.
+    #[serde(default)]
+    seat: Option<usize>,
 }
 
 async fn join_game(
@@ -948,18 +1041,86 @@ async fn join_game(
     Json(body): Json<JoinGameBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
-    let (deck_name, deck) = {
-        let store = state.store.lock();
-        let deck = store
-            .decks
-            .get(&body.deck_id)
-            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
-        if deck.account_id != account_id {
-            return Err(err(StatusCode::FORBIDDEN, "not your deck"));
-        }
-        (deck.name.clone(), deck.clone())
-    };
+    let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id)?;
     let seat_token = auth::new_token();
+    let seat = {
+        let mut lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get_mut(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if game.state != LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        if game
+            .seats
+            .iter()
+            .any(|s| s.account_id.as_ref() == Some(&account_id))
+        {
+            return Err(err(StatusCode::CONFLICT, "you are already at this table"));
+        }
+        let free =
+            |s: &&mut lobby::LobbySeat| s.kind == lobby::SeatKind::Human && s.account_id.is_none();
+        let chair = match body.seat {
+            Some(at) => game
+                .seats
+                .iter_mut()
+                .filter(free)
+                .find(|s| s.seat == at)
+                .ok_or_else(|| err(StatusCode::CONFLICT, "that seat is taken"))?,
+            None => game
+                .seats
+                .iter_mut()
+                .find(|s| free(s))
+                .ok_or_else(|| err(StatusCode::CONFLICT, "the table is full"))?,
+        };
+        chair.account_id = Some(account_id);
+        chair.seat_token_hash = Some(auth::token_hash(&seat_token));
+        chair.deck_name = deck_name;
+        chair.deck = Some(deck);
+        chair.seat
+    };
+    try_start(&state, &id)?;
+    Ok(Json(serde_json::json!({
+        "game_id": id,
+        "seat": seat,
+        "seat_token": seat_token,
+    })))
+}
+
+#[derive(Deserialize)]
+struct SeatBody {
+    /// `"human"` or `"ai"`. Absent leaves the chair as it is.
+    #[serde(default)]
+    kind: Option<String>,
+    /// Which difficulty an AI chair plays at.
+    #[serde(default)]
+    ai: Option<String>,
+    /// The deck this chair plays.
+    #[serde(default)]
+    deck_id: Option<String>,
+}
+
+/// Configures one seat of a room.
+///
+/// Two authorities, deliberately narrow. The **host** arranges the table:
+/// which chairs are people and which are the AI, how hard the AI plays, and
+/// what an AI chair brings. A **player** changes exactly one thing, their own
+/// deck — including the host, whose own chair is theirs as a player and not
+/// as the host.
+async fn set_seat(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path((id, seat)): Path<(String, usize)>,
+    Json(body): Json<SeatBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    // Looked up before the lobby lock: the store has its own, and taking two
+    // in one order here and the other order elsewhere is how deadlocks start.
+    let chosen = match &body.deck_id {
+        Some(deck_id) => Some(own_deck(&state, &account_id, deck_id)?),
+        None => None,
+    };
     {
         let mut lobby = state.lobby.lock();
         let game = lobby
@@ -969,50 +1130,105 @@ async fn join_game(
         if game.state != LobbyState::Waiting {
             return Err(err(StatusCode::CONFLICT, "game already started"));
         }
-        game.seats[1] = lobby::LobbySeat {
-            seat: 1,
-            account_id: Some(account_id),
-            seat_token_hash: Some(auth::token_hash(&seat_token)),
-            deck_name,
-            deck: Some(deck.clone()),
-        };
-        // Both seats filled: build the preset from BOTH players' decks.
-        let creator_deck = game.seats[0]
-            .deck
-            .clone()
-            .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "creator deck missing"))?;
-        let mut preset = hvh_preset(&creator_deck, &deck, auth::new_game_seed())?;
-        // The deck helper presets every seat as AI; here BOTH chairs belong
-        // to humans, or the game would silently play itself (and the humans
-        // would never be asked).
-        for seat in &mut preset.seats {
-            seat.controller = baylee_core::preset::SeatController::Open;
+        let is_host = game.host.as_ref() == Some(&account_id);
+        let chair = game
+            .seats
+            .get_mut(seat)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such seat"))?;
+        let is_mine = chair.account_id.as_ref() == Some(&account_id);
+        if !is_mine && !is_host {
+            return Err(err(StatusCode::FORBIDDEN, "not your seat"));
         }
-        game.preset = Some(preset);
-        game.state = LobbyState::Playing;
-    }
-    if let Err(reason) = engine::start_engine(&state, &id) {
-        // The joiner keeps its seat and the table stays open rather than
-        // vanishing under the player who created it.
-        let mut lobby = state.lobby.lock();
-        if let Some(game) = lobby.games.get_mut(&id) {
-            game.state = LobbyState::Waiting;
-            game.seats[1] = lobby::LobbySeat {
-                seat: 1,
-                account_id: None,
-                seat_token_hash: None,
-                deck_name: String::new(),
-                deck: None,
-            };
+        // The host arranges chairs, but never out from under someone else who
+        // is sitting in one.
+        if let Some(kind) = &body.kind {
+            if !is_host {
+                return Err(err(StatusCode::FORBIDDEN, "only the host arranges seats"));
+            }
+            if chair.account_id.is_some() && !is_mine {
+                return Err(err(StatusCode::CONFLICT, "someone is sitting there"));
+            }
+            match kind.as_str() {
+                "ai" => {
+                    chair.kind = lobby::SeatKind::Ai;
+                    chair.ai.get_or_insert_with(|| "steady".to_string());
+                    chair.account_id = None;
+                    chair.seat_token_hash = None;
+                    if chair.deck.is_none() {
+                        chair.deck_name = "house AI".to_string();
+                    }
+                }
+                "human" => {
+                    chair.kind = lobby::SeatKind::Human;
+                    chair.ai = None;
+                    // An AI's deck was the host's choice for a chair that is
+                    // now waiting for a person, who brings their own.
+                    if chair.account_id.is_none() {
+                        chair.deck = None;
+                        chair.deck_name = String::new();
+                    }
+                }
+                _ => return Err(err(StatusCode::BAD_REQUEST, "kind must be human or ai")),
+            }
         }
-        tracing::error!(game_id = id, reason, "could not start a game");
-        return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
+        if let Some(profile) = &body.ai {
+            if !is_host {
+                return Err(err(StatusCode::FORBIDDEN, "only the host arranges seats"));
+            }
+            if baylee_core::preset::AIProfile::named(profile).is_none() {
+                return Err(err(StatusCode::BAD_REQUEST, "no such AI"));
+            }
+            if chair.kind != lobby::SeatKind::Ai {
+                return Err(err(StatusCode::CONFLICT, "that seat is not an AI"));
+            }
+            chair.ai = Some(profile.clone());
+        }
+        if let Some((deck_name, deck)) = chosen {
+            // A player sets their own deck; the host sets an AI's. Nobody
+            // sets a deck for another person.
+            let allowed = is_mine || (is_host && chair.kind == lobby::SeatKind::Ai);
+            if !allowed {
+                return Err(err(StatusCode::FORBIDDEN, "not your seat"));
+            }
+            chair.deck_name = deck_name;
+            chair.deck = Some(deck);
+        }
     }
-    Ok(Json(serde_json::json!({
-        "game_id": id,
-        "seat": 1,
-        "seat_token": seat_token,
-    })))
+    try_start(&state, &id)?;
+    let lobby = state.lobby.lock();
+    Ok(Json(serde_json::json!(lobby.list())))
+}
+
+/// Gives up a seat, and closes the room if the host is the one leaving.
+async fn leave_game(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    let mut lobby = state.lobby.lock();
+    let game = lobby
+        .games
+        .get_mut(&id)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+    if game.state != LobbyState::Waiting {
+        return Err(err(StatusCode::CONFLICT, "game already started"));
+    }
+    // The room is the host's; without them there is nobody to arrange it, and
+    // leaving it listed would advertise a table that can never start.
+    if game.host.as_ref() == Some(&account_id) {
+        game.finish(auth::now_secs());
+        return Ok(StatusCode::NO_CONTENT);
+    }
+    let Some(chair) = game
+        .seats
+        .iter_mut()
+        .find(|s| s.account_id.as_ref() == Some(&account_id))
+    else {
+        return Err(err(StatusCode::NOT_FOUND, "you are not at this table"));
+    };
+    *chair = lobby::LobbySeat::open(chair.seat);
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // ------------------------------------------------------- standing answers

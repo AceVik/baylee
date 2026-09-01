@@ -186,6 +186,52 @@ pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
     }
 }
 
+/// A preset for a table of any size, one seat per deck.
+///
+/// [`preset_for`] is the two-deck case and the one most callers want; a room
+/// where the host chose how many chairs there are needs this. The print table
+/// is still shared and still deduplicated across every deck at the table —
+/// which is exactly why this cannot be a fold over `preset_for`.
+///
+/// Every seat comes out as an AI, as in the two-deck case: who actually sits
+/// where is the caller's business, and the gateway overwrites the controller
+/// per seat before the engine ever sees it.
+#[must_use]
+pub fn preset_for_all(seed: u64, decks: &[&LoadedDeck]) -> GamePreset {
+    let mut prints: Vec<PrintInfo> = Vec::new();
+    let mut entries = |cards: &[DeckCard]| -> Vec<DeckEntry> {
+        cards
+            .iter()
+            .map(|card| DeckEntry {
+                card: card.index,
+                print: print_ref_for(&mut prints, &card.print),
+            })
+            .collect()
+    };
+    let seats = decks
+        .iter()
+        .map(|deck| SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: baylee_core::preset::SeatCapabilities::default(),
+            deck: entries(&deck.main),
+            sideboard: entries(&deck.sideboard),
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        })
+        .collect();
+    GamePreset {
+        format: FormatId::Freeform,
+        seed,
+        house_rules: HouseRules::default(),
+        modifiers: vec![],
+        prints,
+        seats,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -22,21 +22,69 @@ pub enum LobbyState {
     Over,
 }
 
+/// What is meant to sit in a seat.
+///
+/// Separate from whether anyone *has*: a human seat with no account is a
+/// chair waiting for someone, and an AI seat is filled the moment it is
+/// configured. Collapsing the two would make "is this table full?" ask the
+/// wrong question.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SeatKind {
+    /// A person, once one takes it.
+    Human,
+    /// The house AI, at a named difficulty.
+    Ai,
+}
+
 /// A seat in a lobby game.
 #[derive(Clone, Debug)]
 pub struct LobbySeat {
-    /// Seat index (0/1).
+    /// Seat index.
     pub seat: usize,
+    /// Whether this chair is for a person or for the AI.
+    pub kind: SeatKind,
+    /// The AI's difficulty profile, by the key `AIProfile::NAMED` lists.
+    /// `None` for a human seat.
+    pub ai: Option<String>,
     /// Account id when a human took the seat (`None` = AI or open).
     pub account_id: Option<String>,
     /// SHA-256 of the seat token (empty until issued).
     pub seat_token_hash: Option<String>,
     /// The deck the seat plays.
-    #[allow(dead_code)]
     pub deck_name: String,
-    /// The seat's full deck (present for human seats; used to build the
-    /// preset when the game starts).
+    /// The seat's full deck. Present once the seat has one — a human's own
+    /// choice, or the deck the host gave an AI — and what the preset is built
+    /// from when the game starts.
     pub deck: Option<crate::store::Deck>,
+}
+
+impl LobbySeat {
+    /// An empty chair for a person.
+    #[must_use]
+    pub fn open(seat: usize) -> Self {
+        Self {
+            seat,
+            kind: SeatKind::Human,
+            ai: None,
+            account_id: None,
+            seat_token_hash: None,
+            deck_name: String::new(),
+            deck: None,
+        }
+    }
+
+    /// Whether the seat is settled enough for the game to start: somebody is
+    /// in it, and they have something to play.
+    #[must_use]
+    pub fn ready(&self) -> bool {
+        match self.kind {
+            SeatKind::Human => self.account_id.is_some() && self.deck.is_some(),
+            // An AI the host gave no deck plays the house deck, so there is
+            // nothing left to wait for.
+            SeatKind::Ai => true,
+        }
+    }
 }
 
 /// The gateway's end of one engine process.
@@ -52,7 +100,13 @@ pub struct LobbyGame {
     pub id: String,
     /// State.
     pub state: LobbyState,
-    /// Seats (2).
+    /// The account that opened the room and configures it. `None` for the
+    /// two-seat tables that predate rooms.
+    pub host: Option<String>,
+    /// What the host called the table. Empty is fine; the list falls back to
+    /// the host's name.
+    pub name: String,
+    /// Seats, in turn order. Two or more.
     pub seats: Vec<LobbySeat>,
     /// The preset the engine is asked to build the game from (present once
     /// both seats are decided).
@@ -87,33 +141,32 @@ pub struct LobbyGame {
 }
 
 impl LobbyGame {
-    /// A waiting game with the first seat taken.
+    /// A room: `chairs` seats, the host in the first one, the rest open.
+    ///
+    /// The host owns the table until it starts — who else may sit, which
+    /// chairs the AI takes and at what difficulty. Everyone else configures
+    /// exactly one thing, which is the deck they themselves will play.
     #[must_use]
-    pub fn waiting(
+    pub fn room(
         id: String,
         account_id: String,
         deck_name: String,
         deck: crate::store::Deck,
+        chairs: usize,
+        name: String,
         created_at: u64,
     ) -> Self {
+        let mut seats: Vec<LobbySeat> = (0..chairs).map(LobbySeat::open).collect();
+        if let Some(first) = seats.first_mut() {
+            first.account_id = Some(account_id.clone());
+            first.deck_name = deck_name;
+            first.deck = Some(deck);
+        }
         Self {
             state: LobbyState::Waiting,
-            seats: vec![
-                LobbySeat {
-                    seat: 0,
-                    account_id: Some(account_id),
-                    seat_token_hash: None,
-                    deck_name,
-                    deck: Some(deck),
-                },
-                LobbySeat {
-                    seat: 1,
-                    account_id: None,
-                    seat_token_hash: None,
-                    deck_name: String::new(),
-                    deck: None,
-                },
-            ],
+            seats,
+            host: Some(account_id),
+            name,
             ..Self::blank(id, created_at)
         }
     }
@@ -134,6 +187,8 @@ impl LobbyGame {
         Self {
             id,
             state: LobbyState::Waiting,
+            host: None,
+            name: String::new(),
             seats: Vec::new(),
             preset: None,
             engine_token_hash: None,
@@ -175,15 +230,27 @@ impl Lobby {
             .map(|g| {
                 serde_json::json!({
                     "id": g.id,
+                    "name": g.name,
+                    "host": g.host,
                     "state": match g.state {
                         LobbyState::Waiting => "waiting",
                         LobbyState::Playing => "playing",
                         LobbyState::Over => "over",
                     },
+                    // Everything a player needs to decide whether to sit
+                    // down: how many chairs, which are people, which are the
+                    // AI and how hard, and what everyone brought. A room is
+                    // configured in the open — that is what makes it a room
+                    // rather than a matchmaking queue.
                     "seats": g.seats.iter().map(|s| {
                         serde_json::json!({
                             "seat": s.seat,
+                            "kind": s.kind,
+                            "ai": s.ai,
                             "taken": s.account_id.is_some(),
+                            "account": s.account_id,
+                            "deck": s.deck_name,
+                            "ready": s.ready(),
                         })
                     }).collect::<Vec<_>>(),
                 })

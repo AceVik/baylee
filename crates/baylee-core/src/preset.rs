@@ -145,13 +145,54 @@ pub struct AIProfile {
 
 impl Default for AIProfile {
     fn default() -> Self {
-        Self {
-            lookahead: 1,
-            temperature_milli: 100,
-            mulligan_skill: 1,
-            politics: Politics::default(),
-            hold_up: HoldUp::default(),
-        }
+        Self::STEADY
+    }
+}
+
+impl AIProfile {
+    /// Plays its cards, and not much more: no lookahead, loose evaluation and
+    /// random mulligans. What a first game should be played against.
+    pub const NOVICE: Self = Self {
+        lookahead: 0,
+        temperature_milli: 400,
+        mulligan_skill: 0,
+        politics: Politics::Random,
+        hold_up: HoldUp::None,
+    };
+    /// The middle setting, and the default everywhere a profile is not named.
+    pub const STEADY: Self = Self {
+        lookahead: 1,
+        temperature_milli: 100,
+        mulligan_skill: 1,
+        politics: Politics::AttackLeader,
+        hold_up: HoldUp::Basic,
+    };
+    /// Looks a turn further, keeps its mana up and does not fumble a keep.
+    pub const SHARP: Self = Self {
+        lookahead: 2,
+        temperature_milli: 0,
+        mulligan_skill: 2,
+        politics: Politics::AttackLeader,
+        hold_up: HoldUp::ThreatAware,
+    };
+
+    /// The profiles a player can choose between, weakest first.
+    ///
+    /// One list, so the gateway validating a name and the client offering the
+    /// choice cannot drift apart.
+    pub const NAMED: [(&'static str, Self); 3] = [
+        ("novice", Self::NOVICE),
+        ("steady", Self::STEADY),
+        ("sharp", Self::SHARP),
+    ];
+
+    /// Looks a profile up by the key a client sends.
+    #[must_use]
+    pub fn named(key: &str) -> Option<Self> {
+        Self::NAMED
+            .iter()
+            .find(|(name, _)| *name == key)
+            .map(|(_, profile)| *profile)
     }
 }
 
