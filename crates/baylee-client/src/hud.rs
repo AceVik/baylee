@@ -21,7 +21,8 @@ use crate::textures::CardTextures;
 use baylee_client_core::automation::{AutoPilot, RailRow};
 use baylee_client_core::card_face::CardFace;
 use baylee_client_core::images::{ArtSize, FinishTreatment, ImageKey};
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_client_core::interaction::CombatFocus;
+use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_view::{GameStatic, PlayerView};
 use bevy::prelude::*;
 
@@ -179,6 +180,10 @@ pub enum PromptAction {
     Mulligan,
     /// Confirm / pass / OK.
     Confirm,
+    /// Declare no attackers, or no blockers.
+    DeclareNothing,
+    /// Aim the next declaration at the next defender (or attacker).
+    AimNext,
 }
 
 /// The scrolling strip inside the hand bar.
@@ -263,6 +268,12 @@ pub struct HudRevision {
     /// How many printings have text. Text arrives over the network mid-game,
     /// and a face built before it lands says a good deal less.
     texts: usize,
+    /// Where the combat focus points and how many declarations stand.
+    ///
+    /// Both change without a new snapshot — aiming and declaring never leave
+    /// the client until the answer is sent — so without them here the combat
+    /// line would be drawn once and then stay wrong for the whole step.
+    combat: Option<(usize, usize, usize)>,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -492,6 +503,7 @@ pub fn sync_overlay(
     windows: Query<&Window>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
+    prefs: Res<crate::prefs::Prefs>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
     // Both come from the render plugins. A headless app has neither, and
@@ -525,8 +537,12 @@ pub fn sync_overlay(
         .as_ref()
         .map(|i| i.selected().to_vec())
         .unwrap_or_default();
-    let orders = duel.orders.clone();
+    let orders = prefs.orders().clone();
     let autopilot = duel.autopilot;
+    let combat = duel.interaction.as_ref().and_then(|i| {
+        i.focus_position()
+            .map(|(focus, count)| (focus, count, i.declared()))
+    });
     let focus = duel.focus;
     let overlay_closed = duel.overlay_closed;
     let preview_scale = settings.preview_scale;
@@ -542,6 +558,7 @@ pub fn sync_overlay(
         && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
         && revision.faces == faces.always()
         && revision.texts == texts.len()
+        && revision.combat == combat
         && !existing.is_empty()
     {
         return;
@@ -557,6 +574,7 @@ pub fn sync_overlay(
     revision.preview_scale = preview_scale;
     revision.faces = faces.always();
     revision.texts = texts.len();
+    revision.combat = combat;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -705,7 +723,35 @@ pub fn sync_overlay(
             .id();
         commands.entity(bar).add_child(headline);
 
+        // ---- combat: what the next declaration is aimed at -----------------
+        //
+        // Combat is the one choice where clicking a creature is not enough:
+        // the engine asks *which* defender, and a player who cannot see the
+        // answer is guessing. The line says where the aim points and how many
+        // declarations stand, and it is the same aim the keyboard cycles.
+        if let Some(line) = duel
+            .interaction
+            .as_ref()
+            .filter(|i| i.is_combat() && !waiting)
+            .and_then(|i| combat_line(i, view, duel.statics.as_ref()))
+        {
+            let aim = commands
+                .spawn((Text::new(line), tf(&fonts, 13.0), TextColor(palette::MUTED)))
+                .id();
+            commands.entity(bar).add_child(aim);
+        }
+
         // Answer buttons, matching the pending choice.
+        let combat_answers = [
+            (PromptAction::AimNext, "Aim next"),
+            (PromptAction::Confirm, "Attack"),
+            (PromptAction::DeclareNothing, "None"),
+        ];
+        let block_answers = [
+            (PromptAction::AimNext, "Aim next"),
+            (PromptAction::Confirm, "Block"),
+            (PromptAction::DeclareNothing, "None"),
+        ];
         let answers: &[(PromptAction, &str)] = if waiting {
             &[]
         } else {
@@ -721,6 +767,11 @@ pub fn sync_overlay(
                 Some(baylee_engine::choice::Pending::YesNo { .. }) => {
                     &[(PromptAction::Yes, "Yes"), (PromptAction::No, "No")]
                 }
+                // Combat always offers all three, including with nothing
+                // declared: "none" is a real answer, and the step does not
+                // end until somebody gives one.
+                Some(baylee_engine::choice::Pending::ChooseAttackers { .. }) => &combat_answers,
+                Some(baylee_engine::choice::Pending::ChooseBlockers { .. }) => &block_answers,
                 Some(_)
                     if duel
                         .interaction
@@ -1314,6 +1365,46 @@ fn spawn_phase_rail(
     commands.entity(rail).add_child(foot);
 
     rail
+}
+
+/// The combat line: where the next declaration points, and how many stand.
+///
+/// `None` when there is nothing to aim — a two-player game with no
+/// planeswalkers has exactly one thing to attack, and a line saying so every
+/// combat would be noise. The declaration count is still worth saying, so the
+/// line survives that case whenever anything has been declared.
+#[must_use]
+fn combat_line(
+    interaction: &baylee_client_core::Interaction,
+    view: &PlayerView,
+    statics: Option<&GameStatic>,
+) -> Option<String> {
+    let (position, count) = interaction.focus_position()?;
+    let declared = interaction.declared();
+    let aiming = count > 1;
+    if !aiming && declared == 0 {
+        return None;
+    }
+    let aim = aiming.then(|| {
+        let target = match interaction.combat_focus() {
+            CombatFocus::Defender(Defender::Player(p)) => {
+                statics.map_or_else(|| "a seat".to_string(), |s| s.seat_name(p).to_string())
+            }
+            CombatFocus::Defender(Defender::Planeswalker(o)) | CombatFocus::Attacker(o) => view
+                .object(o)
+                .map_or_else(|| "a permanent".to_string(), |o| o.name.clone()),
+            CombatFocus::None => "nothing".to_string(),
+        };
+        format!("Aimed at {target} ({} of {count})", position + 1)
+    });
+    let standing = (declared > 0).then(|| format!("{declared} declared"));
+    Some(
+        [aim, standing]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join("  ·  "),
+    )
 }
 
 /// Whether two seats play on the same side (same team when teams are

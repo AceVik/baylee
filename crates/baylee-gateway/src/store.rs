@@ -91,6 +91,18 @@ pub struct Store {
     /// before this existed still loads.
     #[serde(default)]
     pub automation: HashMap<String, Vec<StandingAnswer>>,
+    /// Client preferences by account id — keymap, phase rail, and what the
+    /// client may answer without asking.
+    ///
+    /// Deliberately an opaque JSON object rather than a typed struct. The
+    /// gateway would have to link `baylee-client-core` to know what is in
+    /// here, and it links neither the client's brain nor the engine on
+    /// purpose; and a client that adds a preference should not need a
+    /// gateway deploy before it can store it. What the gateway does enforce
+    /// is that the value is an object and that it is small — see
+    /// `MAX_SETTINGS_BYTES`.
+    #[serde(default)]
+    pub settings: HashMap<String, serde_json::Value>,
 }
 
 impl Store {

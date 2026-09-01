@@ -133,6 +133,7 @@ async fn main() {
         )
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/automation", get(list_automation).put(set_automation))
+        .route("/settings", get(get_settings).put(put_settings))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/seats/{seat}", post(set_seat))
         .route("/lobby/games/{id}/leave", post(leave_game))
@@ -1307,6 +1308,56 @@ async fn set_automation(
     state.store.lock().automation.insert(account_id, answers);
     state.request_save();
     Ok(Json(serde_json::json!({ "stored": count })))
+}
+
+/// Upper bound on a stored preferences blob.
+///
+/// A full keymap with every action bound twice, both phase rails and the
+/// automation flags is under two kilobytes; sixteen leaves room for whatever
+/// the client learns to remember next, and still means a thousand accounts
+/// cost the store sixteen megabytes at the very worst.
+const MAX_SETTINGS_BYTES: usize = 16 * 1024;
+
+/// The account's client preferences, verbatim as they were stored.
+///
+/// `{}` for an account that has never saved any, which is the same thing the
+/// client would do with them: fall back to its own defaults.
+async fn get_settings(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    let store = state.store.lock();
+    let settings = store
+        .settings
+        .get(&account_id)
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    Ok(Json(settings))
+}
+
+/// Replaces the account's client preferences.
+///
+/// The body *is* the preferences object — there is no wrapper, because there
+/// is nothing else to say about it. The gateway checks only the two things it
+/// can check without knowing what a keymap is: that this is an object, and
+/// that it is not being used as free storage.
+async fn put_settings(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    if !body.is_object() {
+        return Err(err(StatusCode::BAD_REQUEST, "settings must be an object"));
+    }
+    let bytes = serde_json::to_string(&body).map_or(usize::MAX, |s| s.len());
+    if bytes > MAX_SETTINGS_BYTES {
+        return Err(err(StatusCode::PAYLOAD_TOO_LARGE, "settings too large"));
+    }
+    state.store.lock().settings.insert(account_id, body);
+    state.request_save();
+    Ok(Json(serde_json::json!({ "stored": bytes })))
 }
 
 /// The account's remembered answers, in the shape the engine reads them.

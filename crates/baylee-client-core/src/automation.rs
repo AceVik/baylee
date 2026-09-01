@@ -4,13 +4,16 @@
 //! Everything here is a pure decision over the pending choice and the
 //! view's phase — the renderer only has to draw the answers.
 
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{LegalActions, Pending};
 use baylee_view::{Phase, Step};
 
 /// One row of the phase rail: every step of a Magic turn, in order
 /// (CR 500.1). The two main phases share `Step::Main` and are told apart
 /// by their phase; the two combat damage steps share one row.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
 pub enum RailRow {
     /// Untap step (no priority in rules — informational).
     Untap,
@@ -110,7 +113,10 @@ impl RailRow {
 /// (or a teammate's) turns, or the phases of *opponents'* turns. Both
 /// are priority controls — a red opponent-attackers row means "don't ask
 /// me for blocks", a red own-upkeep row means "don't ask me there".
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
 pub enum RailSide {
     /// Phases of your own and your teammates' turns.
     Mine,
@@ -138,11 +144,16 @@ impl RailSide {
 /// Everything defaults to green, which is the honest default: a client
 /// that auto-passes without being asked loses games its player never
 /// agreed to lose.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct PhaseOrders {
     /// `true` = red (skip) at that rail index, per side.
     skip: [[bool; 12]; 2],
     /// The keyboard-selected button (side + row), for Shift+W/S + Space.
+    ///
+    /// Never stored: which button the keyboard is resting on is a property
+    /// of this screen right now, not of the account.
+    #[serde(skip)]
     selected: Option<(RailSide, RailRow)>,
 }
 
@@ -261,44 +272,102 @@ pub enum AutoAnswer {
     DeclareNoBlockers,
 }
 
-/// The standing-order decision: given the pending choice and who it is
-/// for, the view's (phase, step) and whose turn it is, the per-step
-/// orders, and an optional autopilot, what is answered automatically?
+/// Where the game is, from the local seat's point of view.
+///
+/// Bundled rather than passed as four loose flags, because they are always
+/// read together and swapping `mine` for `active_is_mine` is a bug no
+/// signature would catch.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Situation {
+    /// Whether the pending choice is the local seat's to answer.
+    pub mine: bool,
+    /// Whether the active player is the local seat or a teammate.
+    pub active_is_mine: bool,
+    /// The phase the view is in.
+    pub phase: Phase,
+    /// The step the view is in.
+    pub step: Step,
+}
+
+/// The standing-order decision: given the pending choice, where the game
+/// is, the per-step rail, the account's automation rules and an optional
+/// autopilot, what is answered without asking?
 ///
 /// The rule of thumb: a red row means "I do nothing here" (pass, no
 /// attackers, no blockers), the autopilot means "fast-forward to the
-/// boundary, but never make a real decision for me".
+/// boundary, but never make a real decision for me", and the rules are the
+/// same promise for the questions that are not really questions.
+///
+/// One line that is deliberately *not* here: `skip_opponent_turns` passes
+/// priority on an opponent's turn and nothing more. It never declines a
+/// block. Losing a creature you would have blocked with is exactly the kind
+/// of decision a client must not make for its player.
 #[must_use]
 pub fn auto_answer(
     pending: &Pending,
-    mine: bool,
-    active_is_mine: bool,
-    phase: Phase,
-    step: Step,
+    at: Situation,
     orders: &PhaseOrders,
+    rules: &crate::prefs::AutoRules,
     pilot: Option<&AutoPilot>,
 ) -> AutoAnswer {
-    if !mine {
+    if !at.mine {
         return AutoAnswer::None;
     }
-    let skipped = orders.is_skipped_at(active_is_mine, phase, step);
+    let skipped = orders.is_skipped_at(at.active_is_mine, at.phase, at.step);
+    let quiet_turn = rules.skip_opponent_turns && !at.active_is_mine;
     match pending {
-        Pending::Priority { .. } if skipped || pilot.is_some() => AutoAnswer::Pass,
-        Pending::ChooseAttackers { .. }
-            if skipped || matches!(pilot, Some(AutoPilot::ToNextTurn { .. })) =>
+        Pending::Priority { legal, .. }
+            if skipped
+                || quiet_turn
+                || pilot.is_some()
+                || (rules.pass_when_nothing_to_do && nothing_to_do(legal)) =>
+        {
+            AutoAnswer::Pass
+        }
+        Pending::ChooseAttackers { attackers, .. }
+            if skipped
+                || matches!(pilot, Some(AutoPilot::ToNextTurn { .. }))
+                || (rules.skip_empty_attacks && attackers.is_empty()) =>
         {
             AutoAnswer::DeclareNoAttackers
         }
-        Pending::ChooseBlockers { .. } if skipped => AutoAnswer::DeclareNoBlockers,
+        Pending::ChooseBlockers { blockers, .. }
+            if skipped || (rules.skip_empty_blocks && blockers.is_empty()) =>
+        {
+            AutoAnswer::DeclareNoBlockers
+        }
         _ => AutoAnswer::None,
     }
+}
+
+/// Whether a priority window offers the seat nothing at all.
+///
+/// "Nothing" is meant literally: no land to play, no spell to cast, no
+/// ability to activate, nothing to suspend. Mana abilities do not count —
+/// floating mana with nothing to spend it on is not something to do, and
+/// counting it would mean the rule never fires for anyone holding a land.
+fn nothing_to_do(legal: &LegalActions) -> bool {
+    legal.lands.is_empty()
+        && legal.castable.is_empty()
+        && legal.abilities.is_empty()
+        && legal.suspendable.is_empty()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prefs::AutoRules;
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::LegalActions;
+
+    fn at(mine: bool, active_is_mine: bool, phase: Phase, step: Step) -> Situation {
+        Situation {
+            mine,
+            active_is_mine,
+            phase,
+            step,
+        }
+    }
 
     fn priority_pending() -> Pending {
         Pending::Priority {
@@ -324,11 +393,9 @@ mod tests {
         }
         let answer = auto_answer(
             &priority_pending(),
-            true,
-            true,
-            Phase::FirstMain,
-            Step::Main,
+            at(true, true, Phase::FirstMain, Step::Main),
             &orders,
+            &AutoRules::default(),
             None,
         );
         assert_eq!(answer, AutoAnswer::None);
@@ -343,11 +410,9 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &priority_pending(),
-                true,
-                true,
-                Phase::Combat,
-                Step::CombatDamage,
+                at(true, true, Phase::Combat, Step::CombatDamage),
                 &orders,
+                &AutoRules::default(),
                 None,
             ),
             AutoAnswer::Pass
@@ -359,11 +424,9 @@ mod tests {
                     attackers: vec![],
                     defenders: Vec::new(),
                 },
-                true,
-                true,
-                Phase::Combat,
-                Step::DeclareAttackers,
+                at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
+                &AutoRules::default(),
                 None,
             ),
             AutoAnswer::DeclareNoAttackers
@@ -375,11 +438,9 @@ mod tests {
                     blockers: vec![],
                     attacker: PlayerId::new(1),
                 },
-                true,
-                true,
-                Phase::Combat,
-                Step::DeclareBlockers,
+                at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
+                &AutoRules::default(),
                 None,
             ),
             AutoAnswer::DeclareNoBlockers
@@ -388,11 +449,9 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &priority_pending(),
-                true,
-                true,
-                Phase::Combat,
-                Step::CombatBegin,
+                at(true, true, Phase::Combat, Step::CombatBegin),
                 &orders,
+                &AutoRules::default(),
                 None,
             ),
             AutoAnswer::None
@@ -402,11 +461,9 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &priority_pending(),
-                true,
-                false,
-                Phase::Combat,
-                Step::CombatDamage,
+                at(true, false, Phase::Combat, Step::CombatDamage),
                 &orders,
+                &AutoRules::default(),
                 None,
             ),
             AutoAnswer::None
@@ -424,11 +481,9 @@ mod tests {
                     blockers: vec![],
                     attacker: PlayerId::new(1),
                 },
-                true,
-                false,
-                Phase::Combat,
-                Step::DeclareBlockers,
+                at(true, false, Phase::Combat, Step::DeclareBlockers),
                 &orders,
+                &AutoRules::default(),
                 None,
             ),
             AutoAnswer::DeclareNoBlockers
@@ -441,11 +496,9 @@ mod tests {
                     blockers: vec![],
                     attacker: PlayerId::new(1),
                 },
-                true,
-                true,
-                Phase::Combat,
-                Step::DeclareBlockers,
+                at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
+                &AutoRules::default(),
                 None,
             ),
             AutoAnswer::None
@@ -515,11 +568,9 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &priority_pending(),
-                true,
-                true,
-                Phase::FirstMain,
-                Step::Main,
+                at(true, true, Phase::FirstMain, Step::Main),
                 &orders,
+                &AutoRules::default(),
                 Some(&pilot)
             ),
             AutoAnswer::Pass
@@ -532,11 +583,9 @@ mod tests {
                     attackers: vec![],
                     defenders: Vec::new(),
                 },
-                true,
-                true,
-                Phase::Combat,
-                Step::DeclareAttackers,
+                at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
+                &AutoRules::default(),
                 Some(&pilot),
             ),
             AutoAnswer::None
@@ -550,11 +599,9 @@ mod tests {
                     attackers: vec![],
                     defenders: Vec::new(),
                 },
-                true,
-                true,
-                Phase::Combat,
-                Step::DeclareAttackers,
+                at(true, true, Phase::Combat, Step::DeclareAttackers),
                 &orders,
+                &AutoRules::default(),
                 Some(&end_turn),
             ),
             AutoAnswer::DeclareNoAttackers
@@ -606,12 +653,185 @@ mod tests {
         assert_eq!(
             auto_answer(
                 &priority_pending(),
-                false,
-                true,
-                Phase::FirstMain,
-                Step::Main,
+                at(false, true, Phase::FirstMain, Step::Main),
                 &orders,
+                &AutoRules::default(),
                 Some(&pilot)
+            ),
+            AutoAnswer::None
+        );
+    }
+
+    #[test]
+    fn a_window_offering_nothing_passes_itself_only_once_asked_to() {
+        let orders = PhaseOrders::default();
+        let empty = priority_pending();
+        let mut rules = AutoRules::default();
+        // Off by default: an empty window is still the player's to pass.
+        assert_eq!(
+            auto_answer(
+                &empty,
+                at(true, true, Phase::FirstMain, Step::Main),
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::None
+        );
+        rules.pass_when_nothing_to_do = true;
+        assert_eq!(
+            auto_answer(
+                &empty,
+                at(true, true, Phase::FirstMain, Step::Main),
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::Pass
+        );
+        // One castable spell is something to do, and the player is asked.
+        let castable = Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                lands: vec![],
+                castable: vec![baylee_core::ids::ObjectId::new(1, 0)],
+                mana_abilities: vec![],
+                abilities: vec![],
+                suspendable: vec![],
+            }),
+        };
+        assert_eq!(
+            auto_answer(
+                &castable,
+                at(true, true, Phase::FirstMain, Step::Main),
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::None
+        );
+    }
+
+    #[test]
+    fn floating_mana_is_not_something_to_do() {
+        // A seat holding an untapped land can always make mana, so counting
+        // mana abilities would mean the rule never fires for anyone.
+        let orders = PhaseOrders::default();
+        let rules = AutoRules {
+            pass_when_nothing_to_do: true,
+            ..AutoRules::default()
+        };
+        let only_mana = Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                lands: vec![],
+                castable: vec![],
+                mana_abilities: vec![baylee_core::ids::ObjectId::new(1, 0)],
+                abilities: vec![],
+                suspendable: vec![],
+            }),
+        };
+        assert_eq!(
+            auto_answer(
+                &only_mana,
+                at(true, true, Phase::FirstMain, Step::Main),
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::Pass
+        );
+    }
+
+    #[test]
+    fn skipping_opponent_turns_never_skips_a_block() {
+        let orders = PhaseOrders::default();
+        let rules = AutoRules {
+            skip_opponent_turns: true,
+            ..AutoRules::default()
+        };
+        // Priority on their turn: passed.
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                at(true, false, Phase::FirstMain, Step::Main),
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::Pass
+        );
+        // A block on their turn: still mine to make, and the whole point of
+        // the rule being priority-only.
+        let blocks = Pending::ChooseBlockers {
+            player: PlayerId::new(0),
+            blockers: vec![baylee_engine::choice::BlockOption {
+                blocker: baylee_core::ids::ObjectId::new(1, 0),
+                attackers: vec![baylee_core::ids::ObjectId::new(2, 0)],
+            }],
+            attacker: PlayerId::new(1),
+        };
+        assert_eq!(
+            auto_answer(
+                &blocks,
+                at(true, false, Phase::Combat, Step::DeclareBlockers),
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::None
+        );
+        // And my own turn is untouched.
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                at(true, true, Phase::FirstMain, Step::Main),
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::None
+        );
+    }
+
+    #[test]
+    fn an_empty_combat_question_can_be_answered_for_you() {
+        let orders = PhaseOrders::default();
+        let rules = AutoRules {
+            skip_empty_attacks: true,
+            skip_empty_blocks: true,
+            ..AutoRules::default()
+        };
+        let no_attackers = Pending::ChooseAttackers {
+            player: PlayerId::new(0),
+            attackers: vec![],
+            defenders: Vec::new(),
+        };
+        assert_eq!(
+            auto_answer(
+                &no_attackers,
+                at(true, true, Phase::Combat, Step::DeclareAttackers),
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::DeclareNoAttackers
+        );
+        // But a creature that *can* attack is always the player's call.
+        let could_attack = Pending::ChooseAttackers {
+            player: PlayerId::new(0),
+            attackers: vec![baylee_core::ids::ObjectId::new(3, 0)],
+            defenders: Vec::new(),
+        };
+        assert_eq!(
+            auto_answer(
+                &could_attack,
+                at(true, true, Phase::Combat, Step::DeclareAttackers),
+                &orders,
+                &rules,
+                None
             ),
             AutoAnswer::None
         );

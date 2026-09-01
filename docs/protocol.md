@@ -58,6 +58,38 @@ Storing a handle the registry does not know is refused rather than kept: it
 could never fire, and it would fail silently — the seat would just be asked a
 question it believed it had answered for good.
 
+## Client preferences (`/settings`)
+
+Keys and standing orders follow the **account**, not the machine: a player who
+rebinds confirm at home finds it rebound at a friend's table.
+
+- `GET /settings` → the stored object, or `{}` for an account that has never
+  saved any. Never a 404: the client's own defaults are the right answer, and
+  making it tell two failures apart buys nothing.
+- `PUT /settings` replaces it. The body *is* the preferences object — there is
+  no wrapper, because there is nothing else to say about it.
+
+The gateway keeps the blob **opaque** and checks exactly two things: that it is
+a JSON object, and that it is under 16 KiB. It cannot check more, and should
+not: knowing what a keymap is would mean linking `baylee-client-core`, which
+is the client's brain and pulls in the engine behind it — the one dependency
+the gateway does not have. The second reason is deployment order: a client
+that learns to remember a new preference must not need a gateway release
+before it can store it.
+
+The shape is `baylee_client_core::prefs::Preferences` — a `Keymap`, the phase
+rail's `PhaseOrders`, and the `AutoRules` switches — and every field of it is
+`#[serde(default)]`, so a blob written by an older or newer client still loads
+with the rest defaulted rather than costing a player their bindings. A
+corrupt blob decodes to the defaults rather than to an error, for the same
+reason: preferences are a convenience, and a player mid-upgrade should get a
+working keymap rather than a screen that will not open.
+
+Not stored here: the preview's size, the interface language, and the gateway
+address. Those are properties of a *device*, they stay in the client's own
+local store, and putting them in the account would mean a phone and a desktop
+fighting over one number.
+
 ## v0 (M0)
 Transport handshake + preset transfer:
 `Hello{protocol_version, card_pool_hash}` / `HelloAck`, `JoinGame`,

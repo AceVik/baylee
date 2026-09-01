@@ -9,18 +9,22 @@
 //! [`baylee_client_core::interaction::Interaction`], which refuses anything the
 //! engine did not offer. No input handler decides legality by itself.
 //!
-//! `Space` is "the click", with a fixed precedence: the card under the
-//! cursor, then the selected phase button, then confirm/pass.
+//! Which key does what is the account's, not this module's: every binding
+//! comes from `Keymap` and is resolved through `crate::keys`. The primary key
+//! (`Space` by default) is "the click", with a fixed precedence: the card
+//! under the cursor, then the selected phase button, then confirm/pass.
 
 use crate::Duel;
 use crate::hud::{
     HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton, PlayerTab, PreviewResize,
     PromptAction, PromptButton, RailButton,
 };
+use crate::keys::Fired;
 use crate::settings::ClientSettings;
 use crate::table::CardVisual;
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::interaction::Interaction;
+use baylee_client_core::prefs::Action;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::PlayerAction;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
@@ -57,183 +61,226 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
     }
 }
 
-/// Keyboard handling, following `docs/keyboard-map.md`.
-#[allow(clippy::too_many_lines)] // one key map, kept in one place on purpose
+/// Keyboard handling: every key comes from the account's keymap.
+///
+/// The handler asks *actions*, never keys. That is what makes rebinding work
+/// at all, and it also removed the `if !shift` guards that used to be sprayed
+/// through here — `W` and `⇧W` are two chords, and telling them apart is the
+/// keymap's job, not this function's.
 pub fn keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     mut duel: ResMut<Duel>,
+    mut prefs: ResMut<crate::prefs::Prefs>,
     mut rig: ResMut<crate::table::CameraRig>,
     mut settings: ResMut<crate::settings::ClientSettings>,
 ) {
-    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    let fired = Fired::of(&keys, prefs.keymap());
+    if fired.quiet() {
+        return;
+    }
+    look_around(fired, &mut duel, &mut rig, &mut settings, &mut prefs);
+    if move_the_cursor(fired, &mut duel) {
+        return;
+    }
+    if aim_and_declare(fired, &mut duel) {
+        return;
+    }
+    if the_click(fired, &mut duel, &mut prefs) {
+        return;
+    }
+    if duel.interaction.is_some() {
+        answer_the_question(fired, &mut duel, &mut prefs);
+    }
+}
 
-    // ---- seat inspection: Shift+1..9 focuses the nth opponent ----------
-    let digits = [
-        KeyCode::Digit1,
-        KeyCode::Digit2,
-        KeyCode::Digit3,
-        KeyCode::Digit4,
-        KeyCode::Digit5,
-        KeyCode::Digit6,
-        KeyCode::Digit7,
-        KeyCode::Digit8,
-        KeyCode::Digit9,
-    ];
-    if shift {
-        for (i, key) in digits.iter().enumerate() {
-            if keys.just_pressed(*key) {
-                focus_nth_opponent(&mut duel, &mut rig, i);
-            }
+/// Camera, phase rail, fast-forward and display toggles — everything that
+/// changes what the player sees rather than what the game hears.
+fn look_around(
+    fired: Fired,
+    duel: &mut Duel,
+    rig: &mut crate::table::CameraRig,
+    settings: &mut crate::settings::ClientSettings,
+    prefs: &mut crate::prefs::Prefs,
+) {
+    if fired.has(Action::FocusNextSeat) {
+        focus_next_opponent(duel, rig);
+    }
+    if fired.has(Action::FocusHome) {
+        navigate_home(duel, rig);
+    }
+    // The rail: move the highlight here, toggle it with the primary key.
+    if fired.has(Action::RailUp) {
+        prefs.rail_cursor().move_selection(-1);
+    }
+    if fired.has(Action::RailDown) {
+        prefs.rail_cursor().move_selection(1);
+    }
+    if let Some((phase, turn)) = duel.view.as_ref().map(|v| (v.phase, v.turn)) {
+        if fired.has(Action::NextPhase) {
+            duel.autopilot = Some(AutoPilot::ToNextPhase { from: phase });
+        }
+        if fired.has(Action::NextTurn) {
+            duel.autopilot = Some(AutoPilot::ToNextTurn { from_turn: turn });
         }
     }
-
-    // ---- phase rail: Shift+W/S selects, Space toggles ------------------
-    if shift && keys.just_pressed(KeyCode::KeyW) {
-        duel.orders.move_selection(-1);
-    }
-    if shift && keys.just_pressed(KeyCode::KeyS) {
-        duel.orders.move_selection(1);
-    }
-
-    // ---- TAB: fast-forward to the next phase ----------------------------
-    if keys.just_pressed(KeyCode::Tab)
-        && let Some(view) = duel.view.as_ref()
-    {
-        duel.autopilot = Some(AutoPilot::ToNextPhase { from: view.phase });
-    }
-
-    // ---- X: slide the own-board overlay down/up --------------------------
-    if keys.just_pressed(KeyCode::KeyX) {
+    if fired.has(Action::ToggleOverlay) {
         duel.overlay_closed = !duel.overlay_closed;
     }
-
-    // ---- T: keep the constructed card face on ----------------------------
-    // Cmd or Alt shows it while held; this is the latch, for players who
-    // read text rather than art. Persisted, because it is a preference and
-    // not a mode.
-    if !shift && keys.just_pressed(KeyCode::KeyT) {
+    if fired.has(Action::ToggleTextView) {
+        // The modifier key shows the card face while held; this is the latch,
+        // for players who read text rather than art. A preference, not a mode,
+        // so it is remembered.
         settings.prefer_text_view = !settings.prefer_text_view;
         settings.save();
     }
+}
 
-    // ---- WASD moves the card cursor, E activates it ---------------------
-    if !shift {
-        let cursor_move = if keys.just_pressed(KeyCode::KeyA) {
-            Some((0, -1))
-        } else if keys.just_pressed(KeyCode::KeyD) {
-            Some((0, 1))
-        } else if keys.just_pressed(KeyCode::KeyW) {
-            Some((1, 0))
-        } else if keys.just_pressed(KeyCode::KeyS) {
-            Some((-1, 0))
-        } else {
-            None
-        };
-        if let Some((d_row, d_col)) = cursor_move {
-            move_cursor(&mut duel, d_row, d_col);
+/// The card cursor, and the key that acts on what it is over. Returns whether
+/// it consumed the frame.
+fn move_the_cursor(fired: Fired, duel: &mut Duel) -> bool {
+    for (action, (d_row, d_col)) in [
+        (Action::CursorUp, (1, 0)),
+        (Action::CursorDown, (-1, 0)),
+        (Action::CursorLeft, (0, -1)),
+        (Action::CursorRight, (0, 1)),
+    ] {
+        if fired.has(action) {
+            move_cursor(duel, d_row, d_col);
         }
     }
-    if keys.just_pressed(KeyCode::KeyE)
+    if fired.has(Action::ActivateCard)
         && let Some(object) = duel.hovered
     {
-        activate_card(&mut duel, object);
-        return;
+        activate_card(duel, object);
+        return true;
     }
+    false
+}
 
-    // ---- Space is "the click": card, then phase toggle, then pass -------
-    if keys.just_pressed(KeyCode::Space) {
-        if let Some(object) = duel.hovered {
-            activate_card(&mut duel, object);
-            return;
-        }
-        if let Some((side, row)) = duel.orders.selected() {
-            duel.orders.toggle(side, row);
-            return;
-        }
-        if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
-            duel.submit(action);
-            return;
-        }
+/// Combat: where the next declaration points, and the answer that declares
+/// nothing. Returns whether it consumed the frame.
+fn aim_and_declare(fired: Fired, duel: &mut Duel) -> bool {
+    let step = i32::from(fired.has(Action::CombatFocusNext))
+        - i32::from(fired.has(Action::CombatFocusPrev));
+    if step != 0 {
+        cycle_combat_focus(duel, step);
     }
-
-    if duel.interaction.is_none() {
-        return;
+    if fired.has(Action::CombatNone) {
+        declare_nothing(duel);
+        return true;
     }
+    false
+}
 
-    // Confirm / pass priority (Enter never toggles anything else).
-    if keys.just_pressed(KeyCode::Enter)
+/// The primary key, with its fixed precedence: the card under the cursor,
+/// then the selected phase button, then confirm. Returns whether it consumed
+/// the frame.
+fn the_click(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::Prefs) -> bool {
+    if !fired.has(Action::Primary) {
+        return false;
+    }
+    if let Some(object) = duel.hovered {
+        activate_card(duel, object);
+        return true;
+    }
+    if let Some((side, row)) = prefs.orders().selected() {
+        prefs.edit().orders.toggle(side, row);
+        return true;
+    }
+    if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
+        duel.submit(action);
+        return true;
+    }
+    false
+}
+
+/// Every straight answer to a pending choice.
+///
+/// Each goes through the interaction, which refuses it unless the engine
+/// actually asked — so a key bound to "yes" does nothing at all during
+/// combat, without this function knowing what combat is.
+fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::Prefs) {
+    // Confirm / pass priority. Never toggles anything else, so it is the one
+    // key that always means "I am done here".
+    if fired.has(Action::Confirm)
         && let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm)
     {
         duel.submit(action);
         return;
     }
-
-    // Mulligan: keep or take.
-    if keys.just_pressed(KeyCode::KeyK)
-        && let Some(action) = duel
-            .interaction
-            .as_ref()
-            .and_then(|i| i.answer_mulligan(true))
-    {
-        duel.submit(action);
-        return;
+    for (action, answer) in [(Action::MulliganKeep, true), (Action::MulliganTake, false)] {
+        if fired.has(action)
+            && let Some(sent) = duel
+                .interaction
+                .as_ref()
+                .and_then(|i| i.answer_mulligan(answer))
+        {
+            duel.submit(sent);
+            return;
+        }
     }
-    if keys.just_pressed(KeyCode::KeyB)
-        && let Some(action) = duel
-            .interaction
-            .as_ref()
-            .and_then(|i| i.answer_mulligan(false))
-    {
-        duel.submit(action);
-        return;
-    }
-
-    // Yes / no.
-    if keys.just_pressed(KeyCode::KeyY)
-        && let Some(action) = duel
-            .interaction
-            .as_ref()
-            .and_then(|i| i.answer_yes_no(true))
-    {
-        duel.submit(action);
-        return;
-    }
-    if keys.just_pressed(KeyCode::KeyN)
-        && let Some(action) = duel
-            .interaction
-            .as_ref()
-            .and_then(|i| i.answer_yes_no(false))
-    {
-        duel.submit(action);
-        return;
+    for (action, answer) in [(Action::AnswerYes, true), (Action::AnswerNo, false)] {
+        if fired.has(action)
+            && let Some(sent) = duel
+                .interaction
+                .as_ref()
+                .and_then(|i| i.answer_yes_no(answer))
+        {
+            duel.submit(sent);
+            return;
+        }
     }
 
-    // Number choices: arrows step, and the value is clamped to the offered
-    // range by the interaction, so a player can hold a key without producing
-    // something the engine would reject.
-    if (keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::ArrowRight))
+    // Number choices step, and the interaction clamps the value to the
+    // offered range — a player can hold a key without producing something the
+    // engine would reject.
+    let step = i32::from(fired.has(Action::NumberUp)) - i32::from(fired.has(Action::NumberDown));
+    if step != 0
         && let Some(i) = duel.interaction.as_mut()
     {
-        let next = i.number().saturating_add(1);
-        i.set_number(next);
-    }
-    if (keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::ArrowLeft))
-        && let Some(i) = duel.interaction.as_mut()
-    {
-        let next = i.number().saturating_sub(1);
+        let next = if step > 0 {
+            i.number().saturating_add(1)
+        } else {
+            i.number().saturating_sub(1)
+        };
         i.set_number(next);
     }
 
     // Cancel: an open preview first, then a selected phase button, then a
-    // half-built selection.
-    if keys.just_pressed(KeyCode::Escape) {
+    // half-built answer.
+    if fired.has(Action::Cancel) {
         if duel.hovered.is_some() {
             duel.hovered = None;
-        } else if duel.orders.selected().is_some() {
-            duel.orders.clear_selection();
+        } else if prefs.orders().selected().is_some() {
+            prefs.rail_cursor().clear_selection();
         } else if let Some(i) = duel.interaction.as_mut() {
             i.cancel();
         }
+    }
+}
+
+/// Aims the next declaration at the next defender (or attacker).
+fn cycle_combat_focus(duel: &mut Duel, delta: i32) {
+    if let Some(i) = duel.interaction.as_mut() {
+        i.cycle_focus(delta);
+    }
+}
+
+/// Declares nothing and moves on — no attackers, or no blockers.
+///
+/// Routed through the interaction rather than sent as an empty action
+/// directly, so an empty declaration is validated exactly like a full one and
+/// the key does nothing at all outside combat.
+fn declare_nothing(duel: &mut Duel) {
+    let Some(i) = duel.interaction.as_mut() else {
+        return;
+    };
+    if !i.is_combat() {
+        return;
+    }
+    i.cancel();
+    if let Some(action) = i.confirm() {
+        duel.submit(action);
     }
 }
 
@@ -290,8 +337,12 @@ pub fn preview_resize(
     }
 }
 
-/// Focuses the nth opponent's board (or toggles back to your own).
-fn focus_nth_opponent(duel: &mut Duel, rig: &mut crate::table::CameraRig, index: usize) {
+/// Frames the next opponent's board, wrapping back to your own.
+///
+/// One key that walks the table rather than a numbered key per chair: a
+/// four-seat game has three opponents, and a binding screen listing nine
+/// "focus seat N" rows would be listing six that can never fire.
+fn focus_next_opponent(duel: &mut Duel, rig: &mut crate::table::CameraRig) {
     let Some(board) = duel.board.as_ref() else {
         return;
     };
@@ -301,13 +352,20 @@ fn focus_nth_opponent(duel: &mut Duel, rig: &mut crate::table::CameraRig, index:
         .filter(|p| !p.is_local)
         .map(|p| p.player)
         .collect();
-    let Some(&player) = opponents.get(index) else {
+    if opponents.is_empty() {
         return;
+    }
+    let next = match duel.focus {
+        None => Some(opponents[0]),
+        Some(current) => opponents
+            .iter()
+            .position(|p| *p == current)
+            .and_then(|i| opponents.get(i + 1).copied()),
     };
-    if duel.focus == Some(player) {
-        navigate_home(duel, rig);
-    } else {
-        navigate_to_player(duel, rig, player);
+    match next {
+        Some(player) => navigate_to_player(duel, rig, player),
+        // Past the last opponent is home again, so the key never dead-ends.
+        None => navigate_home(duel, rig),
     }
 }
 
@@ -388,6 +446,7 @@ pub fn pointer(
     prompt_buttons: Query<&PromptButton>,
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
+    mut prefs: ResMut<crate::prefs::Prefs>,
     mut rig: ResMut<crate::table::CameraRig>,
 ) {
     for click in clicks.read() {
@@ -410,7 +469,7 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &phase_buttons, &parents) {
-            duel.orders.toggle(button.side, button.row);
+            prefs.edit().orders.toggle(button.side, button.row);
             continue;
         }
         if find_in_lineage(e, &knobs, &parents).is_some() {
@@ -444,6 +503,16 @@ pub fn pointer(
                     .as_ref()
                     .and_then(|i| i.answer_mulligan(false)),
                 PromptAction::Confirm => duel.interaction.as_ref().and_then(Interaction::confirm),
+                // Aiming changes nothing the engine can hear; it moves the
+                // focus the next declaration will use.
+                PromptAction::AimNext => {
+                    cycle_combat_focus(&mut duel, 1);
+                    None
+                }
+                PromptAction::DeclareNothing => {
+                    declare_nothing(&mut duel);
+                    None
+                }
             };
             if let Some(action) = action {
                 duel.submit(action);

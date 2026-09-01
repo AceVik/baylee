@@ -35,6 +35,34 @@ use baylee_engine::choice::{
     BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, YesNoPrompt,
 };
 
+/// What a combat declaration is currently pointed at.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CombatFocus {
+    /// Attacks declared now are sent at this defender.
+    Defender(Defender),
+    /// Blocks declared now are put in front of this attacker.
+    Attacker(ObjectId),
+    /// Not a combat choice, or nothing left to point at.
+    None,
+}
+
+/// Every attacker any blocker may be assigned to, deduplicated, in the order
+/// the engine listed them.
+///
+/// Stable ordering is what makes "the next attacker" mean anything to a
+/// player stepping through them, so this is not a set.
+fn ordered_attackers(options: &[BlockOption]) -> Vec<ObjectId> {
+    let mut out: Vec<ObjectId> = Vec::new();
+    for option in options {
+        for attacker in &option.attackers {
+            if !out.contains(attacker) {
+                out.push(*attacker);
+            }
+        }
+    }
+    out
+}
+
 /// What the player is being asked, in renderer-friendly terms.
 // Not `PartialEq`: two of the variants carry engine types that are plain
 // data without an equality impl, and a prompt is displayed rather than
@@ -214,12 +242,21 @@ enum Mode {
         candidates: Vec<ObjectId>,
         defenders: Vec<Defender>,
         pairs: Vec<(ObjectId, Defender)>,
+        /// Which defender a newly declared attacker is sent at. An index
+        /// rather than a `Defender` so it can be stepped through with one
+        /// key, which is the whole point of having it.
+        focus: usize,
     },
     /// Blocker declarations.
     Blockers {
         candidates: Vec<ObjectId>,
         options: Vec<BlockOption>,
         pairs: Vec<(ObjectId, ObjectId)>,
+        /// Every attacker any blocker may be put in front of, in a stable
+        /// order, so "the next attacker" means something.
+        attackers: Vec<ObjectId>,
+        /// Which of them a newly declared blocker is assigned to.
+        focus: usize,
     },
     /// A bounded number.
     Number { min: u32, max: u32 },
@@ -305,11 +342,14 @@ impl Interaction {
                 candidates: attackers.clone(),
                 defenders: defenders.clone(),
                 pairs: Vec::new(),
+                focus: 0,
             },
             Pending::ChooseBlockers { blockers, .. } => Mode::Blockers {
                 candidates: blockers.iter().map(|b| b.blocker).collect(),
+                attackers: ordered_attackers(blockers),
                 options: blockers.clone(),
                 pairs: Vec::new(),
+                focus: 0,
             },
             Pending::LegendChoice { options, .. } => Mode::Objects {
                 options: options.clone(),
@@ -446,9 +486,19 @@ impl Interaction {
         match &self.mode {
             Mode::Objects { options, .. } => options.is_empty() || options.contains(&id),
             Mode::Order { options } => options.contains(&id),
-            Mode::Attackers { candidates, .. } | Mode::Blockers { candidates, .. } => {
-                candidates.contains(&id)
-            }
+            // Combat accepts both halves of a pair: the creature being
+            // declared, and the thing it is being declared against — tapping
+            // a planeswalker or an attacker aims the next declaration.
+            Mode::Attackers {
+                candidates,
+                defenders,
+                ..
+            } => candidates.contains(&id) || defenders.contains(&Defender::Planeswalker(id)),
+            Mode::Blockers {
+                candidates,
+                attackers,
+                ..
+            } => candidates.contains(&id) || attackers.contains(&id),
             _ => false,
         }
     }
@@ -459,45 +509,225 @@ impl Interaction {
         &self.selected
     }
 
-    /// Whether an object is currently selected.
+    /// Whether an object is part of the answer being built.
+    ///
+    /// In combat that means declared, not merely touched: the overlay lights
+    /// up exactly the creatures that will be in the action when it is sent.
     #[must_use]
     pub fn is_selected(&self, id: ObjectId) -> bool {
-        self.selected.contains(&id)
+        match &self.mode {
+            Mode::Attackers { pairs, .. } => pairs.iter().any(|(a, _)| *a == id),
+            Mode::Blockers { pairs, .. } => pairs.iter().any(|(b, _)| *b == id),
+            _ => self.selected.contains(&id),
+        }
     }
 
-    /// Adds or removes an object from the selection.
+    /// Adds or removes an object from the answer.
+    ///
+    /// Combat goes through here too, and it is the reason this is not a plain
+    /// set toggle. An attack is a *pair* — a creature and what it is sent at —
+    /// and so is a block. Tapping a creature during combat used to push it
+    /// onto the generic selection list, which `confirm` never reads for these
+    /// two modes, so a player could light up their whole board and still
+    /// declare no attackers. Now a tap pairs the creature with whatever the
+    /// focus is pointing at, and a tap on a defender (or on an attacker, when
+    /// blocking) moves the focus instead.
     pub fn toggle(&mut self, id: ObjectId) -> SelectionOutcome {
-        if !self.is_selectable(id) {
-            return SelectionOutcome::Rejected;
-        }
-        if let Some(pos) = self.selected.iter().position(|o| *o == id) {
-            self.selected.remove(pos);
-            return SelectionOutcome::Removed;
-        }
-        let max = match &self.mode {
-            Mode::Objects { max, .. } => *max,
-            Mode::Order { options } => options.len(),
-            Mode::Attackers { candidates, .. } | Mode::Blockers { candidates, .. } => {
-                candidates.len()
+        match &mut self.mode {
+            Mode::Attackers {
+                candidates,
+                defenders,
+                pairs,
+                focus,
+            } => {
+                // A planeswalker is both a thing to attack and, for its
+                // controller, a permanent on the board. Here it can only mean
+                // "send the next attacker at this", so that comes first.
+                if let Some(at) = defenders
+                    .iter()
+                    .position(|d| *d == Defender::Planeswalker(id))
+                {
+                    *focus = at;
+                    return SelectionOutcome::Added;
+                }
+                if !candidates.contains(&id) {
+                    return SelectionOutcome::Rejected;
+                }
+                if let Some(pos) = pairs.iter().position(|(a, _)| *a == id) {
+                    pairs.remove(pos);
+                    return SelectionOutcome::Removed;
+                }
+                let Some(defender) = defenders.get(*focus).copied() else {
+                    return SelectionOutcome::Rejected;
+                };
+                pairs.push((id, defender));
+                SelectionOutcome::Added
             }
-            _ => 0,
-        };
-        if self.selected.len() >= max {
-            return SelectionOutcome::Full;
+            Mode::Blockers {
+                candidates,
+                options,
+                pairs,
+                attackers,
+                focus,
+            } => {
+                if let Some(at) = attackers.iter().position(|a| *a == id) {
+                    *focus = at;
+                    return SelectionOutcome::Added;
+                }
+                if !candidates.contains(&id) {
+                    return SelectionOutcome::Rejected;
+                }
+                if let Some(pos) = pairs.iter().position(|(b, _)| *b == id) {
+                    pairs.remove(pos);
+                    return SelectionOutcome::Removed;
+                }
+                let Some(attacker) = attackers.get(*focus).copied() else {
+                    return SelectionOutcome::Rejected;
+                };
+                // Evasion is a pairing question: a flier is a legal blocker
+                // and still not a legal block, so this is refused rather than
+                // sent for the engine to bounce.
+                if !options
+                    .iter()
+                    .any(|o| o.blocker == id && o.attackers.contains(&attacker))
+                {
+                    return SelectionOutcome::Rejected;
+                }
+                pairs.push((id, attacker));
+                SelectionOutcome::Added
+            }
+            _ => {
+                if !self.is_selectable(id) {
+                    return SelectionOutcome::Rejected;
+                }
+                if let Some(pos) = self.selected.iter().position(|o| *o == id) {
+                    self.selected.remove(pos);
+                    return SelectionOutcome::Removed;
+                }
+                let max = match &self.mode {
+                    Mode::Objects { max, .. } => *max,
+                    Mode::Order { options } => options.len(),
+                    _ => 0,
+                };
+                if self.selected.len() >= max {
+                    return SelectionOutcome::Full;
+                }
+                self.selected.push(id);
+                SelectionOutcome::Added
+            }
         }
-        self.selected.push(id);
-        SelectionOutcome::Added
     }
 
-    /// Clears the selection without answering.
+    /// What a declaration made right now would be pointed at.
+    #[must_use]
+    pub fn combat_focus(&self) -> CombatFocus {
+        match &self.mode {
+            Mode::Attackers {
+                defenders, focus, ..
+            } => defenders
+                .get(*focus)
+                .copied()
+                .map_or(CombatFocus::None, CombatFocus::Defender),
+            Mode::Blockers {
+                attackers, focus, ..
+            } => attackers
+                .get(*focus)
+                .copied()
+                .map_or(CombatFocus::None, CombatFocus::Attacker),
+            _ => CombatFocus::None,
+        }
+    }
+
+    /// Steps the combat focus, wrapping in both directions.
+    ///
+    /// A pointer can tap the defender it means; a keyboard needs this, and a
+    /// two-player game with no planeswalkers never needs either — there is
+    /// exactly one thing to attack and the focus starts on it.
+    pub fn cycle_focus(&mut self, delta: i32) -> CombatFocus {
+        let (len, focus) = match &mut self.mode {
+            Mode::Attackers {
+                defenders, focus, ..
+            } => (defenders.len(), focus),
+            Mode::Blockers {
+                attackers, focus, ..
+            } => (attackers.len(), focus),
+            _ => return CombatFocus::None,
+        };
+        if len > 0 {
+            let len = i64::try_from(len).unwrap_or(1);
+            let next = (i64::try_from(*focus).unwrap_or(0) + i64::from(delta)).rem_euclid(len);
+            *focus = usize::try_from(next).unwrap_or(0);
+        }
+        self.combat_focus()
+    }
+
+    /// Where the combat focus sits, as `(position, count)`.
+    ///
+    /// `None` outside combat. The overlay uses it to say "2 of 3" so a player
+    /// cycling with one key can tell there is more to cycle to; with a count
+    /// of one there is nothing to aim and the hint is worth hiding.
+    #[must_use]
+    pub const fn focus_position(&self) -> Option<(usize, usize)> {
+        match &self.mode {
+            Mode::Attackers {
+                defenders, focus, ..
+            } => Some((*focus, defenders.len())),
+            Mode::Blockers {
+                attackers, focus, ..
+            } => Some((*focus, attackers.len())),
+            _ => None,
+        }
+    }
+
+    /// Whether the pending choice is a combat declaration.
+    #[must_use]
+    pub const fn is_combat(&self) -> bool {
+        matches!(self.mode, Mode::Attackers { .. } | Mode::Blockers { .. })
+    }
+
+    /// What this creature has been declared against, if anything.
+    ///
+    /// The overlay draws the assignment from this, so a player can see that
+    /// their two attackers are going at different seats before confirming.
+    #[must_use]
+    pub fn assignment(&self, id: ObjectId) -> Option<CombatFocus> {
+        match &self.mode {
+            Mode::Attackers { pairs, .. } => pairs
+                .iter()
+                .find(|(a, _)| *a == id)
+                .map(|(_, d)| CombatFocus::Defender(*d)),
+            Mode::Blockers { pairs, .. } => pairs
+                .iter()
+                .find(|(b, _)| *b == id)
+                .map(|(_, a)| CombatFocus::Attacker(*a)),
+            _ => None,
+        }
+    }
+
+    /// How many declarations are standing.
+    #[must_use]
+    pub fn declared(&self) -> usize {
+        match &self.mode {
+            Mode::Attackers { pairs, .. } => pairs.len(),
+            Mode::Blockers { pairs, .. } => pairs.len(),
+            _ => self.selected.len(),
+        }
+    }
+
+    /// Clears the answer being built without sending anything.
     pub fn cancel(&mut self) {
         self.selected.clear();
         self.choice_index = None;
-        if let Mode::Attackers { pairs, .. } = &mut self.mode {
-            pairs.clear();
-        }
-        if let Mode::Blockers { pairs, .. } = &mut self.mode {
-            pairs.clear();
+        match &mut self.mode {
+            Mode::Attackers { pairs, focus, .. } => {
+                pairs.clear();
+                *focus = 0;
+            }
+            Mode::Blockers { pairs, focus, .. } => {
+                pairs.clear();
+                *focus = 0;
+            }
+            _ => {}
         }
     }
 
@@ -510,6 +740,7 @@ impl Interaction {
             candidates,
             defenders,
             pairs,
+            ..
         } = &mut self.mode
         else {
             return false;
@@ -969,6 +1200,172 @@ mod tests {
                 blockers: vec![(obj(10), obj(1))]
             })
         );
+    }
+
+    /// A blocking choice with one attacker per listed blocker.
+    fn block_choice(options: Vec<BlockOption>) -> Pending {
+        Pending::ChooseBlockers {
+            player: me(),
+            attacker: PlayerId::new(1),
+            blockers: options,
+        }
+    }
+
+    // The bug this whole pairing model exists to close: tapping a creature in
+    // combat pushed it onto the generic selection list, which `confirm` never
+    // reads for these two modes. A player could light up their entire board
+    // and still declare no attackers — the client looked like it had combat
+    // and did not.
+    #[test]
+    fn tapping_a_creature_in_combat_actually_declares_it() {
+        let mut i = interaction(attack_choice(vec![obj(1), obj(2)], vec![seat(1)]));
+        assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+        assert!(i.is_selected(obj(1)), "a declared attacker reads as chosen");
+        assert_eq!(i.declared(), 1);
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::DeclareAttackers {
+                attackers: vec![(obj(1), seat(1))]
+            })
+        );
+    }
+
+    #[test]
+    fn tapping_a_declared_attacker_again_calls_it_off() {
+        let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1)]));
+        i.toggle(obj(1));
+        assert_eq!(i.toggle(obj(1)), SelectionOutcome::Removed);
+        assert!(!i.is_selected(obj(1)));
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::DeclareAttackers { attackers: vec![] })
+        );
+    }
+
+    #[test]
+    fn a_table_with_one_defender_needs_no_aiming_at_all() {
+        // The two-player case has to cost nothing: one thing to attack, and
+        // the focus already on it before the player touches anything.
+        let i = interaction(attack_choice(vec![obj(1)], vec![seat(1)]));
+        assert_eq!(i.combat_focus(), CombatFocus::Defender(seat(1)));
+    }
+
+    #[test]
+    fn attacks_go_where_the_focus_points_and_the_focus_can_be_moved() {
+        let mut i = interaction(attack_choice(
+            vec![obj(1), obj(2)],
+            vec![seat(1), seat(2), Defender::Planeswalker(obj(50))],
+        ));
+        i.toggle(obj(1));
+        assert_eq!(i.cycle_focus(1), CombatFocus::Defender(seat(2)));
+        i.toggle(obj(2));
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::DeclareAttackers {
+                attackers: vec![(obj(1), seat(1)), (obj(2), seat(2))]
+            }),
+            "two attackers, two different seats"
+        );
+        // And it wraps in both directions, so one key is enough to reach
+        // every defender at a four-player table.
+        assert_eq!(i.cycle_focus(-1), CombatFocus::Defender(seat(1)));
+        assert_eq!(
+            i.cycle_focus(-1),
+            CombatFocus::Defender(Defender::Planeswalker(obj(50))),
+            "stepping back past the start wraps round"
+        );
+    }
+
+    #[test]
+    fn tapping_a_planeswalker_aims_at_it() {
+        let walker = Defender::Planeswalker(obj(50));
+        let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1), walker]));
+        // A pointer should never have to find a cycle key: the thing being
+        // attacked is on the table and can be tapped.
+        assert_eq!(i.toggle(obj(50)), SelectionOutcome::Added);
+        assert_eq!(i.combat_focus(), CombatFocus::Defender(walker));
+        i.toggle(obj(1));
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::DeclareAttackers {
+                attackers: vec![(obj(1), walker)]
+            })
+        );
+        assert_eq!(i.assignment(obj(1)), Some(CombatFocus::Defender(walker)));
+    }
+
+    #[test]
+    fn blocks_are_paired_with_the_attacker_in_focus() {
+        let mut i = interaction(block_choice(vec![
+            BlockOption {
+                blocker: obj(10),
+                attackers: vec![obj(1), obj(2)],
+            },
+            BlockOption {
+                blocker: obj(11),
+                attackers: vec![obj(2)],
+            },
+        ]));
+        assert_eq!(i.combat_focus(), CombatFocus::Attacker(obj(1)));
+        i.toggle(obj(10));
+        // Tap the second attacker to aim at it, then the blocker for it.
+        assert_eq!(i.toggle(obj(2)), SelectionOutcome::Added);
+        assert_eq!(i.combat_focus(), CombatFocus::Attacker(obj(2)));
+        i.toggle(obj(11));
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::DeclareBlockers {
+                blockers: vec![(obj(10), obj(1)), (obj(11), obj(2))]
+            })
+        );
+    }
+
+    #[test]
+    fn a_block_the_rules_forbid_is_refused_rather_than_sent() {
+        // Evasion is a pairing question — a flier is a legal blocker and
+        // still not a legal block — so the client must not send it and wait
+        // for the engine to bounce it.
+        let mut i = interaction(block_choice(vec![
+            BlockOption {
+                blocker: obj(10),
+                attackers: vec![obj(1)],
+            },
+            BlockOption {
+                blocker: obj(11),
+                attackers: vec![obj(2)],
+            },
+        ]));
+        assert_eq!(i.combat_focus(), CombatFocus::Attacker(obj(1)));
+        assert_eq!(
+            i.toggle(obj(11)),
+            SelectionOutcome::Rejected,
+            "obj(11) may only block obj(2)"
+        );
+        assert_eq!(i.declared(), 0);
+        // The same creature against the attacker it *can* block goes through.
+        i.cycle_focus(1);
+        assert_eq!(i.toggle(obj(11)), SelectionOutcome::Added);
+    }
+
+    #[test]
+    fn calling_off_combat_forgets_the_declarations_and_the_aim() {
+        let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1), seat(2)]));
+        i.cycle_focus(1);
+        i.toggle(obj(1));
+        i.cancel();
+        assert_eq!(i.declared(), 0);
+        assert_eq!(i.combat_focus(), CombatFocus::Defender(seat(1)));
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::DeclareAttackers { attackers: vec![] })
+        );
+    }
+
+    #[test]
+    fn a_creature_that_cannot_attack_is_refused() {
+        let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1)]));
+        assert_eq!(i.toggle(obj(99)), SelectionOutcome::Rejected);
+        assert_eq!(i.declared(), 0);
     }
 
     #[test]

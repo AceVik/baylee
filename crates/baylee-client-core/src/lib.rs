@@ -43,6 +43,7 @@ pub mod interaction;
 pub mod layout;
 pub mod lobby;
 pub mod manapip;
+pub mod prefs;
 pub mod tabletop;
 
 #[cfg(test)]
@@ -57,12 +58,13 @@ pub use deckbuilder::{
     BuildField, Counts, Coverage, DeckBuilder, Entry, Group, PoolCard, Problem, Sort, Zone,
 };
 pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
-pub use interaction::{Interaction, Prompt, SelectionOutcome};
+pub use interaction::{CombatFocus, Interaction, Prompt, SelectionOutcome};
 pub use layout::{LaneKind, SeatSlot, TableLayout};
 pub use lobby::{
     DeckSummary, Field, FieldKind, GameMode, GameSeat, GameSummary, Lobby, LobbyEvent,
     LobbyRequest, Screen, SeatHandover,
 };
+pub use prefs::{Action, AutoRules, Chord, Keymap, Preferences};
 
 /// Re-exported wire types, so a downstream crate needs one dependency to talk
 /// to a host and render the result.

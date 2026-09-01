@@ -60,6 +60,9 @@ pub struct LobbyPlugin;
 
 impl Plugin for LobbyPlugin {
     fn build(&self, app: &mut App) {
+        // The keymap is the account's, and the account is signed into here —
+        // shared with the duel, whichever of the two got there first.
+        crate::prefs::install(app);
         app.init_resource::<Mailbox>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
@@ -565,6 +568,7 @@ fn poll(
     mut commands: Commands,
     mut state: ResMut<LobbyState>,
     mailbox: Res<Mailbox>,
+    mut prefs: ResMut<crate::prefs::Prefs>,
     mut opens: MessageWriter<DuelCommand>,
 ) {
     let replies = {
@@ -585,6 +589,14 @@ fn poll(
             Reply::Registration(enabled) => state.lobby.set_registration_enabled(enabled),
             Reply::Expired => state.lobby.sign_out(),
         }
+    }
+    // Keys and standing orders belong to the account, so signing in is what
+    // fetches them and signing out is what stops writing them back. Both are
+    // idempotent, which is why this can simply follow the token every frame
+    // the mailbox delivers something.
+    match state.lobby.token() {
+        Some(token) => prefs.attach(&state.gateway, token),
+        None => prefs.detach(),
     }
     let Screen::Seated(handover) = state.lobby.screen().clone() else {
         return;

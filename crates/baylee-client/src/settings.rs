@@ -148,17 +148,30 @@ impl ClientSettings {
     }
 }
 
-/// The native back end: a JSON file in the platform config dir.
+/// The native back end: JSON files in the platform config dir.
 #[cfg(not(target_arch = "wasm32"))]
-mod store {
+pub(crate) mod store {
+    /// The file the client's own settings live in.
+    const SETTINGS: &str = "client-settings.json";
+
     /// Reads the settings JSON, or `None` if there is nothing to read.
     pub fn read() -> Option<String> {
-        std::fs::read_to_string(path()?).ok()
+        read_named(SETTINGS)
     }
 
     /// Writes the settings JSON, creating the config dir if needed.
     pub fn write(text: &str) {
-        let Some(path) = path() else {
+        write_named(SETTINGS, text);
+    }
+
+    /// Reads one named document out of the config dir.
+    pub fn read_named(name: &str) -> Option<String> {
+        std::fs::read_to_string(path(name)?).ok()
+    }
+
+    /// Writes one named document, creating the config dir if needed.
+    pub fn write_named(name: &str, text: &str) {
+        let Some(path) = path(name) else {
             return;
         };
         if let Some(dir) = path.parent() {
@@ -167,8 +180,8 @@ mod store {
         let _ = std::fs::write(path, text);
     }
 
-    /// The settings file location.
-    fn path() -> Option<std::path::PathBuf> {
+    /// A config-dir file location.
+    fn path(name: &str) -> Option<std::path::PathBuf> {
         let base = std::env::var("XDG_CONFIG_HOME")
             .ok()
             .filter(|v| !v.is_empty())
@@ -176,14 +189,14 @@ mod store {
                 || std::env::var("HOME").ok().map(|h| format!("{h}/.config")),
                 Some,
             )?;
-        Some(std::path::PathBuf::from(base).join("baylee/client-settings.json"))
+        Some(std::path::PathBuf::from(base).join("baylee").join(name))
     }
 }
 
 /// The browser back end: `localStorage`, which survives a reload and is scoped
 /// to the origin the client is served from.
 #[cfg(target_arch = "wasm32")]
-mod store {
+pub(crate) mod store {
     /// The `localStorage` key holding the settings JSON. Namespaced because a
     /// browser origin is shared with whatever else is served from it.
     const KEY: &str = "baylee:client-settings";
@@ -198,6 +211,16 @@ mod store {
         if let Some(storage) = storage() {
             let _ = storage.set_item(KEY, text);
         }
+    }
+
+    /// Reads one named document, under the same namespace.
+    pub fn read_named(name: &str) -> Option<String> {
+        read_key(&format!("baylee:{name}"))
+    }
+
+    /// Writes one named document, under the same namespace.
+    pub fn write_named(name: &str, text: &str) {
+        write_key(&format!("baylee:{name}"), text);
     }
 
     /// Reads one namespaced key.

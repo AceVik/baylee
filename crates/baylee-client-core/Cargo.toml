@@ -15,7 +15,7 @@ baylee-engine.workspace = true
 baylee-view.workspace = true
 glam.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 baylee-cards-dsl.workspace = true

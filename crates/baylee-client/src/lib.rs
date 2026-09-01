@@ -41,15 +41,17 @@ pub mod face;
 pub mod host;
 pub mod hud;
 pub mod input;
+pub mod keys;
 pub mod lobby;
 pub mod manaui;
 pub mod net;
+pub mod prefs;
 pub mod settings;
 pub mod softkeys;
 pub mod table;
 pub mod textures;
 
-use baylee_client_core::automation::{self, AutoPilot, PhaseOrders};
+use baylee_client_core::automation::{self, AutoPilot, Situation};
 use baylee_client_core::board::BoardModel;
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::TableLayout;
@@ -122,8 +124,6 @@ pub struct Duel {
     pub focus: Option<PlayerId>,
     /// The card the pointer or keyboard cursor is on.
     pub hovered: Option<ObjectId>,
-    /// Per-phase standing orders (green = take priority, red = skip).
-    pub orders: PhaseOrders,
     /// The engaged autopilot, if any ("next phase" / "end turn").
     pub autopilot: Option<AutoPilot>,
     /// Hand bar scroll offset in pixels.
@@ -204,6 +204,9 @@ pub struct DuelPlugin {
 
 impl Plugin for DuelPlugin {
     fn build(&self, app: &mut App) {
+        // Shared with the lobby, which is a separate plugin and may already
+        // have installed it.
+        prefs::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .init_state::<DuelPhase>()
             .insert_resource(self.config.clone())
@@ -335,7 +338,7 @@ fn poll_host(
 
 /// Applies the standing orders and the autopilot: hands control back at
 /// the boundary, and never makes a real decision for the player.
-fn run_autopilot(mut duel: ResMut<Duel>) {
+fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
     let Some((phase, step, turn)) = duel.view.as_ref().map(|v| (v.phase, v.step, v.turn)) else {
         return;
     };
@@ -354,11 +357,14 @@ fn run_autopilot(mut duel: ResMut<Duel>) {
         };
         automation::auto_answer(
             interaction.pending(),
-            interaction.is_mine(),
-            active_is_mine,
-            phase,
-            step,
-            &duel.orders,
+            Situation {
+                mine: interaction.is_mine(),
+                active_is_mine,
+                phase,
+                step,
+            },
+            prefs.orders(),
+            prefs.auto(),
             duel.autopilot.as_ref(),
         )
     };
