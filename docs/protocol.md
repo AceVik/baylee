@@ -235,9 +235,11 @@ which is what turned this from a curl recipe into a contract:
 | throw one away | `DELETE /decks/{id}` | `204` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
 | a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |
-| tables | `GET /lobby/games` | `[{id, state, seats:[{seat, taken}]}]` |
-| open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open"}` | `{game_id, seat, seat_token}` |
-| sit down | `POST /lobby/games/{id}/join` `{deck_id}` | `{game_id, seat, seat_token}` |
+| tables | `GET /lobby/games` | `[{id, name, host, yours, state, seats:[…]}]` |
+| open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open", seats, name}` | `{game_id, seat, seat_token}` |
+| sit down | `POST /lobby/games/{id}/join` `{deck_id, seat?}` | `{game_id, seat, seat_token}` |
+| arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?}` | the seat |
+| stand up | `POST /lobby/games/{id}/leave` | `204` |
 
 Everything but the two auth calls, `/auth/config`, `/pool` and `/printings`
 takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
@@ -291,6 +293,52 @@ URL.
 
 `seat` in the answer is a hint. The table states which chair this is, in the
 opening payload below, and the client believes the table.
+
+### Rooms
+
+A table with more than two chairs is a **room**, and the whole of it is
+arranged before anyone plays. `POST /lobby/games` with `seats: 2..=4` opens
+one; the host takes the first chair and every other chair starts open. `name`
+is what the table is called in the list, and may be empty — the listing then
+falls back to the host's display name.
+
+`GET /lobby/games` describes a room completely, because deciding whether to sit
+down means seeing what is already at the table:
+
+```json
+{ "id": "…", "name": "Kitchen table", "host": "viktor", "yours": false,
+  "state": "waiting",
+  "seats": [ { "seat": 0, "kind": "human", "ai": null, "taken": true,
+               "player": "viktor", "you": false, "deck": "Mono-Green",
+               "ready": true },
+             { "seat": 1, "kind": "ai", "ai": "sharp", "taken": false,
+               "player": null, "you": false, "deck": "", "ready": true } ] }
+```
+
+Never an account id — a `player` is a display name, and `you` / `yours` answer
+"is that me" without the listing having to carry anyone's account. `kind` is
+`"human"` or `"ai"`, and `ai` names a difficulty from `AIProfile::NAMED`
+(`novice`, `steady`, `sharp`); one that does not exist is a `400` rather than a
+quiet default, because a table that plays at another level than it advertises
+is worse than one that says no.
+
+Two authorities, and they do not overlap. The **host** arranges the table —
+`POST …/seats/{seat}` with `kind` and `ai` — but not a chair someone is sitting
+in (`409`). Every **player** sets exactly one thing, the deck they themselves
+will play, through the same route with `deck_id`; a deck that is not theirs is
+a `403`, and so is any attempt to arrange a seat that is not their own.
+
+**There is no start button.** A room starts the moment every chair is ready: a
+human chair with an account and a deck in it, or an AI chair, which is ready as
+soon as it is configured (an AI the host gave no deck plays the house deck). It
+is the same rule the two-seat open table has always followed when its second
+player sat down, so a host who has given up waiting simply hands the last chair
+to the AI, and that is the start.
+
+`POST …/leave` frees a chair. A guest leaving leaves the chair open and the
+room standing; the **host** leaving closes the room, because without them
+nobody can arrange it, and a table that can never start should not be
+advertised as one that might.
 
 **A seat token is not always usable yet.** `mode:"ai"` and a join both order an
 engine before answering, so the socket can be opened at once — it simply waits

@@ -805,13 +805,34 @@ async fn delete_deck(
 
 // ------------------------------------------------------------------ lobby
 
+/// The lobby listing as one account sees it.
+///
+/// Two locks, always in this order — store first, then lobby. Every other
+/// path that needs both takes them the same way round.
+fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
+    let wanted = state.lobby.lock().seated_accounts();
+    let names: std::collections::HashMap<String, String> = {
+        let store = state.store.lock();
+        wanted
+            .into_iter()
+            .filter_map(|id| {
+                store
+                    .accounts
+                    .get(&id)
+                    .map(|a| (id, a.display_name.clone()))
+            })
+            .collect()
+    };
+    let lobby = state.lobby.lock();
+    serde_json::json!(lobby.list_for(account_id, &names))
+}
+
 async fn list_games(
     State(state): State<Shared>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let _ = authed(&state, &headers)?;
-    let lobby = state.lobby.lock();
-    Ok(Json(serde_json::json!(lobby.list())))
+    let account_id = authed(&state, &headers)?;
+    Ok(Json(listing(&state, &account_id)))
 }
 #[derive(Deserialize)]
 struct CreateGameBody {
@@ -1195,8 +1216,7 @@ async fn set_seat(
         }
     }
     try_start(&state, &id)?;
-    let lobby = state.lobby.lock();
-    Ok(Json(serde_json::json!(lobby.list())))
+    Ok(Json(listing(&state, &account_id)))
 }
 
 /// Gives up a seat, and closes the room if the host is the one leaving.

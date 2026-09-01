@@ -221,9 +221,31 @@ pub struct Lobby {
 }
 
 impl Lobby {
-    /// Games visible in the lobby (waiting or playing).
+    /// Every account id sitting at a visible table.
+    ///
+    /// The caller resolves these to display names against the store, which
+    /// this module has no business locking.
     #[must_use]
-    pub fn list(&self) -> Vec<serde_json::Value> {
+    pub fn seated_accounts(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .games
+            .values()
+            .filter(|g| g.state != LobbyState::Over)
+            .flat_map(|g| g.seats.iter().filter_map(|s| s.account_id.clone()))
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// Games visible in the lobby (waiting or playing).
+    ///
+    /// `me` is the account asking, so a seat can say whether it is theirs
+    /// without the answer having to carry anyone's account id. `names` maps
+    /// the ids from [`Lobby::seated_accounts`] to display names: a room is
+    /// arranged in the open, and "who is that" is answered with a name.
+    #[must_use]
+    pub fn list_for(&self, me: &str, names: &HashMap<String, String>) -> Vec<serde_json::Value> {
         self.games
             .values()
             .filter(|g| g.state != LobbyState::Over)
@@ -231,7 +253,8 @@ impl Lobby {
                 serde_json::json!({
                     "id": g.id,
                     "name": g.name,
-                    "host": g.host,
+                    "host": g.host.as_ref().and_then(|h| names.get(h)),
+                    "yours": g.host.as_deref() == Some(me),
                     "state": match g.state {
                         LobbyState::Waiting => "waiting",
                         LobbyState::Playing => "playing",
@@ -248,7 +271,12 @@ impl Lobby {
                             "kind": s.kind,
                             "ai": s.ai,
                             "taken": s.account_id.is_some(),
-                            "account": s.account_id,
+                            // A name, never an account id: the listing is
+                            // public to every signed-in player, and knowing
+                            // who is at a table does not require knowing
+                            // their account.
+                            "player": s.account_id.as_ref().and_then(|a| names.get(a)),
+                            "you": s.account_id.as_deref() == Some(me),
                             "deck": s.deck_name,
                             "ready": s.ready(),
                         })
