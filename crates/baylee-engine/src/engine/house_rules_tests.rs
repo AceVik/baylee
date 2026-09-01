@@ -33,7 +33,6 @@ fn table(seats: usize, seed: u64) -> Engine<RegistryLookup> {
     let preset = GamePreset {
         format: FormatId::Freeform,
         seed,
-        dev_mode: false,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints: vec![PrintInfo {
@@ -44,6 +43,7 @@ fn table(seats: usize, seed: u64) -> Engine<RegistryLookup> {
         seats: (0..seats)
             .map(|_| SeatSpec {
                 controller: SeatController::Ai(AIProfile::default()),
+                capabilities: baylee_core::preset::SeatCapabilities::default(),
                 deck: deck.clone(),
                 sideboard: vec![],
                 starting_life: None,

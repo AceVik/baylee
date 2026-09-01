@@ -43,6 +43,7 @@ fn duel_preset(seed: u64) -> GamePreset {
         } else {
             SeatController::Open
         },
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
         starting_life: None,
@@ -54,7 +55,6 @@ fn duel_preset(seed: u64) -> GamePreset {
     GamePreset {
         format: FormatId::Freeform,
         seed,
-        dev_mode: false,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints: vec![PrintInfo {

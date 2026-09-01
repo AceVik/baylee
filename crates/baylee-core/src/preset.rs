@@ -180,11 +180,33 @@ pub struct ModifierSpec {
     pub params: Vec<(String, String)>,
 }
 
+/// What a seat may do beyond answering the choices addressed to it.
+///
+/// Default is nothing, and that is the point: a ranked table hands out no
+/// capability at all, so anything that reaches past its own seat has to name
+/// the one it needs. This replaced a game-level `dev_mode` flag that nothing
+/// ever checked — and that arrived over the wire in `CreateGame`, which meant
+/// a client could ask to be granted it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug, Serialize, Deserialize)]
+pub struct SeatCapabilities {
+    /// May rewrite the game state directly, outside the rules.
+    ///
+    /// Test harnesses and the dev server set boards up this way. A seat with
+    /// this can do anything at all, so it is never granted from a request:
+    /// the host decides, and a lobby game grants it to nobody.
+    pub dev_commands: bool,
+    /// May look into hidden zones — a judge, a replay, a spectator of record.
+    /// Never a player in the game.
+    pub see_hidden: bool,
+}
+
 /// One seat in the preset.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct SeatSpec {
     /// Who controls the seat.
     pub controller: SeatController,
+    /// What this seat may do beyond playing its own cards.
+    pub capabilities: SeatCapabilities,
     /// The deck (validated by the gateway; the engine re-checks structure).
     pub deck: Vec<DeckEntry>,
     /// Cards outside the game this seat may reach (wishes, Karn's −2).
@@ -209,8 +231,6 @@ pub struct GamePreset {
     pub format: FormatId,
     /// RNG seed (shuffles, random effects, AI tie-breaks).
     pub seed: u64,
-    /// Enables `DevCommand`s (never in normal lobbies).
-    pub dev_mode: bool,
     /// House rules.
     pub house_rules: HouseRules,
     /// Format/custom-mode modifiers.
@@ -387,7 +407,6 @@ mod tests {
         GamePreset {
             format: FormatId::Commander,
             seed: 1,
-            dev_mode: false,
             house_rules: HouseRules::default(),
             modifiers: vec![],
             prints: (0..prints)
@@ -400,6 +419,7 @@ mod tests {
             seats: (0..seats)
                 .map(|_| SeatSpec {
                     controller: SeatController::Ai(AIProfile::default()),
+                    capabilities: SeatCapabilities::default(),
                     deck: vec![DeckEntry {
                         card: CardIndex::new(0),
                         print: PrintRef::new(print_ref),

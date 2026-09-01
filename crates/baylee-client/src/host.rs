@@ -191,6 +191,7 @@ mod tests {
             } else {
                 SeatController::Open
             },
+            capabilities: baylee_core::preset::SeatCapabilities::default(),
             deck: deck.clone(),
             sideboard: vec![],
             starting_life: None,
@@ -202,7 +203,6 @@ mod tests {
         GamePreset {
             format: FormatId::Freeform,
             seed: 11,
-            dev_mode: false,
             house_rules: HouseRules::default(),
             modifiers: vec![],
             prints: vec![PrintInfo {

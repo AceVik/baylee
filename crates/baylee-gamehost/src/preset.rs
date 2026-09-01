@@ -94,6 +94,9 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                 .collect();
             Ok(SeatSpec {
                 controller,
+                // Never from the request: a client does not get to ask for
+                // capabilities. A lobby game hands out none at all.
+                capabilities: baylee_core::preset::SeatCapabilities::default(),
                 deck,
                 sideboard,
                 starting_life: s.starting_life,
@@ -114,7 +117,6 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
     Ok(GamePreset {
         format,
         seed: msg.seed,
-        dev_mode: msg.dev_mode,
         house_rules,
         modifiers: vec![],
         prints: msg
@@ -132,4 +134,49 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
             .collect(),
         seats,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn seat_msg() -> v1::SeatSpec {
+        v1::SeatSpec {
+            controller: Some(v1::SeatController {
+                kind: Some(v1::seat_controller::Kind::Open(true)),
+            }),
+            deck: vec![],
+            sideboard: vec![],
+            starting_life: None,
+            starting_hand: vec![],
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        }
+    }
+
+    /// Capabilities are granted by the host, never asked for. The message
+    /// this conversion reads has no field for them — `dev_mode` used to be
+    /// one, and it arrived from whoever opened the socket.
+    #[test]
+    fn a_wire_preset_cannot_grant_itself_any_capability() {
+        let msg = v1::GamePresetMsg {
+            format: 2,
+            seed: 1,
+            house_rules: None,
+            modifiers: vec![],
+            prints: vec![],
+            seats: vec![seat_msg(), seat_msg()],
+        };
+        let preset = from_proto(&msg).expect("two AI seats convert");
+        for seat in &preset.seats {
+            assert_eq!(
+                seat.capabilities,
+                baylee_core::preset::SeatCapabilities::default(),
+                "a seat built from a request came out with capabilities"
+            );
+            assert!(!seat.capabilities.dev_commands);
+            assert!(!seat.capabilities.see_hidden);
+        }
+    }
 }

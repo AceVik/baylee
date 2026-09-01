@@ -106,6 +106,7 @@ fn looping_game(policy: LoopPolicy) -> Engine<TestPool> {
     let deck: Vec<DeckEntry> = (0..60).map(|_| entry(FILLER)).collect();
     let seat = |battlefield: Vec<DeckEntry>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
         starting_life: None,
@@ -117,7 +118,6 @@ fn looping_game(policy: LoopPolicy) -> Engine<TestPool> {
     let preset = GamePreset {
         format: FormatId::Freeform,
         seed: 7,
-        dev_mode: false,
         house_rules: HouseRules {
             loop_policy: policy,
             ..HouseRules::default()
@@ -269,6 +269,7 @@ fn an_ordinary_long_game_is_never_called_a_loop() {
     let deck: Vec<DeckEntry> = (0..60).map(|_| entry(FILLER)).collect();
     let seat = || SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
         starting_life: None,
@@ -280,7 +281,6 @@ fn an_ordinary_long_game_is_never_called_a_loop() {
     let preset = GamePreset {
         format: FormatId::Freeform,
         seed: 11,
-        dev_mode: false,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints: vec![PrintInfo {

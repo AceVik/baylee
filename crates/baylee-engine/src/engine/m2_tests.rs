@@ -179,6 +179,10 @@ fn preset_bf(seed: u64, bf0: &[u32], hand0: &[u32]) -> GamePreset {
     let deck: Vec<DeckEntry> = (0..60).map(|_| entry(forest)).collect();
     let mk = |bf: &[u32], hand: &[u32]| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
+        capabilities: baylee_core::preset::SeatCapabilities {
+            dev_commands: true,
+            see_hidden: false,
+        },
         deck: deck.clone(),
         sideboard: vec![],
         starting_life: None,
@@ -190,7 +194,6 @@ fn preset_bf(seed: u64, bf0: &[u32], hand0: &[u32]) -> GamePreset {
     GamePreset {
         format: FormatId::Freeform,
         seed,
-        dev_mode: false,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints: vec![PrintInfo {
@@ -264,7 +267,12 @@ fn anthem_grants_and_structurally_removes() {
                 .is_some_and(|o| o.card.is_some_and(|c| c.index.get() == ANTHEM_LORD))
         })
         .unwrap();
-    sba::destroy(engine.state_mut_dev(), lord);
+    sba::destroy(
+        engine
+            .dev_state_mut(PlayerId::new(0))
+            .expect("the test preset grants dev commands"),
+        lord,
+    );
     // Force the machine to sync (any action works; concession is too
     // destructive, so pass priority).
     let Pending::Priority { player, .. } = engine.pending().clone() else {

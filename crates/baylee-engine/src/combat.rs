@@ -490,6 +490,7 @@ mod tests {
     fn empty_state() -> GameState {
         let seat = || SeatSpec {
             controller: SeatController::Open,
+            capabilities: baylee_core::preset::SeatCapabilities::default(),
             deck: vec![],
             sideboard: vec![],
             starting_life: Some(20),
@@ -502,7 +503,6 @@ mod tests {
             &GamePreset {
                 format: FormatId::Freeform,
                 seed: 1,
-                dev_mode: false,
                 house_rules: HouseRules::default(),
                 modifiers: vec![],
                 prints: vec![],

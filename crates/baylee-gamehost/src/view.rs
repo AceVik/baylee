@@ -355,6 +355,10 @@ mod tests {
         }
         let seat = |battlefield: Vec<DeckEntry>| SeatSpec {
             controller: SeatController::Ai(AIProfile::default()),
+            capabilities: baylee_core::preset::SeatCapabilities {
+                dev_commands: true,
+                see_hidden: false,
+            },
             deck: deck.clone(),
             sideboard: vec![],
             starting_life: None,
@@ -375,7 +379,6 @@ mod tests {
         GamePreset {
             format: FormatId::Freeform,
             seed: 5,
-            dev_mode: false,
             house_rules: HouseRules::default(),
             modifiers: vec![],
             prints: vec![
@@ -632,8 +635,11 @@ mod tests {
         let me = PlayerId::new(0);
         let them = PlayerId::new(1);
         let land = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+        // The test preset grants seat 0 dev commands; a lobby game grants
+        // nobody any, which is what makes this the harness and not a hole.
         engine
-            .state_mut_dev()
+            .dev_state_mut(me)
+            .expect("the test preset grants dev commands")
             .object_mut(land)
             .expect("the permanent is there")
             .status

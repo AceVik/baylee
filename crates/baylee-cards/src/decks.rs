@@ -103,6 +103,7 @@ pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
     };
     let seat = |entries: Vec<DeckEntry>, side: Vec<DeckEntry>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: entries,
         sideboard: side,
         starting_life: None,
@@ -118,7 +119,6 @@ pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
     GamePreset {
         format: FormatId::Freeform,
         seed,
-        dev_mode: false,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints,

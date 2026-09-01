@@ -48,6 +48,7 @@ fn preset(seed: u64, hand0: Vec<CardIndex>, bf0: Vec<CardIndex>) -> GamePreset {
     let deck: Vec<DeckEntry> = (0..60).map(|_| entry(island())).collect();
     let mk = |hand: Vec<CardIndex>, bf: Vec<CardIndex>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
         starting_life: None,
@@ -59,7 +60,6 @@ fn preset(seed: u64, hand0: Vec<CardIndex>, bf0: Vec<CardIndex>) -> GamePreset {
     GamePreset {
         format: FormatId::Freeform,
         seed,
-        dev_mode: false,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints: vec![PrintInfo {

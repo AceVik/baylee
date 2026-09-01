@@ -1714,7 +1714,6 @@ mod tests {
         GamePreset {
             format: FormatId::Freeform,
             seed,
-            dev_mode: false,
             house_rules: HouseRules::default(),
             modifiers: vec![],
             prints: vec![baylee_core::preset::PrintInfo {
@@ -1725,6 +1724,7 @@ mod tests {
             seats: (0..2)
                 .map(|_| SeatSpec {
                     controller: SeatController::Ai(AIProfile::default()),
+                    capabilities: baylee_core::preset::SeatCapabilities::default(),
                     deck: deck.clone(),
                     sideboard: vec![],
                     starting_life: None,

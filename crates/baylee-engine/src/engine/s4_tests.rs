@@ -83,6 +83,7 @@ fn preset(seed: u64, seat0: SeatBuilder, seat1: SeatBuilder) -> GamePreset {
         .collect();
     let mk = |b: SeatBuilder| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
         starting_life: None,
@@ -94,7 +95,6 @@ fn preset(seed: u64, seat0: SeatBuilder, seat1: SeatBuilder) -> GamePreset {
     GamePreset {
         format: FormatId::Freeform,
         seed,
-        dev_mode: false,
         house_rules: HouseRules::default(),
         modifiers: vec![],
         prints: vec![PrintInfo {

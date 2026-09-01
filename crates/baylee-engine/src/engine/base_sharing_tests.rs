@@ -56,7 +56,9 @@ fn every_copy_of_a_card_shares_one_printed_face() {
 #[test]
 fn card_less_objects_share_the_blank_face_of_their_name() {
     let mut engine = Duel::new(3, forest()).start();
-    let state = engine.state_mut_dev();
+    let state = engine
+        .dev_state_mut(PlayerId::new(0))
+        .expect("the test harness grants dev commands");
     let owner = PlayerId::new(0);
     let name = state.names.intern("Ally trigger");
     let ids: Vec<ObjectId> = (0..64)
@@ -97,7 +99,9 @@ fn card_less_objects_share_the_blank_face_of_their_name() {
 #[test]
 fn writing_a_base_leaves_the_other_sharers_alone() {
     let mut engine = Duel::new(3, forest()).start();
-    let state = engine.state_mut_dev();
+    let state = engine
+        .dev_state_mut(PlayerId::new(0))
+        .expect("the test harness grants dev commands");
     let library = state
         .zones
         .list(ZoneLocation::Library(PlayerId::new(0)))

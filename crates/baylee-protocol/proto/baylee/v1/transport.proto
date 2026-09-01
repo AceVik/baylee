@@ -104,7 +104,10 @@ message GamePresetMsg {
   // 0 commander, 1 highlander, 2 freeform, 3 custom
   uint32 format = 1;
   uint64 seed = 2;
-  bool dev_mode = 3;
+  // 3 was dev_mode: a client asking to be allowed to rewrite the board.
+  // Capabilities are granted by the host per seat and never travel inbound.
+  reserved 3;
+  reserved "dev_mode";
   HouseRules house_rules = 4;
   repeated ModifierSpec modifiers = 5;
   repeated PrintInfo prints = 6;

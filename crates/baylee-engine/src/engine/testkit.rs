@@ -41,6 +41,8 @@ fn entry(card: CardIndex) -> DeckEntry {
 /// A two-seat duel under construction.
 pub struct Duel {
     seed: u64,
+    /// Whether the seats get the harness' own dev capability.
+    dev: bool,
     hand: [Vec<CardIndex>; 2],
     battlefield: [Vec<CardIndex>; 2],
     sideboard: [Vec<CardIndex>; 2],
@@ -54,6 +56,7 @@ impl Duel {
     pub fn new(seed: u64, library_filler: CardIndex) -> Self {
         Self {
             seed,
+            dev: true,
             hand: [Vec::new(), Vec::new()],
             battlefield: [Vec::new(), Vec::new()],
             sideboard: [Vec::new(), Vec::new()],
@@ -82,6 +85,13 @@ impl Duel {
         self
     }
 
+    /// Builds the duel the way a lobby would: no seat may touch the state.
+    #[must_use]
+    pub const fn without_capabilities(mut self) -> Self {
+        self.dev = false;
+        self
+    }
+
     /// Builds the engine (both seats AI-controlled; tests drive pending
     /// choices directly).
     #[track_caller]
@@ -89,6 +99,12 @@ impl Duel {
         let deck: Vec<DeckEntry> = (0..60).map(|_| entry(self.library_filler)).collect();
         let mk = |seat: usize| SeatSpec {
             controller: SeatController::Ai(AIProfile::default()),
+            // A test harness is a host that trusts itself: it sets boards up
+            // directly, which is what the capability is for.
+            capabilities: baylee_core::preset::SeatCapabilities {
+                dev_commands: self.dev,
+                see_hidden: false,
+            },
             deck: deck.clone(),
             sideboard: self.sideboard[seat].iter().copied().map(entry).collect(),
             starting_life: None,
@@ -100,7 +116,6 @@ impl Duel {
         let preset = GamePreset {
             format: FormatId::Freeform,
             seed: self.seed,
-            dev_mode: false,
             house_rules: HouseRules::default(),
             modifiers: vec![],
             prints: vec![PrintInfo {

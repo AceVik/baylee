@@ -78,6 +78,24 @@ planeswalkers all shipped as `Pending`/`PlayerAction` changes with **no
 proto change at all**. Before scheduling something behind protocol v2,
 check whether it needs the wire or only the taxonomy the wire carries.
 
+## Capabilities, not a dev flag
+
+`GamePreset` carried `dev_mode: bool` — "enables `DevCommand`s (never in
+normal lobbies)". Nothing ever read it, and it arrived **inbound** in
+`GamePresetMsg`, so the one thing it could do was let whoever opened the
+socket ask to be trusted. Field 3 is now `reserved`.
+
+`SeatSpec::capabilities` replaces it: per seat, `Default` is nothing, and
+the host is the only thing that grants any. `dev_commands` is what the
+engine checks — `Engine::dev_state_mut(seat)` returns `None` for every seat
+without it, where the old `state_mut_dev()` took no seat and asked nobody.
+`see_hidden` is reserved for a judge or replay view and is granted by
+nothing yet.
+
+The gateway builds lobby presets with no capabilities at all, and
+`gamehost::preset` has the test that says a wire preset cannot grant itself
+one.
+
 ## The AI is a client (view version 6)
 
 `HeuristicAgent::act` took `&Engine` and could read the whole `GameState`

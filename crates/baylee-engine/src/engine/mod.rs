@@ -91,6 +91,12 @@ pub struct Engine<L: CardLookup> {
     pending_plan: Option<PlanKind>,
     /// A player chosen for a pending loyalty `AnyPlayer` target.
     loyalty_player_choice: Option<PlayerId>,
+    /// What each seat may do beyond answering its own choices.
+    ///
+    /// Not game state: it never enters the snapshot hash and never changes
+    /// during a game, because it is a statement about who is sitting there
+    /// rather than about the board.
+    capabilities: Vec<baylee_core::preset::SeatCapabilities>,
     /// Journal seq up to which as-it-enters modifiers were applied.
     entry_scan_seq: u64,
     /// Delayed actions queued by upkeep processing.
@@ -229,6 +235,7 @@ impl<L: CardLookup> Engine<L> {
         let trigger_scan_seq = state.journal.last_seq();
         let mut engine = Self {
             lookup,
+            capabilities: preset.seats.iter().map(|s| s.capabilities).collect(),
             mulligans: vec![0; state.players.len()],
             automation: vec![crate::choice::SeatAutomation::default(); state.players.len()],
             breaking_loop: false,
@@ -275,10 +282,27 @@ impl<L: CardLookup> Engine<L> {
         &self.state
     }
 
-    /// Mutable state access for dev-mode commands (dev games only).
+    /// Mutable state access for a seat that may rewrite the board.
+    ///
+    /// `None` for every seat that was not granted `dev_commands`, which in a
+    /// lobby game is all of them: the gateway builds its presets without
+    /// capabilities and a `CreateGame` request has no way to ask for one.
+    /// The old `state_mut_dev()` took no seat and asked nobody — it was a
+    /// public door into the state with a name that only sounded like a lock.
+    pub fn dev_state_mut(&mut self, seat: PlayerId) -> Option<&mut GameState> {
+        self.capabilities
+            .get(seat.get() as usize)?
+            .dev_commands
+            .then_some(&mut self.state)
+    }
+
+    /// What a seat may do beyond answering its own choices.
     #[must_use]
-    pub fn state_mut_dev(&mut self) -> &mut GameState {
-        &mut self.state
+    pub fn capabilities(&self, seat: PlayerId) -> baylee_core::preset::SeatCapabilities {
+        self.capabilities
+            .get(seat.get() as usize)
+            .copied()
+            .unwrap_or_default()
     }
 
     /// The journal.
@@ -418,6 +442,8 @@ mod progress;
 mod automation_tests;
 #[cfg(test)]
 mod base_sharing_tests;
+#[cfg(test)]
+mod capability_tests;
 #[cfg(test)]
 mod card_rider_tests;
 #[cfg(test)]
