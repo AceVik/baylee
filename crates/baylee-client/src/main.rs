@@ -1,21 +1,25 @@
 //! Standalone duel client.
 //!
-//! A thin wrapper: create a window, install a local host, open the duel. The
+//! A thin wrapper: create a window, install a host, open the duel. The
 //! open-world client will do the same three things inside an app it already
 //! owns, which is the point of keeping [`baylee_client::DuelPlugin`] free of
 //! any window or schedule of its own.
+//!
+//! Which host depends on whether this launch was handed a seat: with a game id
+//! and a seat token (from the environment natively, from the page's query
+//! string in a browser) the duel is played against the gateway; without one it
+//! is played solo against the house AI, in this process. Nothing above the
+//! host can tell the difference — that is the whole point of the seam.
 
-use baylee_client::{DuelCommand, DuelConfig, DuelPlugin, InstalledHost, LocalHost};
+use baylee_client::host::DuelHost;
+use baylee_client::{
+    DuelCommand, DuelConfig, DuelPlugin, InstalledHost, LocalHost, NetworkHost, SeatTicket,
+};
 use baylee_core::ids::PlayerId;
 use bevy::prelude::*;
 
 fn main() {
-    let Some(preset) = acceptance_duel() else {
-        eprintln!("could not find data/acceptance-decks.txt — run this from the repository root");
-        return;
-    };
-    let Some(host) = LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"]) else {
-        eprintln!("could not start the demo duel");
+    let Some(host) = duel_host() else {
         return;
     };
 
@@ -48,9 +52,38 @@ fn main() {
         .add_plugins(DuelPlugin {
             config: DuelConfig::default(),
         })
-        .insert_resource(InstalledHost(Box::new(host)))
+        .insert_resource(InstalledHost(host))
         .add_systems(Startup, open_duel)
         .run();
+}
+
+/// The host this launch plays through, or `None` after saying why it cannot.
+///
+/// A ticket that is present but unusable is a hard stop rather than a quiet
+/// fall back to solo play: somebody is waiting at that table, and dropping
+/// them into a game against the house instead would be the worst possible
+/// answer to "the network is down".
+fn duel_host() -> Option<Box<dyn DuelHost>> {
+    if let Some(ticket) = SeatTicket::discover() {
+        // Never the URL: it carries the seat token.
+        let table = ticket.gateway.clone();
+        return match NetworkHost::connect(ticket) {
+            Ok(host) => Some(Box::new(host)),
+            Err(reason) => {
+                eprintln!("could not reach the table at {table}: {reason}");
+                None
+            }
+        };
+    }
+    let Some(preset) = acceptance_duel() else {
+        eprintln!("could not find data/acceptance-decks.txt — run this from the repository root");
+        return None;
+    };
+    let Some(host) = LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"]) else {
+        eprintln!("could not start the demo duel");
+        return None;
+    };
+    Some(Box::new(host))
 }
 
 fn open_duel(mut commands: MessageWriter<DuelCommand>) {

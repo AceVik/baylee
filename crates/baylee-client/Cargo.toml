@@ -26,9 +26,16 @@ serde_json.workspace = true
 # Card text over HTTP. Works unchanged on native and wasm, which bevy's
 # asset server does not do for anything that is not an asset.
 ehttp.workspace = true
+# The duel socket; see `net.rs`.
+ewebsock.workspace = true
 
 [dev-dependencies]
 uuid.workspace = true
+# The networked host is tested against a real websocket server built from a
+# real `Session` — the transport is the part that cannot be unit-tested.
+tokio = { workspace = true }
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
 
 [[bin]]
 name = "baylee-client"
@@ -39,3 +46,4 @@ path = "src/main.rs"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
 web-sys = { workspace = true, features = ["Location", "Storage", "Window"] }
+send_wrapper.workspace = true

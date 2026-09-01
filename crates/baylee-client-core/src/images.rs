@@ -377,21 +377,21 @@ mod tests {
             your_seat: PlayerId::new(0),
             seats: vec![],
             prints: vec![
-                PrintEntry {
+                Some(PrintEntry {
                     scryfall_id: "f333ea01-124f-4125-87ab-609be40e774c".into(),
                     lang: "EN".into(),
                     finish: Finish::Normal,
-                },
-                PrintEntry {
+                }),
+                Some(PrintEntry {
                     scryfall_id: "1ed4c0bb-b710-44a1-b8bc-6bd11c27b8b8".into(),
                     lang: "DE".into(),
                     finish: Finish::Foil,
-                },
-                PrintEntry {
+                }),
+                Some(PrintEntry {
                     scryfall_id: "not-an-id".into(),
                     lang: "EN".into(),
                     finish: Finish::Normal,
-                },
+                }),
             ],
         }
     }
@@ -435,11 +435,11 @@ mod tests {
         // card in the game points at it — so this is one 404 per card, not one
         // per game.
         let mut s = statics();
-        s.prints.push(PrintEntry {
+        s.prints.push(Some(PrintEntry {
             scryfall_id: "00000000-0000-0000-0000-000000000000".into(),
             lang: "EN".into(),
             finish: Finish::Normal,
-        });
+        }));
         let nil = key(3, ArtSize::Small);
         assert!(
             resolve(&s, nil).is_none(),

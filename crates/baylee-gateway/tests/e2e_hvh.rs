@@ -126,10 +126,12 @@ async fn human_vs_human_both_seats_receive_updates() {
     // One deck each (basic lands pass the registry and the count rules).
     let mut deck_ids = Vec::new();
     for (i, token) in tokens.iter().enumerate() {
+        // Deliberately not the same card pool: the opening payload must have
+        // a hole where the other deck's exclusive printing is.
         let cards = if i == 0 {
             "\"40 Island\",\"20 Forest\""
         } else {
-            "\"40 Forest\",\"20 Island\""
+            "\"40 Forest\",\"20 Swamp\""
         };
         let deck = format!("{{\"name\":\"d{i}\",\"cards\":[{cards}]}}");
         let (status, body) = http_post(port, "/decks", Some(token), &deck);
@@ -176,6 +178,40 @@ async fn human_vs_human_both_seats_receive_updates() {
     }
     let mut ws_a = ws_a.expect("seat A socket");
     let mut ws_b = ws_b.expect("seat B socket");
+
+    // The very first thing a seat is sent is the roster and the print table.
+    // A client has no preset to build them from, and without the print table
+    // a PrintRef names no card at all — so it has to arrive before anything
+    // that refers to one.
+    let opening = recv_until(&mut ws_b, |_| true).await;
+    let Some(v1::envelope::Msg::GameStatic(msg)) = opening.msg else {
+        panic!("a seat's first frame is the opening payload");
+    };
+    assert_eq!(msg.view_version, baylee_view::VIEW_VERSION);
+    let statics: baylee_view::GameStatic =
+        serde_json::from_slice(&msg.static_json).expect("static json");
+    assert_eq!(statics.your_seat, baylee_core::ids::PlayerId::new(1));
+    assert_eq!(
+        statics.seat_name(baylee_core::ids::PlayerId::new(0)),
+        "alice_hvh"
+    );
+    assert_eq!(
+        statics.seat_name(baylee_core::ids::PlayerId::new(1)),
+        "bob_hvh"
+    );
+    assert!(
+        statics.prints.iter().any(Option::is_some),
+        "the print table came along"
+    );
+    assert!(
+        statics.prints.iter().any(Option::is_none),
+        "and stopped short of the other deck: {:?}",
+        statics.prints
+    );
+    assert!(
+        statics.seats.iter().all(|s| !s.is_ai),
+        "both chairs are people in a human-vs-human game"
+    );
 
     // Seat A gets the first choice request (its mulligan).
     let first = recv_until(&mut ws_a, |env| {

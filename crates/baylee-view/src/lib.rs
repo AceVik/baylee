@@ -36,7 +36,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 6;
+pub const VIEW_VERSION: u32 = 7;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -325,14 +325,21 @@ pub struct GameStatic {
     /// All seats in seat order.
     pub seats: Vec<SeatIdentity>,
     /// The print table indexed by [`PrintRef`].
-    pub prints: Vec<PrintEntry>,
+    ///
+    /// `None` where the viewing seat has not been shown that printing. The
+    /// table is shared by the whole game and deduplicated per card, so sending
+    /// all of it would hand every seat the union of both decklists — the one
+    /// piece of hidden information with no game object to hide behind. A seat
+    /// is entitled to its own deck's printings from the start and earns the
+    /// rest by seeing the cards; a host re-sends this payload when it does.
+    pub prints: Vec<Option<PrintEntry>>,
 }
 
 impl GameStatic {
     /// Resolves a print reference against the print table.
     #[must_use]
     pub fn print(&self, print: PrintRef) -> Option<&PrintEntry> {
-        self.prints.get(print.get() as usize)
+        self.prints.get(print.get() as usize)?.as_ref()
     }
 
     /// The display name of a seat, or a stable fallback when the seat is
@@ -752,6 +759,24 @@ pub struct PlayerView {
 }
 
 impl PlayerView {
+    /// Every printing this view actually shows.
+    ///
+    /// What a host uses to decide which print table entries a seat has earned:
+    /// a client is entitled to the art of a card it can see, and to nothing
+    /// else. Combat is not walked — it names objects by id, and every one of
+    /// them is already on the battlefield.
+    pub fn prints(&self) -> impl Iterator<Item = PrintRef> + '_ {
+        let public = self
+            .battlefield
+            .iter()
+            .chain(&self.stack)
+            .chain(self.graveyards.iter().flatten())
+            .chain(self.exile.iter().flatten())
+            .chain(self.command.iter().flatten())
+            .filter_map(|o| o.card.map(|c| c.print));
+        self.hand.iter().map(|o| o.card.print).chain(public)
+    }
+
     /// Every permanent controlled by a seat, in battlefield order.
     pub fn battlefield_of(&self, player: PlayerId) -> impl Iterator<Item = &PublicObject> + '_ {
         self.battlefield

@@ -249,7 +249,12 @@ pub fn drive_preloads(
         // P2: the rest of the print table, deterministically shuffled
         // (xorshift*, fixed seed — same order on every client).
         let mut rest: Vec<ImageKey> = (0..statics.prints.len())
-            .map(|i| ImageKey::new(baylee_core::ids::PrintRef::new(i as u16), 0, ArtSize::Small))
+            .map(|i| baylee_core::ids::PrintRef::new(i as u16))
+            // A hole in the print table is a card this seat has not been
+            // shown. Preloading it would be fetching the art of a card the
+            // player is not entitled to know is in the game at all.
+            .filter(|print| statics.print(*print).is_some())
+            .map(|print| ImageKey::new(print, 0, ArtSize::Small))
             .filter(|k| !seen.contains(k))
             .collect();
         let mut s = 0x9e37_79b9_7f4a_7c15u64;

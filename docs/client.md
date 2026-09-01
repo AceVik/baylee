@@ -97,7 +97,19 @@ The renderer never touches a socket. It talks to a `DuelHost`:
 
 - `LocalHost` runs an engine in-process (solo play, embedded duels, tests) and
   goes through the same protobuf envelopes a socket would carry;
-- a networked host drains its transport into the same `HostMessage` stream.
+- `NetworkHost` (`src/net.rs`) is a websocket to the gateway's
+  `/games/{id}/ws`, drained into the same `HostMessage` stream.
+
+Both decode with the same function, so solo play is a real test of the wire
+format rather than a shortcut around it. The binary picks between them on
+whether it was handed a `SeatTicket`: `BAYLEE_GAME` + `BAYLEE_SEAT_TOKEN` in
+the environment, or `?game=…&token=…` in the page URL in a browser. A ticket
+that will not connect is a hard stop, not a quiet fall back to solo play —
+somebody is waiting at that table.
+
+The client has no lobby of its own yet. The HTTP calls that produce a ticket
+(register, login, create or join a game) are still made from outside it; see
+`docs/protocol.md`.
 
 ## Embedding (the open-world plan)
 
@@ -109,7 +121,8 @@ Input, Present}` let the host application order its own systems around it.
 ## In the browser
 
 `trunk serve index.html --release` from `crates/baylee-client/` serves the
-client on <http://127.0.0.1:8080> (solo duel vs the house AI; card art streams
+client on <http://127.0.0.1:8080> (solo duel vs the house AI unless the page
+URL carries a seat ticket; card art streams
 from the Scryfall CDN on first use, so the first minute needs a network
 connection). Build for deployment with `trunk build index.html --release` and
 host the resulting `dist/` statically. Two notes: always build `--release`

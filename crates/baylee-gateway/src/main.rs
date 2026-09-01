@@ -1202,6 +1202,84 @@ async fn decision_clock(deadline: Option<tokio::time::Instant>) {
     }
 }
 
+/// The names shown at each seat of a game, in seat order.
+///
+/// The rules kernel has never heard of an account, so the roster is assembled
+/// here. The two locks are taken one after the other rather than nested: the
+/// lobby says which account sits where, the store says what that account is
+/// called, and nothing in between needs both at once.
+fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
+    let accounts: Vec<Option<String>> = {
+        let lobby = state.lobby.lock();
+        match lobby.games.get(game_id) {
+            Some(game) => game.seats.iter().map(|s| s.account_id.clone()).collect(),
+            None => return Vec::new(),
+        }
+    };
+    let store = state.store.lock();
+    accounts
+        .into_iter()
+        .map(|id| match id {
+            Some(id) => store.accounts.get(&id).map_or_else(
+                || "Unknown player".to_string(),
+                |account| account.display_name.clone(),
+            ),
+            // An empty chair in a running game is the house playing it.
+            None => "House AI".to_string(),
+        })
+        .collect()
+}
+
+/// The once-per-game payload for a seat, or `None` when the game is gone.
+///
+/// A networked client cannot build this itself: it never sees the preset, and
+/// without the print table a `PrintRef` names no card at all.
+fn opening_payload(
+    state: &Shared,
+    game_id: &str,
+    player: baylee_core::ids::PlayerId,
+) -> Option<Envelope> {
+    let names = seat_names(state, game_id);
+    let mut lobby = state.lobby.lock();
+    let session = lobby
+        .games
+        .get_mut(game_id)
+        .and_then(|g| g.session.as_mut())?;
+    // Idempotent, and the cheapest place to do it: the roster is the same on
+    // every socket, and this is the only code path that knows both halves.
+    session.describe(game_id.to_string(), names);
+    Some(session.game_static_envelope(player))
+}
+
+/// Resends a seat's whole state after its socket fell behind the broadcast.
+///
+/// The opening payload goes first, and is not skipped as "it cannot have
+/// changed": it *can*. A seat earns a printing by seeing the card, and the
+/// updated payload that says so travels the same broadcast this socket just
+/// dropped messages from.
+async fn resync(
+    state: &Shared,
+    game_id: &str,
+    player: baylee_core::ids::PlayerId,
+    socket: &mut WebSocket,
+) -> Result<(), ()> {
+    let Some(statics) = opening_payload(state, game_id, player) else {
+        return Err(());
+    };
+    send_envelope(socket, statics).await?;
+    let snapshot = {
+        let lobby = state.lobby.lock();
+        match lobby.games.get(game_id).and_then(|g| g.session.as_ref()) {
+            Some(session) => session.snapshot(player),
+            None => return Err(()),
+        }
+    };
+    for env in snapshot {
+        send_envelope(socket, env).await?;
+    }
+    Ok(())
+}
+
 async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket: WebSocket) {
     let player = baylee_core::ids::PlayerId::new(seat as u8);
     // Subscribe BEFORE the initial pump so this socket can't miss its own
@@ -1214,6 +1292,15 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
         };
         game.updates.subscribe()
     };
+    // The seat roster and the print table, before anything that refers to
+    // them. Sent straight down this socket rather than broadcast: it is
+    // addressed to one seat, and what it says differs per seat.
+    let Some(statics) = opening_payload(&state, &game_id, player) else {
+        return;
+    };
+    if send_envelope(&mut socket, statics).await.is_err() {
+        return;
+    }
     // The account's remembered answers go in before the first pump, so a
     // question the seat never wanted to see is already covered when the
     // opening hand arrives.
@@ -1306,17 +1393,8 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
                         // seat's whole state can be rebuilt on demand, resend
                         // it instead: the gap in the stream stops mattering.
                         tracing::warn!(game_id, seat, n, "seat socket lagged; resyncing");
-                        let snapshot = {
-                            let lobby = state.lobby.lock();
-                            match lobby.games.get(&game_id).and_then(|g| g.session.as_ref()) {
-                                Some(session) => session.snapshot(player),
-                                None => return,
-                            }
-                        };
-                        for env in snapshot {
-                            if send_envelope(&mut socket, env).await.is_err() {
-                                return;
-                            }
+                        if resync(&state, &game_id, player, &mut socket).await.is_err() {
+                            return;
                         }
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => return,

@@ -32,3 +32,8 @@ tokio-tungstenite.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+# The end-to-end tests read the opening payload a client is sent, so they
+# check it against the very version constant a client would refuse on.
+baylee-view.workspace = true

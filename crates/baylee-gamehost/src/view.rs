@@ -283,12 +283,20 @@ pub fn player_view(
 
 /// Builds the once-per-game static payload a client needs before it can render
 /// anything: who sits where, and the print table its images are keyed by.
+///
+/// `shown` decides, entry by entry, whether this seat has earned the printing.
+/// The table is shared by the whole game and deduplicated per card, so a seat
+/// handed all of it would be handed the union of every deck at the table. An
+/// entry the seat has not earned is `None` rather than absent: the index *is*
+/// the [`PrintRef`](baylee_core::ids::PrintRef), and renumbering it would
+/// change what every object in every view points at.
 #[must_use]
 pub fn game_static(
     game_id: String,
     your_seat: PlayerId,
     seats: Vec<baylee_view::SeatIdentity>,
     prints: &[baylee_core::preset::PrintInfo],
+    shown: &[bool],
 ) -> GameStatic {
     GameStatic {
         view_version: baylee_view::VIEW_VERSION,
@@ -297,14 +305,21 @@ pub fn game_static(
         seats,
         prints: prints
             .iter()
-            .map(|p| baylee_view::PrintEntry {
-                scryfall_id: p.scryfall_id.to_string(),
-                lang: p.lang.clone(),
-                finish: match p.finish {
-                    baylee_core::preset::Finish::Foil => baylee_view::Finish::Foil,
-                    baylee_core::preset::Finish::Etched => baylee_view::Finish::Etched,
-                    baylee_core::preset::Finish::Normal => baylee_view::Finish::Normal,
-                },
+            .enumerate()
+            .map(|(i, p)| {
+                shown
+                    .get(i)
+                    .copied()
+                    .unwrap_or(false)
+                    .then(|| baylee_view::PrintEntry {
+                        scryfall_id: p.scryfall_id.to_string(),
+                        lang: p.lang.clone(),
+                        finish: match p.finish {
+                            baylee_core::preset::Finish::Foil => baylee_view::Finish::Foil,
+                            baylee_core::preset::Finish::Etched => baylee_view::Finish::Etched,
+                            baylee_core::preset::Finish::Normal => baylee_view::Finish::Normal,
+                        },
+                    })
             })
             .collect(),
     }
@@ -441,18 +456,41 @@ mod tests {
     #[test]
     fn the_static_payload_carries_what_a_print_ref_points_at() {
         let preset = mixed_print_preset();
-        let statics = game_static("g1".into(), PlayerId::new(0), vec![], &preset.prints);
+        let shown = vec![true; preset.prints.len()];
+        let statics = game_static(
+            "g1".into(),
+            PlayerId::new(0),
+            vec![],
+            &preset.prints,
+            &shown,
+        );
         assert_eq!(statics.prints.len(), 3);
-        assert_eq!(statics.prints[1].lang, "DE");
-        assert!(matches!(
-            statics.prints[1].finish,
-            baylee_view::Finish::Foil
-        ));
-        assert!(matches!(
-            statics.prints[2].finish,
-            baylee_view::Finish::Etched
-        ));
+        let entry = |i: u16| statics.print(PrintRef::new(i)).expect("shown");
+        assert_eq!(entry(1).lang, "DE");
+        assert!(matches!(entry(1).finish, baylee_view::Finish::Foil));
+        assert!(matches!(entry(2).finish, baylee_view::Finish::Etched));
         assert_eq!(statics.view_version, baylee_view::VIEW_VERSION);
+    }
+
+    /// A printing this seat has not been shown is a hole in the table, not a
+    /// shorter table: the index is the `PrintRef` every object points at.
+    #[test]
+    fn a_printing_a_seat_has_not_seen_is_a_hole_not_a_gap() {
+        let preset = mixed_print_preset();
+        let statics = game_static(
+            "g1".into(),
+            PlayerId::new(0),
+            vec![],
+            &preset.prints,
+            &[true, false, true],
+        );
+        assert_eq!(statics.prints.len(), 3, "the indices do not move");
+        assert!(statics.print(PrintRef::new(0)).is_some());
+        assert!(statics.print(PrintRef::new(1)).is_none());
+        assert!(matches!(
+            statics.print(PrintRef::new(2)).map(|p| p.finish),
+            Some(baylee_view::Finish::Etched)
+        ));
     }
 
     /// A token has no printing, so `card` is `None` and a client has nothing

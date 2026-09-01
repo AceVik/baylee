@@ -40,6 +40,7 @@ pub mod face;
 pub mod host;
 pub mod hud;
 pub mod input;
+pub mod net;
 pub mod settings;
 pub mod table;
 pub mod textures;
@@ -56,6 +57,7 @@ use bevy::prelude::*;
 use host::{DuelHost, HostMessage};
 
 pub use host::LocalHost;
+pub use net::{NetworkHost, SeatTicket};
 
 /// Whether a duel is on screen.
 ///

@@ -155,6 +155,19 @@ message PlayerActionMsg {
   bytes action_json = 3;
 }
 
+// Server → client: the once-per-game payload — seat roster and print
+// table. A networked client cannot build this itself: it never sees the
+// preset, and the print table is what turns a PrintRef into a card face.
+message GameStaticMsg {
+  string game_id = 1;
+  // View schema version. Duplicated out of the payload on purpose: a client
+  // that cannot render this version must be able to say so without first
+  // decoding a structure whose shape is exactly what changed.
+  uint32 view_version = 2;
+  // serde_json-encoded baylee_view::GameStatic.
+  bytes static_json = 3;
+}
+
 // Server → client: a state view after actions (journal seq for resync).
 message StateDelta {
   string game_id = 1;
@@ -177,5 +190,6 @@ message Envelope {
     ChoiceRequest choice_request = 10;
     PlayerActionMsg player_action = 11;
     StateDelta state_delta = 12;
+    GameStaticMsg game_static = 13;
   }
 }

@@ -71,7 +71,10 @@ the working directory, and *not* gitignored), `BAYLEE_REGISTRATION=off`,
 `BAYLEE_TRUSTED_PROXIES`, `DATABASE_URL`. Engine-server takes `PORT` and
 `BAYLEE_BIND` — it defaults to loopback deliberately: it has no
 authentication, every action runs as seat 0, so binding it publicly hands out
-the game.
+the game. The client takes `BAYLEE_GATEWAY` (card text, and the table it plays
+at) plus `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN` and optionally `BAYLEE_SEAT`: with
+those three it plays against the gateway instead of against the house AI in
+process. In a browser the same handover is `?game=…&token=…` on the page URL.
 
 CI (`.github/workflows/ci.yml`) runs more than the four commands above: the
 test suite **also in `--release`** (a `debug_assert!` once hid mana payment
@@ -166,8 +169,17 @@ system. Hidden information has no field to leak through: libraries are counts,
 another seat's hand is a count, a face-down permanent's `card` is `None` for
 anyone not entitled to look, and `crates/baylee-gamehost/src/view.rs` has a
 test per sentence of that. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`,
-currently 6) is asserted in gamehost and client tests — bump it on any breaking
+currently 7) is asserted in gamehost and client tests — bump it on any breaking
 view change so a client refuses a host it cannot render.
+
+The print table is the one place that rule was broken, and not through a view:
+`GameStatic.prints` is shared by the whole game and deduplicated per card, so a
+seat sent all of it was being sent the union of every decklist at the table.
+Its entries are now `Option<PrintEntry>` — a seat starts entitled to its own
+deck's printings and earns the rest by seeing the cards, and `Session` re-sends
+the payload (before the view that needs it) when one is earned. A hole rather
+than a shorter list, because the index *is* the `PrintRef` every object points
+at.
 
 The house AI is held to the same line, and by the type system rather than by
 convention: `HeuristicAgent::act` takes `(&PlayerView, &Pending)` — what a
@@ -184,11 +196,16 @@ game.
 
 ### Hosts, and where the client actually gets its game
 
-The renderer never touches a socket; it talks to a `DuelHost`. The standalone
-client (`crates/baylee-client/src/main.rs`) installs a **`LocalHost` — an
-in-process engine, solo vs the house AI** from `data/acceptance-decks.txt`. It
-does not talk to the gateway or the engine-server, even when those are running;
-messages still travel as the same protobuf envelopes a socket would carry.
+The renderer never touches a socket; it talks to a `DuelHost`, of which there
+are two. `LocalHost` is an in-process engine, solo vs the house AI from
+`data/acceptance-decks.txt`; `NetworkHost` (`src/net.rs`) is a websocket to
+the gateway's `/games/{id}/ws`. `crates/baylee-client/src/main.rs` picks
+between them on whether this launch was handed a `SeatTicket` — `BAYLEE_GAME`
++ `BAYLEE_SEAT_TOKEN` natively, `?game=…&token=…` in a browser — and nothing
+above the host can tell which it got, because both decode the same protobuf
+envelopes with the same function. The client has no lobby of its own yet: the
+HTTP calls that produce a ticket (login, list, join) are somebody else's for
+now.
 
 Known gap, easy to misread from the code: `client-core`'s `Interaction` exposes
 and tests `declare_attacker`, `declare_blocker` and `choose_index`, but

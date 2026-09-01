@@ -38,6 +38,13 @@ pub struct CardTexts {
     state: Fetch,
     /// The language everything here was fetched for; a change re-fetches.
     lang: String,
+    /// How many printings the last request covered.
+    ///
+    /// The print table grows during a game: a seat earns an opponent's
+    /// printing the first time it sees the card. Without this the text for
+    /// everything the opponent plays would be missing for the rest of the
+    /// game, because the one request went out before any of it was known.
+    covered: usize,
 }
 
 /// State of the one in-flight request.
@@ -77,18 +84,41 @@ impl CardTexts {
     ///
     /// The catalog answers by Scryfall id; the renderer asks by [`PrintRef`].
     /// This is where the two meet, and an entry for a printing the game does
-    /// not contain is dropped rather than kept for a game that will never ask.
+    /// not contain — or which this seat has not been shown — is dropped rather
+    /// than kept for a game that will never ask.
     fn absorb(&mut self, statics: &GameStatic, entries: Vec<CardTextEntry>) {
         for entry in entries {
-            let found = statics
-                .prints
-                .iter()
-                .position(|p| p.scryfall_id.eq_ignore_ascii_case(&entry.scryfall_id));
+            let found = statics.prints.iter().position(|p| {
+                p.as_ref()
+                    .is_some_and(|p| p.scryfall_id.eq_ignore_ascii_case(&entry.scryfall_id))
+            });
             if let Some(index) = found {
                 self.by_print.insert(PrintRef::new(index as u16), entry);
             }
         }
     }
+}
+
+/// The printings this seat has actually been shown.
+///
+/// The print table has holes in it: a seat is entitled to its own deck from
+/// the start and to the rest only as it sees the cards. Asking the catalog
+/// about a hole would be asking about a card this client is not allowed to
+/// know, and would send an empty id that reads like a bug at the other end.
+fn known_ids(statics: &GameStatic) -> Vec<&str> {
+    statics
+        .prints
+        .iter()
+        .filter_map(|p| p.as_ref().map(|p| p.scryfall_id.as_str()))
+        .collect()
+}
+
+/// How many printings this seat has been shown.
+///
+/// Counted rather than collected: this runs every frame, and the ids are only
+/// needed on the frame a request actually goes out.
+fn known_count(statics: &GameStatic) -> usize {
+    statics.prints.iter().filter(|p| p.is_some()).count()
 }
 
 /// Starts the fetch once the print table is known.
@@ -102,17 +132,26 @@ pub fn request(
     };
     // A language change invalidates everything; the simplest correct answer is
     // to ask again rather than to translate what is already here.
-    if !matches!(texts.state, Fetch::Idle) && texts.lang == settings.lang {
+    let known = known_count(statics);
+    if !matches!(texts.state, Fetch::Idle) && texts.lang == settings.lang && known <= texts.covered
+    {
         return;
     }
     if texts.lang != settings.lang {
         texts.by_print.clear();
         texts.state = Fetch::Idle;
     }
+    // A printing this seat has just earned: ask again, for the whole table.
+    // The catalog answers from its own cache, and one request is cheaper than
+    // tracking which ids of a few dozen are new.
+    if known > texts.covered && matches!(texts.state, Fetch::Settled) {
+        texts.state = Fetch::Idle;
+    }
     if !matches!(texts.state, Fetch::Idle) {
         return;
     }
     texts.lang.clone_from(&settings.lang);
+    texts.covered = known;
 
     // Whatever a previous session stored is usable immediately, and covers
     // the whole game when nothing changed — the request that follows only
@@ -122,11 +161,7 @@ pub fn request(
         texts.absorb(statics, cached);
     }
 
-    let ids: Vec<&str> = statics
-        .prints
-        .iter()
-        .map(|p| p.scryfall_id.as_str())
-        .collect();
+    let ids: Vec<&str> = known_ids(statics);
     if ids.is_empty() {
         texts.state = Fetch::Settled;
         return;
@@ -284,13 +319,41 @@ mod tests {
             }],
             prints: ids
                 .iter()
-                .map(|id| PrintEntry {
-                    scryfall_id: (*id).to_string(),
-                    lang: "en".to_string(),
-                    finish: Finish::Normal,
+                .map(|id| {
+                    Some(PrintEntry {
+                        scryfall_id: (*id).to_string(),
+                        lang: "en".to_string(),
+                        finish: Finish::Normal,
+                    })
                 })
                 .collect(),
         }
+    }
+
+    /// A hole in the print table is a card this seat has not been shown.
+    /// Asking the catalog about it would be asking about a card the client is
+    /// not entitled to know is in the game.
+    #[test]
+    fn a_hole_in_the_print_table_is_never_asked_about() {
+        let mut statics = statics(&["aaa", "bbb"]);
+        statics.prints[0] = None;
+        assert_eq!(known_ids(&statics), vec!["bbb"]);
+        assert_eq!(known_count(&statics), 1);
+    }
+
+    /// And the entry that fills the hole still lands on the right `PrintRef`:
+    /// the index is the handle, so a hole may never shorten the table.
+    #[test]
+    fn a_filled_hole_files_against_its_own_index() {
+        let mut statics = statics(&["aaa", "bbb"]);
+        statics.prints[0] = None;
+        let mut texts = CardTexts::default();
+        texts.absorb(&statics, vec![entry("bbb", "Forest")]);
+        assert!(texts.get(PrintRef::new(0), 0).is_none());
+        assert_eq!(
+            texts.get(PrintRef::new(1), 0).map(|t| t.name.clone()),
+            Some("Forest".to_string())
+        );
     }
 
     fn entry(id: &str, name: &str) -> CardTextEntry {

@@ -70,6 +70,13 @@ flate2 = "1"
 # Card text fetch in the client. Tiny, and the only HTTP client that works
 # unchanged on native and wasm — bevy's asset server only does assets.
 ehttp = "0.5"
+# The duel socket, for the same reason: one API that is a background thread
+# natively and the browser's own WebSocket on wasm. `tls` is rustls-only, so
+# a wss:// gateway costs no system OpenSSL.
+ewebsock = { version = "0.8", features = ["tls"] }
+# Lets the browser's WebSocket handle live in a Bevy resource, which must be
+# Send + Sync. Checked at run time (a panic, never UB) and wasm-only.
+send_wrapper = "0.6"
 criterion = { version = "0.5", features = ["html_reports"] }
 bevy = { version = "0.19", default-features = false, features = [
     "std", "async_executor", "multi_threaded",

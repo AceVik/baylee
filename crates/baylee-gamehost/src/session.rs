@@ -5,11 +5,12 @@
 use baylee_ai::{HeuristicAgent, pending_player};
 use baylee_cards::dsl::CardDef;
 use baylee_core::ids::{CardIndex, PlayerId};
-use baylee_core::preset::{AIProfile, GamePreset, HouseRules, SeatController};
+use baylee_core::preset::{AIProfile, GamePreset, HouseRules, PrintInfo, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
 use baylee_engine::state::CardLookup;
 use baylee_protocol::v1::{self, Envelope};
+use baylee_view::{GameStatic, SeatIdentity};
 
 /// Registry lookup backed by the compiled card pool.
 pub struct RegistryLookup;
@@ -35,6 +36,30 @@ pub struct Session {
     seq: u64,
     /// Kept for the decision clock; the engine has its own copy for rules.
     house_rules: HouseRules,
+    /// The print table the game was built from.
+    ///
+    /// The rules kernel has no use for it; a client has nothing without it.
+    /// It is the only thing that turns a `PrintRef` into a card face, and a
+    /// networked client never sees the preset it came from.
+    prints: Vec<PrintInfo>,
+    /// Which print table entries each seat has been shown.
+    ///
+    /// The table is shared by the whole game and deduplicated per card, so a
+    /// seat handed all of it would be handed the union of every deck at the
+    /// table — the one piece of hidden information with no game object to hide
+    /// behind. A seat starts entitled to its own deck's printings, which it
+    /// already knows, and earns the rest by seeing the cards.
+    ///
+    /// Not game state: it never enters the engine, the journal, or a snapshot
+    /// hash. It is what a seat has been *told*, which is a property of the
+    /// connection, not of the game.
+    revealed: Vec<Vec<bool>>,
+    /// Team per seat, for the seat roster.
+    teams: Vec<Option<u8>>,
+    /// What clients call this game (see [`Session::describe`]).
+    game_id: String,
+    /// What clients call each seat (see [`Session::describe`]).
+    names: Vec<String>,
 }
 
 impl Session {
@@ -56,6 +81,15 @@ impl Session {
             seats,
             seq: 0,
             house_rules: preset.house_rules.clone(),
+            prints: preset.prints.clone(),
+            revealed: preset
+                .seats
+                .iter()
+                .map(|spec| own_prints(spec, preset.prints.len()))
+                .collect(),
+            teams: preset.seats.iter().map(|s| s.team).collect(),
+            game_id: String::new(),
+            names: Vec::new(),
         })
     }
 
@@ -68,6 +102,92 @@ impl Session {
             .filter(|(_, k)| matches!(k, SeatKind::Human))
             .map(|(i, _)| PlayerId::new(i as u8))
             .collect()
+    }
+
+    /// Names the table for the payload clients are sent.
+    ///
+    /// The rules kernel has never heard of an account, so a host supplies this
+    /// once, after building the session and before the first socket. A seat
+    /// nobody names falls back to its number rather than to an empty chair.
+    pub fn describe(&mut self, game_id: String, names: Vec<String>) {
+        self.game_id = game_id;
+        self.names = names;
+    }
+
+    /// The once-per-game payload for a seat: the seat roster, the print table
+    /// as far as this seat has earned it, and the view schema version.
+    #[must_use]
+    pub fn game_static(&self, seat: PlayerId) -> GameStatic {
+        let seats = self
+            .seats
+            .iter()
+            .enumerate()
+            .map(|(i, kind)| SeatIdentity {
+                player: PlayerId::new(i as u8),
+                display_name: self
+                    .names
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(|| format!("Seat {i}")),
+                is_ai: matches!(kind, SeatKind::Ai(_)),
+                team: self.teams.get(i).copied().flatten(),
+            })
+            .collect();
+        let shown = self
+            .revealed
+            .get(seat.get() as usize)
+            .map_or(&[][..], Vec::as_slice);
+        crate::view::game_static(self.game_id.clone(), seat, seats, &self.prints, shown)
+    }
+
+    /// [`Session::game_static`] as the envelope a socket sends.
+    ///
+    /// Every host — the in-process one included — takes this payload off the
+    /// wire rather than building it from a preset it happens to have in hand.
+    /// A field that only the local path filled in would be missing in exactly
+    /// the case nobody tests at a desk.
+    #[must_use]
+    pub fn game_static_envelope(&self, seat: PlayerId) -> Envelope {
+        let statics = self.game_static(seat);
+        Envelope {
+            msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
+                game_id: self.game_id.clone(),
+                view_version: baylee_view::VIEW_VERSION,
+                static_json: serde_json::to_vec(&statics).unwrap_or_default(),
+            })),
+        }
+    }
+
+    /// Marks every printing a view showed a seat; true when any was new.
+    fn reveal(&mut self, seat: PlayerId, view: &baylee_view::PlayerView) -> bool {
+        let Some(shown) = self.revealed.get_mut(seat.get() as usize) else {
+            return false;
+        };
+        let mut grew = false;
+        for print in view.prints() {
+            if let Some(slot) = shown.get_mut(print.get() as usize)
+                && !*slot
+            {
+                *slot = true;
+                grew = true;
+            }
+        }
+        grew
+    }
+
+    /// A seat's view, preceded by a fresh opening payload when this view is
+    /// the first to show it one of the game's printings.
+    ///
+    /// The order matters: the entry has to be there before the object that
+    /// points at it, or the client draws a card it cannot key an image on.
+    fn view_envelopes(&mut self, seat: PlayerId, priority: Option<PlayerId>) -> Vec<Envelope> {
+        let view = crate::view::player_view(self.engine.state(), seat, priority, self.seq);
+        let mut out = Vec::new();
+        if self.reveal(seat, &view) {
+            out.push(self.game_static_envelope(seat));
+        }
+        out.push(view_envelope(self.seq, &view));
+        out
     }
 
     /// Read-only state access (views).
@@ -93,7 +213,8 @@ impl Session {
             let Some(player) = pending_player(&pending) else {
                 if let Pending::GameOver(_) = &pending {
                     for seat in self.human_seats() {
-                        out.push((seat, view_envelope(self.seq, &self.engine, seat, None)));
+                        let envelopes = self.view_envelopes(seat, None);
+                        out.extend(envelopes.into_iter().map(|env| (seat, env)));
                         out.push((seat, choice_envelope(self.seq, &pending)));
                     }
                 }
@@ -103,7 +224,8 @@ impl Session {
             if is_human {
                 let priority = priority_holder(&pending);
                 for seat in self.human_seats() {
-                    out.push((seat, view_envelope(self.seq, &self.engine, seat, priority)));
+                    let envelopes = self.view_envelopes(seat, priority);
+                    out.extend(envelopes.into_iter().map(|env| (seat, env)));
                 }
                 out.push((player, choice_envelope(self.seq, &pending)));
                 return out;
@@ -190,12 +312,15 @@ impl Session {
     #[must_use]
     pub fn snapshot(&self, seat: PlayerId) -> Vec<Envelope> {
         let pending = self.engine.pending().clone();
-        let mut out = vec![view_envelope(
-            self.seq,
-            &self.engine,
+        // Read-only, so no printing is revealed here: this rebuilds a state a
+        // `pump` already showed this seat, and the reveal happened there.
+        let view = crate::view::player_view(
+            self.engine.state(),
             seat,
             priority_holder(&pending),
-        )];
+            self.seq,
+        );
+        let mut out = vec![view_envelope(self.seq, &view)];
         if pending_player(&pending) == Some(seat) || matches!(pending, Pending::GameOver(_)) {
             out.push(choice_envelope(self.seq, &pending));
         }
@@ -235,6 +360,26 @@ impl Session {
     }
 }
 
+/// The printings a seat already knows because they are its own.
+///
+/// A player has seen their own decklist; nothing is revealed by handing it
+/// back. Everything outside this set has to be earned by seeing a card.
+fn own_prints(spec: &baylee_core::preset::SeatSpec, len: usize) -> Vec<bool> {
+    let mut shown = vec![false; len];
+    let entries = spec
+        .deck
+        .iter()
+        .chain(&spec.sideboard)
+        .chain(spec.starting_hand.iter().flatten())
+        .chain(&spec.starting_battlefield);
+    for entry in entries {
+        if let Some(slot) = shown.get_mut(entry.print.get() as usize) {
+            *slot = true;
+        }
+    }
+    shown
+}
+
 /// The seat holding priority, if the game is currently offering it.
 ///
 /// Priority is not stored on the state; it only exists as the pending choice,
@@ -246,18 +391,12 @@ pub(crate) fn priority_holder(pending: &Pending) -> Option<PlayerId> {
     }
 }
 
-fn view_envelope(
-    seq: u64,
-    engine: &Engine<RegistryLookup>,
-    seat: PlayerId,
-    priority: Option<PlayerId>,
-) -> Envelope {
-    let view = crate::view::player_view(engine.state(), seat, priority, seq);
+fn view_envelope(seq: u64, view: &baylee_view::PlayerView) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
             game_id: String::new(),
             seq,
-            view_json: serde_json::to_vec(&view).unwrap_or_default(),
+            view_json: serde_json::to_vec(view).unwrap_or_default(),
         })),
     }
 }
@@ -320,6 +459,129 @@ mod tests {
             }],
             seats: vec![mk(false), mk(true)],
         }
+    }
+
+    fn forest() -> CardIndex {
+        baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+            .expect("Forest is in the registry")
+            .index
+    }
+
+    /// Two seats with nothing in common: seat 0 plays Islands, seat 1 plays
+    /// Forests and starts one on the battlefield, so it is visible at once.
+    fn split_preset() -> GamePreset {
+        let deck = |card: CardIndex, print: u16| -> Vec<DeckEntry> {
+            (0..60)
+                .map(|_| DeckEntry {
+                    card,
+                    print: PrintRef::new(print),
+                })
+                .collect()
+        };
+        let mk = |card, print, battlefield: Vec<DeckEntry>| SeatSpec {
+            controller: SeatController::Open,
+            capabilities: baylee_core::preset::SeatCapabilities::default(),
+            deck: deck(card, print),
+            sideboard: vec![],
+            starting_life: None,
+            starting_hand: None,
+            starting_battlefield: battlefield,
+            emblems: vec![],
+            team: None,
+        };
+        let print = |n: u128| PrintInfo {
+            scryfall_id: uuid::Uuid::from_u128(n),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        };
+        GamePreset {
+            format: FormatId::Freeform,
+            seed: 7,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![print(1), print(2)],
+            seats: vec![
+                mk(island(), 0, vec![]),
+                mk(
+                    forest(),
+                    1,
+                    vec![DeckEntry {
+                        card: forest(),
+                        print: PrintRef::new(1),
+                    }],
+                ),
+            ],
+        }
+    }
+
+    /// The print table is the union of every deck at the table, so handing a
+    /// seat all of it would hand it the opponent's decklist — the one piece of
+    /// hidden information with no game object to hide behind.
+    #[test]
+    fn a_seat_is_not_handed_the_other_decks_printings() {
+        let session = Session::new(&split_preset()).expect("session");
+
+        let mine = session.game_static(PlayerId::new(0));
+        assert!(mine.print(PrintRef::new(0)).is_some(), "its own deck");
+        assert!(
+            mine.print(PrintRef::new(1)).is_none(),
+            "seat 0 has not seen a Forest, and must not learn that one exists"
+        );
+
+        let theirs = session.game_static(PlayerId::new(1));
+        assert!(theirs.print(PrintRef::new(1)).is_some());
+        assert!(theirs.print(PrintRef::new(0)).is_none());
+        assert_eq!(
+            mine.prints.len(),
+            theirs.prints.len(),
+            "a hole, not a shorter table: the index is the PrintRef"
+        );
+    }
+
+    /// Seeing the card earns the printing, and the entry arrives before the
+    /// view that points at it.
+    #[test]
+    fn a_printing_is_earned_by_seeing_the_card() {
+        let mut session = Session::new(&split_preset()).expect("session");
+        let routed = session.pump();
+
+        let addressed = |seat: PlayerId| -> Vec<&Envelope> {
+            routed
+                .iter()
+                .filter(|(p, _)| *p == seat)
+                .map(|(_, env)| env)
+                .collect()
+        };
+        let is_static = |env: &&Envelope| matches!(env.msg, Some(v1::envelope::Msg::GameStatic(_)));
+        let is_view = |env: &&Envelope| matches!(env.msg, Some(v1::envelope::Msg::StateDelta(_)));
+
+        let seat0 = addressed(PlayerId::new(0));
+        let statics = seat0.iter().position(is_static);
+        let view = seat0.iter().position(is_view);
+        assert!(
+            statics.is_some(),
+            "seat 0 was shown a Forest it had never been shown before"
+        );
+        assert!(
+            statics < view,
+            "the print entry has to arrive before the object that points at it"
+        );
+        assert!(
+            session
+                .game_static(PlayerId::new(0))
+                .print(PrintRef::new(1))
+                .is_some(),
+            "and it stays earned"
+        );
+
+        assert_eq!(
+            addressed(PlayerId::new(1))
+                .iter()
+                .filter(|env| is_static(env))
+                .count(),
+            0,
+            "nothing new was shown to the seat that owns the card"
+        );
     }
 
     /// A session starts, the human answers mulligans, and the AI seat is
@@ -418,6 +680,51 @@ mod tests {
     }
 
     /// The clock is the table's, not the engine's.
+    /// The roster a client is sent: who is at the table, which of them is the
+    /// house, and the print table without which a `PrintRef` names no card.
+    #[test]
+    fn the_opening_payload_describes_the_table() {
+        let mut session = Session::new(&test_preset()).expect("session");
+        session.describe("g1".to_string(), vec!["Ada".into(), "House AI".into()]);
+        let statics = session.game_static(PlayerId::new(0));
+
+        assert_eq!(statics.view_version, baylee_view::VIEW_VERSION);
+        assert_eq!(statics.game_id, "g1");
+        assert_eq!(statics.your_seat, PlayerId::new(0));
+        assert_eq!(statics.seat_name(PlayerId::new(0)), "Ada");
+        assert_eq!(statics.seat_name(PlayerId::new(1)), "House AI");
+        assert!(!statics.seats[0].is_ai);
+        assert!(statics.seats[1].is_ai, "seat 1 of the fixture is the house");
+        assert_eq!(statics.prints.len(), 1);
+    }
+
+    /// A seat nobody named still has to be nameable, or the client draws a
+    /// board with an empty chair opposite.
+    #[test]
+    fn an_unnamed_seat_falls_back_to_its_number() {
+        let session = Session::new(&test_preset()).expect("session");
+        let statics = session.game_static(PlayerId::new(0));
+        assert_eq!(statics.seat_name(PlayerId::new(0)), "Seat 0");
+        assert_eq!(statics.seat_name(PlayerId::new(1)), "Seat 1");
+    }
+
+    /// The version rides outside the payload so a client can refuse a table it
+    /// cannot render without first decoding the very structure that changed.
+    #[test]
+    fn the_opening_envelope_states_the_view_version_in_the_open() {
+        let mut session = Session::new(&test_preset()).expect("session");
+        session.describe("g1".to_string(), vec!["Ada".into()]);
+        let envelope = session.game_static_envelope(PlayerId::new(0));
+        let Some(v1::envelope::Msg::GameStatic(msg)) = envelope.msg else {
+            panic!("the opening payload is a GameStatic envelope");
+        };
+        assert_eq!(msg.view_version, baylee_view::VIEW_VERSION);
+        assert_eq!(msg.game_id, "g1");
+        let decoded: GameStatic =
+            serde_json::from_slice(&msg.static_json).expect("the payload decodes");
+        assert_eq!(decoded.your_seat, PlayerId::new(0));
+    }
+
     #[test]
     fn the_decision_clock_comes_from_the_house_rules() {
         let mut preset = test_preset();

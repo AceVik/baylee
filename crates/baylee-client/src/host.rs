@@ -9,9 +9,9 @@
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_gamehost::{Session, view};
+use baylee_gamehost::Session;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, PlayerView, SeatIdentity};
+use baylee_view::{GameStatic, PlayerView};
 
 /// Something a host tells the client.
 #[derive(Clone, Debug)]
@@ -42,6 +42,48 @@ pub trait DuelHost: Send + Sync + 'static {
     fn seat(&self) -> PlayerId;
 }
 
+/// Decodes one server envelope into the message a client acts on.
+///
+/// Every host shares this: the in-process one and the networked one differ in
+/// where the bytes come from, never in what they mean. Envelopes this client
+/// has no use for (heartbeats, the handshake) decode to nothing rather than to
+/// an error — a server is allowed to say more than a renderer listens to.
+pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
+    Some(match envelope.msg? {
+        v1::envelope::Msg::GameStatic(msg) => {
+            if msg.view_version == baylee_view::VIEW_VERSION {
+                match serde_json::from_slice::<GameStatic>(&msg.static_json) {
+                    Ok(statics) => HostMessage::Static(Box::new(statics)),
+                    Err(e) => HostMessage::Failed(format!("unreadable game setup: {e}")),
+                }
+            } else {
+                // Refused rather than rendered wrong: the payload's *shape* is
+                // exactly what a version bump changes, which is why the version
+                // rides outside it.
+                HostMessage::Failed(format!(
+                    "this client renders game views version {}, the table speaks {}",
+                    baylee_view::VIEW_VERSION,
+                    msg.view_version
+                ))
+            }
+        }
+        v1::envelope::Msg::StateDelta(delta) => {
+            match serde_json::from_slice::<PlayerView>(&delta.view_json) {
+                Ok(view) => HostMessage::View(Box::new(view)),
+                Err(e) => HostMessage::Failed(format!("unreadable game state: {e}")),
+            }
+        }
+        v1::envelope::Msg::ChoiceRequest(req) => {
+            match serde_json::from_slice::<Pending>(&req.pending_json) {
+                Ok(pending) => HostMessage::Choice(Box::new(pending)),
+                Err(e) => HostMessage::Failed(format!("unreadable choice: {e}")),
+            }
+        }
+        v1::envelope::Msg::Error(err) => HostMessage::Failed(err.message),
+        _ => return None,
+    })
+}
+
 /// A duel hosted inside this process.
 ///
 /// Used for solo play against the house AI, for the open world's embedded
@@ -50,7 +92,8 @@ pub trait DuelHost: Send + Sync + 'static {
 pub struct LocalHost {
     session: Session,
     seat: PlayerId,
-    statics: Option<GameStatic>,
+    /// The opening payload, still encoded — see [`LocalHost::absorb`].
+    statics: Option<Envelope>,
     pending_out: Vec<HostMessage>,
 }
 
@@ -61,21 +104,12 @@ impl LocalHost {
     /// malformed deck, or a seat count the engine refuses.
     #[must_use]
     pub fn new(preset: &GamePreset, seat: PlayerId, seat_names: &[&str]) -> Option<Self> {
-        let session = Session::new(preset)?;
-        let seats = preset
-            .seats
-            .iter()
-            .enumerate()
-            .map(|(i, spec)| SeatIdentity {
-                player: PlayerId::new(i as u8),
-                display_name: seat_names
-                    .get(i)
-                    .map_or_else(|| format!("Seat {i}"), |n| (*n).to_string()),
-                is_ai: matches!(spec.controller, baylee_core::preset::SeatController::Ai(_)),
-                team: spec.team,
-            })
-            .collect();
-        let statics = view::game_static("local".to_string(), seat, seats, &preset.prints);
+        let mut session = Session::new(preset)?;
+        session.describe(
+            "local".to_string(),
+            seat_names.iter().map(|n| (*n).to_string()).collect(),
+        );
+        let statics = session.game_static_envelope(seat);
         Some(Self {
             session,
             seat,
@@ -95,30 +129,7 @@ impl LocalHost {
             if player != self.seat {
                 continue;
             }
-            match envelope.msg {
-                Some(v1::envelope::Msg::StateDelta(delta)) => {
-                    match serde_json::from_slice::<PlayerView>(&delta.view_json) {
-                        Ok(view) => self.pending_out.push(HostMessage::View(Box::new(view))),
-                        Err(e) => self
-                            .pending_out
-                            .push(HostMessage::Failed(format!("unreadable game state: {e}"))),
-                    }
-                }
-                Some(v1::envelope::Msg::ChoiceRequest(req)) => {
-                    match serde_json::from_slice::<Pending>(&req.pending_json) {
-                        Ok(pending) => self
-                            .pending_out
-                            .push(HostMessage::Choice(Box::new(pending))),
-                        Err(e) => self
-                            .pending_out
-                            .push(HostMessage::Failed(format!("unreadable choice: {e}"))),
-                    }
-                }
-                Some(v1::envelope::Msg::Error(err)) => {
-                    self.pending_out.push(HostMessage::Failed(err.message));
-                }
-                _ => {}
-            }
+            self.pending_out.extend(host_message(envelope));
         }
     }
 }
@@ -127,7 +138,7 @@ impl DuelHost for LocalHost {
     fn poll(&mut self) -> Vec<HostMessage> {
         let mut out = Vec::new();
         if let Some(statics) = self.statics.take() {
-            out.push(HostMessage::Static(Box::new(statics)));
+            out.extend(host_message(statics));
             let routed = self.session.pump();
             self.absorb(routed);
         }
@@ -255,6 +266,26 @@ mod tests {
         assert_eq!(statics.seat_name(PlayerId::new(1)), "House AI");
         assert!(statics.seats[1].is_ai);
         assert!(!statics.seats[0].is_ai);
+    }
+
+    /// The version rides outside the payload so this check can happen before
+    /// the decode — the payload's shape is exactly what a bump changes.
+    #[test]
+    fn a_table_speaking_a_view_version_this_client_cannot_render_is_refused() {
+        let envelope = Envelope {
+            msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
+                game_id: "g".to_string(),
+                view_version: baylee_view::VIEW_VERSION + 1,
+                static_json: b"{}".to_vec(),
+            })),
+        };
+        let Some(HostMessage::Failed(reason)) = host_message(envelope) else {
+            panic!("a version this client cannot render is refused, not rendered");
+        };
+        assert!(
+            reason.contains(&(baylee_view::VIEW_VERSION + 1).to_string()),
+            "{reason}"
+        );
     }
 
     #[test]

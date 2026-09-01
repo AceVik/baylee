@@ -181,11 +181,13 @@ pub fn statics(count: u16) -> GameStatic {
             team: None,
         }],
         prints: (0..count)
-            .map(|i| PrintEntry {
-                // A deterministic but well-formed Scryfall-shaped id.
-                scryfall_id: format!("{i:08x}-124f-4125-87ab-609be40e774c"),
-                lang: "EN".to_string(),
-                finish: Finish::Normal,
+            .map(|i| {
+                Some(PrintEntry {
+                    // A deterministic but well-formed Scryfall-shaped id.
+                    scryfall_id: format!("{i:08x}-124f-4125-87ab-609be40e774c"),
+                    lang: "EN".to_string(),
+                    finish: Finish::Normal,
+                })
             })
             .collect(),
     }

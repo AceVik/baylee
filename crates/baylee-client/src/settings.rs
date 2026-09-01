@@ -74,7 +74,7 @@ pub fn gateway_url() -> String {
 /// comments. Quotes are stripped because writing `KEY="value"` is the first
 /// thing everyone tries.
 #[cfg(not(target_arch = "wasm32"))]
-fn dotenv_value(key: &str) -> Option<String> {
+pub(crate) fn dotenv_value(key: &str) -> Option<String> {
     let text = std::fs::read_to_string(".env").ok()?;
     for line in text.lines() {
         let line = line.trim();

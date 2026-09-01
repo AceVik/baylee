@@ -15,9 +15,15 @@ from three sets, one of them foil. So a card reference on the wire is a pair:
   through every zone change, so the client is told exactly which of the
   duplicate cards it is looking at.
 
-The table itself travels once, in `GameStatic.prints`: `scryfall_id`, `lang`
-and `finish` per entry, which is everything the client needs to key the
-Scryfall CDN. The path end to end is
+The table travels in `GameStatic.prints`: `scryfall_id`, `lang` and `finish`
+per entry, which is everything the client needs to key the Scryfall CDN. It is
+sent **per seat**, and an entry the seat has not earned is `None` — the table
+is shared by the whole game and deduplicated per card, so a seat handed all of
+it would be handed every decklist at the table. A seat knows its own deck's
+printings from the start and earns the rest by seeing the cards; the host
+re-sends the payload, ahead of the view that needs it, when one is earned. The
+hole keeps the index, because the index *is* the `PrintRef`. The path end to
+end is
 
 ```
 DeckEntry { card, print }        (preset, per copy in the deck)
@@ -124,6 +130,85 @@ block, naming the attackers it may block. Evasion is a pairing question,
 so a flat list of "creatures that may block" would be wrong for every
 flier on the table. `CombatCandidates` — the client's own guess at both —
 is gone. No proto change: the taxonomy travels as JSON.
+
+## The opening payload, and a client that is not the server
+
+`GameStaticMsg{game_id, view_version, static_json}` is the one message a
+networked client cannot do without and could not previously receive. The seat
+roster and the print table are built from the `GamePreset`, which a client
+never sees — so `LocalHost` built them out of the preset it happened to be
+holding, and nothing on the wire carried them. A socket client had a print
+table of length zero and every `PrintRef` named no card.
+
+`Session::game_static_envelope` now produces it and both servers send it
+first: the gateway straight down each seat socket at connect (and again on a
+reconnect, since that is a new socket), the engine-server on `CreateGame`,
+`Join` and `Resume`. `LocalHost` takes it off the wire too, through the same
+`host_message` decoder the networked host uses — a field only the in-process
+path filled in would be missing in exactly the case nobody tests at a desk.
+
+`view_version` is duplicated outside `static_json` on purpose: a client that
+cannot render this version must be able to say so without first decoding the
+structure whose shape is what changed.
+
+Sending it exposed the one hidden-information leak the view design had no
+field for. The print table is deduplicated **per card across the whole game**,
+so `prints` is the union of every decklist at the table — a seat that received
+it could subtract its own deck and read the opponent's. `prints` is therefore
+`Vec<Option<PrintEntry>>` now, filled in per seat: `own_prints` seeds a seat
+with the printings of its own deck, sideboard, opening hand and starting
+battlefield, and `Session::reveal` marks the rest as the seat's views show
+them, re-sending `GameStaticMsg` **before** the view that points at the new
+entry. A hole rather than a shorter list, because the index is the `PrintRef`
+every object in every view carries. That is **`VIEW_VERSION` 6 → 7**.
+
+What stays readable is the table's *length* — how many distinct cards are in
+play across every deck, and therefore how many the opponent plays that you do
+not. That is a deck-diversity number, not a decklist, and hiding it would mean
+padding the table with entries no object points at.
+
+`GameStatic::print()` already returned `Option<&PrintEntry>`, so almost no
+client code changed; what did change is that `textures.rs` no longer preloads
+the whole table (it was prefetching art for every card in the opponent's deck)
+and `cardtext.rs` re-asks the catalog when the table grows.
+
+`Session::describe(game_id, names)` supplies the parts the rules kernel has
+never heard of. `Session::snapshot` deliberately reveals nothing: it rebuilds a
+state a `pump` already showed that seat, so the printings were earned there.
+The gateway's lag resync does re-send the payload around it, because the update
+that granted a printing travelled the very broadcast that socket just dropped
+messages from.
+
+`NetworkHost` (`crates/baylee-client/src/net.rs`) is the second
+`DuelHost`. It is handed a `SeatTicket{gateway, game_id, seat, seat_token}`
+and connects to `/games/{id}/ws?token=…`; `poll` drains the socket without
+blocking and `submit` sends a `PlayerActionMsg`. The token is *not* repeated
+in each frame — the socket is already bound to one seat of one game, and the
+seat comes from the token rather than from anything the client says later.
+The seat in the ticket is only a hint: the host believes `GameStatic.your_seat`.
+
+`reconnect()` re-dials and sends `ResumeGame{last_seq}`. It is deliberately
+not automatic: only the application knows whether a player is still sitting
+there, and a host that redialled by itself would hammer a gateway that is
+down.
+
+`ewebsock` is the transport for the same reason `ehttp` is the HTTP client —
+one API that is a background thread natively and the browser's own
+`WebSocket` on wasm. The browser's socket handle is neither `Send` nor
+`Sync` and a Bevy resource must be both, so on wasm it is wrapped in
+`SendWrapper`: a run-time thread check that panics rather than an
+`unsafe impl` that would be a claim nobody could enforce.
+
+Where a ticket comes from: `BAYLEE_GAME` + `BAYLEE_SEAT_TOKEN` in the
+environment natively, `?game=…&token=…` in the page URL in a browser — which
+is how a web lobby hands a player to the table. Without one the client plays
+solo against the house AI, in process, exactly as before. A ticket that is
+present but unusable is a hard stop, not a quiet fall back to solo play:
+somebody is waiting at that table.
+
+Still not done here: the client has no lobby of its own. Logging in, listing
+games and picking a deck are HTTP calls somebody still has to make; the
+client only knows what to do once it has the ticket.
 
 ## Attacking a planeswalker (view version 3)
 

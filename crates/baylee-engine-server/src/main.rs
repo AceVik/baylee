@@ -17,6 +17,17 @@ use prost::Message;
 /// Default port (dev).
 const DEFAULT_PORT: u16 = 28765;
 
+/// The one human seat this dev harness serves.
+///
+/// There is no authentication here: every action runs as seat 0, which is
+/// exactly why [`DEFAULT_BIND`] is loopback.
+const SEAT: baylee_core::ids::PlayerId = baylee_core::ids::PlayerId::new(0);
+
+/// Seat names for the dev duel's roster.
+fn seat_names() -> Vec<String> {
+    vec!["You".to_string(), "House AI".to_string()]
+}
+
 /// Default bind address: loopback only. This is a dev harness with no
 /// authentication — `Join` hands out full seat-0 views and every action
 /// runs as seat 0 — so it must not be reachable from the network unless
@@ -122,6 +133,11 @@ async fn handle_connection(
                         let mut games = games.lock().await;
                         games.insert(id.clone(), session);
                         let session = games.get_mut(&id).expect("just inserted");
+                        // The seat roster and the print table come first: a
+                        // client has no preset to build them from, and every
+                        // view after this one refers to them.
+                        session.describe(id.clone(), seat_names());
+                        out.push(session.game_static_envelope(SEAT));
                         // Dev harness: one human seat — route everything
                         // addressed to it to this connection.
                         out.extend(session.pump().into_iter().map(|(_, env)| env));
@@ -139,7 +155,10 @@ async fn handle_connection(
                 match games.get_mut(&join.game_id) {
                     Some(session) => {
                         game_id = Some(join.game_id.clone());
-                        session.pump().into_iter().map(|(_, env)| env).collect()
+                        session.describe(join.game_id.clone(), seat_names());
+                        let mut out = vec![session.game_static_envelope(SEAT)];
+                        out.extend(session.pump().into_iter().map(|(_, env)| env));
+                        out
                     }
                     None => vec![error("no such game")],
                 }
@@ -150,8 +169,12 @@ async fn handle_connection(
                 let games = games.lock().await;
                 match games.get(&resume.game_id) {
                     Some(session) => {
-                        let out =
-                            session.resume(baylee_core::ids::PlayerId::new(0), resume.last_seq);
+                        // A resume follows a dropped socket, so the payload
+                        // that only ever arrives at connect time is repeated.
+                        // It cannot have changed, and a client that still has
+                        // it simply overwrites it with the same thing.
+                        let mut out = vec![session.game_static_envelope(SEAT)];
+                        out.extend(session.resume(SEAT, resume.last_seq));
                         drop(games);
                         game_id = Some(resume.game_id.clone());
                         out
