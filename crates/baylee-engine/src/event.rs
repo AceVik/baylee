@@ -50,6 +50,19 @@ pub enum GameEvent {
         /// Number of seats.
         seats: u8,
     },
+    /// Cards were shown to every player.
+    ///
+    /// A search that names anything narrower than "a card" reveals what it
+    /// found on the way to a hidden zone — that reveal is the only thing
+    /// that holds the searcher to the filter, which is exactly why the
+    /// printed cards say it (Mystical Tutor, Cultivate) and why the ones
+    /// that fetch to the battlefield do not.
+    Revealed {
+        /// Who revealed them.
+        player: PlayerId,
+        /// The cards, in the order they were found.
+        cards: Vec<ObjectId>,
+    },
     /// A zone was shuffled.
     Shuffled {
         /// Whose zone.

@@ -253,9 +253,7 @@ abilities: &[AbilityDef::Activated {
     },
     effects: &[Effect::SearchLibrary {
         filter: &LAND_TYPE_PAIR,
-        dest: SearchDest::Battlefield,
-        tapped: true,
-        shuffle: true,
+        finds: &[Find::BATTLEFIELD_TAPPED],
         optional: false,
     }],
     target: None,
@@ -264,6 +262,19 @@ abilities: &[AbilityDef::Activated {
     zone: ActivationZone::Battlefield,
 }],
 ```
+
+A search says *what* it looks for and *where* each find goes; the two rules
+every printed search also obeys are derived, not declared, so a card cannot
+get them wrong:
+
+- **The library is always shuffled afterwards.** Of the 1015 printed
+  searches in the forge reference, three do not say "then shuffle", and all
+  three empty the library instead.
+- **A find is revealed** when the search is narrower than "a card"
+  (`Filter::Any`) *and* at least one destination is hidden (hand, top of
+  library). Mystical Tutor reveals; Demonic Tutor does not; a fetchland does
+  not, because the battlefield is public anyway. The reveal is journalled as
+  `GameEvent::Revealed` — it is what holds the searcher to the filter.
 
 Rally trigger (filter "self or another Ally you control"):
 

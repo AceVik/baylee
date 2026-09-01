@@ -72,6 +72,13 @@ pub enum AwaitingOp {
     SearchLibrary {
         /// Where each found card goes, in order.
         finds: &'static [baylee_cards_dsl::effect::Find],
+        /// Whether the found cards are shown to everyone first.
+        ///
+        /// Derived, not declared: a search narrower than "a card" that
+        /// ends somewhere hidden reveals what it found. Every printed
+        /// card that reveals matches that rule, and none that keeps its
+        /// find secret does — so a card cannot get it wrong.
+        reveal: bool,
     },
     /// Scry: chosen cards go to the bottom, the rest stays on top.
     Scry {
@@ -170,6 +177,24 @@ pub enum AwaitingOp {
         /// Life to pay.
         amount: u16,
     },
+}
+
+/// Whether a search shows what it found.
+///
+/// The printed cards agree on a rule rather than deciding one by one: a
+/// search narrower than "a card" reveals its find on the way to a hidden
+/// zone, and a search that ends somewhere public does not — the card is
+/// about to be visible anyway. Of the 1015 printed searches in the forge
+/// reference, none reveals where this says it should not, so the flag a
+/// card file would carry could only ever be wrong.
+fn reveals(
+    filter: &'static baylee_cards_dsl::Filter,
+    finds: &[baylee_cards_dsl::effect::Find],
+) -> bool {
+    !matches!(filter, baylee_cards_dsl::Filter::Any)
+        && finds
+            .iter()
+            .any(|f| matches!(f.dest, SearchDest::Hand | SearchDest::TopOfLibrary))
 }
 
 /// Amount evaluation with target context ([`Amount::TargetPower`]).
@@ -363,7 +388,14 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
-        AwaitingOp::SearchLibrary { finds } => {
+        AwaitingOp::SearchLibrary { finds, reveal } => {
+            if reveal && !chosen.is_empty() {
+                // Shown from the library, before they go anywhere.
+                state.journal.record(GameEvent::Revealed {
+                    player: res.controller,
+                    cards: chosen.to_vec(),
+                });
+            }
             // Positional: the first card found takes the first destination.
             // Cultivate names the battlefield first and the hand second, and
             // finding only one card then puts that one onto the battlefield —
@@ -720,7 +752,10 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                     prompt: ChoicePrompt::SearchLibrary,
                 });
             }
-            res.awaiting = Some(AwaitingOp::SearchLibrary { finds });
+            res.awaiting = Some(AwaitingOp::SearchLibrary {
+                finds,
+                reveal: reveals(filter, finds),
+            });
             Some(Pending::ChooseCards {
                 player: you,
                 options,
@@ -865,8 +900,10 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             if options.is_empty() {
                 return None;
             }
+            // Onto the battlefield, where everyone sees it anyway.
             res.awaiting = Some(AwaitingOp::SearchLibrary {
                 finds: ONTO_BATTLEFIELD_TAPPED,
+                reveal: false,
             });
             Some(Pending::ChooseCards {
                 player,
