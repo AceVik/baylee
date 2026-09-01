@@ -305,10 +305,17 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
     }
     // Only now: a seat socket that sees this waits no longer, and everything
     // it then says has somewhere to go.
+    //
+    // `send_replace`, never `send`: a `watch::Sender` with no receivers left
+    // refuses `send` *and keeps the old value*, and this channel routinely
+    // has none — the engine can attach before the player who ordered it has
+    // finished dialling their own seat. That socket then subscribes to a
+    // channel still reading `false` and waits out the full timeout for an
+    // engine that arrived before it did.
     {
         let lobby = state.lobby.lock();
         if let Some(game) = lobby.games.get(&game_id) {
-            let _ = game.ready.send(true);
+            game.ready.send_replace(true);
         }
     }
     tracing::info!(game_id, "engine attached");

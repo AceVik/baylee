@@ -342,7 +342,12 @@ advertised as one that might.
 
 **A seat token is not always usable yet.** `mode:"ai"` and a join both order an
 engine before answering, so the socket can be opened at once — it simply waits
-(up to 30 s) for that engine to attach before the first frame arrives. An
+(up to 30 s) for that engine to attach before the first frame arrives. That
+readiness is *sticky*, and has to be: with a warm engine binary the attach
+happens within a few milliseconds of the order, well before the player who
+placed it has finished dialling, and a socket that could only be told as it
+happened would sit out the whole timeout waiting for something that had
+already arrived. An
 `"open"` table orders nothing: it holds the seat and waits for a second player,
 and a socket opened against it is accepted and then closed with nothing on it,
 because there is no game yet to describe. The host of an open table has to wait

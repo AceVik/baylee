@@ -209,7 +209,9 @@ impl LobbyGame {
             self.finished_at = Some(now);
         }
         self.engine = None;
-        let _ = self.ready.send(false);
+        // `send_replace` for the same reason as the attach path: a game that
+        // ends while nobody is watching must still read "not ready".
+        self.ready.send_replace(false);
     }
 }
 
