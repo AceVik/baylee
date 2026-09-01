@@ -40,9 +40,14 @@ because CR 302.6 wants control held *continuously* since the turn began.
 An attack names a `Defender` — a player or one of the defending player's
 planeswalkers (CR 508.1a); battles will be the third case, and every match
 on the enum is written so adding one is a compile error. The engine
-enumerates the legal defenders into `Pending::ChooseAttackers` and
-validates a declaration against that same list, so a client cannot name a
-defender the engine did not offer. Combat damage aimed at a planeswalker
+enumerates both halves of the declaration into `Pending::ChooseAttackers` —
+which creatures may attack and which defenders may be attacked — and
+validates a declaration against those same lists, so a client cannot name
+an attacker or a defender the engine did not offer.
+`Pending::ChooseBlockers` carries a `BlockOption` per creature that may
+block, naming the attackers it may block: evasion is a pairing question
+(flying, menace, protection), so a flat list of "creatures that may block"
+would be a lie for half of them. Combat damage aimed at a planeswalker
 takes loyalty counters off it (CR 306.8); trample past blockers goes to
 whatever the creature is attacking (CR 702.19b), and a planeswalker that
 has left the battlefield absorbs nothing — the attack stands (CR 506.4c)

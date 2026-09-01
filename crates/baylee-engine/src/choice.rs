@@ -17,6 +17,15 @@
 use crate::win::GameResult;
 use baylee_core::ids::{AbilityRef, ObjectId, PlayerId};
 
+/// One creature that may block, and the attackers it may be assigned to.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct BlockOption {
+    /// The creature that may block.
+    pub blocker: ObjectId,
+    /// The attackers this creature may legally block.
+    pub attackers: Vec<ObjectId>,
+}
+
 /// What the game is currently waiting for.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Pending {
@@ -47,6 +56,14 @@ pub enum Pending {
     ChooseAttackers {
         /// Attacking player.
         player: PlayerId,
+        /// Which creatures may attack (CR 508.1a): untapped, unsick, no
+        /// defender, and past whatever the card itself demands.
+        ///
+        /// Enumerated here for the same reason as the defenders below: a
+        /// client that filtered its own board by "untapped and not sick"
+        /// would offer Wall of Omens as an attacker and would miss every
+        /// "can't attack unless…" a card prints.
+        attackers: Vec<ObjectId>,
         /// What may be attacked: each surviving opponent, plus every
         /// planeswalker they control. Carried in the request because a
         /// client cannot derive "which permanents are planeswalkers I may
@@ -59,6 +76,10 @@ pub enum Pending {
         player: PlayerId,
         /// Attacking player.
         attacker: PlayerId,
+        /// Which creatures may block which attackers. Evasion is a pairing
+        /// question — flying, menace, protection, "can't be blocked by" —
+        /// so the offer is a pairing, not two flat lists.
+        blockers: Vec<BlockOption>,
     },
     /// Discard down to maximum hand size (cleanup).
     DiscardChoice {

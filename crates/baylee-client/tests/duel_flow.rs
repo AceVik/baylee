@@ -12,7 +12,7 @@
 
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
 use baylee_client_core::board::{BoardModel, SeatPod};
-use baylee_client_core::interaction::{CombatCandidates, Interaction};
+use baylee_client_core::interaction::Interaction;
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
@@ -97,7 +97,7 @@ impl Client {
     /// nothing, and pass priority.
     fn answer(&self, seat: PlayerId) -> Option<PlayerAction> {
         let pending = self.pending.clone()?;
-        let interaction = Interaction::new(pending.clone(), seat, &CombatCandidates::default());
+        let interaction = Interaction::new(pending.clone(), seat);
         if !interaction.is_mine() {
             return None;
         }

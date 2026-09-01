@@ -46,7 +46,7 @@ pub mod textures;
 
 use baylee_client_core::automation::{self, AutoPilot, PhaseOrders};
 use baylee_client_core::board::BoardModel;
-use baylee_client_core::interaction::{CombatCandidates, Interaction};
+use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::TableLayout;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -310,8 +310,7 @@ fn poll_host(
                     reports.write(DuelReport::Finished);
                 }
                 let seat = duel.seat().unwrap_or(PlayerId::new(0));
-                let candidates = combat_candidates(&duel, &pending);
-                duel.interaction = Some(Interaction::new(*pending, seat, &candidates));
+                duel.interaction = Some(Interaction::new(*pending, seat));
                 rebuild_board(&mut duel);
             }
             HostMessage::Failed(reason) => {
@@ -411,49 +410,4 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
 
     duel.board = Some(BoardModel::from_view(view, &playable, pod_width));
     duel.layout = Some(layout);
-}
-
-/// The attack and block candidates the engine's choice does not enumerate.
-///
-/// Derived from the board model, which already knows which creatures are
-/// untapped and unsick. It is an affordance only: the engine rejects an
-/// illegal declaration regardless of what the client offered.
-fn combat_candidates(duel: &Duel, pending: &Pending) -> CombatCandidates {
-    let (Some(view), Some(board)) = (duel.view.as_ref(), duel.board.as_ref()) else {
-        return CombatCandidates::default();
-    };
-    let seat = view.seat;
-    let mut candidates = CombatCandidates::default();
-
-    match pending {
-        Pending::ChooseAttackers { .. } => {
-            // Who may be attacked comes from the pending choice itself.
-            if let Some(pod) = board.pod(seat) {
-                for lane in &pod.lanes {
-                    for group in &lane.groups {
-                        if group.power.is_some()
-                            && !group.status.is_tapped()
-                            && !group.summoning_sick
-                        {
-                            candidates.attackers.extend(group.members.iter().copied());
-                        }
-                    }
-                }
-            }
-        }
-        Pending::ChooseBlockers { .. } => {
-            candidates.attacking = view.combat.attackers.iter().map(|a| a.creature).collect();
-            if let Some(pod) = board.pod(seat) {
-                for lane in &pod.lanes {
-                    for group in &lane.groups {
-                        if group.power.is_some() && !group.status.is_tapped() {
-                            candidates.blockers.extend(group.members.iter().copied());
-                        }
-                    }
-                }
-            }
-        }
-        _ => {}
-    }
-    candidates
 }

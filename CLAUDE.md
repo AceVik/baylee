@@ -116,9 +116,11 @@ layer above:
 `journal()`, `snapshot_hash()`. There is no "cast this spell" method: the
 engine publishes a `Pending` with *enumerated legal actions*, and
 `apply` validates the answer against that same enumeration. A client cannot
-name an option the engine did not offer — e.g. combat's legal defenders
-(player or planeswalker, CR 508.1a) come from `Pending::ChooseAttackers`, not
-from the client's own candidate list.
+name an option the engine did not offer — combat is the clearest case: which
+creatures may attack, which defenders may be attacked (CR 508.1a) and which
+blocker may be paired with which attacker all come from
+`Pending::ChooseAttackers` / `ChooseBlockers`, not from the client's own
+candidate list.
 
 Consequences worth knowing before you touch the engine: continuous effects are
 a cached layer projection (validity = one `u64` generation compare), events go

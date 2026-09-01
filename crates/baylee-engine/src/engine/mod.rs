@@ -423,6 +423,8 @@ mod card_rider_tests;
 #[cfg(test)]
 mod card_tests;
 #[cfg(test)]
+mod combat_choice_tests;
+#[cfg(test)]
 mod draw_tests;
 #[cfg(test)]
 mod house_rules_tests;

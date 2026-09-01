@@ -303,8 +303,17 @@ impl<L: CardLookup> Engine<L> {
             Step::Cleanup => self.cleanup_step(),
             Step::DeclareAttackers if self.combat_declared != CombatDeclared::Attackers => {
                 let attacker = self.state.turn.active;
+                let attackers: Vec<ObjectId> = self
+                    .state
+                    .zones
+                    .list(crate::zone::ZoneLocation::Battlefield)
+                    .iter()
+                    .copied()
+                    .filter(|id| combat::can_attack(&self.state, attacker, *id))
+                    .collect();
                 self.pending = Pending::ChooseAttackers {
                     player: attacker,
+                    attackers,
                     defenders: combat::defender_options(&self.state, attacker),
                 };
                 self.awaiting_answer = true;
@@ -323,9 +332,33 @@ impl<L: CardLookup> Engine<L> {
                     .first()
                     .and_then(|a| combat::defending_player(&self.state, a.defending))
                     .unwrap_or_else(|| self.next_alive_after(active));
+                let attacking: Vec<ObjectId> = self
+                    .state
+                    .combat
+                    .attackers
+                    .iter()
+                    .map(|a| a.creature)
+                    .collect();
+                let blockers: Vec<crate::choice::BlockOption> = self
+                    .state
+                    .zones
+                    .list(crate::zone::ZoneLocation::Battlefield)
+                    .iter()
+                    .copied()
+                    .filter_map(|blocker| {
+                        let attackers: Vec<ObjectId> = attacking
+                            .iter()
+                            .copied()
+                            .filter(|a| combat::can_block(&self.state, defending, blocker, *a))
+                            .collect();
+                        (!attackers.is_empty())
+                            .then_some(crate::choice::BlockOption { blocker, attackers })
+                    })
+                    .collect();
                 self.pending = Pending::ChooseBlockers {
                     player: defending,
                     attacker: active,
+                    blockers,
                 };
                 self.awaiting_answer = true;
                 true

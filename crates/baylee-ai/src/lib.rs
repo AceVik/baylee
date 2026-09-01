@@ -145,28 +145,26 @@ impl HeuristicAgent {
                 //    evaluation in a later difficulty tier.)
                 PlayerAction::PassPriority
             }
-            Pending::ChooseAttackers { .. } => {
-                // Attack with everything untapped and legal.
-                let opponents: Vec<PlayerId> = engine
-                    .state()
-                    .players
+            // Who may attack and what may be attacked both come from the
+            // choice: the engine is the only thing that knows a Wall may
+            // not swing and which planeswalker is attackable (CR 508.1a).
+            Pending::ChooseAttackers {
+                attackers: squad,
+                defenders,
+                ..
+            } => {
+                let opponents: Vec<PlayerId> = defenders
                     .iter()
-                    .filter(|p| p.id != player && !p.has_lost)
-                    .map(|p| p.id)
+                    .filter_map(|d| match d {
+                        Defender::Player(p) => Some(*p),
+                        Defender::Planeswalker(_) => None,
+                    })
                     .collect();
-                if opponents.is_empty() {
+                if squad.is_empty() || opponents.is_empty() {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
                 let victim = self.pick_defender(engine.state(), player, &opponents);
-                let squad: Vec<ObjectId> = engine
-                    .state()
-                    .zones
-                    .list(baylee_engine::zone::ZoneLocation::Battlefield)
-                    .iter()
-                    .copied()
-                    .filter(|id| baylee_engine::combat::can_attack(engine.state(), player, *id))
-                    .collect();
-                let defender = aim_at(engine.state(), player, victim, &squad);
+                let defender = aim_at(engine.state(), victim, &squad, &defenders);
                 let attackers = squad.into_iter().map(|id| (id, defender)).collect();
                 PlayerAction::DeclareAttackers { attackers }
             }
@@ -265,14 +263,20 @@ impl HeuristicAgent {
 ///
 /// The blockers the defender has not declared yet are not modelled; this
 /// is the same one-ply optimism the rest of the heuristic runs on.
-fn aim_at(state: &GameState, me: PlayerId, victim: PlayerId, squad: &[ObjectId]) -> Defender {
+fn aim_at(
+    state: &GameState,
+    victim: PlayerId,
+    squad: &[ObjectId],
+    defenders: &[Defender],
+) -> Defender {
     let power: i32 = squad
         .iter()
         .filter_map(|id| state.object(*id))
         .map(|o| i32::from(o.characteristics().power.unwrap_or(0)))
         .sum();
-    baylee_engine::combat::defender_options(state, me)
-        .into_iter()
+    defenders
+        .iter()
+        .copied()
         .filter_map(|d| {
             let Defender::Planeswalker(id) = d else {
                 return None;
@@ -649,7 +653,8 @@ mod tests {
         let engine = walker_duel(3);
         let squad = my_creatures(&engine);
         assert_eq!(squad.len(), 3, "the squad did not deploy");
-        let aim = aim_at(engine.state(), PlayerId::new(0), PlayerId::new(1), &squad);
+        let defenders = baylee_engine::combat::defender_options(engine.state(), PlayerId::new(0));
+        let aim = aim_at(engine.state(), PlayerId::new(1), &squad, &defenders);
         assert!(
             matches!(aim, Defender::Planeswalker(_)),
             "three power went to the player instead of killing the walker"
@@ -663,7 +668,8 @@ mod tests {
         let engine = walker_duel(2);
         let squad = my_creatures(&engine);
         assert_eq!(squad.len(), 2, "the squad did not deploy");
-        let aim = aim_at(engine.state(), PlayerId::new(0), PlayerId::new(1), &squad);
+        let defenders = baylee_engine::combat::defender_options(engine.state(), PlayerId::new(0));
+        let aim = aim_at(engine.state(), PlayerId::new(1), &squad, &defenders);
         assert_eq!(
             aim,
             Defender::Player(PlayerId::new(1)),

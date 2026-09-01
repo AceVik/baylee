@@ -32,7 +32,7 @@
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, YesNoPrompt,
+    BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, YesNoPrompt,
 };
 
 /// What the player is being asked, in renderer-friendly terms.
@@ -196,17 +196,6 @@ pub enum SelectionOutcome {
     Full,
 }
 
-/// Extra affordance the engine does not enumerate, supplied by the caller.
-#[derive(Clone, Default, Debug)]
-pub struct CombatCandidates {
-    /// Creatures that may be declared as attackers.
-    pub attackers: Vec<ObjectId>,
-    /// Creatures that may be declared as blockers.
-    pub blockers: Vec<ObjectId>,
-    /// Attacking creatures a blocker may be assigned to.
-    pub attacking: Vec<ObjectId>,
-}
-
 /// Internal shape of the answer being assembled.
 #[derive(Clone, Debug)]
 enum Mode {
@@ -229,7 +218,7 @@ enum Mode {
     /// Blocker declarations.
     Blockers {
         candidates: Vec<ObjectId>,
-        attacking: Vec<ObjectId>,
+        options: Vec<BlockOption>,
         pairs: Vec<(ObjectId, ObjectId)>,
     },
     /// A bounded number.
@@ -263,11 +252,13 @@ pub struct Interaction {
 impl Interaction {
     /// Builds the interaction for a pending choice as seen by `seat`.
     ///
-    /// `combat` supplies the candidate lists for attack and block declarations,
-    /// which the engine's choice does not carry.
+    /// Everything selectable comes out of the choice itself — including the
+    /// creatures that may attack and which attackers each blocker may be
+    /// assigned to. The client used to filter its own board for that and got
+    /// it wrong for anything the printed card restricted.
     #[must_use]
-    pub fn new(pending: Pending, seat: PlayerId, combat: &CombatCandidates) -> Self {
-        let mode = Self::mode_for(&pending, seat, combat);
+    pub fn new(pending: Pending, seat: PlayerId) -> Self {
+        let mode = Self::mode_for(&pending, seat);
         let number = match &mode {
             Mode::Number { min, .. } => *min,
             _ => 0,
@@ -282,7 +273,7 @@ impl Interaction {
         }
     }
 
-    fn mode_for(pending: &Pending, seat: PlayerId, combat: &CombatCandidates) -> Mode {
+    fn mode_for(pending: &Pending, seat: PlayerId) -> Mode {
         if pending_player(pending) != Some(seat) {
             return if matches!(pending, Pending::GameOver(_)) {
                 Mode::GameOver
@@ -306,14 +297,18 @@ impl Interaction {
             // client: it is the one place that knows which planeswalkers
             // are attackable (CR 508.1a), and the engine validates a
             // declaration against exactly this list.
-            Pending::ChooseAttackers { defenders, .. } => Mode::Attackers {
-                candidates: combat.attackers.clone(),
+            Pending::ChooseAttackers {
+                attackers,
+                defenders,
+                ..
+            } => Mode::Attackers {
+                candidates: attackers.clone(),
                 defenders: defenders.clone(),
                 pairs: Vec::new(),
             },
-            Pending::ChooseBlockers { .. } => Mode::Blockers {
-                candidates: combat.blockers.clone(),
-                attacking: combat.attacking.clone(),
+            Pending::ChooseBlockers { blockers, .. } => Mode::Blockers {
+                candidates: blockers.iter().map(|b| b.blocker).collect(),
+                options: blockers.clone(),
                 pairs: Vec::new(),
             },
             Pending::LegendChoice { options, .. } => Mode::Objects {
@@ -529,15 +524,15 @@ impl Interaction {
 
     /// Declares `blocker` as blocking `attacker`.
     pub fn declare_blocker(&mut self, blocker: ObjectId, attacker: ObjectId) -> bool {
-        let Mode::Blockers {
-            candidates,
-            attacking,
-            pairs,
-        } = &mut self.mode
-        else {
+        let Mode::Blockers { options, pairs, .. } = &mut self.mode else {
             return false;
         };
-        if !candidates.contains(&blocker) || !attacking.contains(&attacker) {
+        // Evasion is a pairing question, so the check is a pairing check:
+        // a flier is a legal blocker and still not a legal block.
+        if !options
+            .iter()
+            .any(|o| o.blocker == blocker && o.attackers.contains(&attacker))
+        {
             return false;
         }
         pairs.retain(|(b, _)| *b != blocker);
@@ -742,20 +737,17 @@ mod tests {
         Defender::Player(PlayerId::new(id))
     }
 
-    /// The attacker choice with a given list of legal defenders.
-    fn attack_choice(defenders: Vec<Defender>) -> Pending {
+    /// The attacker choice with a given list of legal attackers and defenders.
+    fn attack_choice(attackers: Vec<ObjectId>, defenders: Vec<Defender>) -> Pending {
         Pending::ChooseAttackers {
             player: me(),
+            attackers,
             defenders,
         }
     }
 
-    fn no_combat() -> CombatCandidates {
-        CombatCandidates::default()
-    }
-
     fn interaction(pending: Pending) -> Interaction {
-        Interaction::new(pending, me(), &no_combat())
+        Interaction::new(pending, me())
     }
 
     #[test]
@@ -922,11 +914,7 @@ mod tests {
 
     #[test]
     fn declaring_attackers_checks_both_the_creature_and_the_defender() {
-        let combat = CombatCandidates {
-            attackers: vec![obj(1), obj(2)],
-            ..CombatCandidates::default()
-        };
-        let mut i = Interaction::new(attack_choice(vec![seat(1)]), me(), &combat);
+        let mut i = interaction(attack_choice(vec![obj(1), obj(2)], vec![seat(1)]));
 
         assert!(!i.declare_attacker(obj(9), seat(1)), "not a candidate");
         assert!(!i.declare_attacker(obj(1), seat(7)), "not a defender");
@@ -942,11 +930,7 @@ mod tests {
 
     #[test]
     fn re_declaring_an_attacker_replaces_its_defender_rather_than_duplicating() {
-        let combat = CombatCandidates {
-            attackers: vec![obj(1)],
-            ..CombatCandidates::default()
-        };
-        let mut i = Interaction::new(attack_choice(vec![seat(1), seat(2)]), me(), &combat);
+        let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1), seat(2)]));
         i.declare_attacker(obj(1), seat(1));
         i.declare_attacker(obj(1), seat(2));
         assert_eq!(
@@ -959,11 +943,7 @@ mod tests {
 
     #[test]
     fn declaring_no_attackers_is_a_valid_answer() {
-        let combat = CombatCandidates {
-            attackers: vec![obj(1)],
-            ..CombatCandidates::default()
-        };
-        let i = Interaction::new(attack_choice(vec![seat(1)]), me(), &combat);
+        let i = interaction(attack_choice(vec![obj(1)], vec![seat(1)]));
         assert!(i.can_confirm());
         assert_eq!(
             i.confirm(),
@@ -973,19 +953,14 @@ mod tests {
 
     #[test]
     fn blockers_must_block_an_actual_attacker() {
-        let combat = CombatCandidates {
-            blockers: vec![obj(10)],
-            attacking: vec![obj(1)],
-            ..CombatCandidates::default()
-        };
-        let mut i = Interaction::new(
-            Pending::ChooseBlockers {
-                player: me(),
-                attacker: PlayerId::new(1),
-            },
-            me(),
-            &combat,
-        );
+        let mut i = interaction(Pending::ChooseBlockers {
+            player: me(),
+            attacker: PlayerId::new(1),
+            blockers: vec![BlockOption {
+                blocker: obj(10),
+                attackers: vec![obj(1)],
+            }],
+        });
         assert!(!i.declare_blocker(obj(10), obj(99)));
         assert!(i.declare_blocker(obj(10), obj(1)));
         assert_eq!(
@@ -1111,11 +1086,7 @@ mod tests {
 
     #[test]
     fn cancelling_clears_a_selection_and_any_declarations() {
-        let combat = CombatCandidates {
-            attackers: vec![obj(1)],
-            ..CombatCandidates::default()
-        };
-        let mut i = Interaction::new(attack_choice(vec![seat(1)]), me(), &combat);
+        let mut i = interaction(attack_choice(vec![obj(1)], vec![seat(1)]));
         i.declare_attacker(obj(1), seat(1));
         i.cancel();
         assert_eq!(
@@ -1177,10 +1148,11 @@ mod tests {
                     suspendable: vec![],
                 }),
             },
-            attack_choice(vec![seat(1)]),
+            attack_choice(vec![obj(1)], vec![seat(1)]),
             Pending::ChooseBlockers {
                 player: me(),
                 attacker: PlayerId::new(1),
+                blockers: vec![],
             },
             Pending::DiscardChoice {
                 player: me(),

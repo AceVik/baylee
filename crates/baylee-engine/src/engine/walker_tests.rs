@@ -306,7 +306,9 @@ fn a_creature_can_attack_a_planeswalker() {
     let mut guard = 0;
     let defenders = loop {
         match engine.pending().clone() {
-            Pending::ChooseAttackers { player, defenders } if player == p0 => break defenders,
+            Pending::ChooseAttackers {
+                player, defenders, ..
+            } if player == p0 => break defenders,
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
@@ -395,7 +397,9 @@ fn a_planeswalker_you_control_is_not_a_legal_defender() {
     let mut guard = 0;
     loop {
         match engine.pending().clone() {
-            Pending::ChooseAttackers { player, defenders } if player == p0 => {
+            Pending::ChooseAttackers {
+                player, defenders, ..
+            } if player == p0 => {
                 assert!(
                     !defenders.contains(&Defender::Planeswalker(jace)),
                     "your own planeswalker was offered as a defender"

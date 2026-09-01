@@ -632,7 +632,7 @@ pub fn navigate_home(duel: &mut Duel, rig: &mut crate::table::CameraRig) {
 
 #[cfg(test)]
 mod tests {
-    use baylee_client_core::interaction::{CombatCandidates, Interaction};
+    use baylee_client_core::interaction::Interaction;
     use baylee_core::ids::{ObjectId, PlayerId};
     use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
 
@@ -655,7 +655,6 @@ mod tests {
                 }),
             },
             PlayerId::new(0),
-            &CombatCandidates::default(),
         );
         assert_eq!(i.confirm(), Some(PlayerAction::PassPriority));
         // And a click on the land plays it instead of passing.
@@ -675,7 +674,6 @@ mod tests {
                 max: 1,
             },
             PlayerId::new(0),
-            &CombatCandidates::default(),
         );
         i.toggle(obj(99));
         assert!(i.selected().is_empty());

@@ -356,6 +356,7 @@ mod tests {
             auto_answer(
                 &Pending::ChooseAttackers {
                     player: PlayerId::new(0),
+                    attackers: vec![],
                     defenders: Vec::new(),
                 },
                 true,
@@ -371,6 +372,7 @@ mod tests {
             auto_answer(
                 &Pending::ChooseBlockers {
                     player: PlayerId::new(0),
+                    blockers: vec![],
                     attacker: PlayerId::new(1),
                 },
                 true,
@@ -419,6 +421,7 @@ mod tests {
             auto_answer(
                 &Pending::ChooseBlockers {
                     player: PlayerId::new(0),
+                    blockers: vec![],
                     attacker: PlayerId::new(1),
                 },
                 true,
@@ -435,6 +438,7 @@ mod tests {
             auto_answer(
                 &Pending::ChooseBlockers {
                     player: PlayerId::new(0),
+                    blockers: vec![],
                     attacker: PlayerId::new(1),
                 },
                 true,
@@ -525,6 +529,7 @@ mod tests {
             auto_answer(
                 &Pending::ChooseAttackers {
                     player: PlayerId::new(0),
+                    attackers: vec![],
                     defenders: Vec::new(),
                 },
                 true,
@@ -542,6 +547,7 @@ mod tests {
             auto_answer(
                 &Pending::ChooseAttackers {
                     player: PlayerId::new(0),
+                    attackers: vec![],
                     defenders: Vec::new(),
                 },
                 true,
