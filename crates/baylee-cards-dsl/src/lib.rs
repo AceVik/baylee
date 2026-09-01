@@ -36,7 +36,7 @@ pub use ability::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, CounterKind, Effect, PlayerRel, SearchDest, SpendRider, TargetReq, TargetSpec,
+    Amount, CounterKind, Effect, Find, PlayerRel, SearchDest, SpendRider, TargetReq, TargetSpec,
     TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};

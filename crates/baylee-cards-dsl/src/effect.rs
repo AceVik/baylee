@@ -259,6 +259,42 @@ pub enum SearchDest {
     TopOfLibrary,
 }
 
+/// Where one card found by [`Effect::SearchLibrary`] goes.
+///
+/// Cards are matched to finds positionally, so a search that produces fewer
+/// cards than it allows fills the finds from the front — the order in the
+/// slice is the order the card text names them.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Find {
+    /// Where this card goes.
+    pub dest: SearchDest,
+    /// Whether it enters tapped (battlefield only).
+    pub tapped: bool,
+}
+
+impl Find {
+    /// Into your hand.
+    pub const HAND: Self = Self {
+        dest: SearchDest::Hand,
+        tapped: false,
+    };
+    /// Onto the battlefield, untapped (Nature's Lore, a fetchland).
+    pub const BATTLEFIELD: Self = Self {
+        dest: SearchDest::Battlefield,
+        tapped: false,
+    };
+    /// Onto the battlefield tapped (Rampant Growth, Evolving Wilds).
+    pub const BATTLEFIELD_TAPPED: Self = Self {
+        dest: SearchDest::Battlefield,
+        tapped: true,
+    };
+    /// On top of your library (a tutor that does not draw).
+    pub const TOP_OF_LIBRARY: Self = Self {
+        dest: SearchDest::TopOfLibrary,
+        tapped: false,
+    };
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
@@ -489,17 +525,23 @@ pub enum Effect {
     },
     /// Twice X (Heliod's Intervention lifegain mode) — helper amount.
     GainLifeDoubleX,
-    /// Search your library for a matching card (server-side filtered).
+    /// Search your library for matching cards (server-side filtered).
+    ///
+    /// One [`Find`] per card the search may produce, in the order the card
+    /// text names them: Cultivate's "put one onto the battlefield tapped and
+    /// the other into your hand" is two finds with different destinations,
+    /// and Rampant Growth is one. A single `dest`/`tapped` pair used to be
+    /// the whole vocabulary here, which is why every card that fetches two
+    /// lands was inexpressible.
     SearchLibrary {
         /// What to find.
         filter: &'static Filter,
-        /// Where it goes.
-        dest: SearchDest,
-        /// Whether it enters tapped (battlefield only).
-        tapped: bool,
+        /// Where each found card goes, positionally. `finds.len()` is how
+        /// many cards may be found.
+        finds: &'static [Find],
         /// Whether to shuffle afterwards.
         shuffle: bool,
-        /// Whether you may decline to find ("search … you may").
+        /// Whether you may find fewer than `finds.len()` ("up to", "you may").
         optional: bool,
     },
     /// Scry N.

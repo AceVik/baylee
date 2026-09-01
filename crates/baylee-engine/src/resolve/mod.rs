@@ -56,15 +56,17 @@ pub struct Resolution {
     pub mana_ability: bool,
 }
 
+/// The one destination Path to Exile's basic-land search uses.
+static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
+    &[baylee_cards_dsl::effect::Find::BATTLEFIELD_TAPPED];
+
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
-    /// A library search: chosen card goes to `dest`.
+    /// A library search: chosen cards go to `finds`, positionally.
     SearchLibrary {
-        /// Destination.
-        dest: SearchDest,
-        /// Enters tapped (battlefield only).
-        tapped: bool,
+        /// Where each found card goes, in order.
+        finds: &'static [baylee_cards_dsl::effect::Find],
         /// Shuffle afterwards.
         shuffle: bool,
     },
@@ -440,12 +442,13 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
-        AwaitingOp::SearchLibrary {
-            dest,
-            tapped,
-            shuffle,
-        } => {
-            for &card in chosen {
+        AwaitingOp::SearchLibrary { finds, shuffle } => {
+            // Positional: the first card found takes the first destination.
+            // Cultivate names the battlefield first and the hand second, and
+            // finding only one card then puts that one onto the battlefield —
+            // the same order the printed text reads in.
+            for (&card, find) in chosen.iter().zip(finds) {
+                let (dest, tapped) = (find.dest, find.tapped);
                 match dest {
                     SearchDest::Hand => {
                         let _ = state.move_object(
@@ -753,8 +756,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
     match op {
         Effect::SearchLibrary {
             filter,
-            dest,
-            tapped,
+            finds,
             shuffle,
             optional,
         } => {
@@ -794,26 +796,27 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 }
                 return None;
             }
+            // How many cards this search may produce, and how few it may
+            // settle for: "up to two" is optional with two finds, "search for
+            // a basic land card" is one find and mandatory.
+            let want = u8::try_from(finds.len()).unwrap_or(u8::MAX);
+            let least = if optional { 0 } else { want };
             if let Some(agent) = takeover {
                 res.awaiting = Some(AwaitingOp::SearchTakeover { agent });
                 return Some(Pending::ChooseCards {
                     player: agent,
                     options,
-                    min: u8::from(!optional),
-                    max: 1,
+                    min: least,
+                    max: want,
                     prompt: ChoicePrompt::SearchLibrary,
                 });
             }
-            res.awaiting = Some(AwaitingOp::SearchLibrary {
-                dest,
-                tapped,
-                shuffle,
-            });
+            res.awaiting = Some(AwaitingOp::SearchLibrary { finds, shuffle });
             Some(Pending::ChooseCards {
                 player: you,
                 options,
-                min: u8::from(!optional),
-                max: 1,
+                min: least,
+                max: want,
                 prompt: ChoicePrompt::SearchLibrary,
             })
         }
@@ -954,8 +957,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 return None;
             }
             res.awaiting = Some(AwaitingOp::SearchLibrary {
-                dest: SearchDest::Battlefield,
-                tapped: true,
+                finds: ONTO_BATTLEFIELD_TAPPED,
                 shuffle: true,
             });
             Some(Pending::ChooseCards {

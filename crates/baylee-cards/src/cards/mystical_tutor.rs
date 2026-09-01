@@ -5,8 +5,8 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    SearchDest,
+    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, Find, KeywordSet,
+    PartnerKind, SearchDest,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
@@ -33,8 +33,7 @@ pub static CARD: CardDef = CardDef {
     abilities: &[AbilityDef::Spell {
         effects: &[Effect::SearchLibrary {
             filter: &FIND,
-            dest: SearchDest::TopOfLibrary,
-            tapped: false,
+            finds: &[Find::TOP_OF_LIBRARY],
             shuffle: true,
             optional: false,
         }],

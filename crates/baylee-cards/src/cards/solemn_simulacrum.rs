@@ -6,8 +6,8 @@
 #![allow(unused_imports, missing_docs)]
 
 use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    PartnerKind, SearchDest, Trigger,
+    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, Find,
+    KeywordSet, PartnerKind, SearchDest, Trigger,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature};
@@ -40,8 +40,7 @@ pub static CARD: CardDef = CardDef {
             once_per_turn: false,
             effects: &[Effect::SearchLibrary {
                 filter: &BASIC_LAND,
-                dest: SearchDest::Battlefield,
-                tapped: true,
+                finds: &[Find::BATTLEFIELD_TAPPED],
                 shuffle: true,
                 optional: true,
             }],

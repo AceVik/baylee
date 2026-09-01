@@ -92,6 +92,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::smothering_tithe::CARD,
     ),
     (
+        "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90",
+        &crate::cards::kodama_s_reach::CARD,
+    ),
+    (
         "180eda7c-fca2-403b-85cd-8ffebaf9f408",
         &crate::cards::palace_jailer::CARD,
     ),
@@ -418,6 +422,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "89ca686a-7c72-4d8f-9290-e89635624a83",
         &crate::cards::cavern_of_souls::CARD,
+    ),
+    (
+        "8b755881-a72d-4e21-a369-d2924eb4585a",
+        &crate::cards::cultivate::CARD,
     ),
     (
         "8c31fec9-e4b3-4761-990e-7be38eb05604",
@@ -982,10 +990,12 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::windswept_heath::CARD),
     Some(&crate::cards::wizard_class::CARD),
     Some(&crate::cards::zagoth_triome::CARD),
+    Some(&crate::cards::cultivate::CARD),
+    Some(&crate::cards::kodama_s_reach::CARD),
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x2a87d7130093f677;
+pub const POOL_HASH: u64 = 0x858ff21dac790188;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

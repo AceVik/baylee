@@ -9,3 +9,5 @@
 # Names must match Scryfall exactly. `cargo run -p xtask -- codegen` turns a
 # new line into a stub; `xtask validate` and the card-crate tests decide when
 # it counts as implemented.
+Cultivate
+Kodama's Reach

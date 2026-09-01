@@ -7,7 +7,7 @@
 
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind, SearchDest,
+    Effect, FaceDef, Filter, Find, KeywordSet, PartnerKind, SearchDest,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, land};
@@ -41,8 +41,7 @@ pub static CARD: CardDef = CardDef {
         },
         effects: &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
-            dest: SearchDest::Battlefield,
-            tapped: false,
+            finds: &[Find::BATTLEFIELD],
             shuffle: true,
             optional: false,
         }],

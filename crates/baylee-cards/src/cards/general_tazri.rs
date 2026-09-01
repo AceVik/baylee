@@ -8,7 +8,7 @@
 
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind, SearchDest, Trigger,
+    Effect, FaceDef, Filter, Find, KeywordSet, PartnerKind, SearchDest, Trigger,
 };
 
 static ALLIES_YOU_CONTROL: Filter = Filter::And(&[
@@ -56,8 +56,7 @@ pub static CARD: CardDef = CardDef {
             once_per_turn: false,
             effects: &[Effect::SearchLibrary {
                 filter: &ALLY_CARD,
-                dest: SearchDest::Hand,
-                tapped: false,
+                finds: &[Find::HAND],
                 shuffle: true,
                 optional: true,
             }],

@@ -12,7 +12,7 @@
 
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
-    FaceDef, Filter, KeywordSet, Layer, Modifier, PartnerKind, SearchDest, TokenDef,
+    FaceDef, Filter, Find, KeywordSet, Layer, Modifier, PartnerKind, SearchDest, TokenDef,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{self, creature, enchantment};
@@ -95,8 +95,7 @@ pub static CARD: CardDef = CardDef {
             chapter: 3,
             effects: &[Effect::SearchLibrary {
                 filter: &ARTIFACT_CMC1,
-                dest: SearchDest::Battlefield,
-                tapped: false,
+                finds: &[Find::BATTLEFIELD],
                 shuffle: true,
                 optional: false,
             }],
