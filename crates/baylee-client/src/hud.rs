@@ -16,10 +16,11 @@
 //! actually changed (snapshot, prompt, hover, selection, orders).
 
 use crate::Duel;
+use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of, glow_bits};
 use crate::textures::CardTextures;
 use baylee_client_core::automation::{AutoPilot, RailRow};
 use baylee_client_core::card_face::CardFace;
-use baylee_client_core::images::{ArtSize, ImageKey};
+use baylee_client_core::images::{ArtSize, FinishTreatment, ImageKey};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_view::{GameStatic, PlayerView};
 use bevy::prelude::*;
@@ -377,6 +378,12 @@ impl FaceCtx<'_> {
 /// Every place the overlay shows a card goes through here, which is what makes
 /// the two interchangeable: the slot is the same size either way, so holding
 /// the modifier reveals text without moving anything on screen.
+///
+/// The art goes through [`CardUiMaterial`] rather than a plain `ImageNode`, so
+/// a foil in a player's hand looks like the foil that will land on the table.
+/// One shader, one set of constants, two pipelines — two that disagreed about
+/// what "foil" means would be worse than one that only ran on the table.
+#[allow(clippy::too_many_arguments)] // a slot, a card, and the material store
 fn spawn_card_art(
     commands: &mut Commands,
     image: Handle<Image>,
@@ -385,6 +392,8 @@ fn spawn_card_art(
     height: f32,
     detail: crate::face::Detail,
     fonts: &UiFonts,
+    surface: CardLook,
+    cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let slot = commands
         .spawn(Node {
@@ -394,9 +403,24 @@ fn spawn_card_art(
             ..default()
         })
         .id();
-    let child = match built {
-        Some(face) => crate::face::spawn_ui(commands, face, width, detail, fonts),
-        None => commands
+    let child = if let Some(face) = built {
+        crate::face::spawn_ui(commands, face, width, detail, fonts)
+    } else if let Some(cards) = cards {
+        commands
+            .spawn((
+                MaterialNode(cards.get(surface, Some(image))),
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    ..default()
+                },
+            ))
+            .id()
+    } else {
+        // No render plugins, so no material store: draw the art plainly. A
+        // headless test builds the whole overlay this way, which is what
+        // keeps those tests free of a GPU *and* of the network.
+        commands
             .spawn((
                 ImageNode::new(image),
                 Node {
@@ -405,7 +429,7 @@ fn spawn_card_art(
                     ..default()
                 },
             ))
-            .id(),
+            .id()
     };
     commands.entity(slot).add_child(child);
     slot
@@ -436,11 +460,18 @@ pub fn despawn_overlay(
     mut commands: Commands,
     existing: Query<Entity, With<HudRoot>>,
     mut revision: ResMut<HudRevision>,
+    ui_materials: Option<ResMut<UiCardMaterials>>,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
     }
     *revision = HudRevision::default();
+    // The cache is what holds those materials alive, so letting go of it here
+    // is what actually frees them: a duel that ended must not leave a hand's
+    // worth behind for the next one.
+    if let Some(mut cache) = ui_materials {
+        cache.clear();
+    }
 }
 
 /// Rebuilds the overlay when anything it shows changes.
@@ -458,7 +489,20 @@ pub fn sync_overlay(
     settings: Res<crate::settings::ClientSettings>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
+    // Both come from the render plugins. A headless app has neither, and
+    // every card below falls back to a plain image rather than growing a
+    // second code path for it.
+    ui_materials: Option<ResMut<UiCardMaterials>>,
+    material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
 ) {
+    let mut cards = match (ui_materials, material_assets) {
+        (Some(cache), Some(assets)) => Some((cache, assets)),
+        _ => None,
+    };
+    let mut cards = cards.as_mut().map(|(cache, assets)| UiCards {
+        cache: cache.as_mut(),
+        assets: assets.as_mut(),
+    });
     let faces = FaceCtx {
         texts: &texts,
         mode: &mode,
@@ -743,6 +787,7 @@ pub fn sync_overlay(
             &assets,
             &fonts,
             &faces,
+            cards.as_mut(),
         );
         commands.entity(root).add_child(hand_bar);
 
@@ -778,6 +823,17 @@ pub fn sync_overlay(
                 img_h,
                 crate::face::Detail::Full,
                 &fonts,
+                match key {
+                    Some(key) => CardLook::art(
+                        key,
+                        finish_of(statics, Some(key)),
+                        hovered
+                            .and_then(|id| view.object(id))
+                            .map_or(0, |o| glow_bits(o.keywords)),
+                    ),
+                    None => CardLook::back(FinishTreatment::Plain, 0),
+                },
+                cards.as_mut(),
             );
             let tooltip = commands
                 .spawn((
@@ -854,6 +910,7 @@ pub fn sync_overlay(
             &assets,
             &fonts,
             &faces,
+            cards.as_mut(),
         );
         commands.entity(root).add_child(overlay);
     }
@@ -1287,6 +1344,7 @@ fn spawn_hand_bar(
     assets: &AssetServer,
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
+    mut cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let bar = commands
         .spawn((
@@ -1365,6 +1423,11 @@ fn spawn_hand_bar(
             HAND_CARD_H,
             crate::face::Detail::Full,
             fonts,
+            // A card in hand is not on a battlefield, so no keyword glow: the
+            // border tells a player what is protected *there*, and a hand
+            // that glowed would be saying something that is not yet true.
+            CardLook::art(card.art, finish_of(statics, Some(card.art)), 0),
+            cards.as_deref_mut(),
         );
         // Positioned by the layout rule; the strip's margin carries the
         // scroll offset (applied per frame, not rebuilt).
@@ -1435,6 +1498,13 @@ fn spawn_hand_bar(
                 OVERLAY_CARD_H * 0.75,
                 crate::face::Detail::Compact,
                 fonts,
+                match key {
+                    Some(key) => {
+                        CardLook::art(key, finish_of(statics, Some(key)), glow_bits(cmd.keywords))
+                    }
+                    None => CardLook::back(FinishTreatment::Plain, 0),
+                },
+                cards.as_deref_mut(),
             );
             let card = commands
                 .spawn((
@@ -1596,6 +1666,7 @@ fn spawn_own_board_overlay(
     assets: &AssetServer,
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
+    mut cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     // Spawn already at the current slide position — spawning open and
     // correcting next frame is the battlefield's flicker.
@@ -1712,6 +1783,16 @@ fn spawn_own_board_overlay(
                 OVERLAY_CARD_H,
                 crate::face::Detail::Compact,
                 fonts,
+                match group.art {
+                    Some(art) => CardLook::art(
+                        art,
+                        finish_of(statics, Some(art)),
+                        view.object(group.representative)
+                            .map_or(0, |o| glow_bits(o.keywords)),
+                    ),
+                    None => CardLook::back(FinishTreatment::Plain, 0),
+                },
+                cards.as_deref_mut(),
             );
             let card = commands
                 .spawn((

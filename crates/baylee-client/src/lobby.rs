@@ -22,9 +22,11 @@
 
 use std::sync::{Arc, Mutex};
 
+use crate::cardmat::{CardUiMaterial, UiCardMaterials, UiCards};
 use baylee_client_core::deckbuilder::{
     BuildField, CURVE_BUCKETS, Coverage, DeckBuilder, Group, Picker, Zone,
 };
+use baylee_client_core::images::FinishTreatment;
 use baylee_client_core::lobby::{Field, GameMode, Lobby, LobbyEvent, LobbyRequest, Screen};
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::Finish;
@@ -1327,8 +1329,18 @@ fn ui(
     // Only the printing picker draws a remote image, and a headless test has
     // no asset server {2014} nor should it reach the CDN to build a tree.
     assets: Option<Res<AssetServer>>,
+    ui_materials: Option<ResMut<UiCardMaterials>>,
+    material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     mut drawn: Local<Option<Frame>>,
 ) {
+    let mut cards = match (ui_materials, material_assets) {
+        (Some(cache), Some(assets)) => Some((cache, assets)),
+        _ => None,
+    };
+    let mut cards = cards.as_mut().map(|(cache, assets)| UiCards {
+        cache: cache.as_mut(),
+        assets: assets.as_mut(),
+    });
     let width = windows
         .iter()
         .next()
@@ -1399,6 +1411,7 @@ fn ui(
             metrics,
             &scrolled_to,
             assets.as_deref(),
+            cards.as_mut(),
         ),
         Screen::Seated(_) => {
             let note = commands
@@ -1923,6 +1936,7 @@ const KINDS: [&str; 7] = [
 ];
 
 /// The deck builder: the pool on one side, the deck on the other.
+#[allow(clippy::too_many_arguments)] // one screen: the tree, the state, the stores
 fn builder(
     commands: &mut Commands,
     root: Entity,
@@ -1931,6 +1945,7 @@ fn builder(
     metrics: Metrics,
     scrolled_to: &Scrolled,
     assets: Option<&AssetServer>,
+    cards: Option<&mut UiCards<'_>>,
 ) {
     let deck = state.lobby.builder();
     let phone = metrics.frame == Frame::Phone;
@@ -2005,7 +2020,7 @@ fn builder(
 
     // Last, so it sits over both halves whatever the frame is.
     if let Some(picker) = deck.picker() {
-        let dialog = printing_picker(commands, fonts, metrics, deck, picker, assets);
+        let dialog = printing_picker(commands, fonts, metrics, deck, picker, assets, cards);
         commands.entity(root).add_child(dialog);
     }
 }
@@ -2423,6 +2438,7 @@ fn printing_picker(
     deck: &DeckBuilder,
     picker: &Picker,
     assets: Option<&AssetServer>,
+    cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let shade = commands
         .spawn((
@@ -2511,7 +2527,7 @@ fn printing_picker(
         Press::PickerStep(-1),
         false,
     );
-    let art = picker_art(commands, fonts, metrics, picker, assets);
+    let art = picker_art(commands, fonts, metrics, picker, assets, cards);
     let forward = chip(
         commands,
         fonts,
@@ -2690,6 +2706,7 @@ fn picker_art(
     metrics: Metrics,
     picker: &Picker,
     assets: Option<&AssetServer>,
+    cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let height = if metrics.frame == Frame::Phone {
         240.0
@@ -2723,10 +2740,16 @@ fn picker_art(
             baylee_client_core::images::ArtSize::Normal,
         )
     });
-    if let (Some(url), Some(assets)) = (url, assets) {
+    let material = match (url.as_ref(), assets, cards) {
+        (Some(url), Some(assets), Some(cards)) => {
+            Some(cards.preview(url, treatment(picker.finish()), assets.load(url.clone())))
+        }
+        _ => None,
+    };
+    if let Some(material) = material {
         let art = commands
             .spawn((
-                ImageNode::new(assets.load(url)),
+                MaterialNode(material),
                 Node {
                     height: percent(100),
                     ..default()
@@ -2740,6 +2763,15 @@ fn picker_art(
         commands.entity(holder).add_child(empty);
     }
     holder
+}
+
+/// The picker's chosen finish as an image treatment.
+fn treatment(finish: Finish) -> FinishTreatment {
+    match finish {
+        Finish::Normal => FinishTreatment::Plain,
+        Finish::Foil => FinishTreatment::Foil,
+        Finish::Etched => FinishTreatment::Etched,
+    }
 }
 
 /// One card, read in full: what is printed on it, and what this build does

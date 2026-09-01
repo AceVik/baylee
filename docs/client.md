@@ -130,11 +130,31 @@ arrays. Animation reads `globals.time` from the view bind group, so nothing is
 written per frame — a material is created once and never touched again while
 it is on screen.
 
-`cardmat::tests::the_card_shader_compiles` parses and validates the WGSL with
-naga, the same front end wgpu uses. Without it a shader error would surface
-only when a real pipeline is built, which on the web is the one environment
-that cannot be debugged by looking at a filesystem. It caught a reserved
-keyword on its first run.
+The 2D overlay draws cards through the same surface (`CardUiMaterial`, one
+shader file, one set of constants), so a foil in a player's hand looks like
+the foil that will land on the table. The one difference it cannot avoid is
+that a UI node has no world position and no normal, so there is no view angle
+to drive the sheen with; time does it instead, and the sweep runs on its own
+rather than answering the camera. A card in hand carries the finish but no
+keyword glow: the border tells a player what is protected *on the
+battlefield*, and a hand that glowed would be saying something that is not yet
+true.
+
+Both material stores reach their systems as `Option`. A headless test has no
+render plugins and therefore no `Assets<CardUiMaterial>`, so every drawing
+function falls back to a plain `ImageNode` rather than growing a second code
+path — which is what keeps the overlay tests free of a GPU *and* of the
+network.
+
+The printing picker uses a second, tiny cache keyed on CDN url and finish: the
+cardboard a player is choosing between is not in any game, so it has no
+`PrintRef` and no print table to look one up in.
+
+`cardmat::tests` parses and validates both shaders with naga, the same front
+end wgpu uses. Without that a WGSL error would surface only when a real
+pipeline is built, which on the web is the one environment that cannot be
+debugged by looking at a filesystem. It caught a reserved keyword on its first
+run.
 
 ## Hosts
 

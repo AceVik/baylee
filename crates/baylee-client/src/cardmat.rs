@@ -111,6 +111,154 @@ impl Material for CardMaterial {
     }
 }
 
+/// The same surface, for a card drawn as a UI node.
+///
+/// The hand, the preview and the printing picker are 2D, and a foil a player
+/// is holding has to look like the foil that will land on the table — so this
+/// carries the identical [`CardParams`] and its shader is the table shader's
+/// twin. The one difference it cannot avoid is that a UI node has no world
+/// position and no normal, so the sheen runs on time rather than answering
+/// the camera.
+#[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
+pub struct CardUiMaterial {
+    /// The printed face, or a 1×1 white pixel when the card draws flat.
+    #[texture(0)]
+    #[sampler(1)]
+    pub art: Option<Handle<Image>>,
+    /// Everything else.
+    #[uniform(2)]
+    pub params: CardParams,
+}
+
+impl UiMaterial for CardUiMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "embedded://baylee_client/shaders/card_ui.wgsl".into()
+    }
+}
+
+/// UI card materials, shared on the same key as the table's.
+///
+/// The overlay is rebuilt whenever the game state moves, and a material minted
+/// per rebuild would grow `Assets` for as long as the duel lasted. Sharing on
+/// [`CardLook`] makes a hand of seven cards at most seven materials, however
+/// many times it is redrawn.
+#[derive(Resource, Default)]
+pub struct UiCardMaterials {
+    made: bevy::platform::collections::HashMap<CardLook, Handle<CardUiMaterial>>,
+    /// Cards that are not in a game: the deck builder's printing picker,
+    /// keyed by CDN url and finish because it has no `PrintRef` to key on.
+    previewed:
+        bevy::platform::collections::HashMap<(String, FinishTreatment), Handle<CardUiMaterial>>,
+}
+
+impl UiCardMaterials {
+    /// The material for a look, made once.
+    pub fn get(
+        &mut self,
+        look: CardLook,
+        art: Option<Handle<Image>>,
+        tint: Color,
+        assets: &mut Assets<CardUiMaterial>,
+    ) -> Handle<CardUiMaterial> {
+        if let Some(handle) = self.made.get(&look) {
+            return handle.clone();
+        }
+        let made = material(look, art, tint);
+        let handle = assets.add(CardUiMaterial {
+            art: made.art,
+            params: made.params,
+        });
+        self.made.insert(look, handle.clone());
+        handle
+    }
+
+    /// Forgets every material, when the duel closes.
+    ///
+    /// Held handles are what keeps the assets alive, so dropping them here is
+    /// what actually frees them; a duel that ended must not leave a hand's
+    /// worth of materials behind for the next one.
+    pub fn clear(&mut self) {
+        self.made.clear();
+        self.previewed.clear();
+    }
+
+    /// The material for a card that is not in any game.
+    ///
+    /// The deck builder's printing picker shows cardboard a player is
+    /// choosing between, so it has no `PrintRef` and no print table to look
+    /// one up in — it has a CDN URL and the finish the dialog is offering.
+    /// Keyed on exactly those two, because that is what makes two previews
+    /// the same picture.
+    pub fn preview(
+        &mut self,
+        url: &str,
+        finish: FinishTreatment,
+        art: Handle<Image>,
+        assets: &mut Assets<CardUiMaterial>,
+    ) -> Handle<CardUiMaterial> {
+        let key = (url.to_string(), finish);
+        if let Some(handle) = self.previewed.get(&key) {
+            return handle.clone();
+        }
+        let handle = assets.add(CardUiMaterial {
+            art: Some(art),
+            params: CardParams {
+                finish: finish_code(finish),
+                glow: 0,
+                has_art: 1.0,
+                strength: 1.0,
+                tint: Vec4::ONE,
+            },
+        });
+        self.previewed.insert(key, handle.clone());
+        handle
+    }
+}
+
+/// The two things making a UI card material needs: the shared cache, and the
+/// asset store to mint into.
+///
+/// They always travel together, so they travel as one — and as *one optional*
+/// argument, which is the point: a headless app has no render plugins and
+/// therefore no `Assets<CardUiMaterial>`, and every drawing function falls
+/// back to a plain image rather than growing a second code path.
+pub struct UiCards<'a> {
+    /// Materials already made.
+    pub cache: &'a mut UiCardMaterials,
+    /// Where new ones go.
+    pub assets: &'a mut Assets<CardUiMaterial>,
+}
+
+impl UiCards<'_> {
+    /// The material for a look, made once.
+    pub fn get(&mut self, look: CardLook, art: Option<Handle<Image>>) -> Handle<CardUiMaterial> {
+        self.cache.get(look, art, Color::WHITE, self.assets)
+    }
+
+    /// The material for a card that is not in any game.
+    pub fn preview(
+        &mut self,
+        url: &str,
+        finish: FinishTreatment,
+        art: Handle<Image>,
+    ) -> Handle<CardUiMaterial> {
+        self.cache.preview(url, finish, art, self.assets)
+    }
+}
+
+/// The finish of a printing, as the seat is entitled to see it.
+///
+/// The print table is per seat: a printing this seat has not earned resolves
+/// to `None` and reads as plain. That is the whole reason the finish is
+/// looked up here rather than carried on the card — a foil is a property of
+/// the piece of cardboard, and the piece of cardboard is exactly the thing
+/// `GameStatic.prints` withholds.
+#[must_use]
+pub fn finish_of(statics: &baylee_view::GameStatic, art: Option<ImageKey>) -> FinishTreatment {
+    art.and_then(|key| statics.print(key.print))
+        .map_or(FinishTreatment::Plain, |entry| entry.finish.into())
+}
+
 /// The key a material is shared on.
 ///
 /// Two cards share a material when they show the same art with the same
@@ -141,7 +289,7 @@ impl CardLook {
         }
     }
 
-    /// A card showing a flat colour: its constructed face, or its back.
+    /// A card showing a flat colour: its constructed face, or an empty slot.
     #[must_use]
     pub fn flat(color: Color, finish: FinishTreatment, glow: u32) -> Self {
         Self {
@@ -149,6 +297,22 @@ impl CardLook {
             finish,
             glow,
             tint: quantise(color),
+        }
+    }
+
+    /// A card showing the back.
+    ///
+    /// No `ImageKey`, because the back is one texture the client owns rather
+    /// than a printing it fetched — and no tint, which is what separates it
+    /// from [`CardLook::flat`]: both have no `ImageKey`, and a back that
+    /// collided with a constructed face would draw one as the other.
+    #[must_use]
+    pub fn back(finish: FinishTreatment, glow: u32) -> Self {
+        Self {
+            art: None,
+            finish,
+            glow,
+            tint: 0,
         }
     }
 }
@@ -174,14 +338,19 @@ pub fn finish_code(finish: FinishTreatment) -> u32 {
 }
 
 /// Builds the material for a look.
+///
+/// `has_art` follows the *handle*, not the key: the card back is a real
+/// texture the client owns rather than a printing it fetched, so it has no
+/// `ImageKey` and still has to be sampled rather than replaced by a tint.
 #[must_use]
 pub fn material(look: CardLook, art: Option<Handle<Image>>, tint: Color) -> CardMaterial {
+    let has_art = if art.is_some() { 1.0 } else { 0.0 };
     CardMaterial {
         art,
         params: CardParams {
             finish: finish_code(look.finish),
             glow: look.glow,
-            has_art: if look.art.is_some() { 1.0 } else { 0.0 },
+            has_art,
             strength: 1.0,
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
@@ -199,7 +368,10 @@ pub struct CardMaterialPlugin;
 impl Plugin for CardMaterialPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/card.wgsl");
-        app.add_plugins(MaterialPlugin::<CardMaterial>::default());
+        embedded_asset!(app, "shaders/card_ui.wgsl");
+        app.add_plugins(MaterialPlugin::<CardMaterial>::default())
+            .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
+            .init_resource::<UiCardMaterials>();
     }
 }
 
@@ -279,27 +451,42 @@ mod tests {
             CardLook::flat(Color::srgb(0.1, 0.2, 0.3), FinishTreatment::Plain, 0)
         );
     }
-    /// The shader itself, parsed and validated.
+    /// Parses and validates a shader the way `wgpu` will.
+    ///
+    /// The two things naga cannot see are stripped first: `#import` lines,
+    /// which `naga_oil` resolves against bevy's own modules, and
+    /// `#{MATERIAL_BIND_GROUP}`, which the pipeline substitutes. What they
+    /// bring in is stubbed by the caller with the same shapes bevy declares,
+    /// so a use that would not type-check against the real ones does not
+    /// type-check here either.
+    fn check_wgsl(source: &str, prelude: &str) {
+        let body: String = source
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("#import"))
+            .collect::<Vec<_>>()
+            .join("\n")
+            .replace("#{MATERIAL_BIND_GROUP}", "3");
+        let full = format!("{prelude}{body}");
+
+        let module = naga::front::wgsl::parse_str(&full)
+            .unwrap_or_else(|e| panic!("does not parse:\n{}", e.emit_to_string(&full)));
+        naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::empty(),
+        )
+        .validate(&module)
+        .unwrap_or_else(|e| panic!("does not validate: {e:?}"));
+    }
+
+    /// The table shader, parsed and validated.
     ///
     /// A WGSL error is otherwise found when a real pipeline is built — which
     /// on the web is the one environment that cannot be debugged by looking
     /// at a filesystem, and on native is a log line in a window that has
     /// already drawn a black table. Naga is the same front end wgpu uses, so
     /// what passes here compiles there.
-    ///
-    /// The two things naga cannot see are stripped first: `#import` lines,
-    /// which `naga_oil` resolves against bevy's own modules, and
-    /// `#{MATERIAL_BIND_GROUP}`, which the pipeline substitutes. Everything
-    /// they bring in is stubbed below with the same shapes bevy declares, so
-    /// a use that would not type-check against the real ones does not
-    /// type-check here either.
     #[test]
     fn the_card_shader_compiles() {
-        const SOURCE: &str = include_str!("shaders/card.wgsl");
-
-        // Stand-ins for what the imports bring in. Same field names and same
-        // types as `bevy_pbr::forward_io::VertexOutput` and the parts of the
-        // view bindings the shader reads.
         let prelude = "\
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -310,23 +497,25 @@ struct VertexOutput {
 struct View { world_position: vec3<f32> };
 struct Globals { time: f32 };
 @group(0) @binding(0) var<uniform> view: View;
-@group(0) @binding(1) var<uniform> globals: Globals;
+@group(0) @binding(11) var<uniform> globals: Globals;
 ";
-        let body: String = SOURCE
-            .lines()
-            .filter(|line| !line.trim_start().starts_with("#import"))
-            .collect::<Vec<_>>()
-            .join("\n")
-            .replace("#{MATERIAL_BIND_GROUP}", "3");
-        let source = format!("{prelude}{body}");
-
-        let module = naga::front::wgsl::parse_str(&source)
-            .unwrap_or_else(|e| panic!("card.wgsl does not parse:\n{}", e.emit_to_string(&source)));
-        naga::valid::Validator::new(
-            naga::valid::ValidationFlags::all(),
-            naga::valid::Capabilities::empty(),
-        )
-        .validate(&module)
-        .unwrap_or_else(|e| panic!("card.wgsl does not validate: {e:?}"));
+        check_wgsl(include_str!("shaders/card.wgsl"), prelude);
+    }
+    /// The UI twin, held to the same standard. Its bind group is group 1 —
+    /// `bevy_ui_render` puts the view layout first — and it reads `globals`
+    /// out of group 0, so the stubs are shaped for that.
+    #[test]
+    fn the_ui_card_shader_compiles() {
+        let prelude = "\
+struct UiVertexOutput {
+    @location(0) uv: vec2<f32>,
+    @location(1) border_widths: vec4<f32>,
+    @location(2) border_radius: vec4<f32>,
+    @location(3) @interpolate(flat) size: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+struct Globals { time: f32 };
+";
+        check_wgsl(include_str!("shaders/card_ui.wgsl"), prelude);
     }
 }

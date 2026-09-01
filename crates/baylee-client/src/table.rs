@@ -410,10 +410,7 @@ pub fn sync_scene(
         // The finish is a property of the printing, so it comes from the
         // print table — which is per seat, and a printing this seat has not
         // earned reads as plain rather than as a leak.
-        let finish = placement
-            .art
-            .and_then(|key| statics.print(key.print))
-            .map_or(FinishTreatment::Plain, |entry| entry.finish.into());
+        let finish = crate::cardmat::finish_of(statics, placement.art);
         let glow = object.map_or(0, |o| glow_bits(o.keywords));
 
         let material = if show_face {
