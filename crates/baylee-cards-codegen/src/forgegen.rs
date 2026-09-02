@@ -155,6 +155,11 @@ impl Params {
             .retain(|(k, _)| !PROSE_KEYS.contains(&k.as_str()));
     }
 
+    /// The first parameter still unclaimed, for reporting.
+    fn first_key(&self) -> Option<&str> {
+        self.entries.first().map(|(k, _)| k.as_str())
+    }
+
     /// True when every parameter has been claimed.
     fn exhausted(&self) -> bool {
         self.entries.is_empty()
@@ -172,6 +177,11 @@ struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     cats: &'a SubtypeCatalogs,
     body: CardBody,
+    /// The first `Api.Key` no rule claimed, if that is why this
+    /// script was refused. Recorded rather than derived, because a
+    /// second list of each rule's keys would rot the first time a
+    /// rule learned a new one.
+    unclaimed: std::cell::RefCell<Option<String>>,
 }
 
 /// A whole number, or an `SVar` that resolves to one.
@@ -192,6 +202,14 @@ fn amount(raw: &str, svars: &BTreeMap<String, String>) -> Option<String> {
 /// lives in the variant, not in the number.
 fn pump_amount(raw: &str, svars: &BTreeMap<String, String>) -> Option<String> {
     let raw = raw.trim();
+    // `+X/+X` is the second commonest pump printed, and X is a value the
+    // engine already carries on the spell — the sign still lives in the
+    // variant, so `-X` is its own one rather than a negated `X`.
+    match raw {
+        "X" | "+X" => return Some("Amount::X".to_string()),
+        "-X" => return Some("Amount::NegX".to_string()),
+        _ => {}
+    }
     let n = raw.parse::<i64>().ok().or_else(|| {
         svars
             .get(raw.trim_start_matches('+'))?
@@ -214,6 +232,18 @@ fn plain_number(raw: &str, svars: &BTreeMap<String, String>) -> Option<i64> {
 }
 
 impl Tx<'_> {
+    /// Records the first reason this script was refused.
+    ///
+    /// A diagnostic side channel, which is why it is behind a `RefCell`:
+    /// the refusal points are `&self` readers, and threading `&mut` through
+    /// them to carry a message would put the report in the way of the rules.
+    fn note(&self, what: String) {
+        let mut slot = self.unclaimed.borrow_mut();
+        if slot.is_none() {
+            *slot = Some(what);
+        }
+    }
+
     /// A Forge valid-string (`Creature.YouCtrl+nonToken`) as a `Filter`.
     fn filter_expr(&self, valid: &str) -> Option<String> {
         let mut alternatives = Vec::new();
@@ -231,7 +261,10 @@ impl Tx<'_> {
                 "Instant" => clauses.push("Filter::HasType(TypeSet::INSTANT)".to_string()),
                 "Sorcery" => clauses.push("Filter::HasType(TypeSet::SORCERY)".to_string()),
                 _ => {
-                    let path = self.cats.const_path(base)?;
+                    let Some(path) = self.cats.const_path(base) else {
+                        self.note(format!("filter base `{base}`"));
+                        return None;
+                    };
                     clauses.push(format!("Filter::HasSubtype({path})"));
                 }
             }
@@ -257,7 +290,10 @@ impl Tx<'_> {
                         let (negated, name) = other
                             .strip_prefix("non")
                             .map_or((false, other), |rest| (true, rest));
-                        let path = self.cats.const_path(name)?;
+                        let Some(path) = self.cats.const_path(name) else {
+                            self.note(format!("filter atom `{other}`"));
+                            return None;
+                        };
                         if negated {
                             format!("Filter::Not(&Filter::HasSubtype({path}))")
                         } else {
@@ -328,8 +364,19 @@ impl Tx<'_> {
             .clone()
             .unwrap_or_else(|| "TargetSpec::AnyPlayer".to_string());
 
-        let effects = self.effect_of(&api, &mut p, &target)?;
+        let Some(effects) = self.effect_of(&api, &mut p, &target) else {
+            // An API with no rule at all is a different report than a rule
+            // that met a value it cannot say — the first is a missing
+            // effect, the second is a missing case in one that exists.
+            if is_supported_api(&api) {
+                self.note(format!("unreadable value in `{api}`"));
+            }
+            return None;
+        };
         if !p.exhausted() {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `{api}.{key}`"));
+            }
             return None;
         }
         chain.effects.extend(effects);
@@ -419,8 +466,12 @@ impl Tx<'_> {
             }
             "Mana" => self.mana_effect(p)?,
             "Destroy" => {
-                // "can't be regenerated" is not modelled; a card that says so
-                // must not be silently generated without it.
+                // `NoRegen$ True` is vacuous here and may be consumed:
+                // `Effect::Destroy` already destroys unconditionally,
+                // because the engine has no regeneration mechanic for a
+                // shield to be worth anything against. Any other value
+                // would be saying something about regeneration that this
+                // engine cannot say, so it refuses.
                 if p.take("NoRegen").is_some_and(|v| v != "True") {
                     return None;
                 }
@@ -941,6 +992,7 @@ pub fn transcode(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<CardBod
         svars: &script.svars,
         cats,
         body: CardBody::default(),
+        unclaimed: std::cell::RefCell::new(None),
     };
     for line in &script.keywords {
         tx.body.keywords.push(keyword_const(line)?.to_string());
@@ -955,6 +1007,37 @@ pub fn transcode(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<CardBod
         .notes
         .push("transcoded from the card's rules".into());
     Some(tx.body)
+}
+
+/// Reads a script and, when it is refused over a parameter, names it.
+///
+/// `Some(None)` means the script was read in full; `Some(Some(key))` names
+/// the first `Api.Key` no rule claimed; `None` means it was refused for a
+/// reason that is not a parameter (an unknown API, an unmodelled line).
+///
+/// The transcoder reports this itself rather than a second table listing
+/// each rule's keys: such a list would rot the first time a rule learned a
+/// new one, and a stale worklist is worse than none.
+#[must_use]
+pub fn unclaimed_parameter(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<Option<String>> {
+    if !script.unknown_lines.is_empty() {
+        return None;
+    }
+    let mut tx = Tx {
+        svars: &script.svars,
+        cats,
+        body: CardBody::default(),
+        unclaimed: std::cell::RefCell::new(None),
+    };
+    for line in &script.keywords {
+        keyword_const(line)?;
+    }
+    for (kind, spec) in &script.rules {
+        if tx.rule(*kind, spec).is_none() {
+            return Some(tx.unclaimed.into_inner());
+        }
+    }
+    Some(None)
 }
 
 /// The effect APIs [`transcode`] knows how to write.
@@ -1334,6 +1417,58 @@ mod tests {
         assert!(refused(
             "Name:X\nTypes:Creature\nS:Mode$ CantBlockBy | ValidAttacker$ Card.Self\n"
         ));
+    }
+
+    #[test]
+    fn a_pump_of_x_reads_the_spells_x_and_keeps_its_sign() {
+        let body = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n",
+        );
+        let a = body.abilities.join("");
+        assert!(a.contains("power: Amount::X"), "{a}");
+        assert!(a.contains("toughness: Amount::X"), "{a}");
+
+        let body = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n",
+        );
+        // The sign lives in the variant, not in a negated `X` — the engine
+        // negates `NegX` at the use site and would double-negate otherwise.
+        assert!(body.abilities.join("").contains("Amount::NegX"));
+    }
+
+    #[test]
+    fn a_refusal_says_which_key_it_choked_on() {
+        // The report is only a worklist if it names the thing to build; a
+        // second table of each rule's keys would rot, so the transcoder
+        // reports what it actually failed to claim.
+        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2");
+        assert_eq!(
+            unclaimed_parameter(&script, &cats()),
+            Some(Some("unclaimed parameter `Draw.UnlessCost`".to_string()))
+        );
+
+        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1");
+        assert_eq!(
+            unclaimed_parameter(&script, &cats()),
+            Some(None),
+            "read in full"
+        );
+
+        // An unknown API is a missing effect, not a missing case in a rule
+        // that exists, and must not be reported as one.
+        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Animate | Defined$ Self");
+        assert_eq!(unclaimed_parameter(&script, &cats()), Some(None));
+
+        // A rule that exists but met a value it cannot say says so.
+        let script = parse(
+            "Name:X\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ 1 | Duration$ Permanent",
+        );
+        assert_eq!(
+            unclaimed_parameter(&script, &cats()),
+            Some(Some("unreadable value in `Pump`".to_string()))
+        );
     }
 
     #[test]

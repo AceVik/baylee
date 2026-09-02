@@ -903,7 +903,9 @@ fn forge_report(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result
             read += 1;
         } else {
             refused += 1;
-            *causes.entry(refusal_cause(&script)).or_insert(0usize) += 1;
+            *causes
+                .entry(refusal_cause(&script, &cats))
+                .or_insert(0usize) += 1;
             if shown < samples {
                 shown += 1;
                 println!("--- refused: {}\n{text}", path.display());
@@ -1075,7 +1077,7 @@ fn collect_scripts(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
 /// This is a heuristic over the script's own text rather than a report from
 /// the transcoder: it names the first thing in the script that no rule
 /// claims, which is what makes the output a worklist.
-fn refusal_cause(script: &forgegen::ForgeScript) -> String {
+fn refusal_cause(script: &forgegen::ForgeScript, cats: &catalog::SubtypeCatalogs) -> String {
     if let Some(line) = script.unknown_lines.first() {
         let head = line.split(':').next().unwrap_or(line);
         return format!("unmodelled line kind `{head}:`");
@@ -1100,5 +1102,10 @@ fn refusal_cause(script: &forgegen::ForgeScript) -> String {
             }
         }
     }
-    "supported effects, unsupported parameters".to_string()
+    // The transcoder knows which key it choked on; asking it beats
+    // guessing, and beats keeping a second copy of every rule's key list.
+    match forgegen::unclaimed_parameter(script, cats) {
+        Some(Some(why)) => why,
+        _ => "supported effects, unsupported parameters".to_string(),
+    }
 }
