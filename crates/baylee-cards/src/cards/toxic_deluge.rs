@@ -23,6 +23,7 @@ card! {
             filter: &Filter::CREATURE,
             power: Amount::NegX,
             toughness: Amount::NegX,
+            keywords: KeywordSet::EMPTY,
             duration: Duration::UntilEndOfTurn,
         }])],
 }

@@ -17,6 +17,7 @@ const FAKE_LATTICE: u32 = 1001;
 const TEST_BEAR: u32 = 1002;
 const PUMP_SPELL: u32 = 1003;
 const STEAL_SPELL: u32 = 1004;
+const KROSA_SPELL: u32 = 1005;
 
 static CREATURE_F: Filter = Filter::HasType(TypeSet::CREATURE);
 static CREATURE_YOU: Filter =
@@ -75,6 +76,7 @@ struct TestLookup {
     test_bear: &'static CardDef,
     pump_spell: &'static CardDef,
     steal_spell: &'static CardDef,
+    krosa_spell: &'static CardDef,
 }
 
 static ANTHEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
@@ -117,6 +119,20 @@ static STEAL_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
 }];
 
+/// Might of Old Krosa's shape: one effect that both pumps and grants a
+/// keyword, bound to the spell's target rather than to a filter.
+static KROSA_EFFECTS: &[Effect] = &[Effect::PumpTarget {
+    power: baylee_cards_dsl::Amount::Fixed(4),
+    toughness: baylee_cards_dsl::Amount::Fixed(4),
+    keywords: KeywordSet::TRAMPLE,
+    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+}];
+
+static KROSA_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
+    effects: KROSA_EFFECTS,
+    targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
+}];
+
 impl TestLookup {
     fn new() -> Self {
         let anthem_lord: &'static CardDef = Box::leak(Box::new(def(
@@ -144,12 +160,18 @@ impl TestLookup {
             face("Steal Spell", "{G}", TypeSet::SORCERY, None),
             STEAL_ABILITIES,
         )));
+        let krosa_spell: &'static CardDef = Box::leak(Box::new(def(
+            KROSA_SPELL,
+            face("Krosa Spell", "{G}", TypeSet::SORCERY, None),
+            KROSA_ABILITIES,
+        )));
         Self {
             anthem_lord,
             fake_lattice,
             test_bear,
             pump_spell,
             steal_spell,
+            krosa_spell,
         }
     }
 }
@@ -162,6 +184,7 @@ impl CardLookup for TestLookup {
             TEST_BEAR => Some(self.test_bear),
             PUMP_SPELL => Some(self.pump_spell),
             STEAL_SPELL => Some(self.steal_spell),
+            KROSA_SPELL => Some(self.krosa_spell),
             _ => baylee_cards::by_index(index),
         }
     }
@@ -550,5 +573,114 @@ fn control_change_lasts_only_as_long_as_the_effect() {
         engine.state().object(bear).unwrap().controller,
         p1,
         "the bear never went home"
+    );
+}
+
+fn keywords_of(engine: &Engine<TestLookup>, id: ObjectId) -> KeywordSet {
+    engine
+        .state()
+        .object(id)
+        .unwrap()
+        .characteristics()
+        .keywords
+}
+
+/// Walks to seat 0's first main, taps everything for mana and casts the
+/// single card in hand at `target`.
+fn cast_at(engine: &mut Engine<TestLookup>, target: ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut guard = 0;
+    while !(matches!(engine.state().turn.phase, Phase::FirstMain)
+        && engine.state().turn.active == p0)
+    {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!()
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        guard += 1;
+        assert!(guard < 20);
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!()
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let spell = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    let Pending::ChooseTargets { .. } = engine.pending().clone() else {
+        panic!("expected targets")
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine
+        .apply(PlayerId::new(1), PlayerAction::PassPriority)
+        .unwrap();
+}
+
+/// `Effect::PumpTarget` binds to what the spell targeted, and carries its
+/// keyword grant with it.
+///
+/// The two halves land in different layers — the keyword in 6, the P/T in
+/// 7c (CR 613.1) — so this is the test that they are nonetheless one
+/// effect from the card's point of view: both arrive together and both
+/// leave together.
+#[test]
+fn a_pump_reaches_its_target_and_brings_its_keyword() {
+    let lookup = TestLookup::new();
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6").get();
+    let mut engine =
+        Engine::new(&preset_bf(11, &[TEST_BEAR, forest], &[KROSA_SPELL]), lookup).unwrap();
+    keep_mulligans(&mut engine);
+    let bear = bear(&engine);
+    assert!(
+        !keywords_of(&engine, bear).contains(KeywordSet::TRAMPLE),
+        "the bear starts without trample"
+    );
+
+    cast_at(&mut engine, bear);
+    assert_eq!(power_toughness(&engine, bear), (6, 6), "pump applied");
+    assert!(
+        keywords_of(&engine, bear).contains(KeywordSet::TRAMPLE),
+        "the same effect granted trample"
+    );
+
+    let turn_before = engine.state().turn.number;
+    let mut guard = 0;
+    while engine.state().turn.number == turn_before {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 100, "turn never ended");
+    }
+    assert_eq!(power_toughness(&engine, bear), (2, 2), "pump expired");
+    assert!(
+        !keywords_of(&engine, bear).contains(KeywordSet::TRAMPLE),
+        "the keyword expired with it, not after it"
     );
 }

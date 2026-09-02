@@ -185,6 +185,27 @@ fn amount(raw: &str, svars: &BTreeMap<String, String>) -> Option<String> {
     Some(format!("Amount::Fixed({n})"))
 }
 
+/// A `NumAtt`/`NumDef` value as an `Amount`.
+///
+/// Separate from [`amount`] because a pump is the one place a *negative*
+/// constant is ordinary, and `Amount::Fixed` holds a `u32` — the sign
+/// lives in the variant, not in the number.
+fn pump_amount(raw: &str, svars: &BTreeMap<String, String>) -> Option<String> {
+    let raw = raw.trim();
+    let n = raw.parse::<i64>().ok().or_else(|| {
+        svars
+            .get(raw.trim_start_matches('+'))?
+            .trim()
+            .parse::<i64>()
+            .ok()
+    })?;
+    Some(if n < 0 {
+        format!("Amount::NegXFixed({})", n.unsigned_abs())
+    } else {
+        format!("Amount::Fixed({n})")
+    })
+}
+
 fn plain_number(raw: &str, svars: &BTreeMap<String, String>) -> Option<i64> {
     let raw = raw.trim().trim_start_matches('+');
     raw.parse::<i64>()
@@ -356,7 +377,7 @@ impl Tx<'_> {
                 };
                 let n = amount(p.take("CounterNum").as_deref().unwrap_or("1"), self.svars)?;
                 // `AddCounter` puts them on the first target, or on the
-                // source when the ability has none  14 which is exactly what
+                // source when the ability has none — which is exactly what
                 // `Defined` means here.
                 match p.take("Defined").as_deref() {
                     None | Some("Self") => {}
@@ -379,6 +400,7 @@ impl Tx<'_> {
                 }
                 vec![format!("Effect::Destroy {{ target: {target} }}")]
             }
+            "Pump" => self.pump_effect(p, target)?,
             "Tap" => vec!["Effect::TapTarget".to_string()],
             "Untap" => vec!["Effect::UntapTarget".to_string()],
             "Counter" => {
@@ -388,6 +410,56 @@ impl Tx<'_> {
                 vec!["Effect::CounterTargetSpell".to_string()]
             }
             _ => return None,
+        })
+    }
+
+    /// `Pump`: `NumAtt$ +2 | NumDef$ +2 | KW$ Trample`, the commonest
+    /// effect in the whole script corpus.
+    ///
+    /// `Defined$ Self` and `Defined$ Targeted` are two different effects
+    /// here, not one with a flag: `PumpFilter` binds `Filter::This` to the
+    /// source, `PumpTarget` to what the spell targeted, and an ability can
+    /// have both a target and a pump on itself.
+    fn pump_effect(&mut self, p: &mut Params, target: &str) -> Option<Vec<String>> {
+        let power = pump_amount(p.take("NumAtt").as_deref().unwrap_or("0"), self.svars)?;
+        let toughness = pump_amount(p.take("NumDef").as_deref().unwrap_or("0"), self.svars)?;
+        let keywords = match p.take("KW") {
+            None => "KeywordSet::EMPTY".to_string(),
+            Some(kw) => {
+                let each: Option<Vec<&str>> =
+                    kw.split('&').map(|k| keyword_const(k.trim())).collect();
+                // A keyword the engine has no bit for is a whole sentence of
+                // rules text ("can't block", "doesn't untap"), not a flag —
+                // refuse rather than drop it.
+                each?.join(".union(") + &")".repeat(kw.split('&').count().saturating_sub(1))
+            }
+        };
+        // Every duration but the default is a lifetime the DSL spells
+        // differently; none of them is "until end of turn" with a longer
+        // name.
+        if p.take("Duration").is_some() {
+            return None;
+        }
+        // Purely an AI targeting hint (don't curse your own team); it moves
+        // no rule, so reading it changes nothing.
+        p.take("IsCurse");
+        Some(match p.take("Defined").as_deref() {
+            Some("Self") => vec![format!(
+                "Effect::PumpFilter {{ filter: &Filter::This, power: {power}, \
+                 toughness: {toughness}, keywords: {keywords}, \
+                 duration: Duration::UntilEndOfTurn }}"
+            )],
+            None | Some("Targeted") => {
+                // Without a target this would pump nothing at all.
+                if target == "TargetSpec::AnyPlayer" {
+                    return None;
+                }
+                vec![format!(
+                    "Effect::PumpTarget {{ power: {power}, toughness: {toughness}, \
+                     keywords: {keywords}, duration: Duration::UntilEndOfTurn }}"
+                )]
+            }
+            Some(_) => return None,
         })
     }
 
@@ -673,6 +745,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Untap",
     "Counter",
     "PutCounter",
+    "Pump",
 ];
 
 /// Whether [`transcode`] has a rule for this effect API.
@@ -816,6 +889,74 @@ mod tests {
 
     /// The load-bearing rule: an unread parameter, an unread effect, an
     /// unread line kind or an unread keyword all refuse the whole card. Each
+    /// Giant Growth: the commonest shape in the whole script corpus.
+    #[test]
+    fn a_pump_binds_to_the_target_and_keeps_its_sign() {
+        let body = read(
+            "Name:Giant Growth\nManaCost:G\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +3 | NumDef$ +3 | \
+             SpellDescription$ gets +3/+3.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("Effect::PumpTarget"), "{text}");
+        assert!(text.contains("power: Amount::Fixed(3)"), "{text}");
+        assert!(text.contains("keywords: KeywordSet::EMPTY"), "{text}");
+
+        // A shrink is the same effect with the sign in the variant,
+        // because `Amount::Fixed` cannot hold one.
+        let body = read(
+            "Name:Weakness\nManaCost:B\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -2 | NumDef$ -1\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("power: Amount::NegXFixed(2)"), "{text}");
+        assert!(text.contains("toughness: Amount::NegXFixed(1)"), "{text}");
+    }
+
+    /// `Defined$ Self` is the source, not the target, even inside an
+    /// ability that has one.
+    #[test]
+    fn a_pump_on_itself_is_not_a_pump_on_the_target() {
+        let body = read(
+            "Name:X\nManaCost:R\nTypes:Creature Goblin\nPT:1/1\n\
+             A:AB$ Pump | Cost$ R | Defined$ Self | NumAtt$ +1 | NumDef$ +0\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("Effect::PumpFilter"), "{text}");
+        assert!(text.contains("filter: &Filter::This"), "{text}");
+    }
+
+    /// A pump that grants keywords carries them in the same effect — and
+    /// a "keyword" that is really a sentence refuses the card.
+    #[test]
+    fn a_pump_carries_only_keywords_the_engine_has_a_bit_for() {
+        let body = read(
+            "Name:X\nManaCost:G\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | \
+             KW$ Trample & Haste\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("KeywordSet::TRAMPLE.union(KeywordSet::HASTE)"),
+            "{text}"
+        );
+
+        assert!(refused(
+            "Name:X\nManaCost:G\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +0 | NumDef$ +0 | \
+             KW$ HIDDEN CARDNAME can't block."
+        ));
+        // Any duration but the default is a different lifetime.
+        assert!(refused(
+            "Name:X\nManaCost:G\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1 | Duration$ Permanent"
+        ));
+        // A pump with no target pumps nothing.
+        assert!(refused(
+            "Name:X\nManaCost:G\nTypes:Instant\nA:SP$ Pump | NumAtt$ +1 | NumDef$ +1"
+        ));
+    }
+
     /// of these would otherwise generate a card missing half its rules.
     #[test]
     fn anything_unread_refuses_the_whole_card() {

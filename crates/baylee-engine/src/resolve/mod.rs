@@ -1050,7 +1050,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::AddCounterFilter { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
-        | Effect::PumpFilter { .. } => counters::exec(state, res, op),
+        | Effect::PumpFilter { .. }
+        | Effect::PumpTarget { .. } => counters::exec(state, res, op),
         Effect::CreateTokenForTargetController { .. }
         | Effect::Amass { .. }
         | Effect::CreateTokenCopyOf { .. }

@@ -50,6 +50,7 @@ card! {
                 filter: &ALLIES_YOU_CONTROL,
                 power: Amount::DistinctColorsAmong(&ALLIES_YOU_CONTROL),
                 toughness: Amount::DistinctColorsAmong(&ALLIES_YOU_CONTROL),
+                keywords: KeywordSet::EMPTY,
                 duration: Duration::UntilEndOfTurn,
             }]),
     ],

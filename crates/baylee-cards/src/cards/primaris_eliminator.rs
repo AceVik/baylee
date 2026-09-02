@@ -16,6 +16,7 @@ static DEBUFF_EFFECTS: &[Effect] = &[Effect::PumpFilter {
     filter: &Filter::CREATURE,
     power: Amount::NegXFixed(2),
     toughness: Amount::NegXFixed(2),
+    keywords: KeywordSet::EMPTY,
     duration: Duration::UntilEndOfTurn,
 }];
 

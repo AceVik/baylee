@@ -864,8 +864,12 @@ pub enum Effect {
         /// Who may search.
         player: PlayerRel,
     },
-    /// All objects matching a filter get computed P/T modifiers until a
-    /// duration ends (Toxic Deluge: `-X/-X` on all creatures).
+    /// All objects matching a filter get computed P/T modifiers, and
+    /// optionally keywords, until a duration ends (Toxic Deluge: `-X/-X`
+    /// on all creatures; Overrun: `+3/+3` and trample on your team).
+    ///
+    /// `Filter::This` here means the *source*, as it does in every other
+    /// filter position — see [`Effect::PumpTarget`] for the targeted case.
     PumpFilter {
         /// Which objects are pumped.
         filter: &'static Filter,
@@ -873,6 +877,30 @@ pub enum Effect {
         power: Amount,
         /// Toughness modifier (may be negative/X-driven).
         toughness: Amount,
+        /// Keywords granted for the same duration ([`KeywordSet::EMPTY`]
+        /// for a plain pump).
+        keywords: KeywordSet,
+        /// How long.
+        duration: crate::static_ability::Duration,
+    },
+    /// The spell's or ability's targets get P/T modifiers, and optionally
+    /// keywords, until a duration ends (Giant Growth, Titanic Growth,
+    /// Brute Force; with keywords, Might of Old Krosa or Rush of Blood).
+    ///
+    /// Distinct from [`Effect::PumpFilter`] because "the target" is not a
+    /// characteristic and no `Filter` can name it. It applies to *every*
+    /// target, so a spell with `TargetReq` for two creatures pumps both,
+    /// and it takes [`Amount`]s, so `+X/+X` is expressible where
+    /// [`Effect::CreateContinuousEffect`]'s fixed [`crate::Modifier`] is
+    /// not.
+    PumpTarget {
+        /// Power modifier (may be negative/X-driven).
+        power: Amount,
+        /// Toughness modifier (may be negative/X-driven).
+        toughness: Amount,
+        /// Keywords granted for the same duration ([`KeywordSet::EMPTY`]
+        /// for a plain pump).
+        keywords: KeywordSet,
         /// How long.
         duration: crate::static_ability::Duration,
     },

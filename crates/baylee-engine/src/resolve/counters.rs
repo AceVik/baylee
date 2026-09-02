@@ -131,6 +131,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             filter,
             power,
             toughness,
+            keywords,
             duration,
         } => {
             let signed = |a: &Amount| -> i16 {
@@ -143,19 +144,88 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             };
             let p = signed(&power);
             let t = signed(&toughness);
-            let ts = state.next_timestamp();
-            state.effects.register(crate::effects::ContinuousEffect {
-                id: baylee_core::ids::EffectId::new(0),
-                source: Some(res.source),
-                controller: you,
-                layer: baylee_cards_dsl::Layer::PtModify,
-                timestamp: ts,
+            pump(
+                state,
+                res,
+                you,
+                crate::effects::EffectFilter::Dsl(filter),
+                (p, t),
+                keywords,
                 duration,
-                filter: crate::effects::EffectFilter::Dsl(filter),
-                modifier: baylee_cards_dsl::Modifier::ModifyPT(p, t),
-            });
+            );
+            None
+        }
+        Effect::PumpTarget {
+            power,
+            toughness,
+            keywords,
+            duration,
+        } => {
+            let signed = |a: &Amount| -> i16 {
+                let v = amount2(a, state, you, res.source, res.x, &res.targets) as i16;
+                if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
+                    -v
+                } else {
+                    v
+                }
+            };
+            let p = signed(&power);
+            let t = signed(&toughness);
+            // Every target, not just the first: a spell that pumps two
+            // creatures is one effect per creature, because an
+            // `EffectFilter` names exactly one object.
+            for target in res.targets.clone() {
+                pump(
+                    state,
+                    res,
+                    you,
+                    crate::effects::EffectFilter::ObjectIs(target),
+                    (p, t),
+                    keywords,
+                    duration,
+                );
+            }
             None
         }
         _ => unreachable!("not a counter/P-T effect"),
+    }
+}
+
+/// Registers one pump: a P/T modifier, and a keyword grant beside it when
+/// the effect carries keywords.
+///
+/// The two are separate `ContinuousEffect`s because they sit in different
+/// layers — keywords in layer 6, P/T in 7c (CR 613.1) — and a `Modifier`
+/// carries one change. They share a timestamp so nothing can order itself
+/// between the halves of a single pump.
+fn pump(
+    state: &mut GameState,
+    res: &Resolution,
+    you: baylee_core::ids::PlayerId,
+    filter: crate::effects::EffectFilter,
+    pt: (i16, i16),
+    keywords: baylee_cards_dsl::KeywordSet,
+    duration: baylee_cards_dsl::Duration,
+) {
+    let timestamp = state.next_timestamp();
+    let mut fx = crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: Some(res.source),
+        controller: you,
+        layer: baylee_cards_dsl::Layer::PtModify,
+        timestamp,
+        duration,
+        filter,
+        modifier: baylee_cards_dsl::Modifier::ModifyPT(pt.0, pt.1),
+    };
+    // A pump of +0/+0 with keywords is Rush of Blood's shape, not a bug:
+    // register the P/T half only when it moves something.
+    if pt != (0, 0) {
+        state.effects.register(fx.clone());
+    }
+    if !keywords.is_empty() {
+        fx.layer = baylee_cards_dsl::Layer::Ability;
+        fx.modifier = baylee_cards_dsl::Modifier::AddKeyword(keywords);
+        state.effects.register(fx);
     }
 }

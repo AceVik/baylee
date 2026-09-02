@@ -211,10 +211,25 @@ backwards would be worse than generating nothing: the deckbuilder offers
 
 `cargo run -p xtask -- forge-report` says how far the transcoder reaches and
 ranks what the refused scripts need next. The ceiling is **our** DSL, not
-Forge's: `Pump` blocks ~2300 scripts because `baylee-cards-dsl` has no "target
-creature gets +N/+N until end of turn" effect at all, so Giant Growth is
-inexpressible before it is untranscodable. Extend the DSL and the transcoder
-converts the gain into thousands of cards at once.
+Forge's — extend the DSL and the transcoder converts the gain into hundreds of
+cards at once, which is what `Pump` did: it was the top blocker at ~2300
+scripts, and `Effect::PumpTarget` moved the transcoder from 1886 to 2545
+scripts read in full.
+
+That entry is also the cautionary tale about reading the report as a list of
+missing *subsystems*. `Pump` did not need a new one: `PumpFilter`,
+`EffectFilter::ObjectIs` and the `Layer::PtModify` machinery were all already
+there, and `CreateContinuousEffect { filter: &Filter::This }` had bound to the
+first target since M2. What was missing was one variant that says "the
+target" without overloading a `Filter` to mean it, takes `Amount`s so `+X/+X`
+is expressible, and carries `KW$` in the same effect. Read a blocker by
+finding what the DSL cannot *say*, not by assuming the mechanism is absent.
+
+The current top entry, "supported effects, unsupported parameters" (~4200), is
+the honest-stub rule itself showing its cost: those scripts use APIs the
+transcoder knows, and are refused over one unclaimed key each. It is the
+cheapest remaining ground, and every key claimed there has to be claimed by a
+*rule*, never by adding it to `PROSE_KEYS` to make the number move.
 
 A generated card is hand-owned from then on: `codegen` only writes files that
 are missing or still carry the `// GENERATED STUB` marker.
