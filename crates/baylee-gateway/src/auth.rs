@@ -222,7 +222,12 @@ pub fn valid_password(email: &str, display_name: &str, password: &str) -> bool {
         "monkey123",
         "abc12345",
     ];
-    if !(10..=256).contains(&password.len()) {
+    // Eight, which is what NIST SP 800-63B asks for, rather than the ten this
+    // started at. The bound that matters is the upper one (a hash is not a
+    // place to put a megabyte) and the checks below it; a longer minimum buys
+    // very little against an offline attack on an Argon2id hash and costs a
+    // real player a rejected password on a game account.
+    if !(8..=256).contains(&password.len()) {
         return false;
     }
     let local = email.split('@').next().unwrap_or("");
@@ -271,6 +276,9 @@ mod tests {
     fn password_rules() {
         assert!(valid_password("a@b.co", "alice", "a-very-fine-password"));
         assert!(!valid_password("a@b.co", "alice", "short"));
+        // Eight is the floor, and seven is under it.
+        assert!(valid_password("a@b.co", "alice", "8charact"));
+        assert!(!valid_password("a@b.co", "alice", "7chars!"));
         assert!(!valid_password("alice@b.co", "alice", "Alice"));
         assert!(!valid_password("a@b.co", "alice", "alice"));
         assert!(!valid_password("a@b.co", "alice", "password"));
