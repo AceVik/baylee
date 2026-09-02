@@ -52,12 +52,20 @@ Running things:
 
 ```bash
 cargo run -p baylee-client                               # Bevy duel client, solo vs AI
+BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control   # drivable while unfocused
 trunk serve index.html --release                         # from crates/baylee-client/ — browser client on :8080
 BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) ./target/debug/baylee-gateway   # accounts/decks/lobby/proxy, 0.0.0.0:28766
 BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent                  # starts one engine per game
 ./target/debug/baylee-engine-server                      # dev harness only, 127.0.0.1:28765
 cargo bench -p baylee-engine -- --quick                  # numbers to compare against docs/perf-baseline.md
 ```
+
+`dev-control` opens a loopback HTTP harness (`/health`, `/state`, `/key`,
+`/pointer`, `/screenshot`) that drives and photographs the client while its
+window is in the background — a compile-time feature, because a remote-control
+socket in a shipped game binary is a cheat vector. `docs/client.md` §"Driving
+the client without its window" has the protocol and the reason a click takes
+three frames.
 
 Always build the browser client `--release` (a dev-profile wasm is ~350 MB vs
 ~36 MB). Servers are quiet without `RUST_LOG=info` — the tracing subscriber

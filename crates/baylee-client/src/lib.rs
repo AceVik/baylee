@@ -39,6 +39,10 @@ pub mod abilities;
 pub mod buildui;
 pub mod cardmat;
 pub mod cardtext;
+/// The dev-control harness. Native dev builds only; see the module docs for
+/// why it is a compile-time feature rather than a runtime switch.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+pub mod devctl;
 pub mod face;
 pub mod host;
 pub mod hud;

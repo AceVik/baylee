@@ -729,6 +729,58 @@ arithmetic it has no way to test.
 The duel's own overlay is still written in fixed pixels and has not had this
 pass yet.
 
+## Driving the client without its window
+
+`crates/baylee-client/src/devctl.rs` is a loopback HTTP harness that presses
+keys, moves and clicks the pointer, dumps what the client believes, and saves a
+screenshot — all while the window sits behind everything else on the desktop.
+It exists because the alternative is bringing a window to the front, pressing a
+key by hand and looking at it, which is neither repeatable nor available to
+anything automated.
+
+```bash
+BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control
+curl -s localhost:28770/health        # {"ok":true,"frame":1183,"width":1728,"height":1052,"scale":2}
+curl -s localhost:28770/state         # the view, the pending choice, the interaction
+curl -s -XPOST localhost:28770/pointer   -d '{"x":864,"y":655,"press":true}'
+curl -s -XPOST localhost:28770/key       -d '{"name":"Space","shift":false}'
+curl -s -XPOST localhost:28770/screenshot -d '{"path":"/tmp/table.png"}'
+```
+
+Four things about it are load-bearing.
+
+**It is a compile-time feature, not a runtime switch.** A remote-control socket
+inside a game binary is a cheat vector, and the only guarantee worth having is
+that the code is absent from the shipped build. `BAYLEE_DEV_CONTROL` being
+unset is the second lock and loopback the third, never the first.
+
+**Keys are written into `ButtonInput<KeyCode>`, not synthesised as OS events.**
+That is both simpler and *more* faithful: `keys.rs` reads exactly that
+resource, so an injected press travels through the account's `Keymap` like any
+other — and focus stops mattering, which is the whole point.
+
+**A click is three frames, and this is where the first version was wrong.**
+Bevy's picking backend does not read `ButtonInput` at all: it reads
+`WindowEvent` messages, keeps the last cursor location in a `Local`, and only
+turns a press into a `Pointer<Click>` once a press and a release have landed on
+the same hovered entity. Setting `Window::cursor_position` and pressing the
+resource in one frame therefore answered `{"ok":true}` while nothing whatsoever
+was clicked — the screenshot after the click was byte-identical to the one
+before it. `/pointer` now writes a `CursorMoved` on the frame it arrives, the
+press on the next and the release on the one after, mirrored into `WindowEvent`
+exactly as `bevy_winit` does, and answers the caller only once the release is
+out. `devctl::tests::a_click_is_a_move_then_a_press_then_a_release` is that
+sequence as a test.
+
+**Coordinates are logical pixels, screenshots are physical.** `/health` reports
+`width`, `height` and `scale` so the ratio between the two is read rather than
+guessed; on a Retina display a guess is wrong by a factor of two.
+
+`/state` is deliberately the *client's* answer and not the engine's — the view
+it last received, beside the interaction state it built from it. A disagreement
+between the two is exactly the class of bug the endpoint exists to show, and
+one a screenshot cannot report.
+
 ## Verification
 
 - `cargo test -p baylee-client --test duel_flow` plays real games headlessly

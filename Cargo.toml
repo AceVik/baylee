@@ -55,6 +55,10 @@ parking_lot = "0.12"
 axum = { version = "0.8", features = ["ws"] }
 argon2 = "0.5"
 getrandom = "0.3"
+# PNG encoding for the dev-control screenshot endpoint (`dev-control`
+# feature, never in a release build). Pinned to the version bevy already
+# resolves, so it adds no second copy of the crate.
+image = { version = "0.25", default-features = false, features = ["png"] }
 # Browser bindings for the client's localStorage settings. Version pinned to
 # the one bevy already resolves for wasm, so this adds no second copy.
 web-sys = "0.3"

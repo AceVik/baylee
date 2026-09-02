@@ -614,6 +614,7 @@ dependencies = [
  "ewebsock",
  "futures-util",
  "getrandom 0.3.4",
+ "image",
  "naga",
  "prost",
  "send_wrapper",
