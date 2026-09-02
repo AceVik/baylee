@@ -105,6 +105,29 @@ at, and because a table with nothing between the seat mats reads as an
 infinite green plane however good the grain is. The pool is candlelight and
 the inlay is gilt; a test asserts neither ever goes cold, since a blue light
 over a green table makes colour identity a guess.
+**The pool says which step it is.** The rim already answers *whose* turn it
+is; where in the turn we are was only ever readable off the rail, in text, at
+the far edge of the screen. `tabletop::phase_light` gives each of the twelve
+steps a lamp — cool and low through the beginning steps, the pool's own
+candlelight through a main phase, an ember rising into combat that peaks at
+damage, dusk at the end — and `table::sync_phase` eases the middle of the
+table towards it. Combat is the case it is for: a board going warm as
+attackers are declared says "something is about to happen to you" faster than
+a highlighted row.
+
+Three things keep it from becoming noise, and all three are the kind of
+mistake that is obvious only afterwards. It is a **wash**, blended over the
+pool, not a multiplier into it — multiplying candlelight by a cold colour
+gives grey, which is how a tint like this normally fails. It leaves the
+**medallion alone**: that is the colour wheel, the one thing on the table
+that has to stay literally true, and a red cast over it would be lying about
+colour identity. And it is sized against the *ring*, not against the pool's
+quad — the first version was 42 units wide at alpha 0.34 and read as "the
+table is red" rather than as a lamp over the middle of it. The colours
+themselves are argued with in `tabletop`'s tests (combat peaks at damage, a
+main phase barely washes at all, no step is a saturated filter) rather than
+looked at in a screenshot.
+
 Everything down here is `unlit`, and stays that way: card art must never be
 tinted by scene lighting, because colour identity has to be readable at a
 glance. The table gets its depth from shading painted into the textures

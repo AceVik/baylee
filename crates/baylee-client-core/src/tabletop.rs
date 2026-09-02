@@ -478,6 +478,101 @@ pub fn hearth(size: u32, inner: f32, outer: f32) -> Texture {
     texture
 }
 
+// ------------------------------------------------------------- phase light
+
+/// The colour the middle of the table takes during one step of a turn.
+///
+/// The table already answers *whose* turn it is, on the felt, through
+/// [`seat_mat`]'s rim; this answers *where in the turn we are* — a thing a
+/// player currently has to read off the rail, in text, at the edge of the
+/// screen. Combat is the case that matters: a board that goes cold-hot as
+/// attackers are declared says "something is about to happen to you" faster
+/// than a highlighted row ever does.
+///
+/// Three rules keep it from becoming noise. It washes the **light pool**
+/// only, never the felt (too much of the screen) and never the medallion —
+/// that is the colour wheel, and a wheel with a red cast over it would be
+/// lying about colour identity, which is the one thing on the table that has
+/// to stay literally true. It is desaturated: these are lamps, not filters.
+/// And it is a *wash*, blended over what is already there, not a multiplier —
+/// multiplying candlelight by a blue gives grey, which is how a tint like
+/// this usually fails.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct PhaseLight {
+    /// The wash's colour, display-referred.
+    pub rgb: [f32; 3],
+    /// How much of it there is, 0.0 (nothing) to 1.0 (as strong as the
+    /// wash ever gets).
+    pub energy: f32,
+}
+
+/// What the light does in a given step.
+///
+/// The arc over a turn is deliberate rather than twelve unrelated colours: a
+/// cool quiet beginning, neutral through the main phase (where the pool is
+/// simply the lamplight it was generated as), a rise into combat that peaks
+/// at damage, and a violet settling at the end. A player who has played two
+/// turns knows where they are without reading a word.
+#[must_use]
+pub fn phase_light(step: baylee_view::Step) -> PhaseLight {
+    use baylee_view::Step;
+    /// Dawn: cool and low, for the steps nobody acts in.
+    const COOL: [f32; 3] = [0.42, 0.58, 0.86];
+    /// The lamp the pool is already generated as — a wash of it changes
+    /// nothing, which is the point during a main phase.
+    const CANDLE: [f32; 3] = [1.0, 0.86, 0.62];
+    /// Combat: iron heating, not a fire alarm.
+    const EMBER: [f32; 3] = [0.90, 0.34, 0.22];
+    /// Dusk, for the end of a turn.
+    const DUSK: [f32; 3] = [0.52, 0.40, 0.72];
+    match step {
+        Step::Untap => PhaseLight {
+            rgb: COOL,
+            energy: 0.30,
+        },
+        Step::Upkeep => PhaseLight {
+            rgb: COOL,
+            energy: 0.42,
+        },
+        Step::Draw => PhaseLight {
+            rgb: COOL,
+            energy: 0.34,
+        },
+        Step::Main => PhaseLight {
+            rgb: CANDLE,
+            energy: 0.16,
+        },
+        Step::CombatBegin => PhaseLight {
+            rgb: EMBER,
+            energy: 0.34,
+        },
+        Step::DeclareAttackers => PhaseLight {
+            rgb: EMBER,
+            energy: 0.62,
+        },
+        Step::DeclareBlockers => PhaseLight {
+            rgb: EMBER,
+            energy: 0.74,
+        },
+        Step::CombatDamageFirst | Step::CombatDamage => PhaseLight {
+            rgb: EMBER,
+            energy: 1.0,
+        },
+        Step::CombatEnd => PhaseLight {
+            rgb: EMBER,
+            energy: 0.40,
+        },
+        Step::End => PhaseLight {
+            rgb: DUSK,
+            energy: 0.36,
+        },
+        Step::Cleanup => PhaseLight {
+            rgb: DUSK,
+            energy: 0.22,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -763,5 +858,88 @@ mod tests {
             assert!(px[0] < 1e-6 && px[1] < 1e-6 && px[2] < 1e-6);
             assert!(px[3] <= 0.56, "dense enough to read as a hole in the table");
         }
+    }
+
+    /// Combat is the loudest thing the table says, and damage is its peak.
+    /// A rise that did not peak there would be decoration rather than a
+    /// warning.
+    #[test]
+    fn the_light_rises_into_combat_and_peaks_at_damage() {
+        use baylee_view::Step;
+        let energy = |step| phase_light(step).energy;
+        assert!(energy(Step::Main) < energy(Step::CombatBegin));
+        assert!(energy(Step::CombatBegin) < energy(Step::DeclareAttackers));
+        assert!(energy(Step::DeclareAttackers) < energy(Step::DeclareBlockers));
+        assert!(energy(Step::DeclareBlockers) < energy(Step::CombatDamage));
+        assert!(
+            (energy(Step::CombatDamage) - 1.0).abs() < f32::EPSILON,
+            "damage is the top of the scale, so nothing above it is wasted"
+        );
+        assert!(energy(Step::CombatEnd) < energy(Step::DeclareAttackers));
+    }
+
+    /// A main phase is where a player reads their own board, so the table
+    /// stays the colour it was generated as and gets out of the way. The
+    /// wash is not switched off — that would make the main phase a visible
+    /// gap in the arc — but it is the lamp's own colour and nearly nothing.
+    #[test]
+    fn a_main_phase_barely_washes_at_all() {
+        let main = phase_light(baylee_view::Step::Main);
+        assert!(main.energy < 0.2, "not {}", main.energy);
+        assert!(
+            main.rgb[0] > main.rgb[2],
+            "still lamplight, not a colour laid over it"
+        );
+    }
+
+    /// Every step has a light and none of them is out of range. The match is
+    /// exhaustive by construction; this is about the numbers in it, which are
+    /// hand-written and easy to fat-finger.
+    #[test]
+    fn every_step_is_lit_and_in_range() {
+        use baylee_view::Step;
+        for step in [
+            Step::Untap,
+            Step::Upkeep,
+            Step::Draw,
+            Step::Main,
+            Step::CombatBegin,
+            Step::DeclareAttackers,
+            Step::DeclareBlockers,
+            Step::CombatDamageFirst,
+            Step::CombatDamage,
+            Step::CombatEnd,
+            Step::End,
+            Step::Cleanup,
+        ] {
+            let light = phase_light(step);
+            assert!(
+                (0.0..=1.0).contains(&light.energy),
+                "{step:?} has energy {}",
+                light.energy
+            );
+            for channel in light.rgb {
+                assert!((0.0..=1.0).contains(&channel), "{step:?} is out of gamut");
+            }
+            // Desaturated on purpose: these are lamps over a table, and a
+            // fully saturated wash over card art makes colour identity harder
+            // to read, which is the one thing the table must not do.
+            let low = light.rgb.iter().copied().fold(f32::MAX, f32::min);
+            let high = light.rgb.iter().copied().fold(0.0_f32, f32::max);
+            assert!(
+                high - low < 0.8,
+                "{step:?} is a filter, not a lamp: {:?}",
+                light.rgb
+            );
+        }
+    }
+
+    /// The beginning and the end of a turn must not read as the same moment.
+    #[test]
+    fn the_turn_does_not_start_and_finish_in_one_colour() {
+        let dawn = phase_light(baylee_view::Step::Upkeep).rgb;
+        let dusk = phase_light(baylee_view::Step::End).rgb;
+        let apart: f32 = (0..3).map(|i| (dawn[i] - dusk[i]).abs()).sum();
+        assert!(apart > 0.3, "{dawn:?} and {dusk:?} are the same lamp");
     }
 }

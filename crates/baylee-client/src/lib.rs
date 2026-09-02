@@ -311,6 +311,7 @@ impl Plugin for DuelPlugin {
                 (
                     table::sync_scene,
                     table::sync_zones,
+                    table::sync_phase,
                     table::glide,
                     table::apply_camera_rig,
                     hud::sync_overlay,
