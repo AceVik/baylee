@@ -163,7 +163,7 @@ fn look_around(
         }
     }
     if fired.has(Action::ToggleOverlay) {
-        duel.overlay_closed = !duel.overlay_closed;
+        duel.overlay_open = !duel.overlay_open;
     }
     if fired.has(Action::ToggleTextView) {
         // The modifier key shows the card face while held; this is the latch,
@@ -513,7 +513,7 @@ pub fn pointer(
             continue;
         }
         if find_in_lineage(e, &knobs, &parents).is_some() {
-            duel.overlay_closed = !duel.overlay_closed;
+            duel.overlay_open = !duel.overlay_open;
             continue;
         }
         if let Some(button) = find_in_lineage(e, &menu_buttons, &parents) {
@@ -640,7 +640,7 @@ pub fn camera_controls(
 ) {
     // The canvas is not navigable while the own-board battlefield covers
     // it (the "battlefield bar" is in front).
-    if !duel.overlay_closed {
+    if duel.overlay_open {
         return;
     }
     let meta = keys.pressed(KeyCode::SuperLeft)

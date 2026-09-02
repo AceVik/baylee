@@ -371,7 +371,20 @@ viewing seat, the pie in ring order for the rest — and its brightness
 carrying `Mood { local, Standing }`, so "whose turn" and "who is everyone
 waiting for" are answered on the felt. Everything down there is `unlit`
 deliberately: scene lighting on card art would make colour identity
-unreadable.
+unreadable. The stage therefore has no light in it at all, and the camera
+carries `Tonemapping::None` so a future Bevy default cannot quietly treat
+display values as radiance.
+
+The table nonetheless shipped as a black screen with two gold rings in it,
+and the cause was none of that: `OwnBoardOverlay` is an opaque
+`palette::PANEL` (88% black) the width of the canvas, and it **defaulted to
+open**, so the felt, the mats, the cards and every animation were behind it
+from the first frame. `Duel::overlay_open` is opt-in now. The felt was also
+authored about four times too dark, which a one-sided "dark enough"
+assertion let through; that bound goes both ways now. `docs/client.md`
+§"The table itself" has the measurement that found it — a red clear colour
+renders `(234, 51, 35)` in stock Bevy and `(62, 19, 21)` here, and a clear
+colour touches no material, texture or shader.
 
 The card quad has four mesh tests because it shipped once as a bowtie — every
 corner arc swept its neighbour's quarter turn, the outline folded through the

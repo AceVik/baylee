@@ -32,7 +32,7 @@ use baylee_core::color::ColorSet;
 use baylee_core::ids::ObjectId;
 use baylee_core::ids::PlayerId;
 use bevy::asset::RenderAssetUsages;
-use bevy::light::NotShadowCaster;
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
@@ -573,22 +573,22 @@ pub fn spawn_stage(
             fov: 0.7,
             ..default()
         }),
+        // No tone mapping. Bevy attaches none to a camera by default, so
+        // this is belt and braces rather than a fix — but it is the right
+        // thing to say out loud: everything in this scene is unlit and
+        // display-referred (a generated texture says what the table should
+        // *look* like, and a card's art is the same PNG the hand draws
+        // unaltered through the UI pass), so a tone mapper reading those
+        // numbers as radiance would be wrong. Naming it here stops a future
+        // default from quietly doing that.
+        Tonemapping::None,
     ));
 
-    commands.spawn((
-        DuelStage,
-        DirectionalLight {
-            illuminance: 6_000.0,
-            shadow_maps_enabled: false,
-            ..default()
-        },
-        Transform::from_xyz(0.0, 20.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-
-    // Everything below is unlit, and stays unlit: card art must never be
-    // tinted by scene lighting, because a player has to be able to read a
-    // card's colour identity at a glance. The table gets its depth from
-    // painted-in shading instead — which is what `tabletop` generates.
+    // Nothing below is lit, and nothing above it is either: card art must
+    // never be tinted by scene lighting, because a player has to be able to
+    // read a card's colour identity at a glance. The table gets its depth
+    // from painted-in shading instead — which is what `tabletop` generates,
+    // and why this stage has no light in it at all.
     index.mat_image = Some(images.add(image_of(&tabletop::seat_mat(512, 256, 0.06, 0.018))));
     index.glow_image = Some(images.add(image_of(&tabletop::glow(128))));
 
@@ -603,7 +603,6 @@ pub fn spawn_stage(
         })),
         Transform::from_xyz(0.0, TABLE_Y, 0.0)
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        NotShadowCaster,
     ));
 
     // The pool of lamplight over the middle of the table, with the arcane
@@ -621,7 +620,6 @@ pub fn spawn_stage(
         })),
         Transform::from_xyz(0.0, TABLE_Y + HEARTH_LIFT, 0.0)
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        NotShadowCaster,
     ));
 
     // The medallion inlaid at the centre — the colour wheel every player
@@ -639,7 +637,6 @@ pub fn spawn_stage(
         })),
         Transform::from_xyz(0.0, TABLE_Y + MEDALLION_LIFT, 0.0)
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        NotShadowCaster,
     ));
 }
 
@@ -766,7 +763,6 @@ pub fn sync_zones(
                     rotation: flat,
                     scale: Vec3::ONE,
                 },
-                NotShadowCaster,
             ))
             .id();
         let glow = commands
@@ -788,7 +784,6 @@ pub fn sync_zones(
                     rotation: flat,
                     scale: Vec3::ONE,
                 },
-                NotShadowCaster,
             ))
             .id();
         index.zones.insert(pod.player, Zone { mat, glow, mood });
@@ -1031,7 +1026,6 @@ pub fn sync_scene(
                     // the target on the very first frame.
                     entrance(&transform),
                     Motion { target: transform },
-                    NotShadowCaster,
                 ))
                 .id();
             index.cards.insert(placement.object, entity);
@@ -1047,7 +1041,6 @@ pub fn sync_scene(
                     MeshMaterial3d(material),
                     Transform::from_xyz(0.0, 0.0, -CARD_LIFT * 0.5),
                     Pickable::IGNORE,
-                    NotShadowCaster,
                 ));
             }
 
@@ -1067,7 +1060,6 @@ pub fn sync_scene(
                     Mesh3d(quad.clone()),
                     MeshMaterial3d(blank.clone().unwrap_or_default()),
                     back,
-                    NotShadowCaster,
                 ));
             }
             entity

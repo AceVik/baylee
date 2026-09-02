@@ -108,7 +108,34 @@ over a green table makes colour identity a guess.
 Everything down here is `unlit`, and stays that way: card art must never be
 tinted by scene lighting, because colour identity has to be readable at a
 glance. The table gets its depth from shading painted into the textures
-instead.
+instead — so the stage has no light in it at all, and the camera carries
+`Tonemapping::None`.
+
+`Tonemapping::None` is belt and braces — Bevy attaches no tone mapper to a
+camera by default — but it is worth saying: in an unlit scene every number
+already *is* a display value, so a tone mapper reading them as radiance
+would be wrong, and a future default doing it quietly would be very hard to
+see.
+
+Which is the lesson from how this table actually shipped. For a long time it
+rendered as a black screen with two faint gold rings floating in it, and
+every explanation offered for that was about colour: the felt is too dark,
+the textures are being tone mapped, the sRGB is being decoded twice. All of
+them were wrong. **The own-board overlay is an opaque panel the width of the
+canvas, and it defaulted to open** — `palette::PANEL` is `srgba(0.05, 0.06,
+0.08, 0.88)`, so the entire table, its mats, its cards and every animation
+on them were behind a sheet of 88% black from the first frame. What finally
+found it was measuring instead of reasoning: a red clear colour renders at
+`(234, 51, 35)` in a stock Bevy app and at `(62, 19, 21)` in ours, and a
+clear colour never touches a material, a texture or a shader. The overlay is
+opt-in now (`Duel::overlay_open`, default false), which is also why the
+canvas is navigable by default — `input::camera_controls` refuses to run
+while the overlay covers the table.
+
+The felt was too dark as well, and that was real: it was authored at about a
+quarter of the brightness it needed, and
+`the_felt_is_dark_enough_to_read_cards_against` passed every run because it
+only ever bounded the bright end. It bounds both now.
 
 ## Eight seats
 

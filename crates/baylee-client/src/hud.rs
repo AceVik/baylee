@@ -271,7 +271,7 @@ pub struct HudRevision {
     autopilot: Option<AutoPilot>,
     focus: Option<PlayerId>,
     /// The own-board overlay's open/closed state (knob arrow).
-    overlay_closed: bool,
+    overlay_open: bool,
     /// Preview size (resized via handle or shortcut).
     preview_scale: f32,
     /// Whether cards are drawing their constructed face. Held on a key, so
@@ -564,7 +564,7 @@ pub fn sync_overlay(
     });
     let ability_menu = duel.ability_menu;
     let focus = duel.focus;
-    let overlay_closed = duel.overlay_closed;
+    let overlay_open = duel.overlay_open;
     let preview_scale = settings.preview_scale;
 
     if revision.seq == seq
@@ -574,7 +574,7 @@ pub fn sync_overlay(
         && revision.orders.as_ref().is_some_and(|o| o.same_as(&orders))
         && revision.autopilot == autopilot
         && revision.focus == focus
-        && revision.overlay_closed == overlay_closed
+        && revision.overlay_open == overlay_open
         && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
         && revision.faces == faces.always()
         && revision.texts == texts.len()
@@ -591,7 +591,7 @@ pub fn sync_overlay(
     revision.orders = Some(orders.clone());
     revision.autopilot = autopilot;
     revision.focus = focus;
-    revision.overlay_closed = overlay_closed;
+    revision.overlay_open = overlay_open;
     revision.preview_scale = preview_scale;
     revision.faces = faces.always();
     revision.texts = texts.len();
@@ -1025,7 +1025,7 @@ pub fn sync_overlay(
             statics,
             hovered,
             &selected,
-            duel.overlay_closed,
+            duel.overlay_open,
             duel.overlay_t,
             window_h,
             &mut textures,
@@ -1827,7 +1827,7 @@ fn spawn_own_board_overlay(
     statics: &GameStatic,
     hovered: Option<ObjectId>,
     selected: &[ObjectId],
-    closed: bool,
+    open: bool,
     overlay_t: f32,
     window_h: f32,
     textures: &mut CardTextures,
@@ -1840,7 +1840,7 @@ fn spawn_own_board_overlay(
     // correcting next frame is the battlefield's flicker.
     let open_top = TAB_H;
     let closed_top = window_h - HAND_BAR_H - 14.0;
-    let initial_top = open_top + (closed_top - open_top) * overlay_t;
+    let initial_top = closed_top + (open_top - closed_top) * overlay_t;
     let panel = commands
         .spawn((
             OwnBoardOverlay,
@@ -1892,7 +1892,7 @@ fn spawn_own_board_overlay(
             },
             BackgroundColor(palette::PANEL_LIT),
             children![(
-                Text::new((if closed { '\u{f077}' } else { '\u{f078}' }).to_string()),
+                Text::new((if open { '\u{f078}' } else { '\u{f077}' }).to_string()),
                 icon_tf(fonts, 9.0),
                 TextColor(palette::MUTED),
             )],
@@ -2011,7 +2011,7 @@ pub fn animate_overlay(
     windows: Query<&Window>,
     mut panels: Query<&mut Node, With<OwnBoardOverlay>>,
 ) {
-    let target = if duel.overlay_closed { 1.0 } else { 0.0 };
+    let target = if duel.overlay_open { 1.0 } else { 0.0 };
     let Ok(window) = windows.single() else {
         return;
     };
@@ -2027,7 +2027,7 @@ pub fn animate_overlay(
     }
     let open_top = TAB_H;
     let closed_top = window.height() - HAND_BAR_H - 14.0;
-    let top = open_top + (closed_top - open_top) * duel.overlay_t;
+    let top = closed_top + (open_top - closed_top) * duel.overlay_t;
     for mut node in &mut panels {
         node.top = px(top);
     }
@@ -2134,7 +2134,7 @@ mod close_tests {
         let root = app.world_mut().spawn(HudRoot).id();
         let child = app.world_mut().spawn(Node::default()).id();
         app.world_mut().entity_mut(root).add_child(child);
-        app.world_mut().resource_mut::<HudRevision>().overlay_closed = true;
+        app.world_mut().resource_mut::<HudRevision>().overlay_open = true;
 
         app.update();
 
@@ -2147,7 +2147,7 @@ mod close_tests {
             "and its children went with it"
         );
         assert!(
-            !app.world().resource::<HudRevision>().overlay_closed,
+            !app.world().resource::<HudRevision>().overlay_open,
             "a revision describing a tree that no longer exists would make the \
              next duel's first frame skip its own rebuild"
         );

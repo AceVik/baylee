@@ -163,11 +163,11 @@ pub const PIE: [[f32; 3]; 5] = [
 #[must_use]
 pub fn felt(size: u32) -> Texture {
     /// Darkest point, at the corners.
-    const DEEP: [f32; 3] = [0.020, 0.030, 0.036];
+    const DEEP: [f32; 3] = [0.035, 0.058, 0.045];
     /// The cloth's own colour, before wear.
-    const CLOTH: [f32; 3] = [0.055, 0.086, 0.082];
+    const CLOTH: [f32; 3] = [0.098, 0.165, 0.122];
     /// Where the table has been leaned on for years.
-    const WORN: [f32; 3] = [0.098, 0.130, 0.120];
+    const WORN: [f32; 3] = [0.140, 0.215, 0.162];
 
     let mut texture = Texture::blank(size, size);
     let extent = size as f32;
@@ -187,7 +187,12 @@ pub fn felt(size: u32) -> Texture {
             let weave = ((u * extent * PI * 0.5).sin() * (v * extent * PI * 0.5).sin()) * 0.5 + 0.5;
 
             let mut colour = mix(CLOTH, WORN, wear.powf(1.6));
-            colour = mix(colour, DEEP, (radius * 1.05).clamp(0.0, 1.0).powf(1.35));
+            // The vignette starts late and arrives slowly: at `radius * 1.05`
+            // it reached DEEP a twentieth of the way inside the inscribed
+            // circle, which is most of what a leaning camera actually has on
+            // screen — so the table was in shadow everywhere a player looks
+            // and lit only in a spot behind the far seat.
+            colour = mix(colour, DEEP, (radius * 0.88).clamp(0.0, 1.0).powf(1.6));
             let lift = (grain - 0.5).mul_add(0.028, (weave - 0.5) * 0.010);
             for channel in &mut colour {
                 *channel += lift;
@@ -305,10 +310,11 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32) -> Texture {
             let v = py / h;
             #[expect(clippy::cast_possible_truncation, reason = "three lanes")]
             let lane = (v * 3.0).floor().clamp(0.0, 2.0) as usize;
-            // Barely there. The mat's job is to say where a seat's ground
-            // ends, not to be looked at: everything on it — cards, rims,
-            // the glow — has to stay louder than the ground it stands on.
-            let base = [0.052, 0.038, 0.026][lane];
+            // Quiet, not absent. The mat's job is to say where a seat's
+            // ground ends: everything on it — cards, rims, the glow — has to
+            // stay louder, and a mat nobody can see is not quiet, it is
+            // missing.
+            let base = [0.150, 0.120, 0.095][lane];
             // A hairline *between* lanes, so the rows separate without a
             // border drawn around each one. Measured in pixels from the two
             // boundaries: expressed as a fraction of a lane it comes out
@@ -318,7 +324,7 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32) -> Texture {
                 .iter()
                 .map(|edge| (py - edge).abs())
                 .fold(f32::MAX, f32::min);
-            let seam = (1.0 - seam / seam_width).clamp(0.0, 1.0) * 0.07;
+            let seam = (1.0 - seam / seam_width).clamp(0.0, 1.0) * 0.08;
 
             // The rim: the one part that is meant to be seen from across the
             // table, since it is what carries the seat's colour.
@@ -434,7 +440,7 @@ pub fn hearth(size: u32, inner: f32, outer: f32) -> Texture {
             }
             // The pool: brightest at the middle, gone before the edge, so
             // the quad never shows as a square against the felt.
-            let pool = (1.0 - radius).clamp(0.0, 1.0).powf(2.2) * 0.16;
+            let pool = (1.0 - radius).clamp(0.0, 1.0).powf(2.2) * 0.12;
 
             // Two hairlines bounding the band, and the band itself barely
             // lifted — an inlay, not a painted circle.
@@ -504,6 +510,14 @@ mod tests {
         assert!(
             brightest < 0.30,
             "a card has to be the brightest thing on the table, not the felt ({brightest})"
+        );
+        // And the other end of it, which is the half this test was missing
+        // the first time the table was drawn: the felt shipped at a third of
+        // this and read on screen as a hole in the world. A one-sided bound
+        // on "dark enough" is how that passed every run.
+        assert!(
+            brightest > 0.16,
+            "the felt has to be visible cloth, not a black hole ({brightest})"
         );
     }
 
