@@ -680,6 +680,7 @@ impl Tx<'_> {
     fn static_ability(&mut self, spec: &str) -> Option<()> {
         let (mode, mut p) = Params::parse(spec)?;
         if mode != "Continuous" {
+            self.note(format!("static ability `S: Mode$ {mode}`"));
             return None;
         }
         p.drop_prose();
@@ -689,6 +690,7 @@ impl Tx<'_> {
         if let Some(zone) = p.take("EffectZone")
             && zone != "Battlefield"
         {
+            self.note(format!("static ability from `EffectZone$ {zone}`"));
             return None;
         }
         // Likewise `AffectedZone`: our `cross_zone` says the effect reaches
@@ -697,17 +699,21 @@ impl Tx<'_> {
         if let Some(zone) = p.take("AffectedZone")
             && zone != "Battlefield"
         {
+            self.note(format!("static ability reaching `AffectedZone$ {zone}`"));
             return None;
         }
         let filter = self.filter_expr(&p.take("Affected")?)?;
         let mut out = Vec::new();
-        Self::pt_modifiers(&mut p, &filter, &mut out)?;
-        Self::keyword_modifiers(&mut p, &filter, &mut out)?;
+        self.pt_modifiers(&mut p, &filter, &mut out)?;
+        self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
-        Self::color_modifiers(&mut p, &filter, &mut out)?;
+        self.color_modifiers(&mut p, &filter, &mut out)?;
         // The honest-stub rule: one key nothing claimed and the card stays
         // a stub, however much of the line was understood.
         if !p.exhausted() || out.is_empty() {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `Continuous.{key}`"));
+            }
             return None;
         }
         self.body.abilities.extend(out);
@@ -716,14 +722,19 @@ impl Tx<'_> {
 
     /// `AddPower`/`AddToughness` (layer 7c) and `SetPower`/`SetToughness`
     /// (layer 7b) as static abilities.
-    fn pt_modifiers(p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+    fn pt_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
         let add_p = p.take("AddPower");
         let add_t = p.take("AddToughness");
         if add_p.is_some() || add_t.is_some() {
             // An anthem that names only one half still moves the other by
             // zero, which is what the printed "+1/+0" says.
-            let power = add_p.map_or(Some(0), |v| v.trim().parse::<i16>().ok())?;
-            let tough = add_t.map_or(Some(0), |v| v.trim().parse::<i16>().ok())?;
+            let (Some(power), Some(tough)) = (
+                add_p.map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
+                add_t.map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
+            ) else {
+                self.note("static ability with a computed P/T".to_string());
+                return None;
+            };
             out.push(Self::static_expr(
                 "Layer::PtModify",
                 filter,
@@ -736,8 +747,13 @@ impl Tx<'_> {
             // Setting one half and leaving the other alone is a real card
             // ("base power 4"), and `SetPT` cannot say it — refuse rather
             // than invent a value for the half that was not named.
-            let power = set_p?.trim().parse::<i16>().ok()?;
-            let tough = set_t?.trim().parse::<i16>().ok()?;
+            let (Some(power), Some(tough)) = (
+                set_p.and_then(|v| v.trim().parse::<i16>().ok()),
+                set_t.and_then(|v| v.trim().parse::<i16>().ok()),
+            ) else {
+                self.note("static ability setting one half of P/T".to_string());
+                return None;
+            };
             out.push(Self::static_expr(
                 "Layer::PtSet",
                 filter,
@@ -748,7 +764,7 @@ impl Tx<'_> {
     }
 
     /// `AddKeyword`/`RemoveKeyword` (layer 6) as static abilities.
-    fn keyword_modifiers(p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+    fn keyword_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
         for (key, modifier) in [
             ("AddKeyword", "AddKeyword"),
             ("RemoveKeyword", "RemoveKeyword"),
@@ -760,7 +776,11 @@ impl Tx<'_> {
             // rule reads.
             let mut bits = Vec::new();
             for word in raw.split(" & ") {
-                bits.push(keyword_const(word)?.to_string());
+                let Some(bit) = keyword_const(word) else {
+                    self.note(format!("static ability granting keyword `{word}`"));
+                    return None;
+                };
+                bits.push(bit.to_string());
             }
             let set = bits.split_first().map(|(head, tail)| {
                 tail.iter()
@@ -819,7 +839,7 @@ impl Tx<'_> {
     }
 
     /// `AddColor`/`SetColor` (layer 5) as static abilities.
-    fn color_modifiers(p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+    fn color_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
         for (key, modifier) in [("AddColor", "AddColor"), ("SetColor", "SetColor")] {
             let Some(raw) = p.take(key) else { continue };
             let mut colors = Vec::new();
@@ -832,7 +852,10 @@ impl Tx<'_> {
                     "Green" => "Color::Green",
                     // `Colorless` is the empty set rather than a colour, and
                     // `ChosenColor` is a choice this rule cannot make.
-                    _ => return None,
+                    other => {
+                        self.note(format!("static ability setting colour `{other}`"));
+                        return None;
+                    }
                 });
             }
             out.push(Self::static_expr(
@@ -1011,15 +1034,14 @@ pub fn transcode(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<CardBod
 
 /// Reads a script and, when it is refused over a parameter, names it.
 ///
-/// `Some(None)` means the script was read in full; `Some(Some(key))` names
-/// the first `Api.Key` no rule claimed; `None` means it was refused for a
-/// reason that is not a parameter (an unknown API, an unmodelled line).
+/// `None` means the transcoder has nothing to say about this script: it was
+/// read in full, or refused somewhere that records no reason.
 ///
 /// The transcoder reports this itself rather than a second table listing
 /// each rule's keys: such a list would rot the first time a rule learned a
 /// new one, and a stale worklist is worse than none.
 #[must_use]
-pub fn unclaimed_parameter(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<Option<String>> {
+pub fn refusal_reason(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<String> {
     if !script.unknown_lines.is_empty() {
         return None;
     }
@@ -1034,10 +1056,10 @@ pub fn unclaimed_parameter(script: &ForgeScript, cats: &SubtypeCatalogs) -> Opti
     }
     for (kind, spec) in &script.rules {
         if tx.rule(*kind, spec).is_none() {
-            return Some(tx.unclaimed.into_inner());
+            return tx.unclaimed.into_inner();
         }
     }
-    Some(None)
+    None
 }
 
 /// The effect APIs [`transcode`] knows how to write.
@@ -1445,29 +1467,34 @@ mod tests {
         // reports what it actually failed to claim.
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2");
         assert_eq!(
-            unclaimed_parameter(&script, &cats()),
-            Some(Some("unclaimed parameter `Draw.UnlessCost`".to_string()))
+            refusal_reason(&script, &cats()).as_deref(),
+            Some("unclaimed parameter `Draw.UnlessCost`")
         );
 
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1");
-        assert_eq!(
-            unclaimed_parameter(&script, &cats()),
-            Some(None),
-            "read in full"
-        );
+        assert_eq!(refusal_reason(&script, &cats()), None, "read in full");
 
         // An unknown API is a missing effect, not a missing case in a rule
         // that exists, and must not be reported as one.
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Animate | Defined$ Self");
-        assert_eq!(unclaimed_parameter(&script, &cats()), Some(None));
+        assert_eq!(refusal_reason(&script, &cats()), None);
 
         // A rule that exists but met a value it cannot say says so.
         let script = parse(
             "Name:X\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ 1 | Duration$ Permanent",
         );
         assert_eq!(
-            unclaimed_parameter(&script, &cats()),
-            Some(Some("unreadable value in `Pump`".to_string()))
+            refusal_reason(&script, &cats()).as_deref(),
+            Some("unreadable value in `Pump`")
+        );
+
+        // A static ability names the mode it cannot read, so the worklist
+        // ranks `ReduceCost` and `Continuous` as the different work they are.
+        let script =
+            parse("Name:X\nTypes:Creature\nS:Mode$ CantBlockBy | ValidAttacker$ Card.Self");
+        assert_eq!(
+            refusal_reason(&script, &cats()).as_deref(),
+            Some("static ability `S: Mode$ CantBlockBy`")
         );
     }
 

@@ -225,11 +225,27 @@ target" without overloading a `Filter` to mean it, takes `Amount`s so `+X/+X`
 is expressible, and carries `KW$` in the same effect. Read a blocker by
 finding what the DSL cannot *say*, not by assuming the mechanism is absent.
 
-The current top entry, "supported effects, unsupported parameters" (~4200), is
-the honest-stub rule itself showing its cost: those scripts use APIs the
-transcoder knows, and are refused over one unclaimed key each. It is the
-cheapest remaining ground, and every key claimed there has to be claimed by a
-*rule*, never by adding it to `PROSE_KEYS` to make the number move.
+That entry used to be followed by one reading "supported effects, unsupported
+parameters (~4200)", described as the honest-stub rule showing its cost. Most
+of it was not that. `refusal_cause` was *guessing* — re-reading the script and
+naming the first thing it did not recognise — and the bucket was where every
+refusal it could not explain ended up. The transcoder now reports its own
+first refusal (`forgegen::unclaimed_parameter`), and the entry splits into an
+API with no rule at all (a missing effect) and a rule that met a value it
+cannot say (a missing case in one that exists), which are different work.
+
+The rule that still holds: a key claimed there has to be claimed by a *rule*,
+never by adding it to `PROSE_KEYS` to make the number move. And the reason
+the transcoder reports rather than a table listing each rule's keys is the
+one `SUPPORTED_APIS` already answers — the copy would rot the first time a
+rule learned a new key, and a stale worklist is worse than none.
+
+The current top entry, `S:` static abilities, is *partly* read: `Mode$
+Continuous` becomes one `AbilityDef::Static` per layer it touches, because a
+printed sentence usually is several ("get +1/+1 and have flying" is layers 7c
+and 6, applied in that order by CR 613.1). What is left there needs genuinely
+new rules — `IsPresent`/`Condition` (a static that is only sometimes on),
+`AddAbility`/`AddTrigger` (granting an ability rather than a bit).
 
 A generated card is hand-owned from then on: `codegen` only writes files that
 are missing or still carry the `// GENERATED STUB` marker.

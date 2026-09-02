@@ -1089,23 +1089,22 @@ fn refusal_cause(script: &forgegen::ForgeScript, cats: &catalog::SubtypeCatalogs
             return format!("keyword `{head}`");
         }
     }
+    // Ask the transcoder before guessing. It knows which line it stopped
+    // on and why; re-reading the script here only knows what *this* function
+    // recognises, which is how every unexplained refusal used to be filed
+    // under a label that named the wrong work.
+    if let Some(why) = forgegen::refusal_reason(script, cats) {
+        return why;
+    }
     for (kind, spec) in &script.rules {
-        if *kind == 'S' {
-            return "static ability (S:)".to_string();
-        }
-        if *kind == 'R' {
-            return "replacement effect (R:)".to_string();
-        }
         for api in forgegen::apis_used(spec, &script.svars) {
             if !forgegen::is_supported_api(&api) {
                 return format!("effect `{api}`");
             }
         }
+        if *kind == 'R' {
+            return "replacement effect (R:)".to_string();
+        }
     }
-    // The transcoder knows which key it choked on; asking it beats
-    // guessing, and beats keeping a second copy of every rule's key list.
-    match forgegen::unclaimed_parameter(script, cats) {
-        Some(Some(why)) => why,
-        _ => "supported effects, unsupported parameters".to_string(),
-    }
+    "refused with no reason recorded".to_string()
 }
