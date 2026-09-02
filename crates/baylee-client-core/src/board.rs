@@ -199,6 +199,15 @@ pub struct CardGroup {
     pub is_token: bool,
     /// Whether the permanent entered too recently to attack.
     pub summoning_sick: bool,
+    /// Whether *every* permanent in the group has an ability the engine
+    /// listed as activatable right now.
+    ///
+    /// All, not any, and deliberately: the card drawn is one card standing
+    /// for several, so a cue that meant "at least one of these could do
+    /// something" would light up a card that cannot. Merged permanents are
+    /// identical by construction, so in practice the two agree — this is
+    /// what keeps them agreeing when they stop being identical.
+    pub activatable: bool,
     /// Why this card was kept separate, if it was.
     pub individual: Option<Individual>,
 }
@@ -352,6 +361,59 @@ impl TokenChip {
     }
 }
 
+/// What a stack entry is: a spell, or an ability and where it came from.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum StackKind {
+    /// A spell — the card on the stack is the thing itself.
+    Spell,
+    /// An activated or triggered ability.
+    Ability {
+        /// The permanent, spell or emblem it came from.
+        ///
+        /// It may already have left the battlefield (CR 113.7a), which is
+        /// why the entry carries its own name and art rather than a promise
+        /// that this object can still be found.
+        source: ObjectId,
+    },
+}
+
+/// One thing a stack entry points at, resolved for drawing.
+///
+/// A [`TargetRef`] on its own is a handle. Anything that wants to *show* what
+/// is being targeted needs the name and the face too, and only the view can
+/// supply them — so the lookup happens here, once, in the one place that has
+/// the view and can be tested without a renderer.
+#[derive(Clone, PartialEq, Debug)]
+pub struct StackTarget {
+    /// The handle the engine named.
+    pub what: TargetRef,
+    /// The object's display name, or `None` when the target is a player:
+    /// seat names live in `GameStatic`, which this model does not carry.
+    pub name: Option<String>,
+    /// The target's own art, when this seat may see its face.
+    pub art: Option<ImageKey>,
+}
+
+impl StackTarget {
+    /// The player this points at, if it points at one.
+    #[must_use]
+    pub fn player(&self) -> Option<PlayerId> {
+        match self.what {
+            TargetRef::Player(p) => Some(p),
+            TargetRef::Object(_) => None,
+        }
+    }
+
+    /// The object this points at, if it points at one.
+    #[must_use]
+    pub fn object(&self) -> Option<ObjectId> {
+        match self.what {
+            TargetRef::Object(id) => Some(id),
+            TargetRef::Player(_) => None,
+        }
+    }
+}
+
 /// One item on the stack.
 #[derive(Clone, PartialEq, Debug)]
 pub struct StackItem {
@@ -359,11 +421,17 @@ pub struct StackItem {
     pub id: ObjectId,
     /// Display name.
     pub name: String,
+    /// Whether this is a spell or an ability, and whose ability it is.
+    pub kind: StackKind,
     /// Who controls it.
     pub controller: PlayerId,
-    /// What it points at, for target arrows.
-    pub targets: Vec<TargetRef>,
+    /// What it points at, already resolved to names and faces.
+    pub targets: Vec<StackTarget>,
     /// Art at focus resolution — the stack is small and always readable.
+    ///
+    /// For an ability this is the *source's* art. An ability has no card of
+    /// its own, and "which permanent is doing this" is read faster from the
+    /// picture than from the name.
     pub art: Option<ImageKey>,
     /// Distance from the top: 0 resolves next.
     pub depth: usize,
@@ -403,6 +471,13 @@ pub struct Openings<'a> {
     pub playable: &'a HashSet<ObjectId>,
     /// Cards that would become castable after a tap or two.
     pub reachable: &'a HashSet<ObjectId>,
+    /// Permanents with at least one ability the engine listed as activatable.
+    ///
+    /// The third authority, and the one the board — not the hand — is drawn
+    /// from: a Forest, a mana dork and a planeswalker all have something to
+    /// do, and until this existed the table gave a player no way to tell
+    /// them apart from a vanilla bear.
+    pub activatable: &'a HashSet<ObjectId>,
 }
 
 impl Openings<'_> {
@@ -415,6 +490,7 @@ impl Openings<'_> {
         Self {
             playable: &EMPTY,
             reachable: &EMPTY,
+            activatable: &EMPTY,
         }
     }
 }
@@ -454,7 +530,7 @@ impl BoardModel {
 
         let pods = ring
             .iter()
-            .map(|&player| build_pod(view, player, &individual, pod_width))
+            .map(|&player| build_pod(view, player, &individual, openings.activatable, pod_width))
             .collect();
 
         let depth_base = view.stack.len();
@@ -462,15 +538,33 @@ impl BoardModel {
             .stack
             .iter()
             .enumerate()
-            .map(|(i, o)| StackItem {
-                id: o.id,
-                name: o.name.clone(),
-                controller: o.controller,
-                targets: o.targets.clone(),
-                art: o
+            .map(|(i, o)| {
+                let kind = match o.stack_item {
+                    Some(baylee_view::StackItem::Ability { source, .. }) => {
+                        StackKind::Ability { source }
+                    }
+                    _ => StackKind::Spell,
+                };
+                // An ability is its own object with no card, so it borrows
+                // its source's picture. When the source has already left
+                // (CR 113.7a) there is nothing to borrow and the name stands
+                // alone — which is exactly what the panel then draws.
+                let art = o
                     .card
-                    .map(|c| ImageKey::new(c.print, c.face, ArtSize::Normal)),
-                depth: depth_base - 1 - i,
+                    .or_else(|| match kind {
+                        StackKind::Ability { source } => view.object(source).and_then(|s| s.card),
+                        StackKind::Spell => None,
+                    })
+                    .map(|c| ImageKey::new(c.print, c.face, ArtSize::Normal));
+                StackItem {
+                    id: o.id,
+                    name: o.name.clone(),
+                    kind,
+                    controller: o.controller,
+                    targets: o.targets.iter().map(|t| stack_target(view, *t)).collect(),
+                    art,
+                    depth: depth_base - 1 - i,
+                }
             })
             .rev()
             .collect();
@@ -530,9 +624,32 @@ impl BoardModel {
         }
         keys.extend(self.hand.iter().map(|h| h.art));
         keys.extend(self.stack.iter().filter_map(|s| s.art));
+        // A target's thumbnail is drawn beside the spell that points at it,
+        // so it has to be resident too — a target on the stack may well be a
+        // card in a graveyard or an exile zone that nothing else is drawing.
+        keys.extend(
+            self.stack
+                .iter()
+                .flat_map(|s| s.targets.iter().filter_map(|t| t.art)),
+        );
         keys.sort();
         keys.dedup();
         keys
+    }
+}
+
+/// Resolves a target handle into something drawable.
+fn stack_target(view: &PlayerView, what: TargetRef) -> StackTarget {
+    let object = match what {
+        TargetRef::Object(id) => view.object(id),
+        TargetRef::Player(_) => None,
+    };
+    StackTarget {
+        what,
+        name: object.map(|o| o.name.clone()),
+        art: object
+            .and_then(|o| o.card)
+            .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
     }
 }
 
@@ -568,6 +685,7 @@ fn build_pod(
     view: &PlayerView,
     player: PlayerId,
     individual: &HashMap<ObjectId, Individual>,
+    activatable: &HashSet<ObjectId>,
     pod_width: f32,
 ) -> SeatPod {
     let seat = view.seat(player);
@@ -584,7 +702,7 @@ fn build_pod(
                 .copied()
                 .filter(|o| lane_of(o.types) == kind)
                 .collect();
-            let groups = group_objects(&members, individual);
+            let groups = group_objects(&members, individual, activatable);
             let overflowing = pack_lane(groups.len(), pod_width).overflowing;
             Lane {
                 kind,
@@ -616,6 +734,7 @@ fn build_pod(
 fn group_objects(
     objects: &[&PublicObject],
     individual: &HashMap<ObjectId, Individual>,
+    activatable: &HashSet<ObjectId>,
 ) -> Vec<CardGroup> {
     let mut groups: Vec<CardGroup> = Vec::new();
     let mut index: HashMap<baylee_view::ObjectSummaryKey, usize> = HashMap::new();
@@ -627,17 +746,20 @@ fn group_objects(
     sorted.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)));
 
     for obj in sorted {
+        let can_act = activatable.contains(&obj.id);
         let reason = individual.get(&obj.id).copied();
         if reason.is_some() {
-            groups.push(card_group(obj, reason));
+            groups.push(card_group(obj, reason, can_act));
             continue;
         }
         let key = obj.summary_key();
         if let Some(&i) = index.get(&key) {
             groups[i].members.push(obj.id);
+            // "All", not "any" — see `CardGroup::activatable`.
+            groups[i].activatable &= can_act;
         } else {
             index.insert(key, groups.len());
-            groups.push(card_group(obj, None));
+            groups.push(card_group(obj, None, can_act));
         }
     }
 
@@ -647,7 +769,7 @@ fn group_objects(
     groups
 }
 
-fn card_group(obj: &PublicObject, individual: Option<Individual>) -> CardGroup {
+fn card_group(obj: &PublicObject, individual: Option<Individual>, activatable: bool) -> CardGroup {
     CardGroup {
         representative: obj.id,
         members: vec![obj.id],
@@ -663,6 +785,7 @@ fn card_group(obj: &PublicObject, individual: Option<Individual>) -> CardGroup {
             .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
         is_token: obj.card.is_none(),
         summoning_sick: obj.summoning_sick,
+        activatable,
         individual,
     }
 }
@@ -741,8 +864,8 @@ pub fn badge_counters(counters: &[CounterEntry]) -> Vec<&CounterEntry> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{ViewBuilder, token};
-    use baylee_core::ids::PrintRef;
+    use crate::test_support::{ViewBuilder, printed, token};
+    use baylee_core::ids::{CardIndex, PrintRef};
     use baylee_view::{AttackerView, BlockerView, CardIdentity};
 
     const WIDE: f32 = 40.0;
@@ -1005,6 +1128,7 @@ mod tests {
             Openings {
                 playable: &playable,
                 reachable: &HashSet::new(),
+                activatable: &HashSet::new(),
             },
             WIDE,
         );
@@ -1125,6 +1249,141 @@ mod tests {
         let nobody = ViewBuilder::new(3).with_priority(None).build();
         let m = model(&nobody);
         assert!(m.pods.iter().all(|p| !p.has_priority));
+    }
+
+    /// A spell on the stack and the permanent it is pointed at.
+    fn bolt_at_bears() -> PlayerView {
+        let bears = printed(1, 1, "Grizzly Bears", 11);
+        let mut bolt = printed(2, 0, "Lightning Bolt", 22);
+        bolt.types = TypeSet::INSTANT;
+        bolt.power = None;
+        bolt.toughness = None;
+        bolt.stack_item = Some(baylee_view::StackItem::Spell);
+        bolt.targets = vec![TargetRef::Object(ObjectId::new(1, 0))];
+        ViewBuilder::new(2)
+            .with_battlefield(1, [bears])
+            .with_stack(vec![bolt])
+            .build()
+    }
+
+    #[test]
+    fn a_spell_on_the_stack_says_what_it_points_at() {
+        let view = bolt_at_bears();
+        let m = model(&view);
+        let item = &m.stack[0];
+        assert_eq!(item.kind, StackKind::Spell);
+        assert!(item.art.is_some(), "a spell shows its own card");
+        assert_eq!(item.targets.len(), 1);
+        // The whole point: a handle is not drawable, a name and a face are.
+        assert_eq!(item.targets[0].name.as_deref(), Some("Grizzly Bears"));
+        assert!(item.targets[0].art.is_some());
+        assert_eq!(item.targets[0].object(), Some(ObjectId::new(1, 0)));
+    }
+
+    #[test]
+    fn a_targets_picture_is_kept_resident_too() {
+        let view = bolt_at_bears();
+        let m = model(&view);
+        let art = m.stack[0].targets[0].art.expect("the target has a face");
+        assert!(
+            m.required_images().contains(&art),
+            "a target drawn beside the spell has to be loaded like anything else"
+        );
+    }
+
+    #[test]
+    fn an_ability_on_the_stack_borrows_its_sources_picture() {
+        let source = printed(1, 0, "Llanowar Elves", 33);
+        let source_art = ImageKey::new(PrintRef::new(33), 0, ArtSize::Normal);
+        let mut ability = token(2, 0, "Llanowar Elves", 0, 0);
+        ability.card = None;
+        ability.types = TypeSet::EMPTY;
+        ability.power = None;
+        ability.toughness = None;
+        ability.stack_item = Some(baylee_view::StackItem::Ability {
+            source: ObjectId::new(1, 0),
+            ability: baylee_core::ids::AbilityRef::new(CardIndex::new(33), 0),
+        });
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [source])
+            .with_stack(vec![ability])
+            .build();
+
+        let m = model(&view);
+        assert_eq!(
+            m.stack[0].kind,
+            StackKind::Ability {
+                source: ObjectId::new(1, 0)
+            }
+        );
+        assert_eq!(
+            m.stack[0].art,
+            Some(source_art),
+            "an ability has no card, so it wears the picture of whatever made it"
+        );
+    }
+
+    #[test]
+    fn an_ability_whose_source_is_gone_still_draws() {
+        let mut ability = token(2, 0, "Cast Down", 0, 0);
+        ability.card = None;
+        ability.stack_item = Some(baylee_view::StackItem::Ability {
+            source: ObjectId::new(99, 0),
+            ability: baylee_core::ids::AbilityRef::new(CardIndex::new(1), 0),
+        });
+        let view = ViewBuilder::new(2).with_stack(vec![ability]).build();
+        let m = model(&view);
+        // CR 113.7a: the ability is independent of its source. No picture to
+        // borrow is a missing picture, never a missing entry.
+        assert_eq!(m.stack[0].art, None);
+        assert_eq!(m.stack[0].name, "Cast Down");
+    }
+
+    #[test]
+    fn a_targeted_player_has_no_card_to_draw() {
+        let mut bolt = printed(2, 0, "Lightning Bolt", 22);
+        bolt.stack_item = Some(baylee_view::StackItem::Spell);
+        bolt.targets = vec![TargetRef::Player(PlayerId::new(1))];
+        let view = ViewBuilder::new(2).with_stack(vec![bolt]).build();
+        let m = model(&view);
+        let target = &m.stack[0].targets[0];
+        assert_eq!(target.player(), Some(PlayerId::new(1)));
+        assert_eq!(target.object(), None);
+        // The seat's name lives in `GameStatic`, which this model has never
+        // carried — so the renderer, not the model, spells a player out.
+        assert_eq!(target.name, None);
+        assert_eq!(target.art, None);
+    }
+
+    #[test]
+    fn a_group_is_activatable_only_when_every_card_in_it_is() {
+        let objs = vec![token(1, 0, "Forest", 0, 0), token(2, 0, "Forest", 0, 0)];
+        let view = ViewBuilder::new(2).with_battlefield(0, objs).build();
+
+        let both: HashSet<ObjectId> = [ObjectId::new(1, 0), ObjectId::new(2, 0)]
+            .into_iter()
+            .collect();
+        let one: HashSet<ObjectId> = std::iter::once(ObjectId::new(1, 0)).collect();
+        let empty = HashSet::new();
+
+        let openings = |set| Openings {
+            playable: &empty,
+            reachable: &empty,
+            activatable: set,
+        };
+
+        let lit = BoardModel::from_view(&view, openings(&both), WIDE);
+        let group = &lit.pods[0].lanes[0].groups[0];
+        assert_eq!(group.count(), 2, "identical permanents still merge");
+        assert!(group.activatable);
+
+        // One of the two cannot be tapped, so the card standing for both must
+        // not claim it can — the player would click it and be told no.
+        let half = BoardModel::from_view(&view, openings(&one), WIDE);
+        assert!(!half.pods[0].lanes[0].groups[0].activatable);
+
+        let dark = BoardModel::from_view(&view, openings(&empty), WIDE);
+        assert!(!dark.pods[0].lanes[0].groups[0].activatable);
     }
 
     #[test]

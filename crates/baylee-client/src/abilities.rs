@@ -18,7 +18,8 @@ use baylee_core::mana::ManaColor;
 use baylee_engine::choice::PlayerAction;
 use baylee_view::PlayerView;
 
-use baylee_cards_dsl::AbilityDef;
+use baylee_cards_dsl::{AbilityDef, Cost, CostPart};
+use baylee_core::mana::ManaCost;
 
 /// One thing a permanent is offering to do.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -104,29 +105,61 @@ fn mana_label(source: &baylee_client_core::manaplan::Source) -> String {
     format!("Tap for {colors}")
 }
 
-/// A printed ability's label: its loyalty cost if it is a planeswalker's, and
-/// its position otherwise.
+/// A printed ability's label: a planeswalker's loyalty cost, otherwise what
+/// the ability costs to activate.
 ///
-/// Deliberately short. This is a button on a bar that already carries the
-/// prompt; a player who needs the full wording has the card's own text a
-/// hover away.
+/// Deliberately short — this is a button on a bar that already carries the
+/// prompt, and a player who needs the full wording has the card's own text a
+/// hover away. But short is not the same as opaque: "Ability 2" is a label a
+/// player has to count out on the card, and it was the only one this could
+/// produce. `{2}, {T}` is read at a glance and is the half of an ability a
+/// player is actually deciding about.
 fn printed_label(view: &PlayerView, object: ObjectId, index: u32) -> String {
-    if let Some(cost) = loyalty_cost(view, object, index) {
-        return if cost >= 0 {
-            format!("+{cost}")
-        } else {
-            format!("\u{2212}{}", -cost)
-        };
+    let unnamed = || format!("Ability {}", index + 1);
+    let Some(def) = crate::manasources::ability_at(view, object, index) else {
+        return unnamed();
+    };
+    match def {
+        AbilityDef::Loyalty { cost, .. } => {
+            if *cost >= 0 {
+                format!("+{cost}")
+            } else {
+                format!("\u{2212}{}", -cost)
+            }
+        }
+        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
+            cost_label(cost).unwrap_or_else(unnamed)
+        }
+        _ => unnamed(),
     }
-    format!("Ability {}", index + 1)
 }
 
-/// The loyalty cost of ability `index`, when that is what it is.
-fn loyalty_cost(view: &PlayerView, object: ObjectId, index: u32) -> Option<i8> {
-    match crate::manasources::ability_at(view, object, index)? {
-        AbilityDef::Loyalty { cost, .. } => Some(*cost),
-        _ => None,
+/// What an activated ability costs, as one short string.
+///
+/// `None` for a free ability: "" is not a button and "Free" would be a claim
+/// about the *effect* rather than the cost, so the caller falls back to the
+/// ability's position instead.
+fn cost_label(cost: &Cost) -> Option<String> {
+    let mut parts: Vec<String> = Vec::new();
+    if cost.mana != ManaCost::ZERO {
+        parts.push(cost.mana.to_string());
     }
+    for part in cost.parts {
+        parts.push(match part {
+            CostPart::TapSelf => "{T}".to_string(),
+            CostPart::UntapSelf => "{Q}".to_string(),
+            CostPart::SacrificeSelf => "Sacrifice this".to_string(),
+            CostPart::Sacrifice(_) => "Sacrifice".to_string(),
+            CostPart::PayLife(n) => format!("Pay {n} life"),
+            CostPart::PayLifeX => "Pay X life".to_string(),
+            CostPart::Discard(_) => "Discard".to_string(),
+            CostPart::DiscardSelf => "Discard this".to_string(),
+            CostPart::ExileSelf => "Exile this".to_string(),
+            CostPart::ReturnSelfToHand => "Return this".to_string(),
+            CostPart::ExileFromHand(_) => "Exile a card".to_string(),
+        });
+    }
+    (!parts.is_empty()).then(|| parts.join(", "))
 }
 
 /// One mana symbol, as a letter.

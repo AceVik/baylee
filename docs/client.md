@@ -193,6 +193,33 @@ alongside the registry for clients and the gateway to read. Until it does, a
 client can render the source permanent's name plus the ability index, which
 is already enough to point at the right card on the board.
 
+### The stack panel draws it
+
+`hud::spawn_stack_panel` is where that stops being theory. Each entry is a
+card, not a line of text: the spell's own picture, or — for an ability, which
+has no card at all — the picture of the permanent it came from, borrowed
+through `StackKind::Ability { source }`. Under the name sits what kind of
+thing it is and whose (`Ability · Llanowar Elves — You`), and under that a row
+of everything it points at, each target drawn as its own smaller card with an
+arrow between.
+
+The resolution happens in `baylee-client-core`, not in the renderer:
+`BoardModel::from_view` turns each `TargetRef` into a `StackTarget { what,
+name, art }` by looking the object up through `PlayerView::object`, which is
+the one place that has the view. A `TargetRef` alone is a handle; a panel that
+wants to *show* what is being targeted needs a name and a face, and doing that
+lookup once, testably, without a GPU, is the whole reason the split exists.
+Player targets keep `name: None` deliberately — seat names live in
+`GameStatic`, which the board model has never carried — so the renderer spells
+those out and draws them as a chip rather than as a rectangle pretending to be
+a card.
+
+Two consequences worth knowing. A target's art is added to
+`BoardModel::required_images`, because a spell can point at a card in a
+graveyard that nothing else on screen is drawing. And an ability whose source
+has already left the battlefield (CR 113.7a) has no picture to borrow: it
+draws as a name with an empty plate, never as a missing entry.
+
 ## Images and memory
 
 Scryfall CDN, keyed by printing id — no API call is needed to render a board.
@@ -225,7 +252,11 @@ the layer system has run, so a creature that gained indestructible this turn
 glows this turn. `cardmat::glow_bits` narrows the engine's `u128` to the three
 bits the shader reads; a test pins each one against `KeywordSet`, because that
 numbering is generated and a card glowing for the wrong keyword would be a
-rules lie a player would believe. Indestructible is darksteel — a hard dark
+rules lie a player would believe. A fourth bit, `glow::ACTIVATABLE`, rides
+in the same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
+`LegalActions` rather than from the card, and is drawn as a travelling light
+rather than as a material for exactly that reason (see "Tapping lands for a
+spell"). Indestructible is darksteel — a hard dark
 blue-grey with a specular line, the card made of something rather than lit by
 something; hexproof is a steady green sheath; shroud is the same idea taken
 further, colder and hazier, since not even its controller may target it. Two
@@ -533,17 +564,34 @@ mana to activate (the plan would have to recurse) and one that does anything
 besides make mana (the player should decide about that themselves).
 
 In the hand, this is a third state and it is drawn as one:
-`BoardModel::from_view` takes an `Openings { playable, reachable }` rather than
-one set, because they are two different claims — gold is the engine saying
-yes, indigo is this client offering to tap lands first. Clicking either casts;
-the difference is what happens in between.
+`BoardModel::from_view` takes an `Openings { playable, reachable, activatable }`
+rather than one set, because they are different claims — gold is the engine
+saying yes, indigo is this client offering to tap lands first. Clicking either
+casts; the difference is what happens in between.
+
+`activatable` is the board's half of the same idea, and it is the engine's own
+answer: every source named in `LegalActions.mana_abilities` or `.abilities`.
+It reaches the shader as a fourth glow bit, and is drawn as a *moving* warm
+light running round the border rather than as a steady sheath — the keyword
+glows say what a card **is**, this one says what a player **could do**, and
+two different kinds of claim must not read as the same light. It rides on
+`CardLook` like everything else, so a Forest that becomes tappable becomes a
+different material and stops being one the moment priority moves on.
+
+`CardGroup::activatable` is true only when *every* permanent the card stands
+for can act — all, not any. A card standing for three identical creatures that
+lit up because one of them could be tapped would be inviting a click that is
+refused.
 
 Manual activation is the other half, and the half that did not exist at all:
 `Interaction::activate` was written and nothing called it, so a Forest, a mana
 dork and a planeswalker were equally inert under the pointer.
 `baylee-client/src/abilities.rs` is the list — built only from `LegalActions`,
 in a stable order, each entry labelled from the registry, because "Ability 2"
-is a label a player has to guess at and "Tap for {G}" and "+1" are not. One
+is a label a player has to guess at and "Tap for {G}", "+1" and
+"{T}, Sacrifice this, Pay 1 life" are not — a printed ability with neither a
+colour nor a loyalty cost is named by what it costs to activate, which is the
+half of it a player is actually deciding about. One
 option activates on the click that found it; several open a chooser in the
 prompt bar, on its own row, because these are not answers to the pending
 choice and a mana ability does not belong next to the button that ends the

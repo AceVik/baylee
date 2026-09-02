@@ -852,6 +852,7 @@ struct Placement {
     tapped: bool,
     count: usize,
     art: Option<ImageKey>,
+    activatable: bool,
 }
 
 /// Computes placements for the whole table.
@@ -880,6 +881,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     tapped: group.status.is_tapped(),
                     count: group.count(),
                     art: group.art,
+                    activatable: group.activatable,
                 });
             }
         }
@@ -951,7 +953,16 @@ pub fn sync_scene(
         // print table — which is per seat, and a printing this seat has not
         // earned reads as plain rather than as a leak.
         let finish = crate::cardmat::finish_of(statics, placement.art);
-        let glow = object.map_or(0, |o| glow_bits(o.keywords));
+        // Keywords are what the card is; `activatable` is what the player
+        // could do with it. Both ride on the material, so a Forest that
+        // becomes tappable becomes a different material and needs no second
+        // pass — and stops being one the moment priority moves on.
+        let glow = object.map_or(0, |o| glow_bits(o.keywords))
+            | if placement.activatable {
+                crate::cardmat::glow::ACTIVATABLE
+            } else {
+                0
+            };
 
         let material = if show_face {
             // One material per colour identity, so a mono-green board is one
@@ -1417,6 +1428,7 @@ mod tests {
             art: None,
             is_token: true,
             summoning_sick: false,
+            activatable: false,
             individual: None,
         };
         assert_eq!(stack_badge(&group), None);

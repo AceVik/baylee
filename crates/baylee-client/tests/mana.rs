@@ -86,7 +86,11 @@ struct Table {
 
 impl Table {
     fn open() -> Self {
-        let host = LocalHost::new(&preset(), PlayerId::new(0), &["You", "House AI"])
+        Self::open_with(&preset())
+    }
+
+    fn open_with(preset: &GamePreset) -> Self {
+        let host = LocalHost::new(preset, PlayerId::new(0), &["You", "House AI"])
             .expect("the duel starts");
         let mut table = Self {
             host,
@@ -307,4 +311,114 @@ fn a_permanent_offers_exactly_what_it_can_do_and_never_the_same_tap_twice() {
     // A card in hand is not a permanent and offers nothing to activate.
     let in_hand = table.view().hand.first().expect("a hand").id;
     assert!(abilities::options(table.view(), &interaction, in_hand).is_empty());
+}
+
+/// Bloodstained Mire — `{T}, Sacrifice this, Pay 1 life:` a fetch. Chosen
+/// because it is the shape a mana ability is not: it uses the stack, it costs
+/// more than a tap, and the client has to name it without help from a colour.
+const MIRE: &str = "fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57";
+
+/// The same seat, with a fetchland already on the table.
+fn preset_with_a_fetchland() -> GamePreset {
+    let mut preset = preset();
+    preset.seats[0].starting_battlefield.push(entry(MIRE));
+    preset
+}
+
+/// A permanent whose ability is not a mana ability at all.
+///
+/// The label is the part worth pinning. `abilities::options` could only ever
+/// say "Ability 1" for one of these, which is a label a player has to count
+/// out on the card — and the chooser it is drawn into exists precisely so
+/// they do not have to.
+#[test]
+fn a_non_mana_ability_is_named_by_what_it_costs() {
+    use baylee_client::abilities;
+    use baylee_client_core::interaction::Interaction;
+
+    let mut table = Table::open_with(&preset_with_a_fetchland());
+    table.walk_to_main();
+
+    let interaction = Interaction::new(table.pending.clone().expect("priority"), PlayerId::new(0));
+    let mire = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Bloodstained Mire")
+        .expect("the fetchland is on the table")
+        .id;
+
+    let options = abilities::options(table.view(), &interaction, mire);
+    assert_eq!(options.len(), 1, "{options:?}");
+    assert_eq!(options[0].label, "{T}, Sacrifice this, Pay 1 life");
+    assert_eq!(
+        options[0].action,
+        PlayerAction::ActivateAbility {
+            source: mire,
+            ability_index: 0,
+        }
+    );
+}
+
+/// …and the client's own click path activates it.
+///
+/// Through `activate_card`, which is where a pointer and the keyboard cursor
+/// both end up: one option activates on the click that found it, so a player
+/// never sees a menu of one. Before any of this the same click selected the
+/// permanent for a choice that was not pending and did nothing at all.
+#[test]
+fn clicking_a_permanent_with_one_ability_activates_it() {
+    use baylee_client::Duel;
+    use baylee_client::input::activate_card;
+    use baylee_client_core::interaction::Interaction;
+
+    let mut table = Table::open_with(&preset_with_a_fetchland());
+    table.walk_to_main();
+
+    let mire = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Bloodstained Mire")
+        .expect("the fetchland is on the table")
+        .id;
+    let life = table.view().seat(PlayerId::new(0)).expect("own seat").life;
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+
+    activate_card(&mut duel, mire);
+    assert!(
+        duel.ability_menu.is_none(),
+        "one option needs no chooser at all"
+    );
+    let action = duel.outbox().first().cloned().expect("the click sent one");
+    assert_eq!(
+        action,
+        PlayerAction::ActivateAbility {
+            source: mire,
+            ability_index: 0,
+        }
+    );
+
+    // The engine agrees, which is the half a client cannot fake: the land
+    // sacrifices itself and the life is paid.
+    table.submit(action);
+    assert!(
+        !table
+            .view()
+            .battlefield
+            .iter()
+            .any(|o| o.name == "Bloodstained Mire"),
+        "the fetchland sacrificed itself"
+    );
+    assert_eq!(
+        table.view().seat(PlayerId::new(0)).expect("own seat").life,
+        life - 1,
+        "and the life was paid"
+    );
 }

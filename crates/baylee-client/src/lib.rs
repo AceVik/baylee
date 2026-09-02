@@ -153,6 +153,13 @@ pub struct Duel {
     /// judgement, not something the engine said, and the difference is worth
     /// keeping visible at the type level.
     pub reachable: std::collections::HashSet<ObjectId>,
+    /// Permanents the engine listed at least one activatable ability for.
+    ///
+    /// The engine's own answer, unlike [`Self::reachable`] — `LegalActions`
+    /// names every source whose ability may be activated right now, mana
+    /// abilities included. Kept here so the table can draw it and the board
+    /// model does not have to recompute it per frame.
+    pub activatable: std::collections::HashSet<ObjectId>,
     /// The permanent whose abilities the prompt bar is offering.
     ///
     /// Only ever set for one with more than one thing to do: a single
@@ -173,6 +180,17 @@ impl Duel {
     /// functions of the board model.
     pub fn submit(&mut self, action: PlayerAction) {
         self.outbox.push(action);
+    }
+
+    /// The actions queued for the host but not yet sent.
+    ///
+    /// Read-only, and there for the tests that ask what a click *did*: the
+    /// outbox is the one place a client's decision is visible before the
+    /// engine has seen it, and a test that reached past it would be checking
+    /// the engine rather than the client.
+    #[must_use]
+    pub fn outbox(&self) -> &[PlayerAction] {
+        &self.outbox
     }
 
     /// The local seat, once the static payload has arrived.
@@ -582,6 +600,7 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
 /// Rebuilds the render model from the current view.
 pub(crate) fn rebuild_board(duel: &mut Duel) {
     duel.reachable = reachable(duel);
+    duel.activatable = activatable(duel);
 
     let Some(view) = duel.view.as_ref() else {
         return;
@@ -616,10 +635,34 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
         baylee_client_core::board::Openings {
             playable: &playable,
             reachable: &duel.reachable,
+            activatable: &duel.activatable,
         },
         pod_width,
     ));
     duel.layout = Some(layout);
+}
+
+/// Which permanents have an ability that can be activated right now.
+///
+/// Straight off `LegalActions`, both halves of it: `mana_abilities` names a
+/// source once however many mana abilities it has, `abilities` names a
+/// `(source, index)` pair per ability. The table only needs "does this card
+/// have anything to do", so both collapse to the same set of sources — the
+/// menu that asks *which* one is built later, from the same list, by
+/// `abilities::options`.
+fn activatable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
+    duel.interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+        .map(|legal| {
+            legal
+                .mana_abilities
+                .iter()
+                .copied()
+                .chain(legal.abilities.iter().map(|(source, _)| *source))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Which cards in hand a tap or two would make castable.

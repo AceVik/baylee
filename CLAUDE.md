@@ -426,12 +426,33 @@ Activating an ability by hand did not exist at all until now —
 `Interaction::activate` was written and nothing called it, so a Forest, a mana
 dork and a planeswalker were equally inert under the pointer.
 `crates/baylee-client/src/abilities.rs` is the list, built only from
-`LegalActions`, each entry labelled out of the registry ("Tap for {G}", "+1")
-because "Ability 2" is a label a player has to guess at. One option activates
-on the click that found it; several open a chooser on its own row of the
-prompt bar, which sends by *position* and rebuilds the list from the current
-`LegalActions` when pressed — a bar drawn a frame ago must not be able to send
-an ability the engine has since withdrawn.
+`LegalActions`, each entry labelled out of the registry ("Tap for {G}", "+1",
+"{T}, Sacrifice this, Pay 1 life") because "Ability 2" is a label a player has
+to guess at. One option activates on the click that found it; several open a
+chooser on its own row of the prompt bar, which sends by *position* and
+rebuilds the list from the current `LegalActions` when pressed — a bar drawn a
+frame ago must not be able to send an ability the engine has since withdrawn.
+
+Finding the permanent that has something to do is the other half, and it is a
+third `Openings` set: `activatable`, straight off `LegalActions`, reaching
+both card shaders as `glow::ACTIVATABLE`. It is drawn as a warm light running
+*round* the border rather than as one of the steady keyword sheaths, because a
+keyword is what a card is and this is what a player could do — two different
+claims that must not read as the same light. `CardGroup::activatable` is true
+only when every permanent the card stands for can act, so a stack of three
+never invites a click that gets refused.
+
+The stack is drawn as cards, not as a list of names. Each entry in
+`hud::spawn_stack_panel` is the spell's own picture — or, for an ability,
+the picture of the permanent it came from (`StackKind::Ability { source }`,
+because an ability has no card of its own) — followed by a row of everything
+it targets, each drawn as its own smaller card. The lookup that makes that
+possible is in the model, not the renderer: `BoardModel::from_view` resolves
+each `TargetRef` into a `StackTarget { what, name, art }` through
+`PlayerView::object`, and a target's art joins `required_images` because a
+spell can point at a card in a graveyard nothing else is drawing. A player
+target keeps `name: None` — seat names live in `GameStatic`, which the board
+model has never carried.
 
 Nothing on the table is positioned directly. `table::sync_scene` writes a
 `Motion` target and `table::glide` moves the card there, so a repacked lane, a

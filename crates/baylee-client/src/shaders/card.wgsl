@@ -41,6 +41,7 @@ const FINISH_ETCHED: u32 = 2u;
 const GLOW_INDESTRUCTIBLE: u32 = 1u;
 const GLOW_HEXPROOF: u32 = 2u;
 const GLOW_SHROUD: u32 = 4u;
+const GLOW_ACTIVATABLE: u32 = 8u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
@@ -83,6 +84,23 @@ fn spectrum(h: f32) -> vec3<f32> {
 fn edge_distance(uv: vec2<f32>) -> f32 {
     let d = min(uv, vec2<f32>(1.0) - uv);
     return min(d.x, d.y);
+}
+
+// Position around the card's border, 0..1, clockwise from the top-left
+// corner. Continuous across all four corners, so a light travelling on it
+// runs round the card instead of jumping at the edges.
+fn perimeter(uv: vec2<f32>) -> f32 {
+    let d = vec2<f32>(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+    if d.x < d.y {
+        if uv.x < 0.5 {
+            return 0.75 + (1.0 - uv.y) * 0.25;
+        }
+        return 0.25 + uv.y * 0.25;
+    }
+    if uv.y < 0.5 {
+        return uv.x * 0.25;
+    }
+    return 0.5 + (1.0 - uv.x) * 0.25;
 }
 
 @fragment
@@ -166,8 +184,22 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
             // Two keywords on one card share the border rather than stacking
             // to white; the point is to be readable at a glance across a
             // board, not to be bright.
-            glow /= max(weight, 1.0);
-            color = vec4<f32>(mix(color.rgb, glow, band * 0.85), color.a);
+            if weight > 0.0 {
+                glow /= weight;
+                color = vec4<f32>(mix(color.rgb, glow, band * 0.85), color.a);
+            }
+            // Activatable is not a property of the card, so it must not read
+            // like one: a warm light running round the border, which the eye
+            // finds across a whole board and which no printed ability could
+            // be mistaken for. It is added on top of any keyword sheath
+            // rather than averaged into it — the two are saying different
+            // things and both stay legible.
+            if (params.glow & GLOW_ACTIVATABLE) != 0u {
+                let head = fract(perimeter(uv) - t * 0.22);
+                let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
+                let amber = vec3<f32>(0.99, 0.78, 0.34);
+                color = vec4<f32>(color.rgb + amber * band * (0.22 + 0.60 * chase), color.a);
+            }
         }
     }
 

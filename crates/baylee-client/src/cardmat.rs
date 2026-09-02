@@ -29,12 +29,18 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 
-/// Which keyword glows a card wears, as the shader's bitset.
+/// What a card's border is saying, as the shader's bitset.
 ///
-/// Deliberately not the engine's keyword numbering: the shader reads three
-/// bits and the engine has more than a hundred keywords, so translating once
-/// here is cheaper than sending a `u128` to the GPU, and it makes adding a
-/// fourth glow a one-line change on both sides.
+/// Deliberately not the engine's keyword numbering: the shader reads a
+/// handful of bits and the engine has more than a hundred keywords, so
+/// translating once here is cheaper than sending a `u128` to the GPU, and it
+/// makes adding a glow a one-line change on both sides.
+///
+/// Two different kinds of claim ride in the same word, and the shader draws
+/// them differently on purpose. The keyword bits are facts about the card —
+/// steady sheaths, the card *is* that. [`ACTIVATABLE`] is this client saying
+/// "you could do something here", which is an offer, and reads as a moving
+/// light rather than a material.
 pub mod glow {
     /// Indestructible — darksteel.
     pub const INDESTRUCTIBLE: u32 = 1;
@@ -42,6 +48,12 @@ pub mod glow {
     pub const HEXPROOF: u32 = 2;
     /// Shroud.
     pub const SHROUD: u32 = 4;
+    /// Something on this permanent can be activated right now.
+    ///
+    /// Not a keyword, so it is not in `KEYWORD_BITS`: it comes from
+    /// `LegalActions`, changes with priority, and would be a rules lie if it
+    /// were ever mistaken for a printed ability.
+    pub const ACTIVATABLE: u32 = 8;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
