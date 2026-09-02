@@ -420,11 +420,17 @@ fn apply(
                 *toughness = toughness.saturating_add(*t);
             }
         }
+        // CR 613.3d, layer 7b: a *setting* effect gives the permanent that
+        // power and toughness outright. The test is whether it is a creature
+        // *now* — layer 4 has already run — and not whether it was printed
+        // with a P/T box: an animated land has none, and guarding on the
+        // printed value left Treetop Village a creature with no toughness,
+        // which the state-based actions then put in the graveyard the
+        // instant its own ability resolved (CR 704.5f). Anything that is
+        // still not a creature has no P/T to set (CR 208.3).
         Modifier::SetPT(p, t) => {
-            if c.power.is_some() {
+            if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
                 c.power = Some(*p);
-            }
-            if c.toughness.is_some() {
                 c.toughness = Some(*t);
             }
         }

@@ -372,8 +372,8 @@ impl Tx<'_> {
     /// the chain knows whether that target was a player. Reading the absent
     /// key as `You` there is how Piranha Marsh — "target player loses 1 life"
     /// — generated as a land that drains its own controller.
-    fn player_rel_of(defined: Option<&str>, target: &str) -> Option<&'static str> {
-        if defined.is_none() && target == "TargetSpec::Player(PlayerRel::Chosen)" {
+    fn player_rel_of(defined: Option<&str>, target: Option<&str>) -> Option<&'static str> {
+        if defined.is_none() && target == Some("TargetSpec::Player(PlayerRel::Chosen)") {
             return Some("PlayerRel::Chosen");
         }
         Self::player_rel(defined)
@@ -396,15 +396,15 @@ impl Tx<'_> {
         // `PlayerRel::Chosen`. Handing the *requirement* to the effect
         // instead is how a burn spell ends up dealing damage to nothing at
         // all: `DealDamage` looks for an object target and finds none.
-        let target = match chain.target.as_deref() {
+        let target: Option<String> = match chain.target.as_deref() {
             Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent") => {
-                "TargetSpec::Player(PlayerRel::Chosen)".to_string()
+                Some("TargetSpec::Player(PlayerRel::Chosen)".to_string())
             }
-            Some(other) => other.to_string(),
-            None => "TargetSpec::AnyPlayer".to_string(),
+            Some(other) => Some(other.to_string()),
+            None => None,
         };
 
-        let Some(effects) = self.effect_of(&api, &mut p, &target) else {
+        let Some(effects) = self.effect_of(&api, &mut p, target.as_deref()) else {
             // An API with no rule at all is a different report than a rule
             // that met a value it cannot say — the first is a missing
             // effect, the second is a missing case in one that exists.
@@ -436,12 +436,22 @@ impl Tx<'_> {
     /// Every parameter a rule reads is *taken* from `p`; the caller then
     /// refuses the card if anything is left, which is what stops an ignored
     /// `NoRegen$ True` from generating a card that does the wrong thing.
-    fn effect_of(&mut self, api: &str, p: &mut Params, target: &str) -> Option<Vec<String>> {
+    fn effect_of(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        // What the effects below aim at when they take a target. `target` is
+        // `None` when the chain declared none at all, which is a different
+        // question — `Animate` needs to know, because `Filter::This` binds
+        // to the first target if there is one and to the source if not.
+        let aimed = target.unwrap_or("TargetSpec::AnyPlayer");
         Some(match api {
             "DealDamage" => {
                 let n = amount(&p.take("NumDmg")?, self.svars)?;
                 let to = match p.take("Defined").as_deref() {
-                    None => target.to_string(),
+                    None => aimed.to_string(),
                     Some("You") => "TargetSpec::Player(PlayerRel::You)".to_string(),
                     Some("Opponent") => "TargetSpec::Player(PlayerRel::Opponent)".to_string(),
                     Some(_) => return None,
@@ -517,10 +527,11 @@ impl Tx<'_> {
                 if p.take("NoRegen").is_some_and(|v| v != "True") {
                     return None;
                 }
-                vec![format!("Effect::Destroy {{ target: {target} }}")]
+                vec![format!("Effect::Destroy {{ target: {aimed} }}")]
             }
-            "Pump" => self.pump_effect(p, target)?,
-            "ChangeZone" => self.change_zone(p, target)?,
+            "Animate" => self.animate_effect(p, target)?,
+            "Pump" => self.pump_effect(p, aimed)?,
+            "ChangeZone" => self.change_zone(p, aimed)?,
             "Tap" => vec!["Effect::TapTarget".to_string()],
             "Untap" => vec!["Effect::UntapTarget".to_string()],
             "Counter" => {
@@ -531,6 +542,105 @@ impl Tx<'_> {
             }
             _ => return None,
         })
+    }
+
+    /// `Animate`: the manland sentence — "until end of turn, this land
+    /// becomes a 4/4 white and blue Elemental creature with flying and
+    /// vigilance. It's still a land."
+    ///
+    /// One printed sentence, four continuous effects, because CR 613.1
+    /// applies type, colour, ability and power/toughness in that order and
+    /// each is its own layer. "It's still a land" is why the types are
+    /// *added* rather than set — an animated Colonnade that stopped being a
+    /// land would stop making mana.
+    ///
+    /// Only `Defined$ Self` is read, and only when the chain targets
+    /// nothing: `Filter::This` binds to the first target when there is one
+    /// and to the source when there is not, so a chain with both would
+    /// animate the wrong permanent.
+    fn animate_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        if p.take("Defined").as_deref() != Some("Self") || target.is_some() {
+            self.note("`Animate` of something other than the source".to_string());
+            return None;
+        }
+        let mut out = Vec::new();
+        // Layer 4: the types it becomes. A word is either a card type or a
+        // subtype, and Forge writes both in one list.
+        for word in p.take("Types")?.split(',') {
+            let word = word.trim();
+            let modifier = if let Some(types) = card_type_const(word) {
+                format!("Modifier::AddType({types})")
+            } else {
+                let Some(path) = self.cats.const_path(word) else {
+                    self.note(format!("`Animate` into `{word}`"));
+                    return None;
+                };
+                format!("Modifier::AddSubtype({path})")
+            };
+            out.push(Self::animate_expr("Layer::Type", &modifier));
+        }
+        // Layer 5: colour. Without `OverwriteColors$ True` the card keeps
+        // the colours it had, which is `AddColor` (CR 613.1c).
+        if let Some(raw) = p.take("Colors") {
+            let overwrite = p.take("OverwriteColors").as_deref() == Some("True");
+            let colors: Option<Vec<&str>> = raw.split(',').map(|c| color_const(c.trim())).collect();
+            let Some(colors) = colors else {
+                self.note(format!("`Animate` into colours `{raw}`"));
+                return None;
+            };
+            let which = if overwrite { "SetColor" } else { "AddColor" };
+            out.push(Self::animate_expr(
+                "Layer::Color",
+                &format!(
+                    "Modifier::{which}(ColorSet::from_slice(&[{}]))",
+                    colors.join(", ")
+                ),
+            ));
+        }
+        // Layer 6: keywords it gains.
+        if let Some(raw) = p.take("Keywords") {
+            let each: Option<Vec<&str>> = raw.split('&').map(|k| keyword_const(k.trim())).collect();
+            let Some(each) = each else {
+                self.note(format!("`Animate` granting `{raw}`"));
+                return None;
+            };
+            let joined =
+                each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
+            out.push(Self::animate_expr(
+                "Layer::Ability",
+                &format!("Modifier::AddKeyword({joined})"),
+            ));
+        }
+        // Layer 7b: the printed P/T it takes on. Both halves or neither —
+        // `SetPT` sets both, and half a set would invent the other.
+        match (p.take("Power"), p.take("Toughness")) {
+            (Some(power), Some(toughness)) => {
+                let power: i16 = power.parse().ok()?;
+                let toughness: i16 = toughness.parse().ok()?;
+                out.push(Self::animate_expr(
+                    "Layer::PtSet",
+                    &format!("Modifier::SetPT({power}, {toughness})"),
+                ));
+            }
+            (None, None) => {}
+            _ => {
+                self.note("`Animate` setting only one of power and toughness".to_string());
+                return None;
+            }
+        }
+        if out.is_empty() {
+            self.note("`Animate` that changes nothing".to_string());
+            return None;
+        }
+        Some(out)
+    }
+
+    /// One layer of an [`Self::animate_effect`], as the `Effect` literal.
+    fn animate_expr(layer: &str, modifier: &str) -> String {
+        format!(
+            "Effect::CreateContinuousEffect {{ layer: {layer}, filter: &Filter::This, \
+             modifier: {modifier}, duration: Duration::UntilEndOfTurn }}"
+        )
     }
 
     /// `Pump`: `NumAtt$ +2 | NumDef$ +2 | KW$ Trample`, the commonest
@@ -1141,6 +1251,21 @@ impl Tx<'_> {
     }
 }
 
+/// A forge colour word as our `Color` constant.
+///
+/// `Colorless` is the empty set rather than a colour, and `ChosenColor` is
+/// a choice a transcoder cannot make — both stay unread.
+fn color_const(word: &str) -> Option<&'static str> {
+    Some(match word {
+        "White" => "Color::White",
+        "Blue" => "Color::Blue",
+        "Black" => "Color::Black",
+        "Red" => "Color::Red",
+        "Green" => "Color::Green",
+        _ => return None,
+    })
+}
+
 /// A Forge type word as the `TypeSet` constant for it, or `None` when the
 /// word is a subtype (or a type the engine has no bit for).
 fn card_type_const(word: &str) -> Option<&'static str> {
@@ -1571,6 +1696,39 @@ mod tests {
         assert_eq!(
             refusal_reason(&script, &cats()).as_deref(),
             Some("`Mana.RestrictValid` beyond a spell")
+        );
+    }
+
+    /// A manland: one printed sentence, four layers. "It's still a land" is
+    /// why the types are *added*, and CR 613.1 is why each layer is its own
+    /// effect rather than one lump.
+    #[test]
+    fn animate_becomes_one_continuous_effect_per_layer() {
+        let body = read(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Animate | Cost$ 1 G | Defined$ Self | Power$ 3 | Toughness$ 3 | Types$ Creature,Goblin | Colors$ Green | OverwriteColors$ True | Keywords$ Trample",
+        );
+        let a = body.abilities.join("");
+        for expected in [
+            "layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE)",
+            "modifier: Modifier::AddSubtype(subtypes::creature::GOBLIN)",
+            "layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Green]))",
+            "layer: Layer::Ability, filter: &Filter::This, modifier: Modifier::AddKeyword(KeywordSet::TRAMPLE)",
+            "layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(3, 3)",
+        ] {
+            assert!(a.contains(expected), "missing `{expected}` in {a}");
+        }
+        assert!(!a.contains("RemoveType"), "it's still a land");
+
+        // `Filter::This` binds to the first target when the chain has one,
+        // so an animate that also targets would animate the wrong
+        // permanent. Refuse rather than guess which was meant.
+        let script = parse(
+            "Name:X\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Land | Defined$ Self | Power$ 3 | Toughness$ 3 | Types$ Creature",
+        );
+        assert_eq!(
+            refusal_reason(&script, &cats()).as_deref(),
+            Some("`Animate` of something other than the source")
         );
     }
 
