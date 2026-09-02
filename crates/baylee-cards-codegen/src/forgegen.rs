@@ -282,6 +282,17 @@ impl Tx<'_> {
                     "nonToken" | "!token" => "Filter::Not(&Filter::IsToken)".to_string(),
                     "nonLand" => "Filter::Not(&Filter::LAND)".to_string(),
                     "nonCreature" => "Filter::Not(&Filter::CREATURE)".to_string(),
+                    // Supertypes read like subtypes in a forge filter but are
+                    // a different set on the card (CR 205.4).
+                    "Basic" => "Filter::HasSupertype(SupertypeSet::BASIC)".to_string(),
+                    "nonBasic" => {
+                        "Filter::Not(&Filter::HasSupertype(SupertypeSet::BASIC))".to_string()
+                    }
+                    "Legendary" => "Filter::HasSupertype(SupertypeSet::LEGENDARY)".to_string(),
+                    "nonLegendary" => {
+                        "Filter::Not(&Filter::HasSupertype(SupertypeSet::LEGENDARY))".to_string()
+                    }
+                    "Snow" => "Filter::HasSupertype(SupertypeSet::SNOW)".to_string(),
                     "" => continue,
                     // `Creature.Goblin` puts the subtype after the base, so
                     // an atom can name one too — and it is the commonest
@@ -399,6 +410,8 @@ impl Tx<'_> {
             // effect, the second is a missing case in one that exists.
             if is_supported_api(&api) {
                 self.note(format!("unreadable value in `{api}`"));
+            } else {
+                self.note(format!("effect `{api}`"));
             }
             return None;
         };
@@ -636,8 +649,16 @@ impl Tx<'_> {
             return (amount == 1)
                 .then(|| vec![format!("Effect::mana_choice(&[{}])", colors.join(", "))]);
         }
-        let c = color(&produced)?;
-        Some(vec![format!("Effect::mana({c}, {amount})")])
+        // `Produced$ W U` is "add {W}{U}" — two mana at once, not a choice
+        // between them (that is `Combo`). One effect per colour, which is
+        // how the bounce lands were already written by hand.
+        let colors: Option<Vec<&str>> = produced.split_whitespace().map(color).collect();
+        Some(
+            colors?
+                .into_iter()
+                .map(|c| format!("Effect::mana({c}, {amount})"))
+                .collect(),
+        )
     }
 
     /// A `Cost$` value as a `Cost` expression, plus whether it taps.
@@ -770,19 +791,41 @@ impl Tx<'_> {
         }
         let (api, mut body) = Params::parse(self.svars.get(&with)?)?;
         body.drop_prose();
-        // `DB$ Tap | Defined$ Self | ETB$ True` and nothing else: the tap
-        // has to be of this card, as it enters, or it is not this modifier.
+        // `DB$ Tap | Defined$ Self | ETB$ True`: the tap has to be of this
+        // card, as it enters, or it is not this modifier.
         if api != "Tap"
             || body.take("Defined").as_deref() != Some("Self")
             || body.take("ETB").as_deref() != Some("True")
-            || !body.exhausted()
         {
             self.note(format!("replacement `Moved` replacing with `{api}`"));
             return None;
         }
-        self.body
-            .enter_modifiers
-            .push("EnterModifier::Tapped".to_string());
+        // A checkland taps *conditionally*: forge writes "tap it when you
+        // control none of these", which is the printed "enters tapped unless
+        // you control a Swamp or a Mountain" turned inside out. `EQ0` is the
+        // only comparison that is that sentence — `GE2` and friends are
+        // other cards, and a `ConditionCheckSVar$` is a computed value the
+        // DSL cannot say at all.
+        let modifier = match body.take("ConditionPresent") {
+            None => "EnterModifier::Tapped".to_string(),
+            Some(present) => {
+                if body.take("ConditionCompare").as_deref() != Some("EQ0") {
+                    self.note("replacement `Moved` with a condition other than `EQ0`".to_string());
+                    return None;
+                }
+                let expr = self.filter_expr(&present)?;
+                let name = self.body.filter_static("CHECK", &expr);
+                format!("EnterModifier::TappedUnless(&{name})")
+            }
+        };
+        if !body.exhausted() {
+            self.note(format!(
+                "replacement `Moved` tapping with `{}`",
+                body.first_key().unwrap_or_default()
+            ));
+            return None;
+        }
+        self.body.enter_modifiers.push(modifier);
         Some(())
     }
 
@@ -1413,6 +1456,65 @@ mod tests {
         );
     }
 
+    /// A checkland: forge writes the printed "enters tapped **unless** you
+    /// control a Swamp or a Mountain" inside out, as "tap it when the count
+    /// of those is zero". `EQ0` is that sentence and nothing else is.
+    #[test]
+    fn a_conditional_enters_tapped_becomes_tapped_unless() {
+        let body = read(
+            "Name:X\nTypes:Land\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
+             SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Land.Basic+YouCtrl | ConditionCompare$ EQ0",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::TappedUnless(&CHECK1)"]
+        );
+        assert!(
+            body.statics
+                .contains("Filter::HasSupertype(SupertypeSet::BASIC)"),
+            "{}",
+            body.statics
+        );
+    }
+
+    /// "Unless you control *two* other lands" is a count, not a presence
+    /// test, and `TappedUnless` cannot say it — so the card stays a stub
+    /// rather than becoming a land that enters untapped one land early.
+    #[test]
+    fn a_counted_enters_tapped_condition_is_refused() {
+        let script = parse(
+            "Name:X\nTypes:Land\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
+             SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Land.Other+YouCtrl | ConditionCompare$ LT2",
+        );
+        assert_eq!(
+            refusal_reason(&script, &cats()).as_deref(),
+            Some("replacement `Moved` with a condition other than `EQ0`")
+        );
+    }
+
+    /// `Produced$ W U` is "add {W}{U}" — two mana at once. `Combo W U` is
+    /// the choice between them, and reading one as the other would hand a
+    /// bounce land twice the mana or half of it.
+    #[test]
+    fn produced_lists_two_mana_and_combo_offers_a_choice() {
+        let both = read("Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ W U");
+        assert_eq!(
+            both.abilities,
+            [
+                "mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::White, 1), Effect::mana(ManaColor::Blue, 1)])"
+            ]
+        );
+        let either = read("Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo W U");
+        assert_eq!(
+            either.abilities,
+            [
+                "mana_ability!(Cost::TAP, &[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])"
+            ]
+        );
+    }
+
     /// The load-bearing rule: an unread parameter, an unread effect, an
     /// unread line kind or an unread keyword all refuse the whole card. Each
     /// Giant Growth: the commonest shape in the whole script corpus.
@@ -1610,9 +1712,16 @@ mod tests {
         assert_eq!(refusal_reason(&script, &cats()), None, "read in full");
 
         // An unknown API is a missing effect, not a missing case in a rule
-        // that exists, and must not be reported as one.
+        // that exists, and is reported as its own kind. Leaving it silent
+        // was worse than it looked: the report's fallback then guessed, and
+        // named the first API *it* did not recognise — for a land whose
+        // only unread line was `DB$ Discard`, that was the `R:Event$ Moved`
+        // the transcoder had read perfectly well.
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Animate | Defined$ Self");
-        assert_eq!(refusal_reason(&script, &cats()), None);
+        assert_eq!(
+            refusal_reason(&script, &cats()).as_deref(),
+            Some("effect `Animate`")
+        );
 
         // A rule that exists but met a value it cannot say says so.
         let script = parse(

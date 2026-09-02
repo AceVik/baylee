@@ -53,6 +53,13 @@ enum Cmd {
         /// Print this many refused scripts, for finding the next rule to add.
         #[arg(long, default_value_t = 0)]
         samples: usize,
+        /// Show only samples whose refusal reason contains this text.
+        ///
+        /// The ranking names a reason; this is how you read the scripts
+        /// behind one of them without grepping the corpus by hand and
+        /// guessing which of them the transcoder actually stopped on.
+        #[arg(long)]
+        reason: Option<String>,
         /// Rank only this project's own unfinished cards.
         ///
         /// The corpus is 33666 scripts; the deckbuilder offers about a
@@ -169,7 +176,8 @@ fn main() -> anyhow::Result<()> {
             forge,
             samples,
             stubs,
-        } => forge_report(&root, &forge, samples, stubs),
+            reason,
+        } => forge_report(&root, &forge, samples, stubs, reason.as_deref()),
         Cmd::CoverageSet {
             count,
             max_new,
@@ -891,7 +899,13 @@ fn dev_table(
 /// The number is the honest ceiling on what `codegen` can generate from the
 /// rules reference: a script it refuses becomes an ordinary stub, so this is
 /// also the list of rules worth adding next.
-fn forge_report(root: &Path, forge_dir: &Path, samples: usize, stubs: bool) -> anyhow::Result<()> {
+fn forge_report(
+    root: &Path,
+    forge_dir: &Path,
+    samples: usize,
+    stubs: bool,
+    reason: Option<&str>,
+) -> anyhow::Result<()> {
     let dir = root.join(forge_dir);
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
@@ -932,10 +946,10 @@ fn forge_report(root: &Path, forge_dir: &Path, samples: usize, stubs: bool) -> a
             read += 1;
         } else {
             refused += 1;
-            *causes
-                .entry(refusal_cause(&script, &cats))
-                .or_insert(0usize) += 1;
-            if shown < samples {
+            let cause = refusal_cause(&script, &cats);
+            let wanted_cause = reason.is_none_or(|want| cause.contains(want));
+            *causes.entry(cause).or_insert(0usize) += 1;
+            if shown < samples && wanted_cause {
                 shown += 1;
                 println!("--- refused: {}\n{text}", path.display());
             }
