@@ -1,0 +1,937 @@
+//! The retained HUD tree: the seat tabs, the own-board overlay, and the
+//! one system that rebuilds all of it.
+//!
+//! Rebuilt only when [`HudRevision`] says something it draws has changed —
+//! a rebuild per frame would cost more than the whole table does.
+
+#[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
+use super::*;
+
+/// Removes the overlay when the duel hands the screen back.
+///
+/// The 3D stage has always been torn down on `Close`; the overlay was not,
+/// because until the client grew a lobby nothing ever closed a duel and came
+/// back to something else. The revision goes with it: it describes a tree that
+/// no longer exists, and the next duel's first frame has to rebuild rather
+/// than compare against it.
+pub fn despawn_overlay(
+    mut commands: Commands,
+    existing: Query<Entity, With<HudRoot>>,
+    mut revision: ResMut<HudRevision>,
+    ui_materials: Option<ResMut<UiCardMaterials>>,
+) {
+    for entity in &existing {
+        commands.entity(entity).despawn();
+    }
+    *revision = HudRevision::default();
+    // The cache is what holds those materials alive, so letting go of it here
+    // is what actually frees them: a duel that ended must not leave a hand's
+    // worth behind for the next one.
+    if let Some(mut cache) = ui_materials {
+        cache.clear();
+    }
+}
+
+/// Rebuilds the overlay when anything it shows changes.
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)] // one retained-UI rebuild, sectioned by comments
+pub fn sync_overlay(
+    mut commands: Commands,
+    duel: Res<Duel>,
+    mut revision: ResMut<HudRevision>,
+    existing: Query<Entity, With<HudRoot>>,
+    mut textures: ResMut<CardTextures>,
+    assets: Res<AssetServer>,
+    windows: Query<&Window>,
+    fonts: Res<UiFonts>,
+    settings: Res<crate::settings::ClientSettings>,
+    prefs: Res<crate::prefs::Prefs>,
+    texts: Res<crate::cardtext::CardTexts>,
+    mode: Res<crate::face::FaceMode>,
+    // Both come from the render plugins. A headless app has neither, and
+    // every card below falls back to a plain image rather than growing a
+    // second code path for it.
+    ui_materials: Option<ResMut<UiCardMaterials>>,
+    material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
+) {
+    let mut cards = match (ui_materials, material_assets) {
+        (Some(cache), Some(assets)) => Some((cache, assets)),
+        _ => None,
+    };
+    let mut cards = cards.as_mut().map(|(cache, assets)| UiCards {
+        cache: cache.as_mut(),
+        assets: assets.as_mut(),
+    });
+    let faces = FaceCtx {
+        texts: &texts,
+        mode: &mode,
+        settings: &settings,
+    };
+    let seq = duel.board.as_ref().map(|b| b.seq);
+    let prompt = duel
+        .interaction
+        .as_ref()
+        .map(|i| i.prompt().headline())
+        .or_else(|| duel.last_error.clone());
+    let hovered = duel.hovered;
+    let selected: Vec<ObjectId> = duel
+        .interaction
+        .as_ref()
+        .map(|i| i.selected().to_vec())
+        .unwrap_or_default();
+    let orders = prefs.orders().clone();
+    let autopilot = duel.autopilot;
+    let combat = duel.interaction.as_ref().and_then(|i| {
+        i.focus_position()
+            .map(|(focus, count)| (focus, count, i.declared()))
+    });
+    let ability_menu = duel.ability_menu;
+    let focus = duel.focus;
+    let overlay_open = duel.overlay_open;
+    let preview_scale = settings.preview_scale;
+
+    if revision.seq == seq
+        && revision.prompt == prompt
+        && revision.hovered == hovered
+        && revision.selected == selected
+        && revision.orders.as_ref().is_some_and(|o| o.same_as(&orders))
+        && revision.autopilot == autopilot
+        && revision.focus == focus
+        && revision.overlay_open == overlay_open
+        && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
+        && revision.faces == faces.always()
+        && revision.texts == texts.len()
+        && revision.combat == combat
+        && revision.ability_menu == ability_menu
+        && !existing.is_empty()
+    {
+        return;
+    }
+    revision.seq = seq;
+    revision.prompt.clone_from(&prompt);
+    revision.hovered = hovered;
+    revision.selected.clone_from(&selected);
+    revision.orders = Some(orders.clone());
+    revision.autopilot = autopilot;
+    revision.focus = focus;
+    revision.overlay_open = overlay_open;
+    revision.preview_scale = preview_scale;
+    revision.faces = faces.always();
+    revision.texts = texts.len();
+    revision.combat = combat;
+    revision.ability_menu = ability_menu;
+
+    for entity in &existing {
+        commands.entity(entity).despawn();
+    }
+    let (Some(board), Some(view)) = (duel.board.as_ref(), duel.view.as_ref()) else {
+        return;
+    };
+
+    let root = commands
+        .spawn((
+            HudRoot,
+            Node {
+                width: percent(100),
+                height: percent(100),
+                ..default()
+            },
+            // The overlay must never eat clicks meant for the table.
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    // ---- top: the full-width tab bar — ALL players left, menu right ----
+    let tabs = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(0),
+                left: px(0),
+                right: px(0),
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::axes(px(8), px(6)),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let players_row = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(8),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for seat in &view.seats {
+        let tab = spawn_player_tab(
+            &mut commands,
+            view,
+            duel.statics.as_ref(),
+            seat,
+            focus,
+            &fonts,
+        );
+        commands.entity(players_row).add_child(tab);
+    }
+    commands.entity(tabs).add_child(players_row);
+
+    let menu_row = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(8),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for (action, label, enabled) in [
+        (MenuAction::OfferDraw, "Remis", true),
+        (MenuAction::Concede, "Aufgeben", true),
+    ] {
+        let button = commands
+            .spawn((
+                MenuButton { action },
+                Node {
+                    padding: UiRect::axes(px(12), px(6)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(if enabled {
+                    palette::PANEL_LIT
+                } else {
+                    palette::PANEL
+                }),
+                soft_shadow(),
+                children![(
+                    Text::new(label),
+                    tf(&fonts, 13.0),
+                    TextColor(if enabled { palette::INK } else { palette::DEAD }),
+                )],
+            ))
+            .id();
+        commands.entity(menu_row).add_child(button);
+    }
+    commands.entity(tabs).add_child(menu_row);
+    commands.entity(root).add_child(tabs);
+
+    // ---- right: the phase rail (opponents' phases top, yours bottom) ---
+    let window_h = windows.single().map_or(800.0, Window::height);
+    let rail = spawn_phase_rail(
+        &mut commands,
+        view,
+        &orders,
+        autopilot,
+        &fonts,
+        window_h,
+        duel.statics.as_ref(),
+    );
+    commands.entity(root).add_child(rail);
+
+    // ---- prompt bar (choice headline + answer buttons), above the hand,
+    // padded clear of the phase rail ---------------------------------------
+    if let Some(text) = prompt {
+        let waiting = !duel.is_my_turn_to_act();
+        let bar = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: px(HAND_BAR_H + 10.0),
+                    right: px(RAIL_W + 12.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(6),
+                    padding: UiRect::axes(px(14), px(8)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(palette::PANEL),
+                soft_shadow(),
+            ))
+            .id();
+        let headline = commands
+            .spawn((
+                Text::new(text),
+                tf(&fonts, 18.0),
+                TextColor(if waiting {
+                    palette::MUTED
+                } else {
+                    palette::ACCENT
+                }),
+            ))
+            .id();
+        commands.entity(bar).add_child(headline);
+
+        // ---- combat: what the next declaration is aimed at -----------------
+        //
+        // Combat is the one choice where clicking a creature is not enough:
+        // the engine asks *which* defender, and a player who cannot see the
+        // answer is guessing. The line says where the aim points and how many
+        // declarations stand, and it is the same aim the keyboard cycles.
+        if let Some(line) = duel
+            .interaction
+            .as_ref()
+            .filter(|i| i.is_combat() && !waiting)
+            .and_then(|i| combat_line(i, view, duel.statics.as_ref()))
+        {
+            let aim = commands
+                .spawn((Text::new(line), tf(&fonts, 13.0), TextColor(palette::MUTED)))
+                .id();
+            commands.entity(bar).add_child(aim);
+        }
+
+        // Answer buttons, matching the pending choice.
+        let combat_answers = [
+            (PromptAction::AimNext, "Aim next"),
+            (PromptAction::Confirm, "Attack"),
+            (PromptAction::DeclareNothing, "None"),
+        ];
+        let block_answers = [
+            (PromptAction::AimNext, "Aim next"),
+            (PromptAction::Confirm, "Block"),
+            (PromptAction::DeclareNothing, "None"),
+        ];
+        let answers: &[(PromptAction, &str)] = if waiting {
+            &[]
+        } else {
+            match duel
+                .interaction
+                .as_ref()
+                .map(baylee_client_core::Interaction::pending)
+            {
+                Some(baylee_engine::choice::Pending::Mulligan { .. }) => &[
+                    (PromptAction::Keep, "Keep"),
+                    (PromptAction::Mulligan, "Mulligan"),
+                ],
+                Some(baylee_engine::choice::Pending::YesNo { .. }) => {
+                    &[(PromptAction::Yes, "Yes"), (PromptAction::No, "No")]
+                }
+                // Combat always offers all three, including with nothing
+                // declared: "none" is a real answer, and the step does not
+                // end until somebody gives one.
+                Some(baylee_engine::choice::Pending::ChooseAttackers { .. }) => &combat_answers,
+                Some(baylee_engine::choice::Pending::ChooseBlockers { .. }) => &block_answers,
+                Some(_)
+                    if duel
+                        .interaction
+                        .as_ref()
+                        .is_some_and(baylee_client_core::Interaction::can_confirm) =>
+                {
+                    &[(PromptAction::Confirm, "OK")]
+                }
+                _ => &[],
+            }
+        };
+        if !answers.is_empty() {
+            let row = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: px(6),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            for (action, label) in answers {
+                let button = commands
+                    .spawn((
+                        PromptButton { action: *action },
+                        Node {
+                            padding: UiRect::axes(px(12), px(5)),
+                            border_radius: btn_radius(),
+                            ..default()
+                        },
+                        BackgroundColor(palette::ACCENT),
+                        soft_shadow(),
+                        children![(
+                            Text::new(*label),
+                            tf(&fonts, 13.0),
+                            TextColor(palette::PANEL),
+                        )],
+                    ))
+                    .id();
+                commands.entity(row).add_child(button);
+            }
+            commands.entity(bar).add_child(row);
+        }
+
+        // The ability chooser, when a permanent was clicked that offers more
+        // than one thing. Its own row rather than more entries in `answers`,
+        // because these are not answers to the pending choice — they are
+        // things to *do* while holding priority, and mixing them with "OK"
+        // would put a mana ability next to the button that ends the turn.
+        if let Some(options) = duel
+            .ability_menu
+            .and_then(|object| ability_options(&duel, object))
+            .filter(|options| options.len() > 1)
+        {
+            let row = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: px(6),
+                        flex_wrap: FlexWrap::Wrap,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            for (index, option) in options.iter().enumerate() {
+                let button = commands
+                    .spawn((
+                        AbilityButton { index },
+                        Node {
+                            padding: UiRect::axes(px(12), px(5)),
+                            border_radius: btn_radius(),
+                            ..default()
+                        },
+                        BackgroundColor(palette::PANEL_LIT),
+                        soft_shadow(),
+                        children![(
+                            Text::new(option.label.clone()),
+                            tf(&fonts, 13.0),
+                            TextColor(palette::INK),
+                        )],
+                    ))
+                    .id();
+                commands.entity(row).add_child(button);
+            }
+            commands.entity(bar).add_child(row);
+        }
+        commands.entity(root).add_child(bar);
+    }
+
+    // ---- bottom: the hand bar (always on top) + commander zone ----------
+    if let Some(statics) = duel.statics.as_ref() {
+        let commanders = view
+            .command
+            .get(view.seat.get() as usize)
+            .map_or(&[][..], Vec::as_slice);
+        let cmdr_width = if commanders.is_empty() { 0.0 } else { 110.0 };
+        let available = windows
+            .single()
+            .map_or(1200.0, |w| (w.width() - 20.0 - cmdr_width).max(0.0));
+        let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
+        let hand_bar = spawn_hand_bar(
+            &mut commands,
+            board,
+            view,
+            statics,
+            hovered,
+            &selected,
+            layout,
+            duel.hand_scroll,
+            &mut textures,
+            &assets,
+            &fonts,
+            &faces,
+            cards.as_mut(),
+        );
+        commands.entity(root).add_child(hand_bar);
+
+        // ---- card preview: a speech-bubble tooltip over the hovered
+        // card (hand, own battlefield, or command zone). No title text —
+        // the image is big enough to read.
+        if let Some((art, anchor)) = preview_anchor(board, view, hovered, layout, duel.hand_scroll)
+        {
+            let scale = settings.preview_scale.clamp(0.5, 1.75);
+            let img_w = 308.0 * scale;
+            let img_h = img_w * 88.0 / 63.0;
+            let panel_w = img_w + 12.0;
+            let win_w = windows.single().map_or(1200.0, Window::width);
+            let anchor = anchor.unwrap_or(win_w / 2.0);
+            // Always fully in the viewport.
+            let left = (anchor - panel_w / 2.0).clamp(8.0, (win_w - panel_w - 8.0).max(8.0));
+            let key = art.map(|art| ImageKey {
+                size: ArtSize::Normal,
+                ..art
+            });
+            // The face first: it only borrows the cache, and the image below
+            // needs it mutably.
+            let built = hovered.and_then(|id| preview_face(&faces, view, &textures, id, key));
+            let image = match key {
+                Some(key) => textures.get(key, statics, &assets),
+                None => textures.card_back(),
+            };
+            let visual = spawn_card_art(
+                &mut commands,
+                image,
+                built.as_ref(),
+                img_w,
+                img_h,
+                crate::face::Detail::Full,
+                &fonts,
+                match key {
+                    Some(key) => CardLook::art(
+                        key,
+                        finish_of(statics, Some(key)),
+                        hovered
+                            .and_then(|id| view.object(id))
+                            .map_or(0, |o| glow_bits(o.keywords)),
+                    ),
+                    None => CardLook::back(FinishTreatment::Plain, 0),
+                },
+                cards.as_mut(),
+            );
+            let tooltip = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        bottom: px(HAND_BAR_H + 10.0),
+                        left: px(left),
+                        padding: UiRect::all(px(6)),
+                        border_radius: preview_radius(img_w),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    BackgroundColor(palette::PANEL_LIT),
+                    overlay_shadow(),
+                    ZIndex(10),
+                    Pickable::IGNORE,
+                    children![(
+                        // Resize handle, bottom right.
+                        PreviewResize,
+                        Node {
+                            position_type: PositionType::Absolute,
+                            right: px(4),
+                            bottom: px(4),
+                            padding: UiRect::all(px(4)),
+                            border_radius: btn_radius(),
+                            ..default()
+                        },
+                        BackgroundColor(palette::PANEL),
+                        children![(
+                            Text::new(glyph::EXPAND.to_string()),
+                            icon_tf(&fonts, 11.0),
+                            TextColor(palette::MUTED),
+                        )],
+                    ),],
+                ))
+                .id();
+            commands.entity(tooltip).add_child(visual);
+            commands.entity(root).add_child(tooltip);
+
+            // The speech-bubble tail, pointing at the hovered card.
+            let tail = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        bottom: px(HAND_BAR_H + 2.0),
+                        left: px(anchor - 9.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                    children![(
+                        Text::new(glyph::CARET_DOWN.to_string()),
+                        icon_tf(&fonts, 18.0),
+                        TextColor(palette::PANEL_LIT),
+                    )],
+                ))
+                .id();
+            commands.entity(root).add_child(tail);
+        }
+    }
+
+    // ---- the own-board overlay (sliding layer over the ellipse) --------
+    if let Some(statics) = duel.statics.as_ref() {
+        let overlay = spawn_own_board_overlay(
+            &mut commands,
+            board,
+            view,
+            statics,
+            hovered,
+            &selected,
+            duel.overlay_open,
+            duel.overlay_t,
+            window_h,
+            &mut textures,
+            &assets,
+            &fonts,
+            &faces,
+            cards.as_mut(),
+        );
+        commands.entity(root).add_child(overlay);
+    }
+
+    // ---- the stack (left of the rail, when non-empty) --------------------
+    if let (false, Some(statics)) = (board.stack.is_empty(), duel.statics.as_ref()) {
+        let stack = spawn_stack_panel(
+            &mut commands,
+            board,
+            view,
+            statics,
+            &mut textures,
+            &assets,
+            &fonts,
+            &faces,
+            cards.as_mut(),
+        );
+        commands.entity(root).add_child(stack);
+    }
+}
+
+/// One player tab: name, life, zone counts; active highlighted, lost
+/// grayed out, team color at the border.
+#[allow(clippy::too_many_lines)] // the icon+number spans are naturally flat
+pub(super) fn spawn_player_tab(
+    commands: &mut Commands,
+    view: &PlayerView,
+    statics: Option<&GameStatic>,
+    seat: &baylee_view::SeatView,
+    focus: Option<PlayerId>,
+    fonts: &UiFonts,
+) -> Entity {
+    let player = seat.player;
+    let name = statics.map_or_else(
+        || format!("Seat {player}"),
+        |s| s.seat_name(player).to_string(),
+    );
+    let team = statics.and_then(|s| s.seats.iter().find(|i| i.player == player)?.team);
+    let exile_count = view.exile.get(player.get() as usize).map_or(0, Vec::len);
+    let is_active = view.active == player;
+    let is_focused = focus == Some(player);
+    let has_priority = view.priority == Some(player);
+
+    let is_local = seat.player == view.seat;
+    let (background, ink) = if seat.has_lost {
+        (palette::PANEL, palette::DEAD)
+    } else if is_active {
+        (palette::PANEL_LIT, palette::INK)
+    } else {
+        (palette::PANEL, palette::INK)
+    };
+    let border_px = if is_active || is_focused { 2.0 } else { 1.0 };
+
+    let marker = if has_priority { "▶ " } else { "" };
+    let display = if is_local {
+        format!("You ({name})")
+    } else {
+        name.clone()
+    };
+    let counts_color = if seat.has_lost {
+        palette::DEAD
+    } else {
+        palette::MUTED
+    };
+    let tab = commands
+        .spawn((
+            PlayerTab { player },
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+                padding: UiRect::axes(px(10), px(5)),
+                border: UiRect::all(px(border_px)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(background),
+            BorderColor::all(if is_active {
+                palette::ACTIVE
+            } else if is_local {
+                palette::ACCENT
+            } else {
+                team_color(team)
+            }),
+            soft_shadow(),
+            children![(
+                // Name and life: name in text font, life with a heart icon.
+                Text::new(format!("{marker}{display} ")),
+                tf(fonts, 14.0),
+                TextColor(if seat.has_lost { palette::DEAD } else { ink }),
+                children![
+                    (
+                        TextSpan::new(glyph::HEART.to_string()),
+                        icon_tf(fonts, 11.0),
+                        TextColor(if seat.life <= 5 {
+                            palette::DANGER
+                        } else {
+                            palette::ACCENT
+                        }),
+                    ),
+                    (
+                        TextSpan::new(format!(" {}", seat.life)),
+                        tf(fonts, 14.0),
+                        TextColor(if seat.has_lost {
+                            palette::DEAD
+                        } else if seat.life <= 5 {
+                            palette::DANGER
+                        } else {
+                            ink
+                        }),
+                    ),
+                ],
+            ),],
+        ))
+        .id();
+
+    // Zone counts as icon + number pairs, with experience counters
+    // (poison, energy) appearing only when a player actually has them.
+    let counts = commands
+        .spawn((Text::new(""), tf(fonts, 11.0), TextColor(counts_color)))
+        .id();
+    commands.entity(tab).add_child(counts);
+    let mut span = |icon: char, value: String| {
+        let icon_span = commands
+            .spawn((
+                TextSpan::new(icon.to_string()),
+                icon_tf(fonts, 10.0),
+                TextColor(counts_color),
+            ))
+            .id();
+        let value_span = commands
+            .spawn((
+                TextSpan::new(value),
+                tf(fonts, 11.0),
+                TextColor(counts_color),
+            ))
+            .id();
+        commands.entity(counts).add_child(icon_span);
+        commands.entity(counts).add_child(value_span);
+    };
+    span(glyph::HAND, format!(" {}  ", seat.hand_count));
+    span(glyph::LIBRARY, format!(" {}  ", seat.library_count));
+    span(glyph::SKULL, format!(" {}  ", seat.graveyard_count));
+    span(glyph::EXILE, format!(" {exile_count}"));
+    if seat.poison > 0 {
+        span(glyph::POISON, format!(" {}", seat.poison));
+    }
+    if seat.energy > 0 {
+        span(glyph::ENERGY, format!(" {}", seat.energy));
+    }
+    tab
+}
+
+/// The own-board overlay: the local player's battlefield as big rounded
+/// cards in three lanes, floating above the shared ellipse canvas, with a
+/// shadow upwards. Slides down/up (X key or the knob on its top edge).
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)] // panel + knob + lanes are one flat build
+pub(super) fn spawn_own_board_overlay(
+    commands: &mut Commands,
+    board: &baylee_client_core::BoardModel,
+    view: &PlayerView,
+    statics: &GameStatic,
+    hovered: Option<ObjectId>,
+    selected: &[ObjectId],
+    open: bool,
+    overlay_t: f32,
+    window_h: f32,
+    textures: &mut CardTextures,
+    assets: &AssetServer,
+    fonts: &UiFonts,
+    faces: &FaceCtx<'_>,
+    mut cards: Option<&mut UiCards<'_>>,
+) -> Entity {
+    // Spawn already at the current slide position — spawning open and
+    // correcting next frame is the battlefield's flicker.
+    let open_top = TAB_H;
+    let closed_top = window_h - HAND_BAR_H - 14.0;
+    let initial_top = closed_top + (open_top - closed_top) * overlay_t;
+    let panel = commands
+        .spawn((
+            OwnBoardOverlay,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(RAIL_W), // 100% minus the phase rail
+                top: px(initial_top),
+                bottom: px(HAND_BAR_H), // 100% minus tabs and the hand bar
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                // No knob row: the knob floats on the panel's edge, only
+                // the button itself is visible.
+                padding: UiRect {
+                    top: px(0),
+                    bottom: px(8),
+                    left: px(12),
+                    right: px(12),
+                },
+                ..default()
+            },
+            BackgroundColor(palette::PANEL),
+            ZIndex(1),
+            overlay_shadow(),
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    // The knob: shallow, centered on the top edge, integrated into the
+    // border; the arrow shows the direction the panel will move.
+    let knob = commands
+        .spawn((
+            OverlayKnob,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(-7),
+                left: percent(50),
+                margin: UiRect::left(px(-36)),
+                width: px(72),
+                height: px(14),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius {
+                    top_left: px(7),
+                    top_right: px(7),
+                    ..default()
+                },
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            children![(
+                Text::new((if open { '\u{f078}' } else { '\u{f077}' }).to_string()),
+                icon_tf(fonts, 9.0),
+                TextColor(palette::MUTED),
+            )],
+        ))
+        .id();
+    commands.entity(panel).add_child(knob);
+
+    let Some(pod) = board.pods.iter().find(|p| p.is_local) else {
+        return panel;
+    };
+    for lane in &pod.lanes {
+        if lane.groups.is_empty() {
+            continue;
+        }
+        let row = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(6),
+                    height: px(OVERLAY_CARD_H),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        for group in &lane.groups {
+            let is_selected = group.members.iter().any(|m| selected.contains(m));
+            let is_hovered = hovered == Some(group.representative);
+            let shadow = if is_selected || is_hovered {
+                BoxShadow::new(
+                    palette::ACCENT,
+                    Val::Px(0.0),
+                    Val::Px(0.0),
+                    Val::Px(0.0),
+                    Val::Px(8.0),
+                )
+            } else {
+                soft_shadow()
+            };
+            let object = view.object(group.representative);
+            let built = object.and_then(|o| faces.object(o, textures, group.art));
+            // A token has no printing at all, so its face is the only thing
+            // there is to draw — before this the overlay skipped it entirely.
+            let image = match group.art {
+                Some(art) => textures.get(art, statics, assets),
+                None => textures.card_back(),
+            };
+            if built.is_none() && group.art.is_none() {
+                continue;
+            }
+            let visual = spawn_card_art(
+                commands,
+                image,
+                built.as_ref(),
+                OVERLAY_CARD_W,
+                OVERLAY_CARD_H,
+                crate::face::Detail::Compact,
+                fonts,
+                {
+                    // The same two claims the table draws, drawn the same
+                    // way: what the rules made the card, and what the player
+                    // could do with it. The overlay is where a seat looks at
+                    // its own board, so it is the last place that cue should
+                    // be missing.
+                    let glow = view
+                        .object(group.representative)
+                        .map_or(0, |o| glow_bits(o.keywords))
+                        | if group.activatable {
+                            crate::cardmat::glow::ACTIVATABLE
+                        } else {
+                            0
+                        };
+                    match group.art {
+                        Some(art) => CardLook::art(art, finish_of(statics, Some(art)), glow),
+                        None => CardLook::back(FinishTreatment::Plain, glow),
+                    }
+                },
+                cards.as_deref_mut(),
+            );
+            let card = commands
+                .spawn((
+                    HandCardVisual {
+                        object: group.representative,
+                    },
+                    Node {
+                        width: px(OVERLAY_CARD_W),
+                        height: px(OVERLAY_CARD_H),
+                        border_radius: card_radius(OVERLAY_CARD_W),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    shadow,
+                    children![(
+                        // Count chip for grouped stacks.
+                        Text::new(if group.count() > 1 {
+                            format!("×{}", group.count())
+                        } else {
+                            String::new()
+                        }),
+                        tf(fonts, 12.0),
+                        TextColor(palette::INK),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            right: px(3),
+                            bottom: px(2),
+                            ..default()
+                        },
+                    ),],
+                ))
+                .id();
+            commands.entity(card).add_child(visual);
+            commands.entity(row).add_child(card);
+        }
+        commands.entity(panel).add_child(row);
+    }
+    panel
+}
+
+/// Slides the own-board overlay between its raised and its down position.
+/// Raised: pinned under the tab bar. Down: slid beneath the hand (which
+/// stays on top), with only the knob peeking above the hand bar so there
+/// is always a way back.
+pub fn animate_overlay(
+    time: Res<Time>,
+    mut duel: ResMut<Duel>,
+    windows: Query<&Window>,
+    mut panels: Query<&mut Node, With<OwnBoardOverlay>>,
+) {
+    let target = if duel.overlay_open { 1.0 } else { 0.0 };
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    // The `top` is recomputed every frame, so window resizes stay honest
+    // even when the animation has settled.
+    if (duel.overlay_t - target).abs() >= f32::EPSILON {
+        let step = time.delta_secs() * 5.0;
+        duel.overlay_t = if (target - duel.overlay_t).abs() <= step {
+            target
+        } else {
+            duel.overlay_t + (target - duel.overlay_t).signum() * step
+        };
+    }
+    let open_top = TAB_H;
+    let closed_top = window.height() - HAND_BAR_H - 14.0;
+    let top = closed_top + (open_top - closed_top) * duel.overlay_t;
+    for mut node in &mut panels {
+        node.top = px(top);
+    }
+}
