@@ -627,6 +627,10 @@ impl Tx<'_> {
     /// `Produced$ Combo W U | Amount$ 2` and friends.
     fn mana_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
         let produced = p.take("Produced")?;
+        let restrict = match p.take("RestrictValid") {
+            None => None,
+            Some(valid) => Some(self.spend_restriction(&valid)?),
+        };
         let amount = plain_number(p.take("Amount").as_deref().unwrap_or("1"), self.svars)?;
         let amount = u32::try_from(amount).ok()?;
         let color = |c: &str| {
@@ -640,25 +644,55 @@ impl Tx<'_> {
                 _ => return None,
             })
         };
-        if produced == "Any" {
-            return (amount == 1).then(|| vec!["Effect::mana_of_any_color()".to_string()]);
-        }
-        if let Some(list) = produced.strip_prefix("Combo ") {
+        let effects = if produced == "Any" {
+            (amount == 1).then(|| vec!["Effect::mana_of_any_color()".to_string()])?
+        } else if let Some(list) = produced.strip_prefix("Combo ") {
             let colors: Option<Vec<&str>> = list.split_whitespace().map(color).collect();
             let colors = colors?;
-            return (amount == 1)
-                .then(|| vec![format!("Effect::mana_choice(&[{}])", colors.join(", "))]);
-        }
-        // `Produced$ W U` is "add {W}{U}" — two mana at once, not a choice
-        // between them (that is `Combo`). One effect per colour, which is
-        // how the bounce lands were already written by hand.
-        let colors: Option<Vec<&str>> = produced.split_whitespace().map(color).collect();
-        Some(
+            (amount == 1).then(|| vec![format!("Effect::mana_choice(&[{}])", colors.join(", "))])?
+        } else {
+            // `Produced$ W U` is "add {W}{U}" — two mana at once, not a
+            // choice between them (that is `Combo`). One effect per colour,
+            // which is how the bounce lands were already written by hand.
+            let colors: Option<Vec<&str>> = produced.split_whitespace().map(color).collect();
             colors?
                 .into_iter()
                 .map(|c| format!("Effect::mana({c}, {amount})"))
-                .collect(),
-        )
+                .collect()
+        };
+        let Some(filter) = restrict else {
+            return Some(effects);
+        };
+        // "Spend this mana only to cast a creature spell" is a rider on the
+        // mana, so it can only hang on one effect — a line that made two
+        // mana and restricted them would need the restriction twice, and
+        // nothing in the corpus prints that.
+        let [only] = &effects[..] else {
+            self.note("`Mana.RestrictValid` on more than one mana".to_string());
+            return None;
+        };
+        let name = self.body.filter_static("SPEND", &filter);
+        Some(vec![format!(
+            "{only}.restricted(&{name}, SpendRider::None)"
+        )])
+    }
+
+    /// `RestrictValid$ Spell.Creature` — what produced mana may be spent on.
+    ///
+    /// Every alternative has to be a *spell*: `Activated.Hero` restricts an
+    /// ability activation instead, which is a second kind of restriction the
+    /// `ManaRestriction` filter cannot say, and a card printing both means
+    /// both.
+    fn spend_restriction(&self, valid: &str) -> Option<String> {
+        let spells: Option<Vec<&str>> = valid
+            .split(',')
+            .map(|alt| alt.trim().strip_prefix("Spell."))
+            .collect();
+        let Some(spells) = spells else {
+            self.note("`Mana.RestrictValid` beyond a spell".to_string());
+            return None;
+        };
+        self.filter_expr(&spells.join(","))
     }
 
     /// A `Cost$` value as a `Cost` expression, plus whether it taps.
@@ -1512,6 +1546,31 @@ mod tests {
             [
                 "mana_ability!(Cost::TAP, &[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])"
             ]
+        );
+    }
+
+    /// "Spend this mana only to cast a creature spell" is a rider on the
+    /// mana, and only on spells: `Activated.Hero` restricts an *ability*,
+    /// which `ManaRestriction` cannot say, so a card printing both stays a
+    /// stub rather than becoming the half of itself we can express.
+    #[test]
+    fn restricted_mana_reads_a_spell_filter_and_only_that() {
+        let body = read(
+            "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | RestrictValid$ Spell.Creature",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "mana_ability!(Cost::TAP, &[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)])"
+            ]
+        );
+
+        let script = parse(
+            "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | RestrictValid$ Spell.Hero,Activated.Hero",
+        );
+        assert_eq!(
+            refusal_reason(&script, &cats()).as_deref(),
+            Some("`Mana.RestrictValid` beyond a spell")
         );
     }
 
