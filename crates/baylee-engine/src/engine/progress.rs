@@ -1027,7 +1027,14 @@ impl<L: CardLookup> Engine<L> {
                     continue;
                 }
                 let options = eval::target_options(&req.spec, &self.state, t.controller, t.source);
-                if options.len() < req.min as usize {
+                // A trigger may point at a player as readily as a spell does
+                // ("it deals 1 damage to target opponent"), and "any target"
+                // offers both lists at once (CR 115.4). The choice is one
+                // choice, so the counts add up.
+                let player_options =
+                    eval::target_player_options(&self.state, &req.spec, t.controller);
+                let offered = options.len() + player_options.len();
+                if offered < req.min as usize {
                     // No legal target: the trigger is removed from the stack
                     // entirely (CR 603.3d).
                     self.trigger_queue.pop_front();
@@ -1037,11 +1044,11 @@ impl<L: CardLookup> Engine<L> {
                     source: t.source,
                     ability_index: t.ability_index,
                 });
-                let max = req.max.min(options.len() as u8);
+                let max = req.max.min(offered as u8);
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
-                    player_options: Vec::new(),
+                    player_options,
                     min: req.min,
                     max,
                 };

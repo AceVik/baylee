@@ -46,6 +46,7 @@ impl<L: CardLookup> Engine<L> {
             || matches!(
                 req.spec,
                 baylee_cards_dsl::TargetSpec::AnyPlayer
+                    | baylee_cards_dsl::TargetSpec::AnyOpponent
                     | baylee_cards_dsl::TargetSpec::Player(_)
                     | baylee_cards_dsl::TargetSpec::ThisObject
             )
@@ -813,7 +814,10 @@ impl<L: CardLookup> Engine<L> {
             return Err(EngineError::IllegalAction("not enough loyalty"));
         }
         if let Some(spec) = target
-            && !matches!(spec, baylee_cards_dsl::TargetSpec::AnyPlayer)
+            && !matches!(
+                spec,
+                baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
+            )
         {
             let options = eval::target_options(&spec, &self.state, player, source);
             if options.is_empty() {
@@ -841,14 +845,14 @@ impl<L: CardLookup> Engine<L> {
         if targets.is_empty()
             && let Some(spec) = target
         {
-            if matches!(spec, baylee_cards_dsl::TargetSpec::AnyPlayer) {
-                let options: Vec<PlayerId> = self
-                    .state
-                    .players
-                    .iter()
-                    .filter(|p| !p.has_lost)
-                    .map(|p| p.id)
-                    .collect();
+            if matches!(
+                spec,
+                baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
+            ) {
+                let options = eval::target_player_options(&self.state, &spec, player);
+                if options.is_empty() {
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
                 self.pending_plan = Some(PlanKind::LoyaltyPlayer {
                     source,
                     ability_index,

@@ -214,6 +214,15 @@ pub enum TargetSpec {
     Player(PlayerRel),
     /// Any player (choice via `Pending::ChoosePlayer`).
     AnyPlayer,
+    /// Any *opponent* — the same choice as [`Self::AnyPlayer`] over a
+    /// smaller set.
+    ///
+    /// Its own variant rather than `AnyPlayer` with a filter, because a
+    /// player has no characteristics to filter on, and rather than
+    /// `Player(PlayerRel::Opponent)`, which is *every* opponent and no
+    /// choice at all. "Target opponent" printed on a card is one opponent,
+    /// picked, and in a game of four that is three different things.
+    AnyOpponent,
     /// "Any target" (CR 115.4): a creature, a planeswalker, a battle, **or
     /// a player** — one choice over a set that spans objects and players.
     ///

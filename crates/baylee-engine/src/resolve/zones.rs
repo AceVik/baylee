@@ -334,7 +334,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::Mill { amount, target } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
-            for player in eval::players(target, state, you) {
+            for player in super::players_of(target, state, you, res) {
                 let top: Vec<ObjectId> = state
                     .zones
                     .list(ZoneLocation::Library(player))

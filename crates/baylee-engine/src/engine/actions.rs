@@ -459,6 +459,26 @@ impl<L: CardLookup> Engine<L> {
                         }
                         let controller = self.state.object(source).map_or(player, |o| o.controller);
                         self.push_ability_to_stack(controller, source, ability_index, targets)?;
+                        // Player targets ride beside the object ones. The
+                        // ability is on the stack now, so the seats are
+                        // written onto it directly rather than threaded
+                        // through a signature every other caller passes
+                        // empty. Both fields are written because they answer
+                        // two different questions: `target_players` is the
+                        // set that was targeted ("any target" may hold
+                        // several), `chosen_player` is the single seat
+                        // `PlayerRel::Chosen` reads back, which exists only
+                        // when exactly one was named.
+                        if !players.is_empty()
+                            && let Some(top) =
+                                self.state.zones.list(ZoneLocation::Stack).last().copied()
+                            && let Some(obj) = self.state.object_mut(top)
+                        {
+                            obj.target_players = players.iter().copied().collect();
+                            if let [only] = players[..] {
+                                obj.chosen_player = Some(only);
+                            }
+                        }
                     }
                     PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")

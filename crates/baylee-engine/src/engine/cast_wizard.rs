@@ -361,7 +361,7 @@ impl<L: CardLookup> Engine<L> {
                     max = wizard.x as u8;
                 }
                 let spec = req.spec;
-                if matches!(spec, TargetSpec::AnyPlayer) {
+                if matches!(spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent) {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::ChoosePlayer;
                     self.cast_wizard = Some(wizard);
@@ -375,7 +375,7 @@ impl<L: CardLookup> Engine<L> {
                     return self.advance_cast_wizard();
                 }
                 let options = eval::target_options(&spec, &self.state, wizard.player, wizard.card);
-                let player_options = eval::target_player_options(&self.state, &spec);
+                let player_options = eval::target_player_options(&self.state, &spec, wizard.player);
                 // "Any target" is one set: a burn spell with every creature
                 // hexproofed is still castable at a player's face, so the
                 // count that has to reach `min` spans both halves.

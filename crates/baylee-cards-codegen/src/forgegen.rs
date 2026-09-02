@@ -321,8 +321,14 @@ impl Tx<'_> {
     /// nothing else, so a counterspell built out of one offers permanents
     /// as targets and counters nothing.
     fn target_spec(&mut self, valid: &str, api: &str) -> Option<String> {
-        if valid == "Player" || valid == "Opponent" {
+        // "Target player" and "target opponent" are both a *choice*, and
+        // they are different choices: `Player(PlayerRel::Opponent)` would be
+        // every opponent and no choice at all.
+        if valid == "Player" {
             return Some("TargetSpec::AnyPlayer".to_string());
+        }
+        if valid == "Opponent" {
+            return Some("TargetSpec::AnyOpponent".to_string());
         }
         // "Any target" (CR 115.4) spans objects and players, which is why it
         // is a spec and not a filter — there is nothing on a player for a
@@ -348,6 +354,20 @@ impl Tx<'_> {
         })
     }
 
+    /// The same as [`Self::player_rel`], for an effect that sits in a chain
+    /// which *targets a player*.
+    ///
+    /// Forge leaves `Defined$` off when the effect means the target, and only
+    /// the chain knows whether that target was a player. Reading the absent
+    /// key as `You` there is how Piranha Marsh — "target player loses 1 life"
+    /// — generated as a land that drains its own controller.
+    fn player_rel_of(defined: Option<&str>, target: &str) -> Option<&'static str> {
+        if defined.is_none() && target == "TargetSpec::Player(PlayerRel::Chosen)" {
+            return Some("PlayerRel::Chosen");
+        }
+        Self::player_rel(defined)
+    }
+
     /// One effect and everything its `SubAbility$` chain adds.
     fn chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
         let (api, mut p) = Params::parse(spec)?;
@@ -359,10 +379,19 @@ impl Tx<'_> {
             }
         }
         let sub = p.take("SubAbility");
-        let target = chain
-            .target
-            .clone()
-            .unwrap_or_else(|| "TargetSpec::AnyPlayer".to_string());
+        // The requirement and the effect name the target differently when it
+        // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
+        // spell's chosen player, and the effect then reads it back as
+        // `PlayerRel::Chosen`. Handing the *requirement* to the effect
+        // instead is how a burn spell ends up dealing damage to nothing at
+        // all: `DealDamage` looks for an object target and finds none.
+        let target = match chain.target.as_deref() {
+            Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent") => {
+                "TargetSpec::Player(PlayerRel::Chosen)".to_string()
+            }
+            Some(other) => other.to_string(),
+            None => "TargetSpec::AnyPlayer".to_string(),
+        };
 
         let Some(effects) = self.effect_of(&api, &mut p, &target) else {
             // An API with no rule at all is a different report than a rule
@@ -410,19 +439,19 @@ impl Tx<'_> {
             }
             "GainLife" => {
                 let n = amount(&p.take("LifeAmount")?, self.svars)?;
-                match Self::player_rel(p.take("Defined").as_deref())? {
+                match Self::player_rel_of(p.take("Defined").as_deref(), target)? {
                     "PlayerRel::You" => vec![format!("Effect::GainLife {{ amount: {n} }}")],
                     who => vec![format!("Effect::GainLifeFor {{ amount: {n}, who: {who} }}")],
                 }
             }
             "LoseLife" => {
                 let n = amount(&p.take("LifeAmount")?, self.svars)?;
-                let who = Self::player_rel(p.take("Defined").as_deref())?;
+                let who = Self::player_rel_of(p.take("Defined").as_deref(), target)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
             "Draw" => {
                 let n = amount(p.take("NumCards").as_deref().unwrap_or("1"), self.svars)?;
-                match Self::player_rel(p.take("Defined").as_deref())? {
+                match Self::player_rel_of(p.take("Defined").as_deref(), target)? {
                     "PlayerRel::You" => vec![format!("Effect::DrawCards {{ amount: {n} }}")],
                     who => vec![format!(
                         "Effect::DrawCardsFor {{ amount: {n}, who: {who} }}"
@@ -431,7 +460,7 @@ impl Tx<'_> {
             }
             "Mill" => {
                 let n = amount(&p.take("NumCards")?, self.svars)?;
-                let who = Self::player_rel(p.take("Defined").as_deref())?;
+                let who = Self::player_rel_of(p.take("Defined").as_deref(), target)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
             "PutCounter" => {
@@ -478,6 +507,7 @@ impl Tx<'_> {
                 vec![format!("Effect::Destroy {{ target: {target} }}")]
             }
             "Pump" => self.pump_effect(p, target)?,
+            "ChangeZone" => self.change_zone(p, target)?,
             "Tap" => vec!["Effect::TapTarget".to_string()],
             "Untap" => vec!["Effect::UntapTarget".to_string()],
             "Counter" => {
@@ -537,6 +567,47 @@ impl Tx<'_> {
                 )]
             }
             Some(_) => return None,
+        })
+    }
+
+    /// `ChangeZone` for the zone pairs the engine has an effect for.
+    ///
+    /// Forge writes every zone change with one API and two zone names; the
+    /// engine has a named effect per movement, because the movements differ
+    /// in rules and not only in destination. So this is a table of pairs,
+    /// not a translation of `Destination$` — and a pair with no effect
+    /// refuses rather than reaching for the nearest one. Battlefield →
+    /// Graveyard is the pair that makes the point: it is *not* `Destroy`,
+    /// which checks indestructible (CR 700.4), and generating one for the
+    /// other would quietly kill creatures that survive.
+    fn change_zone(&self, p: &mut Params, target: &str) -> Option<Vec<String>> {
+        let origin = p.take("Origin")?;
+        let destination = p.take("Destination")?;
+        let itself = match p.take("Defined").as_deref() {
+            None => false,
+            Some("Self") => true,
+            Some(other) => {
+                self.note(format!("`ChangeZone` of `Defined$ {other}`"));
+                return None;
+            }
+        };
+        // Without a target this would move nothing at all.
+        if !itself && target == "TargetSpec::AnyPlayer" {
+            self.note("`ChangeZone` with neither a target nor `Defined$`".to_string());
+            return None;
+        }
+        Some(match (origin.as_str(), destination.as_str(), itself) {
+            ("Battlefield", "Hand", false) => {
+                vec![format!("Effect::ReturnToHand {{ target: {target} }}")]
+            }
+            ("Battlefield", "Exile", false) => {
+                vec![format!("Effect::Exile {{ target: {target} }}")]
+            }
+            ("Battlefield", "Exile", true) => vec!["Effect::ExileSource".to_string()],
+            _ => {
+                self.note(format!("`ChangeZone` {origin} to {destination}"));
+                return None;
+            }
         })
     }
 
@@ -666,8 +737,53 @@ impl Tx<'_> {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
             'S' => self.static_ability(spec),
-            _ => None, // R: is not modelled yet.
+            'R' => self.replacement(spec),
+            _ => None,
         }
+    }
+
+    /// An `R:` replacement, for the one shape the engine models as data.
+    ///
+    /// "Enters tapped" is a replacement effect in Forge and an
+    /// `EnterModifier` here, and the difference matters: a modifier is read
+    /// *as the permanent enters*, which is what CR 614.1c describes and what
+    /// stops the land from being tapped a moment after it arrives untapped.
+    /// Every other `Moved` replacement is a rule of its own and refuses.
+    fn replacement(&mut self, spec: &str) -> Option<()> {
+        let (event, mut p) = Params::parse(spec)?;
+        if event != "Moved" {
+            self.note(format!("replacement `R: Event$ {event}`"));
+            return None;
+        }
+        p.drop_prose();
+        // Anything but the card itself entering the battlefield is a
+        // different effect ("whenever another creature enters…").
+        let about_self = p.take("ValidCard").as_deref() == Some("Card.Self");
+        let entering = p.take("Destination").as_deref() == Some("Battlefield");
+        // `Updated` means the event still happens, changed. `Prevented` and
+        // the rest replace it with something else entirely.
+        let updated = p.take("ReplacementResult").as_deref() == Some("Updated");
+        let with = p.take("ReplaceWith")?;
+        if !about_self || !entering || !updated || !p.exhausted() {
+            self.note("replacement `Moved` this rule cannot read".to_string());
+            return None;
+        }
+        let (api, mut body) = Params::parse(self.svars.get(&with)?)?;
+        body.drop_prose();
+        // `DB$ Tap | Defined$ Self | ETB$ True` and nothing else: the tap
+        // has to be of this card, as it enters, or it is not this modifier.
+        if api != "Tap"
+            || body.take("Defined").as_deref() != Some("Self")
+            || body.take("ETB").as_deref() != Some("True")
+            || !body.exhausted()
+        {
+            self.note(format!("replacement `Moved` replacing with `{api}`"));
+            return None;
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::Tapped".to_string());
+        Some(())
     }
 
     /// An `S: Mode$ Continuous` line as one or more `AbilityDef::Static`.
@@ -1080,6 +1196,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Counter",
     "PutCounter",
     "Pump",
+    "ChangeZone",
 ];
 
 /// Whether [`transcode`] has a rule for this effect API.
@@ -1274,6 +1391,24 @@ mod tests {
             body.abilities,
             [
                 "spell!(&[Effect::DrawCards { amount: Amount::Fixed(2) }, Effect::LoseLife { amount: Amount::Fixed(2), target: PlayerRel::You }])"
+            ]
+        );
+    }
+
+    /// "Target player loses 1 life" (Piranha Marsh): the effect carries no
+    /// `Defined$`, and reading that as `You` would drain the controller. The
+    /// chain targets a player, so the absent key means the chosen one.
+    #[test]
+    fn an_undefined_player_effect_means_the_targeted_player() {
+        let body = read(
+            "Name:X\nTypes:Land\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigLoseLife | TriggerDescription$ loses 1 life.\n\
+             SVar:TrigLoseLife:DB$ LoseLife | ValidTgts$ Player | LifeAmount$ 1 | TgtPrompt$ Select target player",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer)))"
             ]
         );
     }
@@ -1496,6 +1631,38 @@ mod tests {
             refusal_reason(&script, &cats()).as_deref(),
             Some("static ability `S: Mode$ CantBlockBy`")
         );
+    }
+
+    #[test]
+    fn a_zone_change_is_read_as_the_pair_it_is() {
+        let body = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Hand | ValidTgts$ Creature\n",
+        );
+        assert!(body.abilities.join("").contains("Effect::ReturnToHand"));
+
+        let body = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature\n",
+        );
+        assert!(body.abilities.join("").contains("Effect::Exile"));
+
+        let body = read(
+            "Name:X\nTypes:Creature\n\
+             A:AB$ ChangeZone | Cost$ T | Origin$ Battlefield | Destination$ Exile | Defined$ Self\n",
+        );
+        assert!(body.abilities.join("").contains("Effect::ExileSource"));
+    }
+
+    #[test]
+    fn putting_a_creature_in_a_graveyard_is_not_destroying_it() {
+        // CR 700.4: destruction checks indestructible and a zone change does
+        // not, so the nearest effect is the wrong effect — a card written
+        // this way would quietly kill creatures that survive.
+        assert!(refused(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Graveyard | ValidTgts$ Creature\n"
+        ));
     }
 
     #[test]

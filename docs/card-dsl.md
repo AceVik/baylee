@@ -222,7 +222,8 @@ on `obj.chosen_subtype`; creatures also gain the subtype in their base).
 `Object(filter)`, `Spell(filter)`, `StackOrBattlefield(filter)`,
 `CardInGraveyard(filter, rel)`, `ThisObject`, `EventObject` (implicit —
 the object the trigger was about), `AbilityOnStack(filter)`,
-`SpellOrAbility(filter)` (Ertai), `Player(rel)`, `AnyPlayer`, `AnyTarget`.
+`SpellOrAbility(filter)` (Ertai), `Player(rel)`, `AnyPlayer`, `AnyOpponent`,
+`AnyTarget`.
 
 `AnyTarget` is "any target" (CR 115.4) — a creature, a planeswalker, a battle
 **or a player**, chosen from one set that spans objects and players. It is its
@@ -233,6 +234,15 @@ this, so it is not a corner: `Pending::ChooseTargets` carries a
 answer is `PlayerAction::ChooseTargets { objects, players }`. The players
 picked ride on the spell as a `SeatSet` — a bitmask, because CR 601.2c makes
 targets distinct and a game object is copied once per AI ply.
+
+`AnyPlayer` and `AnyOpponent` are targeting *requirements*, not effect
+targets: the choice resolves into the spell or ability's `chosen_player`, and
+the effect reads it back as `Player(PlayerRel::Chosen)`. Handing the
+requirement to the effect instead is silently a card that does nothing —
+`DealDamage` would look for an object target and find none. `AnyOpponent` is
+the same choice over a smaller set (CR 115.1): in a game of four, "target
+opponent" is three seats, and `Player(PlayerRel::Opponent)` — which is every
+opponent and no choice at all — is a different card.
 
 ### Filters (composable data)
 

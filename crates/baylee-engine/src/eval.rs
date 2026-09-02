@@ -245,21 +245,32 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
 /// characteristic — there is nothing on a player for a `Filter` to match —
 /// so this is a list, not a filtered enumeration like the object half.
 #[must_use]
-pub fn target_player_options(state: &GameState, spec: &TargetSpec) -> Vec<PlayerId> {
-    if !matches!(spec, TargetSpec::AnyTarget | TargetSpec::AnyPlayer) {
+pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId) -> Vec<PlayerId> {
+    if !matches!(
+        spec,
+        TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+    ) {
         return Vec::new();
     }
+    let opponents_only = matches!(spec, TargetSpec::AnyOpponent);
     state
         .players
         .iter()
         .filter(|p| {
-            !p.has_lost
-                // Player hexproof (Everybody Lives!): can't be targeted by
-                // spells or abilities at all.
-                && !state.effects.iter().any(|fx| {
-                    matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayerHexproof)
-                        && fx.controller == p.id
-                })
+            if p.has_lost {
+                return false;
+            }
+            // "Target opponent" is a choice over a smaller set, not a
+            // different kind of choice (CR 115.1).
+            if opponents_only && p.id == you {
+                return false;
+            }
+            // Player hexproof (Everybody Lives!): can't be targeted by spells
+            // or abilities at all.
+            !state.effects.iter().any(|fx| {
+                matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayerHexproof)
+                    && fx.controller == p.id
+            })
         })
         .map(|p| p.id)
         .collect()
@@ -391,7 +402,10 @@ pub fn target_options(
         TargetSpec::AnyTarget => any_target_objects(state),
         // EventObject is implicit (no player choice); player targeting
         // resolves via ChoosePlayer in the casting wizard.
-        TargetSpec::EventObject | TargetSpec::Player(_) | TargetSpec::AnyPlayer => vec![],
+        TargetSpec::EventObject
+        | TargetSpec::Player(_)
+        | TargetSpec::AnyPlayer
+        | TargetSpec::AnyOpponent => vec![],
     };
     // Protection (CR 702.16c) keeps out matching sources; hexproof and
     // shroud (CR 702.11b/702.18b) keep out whole classes of chooser.

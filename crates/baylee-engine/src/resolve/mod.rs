@@ -227,6 +227,32 @@ pub(super) fn amount2(
     }
 }
 
+/// The seats a [`PlayerRel`] names *during a resolution*.
+///
+/// [`eval::players`] answers the half that the state alone can answer, and
+/// deliberately returns nothing for the two relations that need the
+/// resolution's own context: `Chosen` is the player this spell or ability
+/// targeted, `ControllerOfTarget` is read off its first object target. An
+/// effect that reaches for `eval::players` directly therefore does *nothing*
+/// on a card that says "target opponent" — which is exactly how Abraded
+/// Bluffs shipped as a land that deals no damage.
+pub(super) fn players_of(
+    rel: PlayerRel,
+    state: &GameState,
+    you: PlayerId,
+    res: &Resolution,
+) -> Vec<PlayerId> {
+    match rel {
+        PlayerRel::Chosen => res.chosen_player.into_iter().collect(),
+        PlayerRel::ControllerOfTarget => res
+            .targets
+            .first()
+            .and_then(|t| state.object(*t))
+            .map_or_else(Vec::new, |o| vec![o.controller]),
+        other => eval::players(other, state, you),
+    }
+}
+
 /// Flattens nested `Sequence`s into one flat op list.
 #[must_use]
 pub fn flatten(effects: &'static [Effect]) -> Vec<Effect> {
@@ -1465,7 +1491,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     && let Some(req) = target_req
                     // Player targets ride in `chosen_player`, not `targets`;
                     // re-choosing those is a separate Pending.
-                    && !matches!(req.spec, TargetSpec::AnyPlayer)
+                    && !matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent)
                 {
                     let options = eval::target_options(&req.spec, state, you, id);
                     if options.len() >= picks as usize {

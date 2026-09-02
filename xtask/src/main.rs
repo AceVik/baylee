@@ -53,6 +53,16 @@ enum Cmd {
         /// Print this many refused scripts, for finding the next rule to add.
         #[arg(long, default_value_t = 0)]
         samples: usize,
+        /// Rank only this project's own unfinished cards.
+        ///
+        /// The corpus is 33666 scripts; the deckbuilder offers about a
+        /// thousand, and most of those are already finished — the lands by
+        /// `landgen`, the rest by hand. So the two rankings answer different
+        /// questions: the corpus says what the transcoder is worth in
+        /// general, and this says which of *our* stubs the next rule would
+        /// finish, which is the one a player would notice.
+        #[arg(long)]
+        stubs: bool,
     },
     /// Choose the cards that would teach the engine the most, and say what
     /// each one asks for.
@@ -155,7 +165,11 @@ fn main() -> anyhow::Result<()> {
             cache,
         } => codegen(&root, check, &forge, &cache),
         Cmd::PoolDump { out } => pool_dump(&out),
-        Cmd::ForgeReport { forge, samples } => forge_report(&root, &forge, samples),
+        Cmd::ForgeReport {
+            forge,
+            samples,
+            stubs,
+        } => forge_report(&root, &forge, samples, stubs),
         Cmd::CoverageSet {
             count,
             max_new,
@@ -877,7 +891,7 @@ fn dev_table(
 /// The number is the honest ceiling on what `codegen` can generate from the
 /// rules reference: a script it refuses becomes an ordinary stub, so this is
 /// also the list of rules worth adding next.
-fn forge_report(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<()> {
+fn forge_report(root: &Path, forge_dir: &Path, samples: usize, stubs: bool) -> anyhow::Result<()> {
     let dir = root.join(forge_dir);
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
@@ -893,11 +907,26 @@ fn forge_report(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result
     let mut files = Vec::new();
     collect_scripts(&dir, &mut files)?;
     files.sort();
+    let wanted: Option<BTreeSet<String>> = if stubs {
+        Some(stub_names(&root.join("crates/baylee-cards/src/cards"))?)
+    } else {
+        None
+    };
     let (mut read, mut refused) = (0usize, 0usize);
     let mut causes: BTreeMap<String, usize> = BTreeMap::new();
     let mut shown = 0usize;
     for path in &files {
         let text = fs::read_to_string(path)?;
+        if let Some(wanted) = &wanted {
+            let name = text
+                .lines()
+                .find_map(|l| l.strip_prefix("Name:"))
+                .unwrap_or_default()
+                .trim();
+            if !wanted.contains(name) {
+                continue;
+            }
+        }
         let script = forgegen::parse(&text);
         if forgegen::transcode(&script, &cats).is_some() {
             read += 1;
@@ -1058,6 +1087,31 @@ fn coverage_set(root: &Path, forge_dir: &Path, count: usize, max_new: usize) -> 
         }
     }
     Ok(())
+}
+
+/// The names of the cards whose generated file is still a stub.
+///
+/// Read from the marker rather than from a list, because the marker is
+/// what `codegen` itself honours: a file that has lost it is hand-owned and
+/// will not be rewritten, so ranking it as work would be ranking work
+/// nobody can do.
+fn stub_names(cards_dir: &Path) -> anyhow::Result<BTreeSet<String>> {
+    let mut out = BTreeSet::new();
+    for entry in fs::read_dir(cards_dir)? {
+        let path = entry?.path();
+        if path.extension().is_some_and(|e| e == "rs") {
+            let text = fs::read_to_string(&path)?;
+            if !text.contains("// GENERATED STUB") {
+                continue;
+            }
+            // The header's first line is `//! <name> — <cost> — <types>`.
+            if let Some(head) = text.lines().next().and_then(|l| l.strip_prefix("//! ")) {
+                let name = head.split(" \u{2014} ").next().unwrap_or(head).trim();
+                out.insert(name.to_string());
+            }
+        }
+    }
+    Ok(out)
 }
 
 fn collect_scripts(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {

@@ -15,14 +15,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::GainLifeFor { amount, who } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
-            let players = match who {
-                PlayerRel::ControllerOfTarget => res
-                    .targets
-                    .first()
-                    .and_then(|t| state.object(*t))
-                    .map_or_else(Vec::new, |o| vec![o.controller]),
-                other => eval::players(other, state, you),
-            };
+            let players = super::players_of(who, state, you, res);
             for player in players {
                 gain_life(state, player, n);
             }
@@ -35,7 +28,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::LoseLife { amount, target } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
-            for player in eval::players(target, state, you) {
+            for player in super::players_of(target, state, you, res) {
                 // Everybody Lives: the controller can't lose life this turn.
                 let cant = state.effects.iter().any(|fx| {
                     matches!(fx.modifier, baylee_cards_dsl::Modifier::CantLoseLife)
@@ -61,7 +54,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i16;
             match target {
                 TargetSpec::Player(rel) => {
-                    for player in eval::players(rel, state, you) {
+                    for player in super::players_of(rel, state, you, res) {
                         deal_to_player(state, res.source, player, n);
                     }
                 }
