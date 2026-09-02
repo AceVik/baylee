@@ -468,6 +468,7 @@ fn skyclave_exiles_and_owner_gets_illusion() {
                 options,
                 min,
                 max,
+                ..
             } => {
                 assert_eq!(player, p0);
                 assert_eq!((min, max), (0, 1), "up-to-one target");

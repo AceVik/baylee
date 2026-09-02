@@ -18,6 +18,7 @@ const TEST_BEAR: u32 = 1002;
 const PUMP_SPELL: u32 = 1003;
 const STEAL_SPELL: u32 = 1004;
 const KROSA_SPELL: u32 = 1005;
+const BOLT_SPELL: u32 = 1006;
 
 static CREATURE_F: Filter = Filter::HasType(TypeSet::CREATURE);
 static CREATURE_YOU: Filter =
@@ -77,6 +78,7 @@ struct TestLookup {
     pump_spell: &'static CardDef,
     steal_spell: &'static CardDef,
     krosa_spell: &'static CardDef,
+    bolt_spell: &'static CardDef,
 }
 
 static ANTHEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
@@ -133,6 +135,18 @@ static KROSA_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
 }];
 
+/// Lightning Bolt: "any target" (CR 115.4), which is a set spanning
+/// objects and players.
+static BOLT_EFFECTS: &[Effect] = &[Effect::DealDamage {
+    amount: baylee_cards_dsl::Amount::Fixed(3),
+    target: TargetSpec::AnyTarget,
+}];
+
+static BOLT_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
+    effects: BOLT_EFFECTS,
+    targets: Some(TargetReq::one(TargetSpec::AnyTarget)),
+}];
+
 impl TestLookup {
     fn new() -> Self {
         let anthem_lord: &'static CardDef = Box::leak(Box::new(def(
@@ -165,6 +179,11 @@ impl TestLookup {
             face("Krosa Spell", "{G}", TypeSet::SORCERY, None),
             KROSA_ABILITIES,
         )));
+        let bolt_spell: &'static CardDef = Box::leak(Box::new(def(
+            BOLT_SPELL,
+            face("Bolt Spell", "{G}", TypeSet::INSTANT, None),
+            BOLT_ABILITIES,
+        )));
         Self {
             anthem_lord,
             fake_lattice,
@@ -172,6 +191,7 @@ impl TestLookup {
             pump_spell,
             steal_spell,
             krosa_spell,
+            bolt_spell,
         }
     }
 }
@@ -185,6 +205,7 @@ impl CardLookup for TestLookup {
             PUMP_SPELL => Some(self.pump_spell),
             STEAL_SPELL => Some(self.steal_spell),
             KROSA_SPELL => Some(self.krosa_spell),
+            BOLT_SPELL => Some(self.bolt_spell),
             _ => baylee_cards::by_index(index),
         }
     }
@@ -682,5 +703,106 @@ fn a_pump_reaches_its_target_and_brings_its_keyword() {
     assert!(
         !keywords_of(&engine, bear).contains(KeywordSet::TRAMPLE),
         "the keyword expired with it, not after it"
+    );
+}
+
+/// "Any target" (CR 115.4) is one choice over a set that spans objects and
+/// players, and a burn spell may point at either half.
+///
+/// The half that had never worked is the player: the engine's target list
+/// was `Vec<ObjectId>`, so `TargetSpec::Object(&Filter::Any)` — which is
+/// what the transcoder used to write here — enumerated the battlefield and
+/// nothing else. The card looked implemented and could not point at a face.
+#[test]
+fn any_target_can_be_a_creature_or_a_face() {
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6").get();
+    let mut engine = Engine::new(
+        &preset_bf(12, &[TEST_BEAR, forest], &[BOLT_SPELL]),
+        TestLookup::new(),
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let bear = bear(&engine);
+
+    let mut guard = 0;
+    while !(matches!(engine.state().turn.phase, Phase::FirstMain)
+        && engine.state().turn.active == p0)
+    {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!()
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        guard += 1;
+        assert!(guard < 20);
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!()
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let spell = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+
+    let Pending::ChooseTargets {
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected targets")
+    };
+    assert!(options.contains(&bear), "the creature is on offer");
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "both faces are on offer: {player_options:?}"
+    );
+    assert_eq!((min, max), (1, 1), "exactly one target, from either half");
+
+    // CR 601.2c: a seat named twice is not two targets. The spell stores its
+    // players as a set, so an answer that counts as two and resolves as one
+    // has to be refused here rather than silently deduplicated.
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![p1, p1],
+                },
+            )
+            .is_err(),
+        "the same face twice is not two targets"
+    );
+
+    let life_before = engine.state().players[p1.get() as usize].life;
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    assert_eq!(
+        engine.state().players[p1.get() as usize].life,
+        life_before - 3,
+        "three to the face"
+    );
+    assert_eq!(
+        power_toughness(&engine, bear),
+        (2, 2),
+        "and the creature it could have hit is untouched"
     );
 }

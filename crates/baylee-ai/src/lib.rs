@@ -149,14 +149,45 @@ impl HeuristicAgent {
             },
             Pending::ChooseCards {
                 options, min, max, ..
-            }
-            | Pending::ChooseTargets {
-                options, min, max, ..
             } => {
                 let n = if max <= 2 { max } else { min };
                 PlayerAction::ChooseObjects {
                     objects: options[..(n as usize).min(options.len())].to_vec(),
                 }
+            }
+            Pending::ChooseTargets {
+                options,
+                player_options,
+                min,
+                max,
+                ..
+            } => {
+                let n = (if max <= 2 { max } else { min }) as usize;
+                let objects = options[..n.min(options.len())].to_vec();
+                // "Any target" with nothing on the battlefield worth hitting
+                // is still a legal spell: the rest of the count comes off the
+                // face. Aiming at an opponent rather than the first player in
+                // the list is the whole of the heuristic here — a burn spell
+                // pointed at its own controller would be a bug that only ever
+                // shows up as the AI losing.
+                let want = n.saturating_sub(objects.len());
+                let mut players: Vec<_> = Vec::new();
+                for seat in player_options
+                    .iter()
+                    .filter(|p| **p != player)
+                    .chain(player_options.iter())
+                {
+                    // Targets are distinct (CR 601.2c), so naming a seat
+                    // twice is not "two targets" — it is an illegal answer
+                    // that would be counted as two and resolve as one.
+                    if players.len() >= want {
+                        break;
+                    }
+                    if !players.contains(seat) {
+                        players.push(*seat);
+                    }
+                }
+                PlayerAction::ChooseTargets { objects, players }
             }
             Pending::ChooseSubtype { options, .. } => {
                 // Ally tribal decks: prefer ALLY, else the first type.

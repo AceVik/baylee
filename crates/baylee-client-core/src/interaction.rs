@@ -232,6 +232,10 @@ enum Mode {
     /// A set of objects, bounded by `min` and `max`.
     Objects {
         options: Vec<ObjectId>,
+        /// Seats that may be chosen alongside the objects ("any target",
+        /// CR 115.4). Empty for every prompt that names objects alone, so
+        /// the ordinary "target creature" path is untouched.
+        player_options: Vec<PlayerId>,
         min: usize,
         max: usize,
     },
@@ -282,6 +286,8 @@ pub struct Interaction {
     seat: PlayerId,
     mode: Mode,
     selected: Vec<ObjectId>,
+    /// Seats picked as targets, the other half of an "any target" answer.
+    selected_players: Vec<PlayerId>,
     number: u32,
     choice_index: Option<usize>,
 }
@@ -305,6 +311,7 @@ impl Interaction {
             seat,
             mode,
             selected: Vec::new(),
+            selected_players: Vec::new(),
             number,
             choice_index: None,
         }
@@ -323,6 +330,7 @@ impl Interaction {
             Pending::MulliganBottom { count, .. } | Pending::DiscardChoice { count, .. } => {
                 Mode::Objects {
                     options: Vec::new(),
+                    player_options: Vec::new(),
                     min: *count as usize,
                     max: *count as usize,
                 }
@@ -353,16 +361,27 @@ impl Interaction {
             },
             Pending::LegendChoice { options, .. } => Mode::Objects {
                 options: options.clone(),
+                player_options: Vec::new(),
                 min: 1,
                 max: 1,
             },
             Pending::ChooseCards {
                 options, min, max, ..
-            }
-            | Pending::ChooseTargets {
-                options, min, max, ..
             } => Mode::Objects {
                 options: options.clone(),
+                player_options: Vec::new(),
+                min: *min as usize,
+                max: *max as usize,
+            },
+            Pending::ChooseTargets {
+                options,
+                player_options,
+                min,
+                max,
+                ..
+            } => Mode::Objects {
+                options: options.clone(),
+                player_options: player_options.clone(),
                 min: *min as usize,
                 max: *max as usize,
             },
@@ -790,6 +809,41 @@ impl Interaction {
         self.number
     }
 
+    /// Adds or removes a seat as a target ("any target", CR 115.4).
+    ///
+    /// Separate from [`Interaction::toggle`] because a player has no
+    /// `ObjectId` to be named by — not because targeting a face is a
+    /// different kind of choice. `min`/`max` count across both halves, so
+    /// the two must be answered together.
+    pub fn toggle_player(&mut self, player: PlayerId) -> SelectionOutcome {
+        let Mode::Objects {
+            player_options,
+            max,
+            ..
+        } = &self.mode
+        else {
+            return SelectionOutcome::Rejected;
+        };
+        if !player_options.contains(&player) {
+            return SelectionOutcome::Rejected;
+        }
+        if let Some(at) = self.selected_players.iter().position(|p| *p == player) {
+            self.selected_players.remove(at);
+            return SelectionOutcome::Removed;
+        }
+        if self.selected.len() + self.selected_players.len() >= *max {
+            return SelectionOutcome::Rejected;
+        }
+        self.selected_players.push(player);
+        SelectionOutcome::Added
+    }
+
+    /// The seats currently chosen as targets.
+    #[must_use]
+    pub fn selected_players(&self) -> &[PlayerId] {
+        &self.selected_players
+    }
+
     /// Picks an indexed option (a cast mode, a colour, or a seat).
     ///
     /// Returns `false` when the index is not one the engine offered.
@@ -811,7 +865,7 @@ impl Interaction {
     #[must_use]
     pub fn can_confirm(&self) -> bool {
         match &self.mode {
-            Mode::Objects { min, .. } => self.selected.len() >= *min,
+            Mode::Objects { min, .. } => self.selected.len() + self.selected_players.len() >= *min,
             Mode::Order { options } => self.selected.len() == options.len(),
             // Declaring nothing is always legal (no attacks, no blocks), a
             // number always has its clamped value, and priority can always be
@@ -834,10 +888,23 @@ impl Interaction {
             return None;
         }
         match &self.mode {
-            Mode::Objects { min, .. } if self.selected.len() >= *min => {
-                Some(PlayerAction::ChooseObjects {
-                    objects: self.selected.clone(),
-                })
+            Mode::Objects { min, .. }
+                if self.selected.len() + self.selected_players.len() >= *min =>
+            {
+                // `Mode::Objects` also answers mulligan bottoming, a
+                // discard and the legend rule, none of which is a
+                // `Pending::ChooseTargets` — so the richer action is sent
+                // only when a seat was actually picked.
+                if self.selected_players.is_empty() {
+                    Some(PlayerAction::ChooseObjects {
+                        objects: self.selected.clone(),
+                    })
+                } else {
+                    Some(PlayerAction::ChooseTargets {
+                        objects: self.selected.clone(),
+                        players: self.selected_players.clone(),
+                    })
+                }
             }
             Mode::Order { options } if self.selected.len() == options.len() => {
                 Some(PlayerAction::OrderObjects {
@@ -986,6 +1053,7 @@ mod tests {
         let mut i = interaction(Pending::ChooseTargets {
             player: PlayerId::new(1),
             options: vec![obj(1)],
+            player_options: vec![],
             min: 1,
             max: 1,
         });
@@ -1000,6 +1068,7 @@ mod tests {
         let mut i = interaction(Pending::ChooseTargets {
             player: me(),
             options: vec![obj(1), obj(2)],
+            player_options: vec![],
             min: 1,
             max: 1,
         });
@@ -1052,6 +1121,7 @@ mod tests {
         let i = interaction(Pending::ChooseTargets {
             player: me(),
             options: vec![obj(1)],
+            player_options: vec![],
             min: 0,
             max: 1,
         });
@@ -1493,10 +1563,60 @@ mod tests {
     }
 
     #[test]
+    fn a_face_is_a_target_like_any_other() {
+        // "Any target" (CR 115.4) spans objects and players, so one prompt
+        // has to be answerable with either — or with both, when it takes two.
+        let mut i = interaction(Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(1)],
+            player_options: vec![PlayerId::new(0), PlayerId::new(1)],
+            min: 2,
+            max: 2,
+        });
+        assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+        assert!(!i.can_confirm());
+        assert_eq!(i.toggle_player(PlayerId::new(1)), SelectionOutcome::Added);
+        assert_eq!(i.selected_players(), &[PlayerId::new(1)]);
+        assert!(i.can_confirm());
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::ChooseTargets {
+                objects: vec![obj(1)],
+                players: vec![PlayerId::new(1)],
+            })
+        );
+    }
+
+    #[test]
+    fn a_seat_the_spell_cannot_reach_is_refused() {
+        // The tab is a camera control the rest of the time, so a rejection
+        // here is what lets the click fall through to the camera.
+        let mut i = interaction(Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(1)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+        });
+        assert_eq!(
+            i.toggle_player(PlayerId::new(1)),
+            SelectionOutcome::Rejected
+        );
+        i.toggle(obj(1));
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::ChooseObjects {
+                objects: vec![obj(1)]
+            })
+        );
+    }
+
+    #[test]
     fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         let i = interaction(Pending::ChooseTargets {
             player: me(),
             options: vec![obj(1)],
+            player_options: vec![],
             min: 0,
             max: 2,
         });
@@ -1569,6 +1689,7 @@ mod tests {
             Pending::ChooseTargets {
                 player: me(),
                 options: vec![],
+                player_options: vec![],
                 min: 0,
                 max: 1,
             },

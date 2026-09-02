@@ -23,7 +23,7 @@ use crate::keys::Fired;
 use crate::settings::ClientSettings;
 use crate::table::CardVisual;
 use baylee_client_core::automation::AutoPilot;
-use baylee_client_core::interaction::Interaction;
+use baylee_client_core::interaction::{Interaction, SelectionOutcome};
 use baylee_client_core::prefs::Action;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::PlayerAction;
@@ -499,6 +499,14 @@ pub fn pointer(
             continue;
         }
         if let Some(tab) = find_in_lineage(e, &tabs, &parents) {
+            // A seat is a legal target of what is being cast ("any target",
+            // CR 115.4), so the tab is how a player points at a face. It only
+            // stops being a camera control while that is true.
+            if let Some(i) = duel.interaction.as_mut()
+                && i.toggle_player(tab.player) != SelectionOutcome::Rejected
+            {
+                continue;
+            }
             // Your own tab (or the already-focused one) brings the camera
             // home; any other opponent's tab frames their pod.
             if duel.seat() == Some(tab.player) || duel.focus == Some(tab.player) {
@@ -794,6 +802,7 @@ mod tests {
             Pending::ChooseTargets {
                 player: PlayerId::new(0),
                 options: vec![obj(1)],
+                player_options: vec![],
                 min: 1,
                 max: 1,
             },

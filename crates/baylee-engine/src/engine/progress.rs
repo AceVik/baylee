@@ -639,6 +639,7 @@ impl<L: CardLookup> Engine<L> {
         self.pending = Pending::ChooseTargets {
             player: controller,
             options,
+            player_options: Vec::new(),
             min: 0,
             max: 1,
         };
@@ -1040,6 +1041,7 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
+                    player_options: Vec::new(),
                     min: req.min,
                     max,
                 };
@@ -1067,6 +1069,7 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
+                    player_options: Vec::new(),
                     min: 1,
                     max: 1,
                 };
@@ -1207,6 +1210,7 @@ impl<L: CardLookup> Engine<L> {
                     targets: obj.targets.clone(),
                     x: None,
                     chosen_player: obj.chosen_player,
+                    target_players: obj.target_players,
                     event_object: obj.event_object,
                     awaiting: None,
                     mana_ability: false,
@@ -1230,6 +1234,7 @@ impl<L: CardLookup> Engine<L> {
                 targets: obj.targets.clone(),
                 x: None,
                 chosen_player: obj.chosen_player,
+                target_players: obj.target_players,
                 event_object: obj.event_object,
                 awaiting: None,
                 mana_ability: false,
@@ -1287,6 +1292,7 @@ impl<L: CardLookup> Engine<L> {
                 targets: obj.targets.clone(),
                 x: Some(obj.x_value),
                 chosen_player: obj.chosen_player,
+                target_players: obj.target_players,
                 event_object: None,
                 awaiting: None,
                 mana_ability: false,

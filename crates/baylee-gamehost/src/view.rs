@@ -130,7 +130,15 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
             })
             .collect(),
         attached_to: obj.attached_to,
-        targets: obj.targets.iter().map(|t| TargetRef::Object(*t)).collect(),
+        // `TargetRef` has had a `Player` arm since the view was written and
+        // never carried one, because the engine's target list was objects
+        // only. A burn spell aimed at a face now says so on the stack.
+        targets: obj
+            .targets
+            .iter()
+            .map(|t| TargetRef::Object(*t))
+            .chain(obj.target_players.iter().map(TargetRef::Player))
+            .collect(),
         stack_item: stack_item(obj),
         summoning_sick: obj.kind == ObjectKind::Permanent
             && baylee_engine::combat::summoning_sick(state, obj),

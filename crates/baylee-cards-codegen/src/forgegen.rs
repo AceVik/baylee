@@ -222,13 +222,6 @@ impl Tx<'_> {
             let mut atoms = alt.split('.');
             let base = atoms.next()?.trim();
             match base {
-                // Forge's `Any` is "any target" — a creature, a planeswalker,
-                // a battle *or a player*. `TargetSpec` has no variant that
-                // spans objects and players, so this is a filter the DSL
-                // cannot say, not a filter that matches everything. Reading
-                // it as `Filter::Any` produced a Blighted Gorge that could
-                // not burn a player and still called itself implemented.
-                "Any" => return None,
                 "Card" | "Permanent" => {}
                 "Creature" => clauses.push("Filter::CREATURE".to_string()),
                 "Artifact" => clauses.push("Filter::ARTIFACT".to_string()),
@@ -281,6 +274,12 @@ impl Tx<'_> {
     fn target_spec(&mut self, valid: &str, api: &str) -> Option<String> {
         if valid == "Player" || valid == "Opponent" {
             return Some("TargetSpec::AnyPlayer".to_string());
+        }
+        // "Any target" (CR 115.4) spans objects and players, which is why it
+        // is a spec and not a filter — there is nothing on a player for a
+        // `Filter` to match.
+        if valid == "Any" {
+            return Some("TargetSpec::AnyTarget".to_string());
         }
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("TARGET", &expr);
@@ -807,6 +806,63 @@ pub fn keyword_const_of(line: &str) -> Option<&'static str> {
     keyword_const(line)
 }
 
+/// Every distinct mechanic a script touches, as flat strings.
+///
+/// This is the unit a coverage plan is built out of: `api:Token`,
+/// `param:Pump.Duration`, `kw:Equip`, `line:S`. It is deliberately *not*
+/// a list of what the transcoder refused — it names what the script
+/// *uses*, so that atoms already appearing in scripts the transcoder reads
+/// in full can be subtracted as known. That subtraction is what keeps the
+/// plan honest without restating each rule's parameter list here, where
+/// the copy would rot the first time a rule learned a new key.
+#[must_use]
+pub fn atoms(script: &ForgeScript) -> Vec<String> {
+    let mut out = Vec::new();
+    for line in &script.keywords {
+        let head = line.split(':').next().unwrap_or(line);
+        let head = head.split(' ').next().unwrap_or(head);
+        out.push(format!("kw:{head}"));
+    }
+    for line in &script.unknown_lines {
+        let head = line.split(':').next().unwrap_or(line);
+        out.push(format!("line:{head}"));
+    }
+    for (kind, spec) in &script.rules {
+        if matches!(kind, 'S' | 'R') {
+            out.push(format!("line:{kind}"));
+        }
+        let mut queue = vec![spec.clone()];
+        let mut seen = 0usize;
+        while let Some(spec) = queue.pop() {
+            seen += 1;
+            if seen > 32 {
+                break; // a malformed chain must not spin here
+            }
+            let Some((api, params)) = Params::parse(&spec) else {
+                continue;
+            };
+            out.push(format!("api:{api}"));
+            for (key, _) in &params.entries {
+                if !PROSE_KEYS.contains(&key.as_str()) {
+                    out.push(format!("param:{api}.{key}"));
+                }
+            }
+            for part in spec.split(" | ") {
+                for prefix in ["SubAbility$ ", "Execute$ "] {
+                    if let Some(name) = part.strip_prefix(prefix)
+                        && let Some(body) = script.svars.get(name.trim())
+                    {
+                        queue.push(body.clone());
+                    }
+                }
+            }
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -987,18 +1043,19 @@ mod tests {
     /// Forge's `Any` means creature, planeswalker, battle *or player*, and
     /// no `TargetSpec` spans objects and players. Read as `Filter::Any` it
     /// silently produced a burn spell that could not point at a player.
+    /// Forge's `Any` means creature, planeswalker, battle *or player*, so
+    /// it is a `TargetSpec`, not a `Filter` — nothing on a player can be
+    /// filtered on. Read as `Filter::Any` it silently produced a burn
+    /// spell that could not point at a face.
     #[test]
-    fn any_target_is_refused_rather_than_read_as_everything() {
-        assert!(refused(
-            "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\n\
-             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3"
-        ));
-        // A damage spell that names what it may hit is still read.
+    fn any_target_spans_objects_and_players() {
         let body = read(
-            "Name:X\nManaCost:R\nTypes:Instant\n\
-             A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3\n",
+            "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\n",
         );
-        assert!(body.abilities.join("\n").contains("Effect::DealDamage"));
+        let text = body.abilities.join("\n");
+        assert!(text.contains("TargetSpec::AnyTarget"), "{text}");
+        assert!(!text.contains("Filter::Any"), "{text}");
     }
 
     /// of these would otherwise generate a card missing half its rules.

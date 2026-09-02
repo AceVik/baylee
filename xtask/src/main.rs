@@ -2,7 +2,7 @@
 
 use baylee_cards_codegen::{acceptance, catalog, forge, forgegen, ledger, scryfall, stubgen};
 use clap::{Parser, Subcommand};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -53,6 +53,32 @@ enum Cmd {
         /// Print this many refused scripts, for finding the next rule to add.
         #[arg(long, default_value_t = 0)]
         samples: usize,
+    },
+    /// Choose the cards that would teach the engine the most, and say what
+    /// each one asks for.
+    ///
+    /// Greedy set cover over the mechanics the corpus actually uses: every
+    /// script contributes atoms (`api:Token`, `param:Pump.Duration`,
+    /// `kw:Equip`, `line:S`), atoms already appearing in scripts the
+    /// transcoder reads in full are struck off as known, and each card is
+    /// scored by how many *cards elsewhere in the corpus* its remaining
+    /// atoms would unblock. Picking by hand instead reliably picks famous
+    /// cards, which are famous for their flavour, not their mechanics.
+    CoverageSet {
+        /// How many cards to choose.
+        #[arg(long, default_value_t = 100)]
+        count: usize,
+        /// Skip a card that would need more than this many new mechanics —
+        /// a planeswalker with three novel modes is a worse first card than
+        /// three cards with one each.
+        #[arg(long, default_value_t = 6)]
+        max_new: usize,
+        /// Path to the forge-reference cardsfolder.
+        #[arg(
+            long,
+            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
+        )]
+        forge: PathBuf,
     },
     /// Show Scryfall + forge-reference data for a card side by side.
     Explain {
@@ -130,6 +156,11 @@ fn main() -> anyhow::Result<()> {
         } => codegen(&root, check, &forge, &cache),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::ForgeReport { forge, samples } => forge_report(&root, &forge, samples),
+        Cmd::CoverageSet {
+            count,
+            max_new,
+            forge,
+        } => coverage_set(&root, &forge, count, max_new),
         Cmd::Explain { name, forge, cache } => explain(&root, &name, &forge, &cache),
         Cmd::CardBatch {
             cards,
@@ -889,6 +920,140 @@ fn forge_report(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result
     println!("what the refused scripts need next:");
     for (cause, n) in ranked.into_iter().take(30) {
         println!("  {n:>6}  {cause}");
+    }
+    Ok(())
+}
+
+/// Chooses the cards that would teach the engine the most, and says what
+/// each one asks for.
+///
+/// One refused forge script, reduced to the mechanics it uses.
+struct Card {
+    name: String,
+    atoms: Vec<String>,
+}
+
+/// Picks `count` cards, each time taking the one whose still-uncovered atoms
+/// block the most other scripts. `max_new` keeps a card that would drag in a
+/// dozen unrelated mechanics out of the plan — it is a worklist, and an item
+/// nobody can finish is not one.
+fn greedy_pick(
+    refused: &[Card],
+    demand: &BTreeMap<String, usize>,
+    covered: &mut BTreeSet<String>,
+    count: usize,
+    max_new: usize,
+) -> Vec<(String, Vec<String>, usize)> {
+    let mut chosen = Vec::new();
+    let mut taken = vec![false; refused.len()];
+    for _ in 0..count {
+        let mut best: Option<(usize, usize, Vec<String>)> = None;
+        for (i, card) in refused.iter().enumerate() {
+            if taken[i] {
+                continue;
+            }
+            let new: Vec<String> = card
+                .atoms
+                .iter()
+                .filter(|a| !covered.contains(*a))
+                .cloned()
+                .collect();
+            if new.is_empty() || new.len() > max_new {
+                continue;
+            }
+            let score: usize = new
+                .iter()
+                .map(|a| demand.get(a).copied().unwrap_or(0))
+                .sum();
+            if best.as_ref().is_none_or(|(_, b, _)| score > *b) {
+                best = Some((i, score, new));
+            }
+        }
+        let Some((i, score, new)) = best else { break };
+        taken[i] = true;
+        covered.extend(new.iter().cloned());
+        chosen.push((refused[i].name.clone(), new, score));
+    }
+    chosen
+}
+
+/// Greedy set cover, with one deliberate twist: a card's score is not how
+/// many new atoms it has but how many *other cards in the corpus* those
+/// atoms block. A mechanic one card uses is a curiosity; a mechanic four
+/// hundred cards use is the next thing to build.
+fn coverage_set(root: &Path, forge_dir: &Path, count: usize, max_new: usize) -> anyhow::Result<()> {
+    let dir = root.join(forge_dir);
+    let cache = root.join("data/scryfall-cache");
+    let agent = ureq::Agent::new_with_defaults();
+    let mut cats = catalog::SubtypeCatalogs {
+        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
+        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
+        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
+        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
+        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
+        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
+    };
+    cats.normalize();
+    let mut files = Vec::new();
+    collect_scripts(&dir, &mut files)?;
+    files.sort();
+
+    let mut refused: Vec<Card> = Vec::new();
+    // An atom in a script the transcoder reads in full is, by definition,
+    // already handled — no rule list has to be restated here to know it.
+    let mut known: BTreeSet<String> = BTreeSet::new();
+    let mut demand: BTreeMap<String, usize> = BTreeMap::new();
+    for path in &files {
+        let text = fs::read_to_string(path)?;
+        let script = forgegen::parse(&text);
+        let atoms = forgegen::atoms(&script);
+        if forgegen::transcode(&script, &cats).is_some() {
+            known.extend(atoms);
+            continue;
+        }
+        for atom in &atoms {
+            *demand.entry(atom.clone()).or_insert(0) += 1;
+        }
+        let name = text
+            .lines()
+            .find_map(|l| l.strip_prefix("Name:"))
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if !name.is_empty() {
+            refused.push(Card { name, atoms });
+        }
+    }
+
+    let mut covered = known;
+    let chosen = greedy_pick(&refused, &demand, &mut covered, count, max_new);
+
+    let blocked_before = refused.len();
+    let still_blocked = refused
+        .iter()
+        .filter(|c| c.atoms.iter().any(|a| !covered.contains(a)))
+        .count();
+    println!(
+        "coverage plan: {} cards; {} of {blocked_before} refused scripts would have every \
+         mechanic they use ({}%)",
+        chosen.len(),
+        blocked_before - still_blocked,
+        ((blocked_before - still_blocked) * 100)
+            .checked_div(blocked_before)
+            .unwrap_or(0)
+    );
+    println!(
+        "(a script with every mechanic covered is not automatically read — the rule for \
+              each one still has to be written; this is the worklist, not the result)"
+    );
+    for (n, (name, new, score)) in chosen.iter().enumerate() {
+        println!("{:>4}. {name}  [unblocks {score}]", n + 1);
+        for atom in new {
+            println!(
+                "        {atom}  ({} scripts)",
+                demand.get(atom).copied().unwrap_or(0)
+            );
+        }
     }
     Ok(())
 }

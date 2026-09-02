@@ -480,6 +480,7 @@ impl<L: CardLookup> Engine<L> {
                 targets,
                 x: None,
                 chosen_player: None,
+                target_players: baylee_core::ids::SeatSet::new(),
                 event_object: None,
                 awaiting: None,
                 mana_ability: true,
@@ -655,6 +656,7 @@ impl<L: CardLookup> Engine<L> {
             self.pending = Pending::ChooseTargets {
                 player,
                 options,
+                player_options: Vec::new(),
                 min: 1,
                 max: 1,
             };
@@ -681,6 +683,7 @@ impl<L: CardLookup> Engine<L> {
             self.pending = Pending::ChooseTargets {
                 player,
                 options,
+                player_options: Vec::new(),
                 min: 1,
                 max: 1,
             };
@@ -700,6 +703,7 @@ impl<L: CardLookup> Engine<L> {
                 targets,
                 x: None,
                 chosen_player: None,
+                target_players: baylee_core::ids::SeatSet::new(),
                 event_object: None,
                 awaiting: None,
                 mana_ability: true,
@@ -864,6 +868,7 @@ impl<L: CardLookup> Engine<L> {
             self.pending = Pending::ChooseTargets {
                 player,
                 options,
+                player_options: Vec::new(),
                 min: 1,
                 max: 1,
             };

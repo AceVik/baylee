@@ -112,8 +112,14 @@ pub enum Pending {
     ChooseTargets {
         /// Choosing player.
         player: PlayerId,
-        /// The legal targets.
+        /// The legal object targets.
         options: Vec<ObjectId>,
+        /// The legal *player* targets, for "any target" (CR 115.4).
+        ///
+        /// Empty for every spec that targets objects alone, which is why
+        /// [`PlayerAction::ChooseObjects`] still answers this prompt: the
+        /// two lists are one choice, and `min`/`max` count across both.
+        player_options: Vec<PlayerId>,
         /// Minimum to choose (0 for "up to" targets).
         min: u8,
         /// Maximum to choose.
@@ -456,6 +462,20 @@ pub enum PlayerAction {
     ChooseObjects {
         /// The chosen objects.
         objects: Vec<ObjectId>,
+    },
+    /// Choose targets where players and objects are one set ("any target",
+    /// CR 115.4).
+    ///
+    /// [`PlayerAction::ChooseObjects`] answers the same prompt when nothing
+    /// but objects is being chosen — which is every prompt a spell that
+    /// says "target creature" raises. This variant exists because a player
+    /// has no [`ObjectId`] to be named by, not because targeting split in
+    /// two.
+    ChooseTargets {
+        /// The chosen object targets.
+        objects: Vec<ObjectId>,
+        /// The chosen player targets.
+        players: Vec<PlayerId>,
     },
     /// Suspend a card from hand with time counters.
     Suspend {

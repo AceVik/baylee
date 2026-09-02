@@ -479,6 +479,8 @@ pub struct GameObject {
     pub alt_cast: bool,
     /// A chosen target player (player-targeting spells).
     pub chosen_player: Option<PlayerId>,
+    /// Players chosen as targets, beside `targets` ("any target").
+    pub target_players: baylee_core::ids::SeatSet,
     /// The chosen spell mode (modal spells / overload).
     pub mode_index: Option<u8>,
     /// The creature type chosen as this entered ("the chosen type" —
@@ -545,6 +547,7 @@ impl GameObject {
             kicked: false,
             alt_cast: false,
             chosen_player: None,
+            target_players: baylee_core::ids::SeatSet::new(),
             mode_index: None,
             chosen_subtype: None,
             face_index: 0,

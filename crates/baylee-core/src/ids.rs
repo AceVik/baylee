@@ -212,3 +212,129 @@ mod tests {
         assert_eq!(id.bumped().generation(), 8);
     }
 }
+
+/// A set of seats, as a bitmask over [`PlayerId`].
+///
+/// Player *targets* are a set, not a list: CR 601.2c makes each target of a
+/// spell distinct, so nothing is lost by dropping order and identity. What is
+/// gained is size: the engine rides one of these on every game object,
+/// through every `GameState` clone, which is the AI's per-ply primitive, and
+/// a `SmallVec<[PlayerId; 2]>` would spend 24 bytes there on a field that is
+/// empty for all but a handful of spells on the stack.
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[repr(transparent)]
+pub struct SeatSet(u16);
+
+impl SeatSet {
+    /// The largest seat this set can hold. A table has at most four chairs;
+    /// the width is generous so the limit is never the thing that bites.
+    pub const MAX_SEAT: u8 = 15;
+
+    /// An empty set.
+    #[inline]
+    #[must_use]
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    /// Adds a seat.
+    ///
+    /// # Panics
+    /// If `player` is above [`Self::MAX_SEAT`]. Silently dropping a target
+    /// would be a rules bug that no test could see; a game runs in its own
+    /// process, so a panic here ends one game and names the cause.
+    #[inline]
+    pub fn insert(&mut self, player: PlayerId) {
+        assert!(
+            player.get() <= Self::MAX_SEAT,
+            "seat {player} is beyond the {} a SeatSet holds",
+            Self::MAX_SEAT
+        );
+        self.0 |= 1 << player.get();
+    }
+
+    /// Whether the set holds no seat.
+    #[inline]
+    #[must_use]
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    /// How many seats the set holds.
+    #[inline]
+    #[must_use]
+    pub const fn len(self) -> usize {
+        self.0.count_ones() as usize
+    }
+
+    /// Whether `player` is in the set.
+    #[inline]
+    #[must_use]
+    pub const fn contains(self, player: PlayerId) -> bool {
+        player.get() <= Self::MAX_SEAT && self.0 & (1 << player.get()) != 0
+    }
+
+    /// The seats, in seat order.
+    pub fn iter(self) -> impl Iterator<Item = PlayerId> {
+        (0..=Self::MAX_SEAT)
+            .filter(move |seat| self.0 & (1 << seat) != 0)
+            .map(PlayerId::new)
+    }
+}
+
+impl FromIterator<PlayerId> for SeatSet {
+    fn from_iter<I: IntoIterator<Item = PlayerId>>(iter: I) -> Self {
+        let mut set = Self::new();
+        for player in iter {
+            set.insert(player);
+        }
+        set
+    }
+}
+
+impl core::fmt::Debug for SeatSet {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
+    }
+}
+
+#[cfg(test)]
+mod seat_set_tests {
+    use super::*;
+
+    #[test]
+    fn a_seat_set_is_two_bytes() {
+        // The whole reason it exists rather than a `SmallVec`.
+        assert_eq!(size_of::<SeatSet>(), 2);
+    }
+
+    #[test]
+    fn seats_go_in_and_come_back_in_order() {
+        let set: SeatSet = [PlayerId::new(3), PlayerId::new(0)].into_iter().collect();
+        assert_eq!(set.len(), 2);
+        assert!(!set.is_empty());
+        assert!(set.contains(PlayerId::new(0)));
+        assert!(!set.contains(PlayerId::new(1)));
+        assert_eq!(
+            set.iter().collect::<Vec<_>>(),
+            vec![PlayerId::new(0), PlayerId::new(3)]
+        );
+    }
+
+    #[test]
+    fn a_seat_named_twice_is_one_target() {
+        // CR 601.2c: the targets of a spell are distinct, so a set loses
+        // nothing — and a caller that repeats one must not double the damage.
+        let mut set = SeatSet::new();
+        set.insert(PlayerId::new(2));
+        set.insert(PlayerId::new(2));
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "beyond the 15")]
+    fn a_seat_the_set_cannot_hold_is_loud() {
+        SeatSet::new().insert(PlayerId::new(16));
+    }
+}

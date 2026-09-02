@@ -239,6 +239,53 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
     keywords.contains(baylee_cards_dsl::KeywordSet::HEXPROOF) && obj.controller != you
 }
 
+/// The players a spell or ability may target.
+///
+/// A player is untargetable only through an effect, never through a
+/// characteristic — there is nothing on a player for a `Filter` to match —
+/// so this is a list, not a filtered enumeration like the object half.
+#[must_use]
+pub fn target_player_options(state: &GameState, spec: &TargetSpec) -> Vec<PlayerId> {
+    if !matches!(spec, TargetSpec::AnyTarget | TargetSpec::AnyPlayer) {
+        return Vec::new();
+    }
+    state
+        .players
+        .iter()
+        .filter(|p| {
+            !p.has_lost
+                // Player hexproof (Everybody Lives!): can't be targeted by
+                // spells or abilities at all.
+                && !state.effects.iter().any(|fx| {
+                    matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayerHexproof)
+                        && fx.controller == p.id
+                })
+        })
+        .map(|p| p.id)
+        .collect()
+}
+
+/// The object half of "any target" (CR 115.4): every creature, planeswalker
+/// and battle on the battlefield.
+///
+/// Filtering by type rather than by a `Filter` is deliberate — the printed
+/// words are a fixed list the rules maintain, not a card's own predicate.
+fn any_target_objects(state: &GameState) -> Vec<ObjectId> {
+    state
+        .battlefield_view()
+        .iter()
+        .filter(|id| {
+            state.object(**id).is_some_and(|o| {
+                let types = o.characteristics().types;
+                types.contains(baylee_core::types::TypeSet::CREATURE)
+                    || types.contains(baylee_core::types::TypeSet::PLANESWALKER)
+                    || types.contains(baylee_core::types::TypeSet::BATTLE)
+            })
+        })
+        .copied()
+        .collect()
+}
+
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
 #[must_use]
 pub fn target_options(
@@ -337,6 +384,11 @@ pub fn target_options(
             })
             .copied()
             .collect(),
+        // "Any target" (CR 115.4) is a creature, a planeswalker, a battle
+        // or a player. Only the object half is enumerated here; the players
+        // come from `target_player_options`, and the two lists are offered
+        // as one choice.
+        TargetSpec::AnyTarget => any_target_objects(state),
         // EventObject is implicit (no player choice); player targeting
         // resolves via ChoosePlayer in the casting wizard.
         TargetSpec::EventObject | TargetSpec::Player(_) | TargetSpec::AnyPlayer => vec![],

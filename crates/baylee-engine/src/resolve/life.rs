@@ -65,6 +65,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         deal_to_player(state, res.source, player, n);
                     }
                 }
+                // "Any target" (CR 115.4) chose from one set spanning both,
+                // so both halves are dealt to — a spell with two any-targets
+                // can have picked a creature and a face.
+                TargetSpec::AnyTarget => {
+                    for &target_id in &res.targets.clone() {
+                        deal_to_object_with_loyalty(state, target_id, n, res.source);
+                    }
+                    for player in res.target_players.iter() {
+                        deal_to_player(state, res.source, player, n);
+                    }
+                }
                 _ => {
                     if let Some(&target_id) = res.targets.first() {
                         deal_to_object_with_loyalty(state, target_id, n, res.source);

@@ -222,7 +222,17 @@ on `obj.chosen_subtype`; creatures also gain the subtype in their base).
 `Object(filter)`, `Spell(filter)`, `StackOrBattlefield(filter)`,
 `CardInGraveyard(filter, rel)`, `ThisObject`, `EventObject` (implicit —
 the object the trigger was about), `AbilityOnStack(filter)`,
-`SpellOrAbility(filter)` (Ertai), `Player(rel)`, `AnyPlayer`.
+`SpellOrAbility(filter)` (Ertai), `Player(rel)`, `AnyPlayer`, `AnyTarget`.
+
+`AnyTarget` is "any target" (CR 115.4) — a creature, a planeswalker, a battle
+**or a player**, chosen from one set that spans objects and players. It is its
+own variant rather than a `Filter`, because no filter can match a player: a
+player has no characteristics to filter on. Every burn spell printed says
+this, so it is not a corner: `Pending::ChooseTargets` carries a
+`player_options` beside `options`, `min`/`max` count across both, and the
+answer is `PlayerAction::ChooseTargets { objects, players }`. The players
+picked ride on the spell as a `SeatSet` — a bitmask, because CR 601.2c makes
+targets distinct and a game object is copied once per AI ply.
 
 ### Filters (composable data)
 

@@ -45,6 +45,13 @@ pub struct Resolution {
     pub x: Option<u32>,
     /// Chosen target player, if any.
     pub chosen_player: Option<PlayerId>,
+    /// Players chosen as *targets* ("any target", CR 115.4).
+    ///
+    /// Distinct from `chosen_player`, which is the single player a
+    /// `TargetSpec::AnyPlayer` names: this list rides alongside `targets`
+    /// as the other half of one mixed choice, so a spell that hits two
+    /// any-targets can hit two players.
+    pub target_players: baylee_core::ids::SeatSet,
     /// The object the triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
     /// The suspended choice, if any.
@@ -363,6 +370,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
         event_object: res.event_object,
         x: res.x,
         chosen_player: res.chosen_player,
+        target_players: res.target_players,
         awaiting: None,
         mana_ability: false,
     };
@@ -975,6 +983,7 @@ fn run_nested_with(
         event_object: res.event_object,
         x: res.x,
         chosen_player: res.chosen_player,
+        target_players: res.target_players,
         awaiting: None,
         mana_ability: false,
     };
@@ -1332,6 +1341,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 return Some(Pending::ChooseTargets {
                     player: you,
                     options,
+                    player_options: Vec::new(),
                     min: 1,
                     max: 1,
                 });
@@ -1463,6 +1473,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         return Some(Pending::ChooseTargets {
                             player: you,
                             options,
+                            player_options: Vec::new(),
                             min: picks,
                             max: picks,
                         });

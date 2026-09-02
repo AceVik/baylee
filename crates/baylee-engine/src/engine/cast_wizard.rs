@@ -50,6 +50,8 @@ pub(crate) struct CastWizard {
     pub option: Option<CastModeKind>,
     /// Chosen targets.
     pub targets: SmallVec<[ObjectId; 2]>,
+    /// Players chosen as targets, the other half of "any target".
+    pub target_players: baylee_core::ids::SeatSet,
     /// Chosen target player, if any.
     pub chosen_player: Option<PlayerId>,
     /// Chosen X.
@@ -83,6 +85,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: None,
             targets: SmallVec::new(),
+            target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
             kicked: false,
@@ -125,6 +128,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: Some(CastModeKind::Miracle),
             targets: SmallVec::new(),
+            target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
             kicked: false,
@@ -152,6 +156,7 @@ impl<L: CardLookup> Engine<L> {
             player,
             option: Some(CastModeKind::Normal),
             targets: SmallVec::new(),
+            target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
             kicked: false,
@@ -370,13 +375,18 @@ impl<L: CardLookup> Engine<L> {
                     return self.advance_cast_wizard();
                 }
                 let options = eval::target_options(&spec, &self.state, wizard.player, wizard.card);
-                if options.len() < min as usize {
+                let player_options = eval::target_player_options(&self.state, &spec);
+                // "Any target" is one set: a burn spell with every creature
+                // hexproofed is still castable at a player's face, so the
+                // count that has to reach `min` spans both halves.
+                if options.len() + player_options.len() < min as usize {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("not enough legal targets"));
                 }
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
                     options,
+                    player_options,
                     min,
                     max,
                 };
@@ -528,6 +538,7 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
                     options: untapped,
+                    player_options: Vec::new(),
                     min: 0,
                     max: 99,
                 };
@@ -733,6 +744,7 @@ impl<L: CardLookup> Engine<L> {
             obj.kind = ObjectKind::Spell;
             obj.set_controller(player);
             obj.targets.clone_from(&wizard.targets);
+            obj.target_players = wizard.target_players;
             obj.target_req = target_req;
             obj.x_value = wizard.x;
             obj.kicked = wizard.kicked;

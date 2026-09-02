@@ -214,6 +214,15 @@ pub enum TargetSpec {
     Player(PlayerRel),
     /// Any player (choice via `Pending::ChoosePlayer`).
     AnyPlayer,
+    /// "Any target" (CR 115.4): a creature, a planeswalker, a battle, **or
+    /// a player** — one choice over a set that spans objects and players.
+    ///
+    /// It is its own variant rather than a `Filter`, because no filter can
+    /// match a player: a player has no characteristics to filter on. Every
+    /// burn spell printed says this, so a transcoder that reads it as
+    /// "matches everything on the battlefield" produces cards that cannot
+    /// point at a player and still call themselves implemented.
+    AnyTarget,
 }
 
 /// How many targets an ability/spell requires.

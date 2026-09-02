@@ -50,6 +50,21 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         action: PlayerAction,
     ) -> Result<(), EngineError> {
+        // "Target creature" and "any target" are one prompt with one answer;
+        // the second shape exists only because a player has no `ObjectId`.
+        // Normalising here keeps that a detail of the wire format instead of
+        // a fork in every step targeting reaches.
+        let action = match action {
+            PlayerAction::ChooseObjects { objects }
+                if matches!(self.pending, Pending::ChooseTargets { .. }) =>
+            {
+                PlayerAction::ChooseTargets {
+                    objects,
+                    players: Vec::new(),
+                }
+            }
+            other => other,
+        };
         match (&self.pending, action) {
             (Pending::Mulligan { player: p, .. }, PlayerAction::MulliganKeep) if *p == player => {
                 let taken = self.mulligans[player.get() as usize];
@@ -337,14 +352,26 @@ impl<L: CardLookup> Engine<L> {
                 Pending::ChooseTargets {
                     player: p,
                     options,
+                    player_options,
                     min,
                     max,
                 },
-                PlayerAction::ChooseObjects { objects },
+                PlayerAction::ChooseTargets { objects, players },
             ) if *p == player => {
-                if objects.len() < *min as usize
-                    || objects.len() > *max as usize
+                let total = objects.len() + players.len();
+                // CR 601.2c: the targets of a spell are distinct. A repeated
+                // seat would be counted twice here and stored once (the spell
+                // carries a `SeatSet`), so a spell that takes two targets
+                // could be cast naming one — refuse it at the door.
+                let repeats = players
+                    .iter()
+                    .enumerate()
+                    .any(|(at, p)| players[..at].contains(p));
+                if total < *min as usize
+                    || total > *max as usize
+                    || repeats
                     || !objects.iter().all(|o| options.contains(o))
+                    || !players.iter().all(|p| player_options.contains(p))
                 {
                     return Err(EngineError::IllegalAction("invalid target selection"));
                 }
@@ -352,6 +379,7 @@ impl<L: CardLookup> Engine<L> {
                 if self.cast_wizard.is_some() {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.targets = objects.into_iter().collect();
+                    wizard.target_players = players.into_iter().collect();
                     wizard.stage = cast_wizard::WizardStage::Kicker;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
