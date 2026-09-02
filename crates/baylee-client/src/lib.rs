@@ -36,6 +36,7 @@
 #![allow(clippy::needless_pass_by_value)]
 
 pub mod abilities;
+pub mod ambience;
 pub mod buildui;
 pub mod cardmat;
 pub mod cardtext;
@@ -48,6 +49,7 @@ pub mod host;
 pub mod hud;
 pub mod input;
 pub mod keys;
+pub mod loading;
 pub mod lobby;
 pub mod manasources;
 pub mod manaui;
@@ -252,6 +254,8 @@ impl Plugin for DuelPlugin {
         // Shared with the lobby, which is a separate plugin and may already
         // have installed it.
         prefs::install(app);
+        ambience::install(app);
+        loading::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .init_state::<DuelPhase>()
             .insert_resource(self.config.clone())

@@ -115,10 +115,21 @@ impl Metrics {
     }
 }
 
+/// How much the lobby's ground moves.
+///
+/// Well under the loading veil's: this surface is behind text a player is
+/// reading and typing into, and a backdrop that competes with the form is a
+/// backdrop that has to be turned off. The veil, which is shown *instead* of
+/// a screen, can afford to be the thing being looked at.
+const AMBIENT_ENERGY: f32 = 0.35;
+
 /// The lobby's own camera. The duel brings its own and the two never coexist:
 /// this one is despawned on the way out of [`DuelPhase::Closed`], before the
 /// stage is built.
-pub(super) fn spawn_camera(mut commands: Commands) {
+pub(super) fn spawn_camera(
+    mut commands: Commands,
+    ambience: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
+) {
     commands.spawn((
         LobbyScreen,
         Camera2d,
@@ -127,6 +138,29 @@ pub(super) fn spawn_camera(mut commands: Commands) {
             ..default()
         },
     ));
+    // Spawned here rather than in `ui`, and this is the whole reason it is a
+    // separate entity: the node tree is despawned and rebuilt on every state
+    // change, and a material minted per rebuild would add one asset per
+    // keystroke on the sign-in form. This one is made once per visit to the
+    // lobby and torn down with the rest of `LobbyScreen`.
+    //
+    // `Option`, because a headless test has no render plugin and therefore no
+    // `Assets` — the lobby's decisions are all tested that way.
+    if let Some(mut ambience) = ambience {
+        let backdrop = crate::ambience::backdrop(
+            &mut commands,
+            &mut ambience,
+            BACKDROP,
+            palette::ACCENT,
+            AMBIENT_ENERGY,
+            0.0,
+        );
+        // Under the screen, which is what the negative index says; the
+        // loading veil spawns the same surface *inside* itself and must not.
+        commands
+            .entity(backdrop)
+            .insert((LobbyScreen, GlobalZIndex(-1)));
+    }
 }
 
 /// Drops the whole lobby when a duel takes the screen.
@@ -223,7 +257,10 @@ pub(super) fn ui(
                 },
                 ..default()
             },
-            BackgroundColor(BACKDROP),
+            // Transparent, so the drifting ground behind it shows. The
+            // camera's clear colour is the same `BACKDROP`, which is what the
+            // surface is drawn over — a solid fill here would hide it.
+            BackgroundColor(Color::NONE),
         ))
         .id();
 
@@ -1031,6 +1068,11 @@ pub(crate) fn chip(
                 palette::PANEL_LIT
             }),
             press,
+            crate::ambience::Feel::new(if on {
+                palette::ACCENT
+            } else {
+                palette::PANEL_LIT
+            }),
         ))
         .id();
     commands.entity(id).add_child(text);
@@ -1267,7 +1309,10 @@ pub(crate) fn button(
             soft_shadow(),
         ));
         if enabled {
-            entity.insert(press);
+            // The tone travels with the button because the animation writes
+            // `BackgroundColor` every frame: after one hover the node no
+            // longer knows what colour it started at.
+            entity.insert((press, crate::ambience::Feel::new(tone)));
         }
         entity.id()
     };

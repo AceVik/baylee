@@ -388,7 +388,7 @@ impl Plugin for CardMaterialPlugin {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// The shader reads three bits; the engine numbers more than a hundred
@@ -471,7 +471,7 @@ mod tests {
     /// bring in is stubbed by the caller with the same shapes bevy declares,
     /// so a use that would not type-check against the real ones does not
     /// type-check here either.
-    fn check_wgsl(source: &str, prelude: &str) {
+    pub(crate) fn check_wgsl(source: &str, prelude: &str) {
         let body: String = source
             .lines()
             .filter(|line| !line.trim_start().starts_with("#import"))

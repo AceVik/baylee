@@ -845,3 +845,18 @@ fn in_lineage<'a>(
     }
     None
 }
+
+/// Raises the loading veil while the lobby is waiting on the network.
+///
+/// Two waits, and the second is the one that needs saying. A request in
+/// flight is usually a blink. Taking a seat is not: the gateway orders an
+/// engine and the socket may wait up to thirty seconds for it to attach, and
+/// a screen that says nothing for thirty seconds is a screen a player will
+/// click again.
+pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading::Loading>) {
+    match state.lobby.screen() {
+        Screen::Seated(_) => loading.show("Taking your seat"),
+        _ if state.lobby.busy() => loading.show("Talking to the gateway"),
+        _ => loading.clear(),
+    }
+}

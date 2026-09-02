@@ -32,6 +32,7 @@
 //! GET  /health                     → {"ok":true,"frame":1234,"width":…}
 //! GET  /state                      → the dump below
 //! POST /key      {"name":"Space","shift":false,…}
+//! POST /text     {"text":"dev@baylee.local"}
 //! POST /pointer  {"x":100,"y":200,"button":"left","press":true}
 //! POST /screenshot {"path":"/tmp/table.png"}   (replies once written)
 //! ```
@@ -42,6 +43,7 @@
 use crate::Duel;
 use crate::settings::ClientSettings;
 use bevy::input::ButtonState;
+use bevy::input::keyboard::{Key, KeyboardInput, NativeKeyCode};
 use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
@@ -273,6 +275,7 @@ fn pump(
     mut clicks: MessageWriter<MouseButtonInput>,
     mut window_events: MessageWriter<WindowEvent>,
     mut moves: MessageWriter<CursorMoved>,
+    mut typing: MessageWriter<KeyboardInput>,
     mut windows: Query<(Entity, &mut Window), With<PrimaryWindow>>,
     duel: Option<Res<Duel>>,
     settings: Option<Res<ClientSettings>>,
@@ -320,7 +323,7 @@ fn pump(
             }
             "/state" => state_dump(duel.as_deref(), settings.as_deref()),
             "/key" => {
-                let pressed = press_chord(&job.body, &mut keys);
+                let pressed = press_chord(&job.body, &mut keys, &mut typing, window);
                 match pressed {
                     Ok(down) => {
                         control.held.extend_from_slice(&down);
@@ -329,6 +332,13 @@ fn pump(
                     Err(err) => format!("{{\"error\":\"{err}\"}}"),
                 }
             }
+            "/text" => match window {
+                Some(entity) => {
+                    let typed = type_text(&job.body, entity, &mut typing);
+                    format!("{{\"ok\":true,\"typed\":{typed}}}")
+                }
+                None => "{\"error\":\"no primary window\"}".to_string(),
+            },
             "/pointer" => {
                 match move_pointer(&job.body, &mut windows, &mut moves, &mut window_events) {
                     Err(err) => format!("{{\"error\":\"{err}\"}}"),
@@ -364,11 +374,99 @@ fn pump(
     }
 }
 
+/// Types a line of text as keyboard events.
+///
+/// Separate from `/key` because the two are read in different places, and
+/// only one of them can type. `/key` writes [`ButtonInput`], which is what
+/// the *duel's* shortcuts read through the account's keymap; every text field
+/// in the client reads [`KeyboardInput`] messages instead, because a
+/// character is a logical key and a keymap has nothing to say about it. A
+/// harness that could only press keys could sign nobody in.
+fn type_text(body: &str, window: Entity, keys: &mut MessageWriter<KeyboardInput>) -> usize {
+    let Some(text) = field(body, "text") else {
+        return 0;
+    };
+    let mut typed = 0;
+    for character in text.chars() {
+        // The physical key is a best guess and mostly unread: a text field
+        // takes the logical key. Where nothing sensible maps, the character
+        // still arrives.
+        let key_code = crate::keys::key_code(&character.to_uppercase().to_string())
+            .unwrap_or(KeyCode::Unidentified(NativeKeyCode::Unidentified));
+        let logical_key = match character {
+            ' ' => Key::Space,
+            '\n' => Key::Enter,
+            other => Key::Character(other.to_string().into()),
+        };
+        for state in [ButtonState::Pressed, ButtonState::Released] {
+            keys.write(KeyboardInput {
+                key_code,
+                logical_key: logical_key.clone(),
+                state,
+                text: Some(character.to_string().into()),
+                repeat: false,
+                window,
+            });
+        }
+        typed += 1;
+    }
+    typed
+}
+
+/// The logical key a named physical key produces.
+///
+/// A real keyboard reports both, and the client reads both: shortcuts go
+/// through [`ButtonInput`] and the account's keymap, while text fields read
+/// the logical key out of a [`KeyboardInput`] message. `Tab` was the case
+/// that proved it — pressed through the resource alone it moved no focus at
+/// all, because the form's tab handling is on the message.
+fn logical_key(name: &str) -> Key {
+    match name {
+        "Tab" => Key::Tab,
+        "Enter" | "Return" => Key::Enter,
+        "Escape" => Key::Escape,
+        "Backspace" => Key::Backspace,
+        "Delete" => Key::Delete,
+        "Space" => Key::Space,
+        "ArrowUp" => Key::ArrowUp,
+        "ArrowDown" => Key::ArrowDown,
+        "ArrowLeft" => Key::ArrowLeft,
+        "ArrowRight" => Key::ArrowRight,
+        other => match other.chars().next() {
+            Some(first) if other.chars().count() == 1 => {
+                Key::Character(first.to_lowercase().to_string().into())
+            }
+            // A key with no logical meaning of its own (`F5`, a modifier).
+            // The physical code carries it; consumers that read text ignore
+            // this one, which is exactly right.
+            _ => Key::Unidentified(bevy::input::keyboard::NativeKey::Unidentified),
+        },
+    }
+}
+
 /// Presses the keys of one chord, returning what was pressed so it can be
 /// released next frame.
-fn press_chord(body: &str, keys: &mut ButtonInput<KeyCode>) -> Result<Vec<KeyCode>, String> {
+fn press_chord(
+    body: &str,
+    keys: &mut ButtonInput<KeyCode>,
+    typing: &mut MessageWriter<KeyboardInput>,
+    window: Option<Entity>,
+) -> Result<Vec<KeyCode>, String> {
     let name = field(body, "name").ok_or("no key name")?;
     let key = crate::keys::key_code(name).ok_or_else(|| format!("unknown key: {name}"))?;
+    if let Some(window) = window {
+        // Both channels, because a real key reaches both.
+        for state in [ButtonState::Pressed, ButtonState::Released] {
+            typing.write(KeyboardInput {
+                key_code: key,
+                logical_key: logical_key(name),
+                state,
+                text: None,
+                repeat: false,
+                window,
+            });
+        }
+    }
     let mut down = Vec::new();
     for (present, modifier) in [
         (flag(body, "shift"), KeyCode::ShiftLeft),
@@ -569,6 +667,7 @@ mod tests {
         app.init_resource::<ButtonInput<KeyCode>>()
             .init_resource::<ButtonInput<MouseButton>>()
             .add_message::<MouseButtonInput>()
+            .add_message::<KeyboardInput>()
             .add_message::<WindowEvent>()
             .add_message::<CursorMoved>()
             .insert_resource(DevControl {

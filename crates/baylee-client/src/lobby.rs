@@ -61,6 +61,8 @@ impl Plugin for LobbyPlugin {
         // The keymap is the account's, and the account is signed into here —
         // shared with the duel, whichever of the two got there first.
         crate::prefs::install(app);
+        crate::ambience::install(app);
+        crate::loading::install(app);
         app.init_resource::<Mailbox>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
@@ -69,7 +71,7 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
-                    poll, watch, softkeys, keyboard, clicks, scrolls, hovers, ui, preview,
+                    poll, watch, softkeys, keyboard, clicks, scrolls, hovers, ui, preview, waiting,
                 )
                     .chain()
                     .run_if(in_state(DuelPhase::Closed)),
@@ -243,7 +245,7 @@ mod tests;
 
 use http::{ask_about_registration, dispatch};
 use preview::{Hovered, despawn_preview, hovers, preview};
-use systems::{came_back, clicks, keyboard, leave_clicks, poll, scrolls, softkeys, watch};
+use systems::{came_back, clicks, keyboard, leave_clicks, poll, scrolls, softkeys, waiting, watch};
 use ui::{despawn_leave_button, spawn_camera, spawn_leave_button, teardown, ui};
 
 // The vocabulary the lobby's own halves share, and that `buildui` and
