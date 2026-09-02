@@ -394,6 +394,30 @@ decision — combat included — built by `Interaction` from what the engine
 offered. A client that cannot express an attack fails it instead of quietly
 passing the turn.
 
+A spell whose mana is not floating yet is **not** a card with nothing to do.
+`baylee-client-core/src/manaplan.rs` decides which lands to tap for it —
+Kuhn's algorithm over demands against available mana, not a greedy sweep,
+because greedy pays the generic pip with the only black source and then cannot
+pay `{B}`; `baylee-client/src/manasources.rs` is the half that needs the card
+registry to know what a printed mana ability makes. Three rules hold it
+honest: every step is an action `LegalActions` offered and is re-checked
+against the *current* one before it is sent (`ManaRun` in `lib.rs`), Phyrexian
+mana is never paid with life and `{X}`/`{S}`/restricted mana are refused
+outright, and a source that makes two mana of *one chosen* colour counts as
+one — under-counting costs an extra land, over-counting leaves a player tapped
+out halfway through. In hand this is a third state: `Openings { playable,
+reachable }`, gold for what the engine offered and indigo for what this client
+is offering to do about it.
+
+Nothing on the table is positioned directly. `table::sync_scene` writes a
+`Motion` target and `table::glide` moves the card there, so a repacked lane, a
+tap, a hover and a card entering play all animate through one door and cannot
+desynchronise from the board model. The curve is exponential
+(`1 - e^(-rate·dt)`) so it is frame-rate independent and so a half-millimetre
+correction does not take as long as a card arriving. `ShownRig` does the same
+for the camera, faster and with yaw interpolated the short way round;
+`Preferences::reduce_motion` turns both off.
+
 Every key comes from the account's `Keymap` (`baylee-client-core/src/prefs.rs`),
 resolved through `crates/baylee-client/src/keys.rs` — the one place that knows
 a stored key name is a Bevy `KeyCode`. Input handlers ask *actions*, never

@@ -252,6 +252,9 @@ fn automation_panel(
         commands.entity(column).add_child(line);
     }
 
+    let motion = motion_row(commands, prefs, fonts, metrics);
+    commands.entity(column).add_child(motion);
+
     let rail = heading(commands, fonts, metrics, "Where to stop");
     commands.entity(column).add_child(rail);
     let explain = commands
@@ -296,6 +299,53 @@ fn automation_panel(
         commands.entity(column).add_child(strip);
     }
     column
+}
+
+/// The one switch on this screen that is about the table rather than about
+/// the game.
+///
+/// It sits here because this is where a player looks for it, and it travels
+/// with the account for the same reason the keys do: a player who cannot read
+/// a moving board cannot read one on any machine.
+fn motion_row(
+    commands: &mut Commands,
+    prefs: &Preferences,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) -> Entity {
+    let line = row(commands, metrics, false);
+    let label = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new("Hold the table still"),
+                    tf(fonts, metrics.text),
+                    TextColor(palette::INK),
+                ),
+                (
+                    Text::new("Cards and the camera go straight there instead of moving."),
+                    tf(fonts, metrics.small),
+                    TextColor(palette::MUTED),
+                )
+            ],
+        ))
+        .id();
+    let switch = chip(
+        commands,
+        fonts,
+        metrics,
+        if prefs.reduce_motion { "on" } else { "off" },
+        Press::ToggleMotion,
+        prefs.reduce_motion,
+    );
+    commands.entity(line).add_children(&[label, switch]);
+    line
 }
 
 #[cfg(test)]

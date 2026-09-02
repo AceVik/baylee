@@ -940,6 +940,10 @@ fn clicks(
                 let mut edit = prefs.edit();
                 rule.toggle(&mut edit.auto);
             }
+            Press::ToggleMotion => {
+                let mut edit = prefs.edit();
+                edit.reduce_motion = !edit.reduce_motion;
+            }
             Press::ToggleRail(side, row) => prefs.edit().orders.toggle(side, row),
             Press::Focus(field) => state.lobby.focus_on(field),
             Press::ToggleRegistering => state.lobby.toggle_registering(),
@@ -1332,6 +1336,8 @@ pub(crate) enum Press {
     ResetAllBindings,
     /// Flip one automation switch.
     ToggleAuto(baylee_client_core::prefs::AutoRule),
+    /// Stop the table moving, or let it move again.
+    ToggleMotion,
     /// Turn one step of the phase rail red or green.
     ToggleRail(
         baylee_client_core::automation::RailSide,

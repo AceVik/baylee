@@ -300,6 +300,9 @@ pub(crate) mod palette {
     pub const ORDER_GO: Color = Color::srgba(0.16, 0.35, 0.22, 0.95);
     /// Standing order "skip" (red).
     pub const ORDER_SKIP: Color = Color::srgba(0.40, 0.15, 0.15, 0.95);
+    /// A card the client is offering to tap lands for: an offer, not a
+    /// legal action, and drawn as the weaker claim it is.
+    pub const REACHABLE: Color = Color::srgb(0.50, 0.47, 0.84);
     /// Soft shadow under raised elements.
     pub const SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
 }
@@ -1490,17 +1493,23 @@ fn spawn_hand_bar(
                 Val::Px(2.0),
                 Val::Px(10.0),
             )
-        } else if is_hovered || card.playable {
+        } else if is_hovered || card.playable || card.reachable {
+            // Three different claims, three different glows. Gold is the
+            // engine saying yes; indigo is this client offering to tap lands
+            // first, which is a weaker thing and reads as one.
+            let (tint, spread) = if is_hovered {
+                (palette::ACCENT, 8.0)
+            } else if card.playable {
+                (palette::ACTIVE, 6.0)
+            } else {
+                (palette::REACHABLE, 5.0)
+            };
             BoxShadow::new(
-                if is_hovered {
-                    palette::ACCENT
-                } else {
-                    palette::SHADOW
-                },
+                tint,
                 Val::Px(0.0),
                 Val::Px(0.0),
                 Val::Px(0.0),
-                Val::Px(if is_hovered { 8.0 } else { 5.0 }),
+                Val::Px(spread),
             )
         } else {
             soft_shadow()

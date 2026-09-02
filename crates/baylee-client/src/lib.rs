@@ -44,6 +44,7 @@ pub mod hud;
 pub mod input;
 pub mod keys;
 pub mod lobby;
+pub mod manasources;
 pub mod manaui;
 pub mod net;
 pub mod prefs;
@@ -138,6 +139,14 @@ pub struct Duel {
     pub overlay_t: f32,
     /// Whether the preview resize handle is being dragged.
     pub resize_drag: bool,
+    /// The taps the client is making on the player's behalf, if any.
+    pub mana_run: Option<ManaRun>,
+    /// Cards in hand that are not castable yet and would be after tapping.
+    ///
+    /// Kept beside the board model rather than in it: it is a *client*
+    /// judgement, not something the engine said, and the difference is worth
+    /// keeping visible at the type level.
+    pub reachable: std::collections::HashSet<ObjectId>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -218,6 +227,7 @@ impl Plugin for DuelPlugin {
             // resource here is a panic at the table, not a compile error.
             .init_resource::<table::SceneIndex>()
             .init_resource::<table::CameraRig>()
+            .init_resource::<table::ShownRig>()
             .init_resource::<hud::HudRevision>()
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
@@ -234,6 +244,7 @@ impl Plugin for DuelPlugin {
                 (
                     handle_commands,
                     poll_host,
+                    run_mana_plan,
                     run_autopilot,
                     flush_outbox,
                     cardtext::request,
@@ -260,6 +271,7 @@ impl Plugin for DuelPlugin {
                 (
                     table::sync_scene,
                     table::sync_zones,
+                    table::glide,
                     table::apply_camera_rig,
                     hud::sync_overlay,
                     hud::apply_hand_scroll,
@@ -341,6 +353,11 @@ fn poll_host(
 /// Applies the standing orders and the autopilot: hands control back at
 /// the boundary, and never makes a real decision for the player.
 fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
+    // A plan in flight owns the priority it is spending; passing under it
+    // would throw the mana away between the tap and the spell.
+    if duel.mana_run.is_some() {
+        return;
+    }
     let Some((phase, step, turn)) = duel.view.as_ref().map(|v| (v.phase, v.step, v.turn)) else {
         return;
     };
@@ -383,6 +400,153 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
     duel.submit(action);
 }
 
+/// Tapping lands for a spell, one action at a time.
+///
+/// The plan is decided in one go (`manaplan::plan`) and then spent one step
+/// per engine round trip, because that is how the engine works: every
+/// activation is an action, and each one comes back as a fresh `Pending` with
+/// a fresh `LegalActions`. That round trip is also the safety property — each
+/// step is re-checked against what the engine is offering *now*, so a plan
+/// that has gone stale stops instead of guessing.
+#[derive(Debug)]
+pub struct ManaRun {
+    /// Taps still to make.
+    steps: std::collections::VecDeque<baylee_client_core::manaplan::Step>,
+    /// The colour to answer with while an ability is asking for one.
+    asking: Option<baylee_core::mana::ManaColor>,
+    /// The spell all of this is for.
+    card: ObjectId,
+}
+
+impl ManaRun {
+    /// Starts a run for `card`.
+    #[must_use]
+    pub fn new(plan: baylee_client_core::manaplan::Plan, card: ObjectId) -> Self {
+        Self {
+            steps: plan.steps.into(),
+            asking: None,
+            card,
+        }
+    }
+
+    /// The spell being paid for — the HUD says so while it happens.
+    #[must_use]
+    pub const fn card(&self) -> ObjectId {
+        self.card
+    }
+}
+
+/// Spends a mana plan, one action per frame the engine asks us something.
+///
+/// Aborting is a first-class outcome and not an error path: anything the
+/// engine offers that is not the next step of the plan ends the run and hands
+/// the player back their turn, with whatever was already tapped left tapped.
+/// That is the honest failure — mana in the pool is a thing the player can
+/// see and spend — and it is much better than the alternative of pushing an
+/// action the engine will refuse.
+fn run_mana_plan(mut duel: ResMut<Duel>) {
+    if duel.mana_run.is_none() {
+        return;
+    }
+    // Between sending and the next snapshot there is nothing to decide; the
+    // run is not stale, it is simply waiting.
+    let Some(interaction) = duel.interaction.as_ref() else {
+        return;
+    };
+    let seat = duel.seat().unwrap_or(PlayerId::new(0));
+    let pending = interaction.pending().clone();
+    let mut action = None;
+    let mut finished = false;
+    let mut abort = None;
+
+    match &pending {
+        Pending::ChooseColor { player, options } if *player == seat => {
+            let asked = duel.mana_run.as_ref().and_then(|r| r.asking);
+            match asked.filter(|c| options.contains(c)) {
+                Some(color) => {
+                    action = Some(PlayerAction::ChooseColor(color));
+                    if let Some(run) = duel.mana_run.as_mut() {
+                        run.asking = None;
+                    }
+                }
+                None => abort = Some("that source cannot make the colour the plan wanted"),
+            }
+        }
+        Pending::Priority { player, legal } if *player == seat => {
+            let step = duel.mana_run.as_mut().and_then(|r| r.steps.pop_front());
+            if let Some(step) = step {
+                action = tap_action(&step, legal);
+                if action.is_none() {
+                    abort = Some("a land the plan counted on can no longer be tapped");
+                } else if let Some(run) = duel.mana_run.as_mut() {
+                    run.asking = step.color;
+                }
+            } else {
+                // Every tap is made; the mana is floating and the engine is
+                // offering the spell it was floated for.
+                let card = duel.mana_run.as_ref().map(ManaRun::card);
+                match card.filter(|c| legal.castable.contains(c)) {
+                    Some(card) => action = Some(PlayerAction::CastSpell { card }),
+                    None => abort = Some("the mana is up but the spell is not castable"),
+                }
+                finished = true;
+            }
+        }
+        // Mana abilities do not use the stack, so priority never leaves the
+        // seat in the middle of a plan. Anything else means the game moved on
+        // without us and the plan is void.
+        _ => abort = Some("the game asked something else"),
+    }
+
+    if let Some(reason) = abort {
+        duel.last_error = Some(reason.to_string());
+        duel.mana_run = None;
+        return;
+    }
+    if finished {
+        duel.mana_run = None;
+    }
+    if let Some(action) = action {
+        duel.submit(action);
+    }
+}
+
+/// The action for one tap, or `None` when the engine is no longer offering it.
+fn tap_action(
+    step: &baylee_client_core::manaplan::Step,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Option<PlayerAction> {
+    match step.tap {
+        baylee_client_core::manaplan::Tap::Intrinsic => legal
+            .mana_abilities
+            .contains(&step.source)
+            .then_some(PlayerAction::ActivateManaAbility {
+                source: step.source,
+            }),
+        baylee_client_core::manaplan::Tap::Ability(ability_index) => legal
+            .abilities
+            .contains(&(step.source, ability_index))
+            .then_some(PlayerAction::ActivateAbility {
+                source: step.source,
+                ability_index,
+            }),
+    }
+}
+
+/// The taps that would make `card` castable, if any.
+///
+/// `None` both when the spell needs no help and when nothing here can pay for
+/// it — the caller has already asked the engine the first question.
+#[must_use]
+pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manaplan::Plan> {
+    let view = duel.view.as_ref()?;
+    let legal = duel.interaction.as_ref()?.legal_actions()?;
+    let hand_card = view.hand.iter().find(|c| c.id == card)?;
+    let cost = manasources::hand_cost(hand_card)?;
+    let pool = view.seat(view.seat)?.mana_pool;
+    baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+}
+
 /// Sends everything the player has queued.
 fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
     let Some(mut host) = host else {
@@ -400,6 +564,8 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
 
 /// Rebuilds the render model from the current view.
 pub(crate) fn rebuild_board(duel: &mut Duel) {
+    duel.reachable = reachable(duel);
+
     let Some(view) = duel.view.as_ref() else {
         return;
     };
@@ -428,6 +594,51 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
         .find(|s| !s.is_local)
         .map_or(12.0, baylee_client_core::layout::SeatSlot::lane_width);
 
-    duel.board = Some(BoardModel::from_view(view, &playable, pod_width));
+    duel.board = Some(BoardModel::from_view(
+        view,
+        baylee_client_core::board::Openings {
+            playable: &playable,
+            reachable: &duel.reachable,
+        },
+        pod_width,
+    ));
     duel.layout = Some(layout);
+}
+
+/// Which cards in hand a tap or two would make castable.
+///
+/// The engine answers "castable" against the mana already floating, which is
+/// the correct rules answer and a hand that looks empty to a player with five
+/// untapped lands. This is the other half of that question, and the board
+/// model draws it differently from `playable` on purpose: one is what the
+/// game says, the other is what this client is offering to do about it.
+fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
+    let Some(view) = duel.view.as_ref() else {
+        return std::collections::HashSet::new();
+    };
+    let Some(legal) = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+    else {
+        return std::collections::HashSet::new();
+    };
+    // Nothing to reach for while there is nothing to tap.
+    let sources = manasources::sources(view, legal);
+    if sources.is_empty() {
+        return std::collections::HashSet::new();
+    }
+    let Some(pool) = view.seat(view.seat).map(|s| s.mana_pool) else {
+        return std::collections::HashSet::new();
+    };
+    view.hand
+        .iter()
+        .filter(|card| !legal.castable.contains(&card.id) && !legal.lands.contains(&card.id))
+        .filter(|card| {
+            manasources::hand_cost(card)
+                .and_then(|cost| baylee_client_core::manaplan::plan(&cost, &pool, &sources))
+                .is_some()
+        })
+        .map(|card| card.id)
+        .collect()
 }

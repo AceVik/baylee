@@ -509,6 +509,14 @@ pub struct Preferences {
     pub orders: PhaseOrders,
     /// What the client answers on the player's behalf.
     pub auto: AutoRules,
+    /// Whether the table holds still: cards and the camera go straight to
+    /// where they belong instead of moving there.
+    ///
+    /// Off by default, and a real preference rather than only an
+    /// accessibility one — a player reading a wide board wants the board, not
+    /// the movement. It is stored the negative way round so the default stays
+    /// `false` and an old settings blob keeps loading.
+    pub reduce_motion: bool,
 }
 
 impl Preferences {

@@ -85,7 +85,17 @@ Two independent things, both stored per account:
 Hovering a card lifts it and shows the large tooltip (cursor shared with WASD
 — one highlight, never two); clicking plays a playable card or selects it for
 the pending choice; chosen cards stay raised / accent-framed until the choice
-is answered. Player tabs at the top switch board views; every step of the turn
+is answered.
+
+A card in hand can be lit two ways. **Gold** is the engine offering it: the
+mana is floating and one click casts it. **Indigo** is the client offering to
+tap for it: the mana is not floating, the lands to make it are, and one click
+taps them and then casts. Nothing is spent that a player would want to decide
+— Phyrexian mana is never paid with life, and `{X}` is never guessed at — and
+if anything about the board changes mid-way the taps stop and the turn comes
+back with a line in the prompt bar saying why (see `docs/client.md`
+§"Tapping lands for a spell"). Tapping a land by hand still works and always
+did; this only removes the requirement. Player tabs at the top switch board views; every step of the turn
 (Untap, Upkeep, Draw, Main 1, Begin Combat, Attackers, Blockers, Damage, End
 of Combat, Main 2, End Step, Cleanup) has its own rail button toggling green /
 red on click; the rail's "Next ▶" and "End ⏭" buttons fast-forward like `Tab`.

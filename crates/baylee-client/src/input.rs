@@ -51,9 +51,22 @@ fn find_in_lineage<'a, T: Component>(
 /// The one way a card becomes an action: play it when the engine offers
 /// that, otherwise select it for the pending choice. Clicks and the
 /// keyboard cursor both end here, so they can never disagree.
+///
+/// Between those two there is now a third answer. A spell the engine has not
+/// offered because the mana is not floating yet is not a card with nothing to
+/// do — it is a card that wants two lands tapped first, which is what a player
+/// at a table would do without thinking about it. [`crate::mana_for`] works
+/// out which lands; the run in [`crate::ManaRun`] taps them and then casts.
 pub fn activate_card(duel: &mut Duel, object: ObjectId) {
     if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
         duel.submit(action);
+        return;
+    }
+    if duel.reachable.contains(&object)
+        && let Some(plan) = crate::mana_for(duel, object)
+    {
+        duel.last_error = None;
+        duel.mana_run = Some(crate::ManaRun::new(plan, object));
         return;
     }
     if let Some(i) = duel.interaction.as_mut() {

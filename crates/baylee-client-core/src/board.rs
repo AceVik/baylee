@@ -383,6 +383,40 @@ pub struct HandCard {
     /// Whether the card can be played right now, from the engine's own legal
     /// action list — never recomputed here.
     pub playable: bool,
+    /// Whether the client could make it playable by tapping lands first.
+    ///
+    /// A weaker claim than [`Self::playable`], and drawn as a weaker one: the
+    /// engine has not offered this card, the client is offering to fix that.
+    pub reachable: bool,
+}
+
+/// What can be done with the cards in hand, from two different authorities.
+///
+/// Two sets rather than one flag per card, because they are two different
+/// claims and collapsing them would lose the distinction exactly where it
+/// matters: `playable` is the engine's own `LegalActions`, and `reachable` is
+/// this client offering to tap lands first. One is a fact about the game; the
+/// other is an offer this client is making.
+#[derive(Clone, Copy)]
+pub struct Openings<'a> {
+    /// Cards the engine listed as legal to play right now.
+    pub playable: &'a HashSet<ObjectId>,
+    /// Cards that would become castable after a tap or two.
+    pub reachable: &'a HashSet<ObjectId>,
+}
+
+impl Openings<'_> {
+    /// Nothing offered — a spectator's model, and every test that is not
+    /// about the hand.
+    #[must_use]
+    pub fn none() -> Self {
+        static EMPTY: std::sync::LazyLock<HashSet<ObjectId>> =
+            std::sync::LazyLock::new(HashSet::new);
+        Self {
+            playable: &EMPTY,
+            reachable: &EMPTY,
+        }
+    }
 }
 
 /// The complete render model for one frame.
@@ -407,12 +441,11 @@ pub struct BoardModel {
 impl BoardModel {
     /// Builds the render model from a view.
     ///
-    /// `playable` is the set of hand cards the engine reported as legal to
-    /// play; the client marks them but never decides legality itself.
-    /// `pod_width` is the lane width available to an opponent pod, which
-    /// decides when a lane reports overflow.
+    /// `openings` says what the hand can do; the client marks it but never
+    /// decides legality itself. `pod_width` is the lane width available to an
+    /// opponent pod, which decides when a lane reports overflow.
     #[must_use]
-    pub fn from_view(view: &PlayerView, playable: &HashSet<ObjectId>, pod_width: f32) -> Self {
+    pub fn from_view(view: &PlayerView, openings: Openings<'_>, pod_width: f32) -> Self {
         let individual = individual_objects(view);
 
         let ring = std::iter::once(view.seat)
@@ -450,14 +483,17 @@ impl BoardModel {
                 name: h.name.clone(),
                 mana_value: h.mana_value,
                 art: ImageKey::new(h.card.print, h.card.face, ArtSize::Small),
-                playable: playable.contains(&h.id),
+                playable: openings.playable.contains(&h.id),
+                reachable: openings.reachable.contains(&h.id),
             })
             .collect();
-        // Playable first, then cheapest, then by name: a stable order that puts
-        // what you can actually do at the left edge where the eye starts.
+        // Playable first, then what a tap would reach, then cheapest, then by
+        // name: a stable order that puts what you can actually do at the left
+        // edge where the eye starts.
         hand.sort_by(|a, b| {
             b.playable
                 .cmp(&a.playable)
+                .then_with(|| b.reachable.cmp(&a.reachable))
                 .then_with(|| a.mana_value.cmp(&b.mana_value))
                 .then_with(|| a.name.cmp(&b.name))
                 .then_with(|| a.id.cmp(&b.id))
@@ -712,7 +748,7 @@ mod tests {
     const WIDE: f32 = 40.0;
 
     fn model(view: &PlayerView) -> BoardModel {
-        BoardModel::from_view(view, &HashSet::new(), WIDE)
+        BoardModel::from_view(view, Openings::none(), WIDE)
     }
 
     #[test]
@@ -964,7 +1000,14 @@ mod tests {
             ])
             .build();
         let playable: HashSet<ObjectId> = [ObjectId::new(102, 0)].into_iter().collect();
-        let m = BoardModel::from_view(&view, &playable, WIDE);
+        let m = BoardModel::from_view(
+            &view,
+            Openings {
+                playable: &playable,
+                reachable: &HashSet::new(),
+            },
+            WIDE,
+        );
         assert_eq!(m.hand[0].name, "Playable Thing");
         assert!(m.hand[0].playable);
         // The rest fall back to cheapest-first.
@@ -1023,7 +1066,7 @@ mod tests {
             .map(|i| token(i, 0, &format!("Creature {i}"), 1, 1))
             .collect();
         let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-        let m = BoardModel::from_view(&view, &HashSet::new(), 5.0);
+        let m = BoardModel::from_view(&view, Openings::none(), 5.0);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -1037,7 +1080,7 @@ mod tests {
         // The same forty permanents, all identical: one group, no overflow.
         let objs: Vec<PublicObject> = (0..40).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
         let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-        let m = BoardModel::from_view(&view, &HashSet::new(), 5.0);
+        let m = BoardModel::from_view(&view, Openings::none(), 5.0);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))

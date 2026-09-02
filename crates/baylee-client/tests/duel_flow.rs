@@ -11,7 +11,7 @@
 //! and none of them ever looked at what the human could actually see.
 
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
-use baylee_client_core::board::{BoardModel, SeatPod};
+use baylee_client_core::board::{BoardModel, Openings, SeatPod};
 use baylee_client_core::interaction::{CombatFocus, Interaction};
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
@@ -20,7 +20,6 @@ use baylee_core::preset::{
 };
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::{GameStatic, PlayerView};
-use std::collections::HashSet;
 
 fn card(oracle: &str) -> CardIndex {
     baylee_cards::by_oracle_id(oracle)
@@ -112,7 +111,7 @@ impl Client {
             match message {
                 HostMessage::Static(s) => self.statics = Some(*s),
                 HostMessage::View(v) => {
-                    self.board = Some(BoardModel::from_view(&v, &HashSet::new(), 12.0));
+                    self.board = Some(BoardModel::from_view(&v, Openings::none(), 12.0));
                     self.view = Some(*v);
                 }
                 HostMessage::Choice(p) => self.pending = Some(*p),

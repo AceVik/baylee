@@ -239,6 +239,38 @@ pipeline is built, which on the web is the one environment that cannot be
 debugged by looking at a filesystem. It caught a reserved keyword on its first
 run.
 
+## Motion
+
+Nothing on the table is positioned directly. `sync_scene` writes a `Motion`
+target and `glide` moves the card towards it, so every source of movement — a
+lane repacking, a tap, a hover, a card entering play — arrives through one
+door and animates without knowing it is being animated. It also cannot
+desynchronise from the board model: there is nothing to keep in step, because
+the target is recomputed from the model every frame.
+
+The interpolation is exponential (`1 - e^(-rate·dt)`) rather than a fixed
+duration, for two reasons. It is frame-rate independent, where the naive
+`lerp(0.2)` per frame makes the whole table twice as fast on a better machine.
+And the thing being animated is a *correction*: a card whose lane repacked by
+half a millimetre and a card that just entered the battlefield are the same
+code path, and the first must not take as long as the second.
+
+A card appears above its mark and drops onto it. Direction-agnostic on
+purpose — a card could fly in from its owner's hand, and at four seats around
+a ring that means four directions and a card that crosses two other players'
+boards to get home.
+
+The camera follows its rig the same way, but faster: a drag that lags behind
+the pointer feels broken where a card that snaps feels cheap. Yaw interpolates
+the short way around, or focusing the seat on your left would spin the table
+three-quarters of the way to reach it. `ShownRig` is a second copy rather than
+smoothing `CameraRig` in place, because the rig is *input* and everything that
+writes it wants to be able to say "there".
+
+`Preferences::reduce_motion` turns all of it off, and it travels with the
+account for the same reason the keys do: a player who cannot read a moving
+board cannot read one on any machine.
+
 ## Hosts
 
 The renderer never touches a socket. It talks to a `DuelHost`:
@@ -425,6 +457,59 @@ deliberately outside `LobbyState`: the tree is rebuilt whenever *that* changes,
 so adding a card would otherwise throw the list back to the top, and keeping
 the offsets inside it would rebuild sixty rows on every notch of the wheel. A
 new search does start at the top, because it is a different list.
+
+## Tapping lands for a spell
+
+The engine offers a spell as castable only when the mana is **already
+floating** — `casting::can_cast` checks the printed cost against the pool, and
+the pool is empty until something is tapped. That is the correct rules answer
+and a miserable one to play against: a hand of spells and five untapped lands
+looks, to a client, like a hand with nothing in it.
+
+`baylee-client-core/src/manaplan.rs` is the other half of that question. Given
+a cost, what is floating, and the sources the engine *itself* listed as
+tappable, it returns the taps that make the spell castable — or `None`, which
+is a real answer too: it is what leaves the card unlit.
+
+The matching is Kuhn's algorithm on a bipartite graph of demands against
+available mana, not a greedy sweep, because greedy produces the classic
+misplay: it pays the generic pip with the only land that makes black and then
+cannot pay `{B}`. Two orderings turn "a matching" into the matching a player
+would make — demands are taken most-constrained first, and each one reaches
+for floating mana before any tap, then for the *least* flexible source that
+fits, so the Forest pays the green pip and the Command Tower is still untapped
+afterwards.
+
+Three rules keep it honest, and they are the reason to read the module before
+changing it:
+
+1. **Every step is an action the engine offered.** A `Source` is built from
+   `LegalActions` — `mana_abilities` for the CR 305.6 shortcut, `abilities`
+   for a printed one — never from the client's own idea of what a land does.
+   The run in `ManaRun` re-checks each step against the *current*
+   `LegalActions` before sending it, so a plan that has gone stale stops and
+   hands the turn back rather than pushing an action that would bounce.
+2. **It never spends what a player would want to decide.** Phyrexian mana is
+   read as its colour and never as two life; `{X}` and `{S}` are refused
+   outright; restricted mana (Cavern of Souls) is not counted, because what it
+   may be spent on is a rules question this side of the wire cannot answer.
+3. **It under-counts rather than over-counts.** A source that makes two mana
+   *of one chosen colour* is worth one mana here, because two units that must
+   match are not two independent units, and pretending otherwise builds a plan
+   the engine rejects halfway through — with the land already tapped. The cost
+   of being wrong in this direction is one extra land.
+
+Knowing that ability 2 of a Command Tower makes mana takes the compiled card
+registry, which `baylee-client-core` deliberately does not link, so that half
+lives in `baylee-client/src/manasources.rs`. It refuses an ability that costs
+mana to activate (the plan would have to recurse) and one that does anything
+besides make mana (the player should decide about that themselves).
+
+In the hand, this is a third state and it is drawn as one:
+`BoardModel::from_view` takes an `Openings { playable, reachable }` rather than
+one set, because they are two different claims — gold is the engine saying
+yes, indigo is this client offering to tap lands first. Clicking either casts;
+the difference is what happens in between.
 
 ## Settings, and what belongs to whom
 

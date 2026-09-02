@@ -12,6 +12,9 @@ workspace = true
 [dependencies]
 baylee-ai.workspace = true
 baylee-cards.workspace = true
+# `manasources.rs` reads a card's printed mana ability out of the registry:
+# which of its abilities makes mana, and what colours it can make.
+baylee-cards-dsl.workspace = true
 baylee-client-core.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
@@ -31,10 +34,6 @@ ewebsock.workspace = true
 
 [dev-dependencies]
 uuid.workspace = true
-# Only to pin the keyword numbering the card shader's glow bits translate
-# from. That numbering is generated; a card glowing for the wrong keyword
-# would be a rules lie a player would believe.
-baylee-cards-dsl.workspace = true
 naga.workspace = true
 # The networked host is tested against a real websocket server built from a
 # real `Session` — the transport is the part that cannot be unit-tested.

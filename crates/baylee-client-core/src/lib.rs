@@ -43,6 +43,7 @@ pub mod interaction;
 pub mod layout;
 pub mod lobby;
 pub mod manapip;
+pub mod manaplan;
 pub mod prefs;
 pub mod tabletop;
 

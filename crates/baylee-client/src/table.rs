@@ -90,7 +90,7 @@ pub struct TableCamera;
 /// azimuth. Input systems move this; [`apply_camera_rig`] turns it into a
 /// transform, so navigation (tabs, keys, drag, gestures) all ends up in
 /// one place.
-#[derive(Resource, Clone, Copy, Debug)]
+#[derive(Resource, Clone, Copy, PartialEq, Debug)]
 pub struct CameraRig {
     /// Look-at point in world space (x/z).
     pub target: Vec2,
@@ -145,25 +145,100 @@ impl CameraRig {
 /// table and no point drawing one.
 const CAMERA_LEAN: f32 = 0.40;
 
+/// Where the camera actually is, as against where the rig says it should be.
+///
+/// A second copy rather than smoothing the rig itself, because the rig is
+/// *input*: a drag writes it, a zoom writes it, focusing a seat writes it,
+/// and every one of those wants to be able to say "there" without having to
+/// know that something else is interpolating behind it.
+#[derive(Resource, Clone, Copy, Default)]
+pub struct ShownRig(Option<CameraRig>);
+
 /// Turns the rig into the camera transform: a near-plan view of the
 /// battlefield canvas, leaning by [`CAMERA_LEAN`] so the cards have
 /// somewhere to cast a shadow; the rig decides target, zoom, and azimuth.
-pub fn apply_camera_rig(rig: Res<CameraRig>, mut cams: Query<&mut Transform, With<TableCamera>>) {
-    if !rig.is_changed() {
+///
+/// The camera follows the rig rather than snapping to it, so tabbing to
+/// another seat is a move across the table and not a cut. Yaw is interpolated
+/// the short way around, or focusing the seat on your left would spin the
+/// table three-quarters of the way round to reach it.
+pub fn apply_camera_rig(
+    rig: Res<CameraRig>,
+    time: Res<Time>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut shown: ResMut<ShownRig>,
+    mut cams: Query<&mut Transform, With<TableCamera>>,
+) {
+    let target = *rig;
+    let current = match shown.0 {
+        // The first frame is a cut by definition: there is nowhere to come
+        // from. So is a table a player has asked to hold still.
+        None => target,
+        Some(_) if prefs.all().reduce_motion => target,
+        Some(current) => {
+            let t = 1.0 - (-CAMERA_SETTLE * time.delta_secs()).exp();
+            let turn = std::f32::consts::TAU;
+            let yaw_delta = (target.yaw - current.yaw + std::f32::consts::PI).rem_euclid(turn)
+                - std::f32::consts::PI;
+            CameraRig {
+                target: current.target.lerp(target.target, t),
+                distance: current.distance + (target.distance - current.distance) * t,
+                yaw: current.yaw + yaw_delta * t,
+            }
+        }
+    };
+    // Nothing moved and nothing was asked for: the camera stands still most
+    // of the time and should cost nothing then.
+    if shown.0 == Some(current) && !rig.is_changed() {
         return;
     }
-    let horizontal = rig.distance * CAMERA_LEAN;
-    let height = rig.distance;
+    shown.0 = Some(current);
+
+    let horizontal = current.distance * CAMERA_LEAN;
+    let height = current.distance;
     let offset = Vec3::new(
-        rig.yaw.sin() * horizontal,
+        current.yaw.sin() * horizontal,
         height,
-        rig.yaw.cos() * horizontal,
+        current.yaw.cos() * horizontal,
     );
-    let target = Vec3::new(rig.target.x, 0.0, rig.target.y);
+    let look = Vec3::new(current.target.x, 0.0, current.target.y);
     for mut transform in &mut cams {
-        *transform = Transform::from_translation(target + offset).looking_at(target, Vec3::Y);
+        *transform = Transform::from_translation(look + offset).looking_at(look, Vec3::Y);
     }
 }
+
+/// How quickly a card settles onto its mark, as a fraction of the remaining
+/// distance per second.
+///
+/// Exponential rather than a fixed duration, because the thing being animated
+/// is a *correction*: a card whose lane repacked by half a millimetre and a
+/// card that just entered the battlefield are the same code path, and the
+/// first must not take as long as the second. At 16 the long move reads as a
+/// deal and the short one as a settle, which is what a hand on a real table
+/// looks like.
+const SETTLE: f32 = 16.0;
+
+/// Below this, a card is simply put on its mark: the last hundredth of a
+/// millimetre of an exponential curve is not worth a frame of work, and
+/// leaving it unfinished is what makes a "still" board quietly never idle.
+const SETTLED: f32 = 0.0008;
+
+/// How far above the table a card appears before dropping onto it.
+///
+/// Direction-agnostic on purpose. A card could fly in from its owner's hand,
+/// and at four seats around a ring that means four different directions and a
+/// card that flies *across* two other players' boards to get home. Dropping
+/// in reads as "this arrived" from every chair.
+const ENTRANCE_RISE: f32 = 1.4;
+
+/// How small a card is when it appears, before it settles to full size.
+const ENTRANCE_SCALE: f32 = 0.86;
+
+/// How quickly the camera settles, in the same units as [`SETTLE`].
+///
+/// Faster than the cards: a drag that lags behind the pointer feels broken,
+/// while a card that snaps feels cheap. Same mechanism, different answer.
+const CAMERA_SETTLE: f32 = 24.0;
 
 /// A drawn card, and the group it stands for.
 #[derive(Component)]
@@ -172,6 +247,60 @@ pub struct CardVisual {
     pub object: ObjectId,
     /// How many permanents it stands for.
     pub count: usize,
+}
+
+/// Where a card is going.
+///
+/// The scene diff writes the *target* and never the transform itself, so
+/// every source of movement — a lane repacking, a tap, a hover, a card
+/// entering play — arrives through one door and animates for free. It also
+/// means the animation cannot desynchronise from the board model: there is
+/// nothing to keep in step, because the target is recomputed from the model
+/// every frame.
+#[derive(Component, Clone, Copy)]
+pub struct Motion {
+    /// The transform the card belongs at right now.
+    pub target: Transform,
+}
+
+/// Moves every card towards its mark.
+///
+/// Frame-rate independent: the fraction covered is `1 - e^(-rate · dt)`, so
+/// the same motion plays out identically at 30 and at 144 frames per second.
+/// A naive `lerp(0.2)` per frame does not — it makes the whole table twice as
+/// fast on a better machine, which is the bug this shape exists to avoid.
+pub fn glide(
+    time: Res<Time>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut cards: Query<(&Motion, &mut Transform)>,
+) {
+    let still = prefs.all().reduce_motion;
+    let t = 1.0 - (-SETTLE * time.delta_secs()).exp();
+    for (motion, mut transform) in &mut cards {
+        let there = transform
+            .translation
+            .distance_squared(motion.target.translation)
+            < SETTLED * SETTLED
+            && transform.rotation.angle_between(motion.target.rotation) < SETTLED
+            && transform.scale.distance_squared(motion.target.scale) < SETTLED * SETTLED;
+        if still || there {
+            if *transform != motion.target {
+                *transform = motion.target;
+            }
+            continue;
+        }
+        transform.translation = transform.translation.lerp(motion.target.translation, t);
+        transform.rotation = transform.rotation.slerp(motion.target.rotation, t);
+        transform.scale = transform.scale.lerp(motion.target.scale, t);
+    }
+}
+
+/// Where a card is when it first appears: above its mark, and a little small.
+fn entrance(target: &Transform) -> Transform {
+    let mut start = *target;
+    start.translation.y += ENTRANCE_RISE;
+    start.scale *= ENTRANCE_SCALE;
+    start
 }
 
 /// Entities currently drawn, keyed by the object they represent.
@@ -778,7 +907,7 @@ pub fn sync_scene(
     settings: Res<crate::settings::ClientSettings>,
     fonts: Option<Res<crate::hud::UiFonts>>,
     mut cards: Query<(
-        &mut Transform,
+        &mut Motion,
         &mut CardVisual,
         &mut MeshMaterial3d<CardMaterial>,
     )>,
@@ -875,9 +1004,9 @@ pub fn sync_scene(
         let entity = if let Some(&entity) = index.cards.get(&placement.object) {
             // Existing card: update in place. Touching only what changed is
             // what keeps a large board cheap.
-            if let Ok((mut current, mut visual, mut current_material)) = cards.get_mut(entity) {
-                if *current != transform {
-                    *current = transform;
+            if let Ok((mut motion, mut visual, mut current_material)) = cards.get_mut(entity) {
+                if motion.target != transform {
+                    motion.target = transform;
                 }
                 if visual.count != placement.count {
                     visual.count = placement.count;
@@ -897,7 +1026,11 @@ pub fn sync_scene(
                     },
                     Mesh3d(quad.clone()),
                     MeshMaterial3d(material),
-                    transform,
+                    // Appears above its mark and drops onto it; `glide` does
+                    // the rest, and a player who has turned motion off gets
+                    // the target on the very first frame.
+                    entrance(&transform),
+                    Motion { target: transform },
                     NotShadowCaster,
                 ))
                 .id();
