@@ -250,7 +250,20 @@ impl Tx<'_> {
                     "nonLand" => "Filter::Not(&Filter::LAND)".to_string(),
                     "nonCreature" => "Filter::Not(&Filter::CREATURE)".to_string(),
                     "" => continue,
-                    _ => return None,
+                    // `Creature.Goblin` puts the subtype after the base, so
+                    // an atom can name one too — and it is the commonest
+                    // shape in the corpus, not a corner.
+                    other => {
+                        let (negated, name) = other
+                            .strip_prefix("non")
+                            .map_or((false, other), |rest| (true, rest));
+                        let path = self.cats.const_path(name)?;
+                        if negated {
+                            format!("Filter::Not(&Filter::HasSubtype({path}))")
+                        } else {
+                            format!("Filter::HasSubtype({path})")
+                        }
+                    }
                 });
             }
             alternatives.push(match clauses.len() {
@@ -601,8 +614,194 @@ impl Tx<'_> {
         match kind {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
-            _ => None, // S: and R: are not modelled yet.
+            'S' => self.static_ability(spec),
+            _ => None, // R: is not modelled yet.
         }
+    }
+
+    /// An `S: Mode$ Continuous` line as one or more `AbilityDef::Static`.
+    ///
+    /// One printed sentence can be several continuous effects: "get +1/+1
+    /// and have flying" changes power/toughness in layer 7c and abilities
+    /// in layer 6, and CR 613.1 applies those in order. Forge writes both
+    /// on one line, so this emits one `StaticAbility` per layer touched
+    /// rather than trying to fold them into one.
+    fn static_ability(&mut self, spec: &str) -> Option<()> {
+        let (mode, mut p) = Params::parse(spec)?;
+        if mode != "Continuous" {
+            return None;
+        }
+        p.drop_prose();
+        // `EffectZone$ Battlefield` is the default written out; any other
+        // zone means the source works from somewhere else, which is a
+        // different rule than the one below.
+        if let Some(zone) = p.take("EffectZone")
+            && zone != "Battlefield"
+        {
+            return None;
+        }
+        // Likewise `AffectedZone`: our `cross_zone` says the effect reaches
+        // past the battlefield, and a filter that has no zone predicate in
+        // it cannot say *which* other zone. Refuse rather than guess.
+        if let Some(zone) = p.take("AffectedZone")
+            && zone != "Battlefield"
+        {
+            return None;
+        }
+        let filter = self.filter_expr(&p.take("Affected")?)?;
+        let mut out = Vec::new();
+        Self::pt_modifiers(&mut p, &filter, &mut out)?;
+        Self::keyword_modifiers(&mut p, &filter, &mut out)?;
+        self.type_modifiers(&mut p, &filter, &mut out)?;
+        Self::color_modifiers(&mut p, &filter, &mut out)?;
+        // The honest-stub rule: one key nothing claimed and the card stays
+        // a stub, however much of the line was understood.
+        if !p.exhausted() || out.is_empty() {
+            return None;
+        }
+        self.body.abilities.extend(out);
+        Some(())
+    }
+
+    /// `AddPower`/`AddToughness` (layer 7c) and `SetPower`/`SetToughness`
+    /// (layer 7b) as static abilities.
+    fn pt_modifiers(p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        let add_p = p.take("AddPower");
+        let add_t = p.take("AddToughness");
+        if add_p.is_some() || add_t.is_some() {
+            // An anthem that names only one half still moves the other by
+            // zero, which is what the printed "+1/+0" says.
+            let power = add_p.map_or(Some(0), |v| v.trim().parse::<i16>().ok())?;
+            let tough = add_t.map_or(Some(0), |v| v.trim().parse::<i16>().ok())?;
+            out.push(Self::static_expr(
+                "Layer::PtModify",
+                filter,
+                &format!("Modifier::ModifyPT({power}, {tough})"),
+            ));
+        }
+        let set_p = p.take("SetPower");
+        let set_t = p.take("SetToughness");
+        if set_p.is_some() || set_t.is_some() {
+            // Setting one half and leaving the other alone is a real card
+            // ("base power 4"), and `SetPT` cannot say it — refuse rather
+            // than invent a value for the half that was not named.
+            let power = set_p?.trim().parse::<i16>().ok()?;
+            let tough = set_t?.trim().parse::<i16>().ok()?;
+            out.push(Self::static_expr(
+                "Layer::PtSet",
+                filter,
+                &format!("Modifier::SetPT({power}, {tough})"),
+            ));
+        }
+        Some(())
+    }
+
+    /// `AddKeyword`/`RemoveKeyword` (layer 6) as static abilities.
+    fn keyword_modifiers(p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        for (key, modifier) in [
+            ("AddKeyword", "AddKeyword"),
+            ("RemoveKeyword", "RemoveKeyword"),
+        ] {
+            let Some(raw) = p.take(key) else { continue };
+            // A keyword the engine reads as a bit, or nothing: a keyword
+            // that carries data ("Enchant creature", "Equip {2}") is an
+            // ability, and granting it as a bit would grant a keyword no
+            // rule reads.
+            let mut bits = Vec::new();
+            for word in raw.split(" & ") {
+                bits.push(keyword_const(word)?.to_string());
+            }
+            let set = bits.split_first().map(|(head, tail)| {
+                tail.iter()
+                    .fold(head.clone(), |acc, b| format!("{acc}.union({b})"))
+            })?;
+            out.push(Self::static_expr(
+                "Layer::Ability",
+                filter,
+                &format!("Modifier::{modifier}({set})"),
+            ));
+        }
+        Some(())
+    }
+
+    /// `AddType`/`RemoveType` (layer 4) as static abilities.
+    ///
+    /// Forge writes card types and subtypes in one list and the engine
+    /// keeps them apart — a `TypeSet` is a bitmask the rules read, a
+    /// subtype is an interned id — so `AddType$ Artifact Goblin` becomes
+    /// two modifiers on the same layer.
+    fn type_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        for (key, modifier) in [("AddType", "AddType"), ("RemoveType", "RemoveType")] {
+            let Some(raw) = p.take(key) else { continue };
+            let mut types = Vec::new();
+            let mut subtypes = Vec::new();
+            for word in raw.split_whitespace() {
+                if let Some(t) = card_type_const(word) {
+                    types.push(t);
+                } else if modifier == "AddType" {
+                    subtypes.push(self.cats.const_path(word)?);
+                } else {
+                    // `Modifier::RemoveType` takes a `TypeSet`, and there is
+                    // no "remove one subtype" — refuse rather than drop it.
+                    return None;
+                }
+            }
+            if let Some((head, tail)) = types.split_first() {
+                let set = tail
+                    .iter()
+                    .fold((*head).to_string(), |acc, t| format!("{acc}.union({t})"));
+                out.push(Self::static_expr(
+                    "Layer::Type",
+                    filter,
+                    &format!("Modifier::{modifier}({set})"),
+                ));
+            }
+            for path in subtypes {
+                out.push(Self::static_expr(
+                    "Layer::Type",
+                    filter,
+                    &format!("Modifier::AddSubtype({path})"),
+                ));
+            }
+        }
+        Some(())
+    }
+
+    /// `AddColor`/`SetColor` (layer 5) as static abilities.
+    fn color_modifiers(p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        for (key, modifier) in [("AddColor", "AddColor"), ("SetColor", "SetColor")] {
+            let Some(raw) = p.take(key) else { continue };
+            let mut colors = Vec::new();
+            for word in raw.split_whitespace() {
+                colors.push(match word {
+                    "White" => "Color::White",
+                    "Blue" => "Color::Blue",
+                    "Black" => "Color::Black",
+                    "Red" => "Color::Red",
+                    "Green" => "Color::Green",
+                    // `Colorless` is the empty set rather than a colour, and
+                    // `ChosenColor` is a choice this rule cannot make.
+                    _ => return None,
+                });
+            }
+            out.push(Self::static_expr(
+                "Layer::Color",
+                filter,
+                &format!(
+                    "Modifier::{modifier}(ColorSet::from_slice(&[{}]))",
+                    colors.join(", ")
+                ),
+            ));
+        }
+        Some(())
+    }
+
+    /// One `AbilityDef::Static` expression.
+    fn static_expr(layer: &str, filter: &str, modifier: &str) -> String {
+        format!(
+            "AbilityDef::Static(StaticAbility {{ layer: {layer}, filter: {filter}, \
+             modifier: {modifier}, cross_zone: false }})"
+        )
     }
 
     fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
@@ -673,6 +872,23 @@ impl Tx<'_> {
         ));
         Some(())
     }
+}
+
+/// A Forge type word as the `TypeSet` constant for it, or `None` when the
+/// word is a subtype (or a type the engine has no bit for).
+fn card_type_const(word: &str) -> Option<&'static str> {
+    Some(match word {
+        "Artifact" => "TypeSet::ARTIFACT",
+        "Creature" => "TypeSet::CREATURE",
+        "Enchantment" => "TypeSet::ENCHANTMENT",
+        "Instant" => "TypeSet::INSTANT",
+        "Kindred" | "Tribal" => "TypeSet::KINDRED",
+        "Land" => "TypeSet::LAND",
+        "Planeswalker" => "TypeSet::PLANESWALKER",
+        "Sorcery" => "TypeSet::SORCERY",
+        "Battle" => "TypeSet::BATTLE",
+        _ => return None,
+    })
 }
 
 /// Forge keyword line → the bit in our `KeywordSet`, for the keywords that
@@ -1060,6 +1276,67 @@ mod tests {
 
     /// of these would otherwise generate a card missing half its rules.
     #[test]
+    fn an_anthem_is_a_static_ability_on_the_layer_it_belongs_to() {
+        let body = read(
+            "Name:X\nTypes:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.Goblin+Other+YouCtrl | AddPower$ 1 | \
+             Description$ Other Goblins you control get +1/+0.\n",
+        );
+        let a = body.abilities.join("\n");
+        assert!(a.contains("Layer::PtModify"), "7c, not 7b: {a}");
+        assert!(a.contains("Modifier::ModifyPT(1, 0)"), "+1/+0: {a}");
+        assert!(
+            a.contains("Filter::Another"),
+            "\"other\" is part of the filter: {a}"
+        );
+        assert!(
+            a.contains("Filter::ControlledByYou"),
+            "and so is \"you control\": {a}"
+        );
+    }
+
+    #[test]
+    fn one_line_that_moves_two_layers_becomes_two_abilities() {
+        // CR 613.1 applies layer 6 before layer 7c, so "get +1/+1 and have
+        // flying" is two effects, not one.
+        let body = read(
+            "Name:X\nTypes:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | \
+             AddKeyword$ Flying\n",
+        );
+        assert_eq!(body.abilities.len(), 2, "{:?}", body.abilities);
+        let a = body.abilities.join("\n");
+        assert!(a.contains("Layer::PtModify") && a.contains("Modifier::ModifyPT(1, 1)"));
+        assert!(a.contains("Layer::Ability") && a.contains("KeywordSet::FLYING"));
+    }
+
+    #[test]
+    fn a_static_ability_refuses_what_it_cannot_say() {
+        // A keyword that carries data is an ability, not a bit — granting
+        // it as a bit would grant a keyword no rule reads.
+        assert!(refused(
+            "Name:X\nTypes:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Equip:2\n"
+        ));
+        // Setting only one half of P/T is a real card ("base power 4") that
+        // `SetPT` cannot express.
+        assert!(refused(
+            "Name:X\nTypes:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ 4\n"
+        ));
+        // A condition is a rule of its own; unread, it must refuse.
+        assert!(refused(
+            "Name:X\nTypes:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | \
+             IsPresent$ Island.YouCtrl\n"
+        ));
+        // A mode that is not Continuous is not this rule.
+        assert!(refused(
+            "Name:X\nTypes:Creature\nS:Mode$ CantBlockBy | ValidAttacker$ Card.Self\n"
+        ));
+    }
+
+    #[test]
     fn anything_unread_refuses_the_whole_card() {
         // An unknown effect API.
         assert!(refused(
@@ -1073,7 +1350,8 @@ mod tests {
         assert!(refused("Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Equip:2"));
         // A line kind with rules in it that this module does not model.
         assert!(refused(
-            "Name:X\nTypes:Creature Goblin\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1"
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
+             R:Event$ Moved | Destination$ Graveyard | ValidCard$ Card.Self | ReplaceWith$ Exile"
         ));
         // A `SubAbility$` whose SVar is missing.
         assert!(refused(

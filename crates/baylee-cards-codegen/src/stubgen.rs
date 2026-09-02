@@ -501,8 +501,13 @@ pub fn render_stub(
     let literal = render_card_literal(card, index, &oracle_id, &faces, &face_defs, land.as_ref());
     let statics = land.as_ref().map_or("", |b| b.statics.as_str());
     // Only when something names one: an unused import is a warning now that
-    // the stub no longer carries a blanket `allow`.
-    if face_defs.contains("subtypes::") || statics.contains("subtypes::") {
+    // the stub no longer carries a blanket `allow`. The card literal counts
+    // too — `Modifier::AddSubtype` puts a subtype inside an ability, where
+    // neither the faces nor the hoisted filters would see it.
+    if face_defs.contains("subtypes::")
+        || statics.contains("subtypes::")
+        || literal.contains("subtypes::")
+    {
         out.push_str("use baylee_core::generated::subtypes;\n");
     }
     out.push('\n');
