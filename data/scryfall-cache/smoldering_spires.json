@@ -1,0 +1,21 @@
+{
+  "id": "e6741f53-f02e-4f1b-9620-e49ad00e7e1d",
+  "oracle_id": "cfa3288d-e521-4a13-bcb3-7950a94e1746",
+  "name": "Smoldering Spires",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target creature can't block this turn.\n{T}: Add {R}.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "e01",
+  "set_name": "Archenemy: Nicol Bolas",
+  "collector_number": "96",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

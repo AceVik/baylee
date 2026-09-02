@@ -1,0 +1,22 @@
+{
+  "id": "ab3d0e50-630a-4ccc-aa79-1db912ea801e",
+  "oracle_id": "949e455d-6a9e-491a-892f-826cc8be0fd9",
+  "name": "Hall",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {W}.\n{4}, {T}: Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "clu",
+  "set_name": "Ravnica: Clue Edition",
+  "collector_number": "16",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

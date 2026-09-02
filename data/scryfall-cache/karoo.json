@@ -1,0 +1,21 @@
+{
+  "id": "a0eeca39-6f76-488e-b3c0-99441539705f",
+  "oracle_id": "d4e875d9-2245-470d-aa2f-1dfe66ce2d15",
+  "name": "Karoo",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Plains you control to its owner's hand.\n{T}: Add {C}{W}.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "c14",
+  "set_name": "Commander 2014",
+  "collector_number": "303",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

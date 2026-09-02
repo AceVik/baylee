@@ -1,0 +1,19 @@
+{
+  "id": "ce833a90-7c1d-4c05-ace3-57e974c0769b",
+  "oracle_id": "ef2bb4fa-f292-4d19-aaa4-cfbe445caf45",
+  "name": "Quicksand",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Target attacking creature without flying gets -1/-2 until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "a25",
+  "set_name": "Masters 25",
+  "collector_number": "245",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

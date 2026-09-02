@@ -1,0 +1,22 @@
+{
+  "id": "4188a561-46e3-4ddd-8797-f33c37e9adb2",
+  "oracle_id": "c6de0ee9-785d-4cd8-8a7f-5bb715763131",
+  "name": "Nantuko Monastery",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\nThreshold — {G}{W}: This land becomes a 4/4 green and white Insect Monk creature with first strike until end of turn. It's still a land. Activate only if there are seven or more cards in your graveyard.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "252",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "7ab1a074-9d92-4125-9200-84cd035f8f53",
+  "oracle_id": "3644f316-f9a3-46c9-9b1e-747f86cf4ead",
+  "name": "Buried Ruin",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Return target artifact card from your graveyard to your hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "150",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

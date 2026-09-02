@@ -1,0 +1,22 @@
+{
+  "id": "0ab6bfbd-d2e1-4c4c-9f91-6f69c5b8e3bb",
+  "oracle_id": "70fa2eba-565e-4fed-adc9-7f5d9fcbf1fa",
+  "name": "Waterlogged Grove",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life: Add {G} or {U}.\n{1}, {T}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "mh1",
+  "set_name": "Modern Horizons",
+  "collector_number": "249",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "c694bc39-3eae-4b40-8f85-34785f9e75f1",
+  "oracle_id": "7ffadb3f-0b88-416f-b1a1-876383c22720",
+  "name": "Study",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {U}.\n{4}, {T}: Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "clu",
+  "set_name": "Ravnica: Clue Edition",
+  "collector_number": "21",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

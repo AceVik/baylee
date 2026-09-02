@@ -1,0 +1,22 @@
+{
+  "id": "0466cf57-bb3e-4359-8fe8-d6cc1288fdc6",
+  "oracle_id": "40544d12-0391-4a61-af95-9b8ec01ed8fc",
+  "name": "Vernal Fen",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Forest",
+  "oracle_text": "({T}: Add {B} or {G}.)\nThis land enters tapped unless you control two or more basic lands.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "419",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

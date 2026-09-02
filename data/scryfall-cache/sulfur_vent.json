@@ -1,0 +1,23 @@
+{
+  "id": "22c66ed6-55fb-4c65-aac4-26d9cc3053b8",
+  "oracle_id": "bc2906cd-9e0c-4aa8-b656-fb1045d810ac",
+  "name": "Sulfur Vent",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}.\n{T}, Sacrifice this land: Add {U}{R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R",
+    "U"
+  ],
+  "set": "inv",
+  "set_name": "Invasion",
+  "collector_number": "328",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

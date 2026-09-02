@@ -1,0 +1,19 @@
+{
+  "id": "cba12bda-d460-4206-8469-4357c967b9b8",
+  "oracle_id": "ace6403d-9fac-4d0f-a6ea-eb2ff3da259d",
+  "name": "Guildmages' Forum",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color. If that mana is spent on a multicolored creature spell, that creature enters with an additional +1/+1 counter on it.",
+  "colors": [],
+  "color_identity": [],
+  "set": "grn",
+  "set_name": "Guilds of Ravnica",
+  "collector_number": "250",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "2ba7597d-6d76-45b8-b172-342999e401bd",
+  "oracle_id": "8dc067bf-f78f-4ac4-b6e7-b305c42cf0bc",
+  "name": "Darksteel Citadel",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "Indestructible\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "c21",
+  "set_name": "Commander 2021",
+  "collector_number": "285",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

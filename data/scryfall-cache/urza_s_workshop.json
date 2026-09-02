@@ -1,0 +1,19 @@
+{
+  "id": "37c9b9d7-2fa7-4710-94bb-c55ee7bf598c",
+  "oracle_id": "71099427-e110-488f-ab29-7867241fc7f0",
+  "name": "Urza's Workshop",
+  "mana_cost": "",
+  "type_line": "Land — Urza's",
+  "oracle_text": "{T}: Add {C}.\nMetalcraft — {T}: Add {C} for each Urza's land you control. Activate only if you control three or more artifacts.",
+  "colors": [],
+  "color_identity": [],
+  "set": "brc",
+  "set_name": "The Brothers' War Commander",
+  "collector_number": "28",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

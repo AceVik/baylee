@@ -1,0 +1,19 @@
+{
+  "id": "56491238-5228-4bdd-994c-0849a59ebc2c",
+  "oracle_id": "c70598e1-30c6-4f92-a265-34a7a73bc2b8",
+  "name": "Forsaken Crossroads",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Forsaken Crossroads enters the battlefield tapped.\nAs Forsaken Crossroads enters the battlefield, choose a color.\nWhen Forsaken Crossroads enters the battlefield, scry 1. If you weren't the starting player, you may untap Forsaken Crossroads instead.\n{T}: Add one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mb2",
+  "set_name": "Mystery Booster 2",
+  "collector_number": "264",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

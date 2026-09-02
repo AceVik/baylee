@@ -1,0 +1,19 @@
+{
+  "id": "4ba8f2e7-8357-4862-97dc-1942d066023a",
+  "oracle_id": "382d18a2-438e-4ae7-a83f-1658ef1f9b07",
+  "name": "Hidden Grotto",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\n{T}: Add {C}.\n{1}, {T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "254",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

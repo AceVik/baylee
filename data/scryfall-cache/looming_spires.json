@@ -1,0 +1,21 @@
+{
+  "id": "b88177a2-de41-417d-a8f1-07edf005b453",
+  "oracle_id": "7d09b136-525f-49dd-a3a2-dfaca4e8e9a8",
+  "name": "Looming Spires",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target creature gets +1/+1 and gains first strike until end of turn.\n{T}: Add {R}.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "bfz",
+  "set_name": "Battle for Zendikar",
+  "collector_number": "238",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

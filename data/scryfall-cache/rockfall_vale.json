@@ -1,0 +1,22 @@
+{
+  "id": "dcdea659-ecaf-4abe-be0f-64e105abb104",
+  "oracle_id": "185c70c1-8403-4ae5-b45d-3679d4ee092a",
+  "name": "Rockfall Vale",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {R} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "387",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

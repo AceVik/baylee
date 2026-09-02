@@ -1,0 +1,22 @@
+{
+  "id": "87cc2fc9-0a24-4ac1-afcc-9317b90c7178",
+  "oracle_id": "a597d2b7-484b-4cfd-89a6-d166cb1a3420",
+  "name": "Timberline Ridge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land doesn't untap during your untap step if it has a depletion counter on it.\nAt the beginning of your upkeep, remove a depletion counter from this land.\n{T}: Add {R} or {G}. Put a depletion counter on this land.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "ice",
+  "set_name": "Ice Age",
+  "collector_number": "361",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "29d02950-cd50-4662-97af-3106598dc3c4",
+  "oracle_id": "b8f3da11-7c8f-4846-98a6-204bfd8d572b",
+  "name": "Blighted Fen",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}{B}, {T}, Sacrifice this land: Target opponent sacrifices a creature of their choice.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "bfz",
+  "set_name": "Battle for Zendikar",
+  "collector_number": "230",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

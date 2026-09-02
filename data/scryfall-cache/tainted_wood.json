@@ -1,0 +1,22 @@
+{
+  "id": "3da7ab6b-b10a-4786-b1eb-92de7e66690e",
+  "oracle_id": "fa6d05a1-3df4-4751-b1a0-8d9693faec73",
+  "name": "Tainted Wood",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {G}. Activate only if you control a Swamp.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "305",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

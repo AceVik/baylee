@@ -1,0 +1,22 @@
+{
+  "id": "7e6f1a55-0fec-4b94-9640-9110ca8d0212",
+  "oracle_id": "b2bae7fc-0668-4b34-9cd6-0d80aea52275",
+  "name": "Tainted Peak",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {R}. Activate only if you control a Swamp.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "304",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

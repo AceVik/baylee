@@ -1,0 +1,22 @@
+{
+  "id": "fdc53c6a-8e28-4314-9bcf-b31b6c6f56d7",
+  "oracle_id": "00ef1c55-dea1-4564-bd57-66de86cba4df",
+  "name": "Selesnya Sanctuary",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {G}{W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "clu",
+  "set_name": "Ravnica: Clue Edition",
+  "collector_number": "246",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

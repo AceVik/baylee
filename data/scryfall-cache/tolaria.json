@@ -1,0 +1,21 @@
+{
+  "id": "d43c01b7-443d-4061-a934-6863d230c9b8",
+  "oracle_id": "9879a4f3-3b9c-45cf-af03-7f2ae4c689b4",
+  "name": "Tolaria",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {U}.\n{T}: Target creature loses banding and all \"bands with other\" abilities until end of turn. Activate only during any upkeep step.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "leg",
+  "set_name": "Legends",
+  "collector_number": "308",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

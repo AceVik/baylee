@@ -1,0 +1,19 @@
+{
+  "id": "e2384e42-2442-4b40-9bae-8db470d2fb8c",
+  "oracle_id": "30ac68e6-160a-41f9-9f0f-0e0eef383150",
+  "name": "Arcane Lighthouse",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Until end of turn, creatures your opponents control lose hexproof and shroud and can't have hexproof or shroud.",
+  "colors": [],
+  "color_identity": [],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "361",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

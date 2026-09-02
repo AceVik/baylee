@@ -1,0 +1,19 @@
+{
+  "id": "37478625-dd07-476d-bd9b-b2e0d71ac0d1",
+  "oracle_id": "e3eb6f90-ccfc-41e7-bff6-0b378226bc7e",
+  "name": "Abundant Countryside",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a creature spell.\n{6}, {T}: Create a 1/1 colorless Shapeshifter creature token with changeling. (It's every creature type.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "22",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

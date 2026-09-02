@@ -1,0 +1,19 @@
+{
+  "id": "4b2d6c41-7d82-4062-a783-37d88536279c",
+  "oracle_id": "57b4da3f-361a-4cbe-b77f-190ec33eefd8",
+  "name": "Thran Quarry",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "At the beginning of the end step, if you control no creatures, sacrifice this land.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "usg",
+  "set_name": "Urza's Saga",
+  "collector_number": "329",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

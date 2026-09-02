@@ -1,0 +1,21 @@
+{
+  "id": "c315c72c-3e2f-4aff-b7d7-2f709ccec332",
+  "oracle_id": "ccb2f92e-69c0-415c-81cd-52c384b3b233",
+  "name": "Rushwood Grove",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {G} for each storage counter removed this way.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "mmq",
+  "set_name": "Mercadian Masques",
+  "collector_number": "325",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

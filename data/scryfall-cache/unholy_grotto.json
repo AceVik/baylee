@@ -1,0 +1,21 @@
+{
+  "id": "52f464a9-586c-4cf3-894b-b407c9f4dcb8",
+  "oracle_id": "c28211c6-a5ee-40c3-bb6a-da3e7e73fd95",
+  "name": "Unholy Grotto",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{B}, {T}: Put target Zombie card from your graveyard on top of your library.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "ons",
+  "set_name": "Onslaught",
+  "collector_number": "327",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

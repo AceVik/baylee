@@ -1,0 +1,21 @@
+{
+  "id": "4fcd08ad-4dac-4236-9030-f59e473b3ec7",
+  "oracle_id": "ed77fdf2-59c0-4310-9b12-80d28beeaeef",
+  "name": "Chocobo Camp",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a legendary creature.\n{T}: Add {G}. When you next cast a Bird creature spell this turn, it enters with an additional +1/+1 counter on it.\n{2}{G}{G}, {T}: Create a 2/2 green Bird creature token with \"Whenever a land you control enters, this token gets +1/+0 until end of turn.\"",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "fic",
+  "set_name": "Final Fantasy Commander",
+  "collector_number": "462",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "f2392fbb-d9c4-4688-b99c-4e7614c60c12",
+  "oracle_id": "96262c15-9130-409c-8242-71f84be719b7",
+  "name": "Volatile Fjord",
+  "mana_cost": "",
+  "type_line": "Snow Land — Island Mountain",
+  "oracle_text": "({T}: Add {U} or {R}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "273",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

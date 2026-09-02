@@ -1,0 +1,22 @@
+{
+  "id": "ba561609-406d-47c8-9d5b-1fb20ecac916",
+  "oracle_id": "117a5fae-7fc4-4e24-b646-5727ea392fa7",
+  "name": "Skyshroud Forest",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {G} or {U}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "244",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

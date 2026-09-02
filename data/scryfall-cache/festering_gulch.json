@@ -1,0 +1,22 @@
+{
+  "id": "4ad841eb-da0d-43d4-8b60-efe30922990b",
+  "oracle_id": "9d3b60af-3e38-4d36-95fc-11b31c38f955",
+  "name": "Festering Gulch",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, it deals 1 damage to target opponent.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "otj",
+  "set_name": "Outlaws of Thunder Junction",
+  "collector_number": "257",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "86a17084-bb96-4e81-bff0-005bd44a1fbd",
+  "oracle_id": "b6fe779f-b20d-49cc-96dd-54f1ffb312e1",
+  "name": "Sequestered Stash",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}, {T}, Sacrifice this land: Mill five cards. Then you may put an artifact card from your graveyard on top of your library.",
+  "colors": [],
+  "color_identity": [],
+  "set": "kld",
+  "set_name": "Kaladesh",
+  "collector_number": "248",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

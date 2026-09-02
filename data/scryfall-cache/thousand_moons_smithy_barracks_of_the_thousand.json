@@ -1,0 +1,40 @@
+{
+  "id": "4a6bec46-1acd-4726-b8d9-3045ac6a2ea2",
+  "oracle_id": "32af5f7b-a970-484a-9aff-226749551d32",
+  "name": "Thousand Moons Smithy // Barracks of the Thousand",
+  "mana_cost": null,
+  "type_line": "Legendary Artifact // Legendary Artifact Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "W"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "39",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Thousand Moons Smithy",
+      "mana_cost": "{2}{W}{W}",
+      "type_line": "Legendary Artifact",
+      "oracle_text": "When Thousand Moons Smithy enters, create a white Gnome Soldier artifact creature token with \"This token's power and toughness are each equal to the number of artifacts and/or creatures you control.\"\nAt the beginning of your first main phase, you may tap five untapped artifacts and/or creatures you control. If you do, transform Thousand Moons Smithy.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Barracks of the Thousand",
+      "mana_cost": "",
+      "type_line": "Legendary Artifact Land",
+      "oracle_text": "(Transforms from Thousand Moons Smithy.)\n{T}: Add {W}.\nWhenever you cast an artifact or creature spell using mana produced by Barracks of the Thousand, create a white Gnome Soldier artifact creature token with \"This token's power and toughness are each equal to the number of artifacts and/or creatures you control.\"",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

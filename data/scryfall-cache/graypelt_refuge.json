@@ -1,0 +1,22 @@
+{
+  "id": "0849b6dd-0330-4b7e-b7da-98e767adb4a0",
+  "oracle_id": "60b36821-0fad-423c-98c4-f64d991719f3",
+  "name": "Graypelt Refuge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "c19",
+  "set_name": "Commander 2019",
+  "collector_number": "249",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

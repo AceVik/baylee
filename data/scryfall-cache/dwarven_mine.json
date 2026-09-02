@@ -1,0 +1,21 @@
+{
+  "id": "5c83074d-0c9b-4b58-94ca-d75240485579",
+  "oracle_id": "74ed0bd3-ac31-41a4-8220-d8e7c8c1c437",
+  "name": "Dwarven Mine",
+  "mana_cost": "",
+  "type_line": "Land — Mountain",
+  "oracle_text": "({T}: Add {R}.)\nThis land enters tapped unless you control three or more other Mountains.\nWhen this land enters untapped, create a 1/1 red Dwarf creature token.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "eld",
+  "set_name": "Throne of Eldraine",
+  "collector_number": "243",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

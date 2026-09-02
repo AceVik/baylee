@@ -1,0 +1,19 @@
+{
+  "id": "3e9bd49a-e9f1-4543-b04a-777a9e5a55ec",
+  "oracle_id": "88e29d50-1680-495d-be84-b92b4c9e636f",
+  "name": "Diamond City",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters with a shield counter on it. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\n{T}: Add {C}.\n{T}: Move a shield counter from this land onto target creature. Activate only if two or more creatures entered the battlefield under your control this turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "pip",
+  "set_name": "Fallout",
+  "collector_number": "147",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "c74024bd-b383-468d-9cf5-d112a29f6457",
+  "oracle_id": "e198126a-f280-47f7-8bd0-3dc9f5ff05a0",
+  "name": "Windurst, Federation Center",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "292",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

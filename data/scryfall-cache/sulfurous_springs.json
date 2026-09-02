@@ -1,0 +1,22 @@
+{
+  "id": "eedb9df2-20d3-4cfd-8aed-336edc37d5a9",
+  "oracle_id": "f5c38c01-4a40-469f-91a0-7479daf4e8e7",
+  "name": "Sulfurous Springs",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {R}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "185",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

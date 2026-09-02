@@ -1,0 +1,22 @@
+{
+  "id": "ef662b92-5a7f-48c9-bcc1-14b55e091aef",
+  "oracle_id": "dd8538e6-cd5f-4a88-aff5-eb5e76ce8ddb",
+  "name": "Dreamroot Cascade",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "sos",
+  "set_name": "Secrets of Strixhaven",
+  "collector_number": "254",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

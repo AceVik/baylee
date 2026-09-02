@@ -1,0 +1,19 @@
+{
+  "id": "0a6f0408-6758-495f-9d6c-7686a1542fbd",
+  "oracle_id": "03f5c566-825c-4c46-9c01-a2f9b1e70a13",
+  "name": "The Mycosynth Gardens",
+  "mana_cost": "",
+  "type_line": "Land — Sphere",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{X}, {T}: This land becomes a copy of target nontoken artifact you control with mana value X.",
+  "colors": [],
+  "color_identity": [],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "168",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "2f632537-63bf-4490-86e6-e6067b9c1a3b",
+  "oracle_id": "2ac1c95c-2a9d-40bc-9cad-9cadfa3f19f7",
+  "name": "Kazandu Mammoth // Kazandu Valley",
+  "mana_cost": null,
+  "type_line": "Creature — Elephant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "189",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Kazandu Mammoth",
+      "mana_cost": "{1}{G}{G}",
+      "type_line": "Creature — Elephant",
+      "oracle_text": "Landfall — Whenever a land you control enters, this creature gets +2/+2 until end of turn.",
+      "power": "3",
+      "toughness": "3",
+      "loyalty": null
+    },
+    {
+      "name": "Kazandu Valley",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

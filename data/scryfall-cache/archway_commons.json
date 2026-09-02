@@ -1,0 +1,19 @@
+{
+  "id": "f6f6a2ff-7eb7-4680-af2b-e69ac88a65c9",
+  "oracle_id": "69c63055-ed44-4b32-b591-f3c6c2f3e7d1",
+  "name": "Archway Commons",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you pay {1}.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "stx",
+  "set_name": "Strixhaven: School of Mages",
+  "collector_number": "263",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

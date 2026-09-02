@@ -1,0 +1,22 @@
+{
+  "id": "a7758cc6-4e18-48a5-8720-5f42b5cd9d31",
+  "oracle_id": "45181cb8-2090-4471-ba90-e5a8f04d525f",
+  "name": "Sacred Foundry",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Plains",
+  "oracle_text": "({T}: Add {R} or {W}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "trk",
+  "set_name": "Star Trek",
+  "collector_number": "295",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

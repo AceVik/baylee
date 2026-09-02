@@ -1,0 +1,40 @@
+{
+  "id": "c4ac7570-e74e-4081-ac53-cf41e695b7eb",
+  "oracle_id": "be2a4bc4-8af6-48c5-9421-32d26272e71a",
+  "name": "Arguel's Blood Fast // Temple of Aclazotz",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "xln",
+  "set_name": "Ixalan",
+  "collector_number": "90",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Arguel's Blood Fast",
+      "mana_cost": "{1}{B}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "{1}{B}, Pay 2 life: Draw a card.\nAt the beginning of your upkeep, if you have 5 or less life, you may transform Arguel's Blood Fast.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Temple of Aclazotz",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Arguel's Blood Fast.)\n{T}: Add {B}.\n{T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

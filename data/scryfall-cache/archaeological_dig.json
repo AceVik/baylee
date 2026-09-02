@@ -1,0 +1,19 @@
+{
+  "id": "35f55af0-5a46-4900-b3d0-ca796b710e07",
+  "oracle_id": "cf438848-da86-4db6-b3b8-4dd8570be3b8",
+  "name": "Archaeological Dig",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "inv",
+  "set_name": "Invasion",
+  "collector_number": "320",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

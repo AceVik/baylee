@@ -1,0 +1,22 @@
+{
+  "id": "b5bc71a1-2344-4bc6-aa60-658cec19d0d6",
+  "oracle_id": "995c8dac-fd27-468a-abd4-02372cf0c850",
+  "name": "Mount Doom",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}, Pay 1 life: Add {B} or {R}.\n{1}{B}{R}, {T}: Mount Doom deals 1 damage to each opponent.\n{5}{B}{R}, {T}, Sacrifice Mount Doom and a legendary artifact: Choose up to two creatures, then destroy the rest. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "ltr",
+  "set_name": "The Lord of the Rings: Tales of Middle-earth",
+  "collector_number": "258",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

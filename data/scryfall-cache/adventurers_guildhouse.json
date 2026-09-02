@@ -1,0 +1,19 @@
+{
+  "id": "32865e68-5842-4f17-b2ea-4ffa743b511f",
+  "oracle_id": "bf29b215-d4f5-4641-97ef-b65d4c463e72",
+  "name": "Adventurers' Guildhouse",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Green legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "leg",
+  "set_name": "Legends",
+  "collector_number": "300",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

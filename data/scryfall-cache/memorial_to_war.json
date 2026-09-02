@@ -1,0 +1,21 @@
+{
+  "id": "c3fe9351-82ad-47b0-b30c-208effbb9f3d",
+  "oracle_id": "f98db69c-b330-4560-ac53-10857674466b",
+  "name": "Memorial to War",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\n{4}{R}, {T}, Sacrifice this land: Destroy target land.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "486",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

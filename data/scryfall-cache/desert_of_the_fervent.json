@@ -1,0 +1,21 @@
+{
+  "id": "f3766140-b755-4e4b-9d98-0cc0b889f15a",
+  "oracle_id": "311f38a6-f68f-4d30-bc4e-62339f1e0d88",
+  "name": "Desert of the Fervent",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\nCycling {1}{R} ({1}{R}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "otc",
+  "set_name": "Outlaws of Thunder Junction Commander",
+  "collector_number": "284",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

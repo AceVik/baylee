@@ -1,0 +1,21 @@
+{
+  "id": "d9a7b0f6-97f9-4937-865c-e25c142c3ed7",
+  "oracle_id": "02f16726-f2f6-4943-b71a-93f8e26251d3",
+  "name": "Ancient Den",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "{T}: Add {W}.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "148",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

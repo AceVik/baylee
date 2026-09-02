@@ -1,0 +1,19 @@
+{
+  "id": "9e1a9e38-6ffc-490f-b0be-23ba4e8204c6",
+  "oracle_id": "db6174d7-211d-4817-b8e4-8384594c83f9",
+  "name": "Urborg, Tomb of Yawgmoth",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "Each land is a Swamp in addition to its other land types.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tsr",
+  "set_name": "Time Spiral Remastered",
+  "collector_number": "287",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

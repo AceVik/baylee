@@ -1,0 +1,38 @@
+{
+  "id": "392af78e-34d5-4b1b-8b29-0e702271e4d7",
+  "oracle_id": "f9085e55-2833-41b7-9100-a35dc04dee93",
+  "name": "Thaumatic Compass // Spires of Orazca",
+  "mana_cost": null,
+  "type_line": "Artifact // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [],
+  "set": "xln",
+  "set_name": "Ixalan",
+  "collector_number": "249",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Thaumatic Compass",
+      "mana_cost": "{2}",
+      "type_line": "Artifact",
+      "oracle_text": "{3}, {T}: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.\nAt the beginning of your end step, if you control seven or more lands, transform this artifact.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Spires of Orazca",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "(Transforms from Thaumatic Compass.)\n{T}: Add {C}.\n{T}: Untap target attacking creature an opponent controls and remove it from combat.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

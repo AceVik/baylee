@@ -1,0 +1,22 @@
+{
+  "id": "a3aab13c-9d9d-4507-ae5d-da979990ae1b",
+  "oracle_id": "026f4a4b-eedd-44e1-9d37-ca4fb8d6db98",
+  "name": "Fiery Islet",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life: Add {U} or {R}.\n{1}, {T}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "mh1",
+  "set_name": "Modern Horizons",
+  "collector_number": "238",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

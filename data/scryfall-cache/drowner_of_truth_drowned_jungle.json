@@ -1,0 +1,41 @@
+{
+  "id": "7a1d3c1d-1373-4ac4-bb26-9780976efc4f",
+  "oracle_id": "db19a27a-ee22-4931-ae3c-0ce21f456ea6",
+  "name": "Drowner of Truth // Drowned Jungle",
+  "mana_cost": null,
+  "type_line": "Creature — Eldrazi // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "253",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Drowner of Truth",
+      "mana_cost": "{5}{G/U}{G/U}",
+      "type_line": "Creature — Eldrazi",
+      "oracle_text": "Devoid (This card has no color.)\nWhen you cast this spell, if {C} was spent to cast it, create two 0/1 colorless Eldrazi Spawn creature tokens with \"Sacrifice this token: Add {C}.\"",
+      "power": "7",
+      "toughness": "6",
+      "loyalty": null
+    },
+    {
+      "name": "Drowned Jungle",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {G} or {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

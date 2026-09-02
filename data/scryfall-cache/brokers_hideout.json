@@ -1,0 +1,19 @@
+{
+  "id": "989b299b-daa9-4bda-94e2-9a2f0e8f2bce",
+  "oracle_id": "bd002797-a545-4bee-88bf-b878436e7cca",
+  "name": "Brokers Hideout",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, sacrifice it. When you do, search your library for a basic Forest, Plains, or Island card, put it onto the battlefield tapped, then shuffle and you gain 1 life.",
+  "colors": [],
+  "color_identity": [],
+  "set": "snc",
+  "set_name": "Streets of New Capenna",
+  "collector_number": "248",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

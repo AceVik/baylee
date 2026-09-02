@@ -1,0 +1,22 @@
+{
+  "id": "7186d86c-679b-4520-9cf0-5b25f6d98312",
+  "oracle_id": "2d28c83a-7415-4eb0-95a6-6245f2169d17",
+  "name": "Rootwater Depths",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {U} or {B}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "241",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

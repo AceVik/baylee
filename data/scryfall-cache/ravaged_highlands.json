@@ -1,0 +1,21 @@
+{
+  "id": "bb60ffc9-4919-40f2-bdd6-07eee6abf37c",
+  "oracle_id": "68919931-b995-4aa0-9d2a-e80eae2f335f",
+  "name": "Ravaged Highlands",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\n{T}, Sacrifice this land: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "324",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

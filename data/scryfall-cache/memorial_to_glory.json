@@ -1,0 +1,21 @@
+{
+  "id": "564d6ff1-2be1-42f1-a919-fe8c2e148c3f",
+  "oracle_id": "eb8ec34c-ae07-4a09-940f-ee965146a787",
+  "name": "Memorial to Glory",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\n{3}{W}, {T}, Sacrifice this land: Create two 1/1 white Soldier creature tokens.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "dom",
+  "set_name": "Dominaria",
+  "collector_number": "244",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "6d11de19-fb40-4dc6-ad61-3b7e95163c0b",
+  "oracle_id": "9b64c0f4-b917-4a0d-b033-30ab71aab807",
+  "name": "Shivan Oasis",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "dde",
+  "set_name": "Duel Decks: Phyrexia vs. the Coalition",
+  "collector_number": "65",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

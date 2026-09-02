@@ -1,0 +1,21 @@
+{
+  "id": "ac2d2959-6d31-4547-8c04-c19009c94434",
+  "oracle_id": "cabf7953-0fac-4dbb-b3ae-05e85e02b3fc",
+  "name": "Forbidding Watchtower",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\n{1}{W}: This land becomes a 1/5 white Soldier creature until end of turn. It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "td2",
+  "set_name": "Duel Decks: Mirrodin Pure vs. New Phyrexia",
+  "collector_number": "39",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

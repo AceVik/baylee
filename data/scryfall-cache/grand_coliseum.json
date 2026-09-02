@@ -1,0 +1,19 @@
+{
+  "id": "b07eb189-559a-4cd5-95ac-f6612fd11cf1",
+  "oracle_id": "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7",
+  "name": "Grand Coliseum",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add one mana of any color. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tmc",
+  "set_name": "Teenage Mutant Ninja Turtles Eternal",
+  "collector_number": "68",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

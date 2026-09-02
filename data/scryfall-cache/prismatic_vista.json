@@ -1,0 +1,19 @@
+{
+  "id": "e37da81e-be12-45a2-9128-376f1ad7b3e8",
+  "oracle_id": "032b8a0d-491a-4a12-ab9f-689010054d5b",
+  "name": "Prismatic Vista",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh1",
+  "set_name": "Modern Horizons",
+  "collector_number": "244",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

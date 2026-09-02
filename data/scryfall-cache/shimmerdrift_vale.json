@@ -1,0 +1,19 @@
+{
+  "id": "f09d98db-0176-41a7-b99b-ead29876cdab",
+  "oracle_id": "2ac34f3e-822d-4fde-99ca-a31c4d9503fd",
+  "name": "Shimmerdrift Vale",
+  "mana_cost": "",
+  "type_line": "Snow Land",
+  "oracle_text": "This land enters tapped.\nAs this land enters, choose a color.\n{T}: Add one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "267",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

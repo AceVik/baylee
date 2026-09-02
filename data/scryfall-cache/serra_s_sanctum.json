@@ -1,0 +1,21 @@
+{
+  "id": "f7a18130-dbaa-4657-a885-3a96a985935a",
+  "oracle_id": "34187c71-6033-4058-aadc-2bc266f762be",
+  "name": "Serra's Sanctum",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {W} for each enchantment you control.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "usg",
+  "set_name": "Urza's Saga",
+  "collector_number": "325",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

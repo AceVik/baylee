@@ -1,0 +1,21 @@
+{
+  "id": "0be723d6-4ada-4c3f-b87b-8ab83a4bbb8f",
+  "oracle_id": "583cdebe-0195-45be-bd2e-5765f07cb902",
+  "name": "Mines of Moria",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "Mines of Moria enters tapped unless you control a legendary creature.\n{T}: Add {R}.\n{3}{R}, {T}, Exile three cards from your graveyard: Create two Treasure tokens.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "ltr",
+  "set_name": "The Lord of the Rings: Tales of Middle-earth",
+  "collector_number": "257",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

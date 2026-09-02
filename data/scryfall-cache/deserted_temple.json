@@ -1,0 +1,19 @@
+{
+  "id": "fd51f8f0-779b-40bb-b65c-5907f816676e",
+  "oracle_id": "9f12bf9a-6e1a-4377-b4af-e8cabd3ee58a",
+  "name": "Deserted Temple",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Untap target land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "301",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

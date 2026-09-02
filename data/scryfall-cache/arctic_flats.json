@@ -1,0 +1,22 @@
+{
+  "id": "609b15f6-e65b-46d6-95e8-dc39f25d7efa",
+  "oracle_id": "841f0a1d-6f84-45fb-81cc-f2d99fa9e9a2",
+  "name": "Arctic Flats",
+  "mana_cost": "",
+  "type_line": "Snow Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "csp",
+  "set_name": "Coldsnap",
+  "collector_number": "143",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

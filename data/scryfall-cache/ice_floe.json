@@ -1,0 +1,19 @@
+{
+  "id": "9a974983-b9aa-4f12-8279-2e74089f7f31",
+  "oracle_id": "cfaaead2-09e8-47cb-9e39-8570b8d8de86",
+  "name": "Ice Floe",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "You may choose not to untap this land during your untap step.\n{T}: Tap target creature without flying that's attacking you. It doesn't untap during its controller's untap step for as long as this land remains tapped.",
+  "colors": [],
+  "color_identity": [],
+  "set": "me2",
+  "set_name": "Masters Edition II",
+  "collector_number": "232",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

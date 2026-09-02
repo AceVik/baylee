@@ -1,0 +1,22 @@
+{
+  "id": "4912e4d0-b16a-4aa6-a583-3430d26bd591",
+  "oracle_id": "b0af0c54-2a59-4075-8543-d41ff20c4c87",
+  "name": "Wind-Scarred Crag",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "271",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

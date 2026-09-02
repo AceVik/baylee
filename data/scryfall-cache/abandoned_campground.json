@@ -1,0 +1,22 @@
+{
+  "id": "ee0565f5-ebdb-43f9-bbb4-0485b1968937",
+  "oracle_id": "0eec9984-cd11-4a52-9234-469c6a5fb9aa",
+  "name": "Abandoned Campground",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless a player has 13 or less life.\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "255",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "5fbc6091-a161-45b0-9932-543b569caaee",
+  "oracle_id": "04eeb9ad-5c59-411b-8809-db8349838588",
+  "name": "Westvale Abbey // Ormendahl, Profane Prince",
+  "mana_cost": null,
+  "type_line": "Land // Legendary Creature — Demon",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "inr",
+  "set_name": "Innistrad Remastered",
+  "collector_number": "287",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Westvale Abbey",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {C}.\n{5}, {T}, Pay 1 life: Create a 1/1 white and black Human Cleric creature token.\n{5}, {T}, Sacrifice five creatures: Transform this land, then untap it.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Ormendahl, Profane Prince",
+      "mana_cost": "",
+      "type_line": "Legendary Creature — Demon",
+      "oracle_text": "Flying, lifelink, indestructible, haste",
+      "power": "9",
+      "toughness": "7",
+      "loyalty": null
+    }
+  ]
+}

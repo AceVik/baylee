@@ -1,0 +1,19 @@
+{
+  "id": "d03f17f1-b0fd-4b84-82ea-085c2f87eeda",
+  "oracle_id": "5a620d20-f14e-43d0-8e57-c2a197e2ec51",
+  "name": "Urza's Factory",
+  "mana_cost": "",
+  "type_line": "Land — Urza's",
+  "oracle_text": "{T}: Add {C}.\n{7}, {T}: Create a 2/2 colorless Assembly-Worker artifact creature token.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tsr",
+  "set_name": "Time Spiral Remastered",
+  "collector_number": "288",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

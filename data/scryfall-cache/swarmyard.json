@@ -1,0 +1,19 @@
+{
+  "id": "b89329f2-d386-40a7-9098-6d80beeb8843",
+  "oracle_id": "4b508087-99da-4eb1-8b12-29162f2ec85d",
+  "name": "Swarmyard",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Regenerate target Insect, Rat, Spider, or Squirrel. (The next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "tsr",
+  "set_name": "Time Spiral Remastered",
+  "collector_number": "284",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "612cf954-f86c-4629-99df-4874d56fded3",
+  "oracle_id": "cd49aa99-bf84-4edd-aecc-6dae78b73412",
+  "name": "Mirkwood",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {G}.\n{2}{B}{G}, {T}, Sacrifice this land: Put two +1/+1 counters on target Bear, Spider, or Wolf you control. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "hob",
+  "set_name": "The Hobbit",
+  "collector_number": "188",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

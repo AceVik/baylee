@@ -1,0 +1,22 @@
+{
+  "id": "038bf500-e23a-4d38-9312-db1909e20353",
+  "oracle_id": "d49a7525-eca5-48e1-b94b-d618a706fd02",
+  "name": "Subterranean Cavern",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "273",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

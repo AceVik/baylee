@@ -1,0 +1,19 @@
+{
+  "id": "cd3f7f4e-cb25-4121-96a0-a4dc530420b9",
+  "oracle_id": "69b409b3-fa16-4c79-8b46-215a7036ed46",
+  "name": "The Tabernacle at Pendrell Vale",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "All creatures have \"At the beginning of your upkeep, destroy this creature unless you pay {1}.\"",
+  "colors": [],
+  "color_identity": [],
+  "set": "me3",
+  "set_name": "Masters Edition III",
+  "collector_number": "212",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

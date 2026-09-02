@@ -1,0 +1,21 @@
+{
+  "id": "ad8274ef-a46a-4f5f-8ad1-6ce828f24210",
+  "oracle_id": "c238ef51-4b46-43d5-a70b-40270a96a1fd",
+  "name": "Hellion Crucible",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}{R}, {T}: Put a pressure counter on this land.\n{1}{R}, {T}, Remove two pressure counters from this land and sacrifice it: Create a 4/4 red Hellion creature token with haste. (It can attack and {T} as soon as it comes under your control.)",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "m13",
+  "set_name": "Magic 2013",
+  "collector_number": "226",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

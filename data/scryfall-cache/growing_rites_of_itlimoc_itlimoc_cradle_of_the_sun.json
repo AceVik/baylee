@@ -1,0 +1,40 @@
+{
+  "id": "004524bf-b249-4dac-9c10-44d57143feb9",
+  "oracle_id": "ea9c459a-6047-43aa-968f-a582be4000e8",
+  "name": "Growing Rites of Itlimoc // Itlimoc, Cradle of the Sun",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "188",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Growing Rites of Itlimoc",
+      "mana_cost": "{2}{G}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "When Growing Rites of Itlimoc enters, look at the top four cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in any order.\nAt the beginning of your end step, if you control four or more creatures, transform Growing Rites of Itlimoc.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Itlimoc, Cradle of the Sun",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Growing Rites of Itlimoc.)\n{T}: Add {G}.\n{T}: Add {G} for each creature you control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

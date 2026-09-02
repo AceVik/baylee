@@ -1,0 +1,22 @@
+{
+  "id": "711dbdb1-7ec3-4fb4-8364-d34f5e143fd1",
+  "oracle_id": "d7e1d4eb-1d4e-460e-9304-7db9ab50ccb5",
+  "name": "Nimbus Maze",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {W}. Activate only if you control an Island.\n{T}: Add {U}. Activate only if you control a Plains.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "afc",
+  "set_name": "Forgotten Realms Commander",
+  "collector_number": "252",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

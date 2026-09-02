@@ -1,0 +1,19 @@
+{
+  "id": "4b9c92f0-4242-4a3e-9ede-6a4935f5c75d",
+  "oracle_id": "7b9fafe7-d26a-4ed5-b4c4-ce13763770b5",
+  "name": "Geier Reach Sanitarium",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Each player draws a card, then discards a card.",
+  "colors": [],
+  "color_identity": [],
+  "set": "lcc",
+  "set_name": "The Lost Caverns of Ixalan Commander",
+  "collector_number": "335",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

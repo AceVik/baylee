@@ -1,0 +1,19 @@
+{
+  "id": "504a69eb-3c2d-4bb1-b117-252b15acf0c2",
+  "oracle_id": "d0ee5bdc-2b69-4b73-9a20-ffcc18783b29",
+  "name": "Mana Confluence",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "jou",
+  "set_name": "Journey into Nyx",
+  "collector_number": "163",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

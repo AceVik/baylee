@@ -1,0 +1,19 @@
+{
+  "id": "dc85412e-333d-4e7d-8c85-40618cf1b6c2",
+  "oracle_id": "41fbf835-baee-4530-9155-e2c1b9045567",
+  "name": "Base Camp",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Cleric, Rogue, Warrior, or Wizard spell or to activate an ability of a Cleric, Rogue, Warrior, or Wizard.",
+  "colors": [],
+  "color_identity": [],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "257",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

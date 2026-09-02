@@ -1,0 +1,40 @@
+{
+  "id": "1ca79dd4-67fc-496c-96fc-489b039c4932",
+  "oracle_id": "486bb9a5-73f1-4cec-b097-fb07ac80b72e",
+  "name": "Ojer Taq, Deepest Foundation // Temple of Civilization",
+  "mana_cost": null,
+  "type_line": "Legendary Creature — God // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "W"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "26",
+  "rarity": "mythic",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Ojer Taq, Deepest Foundation",
+      "mana_cost": "{4}{W}{W}",
+      "type_line": "Legendary Creature — God",
+      "oracle_text": "Vigilance\nIf one or more creature tokens would be created under your control, three times that many of those tokens are created instead.\nWhen Ojer Taq dies, return it to the battlefield tapped and transformed under its owner's control.",
+      "power": "6",
+      "toughness": "6",
+      "loyalty": null
+    },
+    {
+      "name": "Temple of Civilization",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "(Transforms from Ojer Taq, Deepest Foundation.)\n{T}: Add {W}.\n{2}{W}, {T}: Transform this land. Activate only if you attacked with three or more creatures this turn and only as a sorcery.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

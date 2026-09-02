@@ -1,0 +1,22 @@
+{
+  "id": "0b98ba34-f251-4bd0-9d75-1d4445be5cfd",
+  "oracle_id": "01ed9139-293d-4477-a145-3c6fe59266c7",
+  "name": "Airship Engine Room",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U} or {R}.\n{4}, {T}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "265",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "ccec69de-7203-4810-a8ec-8748705ee3a2",
+  "oracle_id": "c3b46bd6-b3ef-452d-a916-995c44f1da07",
+  "name": "Wanderwine Hub",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As this land enters, you may reveal a Merfolk card from your hand. If you don't, this land enters tapped.\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "lrw",
+  "set_name": "Lorwyn",
+  "collector_number": "280",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

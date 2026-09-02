@@ -1,0 +1,19 @@
+{
+  "id": "470ca3f4-29aa-4c4c-8ff2-8cdd70c69943",
+  "oracle_id": "aa959340-c869-4caa-92c7-572bd8d23eef",
+  "name": "Field of the Dead",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\nWhenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 black Zombie creature token.",
+  "colors": [],
+  "color_identity": [],
+  "set": "m20",
+  "set_name": "Core Set 2020",
+  "collector_number": "247",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "a340af37-c0a7-4f26-974b-95397b5c32f7",
+  "oracle_id": "24aebda0-315f-4d2f-8bd9-00bbaf5bd76a",
+  "name": "Remote Isle",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "254",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

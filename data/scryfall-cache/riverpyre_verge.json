@@ -1,0 +1,22 @@
+{
+  "id": "57a93a71-d77c-417f-85d0-cd420f573331",
+  "oracle_id": "510a6ac5-f098-4145-ac07-771b1b6f7cdf",
+  "name": "Riverpyre Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {R}.\n{T}: Add {U}. Activate only if you control an Island or a Mountain.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "260",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

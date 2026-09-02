@@ -1,0 +1,22 @@
+{
+  "id": "6bd21c9e-de16-4ee9-ae16-6e82b490109d",
+  "oracle_id": "8e7641e1-e814-4d5a-9cb3-71ad2f4ceee8",
+  "name": "Rugged Prairie",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{R/W}, {T}: Add {R}{R}, {R}{W}, or {W}{W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "401",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

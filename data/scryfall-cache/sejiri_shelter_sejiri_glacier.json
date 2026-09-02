@@ -1,0 +1,40 @@
+{
+  "id": "f25d56f9-aa54-4657-9ac9-e93fbba3e715",
+  "oracle_id": "d54e4e37-042b-44a5-918d-757308545d4d",
+  "name": "Sejiri Shelter // Sejiri Glacier",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "W"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "37",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Sejiri Shelter",
+      "mana_cost": "{1}{W}",
+      "type_line": "Instant",
+      "oracle_text": "Target creature you control gains protection from the color of your choice until end of turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Sejiri Glacier",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "9e4afa65-7933-4a64-b50f-a9a9f832b112",
+  "oracle_id": "09f52275-99e6-45e0-b2db-cafe26d5fb91",
+  "name": "Secluded Glen",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As this land enters, you may reveal a Faerie card from your hand. If you don't, this land enters tapped.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "lrw",
+  "set_name": "Lorwyn",
+  "collector_number": "271",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "2436aa14-9200-4295-8041-b682cf3c4216",
+  "oracle_id": "da307ea2-4df7-4d6b-be0f-9dc6ac93db61",
+  "name": "Baldur's Gate",
+  "mana_cost": "",
+  "type_line": "Legendary Land — Gate",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Add X mana of any one color, where X is the number of other Gates you control.",
+  "colors": [],
+  "color_identity": [],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "345",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

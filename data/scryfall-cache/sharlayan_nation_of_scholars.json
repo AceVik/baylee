@@ -1,0 +1,22 @@
+{
+  "id": "7a745b5e-cdb8-4d05-ac5c-87be69536da6",
+  "oracle_id": "564bdbdd-8392-4ee1-a132-1a17a67b2110",
+  "name": "Sharlayan, Nation of Scholars",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "288",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

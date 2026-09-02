@@ -1,0 +1,41 @@
+{
+  "id": "da57eb54-5199-4a56-95f7-f6ac432876b1",
+  "oracle_id": "727ca426-f4cc-4218-8ae5-8c427af2e816",
+  "name": "Cragcrown Pathway // Timbercrown Pathway",
+  "mana_cost": null,
+  "type_line": "Land // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "261",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Cragcrown Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Timbercrown Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

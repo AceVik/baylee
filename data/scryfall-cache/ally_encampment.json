@@ -1,0 +1,19 @@
+{
+  "id": "bcb7124c-ba69-4da8-ad81-58f00fd0181d",
+  "oracle_id": "9d293b69-12b7-4b50-a0a7-c4f493dee30b",
+  "name": "Ally Encampment",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast an Ally spell.\n{1}, {T}, Sacrifice this land: Return target Ally you control to its owner's hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "bfz",
+  "set_name": "Battle for Zendikar",
+  "collector_number": "228",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

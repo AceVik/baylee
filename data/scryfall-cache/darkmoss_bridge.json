@@ -1,0 +1,22 @@
+{
+  "id": "3ca3ef68-ea62-4098-bd43-4597ff0647d4",
+  "oracle_id": "2065cada-4078-41c4-9e06-2460d2a2e8ee",
+  "name": "Darkmoss Bridge",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "This land enters tapped.\nIndestructible\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "269",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

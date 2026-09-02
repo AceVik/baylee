@@ -1,0 +1,23 @@
+{
+  "id": "9afac347-4316-43e2-848b-e474ed563af6",
+  "oracle_id": "40ae17be-9998-4ee4-9d95-82a08895405f",
+  "name": "An-Havva Township",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add {G}.\n{2}, {T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R",
+    "W"
+  ],
+  "set": "hml",
+  "set_name": "Homelands",
+  "collector_number": "111",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "df797e0d-8ae2-4fdb-a33d-4ba7852b0172",
+  "oracle_id": "dc974eb4-72b9-4213-887b-8ee684b93420",
+  "name": "Flooded Grove",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{G/U}, {T}: Add {G}{G}, {G}{U}, or {U}{U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "373",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

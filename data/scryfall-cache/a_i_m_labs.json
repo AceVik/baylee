@@ -1,0 +1,22 @@
+{
+  "id": "ca24cd9f-fd9f-4ea0-8b9c-ecf98db219a6",
+  "oracle_id": "8417f2d5-93c9-474a-a143-5c4e17097a88",
+  "name": "A.I.M. Labs",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "257",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

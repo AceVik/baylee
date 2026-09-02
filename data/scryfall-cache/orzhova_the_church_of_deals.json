@@ -1,0 +1,22 @@
+{
+  "id": "9015cc09-56c9-4d8f-b241-a0cfaec7e1f1",
+  "oracle_id": "8551a9cf-c54b-42d4-92d6-550f4890a3d7",
+  "name": "Orzhova, the Church of Deals",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{3}{W}{B}, {T}: Target player loses 1 life and you gain 1 life.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "gpt",
+  "set_name": "Guildpact",
+  "collector_number": "162",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "ee152618-761f-43b4-942a-f63b16c182cc",
+  "oracle_id": "0c828f10-4775-492f-9224-1e2814ad2cad",
+  "name": "Gemstone Mine",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters with three mining counters on it.\n{T}, Remove a mining counter from this land: Add one mana of any color. If there are no mining counters on this land, sacrifice it.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "247",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

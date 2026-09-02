@@ -1,0 +1,41 @@
+{
+  "id": "7676abd9-0a3d-4721-b17b-778d2e3c2e25",
+  "oracle_id": "ad225ec2-ff3a-48f6-81a7-dfdd1b75e1f7",
+  "name": "Legion Leadership // Legion Stronghold",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "255",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Legion Leadership",
+      "mana_cost": "{1}{R/W}",
+      "type_line": "Instant",
+      "oracle_text": "Until end of turn, double target creature's power and it gains first strike.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Legion Stronghold",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {R} or {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

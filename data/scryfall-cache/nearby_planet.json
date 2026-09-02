@@ -1,0 +1,25 @@
+{
+  "id": "da785d1b-6b90-4b65-9efb-d7f329405318",
+  "oracle_id": "19d34126-8266-4da1-b7ef-67ecfa2dbbee",
+  "name": "Nearby Planet",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Rangeling (This card is every land type, including Plains, Island, Swamp, Mountain, Forest, Desert, Gate, Lair, Locus, and all those Urza's ones.)\nThis land enters tapped.\nWhen this land enters, sacrifice it unless you pay {1}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G",
+    "R",
+    "U",
+    "W"
+  ],
+  "set": "unf",
+  "set_name": "Unfinity",
+  "collector_number": "198",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

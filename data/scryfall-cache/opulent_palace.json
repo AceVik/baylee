@@ -1,0 +1,23 @@
+{
+  "id": "f0001153-dbcb-44e5-99be-2c186c9b10b0",
+  "oracle_id": "f9e7e855-1e3b-42d3-91b0-64ba8b5b8982",
+  "name": "Opulent Palace",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}, {G}, or {U}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G",
+    "U"
+  ],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "157",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

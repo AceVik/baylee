@@ -1,0 +1,21 @@
+{
+  "id": "9eb391dc-0378-4793-a5de-899b09792a4b",
+  "oracle_id": "d17163d4-dd43-4de6-b7cf-576448160b7f",
+  "name": "Hive of the Eye Tyrant",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If you control two or more other lands, this land enters tapped.\n{T}: Add {B}.\n{3}{B}: Until end of turn, this land becomes a 3/3 black Beholder creature with menace and \"Whenever this creature attacks, exile target card from defending player's graveyard.\" It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "afr",
+  "set_name": "Adventures in the Forgotten Realms",
+  "collector_number": "258",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

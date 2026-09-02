@@ -1,0 +1,19 @@
+{
+  "id": "bc1bed72-2440-4364-a69f-a9d7c4fe3fea",
+  "oracle_id": "073169f2-da3a-4a93-8c01-b3fd8558d225",
+  "name": "Interplanar Beacon",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Whenever you cast a planeswalker spell, you gain 1 life.\n{T}: Add {C}.\n{1}, {T}: Add two mana of different colors. Spend this mana only to cast planeswalker spells.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1004",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

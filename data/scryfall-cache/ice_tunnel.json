@@ -1,0 +1,22 @@
+{
+  "id": "8cff3ef0-4dfb-472e-aa1e-77613dd0f6d8",
+  "oracle_id": "40c5d6fe-854a-436d-9f80-13eb5f1f8f68",
+  "name": "Ice Tunnel",
+  "mana_cost": "",
+  "type_line": "Snow Land — Island Swamp",
+  "oracle_text": "({T}: Add {U} or {B}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "262",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

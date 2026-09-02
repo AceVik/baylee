@@ -1,0 +1,21 @@
+{
+  "id": "eb5038af-06b0-401e-8dea-a1a8483788ae",
+  "oracle_id": "88159872-d37d-4847-b048-e4a9af6437bd",
+  "name": "Barad-dûr",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "Barad-dûr enters tapped unless you control a legendary creature.\n{T}: Add {B}.\n{X}{X}{B}, {T}: Amass Orcs X. Activate only if a creature died this turn.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "ltr",
+  "set_name": "The Lord of the Rings: Tales of Middle-earth",
+  "collector_number": "253",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

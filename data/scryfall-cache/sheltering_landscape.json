@@ -1,0 +1,23 @@
+{
+  "id": "0fe070f4-8877-4280-b8fd-869f3ac34ab6",
+  "oracle_id": "5b932be0-4dac-41b9-9c59-f79e4cecc31a",
+  "name": "Sheltering Landscape",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Search your library for a basic Mountain, Forest, or Plains card, put it onto the battlefield tapped, then shuffle.\nCycling {R}{G}{W} ({R}{G}{W}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R",
+    "W"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "227",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

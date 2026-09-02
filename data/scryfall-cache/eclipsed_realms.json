@@ -1,0 +1,19 @@
+{
+  "id": "a174f0db-8b4f-4c37-9583-44c92d37b9c0",
+  "oracle_id": "5715ed43-395c-4877-99a7-8e28e7bf9dce",
+  "name": "Eclipsed Realms",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As this land enters, choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk.\n{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a spell of the chosen type or activate an ability of a source of the chosen type.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ecl",
+  "set_name": "Lorwyn Eclipsed",
+  "collector_number": "263",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "e744b593-13fe-4967-b492-ac02f5815e57",
+  "oracle_id": "83f9d84a-a011-4fa9-a3a4-51eb39159c54",
+  "name": "Geothermal Crevice",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\n{T}, Sacrifice this land: Add {B}{G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G",
+    "R"
+  ],
+  "set": "inv",
+  "set_name": "Invasion",
+  "collector_number": "323",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "c8913994-c3e7-4d9e-9409-a8409ce68442",
+  "oracle_id": "e43413e4-be17-49af-978a-26210d05f52a",
+  "name": "Bottomless Vault",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nYou may choose not to untap this land during your untap step.\nAt the beginning of your upkeep, if this land is tapped, put a storage counter on it.\n{T}, Remove any number of storage counters from this land: Add {B} for each storage counter removed this way.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "5ed",
+  "set_name": "Fifth Edition",
+  "collector_number": "411",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

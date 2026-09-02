@@ -1,0 +1,21 @@
+{
+  "id": "bdf3b2be-d0cd-4a3c-a10e-82d32c12d3bd",
+  "oracle_id": "de1ae205-ca5b-4d26-8194-ca85f1406e53",
+  "name": "Ba Sing Se",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a basic land.\n{T}: Add {G}.\n{2}{G}, {T}: Earthbend 2. Activate only as a sorcery. (Target land you control becomes a 0/0 creature with haste that's still a land. Put two +1/+1 counters on it. When it dies or is exiled, return it to the battlefield tapped.)",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "266",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

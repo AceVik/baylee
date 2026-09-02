@@ -1,0 +1,22 @@
+{
+  "id": "48444c3e-2068-4961-a9cd-9398052e5bd6",
+  "oracle_id": "45fe016e-1a09-410c-bbe3-4663ba06c5b7",
+  "name": "Spire Garden",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you have two or more opponents.\n{T}: Add {R} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "tmc",
+  "set_name": "Teenage Mutant Ninja Turtles Eternal",
+  "collector_number": "75",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

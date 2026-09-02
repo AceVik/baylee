@@ -1,0 +1,22 @@
+{
+  "id": "cf1f38de-44b3-42fa-9288-d7c1832ff75f",
+  "oracle_id": "3b577179-10d0-43f1-ac17-9dd2d12c965d",
+  "name": "Littjara Mirrorlake",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\n{2}{G}{G}{U}, {T}, Sacrifice this land: Create a token that's a copy of target creature you control, except it enters with an additional +1/+1 counter on it. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "ncc",
+  "set_name": "New Capenna Commander",
+  "collector_number": "412",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

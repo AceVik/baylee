@@ -1,0 +1,19 @@
+{
+  "id": "4472d5fb-ca8f-43d0-a95d-5bd8bdb6a02d",
+  "oracle_id": "8ea46945-d5ab-4209-b473-4769e7b8b962",
+  "name": "Shrine of the Forsaken Gods",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {C}{C}. Spend this mana only to cast colorless spells. Activate only if you control seven or more lands.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mkc",
+  "set_name": "Murders at Karlov Manor Commander",
+  "collector_number": "292",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

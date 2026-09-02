@@ -1,0 +1,23 @@
+{
+  "id": "a68fbeaa-941f-4d53-becd-f93ed22b9a54",
+  "oracle_id": "4619de7e-3d6e-4c6b-8e6e-e24db324839d",
+  "name": "Nomad Outpost",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}, {W}, or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R",
+    "W"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "263",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

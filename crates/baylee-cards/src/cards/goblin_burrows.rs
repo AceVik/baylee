@@ -1,0 +1,22 @@
+//! Goblin Burrows — (no cost) — Land
+//! Oracle: {T}: Add {C}.
+//! Oracle: {1}{R}, {T}: Target Goblin creature gets +2/+0 until end of turn.
+//! Set: EVG #58 — Duel Decks Anthology: Elves vs. Goblins | Scryfall ID: dc36acc6-db4b-45b7-b526-7966ff82a44f | Oracle ID: ad65bb8e-57de-49f3-ba7c-be62cf3fe3df
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+
+card! {
+    index: 559,
+    oracle_id: "ad65bb8e-57de-49f3-ba7c-be62cf3fe3df",
+    scryfall_id: "dc36acc6-db4b-45b7-b526-7966ff82a44f",
+    color_identity: ColorSet::from_slice(&[Color::Red]),
+    faces: &[
+    face! {
+        name: "Goblin Burrows",
+        types: TypeSet::LAND,
+    },
+    ],
+}
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

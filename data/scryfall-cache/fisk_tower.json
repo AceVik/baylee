@@ -1,0 +1,22 @@
+{
+  "id": "7690e624-93c1-46f4-8f33-e28d881787d3",
+  "oracle_id": "5554db95-9676-4c24-b82a-8173513d7927",
+  "name": "Fisk Tower",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "265",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

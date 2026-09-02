@@ -1,0 +1,19 @@
+{
+  "id": "d5a0563e-c83b-40df-abf6-51c83bf6792d",
+  "oracle_id": "7e8198e9-0f3b-420b-ab09-74f13f4fd548",
+  "name": "Throne of Makindi",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Put a charge counter on this land.\n{T}, Remove a charge counter from this land: Add two mana of any one color. Spend this mana only to cast kicked spells.",
+  "colors": [],
+  "color_identity": [],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "265",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

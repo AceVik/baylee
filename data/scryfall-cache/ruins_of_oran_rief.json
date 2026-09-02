@@ -1,0 +1,19 @@
+{
+  "id": "d1159ef6-f3ac-42a0-ae46-7d5eb9b3a6eb",
+  "oracle_id": "7140f396-1bfa-4b28-ba28-fa15eba74652",
+  "name": "Ruins of Oran-Rief",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}. ({C} represents colorless mana.)\n{T}: Put a +1/+1 counter on target colorless creature that entered this turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1023",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

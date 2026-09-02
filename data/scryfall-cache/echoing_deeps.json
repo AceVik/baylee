@@ -1,0 +1,19 @@
+{
+  "id": "244c06b3-532d-426e-8bee-ee9461d092a6",
+  "oracle_id": "2ef88214-f46d-473e-a55b-795a647e2f03",
+  "name": "Echoing Deeps",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "You may have this land enter tapped as a copy of any land card in a graveyard, except it's a Cave in addition to its other types.\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "271",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "c7921b97-083b-480a-a7df-f2ab82e6f8fb",
+  "oracle_id": "eb2094cf-b4be-4f52-8615-e179ef7c741d",
+  "name": "Mobilized District",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}: This land becomes a 3/3 Citizen creature with vigilance until end of turn. It's still a land. This ability costs {1} less to activate for each legendary creature and planeswalker you control.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1011",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

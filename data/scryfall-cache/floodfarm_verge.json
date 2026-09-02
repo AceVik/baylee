@@ -1,0 +1,22 @@
+{
+  "id": "d53ed0db-1199-44b3-8eda-8189dfcf53d1",
+  "oracle_id": "f1e9abfb-c3c8-483e-b446-5c2afc9f6394",
+  "name": "Floodfarm Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {W}.\n{T}: Add {U}. Activate only if you control a Plains or an Island.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

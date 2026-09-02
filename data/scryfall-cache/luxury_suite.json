@@ -1,0 +1,22 @@
+{
+  "id": "3c409d1e-f634-44a2-8fcf-dcdcb0babc3f",
+  "oracle_id": "819e1765-8325-4e6f-89c1-63ea86de369f",
+  "name": "Luxury Suite",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you have two or more opponents.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "252",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

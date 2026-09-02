@@ -1,0 +1,21 @@
+{
+  "id": "b8685d46-99fc-44b3-be95-707a4b7b8327",
+  "oracle_id": "e19d5071-4ea1-4883-b067-a21e553f96e0",
+  "name": "Hidden Courtyard",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\n{4}{W}, {T}, Sacrifice this land: Discover 4. Activate only as a sorcery. (Exile cards from the top of your library until you exile a nonland card with mana value 4 or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "274",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,38 @@
+{
+  "id": "303d51ab-b9c4-4647-950f-291daabe7b81",
+  "oracle_id": "c0cbb347-b060-43ce-a9c5-8c835be3cf1b",
+  "name": "Azor's Gateway // Sanctum of the Sun",
+  "mana_cost": null,
+  "type_line": "Legendary Artifact // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [],
+  "set": "rix",
+  "set_name": "Rivals of Ixalan",
+  "collector_number": "176",
+  "rarity": "mythic",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Azor's Gateway",
+      "mana_cost": "{2}",
+      "type_line": "Legendary Artifact",
+      "oracle_text": "{1}, {T}: Draw a card, then exile a card from your hand. If cards with five or more different mana values are exiled with Azor's Gateway, you gain 5 life, untap Azor's Gateway, and transform it.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Sanctum of the Sun",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Azor's Gateway.)\n{T}: Add X mana of any one color, where X is your life total.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

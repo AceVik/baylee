@@ -1,0 +1,22 @@
+{
+  "id": "9c7c08fc-b6ee-498c-8ab6-fd6be27c9d97",
+  "oracle_id": "aa00ae0b-7c0f-427e-8102-ce0e2a6af5df",
+  "name": "Orzhov Basilica",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {W}{B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "292",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

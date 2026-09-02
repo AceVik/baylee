@@ -1,0 +1,22 @@
+{
+  "id": "bfac9395-7ca5-48dd-ab83-7c26ada12f61",
+  "oracle_id": "1cb9d94a-3039-4f2e-8fcc-6996f9a45f74",
+  "name": "Izzet Boilerworks",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {U}{R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "otc",
+  "set_name": "Outlaws of Thunder Junction Commander",
+  "collector_number": "302",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

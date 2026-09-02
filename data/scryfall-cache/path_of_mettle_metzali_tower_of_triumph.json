@@ -1,0 +1,41 @@
+{
+  "id": "66d9d524-3611-48d9-86c9-48e509e8ae70",
+  "oracle_id": "db9ea3f9-c723-422f-98cc-a3ef7ca2c290",
+  "name": "Path of Mettle // Metzali, Tower of Triumph",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "rix",
+  "set_name": "Rivals of Ixalan",
+  "collector_number": "165",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Path of Mettle",
+      "mana_cost": "{R}{W}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "When Path of Mettle enters, it deals 1 damage to each creature that doesn't have first strike, double strike, vigilance, or haste.\nWhenever you attack with at least two creatures that have first strike, double strike, vigilance, and/or haste, transform Path of Mettle.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Metzali, Tower of Triumph",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Path of Mettle.)\n{T}: Add one mana of any color.\n{1}{R}, {T}: Metzali deals 2 damage to each opponent.\n{2}{W}, {T}: Choose a creature at random that attacked this turn. Destroy that creature.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

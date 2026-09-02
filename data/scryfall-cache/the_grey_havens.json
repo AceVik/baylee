@@ -1,0 +1,19 @@
+{
+  "id": "dd698f10-b0fc-42fc-84ec-f5a0d96bfa1d",
+  "oracle_id": "a1a9695e-073b-4a65-b3ec-2cfddc23202a",
+  "name": "The Grey Havens",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "When The Grey Havens enters, scry 1.\n{T}: Add {C}.\n{T}: Add one mana of any color among legendary creature cards in your graveyard.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ltr",
+  "set_name": "The Lord of the Rings: Tales of Middle-earth",
+  "collector_number": "255",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "758d93d5-3f66-4395-a928-000485396c87",
+  "oracle_id": "c52eaa87-9251-4a47-83fd-04e582ade612",
+  "name": "Willowrush Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {U}.\n{T}: Add {G}. Activate only if you control a Forest or an Island.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "270",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

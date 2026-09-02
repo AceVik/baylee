@@ -1,0 +1,23 @@
+{
+  "id": "8a605ce4-ede6-44dd-a2ea-e953902be6bd",
+  "oracle_id": "e13289e5-370b-435b-a38e-cf57c3078cec",
+  "name": "Rith's Grove",
+  "mana_cost": "",
+  "type_line": "Land — Lair",
+  "oracle_text": "When this land enters, sacrifice it unless you return a non-Lair land you control to its owner's hand.\n{T}: Add {R}, {G}, or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R",
+    "W"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "255",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

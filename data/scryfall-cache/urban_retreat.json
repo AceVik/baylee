@@ -1,0 +1,23 @@
+{
+  "id": "2581f320-8238-413d-ab04-d5535da55630",
+  "oracle_id": "18290c4b-cff6-4ee5-a487-fe0d5706d3de",
+  "name": "Urban Retreat",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}, {W}, or {U}.\n{2}, Return a tapped creature you control to its owner's hand: Put this card from your hand onto the battlefield. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U",
+    "W"
+  ],
+  "set": "spm",
+  "set_name": "Marvel's Spider-Man",
+  "collector_number": "187",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

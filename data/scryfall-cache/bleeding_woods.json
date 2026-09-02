@@ -1,0 +1,22 @@
+{
+  "id": "cb224874-aff5-461f-82ee-89b06663231a",
+  "oracle_id": "47b6d2ae-d3d7-41eb-9172-2076eb8d028d",
+  "name": "Bleeding Woods",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless a player has 13 or less life.\n{T}: Add {R} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "257",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

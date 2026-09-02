@@ -1,0 +1,40 @@
+{
+  "id": "068bc755-9d3d-430b-abc5-c775a5415bf9",
+  "oracle_id": "4f4358cb-59df-46d9-be27-69929f5a615c",
+  "name": "Ishgard, the Holy See // Faith & Grief",
+  "mana_cost": "{3}{W}{W}",
+  "type_line": "Land — Town // Sorcery — Adventure",
+  "oracle_text": null,
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "283",
+  "rarity": "rare",
+  "layout": "adventure",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Ishgard, the Holy See",
+      "mana_cost": "",
+      "type_line": "Land — Town",
+      "oracle_text": "This land enters tapped.\n{T}: Add {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Faith & Grief",
+      "mana_cost": "{3}{W}{W}",
+      "type_line": "Sorcery — Adventure",
+      "oracle_text": "Return up to two target artifact and/or enchantment cards from your graveyard to your hand. (Then exile this card. You may play the land later from exile.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

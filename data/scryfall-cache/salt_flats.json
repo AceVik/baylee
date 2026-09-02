@@ -1,0 +1,22 @@
+{
+  "id": "93e98e1f-5a51-41b4-b636-86a58e712849",
+  "oracle_id": "7a951bd7-4f7d-44ea-9c2f-fe2f6b2f5289",
+  "name": "Salt Flats",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "242",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

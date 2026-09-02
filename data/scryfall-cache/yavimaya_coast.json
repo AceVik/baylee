@@ -1,0 +1,22 @@
+{
+  "id": "f4c1500b-1f4c-4d33-810c-25e3bb0a4666",
+  "oracle_id": "40b36bc6-c185-4bda-99e7-0118953c2c97",
+  "name": "Yavimaya Coast",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {G} or {U}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "425",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

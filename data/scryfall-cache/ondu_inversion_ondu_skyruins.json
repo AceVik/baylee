@@ -1,0 +1,40 @@
+{
+  "id": "b6e6be8c-41c3-4348-a8dd-b40ceb24e9b4",
+  "oracle_id": "15fc4e74-300e-4c2d-8ed7-004553b2f7c2",
+  "name": "Ondu Inversion // Ondu Skyruins",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "W"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "30",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Ondu Inversion",
+      "mana_cost": "{6}{W}{W}",
+      "type_line": "Sorcery",
+      "oracle_text": "Destroy all nonland permanents.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Ondu Skyruins",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

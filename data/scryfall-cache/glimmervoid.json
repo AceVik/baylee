@@ -1,0 +1,19 @@
+{
+  "id": "4a639687-d9e3-46a8-bc9f-6ca3912c46ab",
+  "oracle_id": "b92e9854-4527-4133-8615-e282a213e7e3",
+  "name": "Glimmervoid",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "At the beginning of the end step, if you control no artifacts, sacrifice this land.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "2xm",
+  "set_name": "Double Masters",
+  "collector_number": "319",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "52ce462b-e4de-4972-9e96-2e3d3a20d1fc",
+  "oracle_id": "e9a7dede-3968-4b0e-a707-419d46a6fec9",
+  "name": "Crosis's Catacombs",
+  "mana_cost": "",
+  "type_line": "Land — Lair",
+  "oracle_text": "When this land enters, sacrifice it unless you return a non-Lair land you control to its owner's hand.\n{T}: Add {U}, {B}, or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R",
+    "U"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "242",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

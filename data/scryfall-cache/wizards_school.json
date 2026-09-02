@@ -1,0 +1,23 @@
+{
+  "id": "cd736532-8e98-4f4a-b48f-a66c57efcbfd",
+  "oracle_id": "51635f96-af1d-4b33-9118-432495aaf07f",
+  "name": "Wizards' School",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add {U}.\n{2}, {T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U",
+    "W"
+  ],
+  "set": "hml",
+  "set_name": "Homelands",
+  "collector_number": "115",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

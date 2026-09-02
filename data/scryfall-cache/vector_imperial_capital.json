@@ -1,0 +1,22 @@
+{
+  "id": "10e5648e-4884-41e3-95f8-c76f6bca01e2",
+  "oracle_id": "8dcba63c-4701-4dc9-81f5-ca8e8933a3ba",
+  "name": "Vector, Imperial Capital",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "291",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

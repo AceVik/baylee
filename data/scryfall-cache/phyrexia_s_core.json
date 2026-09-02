@@ -1,0 +1,19 @@
+{
+  "id": "8d8df09f-d22f-4f29-b920-358433f81b76",
+  "oracle_id": "b6cc062c-eb39-46ee-bd6d-17f1db0ac50d",
+  "name": "Phyrexia's Core",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice an artifact: You gain 1 life.",
+  "colors": [],
+  "color_identity": [],
+  "set": "c21",
+  "set_name": "Commander 2021",
+  "collector_number": "309",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

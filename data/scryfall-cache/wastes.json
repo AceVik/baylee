@@ -1,0 +1,19 @@
+{
+  "id": "baf8f4f2-9f25-4cd2-8d78-1041e134aeac",
+  "oracle_id": "05d24b0c-904a-46b6-b42a-96a4d91a0dd4",
+  "name": "Wastes",
+  "mana_cost": "",
+  "type_line": "Basic Land",
+  "oracle_text": "{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "191",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

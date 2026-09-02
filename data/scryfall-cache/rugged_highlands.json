@@ -1,0 +1,22 @@
+{
+  "id": "31261eca-28ad-407c-84ef-0c124d0d7451",
+  "oracle_id": "6c922206-6e68-4dcd-9559-88da1074f2c4",
+  "name": "Rugged Highlands",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {R} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "265",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

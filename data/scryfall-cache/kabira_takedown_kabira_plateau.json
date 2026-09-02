@@ -1,0 +1,40 @@
+{
+  "id": "366e9845-019d-47cc-adb8-8fbbaad35b6d",
+  "oracle_id": "0bb73c07-0220-4ba9-8d85-3c357c223833",
+  "name": "Kabira Takedown // Kabira Plateau",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "W"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "19",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Kabira Takedown",
+      "mana_cost": "{1}{W}",
+      "type_line": "Instant",
+      "oracle_text": "Kabira Takedown deals damage equal to the number of creatures you control to target creature or planeswalker.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Kabira Plateau",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

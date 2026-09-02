@@ -1,0 +1,19 @@
+{
+  "id": "64db46d4-f91f-49cc-971c-b8e19f0c4ea9",
+  "oracle_id": "b26cfeb0-7bbe-4d93-8eed-e832f175a80c",
+  "name": "Crossroads Village",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "276",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

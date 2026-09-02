@@ -1,0 +1,19 @@
+{
+  "id": "bfb5d83f-2b7c-4c22-ac37-938e7cd1654a",
+  "oracle_id": "ae4a18ec-70a3-4d21-b9e5-b13ab4901600",
+  "name": "Frostwalk Bastion",
+  "mana_cost": "",
+  "type_line": "Snow Land",
+  "oracle_text": "{T}: Add {C}.\n{1}{S}: Until end of turn, this land becomes a 2/3 Construct artifact creature. It's still a land. ({S} can be paid with one mana from a snow source.)\nWhenever this land deals combat damage to a creature, tap that creature and it doesn't untap during its controller's next untap step.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh1",
+  "set_name": "Modern Horizons",
+  "collector_number": "240",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

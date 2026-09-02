@@ -1,0 +1,22 @@
+{
+  "id": "e9320033-d8d7-4a01-80db-60de222040e6",
+  "oracle_id": "75a49bce-ab48-44d6-906d-6f51a30702ba",
+  "name": "Frost Marsh",
+  "mana_cost": "",
+  "type_line": "Snow Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "csp",
+  "set_name": "Coldsnap",
+  "collector_number": "146",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

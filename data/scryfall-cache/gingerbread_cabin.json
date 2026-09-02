@@ -1,0 +1,21 @@
+{
+  "id": "3b583cc8-95e6-4772-afe3-d405b65836e0",
+  "oracle_id": "fa98c367-0312-49c6-abef-72e5ead4cc7d",
+  "name": "Gingerbread Cabin",
+  "mana_cost": "",
+  "type_line": "Land — Forest",
+  "oracle_text": "({T}: Add {G}.)\nThis land enters tapped unless you control three or more other Forests.\nWhen this land enters untapped, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "c21",
+  "set_name": "Commander 2021",
+  "collector_number": "290",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

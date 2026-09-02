@@ -1,0 +1,21 @@
+{
+  "id": "90fedf90-825c-4814-8f0d-170f537db44c",
+  "oracle_id": "f002be6a-e459-49c4-b765-062e30107439",
+  "name": "Tomb of Urami",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {B}. Tomb of Urami deals 1 damage to you if you don't control an Ogre.\n{2}{B}{B}, {T}, Sacrifice all lands you control: Create Urami, a legendary 5/5 black Demon Spirit creature token with flying.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "sok",
+  "set_name": "Saviors of Kamigawa",
+  "collector_number": "165",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

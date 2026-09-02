@@ -1,0 +1,21 @@
+{
+  "id": "8f4ab639-b439-462e-acc3-69b5d6bb29da",
+  "oracle_id": "0c25f6b1-8fb3-4406-9605-0282d2dbbcec",
+  "name": "Faerie Conclave",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\n{1}{U}: This land becomes a 2/1 blue Faerie creature with flying until end of turn. It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "cma",
+  "set_name": "Commander Anthology",
+  "collector_number": "248",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

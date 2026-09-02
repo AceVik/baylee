@@ -1,0 +1,40 @@
+{
+  "id": "8a837256-6bb4-4a60-962d-d2793548d26c",
+  "oracle_id": "4e34a49d-f031-48ac-a458-97b79124b76c",
+  "name": "Midgar, City of Mako // Reactor Raid",
+  "mana_cost": "{2}{B}",
+  "type_line": "Land — Town // Sorcery — Adventure",
+  "oracle_text": null,
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "286",
+  "rarity": "rare",
+  "layout": "adventure",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Midgar, City of Mako",
+      "mana_cost": "",
+      "type_line": "Land — Town",
+      "oracle_text": "This land enters tapped.\n{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Reactor Raid",
+      "mana_cost": "{2}{B}",
+      "type_line": "Sorcery — Adventure",
+      "oracle_text": "You may sacrifice an artifact or creature. If you do, draw two cards. (Then exile this card. You may play the land later from exile.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

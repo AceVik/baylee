@@ -1,0 +1,22 @@
+{
+  "id": "da54e458-1d4f-45f0-a225-99eb9c4049fb",
+  "oracle_id": "a3faf70d-c034-4692-9e92-1922029e3852",
+  "name": "Rustvale Bridge",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "This land enters tapped.\nIndestructible\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "175",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

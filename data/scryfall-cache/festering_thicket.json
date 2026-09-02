@@ -1,0 +1,22 @@
+{
+  "id": "f71c87db-54ea-4611-8692-096d9714d854",
+  "oracle_id": "bdb9b2ce-342c-4935-8943-d0c3971b1e38",
+  "name": "Festering Thicket",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Forest",
+  "oracle_text": "({T}: Add {B} or {G}.)\nThis land enters tapped.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "371",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

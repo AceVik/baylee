@@ -1,0 +1,19 @@
+{
+  "id": "9ee3c4f0-ec6b-48cd-b1be-4620aea337d6",
+  "oracle_id": "3893f320-47fd-49ec-a78c-80bfb607a279",
+  "name": "Isolated Watchtower",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Scry 1, then you may reveal the top card of your library. If a basic land card is revealed this way, put it onto the battlefield tapped. Activate only if an opponent controls at least two more lands than you.",
+  "colors": [],
+  "color_identity": [],
+  "set": "c18",
+  "set_name": "Commander 2018",
+  "collector_number": "59",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

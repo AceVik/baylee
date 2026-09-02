@@ -1,0 +1,41 @@
+{
+  "id": "70a25a3a-c12a-49d3-8a91-a108dfa9d3c5",
+  "oracle_id": "bbd569cc-bc21-46df-b8eb-5b5bcd8fe762",
+  "name": "Rush of Inspiration // Crackling Falls",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "257",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Rush of Inspiration",
+      "mana_cost": "{1}{U/R}{U/R}",
+      "type_line": "Instant",
+      "oracle_text": "Draw two cards. Then discard a card at random unless you pay {E}{E} (two energy counters).",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Crackling Falls",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {U} or {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "f67fd04f-05da-4418-97de-abeb7346cc69",
+  "oracle_id": "f780ee53-62b0-4c32-b5b7-047651f48e5f",
+  "name": "Hidden Necropolis",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}.\n{4}{B}, {T}, Sacrifice this land: Discover 4. Activate only as a sorcery. (Exile cards from the top of your library until you exile a nonland card with mana value 4 or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "275",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

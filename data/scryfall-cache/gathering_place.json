@@ -1,0 +1,22 @@
+{
+  "id": "081cdbd0-5081-4a9e-90ba-f5baf4ac137e",
+  "oracle_id": "36b58705-c5a5-4547-8d8b-a7c35e1f69ae",
+  "name": "Gathering Place",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {G} or {W}. Activate only if this land entered this turn or if you control a basic land.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "266",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

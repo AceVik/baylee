@@ -1,0 +1,40 @@
+{
+  "id": "62061e7c-cf19-4f03-b8fa-2bdba62d6b0b",
+  "oracle_id": "0355249a-8e4e-41db-9cea-1b901faffbe6",
+  "name": "Witch Enchanter // Witch-Blessed Meadow",
+  "mana_cost": null,
+  "type_line": "Creature — Human Warlock // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "W"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "239",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Witch Enchanter",
+      "mana_cost": "{3}{W}",
+      "type_line": "Creature — Human Warlock",
+      "oracle_text": "When this creature enters, destroy target artifact or enchantment an opponent controls.",
+      "power": "2",
+      "toughness": "2",
+      "loyalty": null
+    },
+    {
+      "name": "Witch-Blessed Meadow",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "658cfcb7-81b7-48c6-9dd2-1663d06108cf",
+  "oracle_id": "94e8b0a9-44a1-4dce-8d44-78681ae638a1",
+  "name": "Fountainport",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}, Sacrifice a token: Draw a card.\n{3}, {T}, Pay 1 life: Create a 1/1 blue Fish creature token.\n{4}, {T}: Create a Treasure token.",
+  "colors": [],
+  "color_identity": [],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "253",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

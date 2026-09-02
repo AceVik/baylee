@@ -1,0 +1,21 @@
+{
+  "id": "d4929e39-fccc-450b-bb18-f5ad56a397bd",
+  "oracle_id": "f922f90a-b1a2-4630-9266-40726ca89f74",
+  "name": "Jungle Basin",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Forest you control to its owner's hand.\n{T}: Add {C}{G}.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "484",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

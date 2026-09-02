@@ -1,0 +1,41 @@
+{
+  "id": "c16ba84e-a0cc-4c6c-9b80-713247b8fef9",
+  "oracle_id": "72205fac-a94a-45cc-94c6-40ece2fdce0e",
+  "name": "Storm the Vault // Vault of Catlacan",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "rix",
+  "set_name": "Rivals of Ixalan",
+  "collector_number": "173",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Storm the Vault",
+      "mana_cost": "{2}{U}{R}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "Whenever one or more creatures you control deal combat damage to a player, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nAt the beginning of your end step, if you control five or more artifacts, transform Storm the Vault.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Vault of Catlacan",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Storm the Vault.)\n{T}: Add one mana of any color.\n{T}: Add {U} for each artifact you control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

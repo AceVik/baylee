@@ -1,0 +1,19 @@
+{
+  "id": "894aa6b6-0d08-4c43-8734-9cb7b31359c6",
+  "oracle_id": "86fb3749-37d6-48a6-8524-71e996850307",
+  "name": "High Market",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice a creature: You gain 1 life.",
+  "colors": [],
+  "color_identity": [],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "380",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

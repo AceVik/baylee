@@ -1,0 +1,22 @@
+{
+  "id": "466fd4e6-f1dd-40c9-92df-1da48ab729d6",
+  "oracle_id": "32c91719-f3dd-4cc7-9e32-7d5ccf18f07c",
+  "name": "Radiant Grove",
+  "mana_cost": "",
+  "type_line": "Land — Forest Plains",
+  "oracle_text": "({T}: Add {G} or {W}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "385",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

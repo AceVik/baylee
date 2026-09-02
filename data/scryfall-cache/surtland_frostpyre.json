@@ -1,0 +1,22 @@
+{
+  "id": "0b02149a-4a8f-4be9-9944-3d216248b549",
+  "oracle_id": "965aa666-3919-4053-8584-b773bdd54f0b",
+  "name": "Surtland Frostpyre",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\n{2}{U}{U}{R}, {T}, Sacrifice this land: Scry 2. This land deals 2 damage to each creature. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "271",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

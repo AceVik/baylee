@@ -1,0 +1,22 @@
+{
+  "id": "8f14540a-479f-4a3c-8e5b-f482caf48451",
+  "oracle_id": "081bfd50-a436-463b-9d2c-5bc8a32b387c",
+  "name": "Silverbluff Bridge",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "This land enters tapped.\nIndestructible\n{T}: Add {U} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "180",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

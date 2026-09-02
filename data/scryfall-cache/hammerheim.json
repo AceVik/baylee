@@ -1,0 +1,21 @@
+{
+  "id": "773acde9-504c-4065-95e0-f96428f05a7d",
+  "oracle_id": "c7476beb-7923-4994-8476-bc69187ecb72",
+  "name": "Hammerheim",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {R}.\n{T}: Target creature loses all landwalk abilities until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "me3",
+  "set_name": "Masters Edition III",
+  "collector_number": "207",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "77619840-963f-4ff7-9a42-b36e3d53646d",
+  "oracle_id": "e887fb3f-d4c9-4022-8f75-1de6ec94af96",
+  "name": "Woodland Stream",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "503",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

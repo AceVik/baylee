@@ -1,0 +1,19 @@
+{
+  "id": "68489d65-1978-48b1-a903-2ef38c583239",
+  "oracle_id": "35922a30-6b84-44dd-a2f0-306554a1ae90",
+  "name": "Heap Gate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{1}, {T}, Tap an untapped Gate you control: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "colors": [],
+  "color_identity": [],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "354",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

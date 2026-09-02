@@ -1,0 +1,21 @@
+{
+  "id": "83f90da4-9b01-431d-83b1-f54c132efec1",
+  "oracle_id": "38ba1956-5505-4a7a-b6af-e75715b1401f",
+  "name": "Dormant Volcano",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Mountain you control to its owner's hand.\n{T}: Add {C}{R}.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "cm2",
+  "set_name": "Commander Anthology Volume II",
+  "collector_number": "246",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

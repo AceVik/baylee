@@ -1,0 +1,22 @@
+{
+  "id": "3cf60ca0-e01f-499c-8d04-d59050f38c33",
+  "oracle_id": "f746612a-fbed-44ca-b2cc-5928e10cf4bb",
+  "name": "Grove of the Guardian",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{3}{G}{W}, {T}, Tap two untapped creatures you control, Sacrifice this land: Create an 8/8 green and white Elemental creature token with vigilance.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "rtr",
+  "set_name": "Return to Ravnica",
+  "collector_number": "240",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "f8900b89-0e10-4602-bba2-da8d60ea5885",
+  "oracle_id": "6ccca5c2-66c3-495a-8d9e-1a9805569e52",
+  "name": "Etched Cornfield",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless a player has 13 or less life.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "258",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

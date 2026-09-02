@@ -1,0 +1,40 @@
+{
+  "id": "c5cb3052-358d-44a7-8cfd-cd31b236494a",
+  "oracle_id": "d2075f58-b0e9-4e85-b7e6-0523a27a1d5b",
+  "name": "Bala Ged Recovery // Bala Ged Sanctuary",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "180",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Bala Ged Recovery",
+      "mana_cost": "{2}{G}",
+      "type_line": "Sorcery",
+      "oracle_text": "Return target card from your graveyard to your hand.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Bala Ged Sanctuary",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

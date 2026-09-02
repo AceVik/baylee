@@ -1,0 +1,19 @@
+{
+  "id": "e28eac1e-adc7-4f8d-b206-bef09ba07d38",
+  "oracle_id": "84856b92-5ce8-47f3-9a1c-78d6a3e26aca",
+  "name": "Eden, Seat of the Sanctum",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "{T}: Add {C}.\n{5}, {T}: Mill two cards. Then you may sacrifice this land. When you do, return another target permanent card from your graveyard to your hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "277",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "22acccd2-4e9d-46de-a060-863b08152e50",
+  "oracle_id": "f1603384-4361-49c9-98aa-7785fc3504c4",
+  "name": "Cascade Bluffs",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{U/R}, {T}: Add {U}{U}, {U}{R}, or {R}{R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "364",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

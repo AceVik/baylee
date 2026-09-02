@@ -1,0 +1,22 @@
+{
+  "id": "b34000e9-ff20-4fb4-9d0b-03a172a92457",
+  "oracle_id": "5ad0b405-cca4-475e-985c-4d7e3599d87e",
+  "name": "Sundown Pass",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "sos",
+  "set_name": "Secrets of Strixhaven",
+  "collector_number": "264",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

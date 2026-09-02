@@ -1,0 +1,21 @@
+{
+  "id": "ea077cff-b5c9-4a40-8e66-8810c37be5cb",
+  "oracle_id": "6bc8fd7e-7616-484a-ac23-04d37c93733b",
+  "name": "Piranha Marsh",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target player loses 1 life.\n{T}: Add {B}.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "zen",
+  "set_name": "Zendikar",
+  "collector_number": "222",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

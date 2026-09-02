@@ -1,0 +1,22 @@
+{
+  "id": "81b619cc-900c-4d65-83da-8b9dcb370984",
+  "oracle_id": "5dd0cc44-4647-4857-ad3b-22494099d08a",
+  "name": "Radiant Summit",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Plains",
+  "oracle_text": "({T}: Add {R} or {W}.)\nThis land enters tapped unless you control two or more basic lands.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "258",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

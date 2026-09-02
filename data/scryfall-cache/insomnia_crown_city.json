@@ -1,0 +1,22 @@
+{
+  "id": "07fca511-a65c-4779-82c0-9215b0dcd068",
+  "oracle_id": "b7140f72-91b6-4be4-8d71-c019e64c2351",
+  "name": "Insomnia, Crown City",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "282",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

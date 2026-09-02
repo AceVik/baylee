@@ -1,0 +1,19 @@
+{
+  "id": "a0931eb3-b403-4b1a-ad46-a7b0a51bb9a4",
+  "oracle_id": "3c43efd6-b1a8-452c-ae20-9a936c3340ab",
+  "name": "Treasure Vault",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "{T}: Add {C}.\n{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens.",
+  "colors": [],
+  "color_identity": [],
+  "set": "afr",
+  "set_name": "Adventures in the Forgotten Realms",
+  "collector_number": "261",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

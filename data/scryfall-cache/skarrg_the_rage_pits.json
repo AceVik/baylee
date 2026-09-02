@@ -1,0 +1,22 @@
+{
+  "id": "3340d094-fe13-4087-abba-27e8c9a7f3c7",
+  "oracle_id": "92bac34e-2045-4331-842f-185711c1ac56",
+  "name": "Skarrg, the Rage Pits",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{R}{G}, {T}: Target creature gets +1/+1 and gains trample until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "pca",
+  "set_name": "Planechase Anthology",
+  "collector_number": "127",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

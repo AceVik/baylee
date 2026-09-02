@@ -1,0 +1,22 @@
+{
+  "id": "0bbd24cd-48f7-40d7-9741-f30108f04b84",
+  "oracle_id": "6cb37ac1-dd11-4a8c-bca5-ef44d828059f",
+  "name": "Razortide Bridge",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "This land enters tapped.\nIndestructible\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "171",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

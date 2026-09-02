@@ -1,0 +1,21 @@
+{
+  "id": "6b885829-a323-4f7d-87c9-aa4615dcbe5c",
+  "oracle_id": "22d0a848-2126-48f0-9050-38daaf93b1d0",
+  "name": "Agna Qel'a",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a basic land.\n{T}: Add {U}.\n{2}{U}, {T}: Draw a card, then discard a card.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "264",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

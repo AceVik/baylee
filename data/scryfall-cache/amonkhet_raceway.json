@@ -1,0 +1,19 @@
+{
+  "id": "4f312807-ea2a-4385-8774-4e23b4a5d4a6",
+  "oracle_id": "fe174586-d36b-40f6-babd-1f98e76eec22",
+  "name": "Amonkhet Raceway",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Start your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)\n{T}: Add {C}.\nMax speed — {T}: Target creature gains haste until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "248",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

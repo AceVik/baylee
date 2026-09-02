@@ -1,0 +1,19 @@
+{
+  "id": "cd7be9d4-f9fa-44a3-9902-7e9e226ccf56",
+  "oracle_id": "f1e03d99-024a-430b-9342-ffd2268bd103",
+  "name": "Mariposa Military Base",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "You may have this land enter tapped. If you do, you get two rad counters.\n{T}: Add {C}.\n{5}, {T}: Draw a card. This ability costs {1} less to activate for each rad counter you have.",
+  "colors": [],
+  "color_identity": [],
+  "set": "pip",
+  "set_name": "Fallout",
+  "collector_number": "151",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

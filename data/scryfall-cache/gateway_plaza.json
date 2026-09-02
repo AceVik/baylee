@@ -1,0 +1,19 @@
+{
+  "id": "81d69cf2-8643-4926-857e-febbd54d870f",
+  "oracle_id": "a6543f71-0326-4e1f-b58f-9ce325d5d036",
+  "name": "Gateway Plaza",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you pay {1}.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "war",
+  "set_name": "War of the Spark",
+  "collector_number": "246",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

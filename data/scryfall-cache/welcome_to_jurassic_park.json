@@ -1,0 +1,40 @@
+{
+  "id": "6d84e2d4-38bf-4d46-99a6-37c2dda66b16",
+  "oracle_id": "a4b37d16-95b3-4143-a0b2-ad9f2aba91f8",
+  "name": "Welcome to . . . // Jurassic Park",
+  "mana_cost": null,
+  "type_line": "Enchantment — Saga // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G"
+  ],
+  "set": "rex",
+  "set_name": "Jurassic World Collection",
+  "collector_number": "7",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Welcome to . . .",
+      "mana_cost": "{1}{G}{G}",
+      "type_line": "Enchantment — Saga",
+      "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — For each opponent, up to one target noncreature artifact they control becomes a 0/4 Wall artifact creature with defender for as long as you control this Saga.\nII — Create a 3/3 green Dinosaur creature token with trample. It gains haste until end of turn.\nIII — Destroy all Walls. Exile this Saga, then return it to the battlefield transformed under your control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Jurassic Park",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Welcome to ....)\nEach Dinosaur card in your graveyard has escape. The escape cost is equal to the card's mana cost plus exile three other cards from your graveyard. (You may cast cards from your graveyard for their escape cost.)\n{T}: Add {G} for each Dinosaur you control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "3f2f8396-72ab-4387-9276-987836427107",
+  "oracle_id": "20b549e9-26db-40a5-8bcc-e8de6c559d32",
+  "name": "Boreal Shelf",
+  "mana_cost": "",
+  "type_line": "Snow Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "csp",
+  "set_name": "Coldsnap",
+  "collector_number": "144",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "d5f88c3d-b17b-46aa-a573-449350f95d46",
+  "oracle_id": "e3614df6-ce84-4180-ade1-a1751e8e3c9a",
+  "name": "Asgardian Citadel",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "258",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

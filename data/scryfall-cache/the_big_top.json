@@ -1,0 +1,19 @@
+{
+  "id": "7e8c98d7-a5c4-41ce-9179-0f06ae72b7f4",
+  "oracle_id": "eb6a0eb4-994a-4516-9339-c22e62c40a95",
+  "name": "The Big Top",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add one mana of any color that appears on your top. (A top is an outerwear garment worn on the upper body.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "unf",
+  "set_name": "Unfinity",
+  "collector_number": "197",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

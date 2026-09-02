@@ -1,0 +1,22 @@
+{
+  "id": "c50ec22c-decb-419f-ae52-78ea1706eb11",
+  "oracle_id": "0aea7e5d-40d7-46c7-a8a6-479cb8061e49",
+  "name": "Idyllic Beachfront",
+  "mana_cost": "",
+  "type_line": "Land — Plains Island",
+  "oracle_text": "({T}: Add {W} or {U}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "dmu",
+  "set_name": "Dominaria United",
+  "collector_number": "249",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

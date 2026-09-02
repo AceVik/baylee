@@ -1,0 +1,19 @@
+{
+  "id": "6e54bace-7484-484e-987e-8d3a9a430ab9",
+  "oracle_id": "a9789ce4-69cf-435c-b99a-78a21609830c",
+  "name": "Dread Statuary",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}: This land becomes a 4/2 Golem artifact creature until end of turn. It's still a land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cn2",
+  "set_name": "Conspiracy: Take the Crown",
+  "collector_number": "217",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

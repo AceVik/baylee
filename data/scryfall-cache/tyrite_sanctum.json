@@ -1,0 +1,19 @@
+{
+  "id": "27906645-7d43-4c18-a20b-8d683069351e",
+  "oracle_id": "38c83332-2d21-450c-ae97-34109b565f59",
+  "name": "Tyrite Sanctum",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Target legendary creature becomes a God in addition to its other types. Put a +1/+1 counter on it.\n{4}, {T}, Sacrifice this land: Put an indestructible counter on target God.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1049",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "bb089097-1eed-4e72-a715-579ddd8307a0",
+  "oracle_id": "d1946630-e224-40db-8f0d-388b09622288",
+  "name": "Thriving Heath",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped. As it enters, choose a color other than white.\n{T}: Add {W} or one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "580",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "156df6eb-1ac9-4954-bf93-b1668096b8bd",
+  "oracle_id": "5f42b67f-87fd-4f98-a0e8-0c8313f4bbc8",
+  "name": "Shipwreck Marsh",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "inr",
+  "set_name": "Innistrad Remastered",
+  "collector_number": "284",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

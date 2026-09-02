@@ -1,0 +1,21 @@
+{
+  "id": "c1752b65-dace-4c87-b102-23df276b2e41",
+  "oracle_id": "e90a1381-c9c1-4f57-928c-5d19dc065274",
+  "name": "Shivan Gorge",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {C}.\n{2}{R}, {T}: Shivan Gorge deals 1 damage to each opponent.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "297",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

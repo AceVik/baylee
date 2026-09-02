@@ -1,0 +1,19 @@
+{
+  "id": "9243eb5b-905e-446f-9ee0-7557e3b31db3",
+  "oracle_id": "3b7e7a11-bf59-413d-8796-640d17c2c1c6",
+  "name": "Nephalia Academy",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If a spell or ability an opponent controls causes you to discard a card, you may reveal that card and put it on top of your library instead of putting it anywhere else.\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "emn",
+  "set_name": "Eldritch Moon",
+  "collector_number": "205",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

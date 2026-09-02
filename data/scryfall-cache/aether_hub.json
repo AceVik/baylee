@@ -1,0 +1,19 @@
+{
+  "id": "25ea04d8-5d85-49d3-8d8d-7fe123d0ed6c",
+  "oracle_id": "61c89b11-65c9-4fda-bbcd-d84de25df801",
+  "name": "Aether Hub",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, you get {E} (an energy counter).\n{T}: Add {C}.\n{T}, Pay {E}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "kld",
+  "set_name": "Kaladesh",
+  "collector_number": "242",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

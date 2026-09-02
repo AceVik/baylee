@@ -1,0 +1,40 @@
+{
+  "id": "d8ed0335-daa6-4dbe-a94d-4d56c8cfd093",
+  "oracle_id": "afedce7b-0e18-40ad-a26a-1933fddb560d",
+  "name": "Akoum Warrior // Akoum Teeth",
+  "mana_cost": null,
+  "type_line": "Creature — Minotaur Warrior // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "134",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Akoum Warrior",
+      "mana_cost": "{5}{R}",
+      "type_line": "Creature — Minotaur Warrior",
+      "oracle_text": "Trample",
+      "power": "4",
+      "toughness": "5",
+      "loyalty": null
+    },
+    {
+      "name": "Akoum Teeth",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

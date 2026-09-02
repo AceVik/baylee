@@ -1,0 +1,22 @@
+{
+  "id": "72c6d541-e2cb-4d6e-acac-90a8f53b7006",
+  "oracle_id": "9ea747cf-5d04-4aa7-bdc3-8145860cd1ba",
+  "name": "Elegant Parlor",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Plains",
+  "oracle_text": "({T}: Add {R} or {W}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "mkm",
+  "set_name": "Murders at Karlov Manor",
+  "collector_number": "260",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

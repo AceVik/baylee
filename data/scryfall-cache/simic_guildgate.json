@@ -1,0 +1,22 @@
+{
+  "id": "96590855-1ee5-4d69-9070-776e23f71976",
+  "oracle_id": "e8705df9-6439-4930-91b6-229f818559af",
+  "name": "Simic Guildgate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "695",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

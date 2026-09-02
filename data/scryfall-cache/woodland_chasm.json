@@ -1,0 +1,22 @@
+{
+  "id": "b2dd0b71-5a60-418c-82fc-f13d1b5075d0",
+  "oracle_id": "bf5482b6-dd3e-4fb7-bc62-29e23b417a5f",
+  "name": "Woodland Chasm",
+  "mana_cost": "",
+  "type_line": "Snow Land — Swamp Forest",
+  "oracle_text": "({T}: Add {B} or {G}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "274",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

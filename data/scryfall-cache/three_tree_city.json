@@ -1,0 +1,19 @@
+{
+  "id": "56f88a48-cced-4a9d-8c19-e4f105f0d8a2",
+  "oracle_id": "da3b17a2-e1e1-44e9-b9b1-ae54a92037db",
+  "name": "Three Tree City",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "As Three Tree City enters, choose a creature type.\n{T}: Add {C}.\n{2}, {T}: Choose a color. Add an amount of mana of that color equal to the number of creatures you control of the chosen type.",
+  "colors": [],
+  "color_identity": [],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "260",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

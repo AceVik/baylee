@@ -1,0 +1,19 @@
+{
+  "id": "535f43c4-8926-4981-967d-f681f98e07d9",
+  "oracle_id": "0d3a06d5-5bb9-4733-a55b-9e2c75de6b6e",
+  "name": "Brotherhood Headquarters",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast an Assassin spell or a spell that has freerunning, or to activate an ability of an Assassin source.",
+  "colors": [],
+  "color_identity": [],
+  "set": "acr",
+  "set_name": "Assassin's Creed",
+  "collector_number": "80",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

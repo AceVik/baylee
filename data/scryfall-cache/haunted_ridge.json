@@ -1,0 +1,22 @@
+{
+  "id": "32f1e668-89b8-4f82-afc1-6c3efb1fef3b",
+  "oracle_id": "e2a37967-4212-4553-9f77-bcb613405807",
+  "name": "Haunted Ridge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "inr",
+  "set_name": "Innistrad Remastered",
+  "collector_number": "280",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

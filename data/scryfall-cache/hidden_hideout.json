@@ -1,0 +1,19 @@
+{
+  "id": "f356522c-018d-43c7-988a-9ef9829ae75c",
+  "oracle_id": "b639e1fe-d099-4cab-a0d0-a1b33c7f31dd",
+  "name": "Hidden Hideout",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add one mana of any color in your commander's color identity.\n{2}, {T}: Target creature you control with a counter on it gains lifelink until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tmc",
+  "set_name": "Teenage Mutant Ninja Turtles Eternal",
+  "collector_number": "43",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

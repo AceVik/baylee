@@ -1,0 +1,23 @@
+{
+  "id": "f8373e5a-94bb-4aa0-bd09-13a01e0cb02a",
+  "oracle_id": "7fbad3f2-66f6-4e3a-b9e0-1ddbcd94d42a",
+  "name": "Shattered Landscape",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Search your library for a basic Mountain, Plains, or Swamp card, put it onto the battlefield tapped, then shuffle.\nCycling {R}{W}{B} ({R}{W}{B}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R",
+    "W"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "390",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

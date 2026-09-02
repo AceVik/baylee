@@ -1,0 +1,19 @@
+{
+  "id": "f7ed919b-95ff-40fe-8f53-5d462c5d0205",
+  "oracle_id": "b66deeb5-7371-4f06-b10e-d65165bc07b2",
+  "name": "Painted Bluffs",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "otc",
+  "set_name": "Outlaws of Thunder Junction Commander",
+  "collector_number": "309",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

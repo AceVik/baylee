@@ -1,0 +1,19 @@
+{
+  "id": "c25ad164-4076-496d-833c-d607391b1ac8",
+  "oracle_id": "d27bb97d-286b-4947-8d7b-443e4df93319",
+  "name": "Nesting Grounds",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Move a counter from target permanent you control onto a second target permanent. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "155",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

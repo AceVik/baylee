@@ -1,0 +1,40 @@
+{
+  "id": "67f4c93b-080c-4196-b095-6a120a221988",
+  "oracle_id": "562d71b9-1646-474e-9293-55da6947a758",
+  "name": "Agadeem's Awakening // Agadeem, the Undercrypt",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "90",
+  "rarity": "mythic",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Agadeem's Awakening",
+      "mana_cost": "{X}{B}{B}{B}",
+      "type_line": "Sorcery",
+      "oracle_text": "Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Agadeem, the Undercrypt",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

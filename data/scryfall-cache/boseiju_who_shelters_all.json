@@ -1,0 +1,19 @@
+{
+  "id": "0180d9a8-992c-4d55-8ac4-33a587786993",
+  "oracle_id": "36937483-30cb-449a-8028-75017a124922",
+  "name": "Boseiju, Who Shelters All",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "Boseiju enters tapped.\n{T}, Pay 2 life: Add {C}. If that mana is spent on an instant or sorcery spell, that spell can't be countered.",
+  "colors": [],
+  "color_identity": [],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "273",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

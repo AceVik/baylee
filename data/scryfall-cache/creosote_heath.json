@@ -1,0 +1,22 @@
+{
+  "id": "c5523dac-7aa0-4486-89c8-3b22a1411f26",
+  "oracle_id": "c116b787-5f7e-47ef-a694-58709770dd32",
+  "name": "Creosote Heath",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, it deals 1 damage to target opponent.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "otj",
+  "set_name": "Outlaws of Thunder Junction",
+  "collector_number": "255",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,41 @@
+{
+  "id": "03522b6b-31ec-4126-8885-5dbb2248688b",
+  "oracle_id": "8dd6d060-d023-48a6-85cb-7a5521b6257b",
+  "name": "Revitalizing Repast // Old-Growth Grove",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "256",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Revitalizing Repast",
+      "mana_cost": "{B/G}",
+      "type_line": "Instant",
+      "oracle_text": "Put a +1/+1 counter on target creature. It gains indestructible until end of turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Old-Growth Grove",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {B} or {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

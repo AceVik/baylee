@@ -1,0 +1,22 @@
+{
+  "id": "aa3575e1-7d2c-4777-b469-16f7483bb8e7",
+  "oracle_id": "90bccf66-58ec-445d-ac96-c6013054a1b4",
+  "name": "Stone Quarry",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "495",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

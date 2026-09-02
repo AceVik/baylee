@@ -1,0 +1,22 @@
+{
+  "id": "1c2e2220-54d1-4180-93a0-964e3b0ba8b8",
+  "oracle_id": "6caabc45-4644-4941-a2f3-f04ee7b50a89",
+  "name": "Boiling Rock Prison",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.\n{4}, {T}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "267",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

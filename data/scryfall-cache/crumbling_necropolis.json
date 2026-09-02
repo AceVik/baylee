@@ -1,0 +1,23 @@
+{
+  "id": "d28542af-936f-44e5-a4e3-119f23c9f0d6",
+  "oracle_id": "7190debf-708b-4f41-9714-0d0a5bd5a74e",
+  "name": "Crumbling Necropolis",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}, {B}, or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R",
+    "U"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "237",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

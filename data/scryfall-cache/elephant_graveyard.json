@@ -1,0 +1,19 @@
+{
+  "id": "88e7d9d5-3bca-4791-b850-5ae104706042",
+  "oracle_id": "8ada7388-fd8b-434c-a17a-bce19cf3e615",
+  "name": "Elephant Graveyard",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Regenerate target Elephant.",
+  "colors": [],
+  "color_identity": [],
+  "set": "me4",
+  "set_name": "Masters Edition IV",
+  "collector_number": "244",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

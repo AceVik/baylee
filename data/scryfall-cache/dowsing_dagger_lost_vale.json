@@ -1,0 +1,38 @@
+{
+  "id": "514d53be-6ade-4f73-a844-e9ae2dafd6ce",
+  "oracle_id": "df34a6ad-ae1c-4470-8c9e-49815bba1973",
+  "name": "Dowsing Dagger // Lost Vale",
+  "mana_cost": null,
+  "type_line": "Artifact — Equipment // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [],
+  "set": "xln",
+  "set_name": "Ixalan",
+  "collector_number": "235",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Dowsing Dagger",
+      "mana_cost": "{2}",
+      "type_line": "Artifact — Equipment",
+      "oracle_text": "When this Equipment enters, target opponent creates two 0/2 green Plant creature tokens with defender.\nEquipped creature gets +2/+1.\nWhenever equipped creature deals combat damage to a player, you may transform this Equipment.\nEquip {2}",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Lost Vale",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "(Transforms from Dowsing Dagger.)\n{T}: Add three mana of any one color.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

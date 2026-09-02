@@ -1,0 +1,22 @@
+{
+  "id": "78897104-80e1-4d8a-9958-145b40f679e8",
+  "oracle_id": "f6d24565-5b32-4eff-b2e0-6e2c25516ff0",
+  "name": "Deathcap Glade",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "sos",
+  "set_name": "Secrets of Strixhaven",
+  "collector_number": "253",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

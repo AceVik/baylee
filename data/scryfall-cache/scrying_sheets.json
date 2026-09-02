@@ -1,0 +1,19 @@
+{
+  "id": "19e95422-c6fe-4750-916b-43bf22ae193a",
+  "oracle_id": "0f98e055-ab61-4314-aae8-9d3c19f66acf",
+  "name": "Scrying Sheets",
+  "mana_cost": "",
+  "type_line": "Snow Land",
+  "oracle_text": "{T}: Add {C}.\n{1}{S}, {T}: Look at the top card of your library. If that card is snow, you may reveal it and put it into your hand. ({S} can be paid with one mana from a snow source.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "csp",
+  "set_name": "Coldsnap",
+  "collector_number": "149",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

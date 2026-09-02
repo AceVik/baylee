@@ -1,0 +1,21 @@
+{
+  "id": "4216656e-90e8-45fc-a0f6-0d0d79d0a021",
+  "oracle_id": "f748b2fb-6c2a-400a-8e96-fa4e4a1dfe80",
+  "name": "Shelldock Isle",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nThis land enters tapped.\n{T}: Add {U}.\n{U}, {T}: You may play the exiled card without paying its mana cost if a library has twenty or fewer cards in it.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "lrw",
+  "set_name": "Lorwyn",
+  "collector_number": "272",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "d20e433a-eb62-4301-bc20-bfe27468b033",
+  "oracle_id": "63398c02-6fb1-481d-9d9f-81063532fbc0",
+  "name": "Dragonskull Summit",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Swamp or a Mountain.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "238",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

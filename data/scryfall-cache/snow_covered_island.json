@@ -1,0 +1,21 @@
+{
+  "id": "3bfa5ebc-5623-4eec-89ea-dc187489ee4a",
+  "oracle_id": "5b2460a5-6ae5-4cad-ba94-1a9e98e6e4c0",
+  "name": "Snow-Covered Island",
+  "mana_cost": "",
+  "type_line": "Basic Snow Land — Island",
+  "oracle_text": "({T}: Add {U}.)",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "278",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

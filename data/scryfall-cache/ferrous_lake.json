@@ -1,0 +1,22 @@
+{
+  "id": "92fa559c-a99b-4bc1-86c4-0c5eeeac9f4f",
+  "oracle_id": "62c15af0-40e1-407d-b056-7a3d909e3fdb",
+  "name": "Ferrous Lake",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{1}, {T}: Add {U}{R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "370",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

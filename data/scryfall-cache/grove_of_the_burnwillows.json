@@ -1,0 +1,22 @@
+{
+  "id": "de4b75ad-7539-4184-a940-6014a0327b3a",
+  "oracle_id": "d33c3fbb-8306-4c2d-b0dd-88f12639da94",
+  "name": "Grove of the Burnwillows",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {R} or {G}. Each opponent gains 1 life.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "ima",
+  "set_name": "Iconic Masters",
+  "collector_number": "238",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -8,8 +8,36 @@ use baylee_core::ids::CardIndex;
 /// All registered cards, sorted by oracle id for binary search.
 pub static ALL: &[(&str, &CardDef)] = &[
     (
+        "0056fc91-4398-471c-b561-7ff99750ac8a",
+        &crate::cards::escape_tunnel::CARD,
+    ),
+    (
+        "00625242-9348-4ef4-b975-f2ac82fee21d",
+        &crate::cards::savai_triome::CARD,
+    ),
+    (
+        "0070db93-142b-4d04-afd3-836792dc134b",
+        &crate::cards::sodden_verdure::CARD,
+    ),
+    (
+        "008f2698-1721-45a3-8353-10f2f400dc8f",
+        &crate::cards::shizo_death_s_storehouse::CARD,
+    ),
+    (
+        "00b34fab-5a80-4a4d-b6cf-72479197677a",
+        &crate::cards::timber_gorge::CARD,
+    ),
+    (
         "00c0543c-2a1f-4425-8283-4062d74a1637",
         &crate::cards::solemn_simulacrum::CARD,
+    ),
+    (
+        "00de57d2-7cb6-4337-9bc6-f6711e4dfabf",
+        &crate::cards::game_trail::CARD,
+    ),
+    (
+        "00ef1c55-dea1-4564-bd57-66de86cba4df",
+        &crate::cards::selesnya_sanctuary::CARD,
     ),
     (
         "01546b7d-a233-4176-8843-d732074dc5b6",
@@ -20,6 +48,30 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::metamorphosis_fanatic::CARD,
     ),
     (
+        "018129dd-f578-4fc9-b6f8-b13ed0c75a8d",
+        &crate::cards::urborg_volcano::CARD,
+    ),
+    (
+        "01ed9139-293d-4477-a145-3c6fe59266c7",
+        &crate::cards::airship_engine_room::CARD,
+    ),
+    (
+        "01ee70d4-6527-45ae-9600-bd3d16b3037d",
+        &crate::cards::illegitimate_business::CARD,
+    ),
+    (
+        "01fc5bb3-ebd7-4ab4-8aef-2ece1e1d9b7c",
+        &crate::cards::lotus_vale::CARD,
+    ),
+    (
+        "021e4165-2f02-4bd4-86ca-cb7bf4c9e23d",
+        &crate::cards::saltcrusted_steppe::CARD,
+    ),
+    (
+        "0222414f-98b5-458a-a0fd-831a66cd8b07",
+        &crate::cards::tainted_isle::CARD,
+    ),
+    (
         "0230de18-8d15-4cfa-9d42-7ccddd9f9570",
         &crate::cards::supreme_verdict::CARD,
     ),
@@ -28,20 +80,132 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::tundra::CARD,
     ),
     (
+        "02679a2e-303d-412f-87d8-0a37a8ca259c",
+        &crate::cards::blighted_woodland::CARD,
+    ),
+    (
+        "026f4a4b-eedd-44e1-9d37-ca4fb8d6db98",
+        &crate::cards::fiery_islet::CARD,
+    ),
+    (
         "027dd013-baa7-4111-b3c9-f4d1414e9c45",
         &crate::cards::glacial_fortress::CARD,
+    ),
+    (
+        "02f16726-f2f6-4943-b71a-93f8e26251d3",
+        &crate::cards::ancient_den::CARD,
+    ),
+    (
+        "032b8a0d-491a-4a12-ab9f-689010054d5b",
+        &crate::cards::prismatic_vista::CARD,
+    ),
+    (
+        "03332772-18b0-446a-a7e2-a4bdf38c4f0c",
+        &crate::cards::kazandu_refuge::CARD,
+    ),
+    (
+        "0355249a-8e4e-41db-9cea-1b901faffbe6",
+        &crate::cards::witch_enchanter::CARD,
+    ),
+    (
+        "03f5c566-825c-4c46-9c01-a2f9b1e70a13",
+        &crate::cards::the_mycosynth_gardens::CARD,
+    ),
+    (
+        "03fe19bb-8e22-4030-8299-2ddd2d5a7eb2",
+        &crate::cards::miren_the_moaning_well::CARD,
+    ),
+    (
+        "043192d8-6077-46c3-b43f-b7caf6762869",
+        &crate::cards::city_of_shadows::CARD,
+    ),
+    (
+        "044d2788-6daa-4849-a813-1f577eef9295",
+        &crate::cards::pit_of_offerings::CARD,
+    ),
+    (
+        "046f5783-cc7b-416a-8cf6-2bcef9c2cc1a",
+        &crate::cards::simic_growth_chamber::CARD,
+    ),
+    (
+        "0498ea14-53d9-4655-a616-0ff3cf73de4e",
+        &crate::cards::foundry_of_the_consuls::CARD,
     ),
     (
         "04b7362d-0490-4cb0-b5d7-2a7732f659ce",
         &crate::cards::bojuka_bog::CARD,
     ),
     (
+        "04e5e84f-8fd4-43ab-8f9d-5b24646f7ae5",
+        &crate::cards::raucous_theater::CARD,
+    ),
+    (
+        "04eeb9ad-5c59-411b-8809-db8349838588",
+        &crate::cards::westvale_abbey::CARD,
+    ),
+    (
+        "053a69d8-2b5e-4f14-8b02-ca405891dc4a",
+        &crate::cards::fell_the_profane::CARD,
+    ),
+    (
+        "05899372-9784-4bdb-9c28-504c71fed906",
+        &crate::cards::witch_s_clinic::CARD,
+    ),
+    (
+        "05d24b0c-904a-46b6-b42a-96a4d91a0dd4",
+        &crate::cards::wastes::CARD,
+    ),
+    (
         "0634091a-a74c-4cea-b6d1-7324a725554a",
         &crate::cards::eerie_interlude::CARD,
     ),
     (
+        "063dd25b-d4b4-4e09-acae-8c52dcb40803",
+        &crate::cards::foot_headquarters::CARD,
+    ),
+    (
+        "066cd584-773c-4623-be53-8f6feda5a26a",
+        &crate::cards::cabal_stronghold::CARD,
+    ),
+    (
+        "073169f2-da3a-4a93-8c01-b3fd8558d225",
+        &crate::cards::interplanar_beacon::CARD,
+    ),
+    (
+        "0799df10-b489-4f79-bf98-7a0c500b46a1",
+        &crate::cards::fountain_of_cho::CARD,
+    ),
+    (
+        "081bfd50-a436-463b-9d2c-5bc8a32b387c",
+        &crate::cards::silverbluff_bridge::CARD,
+    ),
+    (
+        "087c8c0e-a91c-4e3c-8387-9312db01f343",
+        &crate::cards::hall_of_storm_giants::CARD,
+    ),
+    (
+        "0880461e-8943-443b-90e7-ff84eef46550",
+        &crate::cards::dining_room::CARD,
+    ),
+    (
+        "08911e8e-cd67-4960-a927-958c33632469",
+        &crate::cards::sandstone_bridge::CARD,
+    ),
+    (
         "0895c9b7-ae7d-4bb3-af17-3b75deb50a25",
         &crate::cards::command_tower::CARD,
+    ),
+    (
+        "08d80efc-9542-4ba2-824c-c8615d8d07f2",
+        &crate::cards::undercity_sewers::CARD,
+    ),
+    (
+        "0935faa2-fb90-48db-8a92-906ba0f374c7",
+        &crate::cards::restless_vinestalk::CARD,
+    ),
+    (
+        "09496421-74e4-466a-9546-56f2a0c8eef4",
+        &crate::cards::vault_of_whispers::CARD,
     ),
     (
         "0972d46e-423b-454e-87c7-a2d40fb6fb6d",
@@ -56,28 +220,184 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::misty_rainforest::CARD,
     ),
     (
+        "09f52275-99e6-45e0-b2db-cafe26d5fb91",
+        &crate::cards::secluded_glen::CARD,
+    ),
+    (
+        "0a023964-2905-4928-9c3e-dc63e6ebd218",
+        &crate::cards::rakdos_carnarium::CARD,
+    ),
+    (
+        "0a1d817d-dce8-4e83-a380-909f7c9eee46",
+        &crate::cards::bant_panorama::CARD,
+    ),
+    (
+        "0a28dff0-2bd6-4105-b73a-b6c4735833fd",
+        &crate::cards::sungrass_prairie::CARD,
+    ),
+    (
+        "0aea7e5d-40d7-46c7-a8a6-479cb8061e49",
+        &crate::cards::idyllic_beachfront::CARD,
+    ),
+    (
+        "0b504dc6-61cc-4a72-907c-145fa4c72466",
+        &crate::cards::seraph_sanctuary::CARD,
+    ),
+    (
+        "0b55eac6-a745-4bf4-8926-5ce83bc38d7d",
+        &crate::cards::treasure_map::CARD,
+    ),
+    (
+        "0b7393aa-d563-45bc-9946-8e7d1729d498",
+        &crate::cards::mountain_valley::CARD,
+    ),
+    (
+        "0baabe39-72ae-47bd-a095-cbf7eb8a6361",
+        &crate::cards::ancient_ziggurat::CARD,
+    ),
+    (
+        "0bb73c07-0220-4ba9-8d85-3c357c223833",
+        &crate::cards::kabira_takedown::CARD,
+    ),
+    (
+        "0bb896ba-e15e-43a9-9120-e674d7ba003c",
+        &crate::cards::hall_of_oracles::CARD,
+    ),
+    (
+        "0bbd5a04-c281-4afb-98a1-657b4eca102c",
+        &crate::cards::subterranean_hangar::CARD,
+    ),
+    (
+        "0c25f6b1-8fb3-4406-9605-0282d2dbbcec",
+        &crate::cards::faerie_conclave::CARD,
+    ),
+    (
         "0c7ba712-6a99-4d2f-9242-a2163a11f69c",
         &crate::cards::padeem_consul_of_innovation::CARD,
+    ),
+    (
+        "0c828f10-4775-492f-9224-1e2814ad2cad",
+        &crate::cards::gemstone_mine::CARD,
+    ),
+    (
+        "0c85b8f7-0bd0-4680-9ec5-d4b110460a54",
+        &crate::cards::fabled_passage::CARD,
+    ),
+    (
+        "0ca4e80e-c19c-4b74-b531-c5a4dc5a8ba9",
+        &crate::cards::restless_spire::CARD,
+    ),
+    (
+        "0d2fa39a-9cac-4a1f-bb1e-b6162e6d5169",
+        &crate::cards::lazotep_quarry::CARD,
+    ),
+    (
+        "0d3a06d5-5bb9-4733-a55b-9e2c75de6b6e",
+        &crate::cards::brotherhood_headquarters::CARD,
+    ),
+    (
+        "0e25faa2-efb0-4ca5-b280-18c38faa860c",
+        &crate::cards::coastal_peak::CARD,
+    ),
+    (
+        "0e735ba6-7fd1-4d12-b20c-21525dc1e2b5",
+        &crate::cards::hanweir_battlements::CARD,
+    ),
+    (
+        "0ee0b090-3f1e-49d6-bcad-91e0cf1d12ae",
+        &crate::cards::madblind_mountain::CARD,
+    ),
+    (
+        "0eec9984-cd11-4a52-9234-469c6a5fb9aa",
+        &crate::cards::abandoned_campground::CARD,
     ),
     (
         "0f41cefc-d6ff-4db7-ba35-502b7e081de1",
         &crate::cards::venser_shaper_savant::CARD,
     ),
     (
+        "0f98e055-ab61-4314-aae8-9d3c19f66acf",
+        &crate::cards::scrying_sheets::CARD,
+    ),
+    (
         "0fd57894-b917-41c8-a394-360d1d31b236",
         &crate::cards::ephemerate::CARD,
+    ),
+    (
+        "0fe16212-66c3-4e45-a641-7391e9b2e304",
+        &crate::cards::shivan_reef::CARD,
+    ),
+    (
+        "1017088c-08a3-45d9-a7f7-01fb2f309717",
+        &crate::cards::secret_base::CARD,
     ),
     (
         "105aea98-8eb9-4fb2-a0cb-7c7513317c5b",
         &crate::cards::twining_twins::CARD,
     ),
     (
+        "10b9bfb3-c478-45c6-b227-9c66b63bc79b",
+        &crate::cards::veldt::CARD,
+    ),
+    (
+        "10d13ff6-c4d0-4753-8939-a8a90f0e92bb",
+        &crate::cards::eye_of_ugin::CARD,
+    ),
+    (
+        "10fc2009-4212-47c6-8a97-ab0f45c1f91b",
+        &crate::cards::avengers_hangar::CARD,
+    ),
+    (
+        "114dd40d-5ad8-4913-a08f-572b9521eb5b",
+        &crate::cards::turbulent_fen::CARD,
+    ),
+    (
+        "117a5fae-7fc4-4e24-b646-5727ea392fa7",
+        &crate::cards::skyshroud_forest::CARD,
+    ),
+    (
+        "12326d23-1fb5-4084-a23a-d6e2c90ea36c",
+        &crate::cards::arena::CARD,
+    ),
+    (
+        "126e9140-2c05-4c00-8b01-5653456c736a",
+        &crate::cards::lair_of_the_hydra::CARD,
+    ),
+    (
+        "1275653f-de4e-4fe9-aad8-88555fa11680",
+        &crate::cards::wirewood_lodge::CARD,
+    ),
+    (
+        "130a8cf5-1354-4d17-91c8-c073642eb3db",
+        &crate::cards::dreadship_reef::CARD,
+    ),
+    (
+        "1337d89e-a883-4568-a14f-9ca3305cc3df",
+        &crate::cards::hell_s_kitchen::CARD,
+    ),
+    (
         "133f5d30-d883-493e-93a1-cf9583db460b",
         &crate::cards::kazandu_blademaster::CARD,
     ),
     (
+        "134d5b82-7940-4b33-a922-7f9d1f403e50",
+        &crate::cards::lotus_field::CARD,
+    ),
+    (
         "13575cf9-65c1-4861-b21e-eb2155e07766",
         &crate::cards::sensei_s_divining_top::CARD,
+    ),
+    (
+        "136596a0-b179-40be-b42d-c0b992621c95",
+        &crate::cards::mage_ring_network::CARD,
+    ),
+    (
+        "13aab4fc-4c89-45e6-8275-b074b00d0ee9",
+        &crate::cards::zhalfirin_void::CARD,
+    ),
+    (
+        "13fbd525-c9ee-4bd6-b269-94fb264024b6",
+        &crate::cards::gohn_town_of_ruin::CARD,
     ),
     (
         "13ff3222-91cb-4796-a34e-899ed817694c",
@@ -88,16 +408,168 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::clearwater_pathway::CARD,
     ),
     (
+        "152e7e91-4eda-4e72-a9fb-bd5cb2e68239",
+        &crate::cards::survivors_encampment::CARD,
+    ),
+    (
         "153376c9-dffd-458c-8ce3-a4c8269bc4e9",
         &crate::cards::smothering_tithe::CARD,
+    ),
+    (
+        "15687ee3-3cdb-4a8f-a726-46b73bceb792",
+        &crate::cards::shadowblood_ridge::CARD,
     ),
     (
         "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90",
         &crate::cards::kodama_s_reach::CARD,
     ),
     (
+        "15f1fe23-5af4-4fc4-8cde-2e0bf9f9be0c",
+        &crate::cards::citadel_gate::CARD,
+    ),
+    (
+        "15fc4e74-300e-4c2d-8ed7-004553b2f7c2",
+        &crate::cards::ondu_inversion::CARD,
+    ),
+    (
+        "16052b52-ade1-406f-a06b-ce7ea607fb63",
+        &crate::cards::stomping_ground::CARD,
+    ),
+    (
+        "16182e01-22ff-4786-985d-919b47c4aa4d",
+        &crate::cards::matzalantli_the_great_door::CARD,
+    ),
+    (
+        "169a26d2-7bc9-4403-9c92-98d4bd5ca4f3",
+        &crate::cards::temple_of_the_dragon_queen::CARD,
+    ),
+    (
+        "17039058-822d-409f-938c-b727a366ba63",
+        &crate::cards::steam_vents::CARD,
+    ),
+    (
+        "172f86b6-9580-4eb2-b7dc-2a44277d978b",
+        &crate::cards::quandrix_campus::CARD,
+    ),
+    (
+        "1745fd57-467c-45f9-a46e-b9a2af87ec87",
+        &crate::cards::mogg_hollows::CARD,
+    ),
+    (
+        "17492186-9814-4c41-8111-1f000a96c212",
+        &crate::cards::hobbit_hole::CARD,
+    ),
+    (
+        "17770eeb-ecbf-4510-af2d-acececfbe146",
+        &crate::cards::multiversal_passage::CARD,
+    ),
+    (
+        "17784f90-89a1-47a5-83ef-ae60dfc30bd1",
+        &crate::cards::minamo_school_at_water_s_edge::CARD,
+    ),
+    (
+        "177b7fe4-8565-4631-b4d9-8b2b4282f3ac",
+        &crate::cards::oakhollow_village::CARD,
+    ),
+    (
+        "17b60106-a4c7-410a-8ac3-ec8e74e29a7c",
+        &crate::cards::mystic_sanctuary::CARD,
+    ),
+    (
         "180eda7c-fca2-403b-85cd-8ffebaf9f408",
         &crate::cards::palace_jailer::CARD,
+    ),
+    (
+        "18290c4b-cff6-4ee5-a487-fe0d5706d3de",
+        &crate::cards::urban_retreat::CARD,
+    ),
+    (
+        "1831fe12-dbe0-437f-8fc8-f01bbb701fe1",
+        &crate::cards::deceptive_landscape::CARD,
+    ),
+    (
+        "184c5a0d-7654-4421-86e4-7f04bcf49494",
+        &crate::cards::koskun_keep::CARD,
+    ),
+    (
+        "185c70c1-8403-4ae5-b45d-3679d4ee092a",
+        &crate::cards::rockfall_vale::CARD,
+    ),
+    (
+        "1861e642-21d5-4232-89f3-b5557f2946c1",
+        &crate::cards::phyrexian_tower::CARD,
+    ),
+    (
+        "189fc8f4-17ac-4f1d-82c8-8401445bdaf4",
+        &crate::cards::azorius_chancery::CARD,
+    ),
+    (
+        "18b0b583-d17b-4c67-bc67-c4d9aad155c7",
+        &crate::cards::waterfront_district::CARD,
+    ),
+    (
+        "18cbb47a-85b1-48f6-a024-8c3bbffa0d87",
+        &crate::cards::havenwood_battleground::CARD,
+    ),
+    (
+        "190e664b-9875-4335-af46-353886ed18ff",
+        &crate::cards::desert_of_the_glorified::CARD,
+    ),
+    (
+        "195107ad-879d-4b02-a44a-a3ba70fedf88",
+        &crate::cards::desert::CARD,
+    ),
+    (
+        "1999b5ac-21fb-4d99-ad72-58bf507f9a59",
+        &crate::cards::cliffgate::CARD,
+    ),
+    (
+        "199c7604-6b4b-4cec-b6c2-b6b2918b11c8",
+        &crate::cards::underdark_rift::CARD,
+    ),
+    (
+        "19b58ec9-bb88-4193-8ea8-c8f09ceec1ed",
+        &crate::cards::darigaaz_s_caldera::CARD,
+    ),
+    (
+        "19d34126-8266-4da1-b7ef-67ecfa2dbbee",
+        &crate::cards::nearby_planet::CARD,
+    ),
+    (
+        "19e6ebaf-7148-428f-8c79-1e9e57a4e659",
+        &crate::cards::botanical_plaza::CARD,
+    ),
+    (
+        "1a26e2d6-6bfc-4cdc-9bd6-8b37a9be2961",
+        &crate::cards::hidden_nursery::CARD,
+    ),
+    (
+        "1a8c996d-ca93-4c17-ace5-66ecd6b99317",
+        &crate::cards::strength_of_the_harvest::CARD,
+    ),
+    (
+        "1af15c1d-a41c-44cc-9614-d72694dd26e8",
+        &crate::cards::savage_mansion::CARD,
+    ),
+    (
+        "1b301478-b14f-4ef8-94e6-9647d582eabe",
+        &crate::cards::golgari_rot_farm::CARD,
+    ),
+    (
+        "1b340f71-502f-48e9-85ed-9af62f356115",
+        &crate::cards::hostile_hostel::CARD,
+    ),
+    (
+        "1b3fb20a-e090-4286-9c03-6b71c27c45be",
+        &crate::cards::mortuary_mire::CARD,
+    ),
+    (
+        "1bc44216-4e06-4f66-89b7-5c327004604e",
+        &crate::cards::valakut_the_molten_pinnacle::CARD,
+    ),
+    (
+        "1bd3e453-aa21-4ee6-95c2-d6d920ee8e7a",
+        &crate::cards::terramorphic_expanse::CARD,
     ),
     (
         "1be13ede-98f8-497e-800c-03e5802932b3",
@@ -108,28 +580,172 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::brightclimb_pathway::CARD,
     ),
     (
+        "1cb9d94a-3039-4f2e-8fcc-6996f9a45f74",
+        &crate::cards::izzet_boilerworks::CARD,
+    ),
+    (
+        "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7",
+        &crate::cards::grand_coliseum::CARD,
+    ),
+    (
+        "1e4146d2-cfa0-4f5e-9761-3c83519b90c3",
+        &crate::cards::cave_of_the_frost_dragon::CARD,
+    ),
+    (
         "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
         &crate::cards::opposition_agent::CARD,
+    ),
+    (
+        "1f57a9f1-6b95-4395-bdf0-c5289b786ab1",
+        &crate::cards::the_everflowing_well::CARD,
+    ),
+    (
+        "20283c4a-f1f0-42f0-bc08-6da87474426b",
+        &crate::cards::breeding_pool::CARD,
+    ),
+    (
+        "2031b17c-0536-446f-a9aa-b46fe79b7ea7",
+        &crate::cards::canyon_slough::CARD,
+    ),
+    (
+        "2031bc31-81cc-407a-8615-29832f586bbc",
+        &crate::cards::calciform_pools::CARD,
+    ),
+    (
+        "2065cada-4078-41c4-9e06-2460d2a2e8ee",
+        &crate::cards::darkmoss_bridge::CARD,
+    ),
+    (
+        "20b32052-f66f-4eb8-b56e-00d531907f19",
+        &crate::cards::vivid_marsh::CARD,
+    ),
+    (
+        "20b549e9-26db-40a5-8bcc-e8de6c559d32",
+        &crate::cards::boreal_shelf::CARD,
+    ),
+    (
+        "2111588d-9af5-4a33-989e-b074d83f0463",
+        &crate::cards::library_of_alexandria::CARD,
+    ),
+    (
+        "2160849a-184f-4a49-8931-fd021e16f7cb",
+        &crate::cards::ancient_spring::CARD,
+    ),
+    (
+        "216a2a92-9ca3-4ca3-8af7-686c13b04290",
+        &crate::cards::shadowy_backstreet::CARD,
     ),
     (
         "217062f5-96f1-454c-9507-17f34ef37070",
         &crate::cards::sheoldred_s_edict::CARD,
     ),
     (
+        "22d0a848-2126-48f0-9050-38daaf93b1d0",
+        &crate::cards::agna_qel_a::CARD,
+    ),
+    (
         "22e3cf1d-3559-4ce1-954c-8dc815342979",
         &crate::cards::taiga::CARD,
+    ),
+    (
+        "22f6391e-2634-440f-af1b-9581d1bff818",
+        &crate::cards::tomb_of_the_spirit_dragon::CARD,
+    ),
+    (
+        "232bd88c-ecdb-43dd-b34a-d381cb3bedf2",
+        &crate::cards::adventurer_s_inn::CARD,
+    ),
+    (
+        "23467047-6dba-4498-b783-1ebc4f74b8c2",
+        &crate::cards::ancient_tomb::CARD,
+    ),
+    (
+        "23732d20-aba6-46cc-89d0-0542629bc6b5",
+        &crate::cards::glittering_massif::CARD,
+    ),
+    (
+        "23bbd091-f6ff-4514-97aa-42c08164b4eb",
+        &crate::cards::mossfire_valley::CARD,
+    ),
+    (
+        "23d349a0-e441-40b8-b634-13e61440a7c8",
+        &crate::cards::idyllic_grange::CARD,
     ),
     (
         "244d4807-0802-41bc-9460-55ac38a28a72",
         &crate::cards::vendilion_clique::CARD,
     ),
     (
+        "245469ff-72b6-4846-8a82-a1d29f4d09bb",
+        &crate::cards::auntie_s_hovel::CARD,
+    ),
+    (
         "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27",
         &crate::cards::heroic_intervention::CARD,
     ),
     (
+        "249fdd3e-376c-4ec2-a612-4353e0e61ee2",
+        &crate::cards::the_seedcore::CARD,
+    ),
+    (
+        "24a97436-ba61-4ebc-a560-a6c027ccfdf3",
+        &crate::cards::raucous_carnival::CARD,
+    ),
+    (
+        "24aebda0-315f-4d2f-8bd9-00bbaf5bd76a",
+        &crate::cards::remote_isle::CARD,
+    ),
+    (
         "24d0f5e7-0d9e-4b76-900e-a7274e80312d",
         &crate::cards::mulldrifter::CARD,
+    ),
+    (
+        "250cb58b-2924-4dff-92fe-ac0ebbbeb218",
+        &crate::cards::creeping_tar_pit::CARD,
+    ),
+    (
+        "2549bc57-9ffb-4053-9f10-f2a5f792b845",
+        &crate::cards::myriad_landscape::CARD,
+    ),
+    (
+        "2550099d-b3e2-4eb6-9f36-0fc412828ca6",
+        &crate::cards::rivendell::CARD,
+    ),
+    (
+        "255b937f-c9c9-4ae9-815e-17418eba0602",
+        &crate::cards::shinka_the_bloodsoaked_keep::CARD,
+    ),
+    (
+        "256b8c23-589e-429d-9e6e-433d55079eb4",
+        &crate::cards::sunscorched_desert::CARD,
+    ),
+    (
+        "259fc423-d078-4668-9e95-8c1a0d2e49ba",
+        &crate::cards::bad_river::CARD,
+    ),
+    (
+        "26005003-afcb-4c32-a760-be950246ff0f",
+        &crate::cards::planar_nexus::CARD,
+    ),
+    (
+        "26259c65-8f4e-42a6-b8a7-f65c36d35c4d",
+        &crate::cards::hickory_woodlot::CARD,
+    ),
+    (
+        "262a5d83-506c-4781-9bc9-1a2b5d83955c",
+        &crate::cards::horizon_canopy::CARD,
+    ),
+    (
+        "2672e0ca-8d5c-449f-8483-35d0e697fbb2",
+        &crate::cards::desert_of_the_true::CARD,
+    ),
+    (
+        "2699005b-a471-429f-a9d8-fbf2077ee2fd",
+        &crate::cards::disciple_of_freyalise::CARD,
+    ),
+    (
+        "26e4b49e-77e7-41d9-94c5-924669a82591",
+        &crate::cards::gallifrey_council_chamber::CARD,
     ),
     (
         "276cece9-f9f2-46e6-ae76-daddaa2fb9ab",
@@ -144,6 +760,18 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::exotic_orchard::CARD,
     ),
     (
+        "28196fd9-00c9-4cd0-b603-0eec8511ec79",
+        &crate::cards::contaminated_landscape::CARD,
+    ),
+    (
+        "283f743f-6e79-49de-b7ed-08e6ffb64cc6",
+        &crate::cards::clive_s_hideaway::CARD,
+    ),
+    (
+        "2896f01d-003b-4d68-9d0a-64990ba59cbe",
+        &crate::cards::scabland::CARD,
+    ),
+    (
         "29737a60-3ebd-40d9-b935-c4f54b90d45d",
         &crate::cards::windswept_heath::CARD,
     ),
@@ -156,6 +784,38 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::tishana_s_tidebinder::CARD,
     ),
     (
+        "29c7f059-2eeb-40f9-8f50-03eba2d0d5e0",
+        &crate::cards::timberland_ruins::CARD,
+    ),
+    (
+        "29cd8a7c-108a-43d1-af63-f603a27c24f2",
+        &crate::cards::tanglepool_bridge::CARD,
+    ),
+    (
+        "29f27482-724d-4c15-b177-13337246d007",
+        &crate::cards::daru_encampment::CARD,
+    ),
+    (
+        "2ac1c95c-2a9d-40bc-9cad-9cadfa3f19f7",
+        &crate::cards::kazandu_mammoth::CARD,
+    ),
+    (
+        "2ac2b815-2d72-48e6-b43a-18884a74bf95",
+        &crate::cards::skycoach_waypoint::CARD,
+    ),
+    (
+        "2ac34f3e-822d-4fde-99ca-a31c4d9503fd",
+        &crate::cards::shimmerdrift_vale::CARD,
+    ),
+    (
+        "2ae77795-6a80-498b-bf69-6fd612f601e4",
+        &crate::cards::seaside_citadel::CARD,
+    ),
+    (
+        "2b65eb80-6fb7-429f-81f2-2fe125eba634",
+        &crate::cards::silverquill_campus::CARD,
+    ),
+    (
         "2b8144a0-08d2-4c28-9fd7-5d90f90105e4",
         &crate::cards::bleachbone_verge::CARD,
     ),
@@ -164,48 +824,520 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::snapcaster_mage::CARD,
     ),
     (
+        "2bc38f14-0314-4351-8138-e2b8bf041404",
+        &crate::cards::memorial_to_folly::CARD,
+    ),
+    (
+        "2c38f4c7-1b3f-42b4-a175-edab7acd6cc6",
+        &crate::cards::remote_farm::CARD,
+    ),
+    (
+        "2c96ab90-155b-4bf4-acc9-65a2f0cd3189",
+        &crate::cards::capital_city::CARD,
+    ),
+    (
+        "2cdbfda3-98fc-4108-b551-c7049168924e",
+        &crate::cards::white_lotus_hideout::CARD,
+    ),
+    (
+        "2d28c83a-7415-4eb0-95a6-6245f2169d17",
+        &crate::cards::rootwater_depths::CARD,
+    ),
+    (
+        "2d8635bd-ed96-4bb1-8718-6962a0eee3d5",
+        &crate::cards::seething_landscape::CARD,
+    ),
+    (
+        "2d899466-b1eb-4901-b626-1f2fb09b786d",
+        &crate::cards::concealed_courtyard::CARD,
+    ),
+    (
+        "2d9663be-c466-4191-85e2-a69ce0965432",
+        &crate::cards::meandering_river::CARD,
+    ),
+    (
+        "2da7c49f-cc1e-45d9-9cbf-067e92b0daef",
+        &crate::cards::vivid_creek::CARD,
+    ),
+    (
         "2de6c3d9-1759-40a2-99c6-8cbe17b4bcdd",
         &crate::cards::entreat_the_dead::CARD,
+    ),
+    (
+        "2de7367b-a5a4-43f4-8f8f-b931ea28150d",
+        &crate::cards::slayers_stronghold::CARD,
+    ),
+    (
+        "2e413d18-2c55-49be-9e49-54d170c978a2",
+        &crate::cards::gnottvold_slumbermound::CARD,
+    ),
+    (
+        "2e69537c-c898-4e13-a72d-ce3957a90304",
+        &crate::cards::jungle_shrine::CARD,
+    ),
+    (
+        "2eb4da30-2600-4a7f-8e6c-6a090faa9a8d",
+        &crate::cards::turbulent_moor::CARD,
+    ),
+    (
+        "2eb69a8f-9456-4852-b868-85ae609d3441",
+        &crate::cards::bountiful_landscape::CARD,
+    ),
+    (
+        "2ec4288e-34c6-4831-a2c0-ba1ca1d9d1dc",
+        &crate::cards::ghost_quarter::CARD,
+    ),
+    (
+        "2ef88214-f46d-473e-a55b-795a647e2f03",
+        &crate::cards::echoing_deeps::CARD,
+    ),
+    (
+        "2f4374f6-c695-4a5d-a6d6-0e41eaa587ca",
+        &crate::cards::dowsing_device::CARD,
+    ),
+    (
+        "2f4ad084-2062-44c0-9975-15f100204531",
+        &crate::cards::swiftwater_cliffs::CARD,
+    ),
+    (
+        "2fb13687-0518-4ba0-a5ae-dd609464b026",
+        &crate::cards::roadside_reliquary::CARD,
+    ),
+    (
+        "2fc070dc-f2f7-4648-8069-31d74790a39c",
+        &crate::cards::hall_of_heliod_s_generosity::CARD,
+    ),
+    (
+        "2ffb2647-60bb-4916-b919-cbcf18e5e424",
+        &crate::cards::lava_tubes::CARD,
+    ),
+    (
+        "30ac68e6-160a-41f9-9f0f-0e0eef383150",
+        &crate::cards::arcane_lighthouse::CARD,
+    ),
+    (
+        "311f38a6-f68f-4d30-bc4e-62339f1e0d88",
+        &crate::cards::desert_of_the_fervent::CARD,
+    ),
+    (
+        "3123ec89-8e95-4761-ba17-747ec667509f",
+        &crate::cards::spara_s_headquarters::CARD,
+    ),
+    (
+        "32116127-cf96-4a1b-8896-a1ebc087b597",
+        &crate::cards::llanowar_wastes::CARD,
+    ),
+    (
+        "32438050-5ae7-4c19-bcaf-5a07a673e0e0",
+        &crate::cards::reef_roads::CARD,
+    ),
+    (
+        "326ba371-124c-4949-a048-3a0c8962e567",
+        &crate::cards::barren_moor::CARD,
+    ),
+    (
+        "32af5f7b-a970-484a-9aff-226749551d32",
+        &crate::cards::thousand_moons_smithy::CARD,
+    ),
+    (
+        "32b03b48-06da-4a74-a7ac-e5ae39a4f428",
+        &crate::cards::fetid_pools::CARD,
+    ),
+    (
+        "32c91719-f3dd-4cc7-9e32-7d5ccf18f07c",
+        &crate::cards::radiant_grove::CARD,
+    ),
+    (
+        "32fb0096-546c-4633-b6e3-ba3f2d9fa49c",
+        &crate::cards::arctic_treeline::CARD,
+    ),
+    (
+        "32fbb638-ab14-4e8b-a07a-d4c44e3496f2",
+        &crate::cards::urza_s_tower::CARD,
+    ),
+    (
+        "32fe7ac4-86f5-44af-9f73-ee8f6a9ce2ba",
+        &crate::cards::hall_of_the_bandit_lord::CARD,
+    ),
+    (
+        "3348df85-e61c-47b5-857d-c79befb38a8a",
+        &crate::cards::hollow_trees::CARD,
+    ),
+    (
+        "33587cb2-0fd3-4e4c-bc5e-e7299cc9dab5",
+        &crate::cards::molten_slagheap::CARD,
+    ),
+    (
+        "339f5334-b65a-445a-a016-20e997e0b4bb",
+        &crate::cards::mistrise_village::CARD,
+    ),
+    (
+        "33a4e73d-d93a-4b6f-88ff-cd53f20d178c",
+        &crate::cards::spectacle_summit::CARD,
+    ),
+    (
+        "33a7d29a-ebc0-4606-91b6-7381e2a16016",
+        &crate::cards::library::CARD,
+    ),
+    (
+        "33a90122-7280-4481-9b97-5879194cae40",
+        &crate::cards::dalkovan_encampment::CARD,
+    ),
+    (
+        "33b9b3bd-33ca-46f3-b8bb-a978bc3d1085",
+        &crate::cards::temple_of_deceit::CARD,
+    ),
+    (
+        "33de01e9-ce5a-42d4-afcb-343cd54a6d80",
+        &crate::cards::caves_of_koilos::CARD,
+    ),
+    (
+        "33e85a8a-86df-4cdc-a9cc-8cbabe92c3c0",
+        &crate::cards::urza_s_mine::CARD,
+    ),
+    (
+        "33ee23bc-6327-4a54-a704-dfd83be36bb5",
+        &crate::cards::mistvault_bridge::CARD,
+    ),
+    (
+        "33f52df8-4b44-4422-8b0a-37fead9c894b",
+        &crate::cards::vineglimmer_snarl::CARD,
     ),
     (
         "340bbe8b-e987-4c3e-ab4e-9dee63e57d4f",
         &crate::cards::phyrexian_metamorph::CARD,
     ),
     (
+        "340de307-982a-4b26-9dc0-99113dc766cd",
+        &crate::cards::lavaclaw_reaches::CARD,
+    ),
+    (
+        "34187c71-6033-4058-aadc-2bc266f762be",
+        &crate::cards::serra_s_sanctum::CARD,
+    ),
+    (
+        "342e08f9-d4d0-4408-8621-66e087058616",
+        &crate::cards::makindi_stampede::CARD,
+    ),
+    (
+        "34320ebf-da97-44a4-bbeb-a9da06548289",
+        &crate::cards::blackbloom_rogue::CARD,
+    ),
+    (
+        "3437d504-bf62-4c27-b15f-f6330182ff7e",
+        &crate::cards::the_world_tree::CARD,
+    ),
+    (
+        "349ea6c7-6b3e-417f-b082-b712e2b1635b",
+        &crate::cards::forum_of_amity::CARD,
+    ),
+    (
+        "34a1eb04-08f6-49d8-a1d1-b987a76bd8b1",
+        &crate::cards::flamekin_village::CARD,
+    ),
+    (
+        "34ef174e-1b3d-43d5-9f72-3d35befbdd7f",
+        &crate::cards::ojer_pakpatiq_deepest_epoch::CARD,
+    ),
+    (
         "34f34409-326d-4994-a0ea-1a69aa278f03",
         &crate::cards::sheoldred_the_apocalypse::CARD,
+    ),
+    (
+        "35137378-6754-4bb1-a38e-5940890ccab1",
+        &crate::cards::highland_forest::CARD,
+    ),
+    (
+        "354a7376-fb4b-424d-8964-93727302dccb",
+        &crate::cards::immersturm_skullcairn::CARD,
+    ),
+    (
+        "354fecd1-2371-49e3-81c6-7e47728dbb1f",
+        &crate::cards::akoum_refuge::CARD,
+    ),
+    (
+        "357ed28b-899f-404b-94ff-6fb2ef81d87b",
+        &crate::cards::alchemist_s_refuge::CARD,
+    ),
+    (
+        "3589bcfc-42b0-414a-adce-bc690dc631c8",
+        &crate::cards::windbrisk_heights::CARD,
+    ),
+    (
+        "35922a30-6b84-44dd-a2f0-306554a1ae90",
+        &crate::cards::heap_gate::CARD,
+    ),
+    (
+        "35c60b66-8c85-432e-90fe-99c19d21ed15",
+        &crate::cards::cori_mountain_monastery::CARD,
+    ),
+    (
+        "361f534b-39d1-4421-b5a8-d3813c62f86d",
+        &crate::cards::rakdos_guildgate::CARD,
+    ),
+    (
+        "362f25a6-01ff-4c53-be52-c6346a9b0065",
+        &crate::cards::untaidake_the_cloud_keeper::CARD,
     ),
     (
         "3640c29b-1534-4952-b297-619ade948431",
         &crate::cards::roaming_throne::CARD,
     ),
     (
+        "3644f316-f9a3-46c9-9b1e-747f86cf4ead",
+        &crate::cards::buried_ruin::CARD,
+    ),
+    (
+        "36508a8a-d1a4-400e-bfda-09436bc4d5d4",
+        &crate::cards::lonely_arroyo::CARD,
+    ),
+    (
+        "3678c06f-8a33-4a6d-bf20-5b92d5c05a95",
+        &crate::cards::the_lonely_mountain::CARD,
+    ),
+    (
+        "36937483-30cb-449a-8028-75017a124922",
+        &crate::cards::boseiju_who_shelters_all::CARD,
+    ),
+    (
+        "36b58705-c5a5-4547-8d8b-a7c35e1f69ae",
+        &crate::cards::gathering_place::CARD,
+    ),
+    (
         "36cd2364-d113-47d1-b2c4-b088d9eb88dd",
         &crate::cards::brainstorm::CARD,
+    ),
+    (
+        "36d06c91-5080-4f97-8e4c-ca8ac390e808",
+        &crate::cards::cradle_of_the_accursed::CARD,
     ),
     (
         "36f68aa3-9955-46f1-bc87-497f16ef5222",
         &crate::cards::wizard_class::CARD,
     ),
     (
+        "36fbc8ba-bb4c-4e5e-9031-78c36e376851",
+        &crate::cards::wild_roads::CARD,
+    ),
+    (
+        "3763de30-28e1-4689-a71c-07d2fea3a466",
+        &crate::cards::zoetic_cavern::CARD,
+    ),
+    (
         "37688720-03de-4eca-a82d-a0afe8d58adc",
         &crate::cards::baleful_strix::CARD,
+    ),
+    (
+        "37783ce6-af58-4ef6-8ab4-587079970307",
+        &crate::cards::hagra_mauling::CARD,
+    ),
+    (
+        "378a1d57-e2f1-4b84-9692-1564602e9e99",
+        &crate::cards::dimir_aqueduct::CARD,
+    ),
+    (
+        "37a55560-6e32-4f54-b9a8-fd157aea6eb5",
+        &crate::cards::khalni_ambush::CARD,
+    ),
+    (
+        "37f924e1-7c25-4f06-88bb-054693a21e5a",
+        &crate::cards::conduit_pylons::CARD,
+    ),
+    (
+        "37ff5ba6-0763-4c73-85bf-66856e67b8f3",
+        &crate::cards::prahv_spires_of_order::CARD,
+    ),
+    (
+        "382d18a2-438e-4ae7-a83f-1658ef1f9b07",
+        &crate::cards::hidden_grotto::CARD,
+    ),
+    (
+        "387fe395-e4a0-4fb2-8d6c-88a1a21d2ed8",
+        &crate::cards::fortified_beachhead::CARD,
+    ),
+    (
+        "3893f320-47fd-49ec-a78c-80bfb607a279",
+        &crate::cards::isolated_watchtower::CARD,
     ),
     (
         "38a12bd7-4394-44a8-91a0-6a4ff7fa4f71",
         &crate::cards::maze_of_ith::CARD,
     ),
     (
+        "38ba1956-5505-4a7a-b6af-e75715b1401f",
+        &crate::cards::dormant_volcano::CARD,
+    ),
+    (
+        "38c83332-2d21-450c-ae97-34109b565f59",
+        &crate::cards::tyrite_sanctum::CARD,
+    ),
+    (
+        "390f1b56-264e-4336-83be-dc1fe79bfdcf",
+        &crate::cards::smoldering_marsh::CARD,
+    ),
+    (
         "39213de3-6a4a-4879-a7f9-70f45013765e",
         &crate::cards::everybody_lives::CARD,
+    ),
+    (
+        "393a254f-be31-431a-9341-a51286f8cbce",
+        &crate::cards::blast_zone::CARD,
+    ),
+    (
+        "39451b4d-cd7a-40da-b457-cb51b609173f",
+        &crate::cards::seat_of_the_synod::CARD,
+    ),
+    (
+        "394c6de5-7957-4a0b-a6b9-ee0c707cd022",
+        &crate::cards::forgotten_cave::CARD,
     ),
     (
         "3a30089d-cd2d-49be-9b06-7a2454117692",
         &crate::cards::aminatou_the_fateshifter::CARD,
     ),
     (
+        "3a3a1b35-ae4d-49d5-ae09-5a1693ad53ce",
+        &crate::cards::prismari_campus::CARD,
+    ),
+    (
+        "3a3e8c9b-e458-4661-980d-0a84a4c2452b",
+        &crate::cards::glasswing_grace::CARD,
+    ),
+    (
+        "3a5b3405-a1e3-4aad-ab4e-1b8db2d1f3a8",
+        &crate::cards::strangled_cemetery::CARD,
+    ),
+    (
+        "3ad69bfb-2e51-4fe9-8d2f-7d071a4f1c69",
+        &crate::cards::okina_temple_to_the_grandfathers::CARD,
+    ),
+    (
+        "3b577179-10d0-43f1-ac17-9dd2d12c965d",
+        &crate::cards::littjara_mirrorlake::CARD,
+    ),
+    (
+        "3b7e7a11-bf59-413d-8796-640d17c2c1c6",
+        &crate::cards::nephalia_academy::CARD,
+    ),
+    (
+        "3baa8e38-ef93-435d-b63e-f781d5bfcc68",
+        &crate::cards::temple_of_abandon::CARD,
+    ),
+    (
+        "3bb518ff-399b-4ce7-b9ad-a1d563dd7792",
+        &crate::cards::arch_of_orazca::CARD,
+    ),
+    (
+        "3be3d7e6-7860-438a-b8c8-ef154c18c163",
+        &crate::cards::arid_archway::CARD,
+    ),
+    (
+        "3c0f99b8-0222-4fac-932a-eb5d77826564",
+        &crate::cards::soulstone_sanctuary::CARD,
+    ),
+    (
+        "3c1fe86a-3696-4634-bc26-cd45846529ec",
+        &crate::cards::crumbling_vestige::CARD,
+    ),
+    (
+        "3c43efd6-b1a8-452c-ae20-9a936c3340ab",
+        &crate::cards::treasure_vault::CARD,
+    ),
+    (
+        "3c87ea85-ca29-45a7-b5b2-758c62898b0a",
+        &crate::cards::scattered_groves::CARD,
+    ),
+    (
         "3d038f7c-95fa-4b71-8f74-b9b4dd45cde0",
         &crate::cards::ertai_resurrected::CARD,
+    ),
+    (
+        "3debfa0d-9945-4a85-a714-7c3d3d74de4e",
+        &crate::cards::waterveil_cavern::CARD,
+    ),
+    (
+        "3dfbf95e-a91b-429c-96e2-95ac777e7027",
+        &crate::cards::sejiri_steppe::CARD,
+    ),
+    (
+        "3edf9201-265f-4cd9-b27b-8073bf1a4cf2",
+        &crate::cards::desolate_mire::CARD,
+    ),
+    (
+        "3f17c60e-923a-4392-9da8-87d9ded009b7",
+        &crate::cards::inspiring_vantage::CARD,
+    ),
+    (
+        "3f347ebf-e0d2-4ae0-ad84-df7a460404e0",
+        &crate::cards::coral_atoll::CARD,
+    ),
+    (
+        "3fcd1432-66d0-40e1-85ef-b57a6fa94b7c",
+        &crate::cards::north_pole_gates::CARD,
+    ),
+    (
+        "4001b868-ada1-43f4-92e2-27ab0e80c913",
+        &crate::cards::vesuva::CARD,
+    ),
+    (
+        "402ec768-76fb-474e-ae74-babc90d833c4",
+        &crate::cards::sunpetal_grove::CARD,
+    ),
+    (
+        "4034bec6-e3c7-4d3f-81df-7c903977a606",
+        &crate::cards::nomad_stadium::CARD,
+    ),
+    (
+        "403b59f3-7ade-4bc2-a3e6-de0c3c700f18",
+        &crate::cards::turntimber_symbiosis::CARD,
+    ),
+    (
+        "40544d12-0391-4a61-af95-9b8ec01ed8fc",
+        &crate::cards::vernal_fen::CARD,
+    ),
+    (
+        "406eabe2-df62-49e2-bb39-c0227509d875",
+        &crate::cards::irrigated_farmland::CARD,
+    ),
+    (
+        "40760bfa-a423-487c-ba29-043b2d00c736",
+        &crate::cards::dark_fortress::CARD,
+    ),
+    (
+        "40ae17be-9998-4ee4-9d95-82a08895405f",
+        &crate::cards::an_havva_township::CARD,
+    ),
+    (
+        "40b36bc6-c185-4bda-99e7-0118953c2c97",
+        &crate::cards::yavimaya_coast::CARD,
+    ),
+    (
+        "40c5d6fe-854a-436d-9f80-13eb5f1f8f68",
+        &crate::cards::ice_tunnel::CARD,
+    ),
+    (
+        "40d45c02-6416-4e19-8fe3-0ddadf5ba627",
+        &crate::cards::blinkmoth_nexus::CARD,
+    ),
+    (
+        "40eb9904-dea3-47cf-963a-04821f98ba64",
+        &crate::cards::the_black_gate::CARD,
+    ),
+    (
+        "4139f40a-873b-4842-96a2-b7875de1c20a",
+        &crate::cards::tcri_building::CARD,
+    ),
+    (
+        "41459587-7509-404e-bd7d-fb8831dee789",
+        &crate::cards::hostile_desert::CARD,
+    ),
+    (
+        "41fbf835-baee-4530-9155-e2c1b9045567",
+        &crate::cards::base_camp::CARD,
+    ),
+    (
+        "42b9d383-3fe2-4fc8-ab86-f80a288d502b",
+        &crate::cards::murmuring_bosk::CARD,
     ),
     (
         "42bb7ea9-f6e4-4551-8d93-3b1eae84b865",
@@ -216,60 +1348,388 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::fetid_heath::CARD,
     ),
     (
+        "42d121a2-5266-483a-ab16-e0a8073cd6a3",
+        &crate::cards::halimar_depths::CARD,
+    ),
+    (
+        "42f1ccb8-eda0-4828-ac07-82d4e950d7e1",
+        &crate::cards::trenchpost::CARD,
+    ),
+    (
+        "4306938b-c0db-4e63-a4fb-61628e5ff41f",
+        &crate::cards::gond_gate::CARD,
+    ),
+    (
+        "43144f06-079b-4515-a03a-01ea3e90d586",
+        &crate::cards::encroaching_wastes::CARD,
+    ),
+    (
+        "43985bbc-a0f6-4812-984e-392bc8562633",
+        &crate::cards::blood_crypt::CARD,
+    ),
+    (
+        "439de49b-1091-4688-9ffb-80a025df31c2",
+        &crate::cards::tainted_field::CARD,
+    ),
+    (
         "444d50dd-a44a-42db-bbf6-d0978e3bd6a3",
         &crate::cards::riptide_laboratory::CARD,
+    ),
+    (
+        "4474ecee-0ec3-409b-90df-738d9313fe3c",
+        &crate::cards::urza_s_cave::CARD,
+    ),
+    (
+        "44b83535-fdbf-4307-bf53-ca20470a768d",
+        &crate::cards::drossforge_bridge::CARD,
+    ),
+    (
+        "45181cb8-2090-4471-ba90-e5a8f04d525f",
+        &crate::cards::sacred_foundry::CARD,
+    ),
+    (
+        "4533ce78-0594-4195-96fb-46cbadd0db69",
+        &crate::cards::oasis::CARD,
+    ),
+    (
+        "45429b2c-be3b-4b2e-9bab-a059ccbda8cd",
+        &crate::cards::blossoming_sands::CARD,
+    ),
+    (
+        "45773715-3f46-4671-b633-bf087e892e26",
+        &crate::cards::lorehold_campus::CARD,
+    ),
+    (
+        "458d2b12-f578-4392-98d3-c3bc83f316c4",
+        &crate::cards::port_town::CARD,
+    ),
+    (
+        "45fe016e-1a09-410c-bbe3-4663ba06c5b7",
+        &crate::cards::spire_garden::CARD,
+    ),
+    (
+        "4619de7e-3d6e-4c6b-8e6e-e24db324839d",
+        &crate::cards::nomad_outpost::CARD,
     ),
     (
         "461b3f2f-fcee-4160-abfa-061f8b6a784f",
         &crate::cards::hengegate_pathway::CARD,
     ),
     (
+        "463fc699-f4fc-4112-a6b3-6dcb642203e6",
+        &crate::cards::howltooth_hollow::CARD,
+    ),
+    (
+        "46466819-3c8b-4f7e-82c2-93cb0118a6e6",
+        &crate::cards::skybridge_towers::CARD,
+    ),
+    (
+        "46a07b53-ff58-4bd6-80dd-ded2eb0e29a3",
+        &crate::cards::snow_covered_wastes::CARD,
+    ),
+    (
+        "46eefc72-2d9e-4389-8ae1-26d9ee472b5c",
+        &crate::cards::tolaria_west::CARD,
+    ),
+    (
+        "4722105b-0085-4bb8-bca1-9de0d3eb5600",
+        &crate::cards::stormcarved_coast::CARD,
+    ),
+    (
+        "4725abd4-06bc-464a-bc5b-c9e0f71ec079",
+        &crate::cards::shambling_vent::CARD,
+    ),
+    (
         "47a785ed-8095-4685-8daa-02c4e2b0ffcd",
         &crate::cards::spellseeker::CARD,
+    ),
+    (
+        "47b6d2ae-d3d7-41eb-9172-2076eb8d028d",
+        &crate::cards::bleeding_woods::CARD,
+    ),
+    (
+        "47d16c11-3033-44f3-9a12-2daf3453cc5b",
+        &crate::cards::grasping_dunes::CARD,
+    ),
+    (
+        "47f71408-5509-4651-9121-fd0867adae00",
+        &crate::cards::kitchen::CARD,
     ),
     (
         "481c3e14-b670-4fab-aa9f-6ce5b514096d",
         &crate::cards::aang_and_katara::CARD,
     ),
     (
+        "483e0c6c-8131-486c-b482-cc3396c9786b",
+        &crate::cards::daily_bugle_building::CARD,
+    ),
+    (
+        "4869a530-757f-4364-8d8e-4dc8001f433c",
+        &crate::cards::darkwater_catacombs::CARD,
+    ),
+    (
+        "486bb9a5-73f1-4cec-b097-fb07ac80b72e",
+        &crate::cards::ojer_taq_deepest_foundation::CARD,
+    ),
+    (
+        "48a830f1-8965-4f97-b3d8-ca98eab1ba33",
+        &crate::cards::sand_silos::CARD,
+    ),
+    (
+        "48edc348-93f6-4dce-9cc4-7244d76b6f4a",
+        &crate::cards::accursed_duneyard::CARD,
+    ),
+    (
+        "4924b3a4-a218-4783-8a4d-82361fdecc78",
+        &crate::cards::riverglide_pathway::CARD,
+    ),
+    (
+        "4927150d-7ff6-4232-b20e-d2ea245ac710",
+        &crate::cards::tectonic_edge::CARD,
+    ),
+    (
+        "49479778-c4c0-43ba-a7b7-45f00d067462",
+        &crate::cards::maze_s_end::CARD,
+    ),
+    (
+        "495214b5-2eab-4fe4-8879-a30a57a67163",
+        &crate::cards::unstable_frontier::CARD,
+    ),
+    (
+        "49e43de3-460b-4562-aef6-da43bd56debc",
+        &crate::cards::spawning_bed::CARD,
+    ),
+    (
+        "49e9fba7-8465-4bbb-95db-73a7e149f494",
+        &crate::cards::maelstrom_of_the_spirit_dragon::CARD,
+    ),
+    (
+        "4a6625bd-3dd2-45f1-8dc9-034c833fa90c",
+        &crate::cards::dwarven_hold::CARD,
+    ),
+    (
+        "4a8d41fe-e04d-484b-a7d1-19be311e6ca7",
+        &crate::cards::sea_gate_restoration::CARD,
+    ),
+    (
+        "4a9437a6-4e61-48b6-8194-1c6ba6432250",
+        &crate::cards::teetering_peaks::CARD,
+    ),
+    (
+        "4adc39dd-8de1-4298-947c-ff666ec3adeb",
+        &crate::cards::seaside_haven::CARD,
+    ),
+    (
+        "4b17048f-8c7f-4e29-8f56-16db4c2106e6",
+        &crate::cards::los_diablos_missile_base::CARD,
+    ),
+    (
+        "4b1f68a2-b606-4c64-bd44-a9714808316d",
+        &crate::cards::tangled_islet::CARD,
+    ),
+    (
         "4b22be3a-8ce1-47d1-b82e-6c3ccfb0548b",
         &crate::cards::underground_sea::CARD,
+    ),
+    (
+        "4b508087-99da-4eb1-8b12-29162f2ec85d",
+        &crate::cards::swarmyard::CARD,
+    ),
+    (
+        "4b9922b9-c5b5-467e-8a5b-1e45e862194d",
+        &crate::cards::cathedral_of_serra::CARD,
+    ),
+    (
+        "4bdffa67-e6b3-4588-b76e-c11db6f043ca",
+        &crate::cards::magosi_the_waterveil::CARD,
+    ),
+    (
+        "4c0f4a63-586a-4dde-9621-b0dd9118b2e5",
+        &crate::cards::restless_ridgeline::CARD,
     ),
     (
         "4c6a0c30-b547-4eff-8ff4-0ca25803c076",
         &crate::cards::urza_s_saga::CARD,
     ),
     (
+        "4c6c064c-da61-4c7a-9607-8fb4490ff9a6",
+        &crate::cards::river_delta::CARD,
+    ),
+    (
+        "4c77767a-8133-43bc-b7a5-09a73259d354",
+        &crate::cards::captivating_cave::CARD,
+    ),
+    (
+        "4cc014f3-05e0-442e-9dee-03eab1aa65a3",
+        &crate::cards::lindblum_industrial_regency::CARD,
+    ),
+    (
+        "4cdb9f80-d08f-4986-99c8-573166d66082",
+        &crate::cards::night_market::CARD,
+    ),
+    (
+        "4d4b9512-d29d-4b99-9249-d37e1199a1f5",
+        &crate::cards::ebon_stronghold::CARD,
+    ),
+    (
         "4d67e2a7-4aa7-44cc-853b-500d7aac046d",
         &crate::cards::cursed_mirror::CARD,
+    ),
+    (
+        "4d722521-0396-48f9-88b2-08b6249f970d",
+        &crate::cards::blighted_cataract::CARD,
+    ),
+    (
+        "4dfd33e8-7e30-493b-8564-f7df5f0257aa",
+        &crate::cards::edgewall_inn::CARD,
     ),
     (
         "4e183439-17d2-47ff-9d99-5e22821d91e3",
         &crate::cards::flawless_maneuver::CARD,
     ),
     (
+        "4e34a49d-f031-48ac-a458-97b79124b76c",
+        &crate::cards::midgar_city_of_mako::CARD,
+    ),
+    (
+        "4eb428ab-f5b0-46ca-98dd-b3466a91ef97",
+        &crate::cards::kishla_village::CARD,
+    ),
+    (
         "4f328996-f9dd-4c7a-9548-bc4b9d0d943f",
         &crate::cards::surgical_metamorph::CARD,
+    ),
+    (
+        "4f4358cb-59df-46d9-be27-69929f5a615c",
+        &crate::cards::ishgard_the_holy_see::CARD,
+    ),
+    (
+        "4fa826ca-d361-4391-ad0d-989ebcfa4a91",
+        &crate::cards::kavaron_memorial_world::CARD,
+    ),
+    (
+        "4fe8af73-c84a-44bd-9739-ee5c8b027874",
+        &crate::cards::crypt_of_agadeem::CARD,
+    ),
+    (
+        "5004b84a-33b7-4f6f-b2c2-7086b9087535",
+        &crate::cards::graven_cairns::CARD,
+    ),
+    (
+        "5028dfe8-c505-4643-b493-760b1f19d47f",
+        &crate::cards::school_of_the_unseen::CARD,
+    ),
+    (
+        "508189e1-9cef-4f9c-8ff1-078c99a0f603",
+        &crate::cards::sunken_citadel::CARD,
+    ),
+    (
+        "508f9e7e-2ff7-4593-b0a9-0612d7b5d646",
+        &crate::cards::desert_of_the_mindful::CARD,
+    ),
+    (
+        "50d6cadc-07e4-479e-90f4-e3a20f769bab",
+        &crate::cards::susur_secundi_void_altar::CARD,
+    ),
+    (
+        "510a6ac5-f098-4145-ac07-771b1b6f7cdf",
+        &crate::cards::riverpyre_verge::CARD,
+    ),
+    (
+        "51635f96-af1d-4b33-9118-432495aaf07f",
+        &crate::cards::wizards_school::CARD,
+    ),
+    (
+        "522a4b02-24c7-45d2-9097-2803cc9fffad",
+        &crate::cards::grasping_shadows::CARD,
+    ),
+    (
+        "52401cb4-1bce-4191-9220-0d93ea4108b8",
+        &crate::cards::stark_industries::CARD,
+    ),
+    (
+        "52d14717-0cbc-4d7e-b546-54ea91580338",
+        &crate::cards::dimir_guildgate::CARD,
     ),
     (
         "53236dd7-845a-444c-96d5-f41ed7325d8f",
         &crate::cards::rhystic_study::CARD,
     ),
     (
+        "5324192b-6687-41e4-8e56-326b21a5dbf3",
+        &crate::cards::moorland_haunt::CARD,
+    ),
+    (
         "5330e24a-8568-446e-840a-594cd08bd1bc",
         &crate::cards::prairie_stream::CARD,
+    ),
+    (
+        "53542c79-a62a-4d6a-97db-5296e9c68302",
+        &crate::cards::tangled_florahedron::CARD,
     ),
     (
         "539f5396-d99a-417d-a84c-dff7930b5900",
         &crate::cards::chromatic_lantern::CARD,
     ),
     (
+        "53d6113d-acdb-4754-9641-f7991a96c7b9",
+        &crate::cards::yavimaya_hollow::CARD,
+    ),
+    (
+        "54022a10-c9f0-458d-a0ed-228843cd9a40",
+        &crate::cards::bazaar_of_baghdad::CARD,
+    ),
+    (
+        "541744d9-449d-420a-a5a1-2fffba18450f",
+        &crate::cards::primal_beyond::CARD,
+    ),
+    (
+        "5419eae0-3c12-4748-9cf8-d927752e527e",
+        &crate::cards::sorrow_s_path::CARD,
+    ),
+    (
+        "543e6bb3-a867-43bf-a737-2f5d6d8dc631",
+        &crate::cards::warped_landscape::CARD,
+    ),
+    (
+        "544dbabd-cbfc-40da-a5ba-2fea9cddb453",
+        &crate::cards::sandsteppe_citadel::CARD,
+    ),
+    (
         "54d7d7f8-22cd-4859-b203-924d248b422b",
         &crate::cards::commander_s_insight::CARD,
     ),
     (
+        "5502741a-e3b9-454e-8121-4360a6db6750",
+        &crate::cards::mirrex::CARD,
+    ),
+    (
+        "5548ff43-e5f6-4a63-8562-a2b1de06d6f5",
+        &crate::cards::riveteers_overlook::CARD,
+    ),
+    (
         "554df866-3dbb-4811-8573-6033481591aa",
         &crate::cards::inspirit_flagship_vessel::CARD,
+    ),
+    (
+        "5554db95-9676-4c24-b82a-8173513d7927",
+        &crate::cards::fisk_tower::CARD,
+    ),
+    (
+        "5578cf33-62f5-456c-a58c-f744a25df79b",
+        &crate::cards::svyelunite_temple::CARD,
+    ),
+    (
+        "55a519b4-61cb-448a-875b-4d6dbe00580f",
+        &crate::cards::spire_of_industry::CARD,
+    ),
+    (
+        "562d71b9-1646-474e-9293-55da6947a758",
+        &crate::cards::agadeem_s_awakening::CARD,
+    ),
+    (
+        "564bdbdd-8392-4ee1-a132-1a17a67b2110",
+        &crate::cards::sharlayan_nation_of_scholars::CARD,
     ),
     (
         "5669ea7c-c4fc-494c-896b-4bce9b494817",
@@ -280,24 +1740,180 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::swamp::CARD,
     ),
     (
+        "56f1a16a-9f41-41fb-b580-c200bca27cd6",
+        &crate::cards::fortified_village::CARD,
+    ),
+    (
+        "5715ed43-395c-4877-99a7-8e28e7bf9dce",
+        &crate::cards::eclipsed_realms::CARD,
+    ),
+    (
+        "573151f0-00d4-4a8a-8a09-745c5f376532",
+        &crate::cards::hydroelectric_specimen::CARD,
+    ),
+    (
         "5768fe50-a134-492c-a725-5ed02610c39f",
         &crate::cards::mirrorhall_mimic::CARD,
+    ),
+    (
+        "57b37df5-fee4-4720-931f-f0cb0a8b338c",
+        &crate::cards::orzhov_guildgate::CARD,
+    ),
+    (
+        "57b4da3f-361a-4cbe-b77f-190ec33eefd8",
+        &crate::cards::thran_quarry::CARD,
+    ),
+    (
+        "57b86d5c-3269-44bc-a838-3c5439d820d9",
+        &crate::cards::mirrorpool::CARD,
+    ),
+    (
+        "57d7deaf-ee08-49ab-b239-1c77a1f65225",
+        &crate::cards::halls_of_mist::CARD,
+    ),
+    (
+        "58257464-278e-45fa-8e0b-bcd9a7500bc1",
+        &crate::cards::ash_barrens::CARD,
+    ),
+    (
+        "583cdebe-0195-45be-bd2e-5765f07cb902",
+        &crate::cards::mines_of_moria::CARD,
+    ),
+    (
+        "584b15f2-6ae9-413a-8b8d-9244dbea4878",
+        &crate::cards::unclaimed_territory::CARD,
+    ),
+    (
+        "58afb897-4d57-4b53-a5c3-b532cb3d5180",
+        &crate::cards::golden_guardian::CARD,
+    ),
+    (
+        "58bd67a8-1833-4827-aa33-1c141568f481",
+        &crate::cards::mystifying_maze::CARD,
+    ),
+    (
+        "58bfd9a1-67ce-41d0-be38-f05addd1dd9e",
+        &crate::cards::slippery_karst::CARD,
+    ),
+    (
+        "58c592ed-20fc-481b-909b-2315567e5f20",
+        &crate::cards::molten_tributary::CARD,
+    ),
+    (
+        "58eaaa8b-45c6-439b-bdd1-5f4e77a75a8c",
+        &crate::cards::terminal_moraine::CARD,
     ),
     (
         "59119143-c0fa-49dd-adf0-e2fd3029c48b",
         &crate::cards::karakas::CARD,
     ),
     (
+        "595f0eb5-f521-4174-9c48-b89e85ea907c",
+        &crate::cards::titan_s_grave::CARD,
+    ),
+    (
+        "5963e0ef-e0bc-4611-ad4f-813a4c0eacfb",
+        &crate::cards::mishra_s_factory::CARD,
+    ),
+    (
+        "59a82f57-fe2f-4834-a4ee-4b948eef1e12",
+        &crate::cards::horizon_of_progress::CARD,
+    ),
+    (
+        "59d22de5-e310-44d7-89cf-ef3529e40cef",
+        &crate::cards::barkchannel_pathway::CARD,
+    ),
+    (
+        "5a1dfc60-645d-4bc0-8883-e06ed9c80706",
+        &crate::cards::umbral_expanse::CARD,
+    ),
+    (
+        "5a54d6a3-b1d0-42fe-9531-604b34d197f1",
+        &crate::cards::thalakos_lowlands::CARD,
+    ),
+    (
+        "5a620d20-f14e-43d0-8e57-c2a197e2ec51",
+        &crate::cards::urza_s_factory::CARD,
+    ),
+    (
+        "5a70ccfa-d12d-4e62-a1a4-f05cda2fd442",
+        &crate::cards::abandoned_outpost::CARD,
+    ),
+    (
+        "5a8977fc-0732-4807-b876-01819aedd70b",
+        &crate::cards::pym_technologies::CARD,
+    ),
+    (
+        "5ac8e01c-b0a7-4855-a122-1cd26b07c4a5",
+        &crate::cards::overflowing_basin::CARD,
+    ),
+    (
+        "5ad0b405-cca4-475e-985c-4d7e3599d87e",
+        &crate::cards::sundown_pass::CARD,
+    ),
+    (
+        "5ad94412-6f79-4c5d-bbd4-4ef5779a7b6d",
+        &crate::cards::blackcleave_cliffs::CARD,
+    ),
+    (
         "5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f",
         &crate::cards::elesh_norn_mother_of_machines::CARD,
+    ),
+    (
+        "5b2460a5-6ae5-4cad-ba94-1a9e98e6e4c0",
+        &crate::cards::snow_covered_island::CARD,
+    ),
+    (
+        "5b6d933e-2830-4f5a-b244-a421aa9615dc",
+        &crate::cards::eumidian_hatchery::CARD,
     ),
     (
         "5b8f0cdf-572d-4025-b930-79291f7c35be",
         &crate::cards::vanishing_verse::CARD,
     ),
     (
+        "5b932be0-4dac-41b9-9c59-f79e4cecc31a",
+        &crate::cards::sheltering_landscape::CARD,
+    ),
+    (
+        "5baa7abe-5bdf-40ce-9a83-a93b7cae71a3",
+        &crate::cards::soldevi_excavations::CARD,
+    ),
+    (
+        "5bb06e6f-e3af-4caa-b66d-77248ad46b61",
+        &crate::cards::lilypad_village::CARD,
+    ),
+    (
+        "5be7a4d5-33b7-464b-8851-d4ad35302e62",
+        &crate::cards::dragon_cursed_halls::CARD,
+    ),
+    (
         "5c58b8e6-c572-461e-893e-a8c05f20ba17",
         &crate::cards::temporal_mastery::CARD,
+    ),
+    (
+        "5c87e2fa-77f1-4978-b25f-f14d227301d1",
+        &crate::cards::foreboding_ruins::CARD,
+    ),
+    (
+        "5cf92fd4-7c0b-4d8e-92f1-53dc2e0476fc",
+        &crate::cards::centaur_garden::CARD,
+    ),
+    (
+        "5d3563dd-a2c1-463c-a0ed-5ac22388bdbe",
+        &crate::cards::glacial_floodplain::CARD,
+    ),
+    (
+        "5d641bf6-0f93-4189-8dc1-ec7ea446dade",
+        &crate::cards::tranquil_cove::CARD,
+    ),
+    (
+        "5da954fa-9001-4557-825c-1462035d21ed",
+        &crate::cards::razorgrass_ambush::CARD,
+    ),
+    (
+        "5dd0cc44-4647-4857-ad3b-22494099d08a",
+        &crate::cards::radiant_summit::CARD,
     ),
     (
         "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4",
@@ -308,88 +1924,764 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::hagra_diabolist::CARD,
     ),
     (
+        "5e7eca9c-a7b8-4b7b-a0a0-e8937530145a",
+        &crate::cards::vance_s_blasting_cannons::CARD,
+    ),
+    (
+        "5eb8b497-ec9a-4a89-ad29-1ec3ca82da7c",
+        &crate::cards::brushland::CARD,
+    ),
+    (
+        "5ece7d03-9ee7-4953-a06e-9d8e41874903",
+        &crate::cards::scavenger_grounds::CARD,
+    ),
+    (
+        "5effaa94-7f87-4485-8959-473d584c5034",
+        &crate::cards::grim_backwoods::CARD,
+    ),
+    (
+        "5f0d3be8-e63e-4ade-ae58-6b0c14f2ce6d",
+        &crate::cards::snow_covered_forest::CARD,
+    ),
+    (
+        "5f2b3ea8-99ee-47a4-8a1c-4b27478d524c",
+        &crate::cards::zanarkand_ancient_metropolis::CARD,
+    ),
+    (
+        "5f42b67f-87fd-4f98-a0e8-0c8313f4bbc8",
+        &crate::cards::shipwreck_marsh::CARD,
+    ),
+    (
+        "5ff1d6d8-8cea-4a25-90d9-b575f4c99bc8",
+        &crate::cards::plaza_of_harmony::CARD,
+    ),
+    (
+        "5ff647e4-730a-498f-8f2c-5bd64d5a9780",
+        &crate::cards::cathedral_of_war::CARD,
+    ),
+    (
+        "603dc263-270c-4a16-9b75-41f36fd7dfde",
+        &crate::cards::pine_barrens::CARD,
+    ),
+    (
+        "609fbc2c-514a-4feb-aaad-b9e6dcfd335c",
+        &crate::cards::rhystic_cave::CARD,
+    ),
+    (
+        "60b36821-0fad-423c-98c4-f64d991719f3",
+        &crate::cards::graypelt_refuge::CARD,
+    ),
+    (
+        "616d6013-24f4-4999-9bf3-5b0764e52fa6",
+        &crate::cards::crystal_vein::CARD,
+    ),
+    (
+        "619173f4-0403-49cd-9659-2fedd5028a90",
+        &crate::cards::shire_terrace::CARD,
+    ),
+    (
+        "61b85077-64aa-4bcc-890d-2d88da9543c0",
+        &crate::cards::wooded_bastion::CARD,
+    ),
+    (
+        "61c89b11-65c9-4fda-bbcd-d84de25df801",
+        &crate::cards::aether_hub::CARD,
+    ),
+    (
+        "6216635f-8e6e-40a3-9659-ef6352ab92ce",
+        &crate::cards::eclipsed_steppe::CARD,
+    ),
+    (
+        "622a53bd-d894-422c-a606-7126041afa02",
+        &crate::cards::fomori_vault::CARD,
+    ),
+    (
+        "622e2561-48b1-4aca-9abb-9a3c284dcceb",
+        &crate::cards::winding_canyons::CARD,
+    ),
+    (
+        "62648946-1708-48f4-ba40-c057563ab11b",
+        &crate::cards::argoth_sanctum_of_nature::CARD,
+    ),
+    (
+        "6276a985-7630-476d-a94f-6c6adc88f6c4",
+        &crate::cards::corrupted_crossroads::CARD,
+    ),
+    (
+        "62934aab-b6fa-41b2-ac05-d3fa0e3c5a79",
+        &crate::cards::turntimber_grove::CARD,
+    ),
+    (
+        "62c15af0-40e1-407d-b056-7a3d909e3fdb",
+        &crate::cards::ferrous_lake::CARD,
+    ),
+    (
+        "632e2979-d88a-482e-9bb8-57b683c5310f",
+        &crate::cards::secret_tunnel::CARD,
+    ),
+    (
+        "63398c02-6fb1-481d-9d9f-81063532fbc0",
+        &crate::cards::dragonskull_summit::CARD,
+    ),
+    (
+        "633a41f0-3889-49a0-b2fc-9baf59f4ddc2",
+        &crate::cards::rain_slicked_copse::CARD,
+    ),
+    (
+        "638ff242-63d5-457d-a7a6-40ad51052e2e",
+        &crate::cards::paradox_gardens::CARD,
+    ),
+    (
         "63c1ac21-e3d8-40c2-8c09-3f31c52992ef",
         &crate::cards::vindicate::CARD,
+    ),
+    (
+        "63dfe794-5f56-41ec-9883-5523b41cc3e0",
+        &crate::cards::arena_of_glory::CARD,
+    ),
+    (
+        "63e8d282-d038-4a8c-a0cb-f51ddf87d8ea",
+        &crate::cards::the_monumental_facade::CARD,
+    ),
+    (
+        "6429b4ed-1845-4643-9a3d-85f7c12f2bba",
+        &crate::cards::nephalia_drownyard::CARD,
+    ),
+    (
+        "645fb11b-d684-4bec-8532-8fa97e8f7b28",
+        &crate::cards::oboro_palace_in_the_clouds::CARD,
+    ),
+    (
+        "64687880-03f9-4f38-985b-1027c797e33f",
+        &crate::cards::power_depot::CARD,
+    ),
+    (
+        "64e29bfc-9313-4e8c-808c-bc27f6b018a6",
+        &crate::cards::bloodfell_caves::CARD,
     ),
     (
         "64ebdd6f-acde-4aab-a86b-2798bad5f70c",
         &crate::cards::machine_god_s_effigy::CARD,
     ),
     (
+        "64ee02f1-afdb-474b-a893-31538ad7219a",
+        &crate::cards::jagged_barrens::CARD,
+    ),
+    (
+        "651dea9c-2375-4e44-8e65-ba8e40f0c0ef",
+        &crate::cards::furycalm_snarl::CARD,
+    ),
+    (
+        "6538fb05-7cc6-4bb9-9b57-11f4f07b5e59",
+        &crate::cards::urza_s_fun_house::CARD,
+    ),
+    (
+        "65424bea-fd53-4f85-9757-0b91a6d40ba4",
+        &crate::cards::cabaretti_courtyard::CARD,
+    ),
+    (
         "6557813b-4ee7-4881-a37c-10c8ea097360",
         &crate::cards::wartime_protestors::CARD,
+    ),
+    (
+        "657243dd-e479-4f4b-99d2-09b55d833a35",
+        &crate::cards::gruul_turf::CARD,
+    ),
+    (
+        "6587a463-a108-4854-b6d1-944e89b8c8a4",
+        &crate::cards::wooded_foothills::CARD,
+    ),
+    (
+        "660d44a2-391a-416c-b46c-ddcc3739f527",
+        &crate::cards::valgavoth_s_lair::CARD,
+    ),
+    (
+        "66208129-20fb-4cb4-8f00-8d4574c9c653",
+        &crate::cards::meditation_pools::CARD,
+    ),
+    (
+        "66ae2562-68e9-4c77-ba0a-57f8ff37f656",
+        &crate::cards::tarnished_citadel::CARD,
+    ),
+    (
+        "66d845a2-be4c-41bb-a357-3650461c03ed",
+        &crate::cards::highland_weald::CARD,
+    ),
+    (
+        "66fa2326-1b5d-41fb-b919-83bf9f383577",
+        &crate::cards::blooming_marsh::CARD,
+    ),
+    (
+        "672e190d-8ea0-4a2e-b74f-5d35304631e4",
+        &crate::cards::sea_of_clouds::CARD,
+    ),
+    (
+        "675281ff-b81f-4e5e-9f85-9f8cd202b50b",
+        &crate::cards::inkmoth_nexus::CARD,
+    ),
+    (
+        "676141c3-a433-4aba-86fb-729628f96dfa",
+        &crate::cards::ominous_asylum::CARD,
+    ),
+    (
+        "677b8ce7-f922-4ee3-b311-f199da9b352b",
+        &crate::cards::pillar_of_the_paruns::CARD,
+    ),
+    (
+        "67b2cd0c-ecc8-4129-b1ac-820c9924190c",
+        &crate::cards::duskmantle_house_of_shadow::CARD,
+    ),
+    (
+        "67d60b24-d429-4ded-90d9-06e49f28c396",
+        &crate::cards::verdant_catacombs::CARD,
     ),
     (
         "67f43ac6-2a58-4b53-b5d7-0330e2a252e2",
         &crate::cards::reflecting_pool::CARD,
     ),
     (
+        "68919931-b995-4aa0-9d2a-e80eae2f335f",
+        &crate::cards::ravaged_highlands::CARD,
+    ),
+    (
         "68979160-b5ce-4787-8a1e-1f40e614c3b0",
         &crate::cards::spirit_water_revival::CARD,
+    ),
+    (
+        "690c7f8e-fea2-4920-afa7-02ff120701a1",
+        &crate::cards::spinerock_knoll::CARD,
+    ),
+    (
+        "69143645-97b6-4c7c-9fa2-844fb3b99822",
+        &crate::cards::trenzalore_clocktower::CARD,
+    ),
+    (
+        "696e7ddb-bdc7-40ee-bc5c-59e98f4a7401",
+        &crate::cards::restless_vents::CARD,
+    ),
+    (
+        "69b409b3-fa16-4c79-8b46-215a7036ed46",
+        &crate::cards::the_tabernacle_at_pendrell_vale::CARD,
+    ),
+    (
+        "69c63055-ed44-4b32-b591-f3c6c2f3e7d1",
+        &crate::cards::archway_commons::CARD,
+    ),
+    (
+        "69ddca4b-5cc0-45f3-b2e6-a047c8d601be",
+        &crate::cards::spymaster_s_vault::CARD,
+    ),
+    (
+        "69f55a7c-6ddf-412e-b63b-b395731a1ff2",
+        &crate::cards::secluded_starforge::CARD,
+    ),
+    (
+        "69fc70b8-b143-4662-ac95-e2743037239d",
+        &crate::cards::thriving_isle::CARD,
+    ),
+    (
+        "6a40823f-130c-4416-a987-75e205d3e1dd",
+        &crate::cards::salt_marsh::CARD,
+    ),
+    (
+        "6a4ee425-b3b8-487d-866c-9e2d73682466",
+        &crate::cards::stardew_valley::CARD,
+    ),
+    (
+        "6a6c5e17-6465-4a1f-9d63-8a3ce2edc522",
+        &crate::cards::sulfur_falls::CARD,
+    ),
+    (
+        "6a7f3e1f-6798-4644-b64c-7765f81f0938",
+        &crate::cards::vibrant_cityscape::CARD,
     ),
     (
         "6ad8011d-3471-4369-9d68-b264cc027487",
         &crate::cards::sol_ring::CARD,
     ),
     (
+        "6b3cc59a-7ea5-4eb5-9bf9-5a9c07f80e2b",
+        &crate::cards::mutavault::CARD,
+    ),
+    (
         "6b68acc2-b9d5-495b-8054-c04bae1349f1",
         &crate::cards::sokka_tenacious_tactician::CARD,
+    ),
+    (
+        "6b75b94e-83b7-457e-ac41-7ca90b5a59aa",
+        &crate::cards::battlefield_forge::CARD,
+    ),
+    (
+        "6b78e417-44f8-4ab6-9d3c-e71704fc648e",
+        &crate::cards::the_great_mound::CARD,
+    ),
+    (
+        "6b9cd3d0-4316-4945-b960-12f51052d260",
+        &crate::cards::esper_panorama::CARD,
+    ),
+    (
+        "6bae00e8-06cf-4ac4-a1cc-757e454109fe",
+        &crate::cards::ketria_triome::CARD,
+    ),
+    (
+        "6bb00a28-8b5a-4049-93b7-3db02de88aeb",
+        &crate::cards::forsaken_city::CARD,
+    ),
+    (
+        "6bc668f4-8fc7-4aaf-891b-277d8328b376",
+        &crate::cards::umara_wizard::CARD,
+    ),
+    (
+        "6bc8fd7e-7616-484a-ac23-04d37c93733b",
+        &crate::cards::piranha_marsh::CARD,
+    ),
+    (
+        "6bd6d259-1af7-4dff-a79c-48a616d2a36e",
+        &crate::cards::viridescent_bog::CARD,
+    ),
+    (
+        "6c8f276e-4e7b-4974-ab02-9356cc0ffb2b",
+        &crate::cards::witch_s_cottage::CARD,
+    ),
+    (
+        "6c922206-6e68-4dcd-9559-88da1074f2c4",
+        &crate::cards::rugged_highlands::CARD,
+    ),
+    (
+        "6c9a854c-0509-4ed4-9d94-c45b823b65e5",
+        &crate::cards::heart_of_yavimaya::CARD,
+    ),
+    (
+        "6caabc45-4644-4941-a2f3-f04ee7b50a89",
+        &crate::cards::boiling_rock_prison::CARD,
+    ),
+    (
+        "6cb37ac1-dd11-4a8c-bca5-ef44d828059f",
+        &crate::cards::razortide_bridge::CARD,
+    ),
+    (
+        "6ccca5c2-66c3-495a-8d9e-1a9805569e52",
+        &crate::cards::etched_cornfield::CARD,
+    ),
+    (
+        "6cd58a88-6434-4c55-bf93-a739b5ed9bc1",
+        &crate::cards::witherbloom_campus::CARD,
+    ),
+    (
+        "6d5bb714-1bf4-4f75-9ea8-bdbd18b0425b",
+        &crate::cards::treno_dark_city::CARD,
+    ),
+    (
+        "6d6a25fb-0432-4c7d-b0e6-e787ddc71218",
+        &crate::cards::cryptic_spires::CARD,
+    ),
+    (
+        "6db442e5-fbcc-4456-a4c5-bea1aee3fc8e",
+        &crate::cards::radiant_fountain::CARD,
+    ),
+    (
+        "6de714e1-446d-4fb9-9e3d-bcd3ec6af9ca",
+        &crate::cards::jungle_hollow::CARD,
+    ),
+    (
+        "6e743fbf-b5b6-4176-a4f2-6933f521f2fe",
+        &crate::cards::new_benalia::CARD,
     ),
     (
         "6e9ef5ef-6aed-4d3e-a59b-9e3dc8740b1b",
         &crate::cards::raffine_s_tower::CARD,
     ),
     (
+        "6ec2a242-9068-4ee2-8ac8-8341cc570f56",
+        &crate::cards::emeria_s_call::CARD,
+    ),
+    (
+        "6ee68855-c8c5-422b-88da-163c09a96416",
+        &crate::cards::scorched_ruins::CARD,
+    ),
+    (
         "6eed122b-9760-47fd-8ba2-adeda8054e0d",
         &crate::cards::sea_gate_loremaster::CARD,
+    ),
+    (
+        "6ef30340-a26d-49aa-bc86-0b8aa5252f87",
+        &crate::cards::suburban_sanctuary::CARD,
+    ),
+    (
+        "6f0d94d9-64bb-4175-83bc-301e8f79f54f",
+        &crate::cards::temple_of_triumph::CARD,
+    ),
+    (
+        "6f18ea44-3efa-4a45-abc6-86a0627e40f2",
+        &crate::cards::fungal_reaches::CARD,
+    ),
+    (
+        "6f85c26e-3c87-4112-ad1a-8a5708555a93",
+        &crate::cards::gates_of_istfell::CARD,
+    ),
+    (
+        "6f8cc374-e76c-4bfa-bf20-28dea0bfefbe",
+        &crate::cards::cinder_marsh::CARD,
+    ),
+    (
+        "6f9a4bb2-5959-4a5c-83af-c2729e6673df",
+        &crate::cards::omashu_city::CARD,
+    ),
+    (
+        "6ff85e73-bf7a-4a9c-80ef-6ce76656fab7",
+        &crate::cards::aysen_abbey::CARD,
     ),
     (
         "703243f0-8cb3-420f-958f-5fd4bde30293",
         &crate::cards::savannah::CARD,
     ),
     (
+        "7069d241-4e66-40bf-afd1-551a4a5457f0",
+        &crate::cards::hidden_lair::CARD,
+    ),
+    (
+        "70965b80-c8ad-4718-ae20-12a4d8228898",
+        &crate::cards::skemfar_elderhall::CARD,
+    ),
+    (
+        "709d2f10-1585-48c3-9058-ddd5f62f0452",
+        &crate::cards::overgrown_farmland::CARD,
+    ),
+    (
+        "70d35dbd-1d91-4a2a-a643-6870d168f4f5",
+        &crate::cards::adagia_windswept_bastion::CARD,
+    ),
+    (
+        "70fa2eba-565e-4fed-adc9-7f5d9fcbf1fa",
+        &crate::cards::waterlogged_grove::CARD,
+    ),
+    (
+        "71099427-e110-488f-ab29-7867241fc7f0",
+        &crate::cards::urza_s_workshop::CARD,
+    ),
+    (
+        "7137aae6-260d-41de-8b4e-42a8cf752697",
+        &crate::cards::frostboil_snarl::CARD,
+    ),
+    (
+        "71393988-ad6f-43fd-9978-c0de15ae8e87",
+        &crate::cards::forgotten_monument::CARD,
+    ),
+    (
         "713f16db-95ec-479e-a48c-7a69f7668d7f",
         &crate::cards::void_rend::CARD,
+    ),
+    (
+        "7140f396-1bfa-4b28-ba28-fa15eba74652",
+        &crate::cards::ruins_of_oran_rief::CARD,
+    ),
+    (
+        "717c6beb-81c6-43ed-aab0-aedfc1cbac33",
+        &crate::cards::lake_town::CARD,
+    ),
+    (
+        "7190debf-708b-4f41-9714-0d0a5bd5a74e",
+        &crate::cards::crumbling_necropolis::CARD,
+    ),
+    (
+        "71bc69a5-7cec-4abd-b97d-13f8e1f9afac",
+        &crate::cards::baxter_building::CARD,
+    ),
+    (
+        "71c52bf5-2a5d-488e-8b15-7ef290e4b77d",
+        &crate::cards::war_room::CARD,
+    ),
+    (
+        "71e28800-c42c-48c0-95e5-0296be54a4e8",
+        &crate::cards::naya_panorama::CARD,
+    ),
+    (
+        "7211221d-d4d8-4bbe-9d2a-b82e005bfe8a",
+        &crate::cards::ancient_amphitheater::CARD,
+    ),
+    (
+        "72205fac-a94a-45cc-94c6-40ece2fdce0e",
+        &crate::cards::storm_the_vault::CARD,
+    ),
+    (
+        "727ca426-f4cc-4218-8ae5-8c427af2e816",
+        &crate::cards::cragcrown_pathway::CARD,
+    ),
+    (
+        "727f3201-1cfc-4ab2-9dfe-be4f7251f42f",
+        &crate::cards::boggart_trawler::CARD,
+    ),
+    (
+        "72cb5dcd-9b24-435c-921a-3766108374c4",
+        &crate::cards::sanctum_of_ugin::CARD,
     ),
     (
         "72deedab-7c17-4505-aeca-4bc8596d80a5",
         &crate::cards::tribute_to_the_world_tree::CARD,
     ),
     (
+        "7358e164-5704-4e78-9b21-6a9bf2a968ce",
+        &crate::cards::cabal_coffers::CARD,
+    ),
+    (
         "73864fcc-1bde-4bc0-831e-2b93e546e417",
         &crate::cards::godless_shrine::CARD,
+    ),
+    (
+        "73a39a1b-2fb7-4328-8718-18569ae28e9e",
+        &crate::cards::lantern_lit_graveyard::CARD,
+    ),
+    (
+        "73b3e242-075d-4c4d-9b09-6fef1633c348",
+        &crate::cards::sejiri_refuge::CARD,
     ),
     (
         "73b8cf90-3c71-4f8b-a29f-61894b7f27c9",
         &crate::cards::volrath_s_stronghold::CARD,
     ),
     (
+        "73c423b7-cab8-4e69-8070-9edbf96a6c2c",
+        &crate::cards::boros_guildgate::CARD,
+    ),
+    (
+        "73e7a2ad-d11c-4867-b97d-f971809da778",
+        &crate::cards::glacial_chasm::CARD,
+    ),
+    (
+        "740aa9d9-91a9-431e-8bf9-1344e5273e27",
+        &crate::cards::twists_and_turns::CARD,
+    ),
+    (
+        "741c51f1-cfbe-4c29-ac8f-ca6bcd2652f9",
+        &crate::cards::wandering_fumarole::CARD,
+    ),
+    (
+        "743f4488-fef1-4f4d-b745-d2de92423e00",
+        &crate::cards::grixis_panorama::CARD,
+    ),
+    (
+        "749c2c8e-9588-4e83-b07f-3c37eb63338b",
+        &crate::cards::snowfield_sinkhole::CARD,
+    ),
+    (
+        "74a6597c-13ea-47bd-adb3-45671897b11b",
+        &crate::cards::tresserhorn_sinks::CARD,
+    ),
+    (
+        "74b7fe23-5d3a-4092-8d78-7c0eba8f6f73",
+        &crate::cards::tropical_island::CARD,
+    ),
+    (
         "74d3277a-38e5-4732-afed-084a56148f20",
         &crate::cards::mana_drain::CARD,
+    ),
+    (
+        "74ed0bd3-ac31-41a4-8220-d8e7c8c1c437",
+        &crate::cards::dwarven_mine::CARD,
+    ),
+    (
+        "7536eb66-959d-4dca-9b75-895572ef733c",
+        &crate::cards::emergence_zone::CARD,
+    ),
+    (
+        "75540897-53f6-433b-bd70-9851551df6ef",
+        &crate::cards::cave_of_temptation::CARD,
+    ),
+    (
+        "75a49bce-ab48-44d6-906d-6f51a30702ba",
+        &crate::cards::frost_marsh::CARD,
+    ),
+    (
+        "75b235d3-595a-4859-be45-9559d8445db5",
+        &crate::cards::selesnya_guildgate::CARD,
+    ),
+    (
+        "75d8ef26-b745-448b-94b9-3c64668ce171",
+        &crate::cards::great_hall_of_starnheim::CARD,
+    ),
+    (
+        "761cb262-f83b-4a99-9345-b773182a7671",
+        &crate::cards::bountiful_promenade::CARD,
+    ),
+    (
+        "761ee6f9-b0fa-43c9-8d1f-9591ea18e52d",
+        &crate::cards::necroblossom_snarl::CARD,
+    ),
+    (
+        "7647940e-c99c-401c-ad1d-9ec730f66b6f",
+        &crate::cards::balduvian_trading_post::CARD,
+    ),
+    (
+        "765863c8-1be0-4bb1-9e9c-db7701cffde3",
+        &crate::cards::lonely_sandbar::CARD,
     ),
     (
         "76678885-3674-443d-b9a2-2a460cf6aac0",
         &crate::cards::panharmonicon::CARD,
     ),
     (
+        "76695b15-d0ba-41eb-85f1-52ba5d14b8ba",
+        &crate::cards::rainbow_vale::CARD,
+    ),
+    (
+        "76c33d54-ce55-400e-bec5-79d33a5a20fb",
+        &crate::cards::undiscovered_paradise::CARD,
+    ),
+    (
+        "76f335d0-7f71-4b1a-b60d-73de954cbe2c",
+        &crate::cards::skycloud_expanse::CARD,
+    ),
+    (
+        "77807103-bcd5-479f-bedd-f5d97aa6d3d2",
+        &crate::cards::forge_of_heroes::CARD,
+    ),
+    (
+        "7785ffd4-f169-475d-9558-ce4877b3378a",
+        &crate::cards::gleaming_bastion::CARD,
+    ),
+    (
+        "77cf536e-246e-4c18-8e04-c904fcad3f40",
+        &crate::cards::sulfurous_mire::CARD,
+    ),
+    (
+        "78301998-fd9b-4cd5-afad-dbcb43cac2a7",
+        &crate::cards::shatterskull_smashing::CARD,
+    ),
+    (
+        "78a2972c-14f4-41f3-99f9-167948bdd73a",
+        &crate::cards::petrified_hamlet::CARD,
+    ),
+    (
+        "79301ae1-8c9c-4723-be21-dc27e1646f35",
+        &crate::cards::skyline_cascade::CARD,
+    ),
+    (
+        "79638767-fbc7-451a-b29f-d93f2ac6f102",
+        &crate::cards::kher_keep::CARD,
+    ),
+    (
+        "79ba18fd-f184-43c1-86df-56ee18ce806c",
+        &crate::cards::secluded_courtyard::CARD,
+    ),
+    (
         "79e69a91-d580-47fb-be76-1e32c50d2fa0",
         &crate::cards::great_divide_guide::CARD,
+    ),
+    (
+        "79f94050-d850-41ca-b1db-5ae0cf743f0a",
+        &crate::cards::temple_of_epiphany::CARD,
+    ),
+    (
+        "7a30316b-dcd5-4a4b-b959-eecde7ca92e7",
+        &crate::cards::branch_of_vitu_ghazi::CARD,
+    ),
+    (
+        "7a951bd7-4f7d-44ea-9c2f-fe2f6b2f5289",
+        &crate::cards::salt_flats::CARD,
+    ),
+    (
+        "7b0d7e62-0287-454a-8702-b0bfa7b41245",
+        &crate::cards::minas_tirith::CARD,
+    ),
+    (
+        "7b2c7758-2b89-49ff-8838-8dc9880c7209",
+        &crate::cards::treva_s_ruins::CARD,
     ),
     (
         "7b459306-149b-4f43-abc1-2dd70c748c0e",
         &crate::cards::ravenous_chupacabra::CARD,
     ),
     (
+        "7b9fafe7-d26a-4ed5-b4c4-ce13763770b5",
+        &crate::cards::geier_reach_sanitarium::CARD,
+    ),
+    (
+        "7ba580c9-f933-43d9-b03d-a349faa6c641",
+        &crate::cards::fertile_thicket::CARD,
+    ),
+    (
+        "7c05d239-39fc-4d34-a853-e3d591f4a235",
+        &crate::cards::mouth_of_ronom::CARD,
+    ),
+    (
+        "7c2a4fe5-43e8-4e20-bef2-0278d18afc4b",
+        &crate::cards::shifting_woodland::CARD,
+    ),
+    (
+        "7c304547-a4b1-46c9-baed-16d2bfbe16eb",
+        &crate::cards::branchloft_pathway::CARD,
+    ),
+    (
+        "7c427c3d-ecd8-45ef-bebd-8f10f4a311db",
+        &crate::cards::gaea_s_cradle::CARD,
+    ),
+    (
+        "7c439c18-31dc-41fe-b03d-3fca06e6fc0b",
+        &crate::cards::temple_of_malice::CARD,
+    ),
+    (
+        "7c6143f3-ad2c-4d7f-9041-aa59f01d8fb7",
+        &crate::cards::haunted_fengraf::CARD,
+    ),
+    (
+        "7c69f718-acc8-4851-8e5d-0cbaaa86192c",
+        &crate::cards::undergrowth_stadium::CARD,
+    ),
+    (
+        "7cb9e29f-835f-4155-a2a5-4b778866c773",
+        &crate::cards::mosswort_bridge::CARD,
+    ),
+    (
+        "7d09b136-525f-49dd-a3a2-dfaca4e8e9a8",
+        &crate::cards::looming_spires::CARD,
+    ),
+    (
         "7d679591-f8ea-4c4c-ab98-7b9e3438cf57",
         &crate::cards::primaris_eliminator::CARD,
+    ),
+    (
+        "7d6ccd0b-df16-40b2-930b-bcde0b6ef73f",
+        &crate::cards::journey_to_eternity::CARD,
     ),
     (
         "7d7cf15c-06b9-4062-a1eb-32614c458a3b",
         &crate::cards::arcane_sanctum::CARD,
     ),
     (
+        "7e103748-3f76-42ce-a063-d0256b2dce2b",
+        &crate::cards::rockface_village::CARD,
+    ),
+    (
+        "7e16595f-bdeb-422e-b99a-bfc0ed52e9f8",
+        &crate::cards::restless_cottage::CARD,
+    ),
+    (
+        "7e26f0b7-20e6-46d5-8130-d98c14d6aa29",
+        &crate::cards::temple_of_mystery::CARD,
+    ),
+    (
+        "7e2eb4d5-22a3-43c1-8cf3-e85723da1b61",
+        &crate::cards::racers_ring::CARD,
+    ),
+    (
         "7e5d9efe-48a9-434b-bb09-056e0e09cc9a",
         &crate::cards::isolated_chapel::CARD,
+    ),
+    (
+        "7e8198e9-0f3b-420b-ab09-74f13f4fd548",
+        &crate::cards::throne_of_makindi::CARD,
+    ),
+    (
+        "7e8c2a18-e404-40ff-a9e0-ec3eeb6d576e",
+        &crate::cards::command_beacon::CARD,
+    ),
+    (
+        "7eadffcb-1e15-44c1-b1db-78c71b8ec1ce",
+        &crate::cards::rupture_spire::CARD,
+    ),
+    (
+        "7edb3d15-4f70-4ebe-8c5e-caf6a225076d",
+        &crate::cards::eiganjo_seat_of_the_empire::CARD,
     ),
     (
         "7f06c098-6482-4bf3-a9a1-110d6d5b5703",
@@ -400,64 +2692,500 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::jace_the_mind_sculptor::CARD,
     ),
     (
+        "7fab8d65-af51-47d3-8f10-2676bf6e8ba3",
+        &crate::cards::eldrazi_temple::CARD,
+    ),
+    (
+        "7fbad3f2-66f6-4e3a-b9e0-1ddbcd94d42a",
+        &crate::cards::shattered_landscape::CARD,
+    ),
+    (
+        "7ffadb3f-0b88-416f-b1a1-876383c22720",
+        &crate::cards::study::CARD,
+    ),
+    (
+        "7fff5224-c002-4a32-86fe-9a4b18d78b50",
+        &crate::cards::hissing_quagmire::CARD,
+    ),
+    (
+        "80f08b47-a237-4efd-8d86-dfe35a816b0e",
+        &crate::cards::sinister_hideout::CARD,
+    ),
+    (
+        "81036c9f-fe0a-45a7-bcd5-0d344f31055a",
+        &crate::cards::spikefield_hazard::CARD,
+    ),
+    (
+        "8110fe69-c66c-4e2c-86ee-dcc8dc9a13d1",
+        &crate::cards::the_dross_pits::CARD,
+    ),
+    (
+        "81763d7d-3897-4be9-bbf6-f6f5dee366ff",
+        &crate::cards::memorial_to_genius::CARD,
+    ),
+    (
+        "819e1765-8325-4e6f-89c1-63ea86de369f",
+        &crate::cards::luxury_suite::CARD,
+    ),
+    (
         "819fc966-434e-470f-91e9-a38df974ad17",
         &crate::cards::drowned_catacomb::CARD,
+    ),
+    (
+        "81b61770-2ed5-4a50-84d0-97790002fc5a",
+        &crate::cards::song_mad_treachery::CARD,
     ),
     (
         "82004860-e589-4e38-8d61-8c0210e4ea39",
         &crate::cards::demonic_tutor::CARD,
     ),
     (
+        "8220c5fa-28dc-40d0-a38a-d8eefc2795d6",
+        &crate::cards::stensia_bloodhall::CARD,
+    ),
+    (
+        "8291543f-d086-48aa-b2b7-5481ca8c9198",
+        &crate::cards::xander_s_lounge::CARD,
+    ),
+    (
+        "829474df-6413-4323-aef6-f878cb0e797c",
+        &crate::cards::henge_of_ramos::CARD,
+    ),
+    (
+        "82c5ec8e-27be-475a-9921-ad61209fd022",
+        &crate::cards::unknown_shores::CARD,
+    ),
+    (
+        "8305715e-f711-47d6-8efe-d0efe4ced418",
+        &crate::cards::shefet_dunes::CARD,
+    ),
+    (
+        "83161d59-2520-4741-9328-e2a4a8b5d5bc",
+        &crate::cards::evendo_waking_haven::CARD,
+    ),
+    (
+        "834b8f71-9a45-42ae-9e99-e749fa6fb45e",
+        &crate::cards::mystic_monastery::CARD,
+    ),
+    (
+        "8375aaaa-edc2-4a0c-98f6-af07d61ebd0a",
+        &crate::cards::underdome::CARD,
+    ),
+    (
         "83b43aba-bf9c-4da2-967d-9daa632e97d2",
         &crate::cards::helm_of_the_host::CARD,
+    ),
+    (
+        "83f2470e-2114-4cd9-ab1a-21b76e9cdf63",
+        &crate::cards::rumble_arena::CARD,
+    ),
+    (
+        "83f9d84a-a011-4fa9-a3a4-51eb39159c54",
+        &crate::cards::geothermal_crevice::CARD,
+    ),
+    (
+        "840119bf-e60f-4ff7-9c9b-d420d09df545",
+        &crate::cards::underground_mortuary::CARD,
+    ),
+    (
+        "8417f2d5-93c9-474a-a143-5c4e17097a88",
+        &crate::cards::a_i_m_labs::CARD,
+    ),
+    (
+        "841f0a1d-6f84-45fb-81cc-f2d99fa9e9a2",
+        &crate::cards::arctic_flats::CARD,
+    ),
+    (
+        "84856b92-5ce8-47f3-9a1c-78d6a3e26aca",
+        &crate::cards::eden_seat_of_the_sanctum::CARD,
+    ),
+    (
+        "849c97e4-df15-4ecb-bdf8-283bb497d90c",
+        &crate::cards::guadosalam_farplane_gateway::CARD,
+    ),
+    (
+        "84cef34a-c3e1-4059-b4cd-c481938a53a5",
+        &crate::cards::diamond_valley::CARD,
+    ),
+    (
+        "84d89a3d-4b28-4e19-8298-737ec6a06238",
+        &crate::cards::watermarket::CARD,
+    ),
+    (
+        "84dc18f0-8225-4b40-a165-b10321e41769",
+        &crate::cards::nykthos_shrine_to_nyx::CARD,
+    ),
+    (
+        "850bb6f7-48d3-4d65-9220-b0bec5ee6b64",
+        &crate::cards::fogwell_s_gym::CARD,
+    ),
+    (
+        "852c6520-d148-4923-a312-05a9af821f24",
+        &crate::cards::eroded_canyon::CARD,
+    ),
+    (
+        "852d4dc3-404d-4565-99e9-1eac8f6eca5e",
+        &crate::cards::desert_of_the_indomitable::CARD,
+    ),
+    (
+        "8551a9cf-c54b-42d4-92d6-550f4890a3d7",
+        &crate::cards::orzhova_the_church_of_deals::CARD,
+    ),
+    (
+        "85573a3d-2993-491a-8f8d-bbdb844fa84e",
+        &crate::cards::gilt_leaf_palace::CARD,
+    ),
+    (
+        "857febd9-cdd7-4f8e-a852-d88084b0cfbc",
+        &crate::cards::underground_river::CARD,
     ),
     (
         "85cf2403-b419-4364-8ac9-67dd1ceddf9e",
         &crate::cards::tuktuk_scrapper::CARD,
     ),
     (
+        "8618f8e8-fd86-47e3-905d-e6624b599b9b",
+        &crate::cards::the_fair_basilica::CARD,
+    ),
+    (
+        "861eb7d7-7616-4620-a4fd-4b8c3bf00dd1",
+        &crate::cards::promising_vein::CARD,
+    ),
+    (
+        "865a2194-fca0-446e-aae3-ca475cd66e00",
+        &crate::cards::dismal_backwater::CARD,
+    ),
+    (
+        "867dbd5a-c3cf-41ce-980b-c9babc6f30f2",
+        &crate::cards::minas_morgul_dark_fortress::CARD,
+    ),
+    (
+        "8683341a-e836-41e5-9034-4da09eb0ab42",
+        &crate::cards::dimension_x::CARD,
+    ),
+    (
+        "868e6e68-4367-4073-a864-235d5961ae56",
+        &crate::cards::darkbore_pathway::CARD,
+    ),
+    (
+        "86ed6073-c35c-4d29-9911-5fe191dd875f",
+        &crate::cards::the_biblioplex::CARD,
+    ),
+    (
+        "86fb3749-37d6-48a6-8524-71e996850307",
+        &crate::cards::high_market::CARD,
+    ),
+    (
+        "8709b5b1-ef9e-45b2-bf4f-ef4c4d613dcd",
+        &crate::cards::rocky_tar_pit::CARD,
+    ),
+    (
+        "8733a4fc-4068-4af4-9598-dc3d895e8556",
+        &crate::cards::basilisk_gate::CARD,
+    ),
+    (
+        "876ac6f6-74de-4666-84c6-83d81f054723",
+        &crate::cards::celestial_colonnade::CARD,
+    ),
+    (
+        "87a0e0b9-6c2d-47a4-a3ed-7e0ae62fbffc",
+        &crate::cards::icatian_store::CARD,
+    ),
+    (
+        "87c8e1ed-258a-4a89-bcc6-211405e49692",
+        &crate::cards::command_bridge::CARD,
+    ),
+    (
+        "88159872-d37d-4847-b048-e4a9af6437bd",
+        &crate::cards::barad_dr::CARD,
+    ),
+    (
         "88929ea9-900f-4dbb-b16c-cf3bad4e410c",
         &crate::cards::progenitor_mimic::CARD,
+    ),
+    (
+        "88b18901-50cd-461c-b1bc-be900210be8e",
+        &crate::cards::conqueror_s_galleon::CARD,
+    ),
+    (
+        "88e29d50-1680-495d-be84-b92b4c9e636f",
+        &crate::cards::diamond_city::CARD,
+    ),
+    (
+        "88f8f683-738e-48f3-afff-c8f73f1033a2",
+        &crate::cards::botanical_sanctum::CARD,
+    ),
+    (
+        "88fb9e82-28b9-4275-a1e2-cb3a9bfda127",
+        &crate::cards::vitu_ghazi_the_city_tree::CARD,
+    ),
+    (
+        "895a0e00-20a9-44f8-9215-66edcdf016b7",
+        &crate::cards::eiganjo_castle::CARD,
     ),
     (
         "89ca686a-7c72-4d8f-9290-e89635624a83",
         &crate::cards::cavern_of_souls::CARD,
     ),
     (
+        "89f43e27-790b-4ca1-8ba7-0882b31e0783",
+        &crate::cards::temple_of_enlightenment::CARD,
+    ),
+    (
+        "8a44e4e7-dfa2-427b-bbff-11c398fa60bb",
+        &crate::cards::gavony_township::CARD,
+    ),
+    (
+        "8a83d284-75a0-4901-b7d9-c4b7586ee327",
+        &crate::cards::river_of_tears::CARD,
+    ),
+    (
+        "8ada7388-fd8b-434c-a17a-bce19cf3e615",
+        &crate::cards::elephant_graveyard::CARD,
+    ),
+    (
+        "8b370db5-dfb9-4ea0-9017-bae3e767b041",
+        &crate::cards::kjeldoran_outpost::CARD,
+    ),
+    (
+        "8b3726f1-20b8-42ec-8f9b-b361515c3f05",
+        &crate::cards::restless_fortress::CARD,
+    ),
+    (
+        "8b4aa971-b919-4750-8388-33d4f42c9280",
+        &crate::cards::tree_of_tales::CARD,
+    ),
+    (
         "8b755881-a72d-4e21-a369-d2924eb4585a",
         &crate::cards::cultivate::CARD,
+    ),
+    (
+        "8b84fec5-617c-4088-8250-2ba1f1f9479a",
+        &crate::cards::balamb_garden_see_d_academy::CARD,
+    ),
+    (
+        "8b96f837-7c32-473a-b5ae-1d66527eaf7b",
+        &crate::cards::jwar_isle_refuge::CARD,
+    ),
+    (
+        "8c281ebe-d9a1-48af-b58b-19c55aa4625b",
+        &crate::cards::alpine_meadow::CARD,
     ),
     (
         "8c31fec9-e4b3-4761-990e-7be38eb05604",
         &crate::cards::karmic_guide::CARD,
     ),
     (
+        "8c45bf9d-a017-43bf-9e32-67810a8a217b",
+        &crate::cards::talon_gates_of_madara::CARD,
+    ),
+    (
+        "8d2b2675-19df-4f40-9e8e-196ec097b91c",
+        &crate::cards::sunscorched_divide::CARD,
+    ),
+    (
+        "8d38194e-b607-4ff4-9c19-0e8636d463bf",
+        &crate::cards::raging_ravine::CARD,
+    ),
+    (
+        "8d4dcab0-86e5-4ff8-a90f-78a062664e16",
+        &crate::cards::sapseep_forest::CARD,
+    ),
+    (
+        "8d7e05ba-5406-4d5e-bb8f-a4a6f3b0eaa7",
+        &crate::cards::riftstone_portal::CARD,
+    ),
+    (
+        "8da29533-f389-4bc2-ab9b-b469f893a362",
+        &crate::cards::cactus_preserve::CARD,
+    ),
+    (
+        "8dc067bf-f78f-4ac4-b6e7-b305c42cf0bc",
+        &crate::cards::darksteel_citadel::CARD,
+    ),
+    (
         "8dcb35e5-ae44-455f-86e3-4a77d496ff34",
         &crate::cards::spark_double::CARD,
+    ),
+    (
+        "8dcba63c-4701-4dc9-81f5-ca8e8933a3ba",
+        &crate::cards::vector_imperial_capital::CARD,
+    ),
+    (
+        "8dd5f5af-d2d8-4356-8617-8381081b930c",
+        &crate::cards::yavimaya_cradle_of_growth::CARD,
+    ),
+    (
+        "8dd6d060-d023-48a6-85cb-7a5521b6257b",
+        &crate::cards::revitalizing_repast::CARD,
+    ),
+    (
+        "8dec6fcf-1254-4b1b-ba23-7a3e492a7241",
+        &crate::cards::secluded_steppe::CARD,
+    ),
+    (
+        "8df14d53-472c-416e-93c6-6c0b7f9b614e",
+        &crate::cards::cloudcrest_lake::CARD,
+    ),
+    (
+        "8e4d0da0-c7d8-4a20-9bfd-02c1331a7a49",
+        &crate::cards::primal_amulet::CARD,
+    ),
+    (
+        "8e7641e1-e814-4d5a-9cb3-71ad2f4ceee8",
+        &crate::cards::rugged_prairie::CARD,
+    ),
+    (
+        "8ea46945-d5ab-4209-b473-4769e7b8b962",
+        &crate::cards::shrine_of_the_forsaken_gods::CARD,
     ),
     (
         "8ecdaf4b-4442-42da-9714-4257a83faf50",
         &crate::cards::sakashima_of_a_thousand_faces::CARD,
     ),
     (
+        "8ed932ff-986c-4592-ad70-53b3fac80d69",
+        &crate::cards::nurturing_peatland::CARD,
+    ),
+    (
+        "8f5902bf-4bc4-4d0c-84ea-a425307a4eb2",
+        &crate::cards::bucolic_ranch::CARD,
+    ),
+    (
+        "8f69bd3a-244e-42d8-bfac-5a426f4b54b4",
+        &crate::cards::razortrap_gorge::CARD,
+    ),
+    (
+        "8f7f4061-8998-40e9-b980-c63f27e7a5cd",
+        &crate::cards::safe_haven::CARD,
+    ),
+    (
+        "8f88b0bf-81bd-4223-9dad-d8c49ff4b87a",
+        &crate::cards::conservatory::CARD,
+    ),
+    (
+        "8fa3ac81-3dfe-4565-be99-5554f7597b4b",
+        &crate::cards::boros_garrison::CARD,
+    ),
+    (
         "90076bf5-aa9a-4a6e-9035-9aa97fd5561e",
         &crate::cards::luminarch_ascension::CARD,
+    ),
+    (
+        "9043d8d5-b38a-406f-a44c-49f579c644f0",
+        &crate::cards::flood_plain::CARD,
+    ),
+    (
+        "90bccf66-58ec-445d-ac96-c6013054a1b4",
+        &crate::cards::stone_quarry::CARD,
+    ),
+    (
+        "91320daf-f69c-4350-b0fc-4bb37a6904b1",
+        &crate::cards::restless_anchorage::CARD,
     ),
     (
         "913e6182-706a-4872-8c8a-e146b0ae0738",
         &crate::cards::sword_of_hearth_and_home::CARD,
     ),
     (
+        "91d4a5fe-fd6d-4b14-a63f-61b4d0ecd9c4",
+        &crate::cards::inventors_fair::CARD,
+    ),
+    (
+        "91f34686-cb96-49c0-b4a7-49dd1fd076e2",
+        &crate::cards::sea_gate_wreckage::CARD,
+    ),
+    (
+        "91fbb25b-8521-483f-88b0-77778d25f7fd",
+        &crate::cards::castle_embereth::CARD,
+    ),
+    (
+        "91fceb34-0f2d-4392-be27-00dcd765637f",
+        &crate::cards::thriving_bluff::CARD,
+    ),
+    (
         "92019547-f6db-4ea6-8356-d0a90ace5662",
         &crate::cards::soulherder::CARD,
+    ),
+    (
+        "92392467-a22f-4dd7-a0eb-393bef956dc0",
+        &crate::cards::cabal_pit::CARD,
+    ),
+    (
+        "926ce6a2-7bdd-4380-ac65-bc902ba0c284",
+        &crate::cards::thran_portal::CARD,
+    ),
+    (
+        "927979d7-9b5c-4448-aef0-baf2907a89f1",
+        &crate::cards::hidden_cataract::CARD,
+    ),
+    (
+        "92acb789-0e42-465c-ac16-40fefec48805",
+        &crate::cards::llanowar_reborn::CARD,
+    ),
+    (
+        "92bac34e-2045-4331-842f-185711c1ac56",
+        &crate::cards::skarrg_the_rage_pits::CARD,
+    ),
+    (
+        "92c9aad6-35ec-425d-be7d-393328992820",
+        &crate::cards::glimmerpost::CARD,
     ),
     (
         "93056597-b964-421f-be2f-e92abef1c2a4",
         &crate::cards::emeritus_of_woe::CARD,
     ),
     (
+        "93695c16-c441-492d-af12-b57df9739846",
+        &crate::cards::detection_tower::CARD,
+    ),
+    (
         "93723b12-db34-4047-885e-8606415b1553",
         &crate::cards::ashiok_dream_render::CARD,
+    ),
+    (
+        "93953926-a644-49bb-9b5a-4c8f19114c7e",
+        &crate::cards::demolition_field::CARD,
+    ),
+    (
+        "93b91d18-6acf-42e5-9a31-bc6e01f90c1f",
+        &crate::cards::hadana_s_climb::CARD,
+    ),
+    (
+        "93e38650-ce22-4ab9-b79d-cc7b6477c075",
+        &crate::cards::the_gold_saucer::CARD,
+    ),
+    (
+        "941a4b14-ea2a-4bd0-8cc2-d609f80df32c",
+        &crate::cards::jwari_disruption::CARD,
+    ),
+    (
+        "941b0dd1-0df2-48ee-8829-615e9c3177a7",
+        &crate::cards::forsaken_sanctuary::CARD,
+    ),
+    (
+        "9464ddf2-4bcb-44f6-b945-89a132544de6",
+        &crate::cards::maestros_theater::CARD,
+    ),
+    (
+        "949e455d-6a9e-491a-892f-826cc8be0fd9",
+        &crate::cards::hall::CARD,
+    ),
+    (
+        "94e8b0a9-44a1-4dce-8d44-78681ae638a1",
+        &crate::cards::fountainport::CARD,
+    ),
+    (
+        "94f6c407-e665-4032-be13-a01e40c1f306",
+        &crate::cards::razorverge_thicket::CARD,
+    ),
+    (
+        "9516c4c1-d72d-434f-97e1-6a862434a169",
+        &crate::cards::rootbound_crag::CARD,
+    ),
+    (
+        "952ab8fe-f7d3-4673-89de-8c6d3f8a081f",
+        &crate::cards::cavernous_maw::CARD,
     ),
     (
         "956381ba-6d37-4a8a-846c-bad79222dbee",
@@ -468,16 +3196,100 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::abandoned_air_temple::CARD,
     ),
     (
+        "95c44f28-f7fa-4785-83b9-0d81be0db0c8",
+        &crate::cards::volatile_fault::CARD,
+    ),
+    (
+        "96262c15-9130-409c-8242-71f84be719b7",
+        &crate::cards::volatile_fjord::CARD,
+    ),
+    (
+        "963f2848-15bd-441b-a55c-635f53b7b63f",
+        &crate::cards::gargoyle_castle::CARD,
+    ),
+    (
+        "965aa666-3919-4053-8584-b773bdd54f0b",
+        &crate::cards::surtland_frostpyre::CARD,
+    ),
+    (
+        "9684447a-5955-4bc7-8ad0-8bb8b316873b",
+        &crate::cards::throne_of_the_high_city::CARD,
+    ),
+    (
         "9728dec9-d482-4c7a-8cdc-44d010dc878d",
         &crate::cards::ancestral_vision::CARD,
+    ),
+    (
+        "975ec9a3-6f20-4177-8211-82526e092538",
+        &crate::cards::overgrown_tomb::CARD,
     ),
     (
         "97652492-7906-4d79-983c-fa1dc1239eba",
         &crate::cards::sheoldred::CARD,
     ),
     (
+        "977c2f33-b622-4172-9efb-7f523becd32b",
+        &crate::cards::blazemire_verge::CARD,
+    ),
+    (
+        "97a2cd39-6b54-496b-b3ac-dab9dfed7edc",
+        &crate::cards::elven_passage::CARD,
+    ),
+    (
         "97d61346-bd53-4eb8-a920-6ae0382eb20d",
         &crate::cards::thief_of_blood::CARD,
+    ),
+    (
+        "9809d975-7ef8-4946-9041-607c4e954b13",
+        &crate::cards::polluted_mire::CARD,
+    ),
+    (
+        "98334bfa-c516-4c20-bdc5-9e32e7127adc",
+        &crate::cards::transguild_promenade::CARD,
+    ),
+    (
+        "983739cd-0b36-40d9-9a03-7b6aa7ffd0df",
+        &crate::cards::rimewood_falls::CARD,
+    ),
+    (
+        "986f510c-e2ec-423e-a443-51a169939558",
+        &crate::cards::tomb_fortress::CARD,
+    ),
+    (
+        "9879a4f3-3b9c-45cf-af03-7f2ae4c689b4",
+        &crate::cards::tolaria::CARD,
+    ),
+    (
+        "98a22879-d0b2-441f-bcf6-a67b4552b73c",
+        &crate::cards::lounge::CARD,
+    ),
+    (
+        "98d20908-6d68-4d31-b719-207f93c9b402",
+        &crate::cards::goblin_town::CARD,
+    ),
+    (
+        "98e547de-b963-4ee4-9a08-67bae010734b",
+        &crate::cards::university_campus::CARD,
+    ),
+    (
+        "995c8dac-fd27-468a-abd4-02372cf0c850",
+        &crate::cards::mount_doom::CARD,
+    ),
+    (
+        "99720c65-be96-4220-8ed4-720660bf6928",
+        &crate::cards::thornglint_bridge::CARD,
+    ),
+    (
+        "99c70f4e-de8a-426d-99aa-17b2f87625ba",
+        &crate::cards::training_compound::CARD,
+    ),
+    (
+        "9abf9a0e-8e7d-406b-a01d-d4870b30134e",
+        &crate::cards::the_shire::CARD,
+    ),
+    (
+        "9aef7510-9f06-4939-8cae-f71330d1105e",
+        &crate::cards::turbulent_springs::CARD,
     ),
     (
         "9b2cdbed-c733-409b-b0e4-2c8960c25111",
@@ -488,20 +3300,200 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::darksteel_forge::CARD,
     ),
     (
+        "9b64c0f4-b917-4a0d-b033-30ab71aab807",
+        &crate::cards::shivan_oasis::CARD,
+    ),
+    (
+        "9bd013df-ad75-4099-940b-1765c58faf26",
+        &crate::cards::castle_doom::CARD,
+    ),
+    (
+        "9c482f1d-08b4-4882-918c-448a556d3fbe",
+        &crate::cards::nivix_aerie_of_the_firemind::CARD,
+    ),
+    (
+        "9c58d241-4d9f-4b46-b8ee-f4587f9acfd6",
+        &crate::cards::plaza_of_heroes::CARD,
+    ),
+    (
+        "9c8007ac-4b3d-4444-93e9-f583185e5d81",
+        &crate::cards::blasted_landscape::CARD,
+    ),
+    (
+        "9cbc9f83-8979-42a5-a466-a8d89c8e6de8",
+        &crate::cards::bristling_backwoods::CARD,
+    ),
+    (
+        "9cc02c16-8cf9-4ac7-9475-231c27121968",
+        &crate::cards::ghitu_encampment::CARD,
+    ),
+    (
+        "9d293b69-12b7-4b50-a0a7-c4f493dee30b",
+        &crate::cards::ally_encampment::CARD,
+    ),
+    (
+        "9d3b60af-3e38-4d36-95fc-11b31c38f955",
+        &crate::cards::festering_gulch::CARD,
+    ),
+    (
+        "9d581188-ce80-494e-bd38-f411e1f4efb5",
+        &crate::cards::bridgeworks_battle::CARD,
+    ),
+    (
         "9da9248d-1201-447f-b6c2-2b64af4f71c4",
         &crate::cards::earth_king_s_lieutenant::CARD,
+    ),
+    (
+        "9e006a4b-8dde-4416-8cb4-8401562d0fd5",
+        &crate::cards::tendo_ice_bridge::CARD,
+    ),
+    (
+        "9e7a240d-dc33-47ac-9f17-77fab4c1c340",
+        &crate::cards::seachrome_coast::CARD,
+    ),
+    (
+        "9ea747cf-5d04-4aa7-bdc3-8145860cd1ba",
+        &crate::cards::elegant_parlor::CARD,
+    ),
+    (
+        "9eaadbbc-818b-4c21-9d4b-1bba48504d38",
+        &crate::cards::springjack_pasture::CARD,
+    ),
+    (
+        "9ec5a487-d8ed-459a-8f58-56f6e9a2dfe8",
+        &crate::cards::labyrinth_of_skophos::CARD,
+    ),
+    (
+        "9f12bf9a-6e1a-4377-b4af-e8cabd3ee58a",
+        &crate::cards::deserted_temple::CARD,
+    ),
+    (
+        "9f8fe514-77ed-41b4-a6f3-c6f095bb97be",
+        &crate::cards::tranquil_thicket::CARD,
+    ),
+    (
+        "9fb8cd81-403a-4988-8f1c-b8eccf8abd9c",
+        &crate::cards::karn_s_bastion::CARD,
     ),
     (
         "a044474a-cd72-4e9d-bd8d-a08f2de9cdc0",
         &crate::cards::reanimate::CARD,
     ),
     (
+        "a05f641c-15c9-43dc-ae0d-1ea372fd33d5",
+        &crate::cards::copperline_gorge::CARD,
+    ),
+    (
+        "a176924c-78fc-4151-b2b5-1547b1114a40",
+        &crate::cards::peat_bog::CARD,
+    ),
+    (
+        "a1a9695e-073b-4a65-b3ec-2cfddc23202a",
+        &crate::cards::the_grey_havens::CARD,
+    ),
+    (
+        "a1bee68d-135b-4e30-8830-48a3315d13a9",
+        &crate::cards::rix_maadi_dungeon_palace::CARD,
+    ),
+    (
+        "a1c7cd7a-0795-4135-b787-effeb981d95b",
+        &crate::cards::hidden_volcano::CARD,
+    ),
+    (
+        "a202276b-1f1b-4277-95ee-26877a204f5e",
+        &crate::cards::sunbillow_verge::CARD,
+    ),
+    (
         "a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1",
         &crate::cards::karn_the_great_creator::CARD,
     ),
     (
+        "a2b48695-f7d7-42ce-a8a0-2a723428542a",
+        &crate::cards::darkslick_shores::CARD,
+    ),
+    (
+        "a3292406-3f49-42d6-a547-e43dd5797f84",
+        &crate::cards::savage_lands::CARD,
+    ),
+    (
+        "a32e08fa-bea4-4ba9-a126-9bf0a91f67e2",
+        &crate::cards::fields_of_strife::CARD,
+    ),
+    (
+        "a34a70b8-02e5-4e8c-a9e7-b21c5a11dddf",
+        &crate::cards::svogthos_the_restless_tomb::CARD,
+    ),
+    (
+        "a3648376-dc8b-409b-b2d1-c29e326a059c",
+        &crate::cards::surveillance_room::CARD,
+    ),
+    (
+        "a37544b6-0048-4213-8e40-76ba8a0b6d1b",
+        &crate::cards::soaring_seacliff::CARD,
+    ),
+    (
+        "a3da7d5b-2c2b-45fe-b9c5-413b8c8fc0a2",
+        &crate::cards::academy_ruins::CARD,
+    ),
+    (
+        "a3ed5d7f-c554-4d46-86e5-7bb8df2693f6",
+        &crate::cards::tournament_grounds::CARD,
+    ),
+    (
+        "a3faf70d-c034-4692-9e92-1922029e3852",
+        &crate::cards::rustvale_bridge::CARD,
+    ),
+    (
+        "a3fb7228-e76b-4e96-a40e-20b5fed75685",
+        &crate::cards::mountain::CARD,
+    ),
+    (
+        "a4580a1d-141e-449b-9018-e0258130634b",
+        &crate::cards::mikokoro_center_of_the_sea::CARD,
+    ),
+    (
+        "a4a6f95e-856c-4eb5-82ba-b2406be22b23",
+        &crate::cards::wintermoon_mesa::CARD,
+    ),
+    (
+        "a4b37d16-95b3-4143-a0b2-ad9f2aba91f8",
+        &crate::cards::welcome_to::CARD,
+    ),
+    (
+        "a4fc174e-7fa6-41a8-ae03-255f226840f9",
+        &crate::cards::billiard_room::CARD,
+    ),
+    (
+        "a5478263-47c9-447f-9c7a-c77ce0752947",
+        &crate::cards::tranquil_expanse::CARD,
+    ),
+    (
         "a58ee84f-1d9c-4924-b7b1-14a9b2ba3b98",
         &crate::cards::umara_raptor::CARD,
+    ),
+    (
+        "a597d2b7-484b-4cfd-89a6-d166cb1a3420",
+        &crate::cards::timberline_ridge::CARD,
+    ),
+    (
+        "a5e5a259-5fa7-4b01-93cb-a2b4aaf80927",
+        &crate::cards::sunlit_marsh::CARD,
+    ),
+    (
+        "a6543f71-0326-4e1f-b58f-9ce325d5d036",
+        &crate::cards::gateway_plaza::CARD,
+    ),
+    (
+        "a656ad7f-133f-4d93-919a-43bcf1f815f3",
+        &crate::cards::profane_procession::CARD,
+    ),
+    (
+        "a659c29f-aaca-44c5-8426-cdafcb195f86",
+        &crate::cards::rocky_roads::CARD,
+    ),
+    (
+        "a66008c9-1ede-4dcf-8d35-6c0ed2390996",
+        &crate::cards::gods_eye_gate_to_the_reikai::CARD,
     ),
     (
         "a6708b11-1bcd-4208-a967-fe91f2e3313c",
@@ -512,12 +3504,84 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::banishing_stroke::CARD,
     ),
     (
+        "a71e8d07-1a49-47a0-834e-de87d750a200",
+        &crate::cards::iron_hills::CARD,
+    ),
+    (
+        "a731e87b-8d99-4b64-8ee3-8e540d652366",
+        &crate::cards::malakir_rebirth::CARD,
+    ),
+    (
+        "a74494ef-aa35-4830-9b4c-47bff5270efc",
+        &crate::cards::memorial_to_unity::CARD,
+    ),
+    (
+        "a75445d3-1303-4bb5-89ad-26ea93fecd48",
+        &crate::cards::evolving_wilds::CARD,
+    ),
+    (
+        "a75b02ba-b0c8-47e3-a05c-e9ba221a7578",
+        &crate::cards::tarrian_s_journal::CARD,
+    ),
+    (
+        "a8052556-8962-4130-86a8-6fb7b6a324f7",
+        &crate::cards::thriving_grove::CARD,
+    ),
+    (
         "a8bf8ff8-d924-4fd2-b5ed-05b38f55325a",
         &crate::cards::venser_the_sojourner::CARD,
     ),
     (
+        "a8c70dab-1e27-4a9c-bd2d-910d5720d02d",
+        &crate::cards::great_hall_of_the_biblioplex::CARD,
+    ),
+    (
         "a91a3266-cadd-47a0-9b20-160307f14c07",
         &crate::cards::archaeomancer::CARD,
+    ),
+    (
+        "a91e0154-14a9-4681-8236-04db231592a4",
+        &crate::cards::elvenking_s_halls::CARD,
+    ),
+    (
+        "a91f93fd-e428-4a36-b1b3-604b47a34287",
+        &crate::cards::tocasia_s_dig_site::CARD,
+    ),
+    (
+        "a949c96c-362c-45a3-bd5c-ce5ce153ee9e",
+        &crate::cards::terrain_generator::CARD,
+    ),
+    (
+        "a9789ce4-69cf-435c-b99a-78a21609830c",
+        &crate::cards::dread_statuary::CARD,
+    ),
+    (
+        "a9b8d020-4d72-4934-8942-df29ef19fc1d",
+        &crate::cards::needleverge_pathway::CARD,
+    ),
+    (
+        "a9f8344c-1705-4254-81d6-aa05e0c69c29",
+        &crate::cards::sunhome_fortress_of_the_legion::CARD,
+    ),
+    (
+        "aa00ae0b-7c0f-427e-8102-ce0e2a6af5df",
+        &crate::cards::orzhov_basilica::CARD,
+    ),
+    (
+        "aa6723a2-75da-49f5-a1ba-cbfa82c55301",
+        &crate::cards::opal_palace::CARD,
+    ),
+    (
+        "aa6dbdf2-2379-4ff5-8a6c-70258784dc35",
+        &crate::cards::desolate_lighthouse::CARD,
+    ),
+    (
+        "aa959340-c869-4caa-92c7-572bd8d23eef",
+        &crate::cards::field_of_the_dead::CARD,
+    ),
+    (
+        "abc04775-171d-41f3-83ea-4b4eb72723d5",
+        &crate::cards::mech_hangar::CARD,
     ),
     (
         "abd62af0-c17d-4f62-af15-9ea83037b990",
@@ -532,96 +3596,676 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::force_of_negation::CARD,
     ),
     (
+        "ac2dd694-d2f1-4025-8400-12332bdc882a",
+        &crate::cards::takenuma_abandoned_mire::CARD,
+    ),
+    (
+        "ac4e1818-4873-4143-9b99-46f205d006d9",
+        &crate::cards::gongaga_reactor_town::CARD,
+    ),
+    (
+        "ac8cc74d-e43b-4118-bba0-dfa8b9c04d45",
+        &crate::cards::snow_covered_plains::CARD,
+    ),
+    (
+        "acc9c16a-5e72-43bd-87e1-56a16aa892f5",
+        &crate::cards::haven_of_the_spirit_dragon::CARD,
+    ),
+    (
+        "ace6403d-9fac-4d0f-a6ea-eb2ff3da259d",
+        &crate::cards::guildmages_forum::CARD,
+    ),
+    (
+        "ad1712d8-809f-410c-8b91-ffe6fb8a69a1",
+        &crate::cards::azorius_guildgate::CARD,
+    ),
+    (
+        "ad225ec2-ff3a-48f6-81a7-dfdd1b75e1f7",
+        &crate::cards::legion_leadership::CARD,
+    ),
+    (
+        "ad65bb8e-57de-49f3-ba7c-be62cf3fe3df",
+        &crate::cards::goblin_burrows::CARD,
+    ),
+    (
+        "ad6a2776-801f-4743-8268-6d654122171e",
+        &crate::cards::foul_orchard::CARD,
+    ),
+    (
+        "ad7b610c-e276-4c71-9b53-1ccb6d2dafd2",
+        &crate::cards::ruins_of_trokair::CARD,
+    ),
+    (
         "ae1f2ab5-c6a5-4d49-a746-3cb4668bf805",
         &crate::cards::mycosynth_lattice::CARD,
+    ),
+    (
+        "ae4a18ec-70a3-4d21-b9e5-b13ab4901600",
+        &crate::cards::frostwalk_bastion::CARD,
     ),
     (
         "ae7604bb-4818-45a3-960c-cf3d83f15964",
         &crate::cards::teferi_time_raveler::CARD,
     ),
     (
+        "aeeab1df-0b8b-4bc4-a5f9-aac413449bec",
+        &crate::cards::mudflat_village::CARD,
+    ),
+    (
+        "af0ad159-8264-4526-9a95-eddd32c0a13f",
+        &crate::cards::tinder_farm::CARD,
+    ),
+    (
+        "af147bb6-aa46-4fc9-af96-de3740c19fd5",
+        &crate::cards::mountain_stronghold::CARD,
+    ),
+    (
+        "af1553eb-4f9f-4335-9078-56649bd8d8fc",
+        &crate::cards::brass_s_tunnel_grinder::CARD,
+    ),
+    (
+        "af698bd5-5f56-4d2a-9f02-8c3e781210cd",
+        &crate::cards::ifnir_deadlands::CARD,
+    ),
+    (
         "afaef788-34d1-460b-b884-9d7ae6ddeb18",
         &crate::cards::toxic_deluge::CARD,
+    ),
+    (
+        "afedce7b-0e18-40ad-a26a-1933fddb560d",
+        &crate::cards::akoum_warrior::CARD,
+    ),
+    (
+        "b0182ca0-f353-4012-9121-6f4ac9f7a046",
+        &crate::cards::silundi_vision::CARD,
     ),
     (
         "b01d61cc-9844-4191-86a0-f2db6d42d6e5",
         &crate::cards::damn::CARD,
     ),
     (
+        "b01e698b-608a-4fc7-8073-b01d044743ec",
+        &crate::cards::thespian_s_stage::CARD,
+    ),
+    (
+        "b02ab3c7-fe4a-443c-b860-ba971d3301b0",
+        &crate::cards::mercadian_bazaar::CARD,
+    ),
+    (
+        "b03de49d-246f-44e2-9487-9e4e43ec7be4",
+        &crate::cards::beyeen_veil::CARD,
+    ),
+    (
+        "b0a4680f-9707-431c-b5d5-7d4424783602",
+        &crate::cards::vec_townships::CARD,
+    ),
+    (
+        "b0af0c54-2a59-4075-8543-d41ff20c4c87",
+        &crate::cards::wind_scarred_crag::CARD,
+    ),
+    (
+        "b0b58a03-462c-4964-97c7-42bc777ec23e",
+        &crate::cards::haunted_mire::CARD,
+    ),
+    (
+        "b0be3f25-edb1-4299-959c-9aad909730ca",
+        &crate::cards::tarnation_vista::CARD,
+    ),
+    (
+        "b0ea4975-a944-4585-8711-60f203cffa4a",
+        &crate::cards::the_hunter_maze::CARD,
+    ),
+    (
         "b0f19cba-1339-4518-8320-d7b1dcaf2eb0",
         &crate::cards::general_tazri::CARD,
+    ),
+    (
+        "b0fd6889-20b4-439b-aa97-2e90aca1675a",
+        &crate::cards::pelakka_predation::CARD,
     ),
     (
         "b1544f21-7e98-461b-aed5-e748b0168c52",
         &crate::cards::swords_to_plowshares::CARD,
     ),
     (
+        "b26cfeb0-7bbe-4d93-8eed-e832f175a80c",
+        &crate::cards::crossroads_village::CARD,
+    ),
+    (
+        "b2bae7fc-0668-4b34-9cd6-0d80aea52275",
+        &crate::cards::tainted_peak::CARD,
+    ),
+    (
         "b2c6aa39-2d2a-459c-a555-fb48ba993373",
         &crate::cards::island::CARD,
+    ),
+    (
+        "b2d5ba45-8674-4428-89db-c2bbbf0bf5c5",
+        &crate::cards::khalni_garden::CARD,
     ),
     (
         "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
         &crate::cards::sun_titan::CARD,
     ),
     (
+        "b2eb7a64-a307-4a78-a25d-63fb3ae1e237",
+        &crate::cards::cryptic_caves::CARD,
+    ),
+    (
+        "b33656ae-3473-4223-845f-f9147f87678b",
+        &crate::cards::commercial_district::CARD,
+    ),
+    (
         "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
         &crate::cards::forest::CARD,
+    ),
+    (
+        "b3b5137d-0225-4dba-9231-d235ab0f137c",
+        &crate::cards::novijen_heart_of_progress::CARD,
+    ),
+    (
+        "b3c7b46f-c9ab-40ca-b50b-a4e0d0bd9be8",
+        &crate::cards::restless_bivouac::CARD,
     ),
     (
         "b3d81980-76f2-44e2-b1c9-01e30c726312",
         &crate::cards::loran_of_the_third_path::CARD,
     ),
     (
+        "b3dbb16f-fa8f-4406-bcf3-e647e4337619",
+        &crate::cards::kabira_crossroads::CARD,
+    ),
+    (
+        "b3e28bcf-0ed0-4406-b615-68ddc55b349a",
+        &crate::cards::great_hall_of_the_citadel::CARD,
+    ),
+    (
+        "b43e9772-6ad4-49c7-9557-b18ee1e4587d",
+        &crate::cards::mishra_s_foundry::CARD,
+    ),
+    (
         "b473e293-59e3-4e04-acf2-622604aeb25f",
         &crate::cards::path_of_ancestry::CARD,
+    ),
+    (
+        "b53f216d-1592-4eee-b204-502a805fbc8c",
+        &crate::cards::treetop_village::CARD,
+    ),
+    (
+        "b56bb8cb-457e-4b85-9bf9-5e891e79f1dd",
+        &crate::cards::foggy_bottom_swamp::CARD,
+    ),
+    (
+        "b574c540-9f8a-4fd4-8809-d02c9b099ddc",
+        &crate::cards::sea_gate::CARD,
+    ),
+    (
+        "b592568b-11b0-4081-90a7-30cfb9c1ba80",
+        &crate::cards::suppression_ray::CARD,
+    ),
+    (
+        "b5fa5651-d714-44d6-867b-be0e3224b7ed",
+        &crate::cards::muraganda_raceway::CARD,
+    ),
+    (
+        "b6114962-035e-4e7f-9009-4739bf83a05a",
+        &crate::cards::urborg::CARD,
+    ),
+    (
+        "b639e1fe-d099-4cab-a0d0-a1b33c7f31dd",
+        &crate::cards::hidden_hideout::CARD,
+    ),
+    (
+        "b66deeb5-7371-4f06-b10e-d65165bc07b2",
+        &crate::cards::painted_bluffs::CARD,
+    ),
+    (
+        "b6a965eb-cffb-41c1-925a-7cf3e8e2f248",
+        &crate::cards::lush_oasis::CARD,
+    ),
+    (
+        "b6be7abe-cee3-418f-bf52-8b5405e3462f",
+        &crate::cards::r_d_s_secret_lair::CARD,
+    ),
+    (
+        "b6c7c708-5212-4100-b954-b77855b27915",
+        &crate::cards::lupinflower_village::CARD,
+    ),
+    (
+        "b6cc062c-eb39-46ee-bd6d-17f1db0ac50d",
+        &crate::cards::phyrexia_s_core::CARD,
+    ),
+    (
+        "b6fe779f-b20d-49cc-96dd-54f1ffb312e1",
+        &crate::cards::sequestered_stash::CARD,
+    ),
+    (
+        "b7140f72-91b6-4be4-8d71-c019e64c2351",
+        &crate::cards::insomnia_crown_city::CARD,
+    ),
+    (
+        "b76d1ae6-ad1d-4bac-b4c3-2e03e0e84d9b",
+        &crate::cards::bayou::CARD,
+    ),
+    (
+        "b7a68899-c0d3-49e0-854b-19268ae9b89d",
+        &crate::cards::vivid_grove::CARD,
+    ),
+    (
+        "b7b51ab1-403e-4640-8827-b04965aa6760",
+        &crate::cards::maze_of_shadows::CARD,
     ),
     (
         "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
         &crate::cards::liquimetal_torque::CARD,
     ),
     (
+        "b891a683-2ebc-4e9c-b402-5dd9c1b42b69",
+        &crate::cards::contested_cliffs::CARD,
+    ),
+    (
+        "b8f3da11-7c8f-4846-98a6-204bfd8d572b",
+        &crate::cards::blighted_fen::CARD,
+    ),
+    (
+        "b92e9854-4527-4133-8615-e282a213e7e3",
+        &crate::cards::glimmervoid::CARD,
+    ),
+    (
+        "ba11a517-1dbd-4797-9f5e-46ce0f6c77c0",
+        &crate::cards::scene_of_the_crime::CARD,
+    ),
+    (
+        "ba284fe6-bb29-455c-8321-9714a0cdc05e",
+        &crate::cards::mishra_s_workshop::CARD,
+    ),
+    (
+        "ba642c8b-9ade-4501-8393-672fd53d4955",
+        &crate::cards::griffin_canyon::CARD,
+    ),
+    (
+        "bae49475-fe01-400b-8959-f0dde959577c",
+        &crate::cards::shimmering_grotto::CARD,
+    ),
+    (
+        "bb5c1817-ac22-4779-9005-251bc354f181",
+        &crate::cards::mistveil_plains::CARD,
+    ),
+    (
+        "bb9ce416-eef1-49e8-89a0-2b6837505070",
+        &crate::cards::realm_of_koh::CARD,
+    ),
+    (
+        "bbd569cc-bc21-46df-b8eb-5b5bcd8fe762",
+        &crate::cards::rush_of_inspiration::CARD,
+    ),
+    (
+        "bc2906cd-9e0c-4aa8-b656-fb1045d810ac",
+        &crate::cards::sulfur_vent::CARD,
+    ),
+    (
         "bc71ebf6-2056-41f7-be35-b2e5c34afa99",
         &crate::cards::plains::CARD,
+    ),
+    (
+        "bcc6eece-75ea-494c-b33a-d4477d504e0b",
+        &crate::cards::sink_into_stupor::CARD,
+    ),
+    (
+        "bce30fd0-ed1e-495d-9149-6a4c81c45c7b",
+        &crate::cards::axgard_armory::CARD,
+    ),
+    (
+        "bce32541-3bc4-4553-ace2-784a58f164aa",
+        &crate::cards::bog_wreckage::CARD,
+    ),
+    (
+        "bcfe1653-e602-4d38-abe7-bfcc7f203f9d",
+        &crate::cards::foreboding_landscape::CARD,
+    ),
+    (
+        "bd002797-a545-4bee-88bf-b878436e7cca",
+        &crate::cards::brokers_hideout::CARD,
+    ),
+    (
+        "bd004c9d-771e-4e63-a97d-a2259c096af8",
+        &crate::cards::morphic_pool::CARD,
+    ),
+    (
+        "bd39e333-b0b8-4a85-8645-d77f4a3941db",
+        &crate::cards::rabanastre_royal_city::CARD,
+    ),
+    (
+        "bd513d9d-5aa2-4860-bd86-8b5d9430f133",
+        &crate::cards::jidoor_aristocratic_capital::CARD,
+    ),
+    (
+        "bd7c328e-0380-46f8-bb85-7bf4e201b7ac",
+        &crate::cards::sidequest_catch_a_fish::CARD,
+    ),
+    (
+        "bd8adca6-4f16-45f8-994a-fe55bd573bd0",
+        &crate::cards::turbulent_wilderness::CARD,
+    ),
+    (
+        "bd912666-f37f-4767-af6f-9e6d0fcccacf",
+        &crate::cards::karplusan_forest::CARD,
+    ),
+    (
+        "bdb9b2ce-342c-4935-8943-d0c3971b1e38",
+        &crate::cards::festering_thicket::CARD,
     ),
     (
         "bde94af8-faea-41ff-8eed-ba642eac9968",
         &crate::cards::phantasmal_image::CARD,
     ),
     (
+        "bdf476e5-1d57-4b17-b45b-d52fd75aadeb",
+        &crate::cards::lake_of_the_dead::CARD,
+    ),
+    (
+        "be09e83f-6486-4f42-8d2e-416cb95173f9",
+        &crate::cards::smoldering_crater::CARD,
+    ),
+    (
+        "be2a4bc4-8af6-48c5-9421-32d26272e71a",
+        &crate::cards::arguel_s_blood_fast::CARD,
+    ),
+    (
+        "be811e70-aaaa-41f3-bf9e-5d3f9f719b49",
+        &crate::cards::castle_locthwain::CARD,
+    ),
+    (
+        "bf1341dd-41a3-49f6-87ec-63170dde4324",
+        &crate::cards::boseiju_who_endures::CARD,
+    ),
+    (
+        "bf29b215-d4f5-4641-97ef-b65d4c463e72",
+        &crate::cards::adventurers_guildhouse::CARD,
+    ),
+    (
+        "bf5482b6-dd3e-4fb7-bc62-29e23b417a5f",
+        &crate::cards::woodland_chasm::CARD,
+    ),
+    (
+        "bf75a3d1-f184-4b48-a913-21caee1db084",
+        &crate::cards::izzet_guildgate::CARD,
+    ),
+    (
+        "bfa20bc7-4626-4a52-87f4-6e2763cb8ed5",
+        &crate::cards::archway_of_innovation::CARD,
+    ),
+    (
+        "bfec4d0a-3792-4bc3-bae1-e639da5bb9a6",
+        &crate::cards::land_cap::CARD,
+    ),
+    (
+        "bff416bb-d193-4c45-b2c1-7c297dbfad08",
+        &crate::cards::thriving_moor::CARD,
+    ),
+    (
+        "c071257a-63e7-48d0-a677-0b396a09b624",
+        &crate::cards::restless_prairie::CARD,
+    ),
+    (
+        "c098c507-5154-423a-a70b-f6dfd4959cf6",
+        &crate::cards::sunken_palace::CARD,
+    ),
+    (
+        "c0adbddc-b070-4c5f-afe0-0474c72a9251",
+        &crate::cards::gemstone_caverns::CARD,
+    ),
+    (
+        "c0cbb347-b060-43ce-a9c5-8c835be3cf1b",
+        &crate::cards::azor_s_gateway::CARD,
+    ),
+    (
+        "c116b787-5f7e-47ef-a694-58709770dd32",
+        &crate::cards::creosote_heath::CARD,
+    ),
+    (
         "c178953c-3888-4edd-9d0c-265bd82b1d24",
         &crate::cards::glasspool_mimic::CARD,
+    ),
+    (
+        "c17d799f-adc9-4c41-87cf-b243b5ea3be1",
+        &crate::cards::ipnu_rivulet::CARD,
+    ),
+    (
+        "c238ef51-4b46-43d5-a70b-40270a96a1fd",
+        &crate::cards::hellion_crucible::CARD,
     ),
     (
         "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f",
         &crate::cards::reliquary_tower::CARD,
     ),
     (
+        "c27b771d-b5ec-459a-a101-f078cb8d0184",
+        &crate::cards::contaminated_aquifer::CARD,
+    ),
+    (
+        "c28211c6-a5ee-40c3-bb6a-da3e7e73fd95",
+        &crate::cards::unholy_grotto::CARD,
+    ),
+    (
+        "c2878f4e-3044-4d60-8ec1-b325edfca397",
+        &crate::cards::lumbering_falls::CARD,
+    ),
+    (
+        "c2ca3e20-23ca-4d2a-88a1-5e98ff884abb",
+        &crate::cards::wooded_ridgeline::CARD,
+    ),
+    (
+        "c2cb0afd-781f-4cfa-b680-ed1edfa81868",
+        &crate::cards::blighted_gorge::CARD,
+    ),
+    (
+        "c2cdefeb-3176-4faf-be54-a62d31f777a5",
+        &crate::cards::murky_sewer::CARD,
+    ),
+    (
+        "c30f9be4-c274-4ad0-b5d7-7d3421aa4277",
+        &crate::cards::drownyard_temple::CARD,
+    ),
+    (
+        "c3172c5d-c745-4422-b651-cd414c8da11b",
+        &crate::cards::birnin_zana_plaza::CARD,
+    ),
+    (
         "c39e5fb0-6de3-4105-ad3c-0ecb8951a1d5",
         &crate::cards::misdirection::CARD,
+    ),
+    (
+        "c3b46bd6-b3ef-452d-a916-995c44f1da07",
+        &crate::cards::wanderwine_hub::CARD,
     ),
     (
         "c3fdfb94-2d10-4743-864c-a59fdd57d8b7",
         &crate::cards::reflections_of_littjara::CARD,
     ),
     (
+        "c4033d97-769f-4811-8b11-f85b8817b7a2",
+        &crate::cards::endless_sands::CARD,
+    ),
+    (
+        "c470a802-931f-4b63-92fd-ef9cf2e796dd",
+        &crate::cards::junktown::CARD,
+    ),
+    (
         "c48d844c-3976-4fa5-8e0d-3f0e535e7619",
         &crate::cards::charming_prince::CARD,
+    ),
+    (
+        "c48df45c-3513-4d56-aed6-30c2f3a759cd",
+        &crate::cards::monumental_henge::CARD,
+    ),
+    (
+        "c4bc5bc4-e589-42c5-91fa-2ebc96448e85",
+        &crate::cards::petrified_field::CARD,
     ),
     (
         "c5229c17-b7be-4b05-b683-f2277edc4849",
         &crate::cards::enlightened_tutor::CARD,
     ),
     (
+        "c52eaa87-9251-4a47-83fd-04e582ade612",
+        &crate::cards::willowrush_verge::CARD,
+    ),
+    (
+        "c52fc8a1-43c6-41f8-b010-03be7c89ef1d",
+        &crate::cards::bloodsoaked_insight::CARD,
+    ),
+    (
+        "c56cd2ec-5907-4282-9162-d93b7dfd63b5",
+        &crate::cards::lakeside_shack::CARD,
+    ),
+    (
+        "c5a39f76-dd1b-442c-9f52-08561ecb91ad",
+        &crate::cards::country_roads::CARD,
+    ),
+    (
         "c5acf2a5-40f4-433d-a74d-1cb56c521464",
         &crate::cards::arid_mesa::CARD,
+    ),
+    (
+        "c5ee72d5-3a9e-4fe5-8802-3286ee612055",
+        &crate::cards::sokenzan_crucible_of_defiance::CARD,
+    ),
+    (
+        "c5fc8e7c-a87e-4586-a13c-d30e0a3aafbf",
+        &crate::cards::avengers_tower::CARD,
+    ),
+    (
+        "c643365a-4255-4d23-adb9-0f8b456f0838",
+        &crate::cards::highland_lake::CARD,
+    ),
+    (
+        "c6792d9f-8b74-43c4-814f-ba4adab2fdea",
+        &crate::cards::thawing_glaciers::CARD,
+    ),
+    (
+        "c6911265-54ef-4c16-bcf2-1ffb24b7d426",
+        &crate::cards::kessig_wolf_run::CARD,
+    ),
+    (
+        "c6a46fc2-fc8f-4dcd-bca7-682abfbf303d",
+        &crate::cards::secret_passage::CARD,
+    ),
+    (
+        "c6de0ee9-785d-4cd8-8a7f-5bb715763131",
+        &crate::cards::nantuko_monastery::CARD,
+    ),
+    (
+        "c6e0574c-3e2b-4c40-b17a-05bce3d49309",
+        &crate::cards::wastewood_verge::CARD,
+    ),
+    (
+        "c6eb2814-0021-4308-ad44-6c8cc59b0d1c",
+        &crate::cards::drifting_meadow::CARD,
+    ),
+    (
+        "c70598e1-30c6-4f92-a265-34a7a73bc2b8",
+        &crate::cards::forsaken_crossroads::CARD,
+    ),
+    (
+        "c718911c-c955-4eb9-9e16-be4bd49a4e4e",
+        &crate::cards::volcanic_island::CARD,
+    ),
+    (
+        "c733873e-77db-471f-8061-139db24f7e7c",
+        &crate::cards::cephalid_coliseum::CARD,
+    ),
+    (
+        "c737d27b-db14-4bd4-8f16-bcbd4401c47b",
+        &crate::cards::caldera_lake::CARD,
+    ),
+    (
+        "c7476beb-7923-4994-8476-bc69187ecb72",
+        &crate::cards::hammerheim::CARD,
+    ),
+    (
+        "c761f71c-785c-4533-a2b7-2da3667688b8",
+        &crate::cards::dunes_of_the_dead::CARD,
+    ),
+    (
+        "c792229b-4a0f-48d5-93e5-60bd4cae9c42",
+        &crate::cards::bretagard_stronghold::CARD,
+    ),
+    (
+        "c7a15ca4-085f-4d92-8387-c3711c04c8fa",
+        &crate::cards::plateau::CARD,
+    ),
+    (
+        "c7d9ff27-f1fc-42e4-a47b-d2e6d68e4035",
+        &crate::cards::sanctum_of_eternity::CARD,
+    ),
+    (
+        "c7f0251a-9341-4ff2-8b15-31c06eb4f2e7",
+        &crate::cards::castle_sengir::CARD,
     ),
     (
         "c7fa1dda-9312-4ec8-82cd-a1ba7bc33497",
         &crate::cards::raugrin_triome::CARD,
     ),
     (
+        "c854ecb0-cc60-4c48-a9aa-7f2348a7a8c6",
+        &crate::cards::shattered_sanctum::CARD,
+    ),
+    (
+        "c8c632ab-14ec-44e1-ac00-81d48336320d",
+        &crate::cards::neglected_manor::CARD,
+    ),
+    (
         "c8d95ca8-7d12-4072-aeaf-e20f248c7e39",
         &crate::cards::scrubland::CARD,
+    ),
+    (
+        "c8e0a1a5-8188-4677-9d8a-a18eb593343a",
+        &crate::cards::sandstone_needle::CARD,
+    ),
+    (
+        "c95309e9-5c2f-4518-b2fd-825d3d0a4ae0",
+        &crate::cards::sundering_eruption::CARD,
+    ),
+    (
+        "c9b7ea9c-3bcb-4538-aa25-cdb82a52037e",
+        &crate::cards::goldmire_bridge::CARD,
+    ),
+    (
+        "c9b82110-7dfd-4617-9399-9510be449043",
+        &crate::cards::dark_depths::CARD,
+    ),
+    (
+        "c9fc13d6-bd10-47bc-b2b6-7f67a1f3371e",
+        &crate::cards::shineshadow_snarl::CARD,
+    ),
+    (
+        "c9fe1383-1331-4a58-a45a-3320250221a9",
+        &crate::cards::woodland_cemetery::CARD,
+    ),
+    (
+        "ca4b6689-04ee-4227-9bdc-cb5a9590c745",
+        &crate::cards::hedge_maze::CARD,
+    ),
+    (
+        "ca68648f-fe3a-4770-9842-a3dc2310f099",
+        &crate::cards::crystal_quarry::CARD,
+    ),
+    (
+        "ca7d093c-0533-493f-9ad3-8af30118fbfc",
+        &crate::cards::abraded_bluffs::CARD,
+    ),
+    (
+        "ca9f660b-e07d-4f42-a46e-abd0ca72510c",
+        &crate::cards::snow_covered_mountain::CARD,
+    ),
+    (
+        "cabf7953-0fac-4dbb-b3ae-05e85e02b3fc",
+        &crate::cards::forbidding_watchtower::CARD,
+    ),
+    (
+        "cade8b94-2998-4d23-87bb-9fbdddd19dea",
+        &crate::cards::elfhame_palace::CARD,
     ),
     (
         "cb027150-848c-4a66-88ad-e20222304dd8",
@@ -632,24 +4276,256 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::homeward_path::CARD,
     ),
     (
+        "cb91e842-9f06-4863-a328-2cabe1bcfe27",
+        &crate::cards::ballroom::CARD,
+    ),
+    (
+        "cbef6ad5-717f-4b02-9c62-e5deba407ad1",
+        &crate::cards::dwarven_ruins::CARD,
+    ),
+    (
         "cc187110-1148-4090-bbb8-e205694a39f5",
         &crate::cards::counterspell::CARD,
+    ),
+    (
+        "cc710da0-5a2e-4bc4-8fdd-d90e7bc1f224",
+        &crate::cards::baron_airship_kingdom::CARD,
+    ),
+    (
+        "cc78776b-822b-4f11-8982-0805a25a9d36",
+        &crate::cards::crypt_of_the_eternals::CARD,
+    ),
+    (
+        "cc999cf2-c99b-4911-8c52-6cc4a99fcc7b",
+        &crate::cards::emeria_the_sky_ruin::CARD,
+    ),
+    (
+        "ccb2f92e-69c0-415c-81cd-52c384b3b233",
+        &crate::cards::rushwood_grove::CARD,
+    ),
+    (
+        "cce328b9-6100-417e-9ddf-808bbe3e3bc5",
+        &crate::cards::hushwood_verge::CARD,
+    ),
+    (
+        "ccfb8b4d-651c-418a-aa19-cb23105b3f2f",
+        &crate::cards::meticulous_archive::CARD,
+    ),
+    (
+        "cd2888aa-71f3-47ee-ba33-7bb95d5bc836",
+        &crate::cards::villainous_hideout::CARD,
     ),
     (
         "cd2c90ac-2b04-461c-92f3-939871b6b6a3",
         &crate::cards::sunken_hollow::CARD,
     ),
     (
+        "cd49aa99-bf84-4edd-aecc-6dae78b73412",
+        &crate::cards::mirkwood::CARD,
+    ),
+    (
+        "cd535fa3-6fd8-4227-97fd-3ef07cb0598d",
+        &crate::cards::sheltered_valley::CARD,
+    ),
+    (
+        "cdc4048a-73ec-4ec1-a179-2b36c397bf1a",
+        &crate::cards::dakmor_salvage::CARD,
+    ),
+    (
+        "cde68428-0033-4ede-92f1-ab91de0a41fb",
+        &crate::cards::rustic_clachan::CARD,
+    ),
+    (
+        "cdf41cf4-4e77-453d-be5b-0abbbd358934",
+        &crate::cards::castle_vantress::CARD,
+    ),
+    (
+        "ce148a0c-6c63-49d5-a156-99efae4e367a",
+        &crate::cards::vastwood_fortification::CARD,
+    ),
+    (
+        "ce55657d-d82f-4528-a83e-5cad7de111fd",
+        &crate::cards::teferi_s_isle::CARD,
+    ),
+    (
+        "cf438848-da86-4db6-b3b8-4dd8570be3b8",
+        &crate::cards::archaeological_dig::CARD,
+    ),
+    (
         "cf5f4860-e805-46a3-9352-a2c583e33403",
         &crate::cards::storm_of_saruman::CARD,
+    ),
+    (
+        "cf620c66-7db1-4db8-ae56-ee4bc2f77d74",
+        &crate::cards::moonring_island::CARD,
+    ),
+    (
+        "cf682012-de36-4ab4-ad94-c3c0fd7bce3f",
+        &crate::cards::paliano_the_high_city::CARD,
+    ),
+    (
+        "cf6d10ed-85c3-48f2-8ba0-2960e03b408b",
+        &crate::cards::spectator_seating::CARD,
+    ),
+    (
+        "cfa3288d-e521-4a13-bcb3-7950a94e1746",
+        &crate::cards::smoldering_spires::CARD,
+    ),
+    (
+        "cfaaead2-09e8-47cb-9e39-8570b8d8de86",
+        &crate::cards::ice_floe::CARD,
+    ),
+    (
+        "cfb1a656-0bf1-484d-b099-33087914250b",
+        &crate::cards::helios_one::CARD,
+    ),
+    (
+        "cfd60d1f-9832-4408-b84e-0fd3018b015b",
+        &crate::cards::forbidden_orchard::CARD,
+    ),
+    (
+        "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df",
+        &crate::cards::temple_of_the_false_god::CARD,
+    ),
+    (
+        "d002391f-1dad-4966-ac36-56cc3ec015b2",
+        &crate::cards::ominous_cemetery::CARD,
+    ),
+    (
+        "d04e0975-f401-41b8-a9db-9bcf9cbbce66",
+        &crate::cards::starting_town::CARD,
+    ),
+    (
+        "d06a8026-1657-4404-8dff-64e44f1a14f8",
+        &crate::cards::abstergo_entertainment::CARD,
     ),
     (
         "d09c9cba-fdd2-479b-ad5d-d05181c3e3f9",
         &crate::cards::fierce_guardianship::CARD,
     ),
     (
+        "d0d35864-1edc-4af1-9b89-3d7e94908011",
+        &crate::cards::ramunap_ruins::CARD,
+    ),
+    (
+        "d0ee5bdc-2b69-4b73-9a20-ffcc18783b29",
+        &crate::cards::mana_confluence::CARD,
+    ),
+    (
+        "d1620449-930a-4895-a143-fd2a0a3c8b17",
+        &crate::cards::rejuvenating_springs::CARD,
+    ),
+    (
+        "d16298ac-67bd-4f9d-9979-23c1b7e4b359",
+        &crate::cards::starlit_sanctum::CARD,
+    ),
+    (
+        "d17163d4-dd43-4de6-b7cf-576448160b7f",
+        &crate::cards::hive_of_the_eye_tyrant::CARD,
+    ),
+    (
+        "d188a397-c7d9-4f16-bc21-d9e1b5ffc951",
+        &crate::cards::sun_blessed_peak::CARD,
+    ),
+    (
+        "d1946630-e224-40db-8f0d-388b09622288",
+        &crate::cards::thriving_heath::CARD,
+    ),
+    (
+        "d1f10cca-8dfa-4ea5-b227-4446cd8514a8",
+        &crate::cards::drannith_ruins::CARD,
+    ),
+    (
+        "d2075f58-b0e9-4e85-b7e6-0523a27a1d5b",
+        &crate::cards::bala_ged_recovery::CARD,
+    ),
+    (
+        "d21a89eb-7c5b-459a-acc7-12b20b13bf79",
+        &crate::cards::strip_mine::CARD,
+    ),
+    (
+        "d23c3613-bc5e-4fc5-939c-62a090c53a79",
+        &crate::cards::uncharted_haven::CARD,
+    ),
+    (
+        "d27bb97d-286b-4947-8d7b-443e4df93319",
+        &crate::cards::nesting_grounds::CARD,
+    ),
+    (
+        "d2bcff58-7a8a-46ef-b6b3-39501d4c8e6e",
+        &crate::cards::thundering_falls::CARD,
+    ),
+    (
+        "d33c3fbb-8306-4c2d-b0dd-88f12639da94",
+        &crate::cards::grove_of_the_burnwillows::CARD,
+    ),
+    (
+        "d37f858e-03c8-4594-9b92-cd03699a1591",
+        &crate::cards::scoured_barrens::CARD,
+    ),
+    (
+        "d38476e9-2e47-4c0c-8129-483c0bd09ec0",
+        &crate::cards::gruul_guildgate::CARD,
+    ),
+    (
+        "d3b7b541-6f05-46c1-8031-c848c4bd4635",
+        &crate::cards::ojer_axonil_deepest_might::CARD,
+    ),
+    (
+        "d3df7128-31dd-4d71-90be-87e2e9ff51b4",
+        &crate::cards::dust_bowl::CARD,
+    ),
+    (
+        "d410027b-1c22-461e-939d-06a2c851352e",
+        &crate::cards::unholy_citadel::CARD,
+    ),
+    (
+        "d427e61d-5b30-4d2a-bad2-2e7f016036ca",
+        &crate::cards::island_of_wak_wak::CARD,
+    ),
+    (
+        "d473b507-8c33-4118-bc10-b0a268776074",
+        &crate::cards::choked_estuary::CARD,
+    ),
+    (
+        "d49a7525-eca5-48e1-b94b-d618a706fd02",
+        &crate::cards::subterranean_cavern::CARD,
+    ),
+    (
+        "d4e4c8a5-e97b-4295-a403-d17834f73502",
+        &crate::cards::foul_roads::CARD,
+    ),
+    (
+        "d4e875d9-2245-470d-aa2f-1dfe66ce2d15",
+        &crate::cards::karoo::CARD,
+    ),
+    (
+        "d4eb65d5-99fd-4daf-b7d3-8ebf99ee9c61",
+        &crate::cards::tranquil_landscape::CARD,
+    ),
+    (
+        "d51831b1-7394-456e-a1de-6787a59f5932",
+        &crate::cards::lush_portico::CARD,
+    ),
+    (
         "d521a329-a53a-4962-810a-2abed80df260",
         &crate::cards::recruiter_of_the_guard::CARD,
+    ),
+    (
+        "d54e4e37-042b-44a5-918d-757308545d4d",
+        &crate::cards::sejiri_shelter::CARD,
+    ),
+    (
+        "d55f7e20-11c6-44e2-8a21-dca67d3dbc68",
+        &crate::cards::peculiar_lighthouse::CARD,
+    ),
+    (
+        "d565cd3d-68d4-4039-9e45-7e69e31d0ffb",
+        &crate::cards::ugin_s_labyrinth::CARD,
+    ),
+    (
+        "d5ad26cc-2bdb-46b7-b8bf-dd099d5fa09b",
+        &crate::cards::adarkar_wastes::CARD,
     ),
     (
         "d5ee2ced-29f4-430f-962e-2f930b92624c",
@@ -660,64 +4536,572 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::path_to_exile::CARD,
     ),
     (
+        "d71bda4c-3dee-4398-8fd0-f77d8743b887",
+        &crate::cards::gloomlake_verge::CARD,
+    ),
+    (
         "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b",
         &crate::cards::cyclonic_rift::CARD,
+    ),
+    (
+        "d7e1d4eb-1d4e-460e-9304-7db9ab50ccb5",
+        &crate::cards::nimbus_maze::CARD,
+    ),
+    (
+        "d7faa3c8-46cf-46b2-bfa4-89000307cf18",
+        &crate::cards::clifftop_retreat::CARD,
+    ),
+    (
+        "d8239a86-7184-4005-ba1e-2dddcd756c47",
+        &crate::cards::snow_covered_swamp::CARD,
+    ),
+    (
+        "d83c86c1-126d-49e9-9b13-9e55784c49c5",
+        &crate::cards::leechridden_swamp::CARD,
+    ),
+    (
+        "d8b57707-796d-4488-8f91-65bb75bc6281",
+        &crate::cards::dromar_s_cavern::CARD,
+    ),
+    (
+        "d8e2efe0-33a4-4303-9e83-ac42ea5df8cb",
+        &crate::cards::vivid_crag::CARD,
+    ),
+    (
+        "d8ef7c7b-0201-4978-ac73-fd376a19830f",
+        &crate::cards::pinecrest_ridge::CARD,
     ),
     (
         "d90af00a-d322-4265-9954-7b1e80702e18",
         &crate::cards::skyclave_apparition::CARD,
     ),
     (
+        "d98b4250-3492-4864-9c4c-42db09b3ccd4",
+        &crate::cards::cascading_cataracts::CARD,
+    ),
+    (
+        "d99a1d9a-7721-4331-bf22-1c6ee0bd825a",
+        &crate::cards::fire_lit_thicket::CARD,
+    ),
+    (
+        "d9a10971-f32b-4978-952d-fed0a5bc9e36",
+        &crate::cards::krosan_verge::CARD,
+    ),
+    (
         "d9a24444-289f-473f-9985-8df275257555",
         &crate::cards::jasmine_dragon_tea_shop::CARD,
+    ),
+    (
+        "d9dfef08-b824-4d56-a0e9-3dcefb7e4612",
+        &crate::cards::tranquil_garden::CARD,
+    ),
+    (
+        "d9f11985-e460-425d-b083-9cb0edf1983a",
+        &crate::cards::zof_consumption::CARD,
+    ),
+    (
+        "da307ea2-4df7-4d6b-be0f-9dc6ac93db61",
+        &crate::cards::baldur_s_gate::CARD,
+    ),
+    (
+        "da3b17a2-e1e1-44e9-b9b1-ae54a92037db",
+        &crate::cards::three_tree_city::CARD,
+    ),
+    (
+        "da81b78b-89fd-4fc1-9395-b5b01b96be70",
+        &crate::cards::kyoshi_village::CARD,
+    ),
+    (
+        "da9e3910-9a1c-43a9-9138-ca971b2bccae",
+        &crate::cards::skyclave_cleric::CARD,
     ),
     (
         "dab520d0-20b4-4273-ba6b-eb07f85ea433",
         &crate::cards::marsh_flats::CARD,
     ),
     (
+        "db16a2fb-dc42-4086-9928-52076043097f",
+        &crate::cards::blighted_steppe::CARD,
+    ),
+    (
+        "db19a27a-ee22-4931-ae3c-0ce21f456ea6",
+        &crate::cards::drowner_of_truth::CARD,
+    ),
+    (
+        "db444f9d-4dde-4308-b0f2-7acfe6de871a",
+        &crate::cards::turbulent_steppe::CARD,
+    ),
+    (
+        "db6174d7-211d-4817-b8e4-8384594c83f9",
+        &crate::cards::urborg_tomb_of_yawgmoth::CARD,
+    ),
+    (
+        "db623754-e078-4030-ba07-818803c348a8",
+        &crate::cards::twilight_mire::CARD,
+    ),
+    (
+        "db659cae-2078-423e-a6ed-63898dbab87f",
+        &crate::cards::twisted_landscape::CARD,
+    ),
+    (
+        "db8d8643-3d0b-4f20-bf53-f4cd26a0e8df",
+        &crate::cards::sheltered_thicket::CARD,
+    ),
+    (
+        "db9c155f-b342-41bb-9e1a-50358fb9f40e",
+        &crate::cards::the_surgical_bay::CARD,
+    ),
+    (
+        "db9ea3f9-c723-422f-98cc-a3ef7ca2c290",
+        &crate::cards::path_of_mettle::CARD,
+    ),
+    (
+        "dba4fd31-8931-42dd-bd86-45479c2abf74",
+        &crate::cards::tolarian_academy::CARD,
+    ),
+    (
+        "dc31a6f8-6228-4a25-b937-5d8d78514333",
+        &crate::cards::obscura_storefront::CARD,
+    ),
+    (
+        "dc55421f-dee8-4263-9df0-2365df5f14bb",
+        &crate::cards::temple_of_malady::CARD,
+    ),
+    (
+        "dc974eb4-72b9-4213-887b-8ee684b93420",
+        &crate::cards::flooded_grove::CARD,
+    ),
+    (
+        "dcb7e046-f01b-497c-88e5-57794eb30ce5",
+        &crate::cards::canopy_vista::CARD,
+    ),
+    (
         "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
         &crate::cards::solitude::CARD,
+    ),
+    (
+        "dd01ef1f-f6be-498f-82e0-dc04833e685f",
+        &crate::cards::big_apple_3_a_m::CARD,
+    ),
+    (
+        "dd3fd7cd-d8a1-48e2-861d-c7c40086dc75",
+        &crate::cards::blinkmoth_well::CARD,
+    ),
+    (
+        "dd6e67c0-66a1-49b7-8a86-3cf4b209fd07",
+        &crate::cards::manor_gate::CARD,
+    ),
+    (
+        "dd8538e6-cd5f-4a88-aff5-eb5e76ce8ddb",
+        &crate::cards::dreamroot_cascade::CARD,
+    ),
+    (
+        "dde6bce5-8bbe-4866-b5aa-2c05c7d37241",
+        &crate::cards::black_dragon_gate::CARD,
+    ),
+    (
+        "de1ae205-ca5b-4d26-8194-ca85f1406e53",
+        &crate::cards::ba_sing_se::CARD,
     ),
     (
         "de2440de-e948-4811-903c-0bbe376ff64d",
         &crate::cards::mox_opal::CARD,
     ),
     (
+        "de417a82-8f03-4d7e-aee7-48f7d7eba61a",
+        &crate::cards::sandstorm_verge::CARD,
+    ),
+    (
+        "de5b995c-9691-4555-9070-66bcbc29f955",
+        &crate::cards::public_thoroughfare::CARD,
+    ),
+    (
+        "de75e5dd-8a52-406c-b55c-96d686885500",
+        &crate::cards::castle_garenbrig::CARD,
+    ),
+    (
+        "dee99df5-628f-4a4e-a203-4dfddc927373",
+        &crate::cards::vivid_meadow::CARD,
+    ),
+    (
+        "df08ac72-010f-42f8-beb3-6d645c638e1e",
+        &crate::cards::uthros_titanic_godcore::CARD,
+    ),
+    (
+        "df20f85b-5f81-4ee4-8487-55d90109ac36",
+        &crate::cards::restless_reef::CARD,
+    ),
+    (
+        "df34a6ad-ae1c-4470-8c9e-49815bba1973",
+        &crate::cards::dowsing_dagger::CARD,
+    ),
+    (
+        "dfac0258-e148-4d7d-8ded-fc2466d9caa6",
+        &crate::cards::cinder_glade::CARD,
+    ),
+    (
         "dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa",
         &crate::cards::restoration_angel::CARD,
+    ),
+    (
+        "dfd2c57a-4557-4df1-8f6f-da2cbd317f12",
+        &crate::cards::misty_palms_oasis::CARD,
+    ),
+    (
+        "dfe1a112-97aa-4e81-8431-81552ba2cdcf",
+        &crate::cards::crawling_barrens::CARD,
+    ),
+    (
+        "e040a8e6-b90c-42d1-a1b1-771d954c61ab",
+        &crate::cards::slagwoods_bridge::CARD,
+    ),
+    (
+        "e043a795-6936-4d7e-9a77-e0175a27c8f5",
+        &crate::cards::city_of_ass::CARD,
+    ),
+    (
+        "e05f1a43-16ce-4e88-b0ad-2202efb25516",
+        &crate::cards::northampton_farm::CARD,
+    ),
+    (
+        "e0c3c87b-83e3-4cff-b05f-78a192e2bba4",
+        &crate::cards::irrigation_ditch::CARD,
+    ),
+    (
+        "e103f422-85c0-43f8-8a2f-8b7863e503fa",
+        &crate::cards::mirage_mesa::CARD,
+    ),
+    (
+        "e10e84a7-d564-487a-ac64-5a001a45ee90",
+        &crate::cards::rath_s_edge::CARD,
+    ),
+    (
+        "e11966cd-2ee3-4df4-b099-abf42dcdf0db",
+        &crate::cards::urza_s_power_plant::CARD,
+    ),
+    (
+        "e13289e5-370b-435b-a38e-cf57c3078cec",
+        &crate::cards::rith_s_grove::CARD,
+    ),
+    (
+        "e198126a-f280-47f7-8bd0-3dc9f5ff05a0",
+        &crate::cards::windurst_federation_center::CARD,
+    ),
+    (
+        "e19d5071-4ea1-4883-b067-a21e553f96e0",
+        &crate::cards::hidden_courtyard::CARD,
+    ),
+    (
+        "e2a37967-4212-4553-9f77-bcb613405807",
+        &crate::cards::haunted_ridge::CARD,
+    ),
+    (
+        "e2b472dd-047d-47eb-9ebb-df6aa4b52dd4",
+        &crate::cards::perilous_landscape::CARD,
+    ),
+    (
+        "e2c35551-1ba5-4424-baf9-821b49bbcc8c",
+        &crate::cards::avishkar_raceway::CARD,
+    ),
+    (
+        "e2dd05d5-312e-47f1-873e-c0741ee6ef4a",
+        &crate::cards::the_autonomous_furnace::CARD,
+    ),
+    (
+        "e3570ac7-c593-40e3-bbd6-ec3da6d8158d",
+        &crate::cards::training_center::CARD,
+    ),
+    (
+        "e3614df6-ce84-4180-ade1-a1751e8e3c9a",
+        &crate::cards::asgardian_citadel::CARD,
+    ),
+    (
+        "e3b67368-1dd6-419b-a95d-7131b1dba23f",
+        &crate::cards::geothermal_bog::CARD,
+    ),
+    (
+        "e3eb6f90-ccfc-41e7-bff6-0b378226bc7e",
+        &crate::cards::abundant_countryside::CARD,
+    ),
+    (
+        "e43413e4-be17-49af-978a-26210d05f52a",
+        &crate::cards::bottomless_vault::CARD,
+    ),
+    (
+        "e4cf6c2f-0f1e-4980-9ef9-e4eabcae42a9",
+        &crate::cards::frontier_bivouac::CARD,
+    ),
+    (
+        "e4e6e796-39ce-4a63-8c61-c7c956d75d78",
+        &crate::cards::saprazzan_skerry::CARD,
+    ),
+    (
+        "e521322b-0e83-458c-8936-7021a80ee279",
+        &crate::cards::temple_of_plenty::CARD,
+    ),
+    (
+        "e579edd7-4f6c-4f22-a72f-0a20d7a698a2",
+        &crate::cards::soured_springs::CARD,
+    ),
+    (
+        "e580a229-e800-4746-9d37-c32fcef8de28",
+        &crate::cards::blightstep_pathway::CARD,
+    ),
+    (
+        "e6415ffb-8b7a-41c3-bedf-0d4112b7b795",
+        &crate::cards::sunken_ruins::CARD,
+    ),
+    (
+        "e6ad1be9-f13d-4590-b3db-e2d0fff46f03",
+        &crate::cards::waterlogged_teachings::CARD,
+    ),
+    (
+        "e6b77545-de5c-4f4a-b7ea-83498fb33ba8",
+        &crate::cards::holdout_settlement::CARD,
+    ),
+    (
+        "e6e6fce8-0f6a-4b84-865e-d4e4a4182f9f",
+        &crate::cards::temple_of_silence::CARD,
+    ),
+    (
+        "e71ac446-02a4-4468-8d29-f28b21617665",
+        &crate::cards::havengul_laboratory::CARD,
+    ),
+    (
+        "e7286688-ffbe-4d25-ad55-27990f005368",
+        &crate::cards::sliver_hive::CARD,
     ),
     (
         "e7564d66-767c-4cd9-a5f0-0f2488a4a74b",
         &crate::cards::heliod_s_intervention::CARD,
     ),
     (
+        "e7bb8160-0a4b-4e46-b196-7a19fb388d8e",
+        &crate::cards::needle_spires::CARD,
+    ),
+    (
+        "e80bd454-8bc5-4921-90cf-6ad28a27a88b",
+        &crate::cards::grasslands::CARD,
+    ),
+    (
+        "e861bc08-4f0b-4d22-9b85-9d20227fd5b4",
+        &crate::cards::thornspire_verge::CARD,
+    ),
+    (
+        "e8705df9-6439-4930-91b6-229f818559af",
+        &crate::cards::simic_guildgate::CARD,
+    ),
+    (
+        "e88027a6-24cc-4a8b-86db-734f26149ea8",
+        &crate::cards::oran_rief_the_vastwood::CARD,
+    ),
+    (
+        "e887fb3f-d4c9-4022-8f75-1de6ec94af96",
+        &crate::cards::woodland_stream::CARD,
+    ),
+    (
+        "e900f211-dc8b-40f7-a217-1b1462b15c26",
+        &crate::cards::stirring_wildwood::CARD,
+    ),
+    (
+        "e90a1381-c9c1-4f57-928c-5d19dc065274",
+        &crate::cards::shivan_gorge::CARD,
+    ),
+    (
+        "e90e519d-023e-4d19-85ad-9972a76df3ba",
+        &crate::cards::tramway_station::CARD,
+    ),
+    (
+        "e996cd67-739c-40f4-b276-0042acf26c71",
+        &crate::cards::dryad_arbor::CARD,
+    ),
+    (
+        "e9a7dede-3968-4b0e-a707-419d46a6fec9",
+        &crate::cards::crosis_s_catacombs::CARD,
+    ),
+    (
+        "e9b6a394-691c-425a-9307-76d8edc7375e",
+        &crate::cards::otawara_soaring_city::CARD,
+    ),
+    (
         "e9f5feb2-2c1a-46ce-885a-4f378d7d10af",
         &crate::cards::mystic_gate::CARD,
+    ),
+    (
+        "ea4d6fcd-21e0-4e9f-b406-a89042998d98",
+        &crate::cards::keldon_necropolis::CARD,
     ),
     (
         "ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
         &crate::cards::orcish_bowmasters::CARD,
     ),
     (
+        "ea53adbe-3f9a-4847-87c7-723ac2789918",
+        &crate::cards::mirrodin_s_core::CARD,
+    ),
+    (
+        "ea9c459a-6047-43aa-968f-a582be4000e8",
+        &crate::cards::growing_rites_of_itlimoc::CARD,
+    ),
+    (
+        "eab70fff-6a9f-4f9f-89a2-b6910c199e46",
+        &crate::cards::hashep_oasis::CARD,
+    ),
+    (
         "ead985ec-f29f-4a3b-b8b1-061142cc5bd1",
         &crate::cards::harabaz_druid::CARD,
+    ),
+    (
+        "eb002bbc-08df-4bf0-bea3-46494ad261b6",
+        &crate::cards::turtle_lair::CARD,
+    ),
+    (
+        "eb0d8093-5f93-4b25-9384-08f9731bfb28",
+        &crate::cards::spirebluff_canal::CARD,
+    ),
+    (
+        "eb2094cf-b4be-4f52-8615-e179ef7c741d",
+        &crate::cards::mobilized_district::CARD,
+    ),
+    (
+        "eb6a0eb4-994a-4516-9339-c22e62c40a95",
+        &crate::cards::the_big_top::CARD,
+    ),
+    (
+        "eb735501-19e7-4910-aa6a-6667fff6f4e5",
+        &crate::cards::study_hall::CARD,
+    ),
+    (
+        "eb7b1284-0b2c-4b6a-a389-b2b932838083",
+        &crate::cards::stump_stomp::CARD,
+    ),
+    (
+        "eb8ec34c-ae07-4a09-940f-ee965146a787",
+        &crate::cards::memorial_to_glory::CARD,
+    ),
+    (
+        "ebb3e2ff-2214-4e11-88fb-e0fa84288cf1",
+        &crate::cards::forlorn_flats::CARD,
+    ),
+    (
+        "ebc5ac83-08d4-4d6b-b840-0c4ba71a38ab",
+        &crate::cards::vault_of_champions::CARD,
+    ),
+    (
+        "ebddf68c-1b22-4313-83e1-13a5c1aec19e",
+        &crate::cards::meteor_crater::CARD,
+    ),
+    (
+        "ec0ea7f7-52ce-40d1-b34c-e36dd4b26120",
+        &crate::cards::keldon_megaliths::CARD,
     ),
     (
         "ec2b3779-55f7-4169-aa66-6312fb52721f",
         &crate::cards::indatha_triome::CARD,
     ),
     (
+        "ec96cde2-f1e6-495c-94e2-3e8ae79e556c",
+        &crate::cards::thornwood_falls::CARD,
+    ),
+    (
         "ece44a82-dcf0-4439-bdd9-a09c99a6f159",
         &crate::cards::double_major::CARD,
+    ),
+    (
+        "ecfbebc9-7fc7-474e-8c59-8ede800e082e",
+        &crate::cards::crucible_of_the_spirit_dragon::CARD,
+    ),
+    (
+        "ed73de2b-d7f4-48d9-9be2-aa9d111b7aa7",
+        &crate::cards::contested_war_zone::CARD,
+    ),
+    (
+        "ed77fdf2-59c0-4310-9b12-80d28beeaeef",
+        &crate::cards::chocobo_camp::CARD,
+    ),
+    (
+        "ed9cc560-f30b-4b60-a094-ccf93ed656a7",
+        &crate::cards::access_tunnel::CARD,
+    ),
+    (
+        "eda11077-b2ce-408b-b982-def2da8fe599",
+        &crate::cards::ojer_kaslem_deepest_growth::CARD,
+    ),
+    (
+        "ee723c7c-ec9f-4ffb-8f36-cd7637eb1fae",
+        &crate::cards::guildless_commons::CARD,
+    ),
+    (
+        "eeaac65a-3480-475a-bb28-e6375d53f487",
+        &crate::cards::vault_of_the_archangel::CARD,
+    ),
+    (
+        "eeb9377b-72c1-4214-9a66-0f55577c17d1",
+        &crate::cards::barbarian_ring::CARD,
+    ),
+    (
+        "eef64810-4187-40c1-8e59-1cb8773ebea3",
+        &crate::cards::seafloor_debris::CARD,
+    ),
+    (
+        "ef2bb4fa-f292-4d19-aaa4-cfbe445caf45",
+        &crate::cards::quicksand::CARD,
+    ),
+    (
+        "ef3b8b0c-cea7-4bae-934c-9c65fd64245d",
+        &crate::cards::everglades::CARD,
     ),
     (
         "ef86989d-ce80-4e55-aece-7d11710eeffa",
         &crate::cards::polluted_delta::CARD,
     ),
     (
+        "f002be6a-e459-49c4-b765-062e30107439",
+        &crate::cards::tomb_of_urami::CARD,
+    ),
+    (
+        "f0367926-4380-4d22-8cb8-46c2076f102a",
+        &crate::cards::coastal_tower::CARD,
+    ),
+    (
+        "f086a63c-0c62-4674-bd27-82e7aed12b1a",
+        &crate::cards::dungeon_descent::CARD,
+    ),
+    (
+        "f0ec8681-da50-466b-8cdd-1dc710deccd9",
+        &crate::cards::deserted_beach::CARD,
+    ),
+    (
+        "f155a05f-9f5e-4875-a407-103b85ce30ee",
+        &crate::cards::cinder_barrens::CARD,
+    ),
+    (
+        "f15fb0cc-8e96-4f03-94d0-b51410415afd",
+        &crate::cards::crystal_grotto::CARD,
+    ),
+    (
+        "f1603384-4361-49c9-98aa-7785fc3504c4",
+        &crate::cards::cascade_bluffs::CARD,
+    ),
+    (
+        "f161111d-9747-47b3-bb10-3c8bded32e21",
+        &crate::cards::city_of_traitors::CARD,
+    ),
+    (
         "f1750962-a87c-49f6-b731-02ae971ac6ea",
         &crate::cards::hallowed_fountain::CARD,
+    ),
+    (
+        "f1e03d99-024a-430b-9342-ffd2268bd103",
+        &crate::cards::mariposa_military_base::CARD,
+    ),
+    (
+        "f1e9abfb-c3c8-483e-b446-5c2afc9f6394",
+        &crate::cards::floodfarm_verge::CARD,
+    ),
+    (
+        "f2000fb8-39c6-4ad6-a020-5245faaa1eba",
+        &crate::cards::fire_nation_palace::CARD,
     ),
     (
         "f21d0319-0509-4ac1-b6e3-10955a26fd7a",
@@ -728,12 +5112,56 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::city_of_brass::CARD,
     ),
     (
+        "f27d52e6-aab9-4f95-ae46-33d1173bf4fe",
+        &crate::cards::submerged_boneyard::CARD,
+    ),
+    (
+        "f29dc596-2121-4421-8463-15f6c2e8b9b3",
+        &crate::cards::rogue_s_passage::CARD,
+    ),
+    (
+        "f2c861d3-b302-4e84-b647-099551007269",
+        &crate::cards::ghost_town::CARD,
+    ),
+    (
+        "f33ce38a-34ec-4b65-a0fc-160484a02007",
+        &crate::cards::bonders_enclave::CARD,
+    ),
+    (
+        "f3658894-3d3d-4cd4-b0ac-c53e1d08747c",
+        &crate::cards::stalking_stones::CARD,
+    ),
+    (
+        "f39f33ac-074d-442d-ae4c-1d694ee315f3",
+        &crate::cards::jund_panorama::CARD,
+    ),
+    (
+        "f3bf22cf-0a6f-4fb6-ba82-63ce290308d6",
+        &crate::cards::spawning_pool::CARD,
+    ),
+    (
+        "f3c40943-1d7c-4ea2-b34f-8df8b6775701",
+        &crate::cards::animal_sanctuary::CARD,
+    ),
+    (
         "f3c7af78-a77d-4134-82a2-a5ce84285a84",
         &crate::cards::flooded_strand::CARD,
     ),
     (
+        "f3d48efa-910a-4872-a5b1-a353c5dbce99",
+        &crate::cards::pinnacle_monk::CARD,
+    ),
+    (
         "f3e213a4-ba5a-468a-93b3-c0a34e1bd725",
         &crate::cards::pact_of_negation::CARD,
+    ),
+    (
+        "f3e8dc56-2810-474e-a6a7-9c3555f94ae9",
+        &crate::cards::rishadan_port::CARD,
+    ),
+    (
+        "f40f374b-acaf-459d-9ccd-b0b22d1a3f28",
+        &crate::cards::great_arashin_city::CARD,
     ),
     (
         "f413a83d-a40d-434c-b20a-4c707c0527fa",
@@ -744,28 +5172,172 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::ondu_cleric::CARD,
     ),
     (
+        "f432eb6a-f1bf-4ce7-b915-1488dccb4bb9",
+        &crate::cards::oscorp_industries::CARD,
+    ),
+    (
+        "f451b8f0-1ff5-4e8d-9f30-9352d83ed687",
+        &crate::cards::den_of_the_bugbear::CARD,
+    ),
+    (
+        "f4819061-b0b5-48ab-af7b-6525c3d2eab7",
+        &crate::cards::great_furnace::CARD,
+    ),
+    (
         "f4bdc551-c2eb-4a34-a3e3-b4a017c925af",
         &crate::cards::liquimetal_coating::CARD,
+    ),
+    (
+        "f500a8a4-6135-448c-9116-bd2695a72229",
+        &crate::cards::port_of_karfell::CARD,
+    ),
+    (
+        "f5896356-5744-4f7e-a4e5-1cc36dde5958",
+        &crate::cards::jetmir_s_garden::CARD,
+    ),
+    (
+        "f5c38c01-4a40-469f-91a0-7479daf4e8e7",
+        &crate::cards::sulfurous_springs::CARD,
     ),
     (
         "f5daadc1-98ff-480a-82bb-fe7bfaa7b60e",
         &crate::cards::jin_gitaxias_progress_tyrant::CARD,
     ),
     (
+        "f6059731-2e10-4f72-a214-b257f1677e9e",
+        &crate::cards::mutant_town::CARD,
+    ),
+    (
+        "f6d24565-5b32-4eff-b2e0-6e2c25516ff0",
+        &crate::cards::deathcap_glade::CARD,
+    ),
+    (
+        "f705c0eb-9c6c-4315-a860-208ed0c5d93e",
+        &crate::cards::cloudpost::CARD,
+    ),
+    (
+        "f70e72e1-9abe-485b-9fea-e8b35352f5b3",
+        &crate::cards::pendelhaven::CARD,
+    ),
+    (
+        "f715f701-a735-42ab-b31a-8e1bd04ac5ff",
+        &crate::cards::serpent_s_pass::CARD,
+    ),
+    (
+        "f71f01bc-caae-426b-a25a-bfbfeb9feb67",
+        &crate::cards::seafarer_s_quay::CARD,
+    ),
+    (
+        "f73979bb-91a5-4388-b70b-0cd7a4e14291",
+        &crate::cards::flagstones_of_trokair::CARD,
+    ),
+    (
+        "f74107d5-fb4a-464b-9251-42b84d91775d",
+        &crate::cards::faceless_haven::CARD,
+    ),
+    (
+        "f746612a-fbed-44ca-b2cc-5928e10cf4bb",
+        &crate::cards::grove_of_the_guardian::CARD,
+    ),
+    (
+        "f748b2fb-6c2a-400a-8e96-fa4e4a1dfe80",
+        &crate::cards::shelldock_isle::CARD,
+    ),
+    (
+        "f74c4d96-bc4a-4d32-9519-a753d192144e",
+        &crate::cards::search_for_azcanta::CARD,
+    ),
+    (
+        "f780ee53-62b0-4c32-b5b7-047651f48e5f",
+        &crate::cards::hidden_necropolis::CARD,
+    ),
+    (
         "f78af825-023a-42e9-8374-5c52303a1417",
         &crate::cards::elspeth_storm_slayer::CARD,
+    ),
+    (
+        "f7d8b91b-6541-4d3e-af51-7e000eac69c1",
+        &crate::cards::legion_s_landing::CARD,
+    ),
+    (
+        "f7dda04a-c9c6-4952-9bbc-87e3c7480347",
+        &crate::cards::saprazzan_cove::CARD,
+    ),
+    (
+        "f7e7b78c-c769-4720-8585-1874773eb342",
+        &crate::cards::ziatora_s_proving_ground::CARD,
+    ),
+    (
+        "f808b510-907a-4c3c-aea1-efb825c8e13e",
+        &crate::cards::scorched_geyser::CARD,
+    ),
+    (
+        "f825c98f-a327-440b-8c0d-ebe02e23bfb7",
+        &crate::cards::field_of_ruin::CARD,
+    ),
+    (
+        "f8410804-632b-4f18-9a73-6dccc7e4582d",
+        &crate::cards::kazuul_s_fury::CARD,
     ),
     (
         "f8b17b89-26ce-4208-874a-9e1d66514640",
         &crate::cards::dig_through_time::CARD,
     ),
     (
+        "f8f4fc60-725d-46d8-8e8f-e68e00d20589",
+        &crate::cards::castle_ardenvale::CARD,
+    ),
+    (
+        "f9085e55-2833-41b7-9100-a35dc04dee93",
+        &crate::cards::thaumatic_compass::CARD,
+    ),
+    (
+        "f922f90a-b1a2-4630-9266-40726ca89f74",
+        &crate::cards::jungle_basin::CARD,
+    ),
+    (
+        "f97fd068-b83a-4621-bf8c-cc96e880ce90",
+        &crate::cards::sunbaked_canyon::CARD,
+    ),
+    (
+        "f98db69c-b330-4560-ac53-10857674466b",
+        &crate::cards::memorial_to_war::CARD,
+    ),
+    (
+        "f9e7e855-1e3b-42d3-91b0-64ba8b5b8982",
+        &crate::cards::opulent_palace::CARD,
+    ),
+    (
+        "fa2da325-6859-45bb-b185-35526b01bcc1",
+        &crate::cards::golgari_guildgate::CARD,
+    ),
+    (
+        "fa6d05a1-3df4-4751-b1a0-8d9693faec73",
+        &crate::cards::tainted_wood::CARD,
+    ),
+    (
+        "fa98c367-0312-49c6-abef-72e5ead4cc7d",
+        &crate::cards::gingerbread_cabin::CARD,
+    ),
+    (
+        "fb0c0426-f1a6-4e52-9242-627786d3119a",
+        &crate::cards::voldaren_estate::CARD,
+    ),
+    (
         "fb220f46-f8b8-4804-baa4-e7d50b4871f7",
         &crate::cards::aether_channeler::CARD,
     ),
     (
+        "fb5a3403-7f0b-406c-8c4f-d693be010ca6",
+        &crate::cards::hinterland_harbor::CARD,
+    ),
+    (
         "fb60739e-1dc3-481d-a056-ad72e665c680",
         &crate::cards::rite_of_replication::CARD,
+    ),
+    (
+        "fb69bc57-f05a-41c2-9b7b-9a9761ef0cd3",
+        &crate::cards::sacred_peaks::CARD,
     ),
     (
         "fb81f95c-70f8-4eb7-8d15-15d0ae23ec03",
@@ -780,16 +5352,36 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::watery_grave::CARD,
     ),
     (
+        "fcdfe9d5-2743-4d3e-ab57-bf0f96beaa15",
+        &crate::cards::aclazotz_deepest_betrayal::CARD,
+    ),
+    (
         "fd3e37c9-93bf-4f3e-a279-22afbffd8d43",
         &crate::cards::halimar_excavator::CARD,
+    ),
+    (
+        "fd45063f-c83c-431c-9104-f139c497ec0d",
+        &crate::cards::silent_clearing::CARD,
+    ),
+    (
+        "fd809587-773c-47ec-8676-cefef6d1e38f",
+        &crate::cards::hall_of_tagsin::CARD,
     ),
     (
         "fdd46004-eaba-4024-8687-39b23dc6a58c",
         &crate::cards::zagoth_triome::CARD,
     ),
     (
+        "fe174586-d36b-40f6-babd-1f98e76eec22",
+        &crate::cards::amonkhet_raceway::CARD,
+    ),
+    (
         "fe8fc442-ed17-40b2-8624-69f2eed3f9be",
         &crate::cards::nesting_dovehawk::CARD,
+    ),
+    (
+        "ff0ab867-b710-4b1a-baed-95fc3cf68f79",
+        &crate::cards::valakut_awakening::CARD,
     ),
 ];
 
@@ -992,10 +5584,1158 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::zagoth_triome::CARD),
     Some(&crate::cards::cultivate::CARD),
     Some(&crate::cards::kodama_s_reach::CARD),
+    Some(&crate::cards::a_i_m_labs::CARD),
+    Some(&crate::cards::abandoned_campground::CARD),
+    Some(&crate::cards::abandoned_outpost::CARD),
+    Some(&crate::cards::abraded_bluffs::CARD),
+    Some(&crate::cards::abstergo_entertainment::CARD),
+    Some(&crate::cards::abundant_countryside::CARD),
+    Some(&crate::cards::academy_ruins::CARD),
+    Some(&crate::cards::access_tunnel::CARD),
+    Some(&crate::cards::accursed_duneyard::CARD),
+    Some(&crate::cards::aclazotz_deepest_betrayal::CARD),
+    Some(&crate::cards::adagia_windswept_bastion::CARD),
+    Some(&crate::cards::adarkar_wastes::CARD),
+    Some(&crate::cards::adventurer_s_inn::CARD),
+    Some(&crate::cards::adventurers_guildhouse::CARD),
+    Some(&crate::cards::aether_hub::CARD),
+    Some(&crate::cards::agadeem_s_awakening::CARD),
+    Some(&crate::cards::agna_qel_a::CARD),
+    Some(&crate::cards::airship_engine_room::CARD),
+    Some(&crate::cards::akoum_refuge::CARD),
+    Some(&crate::cards::akoum_warrior::CARD),
+    Some(&crate::cards::alchemist_s_refuge::CARD),
+    Some(&crate::cards::ally_encampment::CARD),
+    Some(&crate::cards::alpine_meadow::CARD),
+    Some(&crate::cards::amonkhet_raceway::CARD),
+    Some(&crate::cards::an_havva_township::CARD),
+    Some(&crate::cards::ancient_amphitheater::CARD),
+    Some(&crate::cards::ancient_den::CARD),
+    Some(&crate::cards::ancient_spring::CARD),
+    Some(&crate::cards::ancient_tomb::CARD),
+    Some(&crate::cards::ancient_ziggurat::CARD),
+    Some(&crate::cards::animal_sanctuary::CARD),
+    Some(&crate::cards::arcane_lighthouse::CARD),
+    Some(&crate::cards::arch_of_orazca::CARD),
+    Some(&crate::cards::archaeological_dig::CARD),
+    Some(&crate::cards::archway_commons::CARD),
+    Some(&crate::cards::archway_of_innovation::CARD),
+    Some(&crate::cards::arctic_flats::CARD),
+    Some(&crate::cards::arctic_treeline::CARD),
+    Some(&crate::cards::arena::CARD),
+    Some(&crate::cards::arena_of_glory::CARD),
+    Some(&crate::cards::argoth_sanctum_of_nature::CARD),
+    Some(&crate::cards::arguel_s_blood_fast::CARD),
+    Some(&crate::cards::arid_archway::CARD),
+    Some(&crate::cards::asgardian_citadel::CARD),
+    Some(&crate::cards::ash_barrens::CARD),
+    Some(&crate::cards::auntie_s_hovel::CARD),
+    Some(&crate::cards::avengers_hangar::CARD),
+    Some(&crate::cards::avengers_tower::CARD),
+    Some(&crate::cards::avishkar_raceway::CARD),
+    Some(&crate::cards::axgard_armory::CARD),
+    Some(&crate::cards::aysen_abbey::CARD),
+    Some(&crate::cards::azor_s_gateway::CARD),
+    Some(&crate::cards::azorius_chancery::CARD),
+    Some(&crate::cards::azorius_guildgate::CARD),
+    Some(&crate::cards::ba_sing_se::CARD),
+    Some(&crate::cards::bad_river::CARD),
+    Some(&crate::cards::bala_ged_recovery::CARD),
+    Some(&crate::cards::balamb_garden_see_d_academy::CARD),
+    Some(&crate::cards::baldur_s_gate::CARD),
+    Some(&crate::cards::balduvian_trading_post::CARD),
+    Some(&crate::cards::ballroom::CARD),
+    Some(&crate::cards::bant_panorama::CARD),
+    Some(&crate::cards::barad_dr::CARD),
+    Some(&crate::cards::barbarian_ring::CARD),
+    Some(&crate::cards::barkchannel_pathway::CARD),
+    Some(&crate::cards::baron_airship_kingdom::CARD),
+    Some(&crate::cards::barren_moor::CARD),
+    Some(&crate::cards::base_camp::CARD),
+    Some(&crate::cards::basilisk_gate::CARD),
+    Some(&crate::cards::battlefield_forge::CARD),
+    Some(&crate::cards::baxter_building::CARD),
+    Some(&crate::cards::bayou::CARD),
+    Some(&crate::cards::bazaar_of_baghdad::CARD),
+    Some(&crate::cards::beyeen_veil::CARD),
+    Some(&crate::cards::big_apple_3_a_m::CARD),
+    Some(&crate::cards::billiard_room::CARD),
+    Some(&crate::cards::birnin_zana_plaza::CARD),
+    Some(&crate::cards::black_dragon_gate::CARD),
+    Some(&crate::cards::blackbloom_rogue::CARD),
+    Some(&crate::cards::blackcleave_cliffs::CARD),
+    Some(&crate::cards::blast_zone::CARD),
+    Some(&crate::cards::blasted_landscape::CARD),
+    Some(&crate::cards::blazemire_verge::CARD),
+    Some(&crate::cards::bleeding_woods::CARD),
+    Some(&crate::cards::blighted_cataract::CARD),
+    Some(&crate::cards::blighted_fen::CARD),
+    Some(&crate::cards::blighted_gorge::CARD),
+    Some(&crate::cards::blighted_steppe::CARD),
+    Some(&crate::cards::blighted_woodland::CARD),
+    Some(&crate::cards::blightstep_pathway::CARD),
+    Some(&crate::cards::blinkmoth_nexus::CARD),
+    Some(&crate::cards::blinkmoth_well::CARD),
+    Some(&crate::cards::blood_crypt::CARD),
+    Some(&crate::cards::bloodfell_caves::CARD),
+    Some(&crate::cards::bloodsoaked_insight::CARD),
+    Some(&crate::cards::blooming_marsh::CARD),
+    Some(&crate::cards::blossoming_sands::CARD),
+    Some(&crate::cards::bog_wreckage::CARD),
+    Some(&crate::cards::boggart_trawler::CARD),
+    Some(&crate::cards::boiling_rock_prison::CARD),
+    Some(&crate::cards::bonders_enclave::CARD),
+    Some(&crate::cards::boreal_shelf::CARD),
+    Some(&crate::cards::boros_garrison::CARD),
+    Some(&crate::cards::boros_guildgate::CARD),
+    Some(&crate::cards::boseiju_who_endures::CARD),
+    Some(&crate::cards::boseiju_who_shelters_all::CARD),
+    Some(&crate::cards::botanical_plaza::CARD),
+    Some(&crate::cards::botanical_sanctum::CARD),
+    Some(&crate::cards::bottomless_vault::CARD),
+    Some(&crate::cards::bountiful_landscape::CARD),
+    Some(&crate::cards::bountiful_promenade::CARD),
+    Some(&crate::cards::branch_of_vitu_ghazi::CARD),
+    Some(&crate::cards::branchloft_pathway::CARD),
+    Some(&crate::cards::brass_s_tunnel_grinder::CARD),
+    Some(&crate::cards::breeding_pool::CARD),
+    Some(&crate::cards::bretagard_stronghold::CARD),
+    Some(&crate::cards::bridgeworks_battle::CARD),
+    Some(&crate::cards::bristling_backwoods::CARD),
+    Some(&crate::cards::brokers_hideout::CARD),
+    Some(&crate::cards::brotherhood_headquarters::CARD),
+    Some(&crate::cards::brushland::CARD),
+    Some(&crate::cards::bucolic_ranch::CARD),
+    Some(&crate::cards::buried_ruin::CARD),
+    Some(&crate::cards::cabal_coffers::CARD),
+    Some(&crate::cards::cabal_pit::CARD),
+    Some(&crate::cards::cabal_stronghold::CARD),
+    Some(&crate::cards::cabaretti_courtyard::CARD),
+    Some(&crate::cards::cactus_preserve::CARD),
+    Some(&crate::cards::calciform_pools::CARD),
+    Some(&crate::cards::caldera_lake::CARD),
+    Some(&crate::cards::canopy_vista::CARD),
+    Some(&crate::cards::canyon_slough::CARD),
+    Some(&crate::cards::capital_city::CARD),
+    Some(&crate::cards::captivating_cave::CARD),
+    Some(&crate::cards::cascade_bluffs::CARD),
+    Some(&crate::cards::cascading_cataracts::CARD),
+    Some(&crate::cards::castle_ardenvale::CARD),
+    Some(&crate::cards::castle_doom::CARD),
+    Some(&crate::cards::castle_embereth::CARD),
+    Some(&crate::cards::castle_garenbrig::CARD),
+    Some(&crate::cards::castle_locthwain::CARD),
+    Some(&crate::cards::castle_sengir::CARD),
+    Some(&crate::cards::castle_vantress::CARD),
+    Some(&crate::cards::cathedral_of_serra::CARD),
+    Some(&crate::cards::cathedral_of_war::CARD),
+    Some(&crate::cards::cave_of_temptation::CARD),
+    Some(&crate::cards::cave_of_the_frost_dragon::CARD),
+    Some(&crate::cards::cavernous_maw::CARD),
+    Some(&crate::cards::caves_of_koilos::CARD),
+    Some(&crate::cards::celestial_colonnade::CARD),
+    Some(&crate::cards::centaur_garden::CARD),
+    Some(&crate::cards::cephalid_coliseum::CARD),
+    Some(&crate::cards::chocobo_camp::CARD),
+    Some(&crate::cards::choked_estuary::CARD),
+    Some(&crate::cards::cinder_barrens::CARD),
+    Some(&crate::cards::cinder_glade::CARD),
+    Some(&crate::cards::cinder_marsh::CARD),
+    Some(&crate::cards::citadel_gate::CARD),
+    Some(&crate::cards::city_of_ass::CARD),
+    Some(&crate::cards::city_of_shadows::CARD),
+    Some(&crate::cards::city_of_traitors::CARD),
+    Some(&crate::cards::cliffgate::CARD),
+    Some(&crate::cards::clifftop_retreat::CARD),
+    Some(&crate::cards::clive_s_hideaway::CARD),
+    Some(&crate::cards::cloudcrest_lake::CARD),
+    Some(&crate::cards::cloudpost::CARD),
+    Some(&crate::cards::coastal_peak::CARD),
+    Some(&crate::cards::coastal_tower::CARD),
+    Some(&crate::cards::command_beacon::CARD),
+    Some(&crate::cards::command_bridge::CARD),
+    Some(&crate::cards::commercial_district::CARD),
+    Some(&crate::cards::concealed_courtyard::CARD),
+    Some(&crate::cards::conduit_pylons::CARD),
+    Some(&crate::cards::conqueror_s_galleon::CARD),
+    Some(&crate::cards::conservatory::CARD),
+    Some(&crate::cards::contaminated_aquifer::CARD),
+    Some(&crate::cards::contaminated_landscape::CARD),
+    Some(&crate::cards::contested_cliffs::CARD),
+    Some(&crate::cards::contested_war_zone::CARD),
+    Some(&crate::cards::copperline_gorge::CARD),
+    Some(&crate::cards::coral_atoll::CARD),
+    Some(&crate::cards::cori_mountain_monastery::CARD),
+    Some(&crate::cards::corrupted_crossroads::CARD),
+    Some(&crate::cards::country_roads::CARD),
+    Some(&crate::cards::cradle_of_the_accursed::CARD),
+    Some(&crate::cards::cragcrown_pathway::CARD),
+    Some(&crate::cards::crawling_barrens::CARD),
+    Some(&crate::cards::creeping_tar_pit::CARD),
+    Some(&crate::cards::creosote_heath::CARD),
+    Some(&crate::cards::crosis_s_catacombs::CARD),
+    Some(&crate::cards::crossroads_village::CARD),
+    Some(&crate::cards::crucible_of_the_spirit_dragon::CARD),
+    Some(&crate::cards::crumbling_necropolis::CARD),
+    Some(&crate::cards::crumbling_vestige::CARD),
+    Some(&crate::cards::crypt_of_agadeem::CARD),
+    Some(&crate::cards::crypt_of_the_eternals::CARD),
+    Some(&crate::cards::cryptic_caves::CARD),
+    Some(&crate::cards::cryptic_spires::CARD),
+    Some(&crate::cards::crystal_grotto::CARD),
+    Some(&crate::cards::crystal_quarry::CARD),
+    Some(&crate::cards::crystal_vein::CARD),
+    Some(&crate::cards::daily_bugle_building::CARD),
+    Some(&crate::cards::dakmor_salvage::CARD),
+    Some(&crate::cards::dalkovan_encampment::CARD),
+    Some(&crate::cards::darigaaz_s_caldera::CARD),
+    Some(&crate::cards::dark_depths::CARD),
+    Some(&crate::cards::dark_fortress::CARD),
+    Some(&crate::cards::darkbore_pathway::CARD),
+    Some(&crate::cards::darkmoss_bridge::CARD),
+    Some(&crate::cards::darkslick_shores::CARD),
+    Some(&crate::cards::darksteel_citadel::CARD),
+    Some(&crate::cards::darkwater_catacombs::CARD),
+    Some(&crate::cards::daru_encampment::CARD),
+    Some(&crate::cards::deathcap_glade::CARD),
+    Some(&crate::cards::deceptive_landscape::CARD),
+    Some(&crate::cards::demolition_field::CARD),
+    Some(&crate::cards::den_of_the_bugbear::CARD),
+    Some(&crate::cards::desert::CARD),
+    Some(&crate::cards::desert_of_the_fervent::CARD),
+    Some(&crate::cards::desert_of_the_glorified::CARD),
+    Some(&crate::cards::desert_of_the_indomitable::CARD),
+    Some(&crate::cards::desert_of_the_mindful::CARD),
+    Some(&crate::cards::desert_of_the_true::CARD),
+    Some(&crate::cards::deserted_beach::CARD),
+    Some(&crate::cards::deserted_temple::CARD),
+    Some(&crate::cards::desolate_lighthouse::CARD),
+    Some(&crate::cards::desolate_mire::CARD),
+    Some(&crate::cards::detection_tower::CARD),
+    Some(&crate::cards::diamond_city::CARD),
+    Some(&crate::cards::diamond_valley::CARD),
+    Some(&crate::cards::dimension_x::CARD),
+    Some(&crate::cards::dimir_aqueduct::CARD),
+    Some(&crate::cards::dimir_guildgate::CARD),
+    Some(&crate::cards::dining_room::CARD),
+    Some(&crate::cards::disciple_of_freyalise::CARD),
+    Some(&crate::cards::dismal_backwater::CARD),
+    Some(&crate::cards::dormant_volcano::CARD),
+    Some(&crate::cards::dowsing_dagger::CARD),
+    Some(&crate::cards::dowsing_device::CARD),
+    Some(&crate::cards::dragon_cursed_halls::CARD),
+    Some(&crate::cards::dragonskull_summit::CARD),
+    Some(&crate::cards::drannith_ruins::CARD),
+    Some(&crate::cards::dread_statuary::CARD),
+    Some(&crate::cards::dreadship_reef::CARD),
+    Some(&crate::cards::dreamroot_cascade::CARD),
+    Some(&crate::cards::drifting_meadow::CARD),
+    Some(&crate::cards::dromar_s_cavern::CARD),
+    Some(&crate::cards::drossforge_bridge::CARD),
+    Some(&crate::cards::drowner_of_truth::CARD),
+    Some(&crate::cards::drownyard_temple::CARD),
+    Some(&crate::cards::dryad_arbor::CARD),
+    Some(&crate::cards::dunes_of_the_dead::CARD),
+    Some(&crate::cards::dungeon_descent::CARD),
+    Some(&crate::cards::duskmantle_house_of_shadow::CARD),
+    Some(&crate::cards::dust_bowl::CARD),
+    Some(&crate::cards::dwarven_hold::CARD),
+    Some(&crate::cards::dwarven_mine::CARD),
+    Some(&crate::cards::dwarven_ruins::CARD),
+    Some(&crate::cards::ebon_stronghold::CARD),
+    Some(&crate::cards::echoing_deeps::CARD),
+    Some(&crate::cards::eclipsed_realms::CARD),
+    Some(&crate::cards::eclipsed_steppe::CARD),
+    Some(&crate::cards::eden_seat_of_the_sanctum::CARD),
+    Some(&crate::cards::edgewall_inn::CARD),
+    Some(&crate::cards::eiganjo_castle::CARD),
+    Some(&crate::cards::eiganjo_seat_of_the_empire::CARD),
+    Some(&crate::cards::eldrazi_temple::CARD),
+    Some(&crate::cards::elegant_parlor::CARD),
+    Some(&crate::cards::elephant_graveyard::CARD),
+    Some(&crate::cards::elfhame_palace::CARD),
+    Some(&crate::cards::elven_passage::CARD),
+    Some(&crate::cards::elvenking_s_halls::CARD),
+    Some(&crate::cards::emergence_zone::CARD),
+    Some(&crate::cards::emeria_s_call::CARD),
+    Some(&crate::cards::emeria_the_sky_ruin::CARD),
+    Some(&crate::cards::encroaching_wastes::CARD),
+    Some(&crate::cards::endless_sands::CARD),
+    Some(&crate::cards::eroded_canyon::CARD),
+    Some(&crate::cards::escape_tunnel::CARD),
+    Some(&crate::cards::esper_panorama::CARD),
+    Some(&crate::cards::etched_cornfield::CARD),
+    Some(&crate::cards::eumidian_hatchery::CARD),
+    Some(&crate::cards::evendo_waking_haven::CARD),
+    Some(&crate::cards::everglades::CARD),
+    Some(&crate::cards::evolving_wilds::CARD),
+    Some(&crate::cards::eye_of_ugin::CARD),
+    Some(&crate::cards::fabled_passage::CARD),
+    Some(&crate::cards::faceless_haven::CARD),
+    Some(&crate::cards::faerie_conclave::CARD),
+    Some(&crate::cards::fell_the_profane::CARD),
+    Some(&crate::cards::ferrous_lake::CARD),
+    Some(&crate::cards::fertile_thicket::CARD),
+    Some(&crate::cards::festering_gulch::CARD),
+    Some(&crate::cards::festering_thicket::CARD),
+    Some(&crate::cards::fetid_pools::CARD),
+    Some(&crate::cards::field_of_ruin::CARD),
+    Some(&crate::cards::field_of_the_dead::CARD),
+    Some(&crate::cards::fields_of_strife::CARD),
+    Some(&crate::cards::fiery_islet::CARD),
+    Some(&crate::cards::fire_nation_palace::CARD),
+    Some(&crate::cards::fire_lit_thicket::CARD),
+    Some(&crate::cards::fisk_tower::CARD),
+    Some(&crate::cards::flagstones_of_trokair::CARD),
+    Some(&crate::cards::flamekin_village::CARD),
+    Some(&crate::cards::flood_plain::CARD),
+    Some(&crate::cards::flooded_grove::CARD),
+    Some(&crate::cards::floodfarm_verge::CARD),
+    Some(&crate::cards::foggy_bottom_swamp::CARD),
+    Some(&crate::cards::fogwell_s_gym::CARD),
+    Some(&crate::cards::fomori_vault::CARD),
+    Some(&crate::cards::foot_headquarters::CARD),
+    Some(&crate::cards::forbidden_orchard::CARD),
+    Some(&crate::cards::forbidding_watchtower::CARD),
+    Some(&crate::cards::foreboding_landscape::CARD),
+    Some(&crate::cards::foreboding_ruins::CARD),
+    Some(&crate::cards::forge_of_heroes::CARD),
+    Some(&crate::cards::forgotten_cave::CARD),
+    Some(&crate::cards::forgotten_monument::CARD),
+    Some(&crate::cards::forlorn_flats::CARD),
+    Some(&crate::cards::forsaken_city::CARD),
+    Some(&crate::cards::forsaken_crossroads::CARD),
+    Some(&crate::cards::forsaken_sanctuary::CARD),
+    Some(&crate::cards::fortified_beachhead::CARD),
+    Some(&crate::cards::fortified_village::CARD),
+    Some(&crate::cards::forum_of_amity::CARD),
+    Some(&crate::cards::foul_orchard::CARD),
+    Some(&crate::cards::foul_roads::CARD),
+    Some(&crate::cards::foundry_of_the_consuls::CARD),
+    Some(&crate::cards::fountain_of_cho::CARD),
+    Some(&crate::cards::fountainport::CARD),
+    Some(&crate::cards::frontier_bivouac::CARD),
+    Some(&crate::cards::frost_marsh::CARD),
+    Some(&crate::cards::frostboil_snarl::CARD),
+    Some(&crate::cards::frostwalk_bastion::CARD),
+    Some(&crate::cards::fungal_reaches::CARD),
+    Some(&crate::cards::furycalm_snarl::CARD),
+    Some(&crate::cards::gaea_s_cradle::CARD),
+    Some(&crate::cards::gallifrey_council_chamber::CARD),
+    Some(&crate::cards::game_trail::CARD),
+    Some(&crate::cards::gargoyle_castle::CARD),
+    Some(&crate::cards::gates_of_istfell::CARD),
+    Some(&crate::cards::gateway_plaza::CARD),
+    Some(&crate::cards::gathering_place::CARD),
+    Some(&crate::cards::gavony_township::CARD),
+    Some(&crate::cards::geier_reach_sanitarium::CARD),
+    Some(&crate::cards::gemstone_caverns::CARD),
+    Some(&crate::cards::gemstone_mine::CARD),
+    Some(&crate::cards::geothermal_bog::CARD),
+    Some(&crate::cards::geothermal_crevice::CARD),
+    Some(&crate::cards::ghitu_encampment::CARD),
+    Some(&crate::cards::ghost_quarter::CARD),
+    Some(&crate::cards::ghost_town::CARD),
+    Some(&crate::cards::gilt_leaf_palace::CARD),
+    Some(&crate::cards::gingerbread_cabin::CARD),
+    Some(&crate::cards::glacial_chasm::CARD),
+    Some(&crate::cards::glacial_floodplain::CARD),
+    Some(&crate::cards::glasswing_grace::CARD),
+    Some(&crate::cards::gleaming_bastion::CARD),
+    Some(&crate::cards::glimmerpost::CARD),
+    Some(&crate::cards::glimmervoid::CARD),
+    Some(&crate::cards::glittering_massif::CARD),
+    Some(&crate::cards::gloomlake_verge::CARD),
+    Some(&crate::cards::gnottvold_slumbermound::CARD),
+    Some(&crate::cards::goblin_burrows::CARD),
+    Some(&crate::cards::goblin_town::CARD),
+    Some(&crate::cards::gods_eye_gate_to_the_reikai::CARD),
+    Some(&crate::cards::gohn_town_of_ruin::CARD),
+    Some(&crate::cards::golden_guardian::CARD),
+    Some(&crate::cards::goldmire_bridge::CARD),
+    Some(&crate::cards::golgari_guildgate::CARD),
+    Some(&crate::cards::golgari_rot_farm::CARD),
+    Some(&crate::cards::gond_gate::CARD),
+    Some(&crate::cards::gongaga_reactor_town::CARD),
+    Some(&crate::cards::grand_coliseum::CARD),
+    Some(&crate::cards::grasping_dunes::CARD),
+    Some(&crate::cards::grasping_shadows::CARD),
+    Some(&crate::cards::grasslands::CARD),
+    Some(&crate::cards::graven_cairns::CARD),
+    Some(&crate::cards::graypelt_refuge::CARD),
+    Some(&crate::cards::great_arashin_city::CARD),
+    Some(&crate::cards::great_furnace::CARD),
+    Some(&crate::cards::great_hall_of_starnheim::CARD),
+    Some(&crate::cards::great_hall_of_the_biblioplex::CARD),
+    Some(&crate::cards::great_hall_of_the_citadel::CARD),
+    Some(&crate::cards::griffin_canyon::CARD),
+    Some(&crate::cards::grim_backwoods::CARD),
+    Some(&crate::cards::grixis_panorama::CARD),
+    Some(&crate::cards::grove_of_the_burnwillows::CARD),
+    Some(&crate::cards::grove_of_the_guardian::CARD),
+    Some(&crate::cards::growing_rites_of_itlimoc::CARD),
+    Some(&crate::cards::gruul_guildgate::CARD),
+    Some(&crate::cards::gruul_turf::CARD),
+    Some(&crate::cards::guadosalam_farplane_gateway::CARD),
+    Some(&crate::cards::guildless_commons::CARD),
+    Some(&crate::cards::guildmages_forum::CARD),
+    Some(&crate::cards::helios_one::CARD),
+    Some(&crate::cards::hadana_s_climb::CARD),
+    Some(&crate::cards::hagra_mauling::CARD),
+    Some(&crate::cards::halimar_depths::CARD),
+    Some(&crate::cards::hall::CARD),
+    Some(&crate::cards::hall_of_heliod_s_generosity::CARD),
+    Some(&crate::cards::hall_of_oracles::CARD),
+    Some(&crate::cards::hall_of_storm_giants::CARD),
+    Some(&crate::cards::hall_of_tagsin::CARD),
+    Some(&crate::cards::hall_of_the_bandit_lord::CARD),
+    Some(&crate::cards::halls_of_mist::CARD),
+    Some(&crate::cards::hammerheim::CARD),
+    Some(&crate::cards::hanweir_battlements::CARD),
+    Some(&crate::cards::hashep_oasis::CARD),
+    Some(&crate::cards::haunted_fengraf::CARD),
+    Some(&crate::cards::haunted_mire::CARD),
+    Some(&crate::cards::haunted_ridge::CARD),
+    Some(&crate::cards::haven_of_the_spirit_dragon::CARD),
+    Some(&crate::cards::havengul_laboratory::CARD),
+    Some(&crate::cards::havenwood_battleground::CARD),
+    Some(&crate::cards::heap_gate::CARD),
+    Some(&crate::cards::heart_of_yavimaya::CARD),
+    Some(&crate::cards::hedge_maze::CARD),
+    Some(&crate::cards::hell_s_kitchen::CARD),
+    Some(&crate::cards::hellion_crucible::CARD),
+    Some(&crate::cards::henge_of_ramos::CARD),
+    Some(&crate::cards::hickory_woodlot::CARD),
+    Some(&crate::cards::hidden_cataract::CARD),
+    Some(&crate::cards::hidden_courtyard::CARD),
+    Some(&crate::cards::hidden_grotto::CARD),
+    Some(&crate::cards::hidden_hideout::CARD),
+    Some(&crate::cards::hidden_lair::CARD),
+    Some(&crate::cards::hidden_necropolis::CARD),
+    Some(&crate::cards::hidden_nursery::CARD),
+    Some(&crate::cards::hidden_volcano::CARD),
+    Some(&crate::cards::high_market::CARD),
+    Some(&crate::cards::highland_forest::CARD),
+    Some(&crate::cards::highland_lake::CARD),
+    Some(&crate::cards::highland_weald::CARD),
+    Some(&crate::cards::hinterland_harbor::CARD),
+    Some(&crate::cards::hissing_quagmire::CARD),
+    Some(&crate::cards::hive_of_the_eye_tyrant::CARD),
+    Some(&crate::cards::hobbit_hole::CARD),
+    Some(&crate::cards::holdout_settlement::CARD),
+    Some(&crate::cards::hollow_trees::CARD),
+    Some(&crate::cards::horizon_canopy::CARD),
+    Some(&crate::cards::horizon_of_progress::CARD),
+    Some(&crate::cards::hostile_desert::CARD),
+    Some(&crate::cards::hostile_hostel::CARD),
+    Some(&crate::cards::howltooth_hollow::CARD),
+    Some(&crate::cards::hushwood_verge::CARD),
+    Some(&crate::cards::hydroelectric_specimen::CARD),
+    Some(&crate::cards::icatian_store::CARD),
+    Some(&crate::cards::ice_floe::CARD),
+    Some(&crate::cards::ice_tunnel::CARD),
+    Some(&crate::cards::idyllic_beachfront::CARD),
+    Some(&crate::cards::idyllic_grange::CARD),
+    Some(&crate::cards::ifnir_deadlands::CARD),
+    Some(&crate::cards::illegitimate_business::CARD),
+    Some(&crate::cards::immersturm_skullcairn::CARD),
+    Some(&crate::cards::inkmoth_nexus::CARD),
+    Some(&crate::cards::insomnia_crown_city::CARD),
+    Some(&crate::cards::inspiring_vantage::CARD),
+    Some(&crate::cards::interplanar_beacon::CARD),
+    Some(&crate::cards::inventors_fair::CARD),
+    Some(&crate::cards::ipnu_rivulet::CARD),
+    Some(&crate::cards::iron_hills::CARD),
+    Some(&crate::cards::irrigated_farmland::CARD),
+    Some(&crate::cards::irrigation_ditch::CARD),
+    Some(&crate::cards::ishgard_the_holy_see::CARD),
+    Some(&crate::cards::island_of_wak_wak::CARD),
+    Some(&crate::cards::isolated_watchtower::CARD),
+    Some(&crate::cards::izzet_boilerworks::CARD),
+    Some(&crate::cards::izzet_guildgate::CARD),
+    Some(&crate::cards::jagged_barrens::CARD),
+    Some(&crate::cards::jetmir_s_garden::CARD),
+    Some(&crate::cards::jidoor_aristocratic_capital::CARD),
+    Some(&crate::cards::journey_to_eternity::CARD),
+    Some(&crate::cards::jund_panorama::CARD),
+    Some(&crate::cards::jungle_basin::CARD),
+    Some(&crate::cards::jungle_hollow::CARD),
+    Some(&crate::cards::jungle_shrine::CARD),
+    Some(&crate::cards::junktown::CARD),
+    Some(&crate::cards::jwar_isle_refuge::CARD),
+    Some(&crate::cards::jwari_disruption::CARD),
+    Some(&crate::cards::kabira_crossroads::CARD),
+    Some(&crate::cards::kabira_takedown::CARD),
+    Some(&crate::cards::karn_s_bastion::CARD),
+    Some(&crate::cards::karoo::CARD),
+    Some(&crate::cards::karplusan_forest::CARD),
+    Some(&crate::cards::kavaron_memorial_world::CARD),
+    Some(&crate::cards::kazandu_mammoth::CARD),
+    Some(&crate::cards::kazandu_refuge::CARD),
+    Some(&crate::cards::kazuul_s_fury::CARD),
+    Some(&crate::cards::keldon_megaliths::CARD),
+    Some(&crate::cards::keldon_necropolis::CARD),
+    Some(&crate::cards::kessig_wolf_run::CARD),
+    Some(&crate::cards::ketria_triome::CARD),
+    Some(&crate::cards::khalni_ambush::CARD),
+    Some(&crate::cards::khalni_garden::CARD),
+    Some(&crate::cards::kher_keep::CARD),
+    Some(&crate::cards::kishla_village::CARD),
+    Some(&crate::cards::kitchen::CARD),
+    Some(&crate::cards::kjeldoran_outpost::CARD),
+    Some(&crate::cards::koskun_keep::CARD),
+    Some(&crate::cards::krosan_verge::CARD),
+    Some(&crate::cards::kyoshi_village::CARD),
+    Some(&crate::cards::labyrinth_of_skophos::CARD),
+    Some(&crate::cards::lair_of_the_hydra::CARD),
+    Some(&crate::cards::lake_of_the_dead::CARD),
+    Some(&crate::cards::lake_town::CARD),
+    Some(&crate::cards::lakeside_shack::CARD),
+    Some(&crate::cards::land_cap::CARD),
+    Some(&crate::cards::lantern_lit_graveyard::CARD),
+    Some(&crate::cards::lava_tubes::CARD),
+    Some(&crate::cards::lavaclaw_reaches::CARD),
+    Some(&crate::cards::lazotep_quarry::CARD),
+    Some(&crate::cards::leechridden_swamp::CARD),
+    Some(&crate::cards::legion_leadership::CARD),
+    Some(&crate::cards::legion_s_landing::CARD),
+    Some(&crate::cards::library::CARD),
+    Some(&crate::cards::library_of_alexandria::CARD),
+    Some(&crate::cards::lilypad_village::CARD),
+    Some(&crate::cards::lindblum_industrial_regency::CARD),
+    Some(&crate::cards::littjara_mirrorlake::CARD),
+    Some(&crate::cards::llanowar_reborn::CARD),
+    Some(&crate::cards::llanowar_wastes::CARD),
+    Some(&crate::cards::lonely_arroyo::CARD),
+    Some(&crate::cards::lonely_sandbar::CARD),
+    Some(&crate::cards::looming_spires::CARD),
+    Some(&crate::cards::lorehold_campus::CARD),
+    Some(&crate::cards::los_diablos_missile_base::CARD),
+    Some(&crate::cards::lotus_field::CARD),
+    Some(&crate::cards::lotus_vale::CARD),
+    Some(&crate::cards::lounge::CARD),
+    Some(&crate::cards::lumbering_falls::CARD),
+    Some(&crate::cards::lupinflower_village::CARD),
+    Some(&crate::cards::lush_oasis::CARD),
+    Some(&crate::cards::lush_portico::CARD),
+    Some(&crate::cards::luxury_suite::CARD),
+    Some(&crate::cards::madblind_mountain::CARD),
+    Some(&crate::cards::maelstrom_of_the_spirit_dragon::CARD),
+    Some(&crate::cards::maestros_theater::CARD),
+    Some(&crate::cards::mage_ring_network::CARD),
+    Some(&crate::cards::magosi_the_waterveil::CARD),
+    Some(&crate::cards::makindi_stampede::CARD),
+    Some(&crate::cards::malakir_rebirth::CARD),
+    Some(&crate::cards::mana_confluence::CARD),
+    Some(&crate::cards::manor_gate::CARD),
+    Some(&crate::cards::mariposa_military_base::CARD),
+    Some(&crate::cards::matzalantli_the_great_door::CARD),
+    Some(&crate::cards::maze_of_shadows::CARD),
+    Some(&crate::cards::maze_s_end::CARD),
+    Some(&crate::cards::meandering_river::CARD),
+    Some(&crate::cards::mech_hangar::CARD),
+    Some(&crate::cards::meditation_pools::CARD),
+    Some(&crate::cards::memorial_to_folly::CARD),
+    Some(&crate::cards::memorial_to_genius::CARD),
+    Some(&crate::cards::memorial_to_glory::CARD),
+    Some(&crate::cards::memorial_to_unity::CARD),
+    Some(&crate::cards::memorial_to_war::CARD),
+    Some(&crate::cards::mercadian_bazaar::CARD),
+    Some(&crate::cards::meteor_crater::CARD),
+    Some(&crate::cards::meticulous_archive::CARD),
+    Some(&crate::cards::midgar_city_of_mako::CARD),
+    Some(&crate::cards::mikokoro_center_of_the_sea::CARD),
+    Some(&crate::cards::minamo_school_at_water_s_edge::CARD),
+    Some(&crate::cards::minas_morgul_dark_fortress::CARD),
+    Some(&crate::cards::minas_tirith::CARD),
+    Some(&crate::cards::mines_of_moria::CARD),
+    Some(&crate::cards::mirage_mesa::CARD),
+    Some(&crate::cards::miren_the_moaning_well::CARD),
+    Some(&crate::cards::mirkwood::CARD),
+    Some(&crate::cards::mirrex::CARD),
+    Some(&crate::cards::mirrodin_s_core::CARD),
+    Some(&crate::cards::mirrorpool::CARD),
+    Some(&crate::cards::mishra_s_factory::CARD),
+    Some(&crate::cards::mishra_s_foundry::CARD),
+    Some(&crate::cards::mishra_s_workshop::CARD),
+    Some(&crate::cards::mistrise_village::CARD),
+    Some(&crate::cards::mistvault_bridge::CARD),
+    Some(&crate::cards::mistveil_plains::CARD),
+    Some(&crate::cards::misty_palms_oasis::CARD),
+    Some(&crate::cards::mobilized_district::CARD),
+    Some(&crate::cards::mogg_hollows::CARD),
+    Some(&crate::cards::molten_slagheap::CARD),
+    Some(&crate::cards::molten_tributary::CARD),
+    Some(&crate::cards::monumental_henge::CARD),
+    Some(&crate::cards::moonring_island::CARD),
+    Some(&crate::cards::moorland_haunt::CARD),
+    Some(&crate::cards::morphic_pool::CARD),
+    Some(&crate::cards::mortuary_mire::CARD),
+    Some(&crate::cards::mossfire_valley::CARD),
+    Some(&crate::cards::mosswort_bridge::CARD),
+    Some(&crate::cards::mount_doom::CARD),
+    Some(&crate::cards::mountain::CARD),
+    Some(&crate::cards::mountain_stronghold::CARD),
+    Some(&crate::cards::mountain_valley::CARD),
+    Some(&crate::cards::mouth_of_ronom::CARD),
+    Some(&crate::cards::mudflat_village::CARD),
+    Some(&crate::cards::multiversal_passage::CARD),
+    Some(&crate::cards::muraganda_raceway::CARD),
+    Some(&crate::cards::murky_sewer::CARD),
+    Some(&crate::cards::murmuring_bosk::CARD),
+    Some(&crate::cards::mutant_town::CARD),
+    Some(&crate::cards::mutavault::CARD),
+    Some(&crate::cards::myriad_landscape::CARD),
+    Some(&crate::cards::mystic_monastery::CARD),
+    Some(&crate::cards::mystic_sanctuary::CARD),
+    Some(&crate::cards::mystifying_maze::CARD),
+    Some(&crate::cards::nantuko_monastery::CARD),
+    Some(&crate::cards::naya_panorama::CARD),
+    Some(&crate::cards::nearby_planet::CARD),
+    Some(&crate::cards::necroblossom_snarl::CARD),
+    Some(&crate::cards::needle_spires::CARD),
+    Some(&crate::cards::needleverge_pathway::CARD),
+    Some(&crate::cards::neglected_manor::CARD),
+    Some(&crate::cards::nephalia_academy::CARD),
+    Some(&crate::cards::nephalia_drownyard::CARD),
+    Some(&crate::cards::nesting_grounds::CARD),
+    Some(&crate::cards::new_benalia::CARD),
+    Some(&crate::cards::night_market::CARD),
+    Some(&crate::cards::nimbus_maze::CARD),
+    Some(&crate::cards::nivix_aerie_of_the_firemind::CARD),
+    Some(&crate::cards::nomad_outpost::CARD),
+    Some(&crate::cards::nomad_stadium::CARD),
+    Some(&crate::cards::north_pole_gates::CARD),
+    Some(&crate::cards::northampton_farm::CARD),
+    Some(&crate::cards::novijen_heart_of_progress::CARD),
+    Some(&crate::cards::nurturing_peatland::CARD),
+    Some(&crate::cards::nykthos_shrine_to_nyx::CARD),
+    Some(&crate::cards::oakhollow_village::CARD),
+    Some(&crate::cards::oasis::CARD),
+    Some(&crate::cards::oboro_palace_in_the_clouds::CARD),
+    Some(&crate::cards::obscura_storefront::CARD),
+    Some(&crate::cards::ojer_axonil_deepest_might::CARD),
+    Some(&crate::cards::ojer_kaslem_deepest_growth::CARD),
+    Some(&crate::cards::ojer_pakpatiq_deepest_epoch::CARD),
+    Some(&crate::cards::ojer_taq_deepest_foundation::CARD),
+    Some(&crate::cards::okina_temple_to_the_grandfathers::CARD),
+    Some(&crate::cards::omashu_city::CARD),
+    Some(&crate::cards::ominous_asylum::CARD),
+    Some(&crate::cards::ominous_cemetery::CARD),
+    Some(&crate::cards::ondu_inversion::CARD),
+    Some(&crate::cards::opal_palace::CARD),
+    Some(&crate::cards::opulent_palace::CARD),
+    Some(&crate::cards::oran_rief_the_vastwood::CARD),
+    Some(&crate::cards::orzhov_basilica::CARD),
+    Some(&crate::cards::orzhov_guildgate::CARD),
+    Some(&crate::cards::orzhova_the_church_of_deals::CARD),
+    Some(&crate::cards::oscorp_industries::CARD),
+    Some(&crate::cards::otawara_soaring_city::CARD),
+    Some(&crate::cards::overflowing_basin::CARD),
+    Some(&crate::cards::overgrown_farmland::CARD),
+    Some(&crate::cards::overgrown_tomb::CARD),
+    Some(&crate::cards::painted_bluffs::CARD),
+    Some(&crate::cards::paliano_the_high_city::CARD),
+    Some(&crate::cards::paradox_gardens::CARD),
+    Some(&crate::cards::path_of_mettle::CARD),
+    Some(&crate::cards::peat_bog::CARD),
+    Some(&crate::cards::peculiar_lighthouse::CARD),
+    Some(&crate::cards::pelakka_predation::CARD),
+    Some(&crate::cards::pendelhaven::CARD),
+    Some(&crate::cards::perilous_landscape::CARD),
+    Some(&crate::cards::petrified_field::CARD),
+    Some(&crate::cards::petrified_hamlet::CARD),
+    Some(&crate::cards::phyrexia_s_core::CARD),
+    Some(&crate::cards::phyrexian_tower::CARD),
+    Some(&crate::cards::pillar_of_the_paruns::CARD),
+    Some(&crate::cards::pine_barrens::CARD),
+    Some(&crate::cards::pinecrest_ridge::CARD),
+    Some(&crate::cards::pinnacle_monk::CARD),
+    Some(&crate::cards::piranha_marsh::CARD),
+    Some(&crate::cards::pit_of_offerings::CARD),
+    Some(&crate::cards::planar_nexus::CARD),
+    Some(&crate::cards::plateau::CARD),
+    Some(&crate::cards::plaza_of_harmony::CARD),
+    Some(&crate::cards::plaza_of_heroes::CARD),
+    Some(&crate::cards::polluted_mire::CARD),
+    Some(&crate::cards::port_town::CARD),
+    Some(&crate::cards::port_of_karfell::CARD),
+    Some(&crate::cards::power_depot::CARD),
+    Some(&crate::cards::prahv_spires_of_order::CARD),
+    Some(&crate::cards::primal_amulet::CARD),
+    Some(&crate::cards::primal_beyond::CARD),
+    Some(&crate::cards::prismari_campus::CARD),
+    Some(&crate::cards::prismatic_vista::CARD),
+    Some(&crate::cards::profane_procession::CARD),
+    Some(&crate::cards::promising_vein::CARD),
+    Some(&crate::cards::public_thoroughfare::CARD),
+    Some(&crate::cards::pym_technologies::CARD),
+    Some(&crate::cards::quandrix_campus::CARD),
+    Some(&crate::cards::quicksand::CARD),
+    Some(&crate::cards::r_d_s_secret_lair::CARD),
+    Some(&crate::cards::rabanastre_royal_city::CARD),
+    Some(&crate::cards::racers_ring::CARD),
+    Some(&crate::cards::radiant_fountain::CARD),
+    Some(&crate::cards::radiant_grove::CARD),
+    Some(&crate::cards::radiant_summit::CARD),
+    Some(&crate::cards::raging_ravine::CARD),
+    Some(&crate::cards::rain_slicked_copse::CARD),
+    Some(&crate::cards::rainbow_vale::CARD),
+    Some(&crate::cards::rakdos_carnarium::CARD),
+    Some(&crate::cards::rakdos_guildgate::CARD),
+    Some(&crate::cards::ramunap_ruins::CARD),
+    Some(&crate::cards::rath_s_edge::CARD),
+    Some(&crate::cards::raucous_carnival::CARD),
+    Some(&crate::cards::raucous_theater::CARD),
+    Some(&crate::cards::ravaged_highlands::CARD),
+    Some(&crate::cards::razorgrass_ambush::CARD),
+    Some(&crate::cards::razortide_bridge::CARD),
+    Some(&crate::cards::razortrap_gorge::CARD),
+    Some(&crate::cards::razorverge_thicket::CARD),
+    Some(&crate::cards::realm_of_koh::CARD),
+    Some(&crate::cards::reef_roads::CARD),
+    Some(&crate::cards::rejuvenating_springs::CARD),
+    Some(&crate::cards::remote_farm::CARD),
+    Some(&crate::cards::remote_isle::CARD),
+    Some(&crate::cards::restless_anchorage::CARD),
+    Some(&crate::cards::restless_bivouac::CARD),
+    Some(&crate::cards::restless_cottage::CARD),
+    Some(&crate::cards::restless_fortress::CARD),
+    Some(&crate::cards::restless_prairie::CARD),
+    Some(&crate::cards::restless_reef::CARD),
+    Some(&crate::cards::restless_ridgeline::CARD),
+    Some(&crate::cards::restless_spire::CARD),
+    Some(&crate::cards::restless_vents::CARD),
+    Some(&crate::cards::restless_vinestalk::CARD),
+    Some(&crate::cards::revitalizing_repast::CARD),
+    Some(&crate::cards::rhystic_cave::CARD),
+    Some(&crate::cards::riftstone_portal::CARD),
+    Some(&crate::cards::rimewood_falls::CARD),
+    Some(&crate::cards::rishadan_port::CARD),
+    Some(&crate::cards::rith_s_grove::CARD),
+    Some(&crate::cards::rivendell::CARD),
+    Some(&crate::cards::river_delta::CARD),
+    Some(&crate::cards::river_of_tears::CARD),
+    Some(&crate::cards::riverglide_pathway::CARD),
+    Some(&crate::cards::riverpyre_verge::CARD),
+    Some(&crate::cards::riveteers_overlook::CARD),
+    Some(&crate::cards::rix_maadi_dungeon_palace::CARD),
+    Some(&crate::cards::roadside_reliquary::CARD),
+    Some(&crate::cards::rockface_village::CARD),
+    Some(&crate::cards::rockfall_vale::CARD),
+    Some(&crate::cards::rocky_roads::CARD),
+    Some(&crate::cards::rocky_tar_pit::CARD),
+    Some(&crate::cards::rogue_s_passage::CARD),
+    Some(&crate::cards::rootbound_crag::CARD),
+    Some(&crate::cards::rootwater_depths::CARD),
+    Some(&crate::cards::rugged_highlands::CARD),
+    Some(&crate::cards::rugged_prairie::CARD),
+    Some(&crate::cards::ruins_of_oran_rief::CARD),
+    Some(&crate::cards::ruins_of_trokair::CARD),
+    Some(&crate::cards::rumble_arena::CARD),
+    Some(&crate::cards::rupture_spire::CARD),
+    Some(&crate::cards::rush_of_inspiration::CARD),
+    Some(&crate::cards::rushwood_grove::CARD),
+    Some(&crate::cards::rustic_clachan::CARD),
+    Some(&crate::cards::rustvale_bridge::CARD),
+    Some(&crate::cards::sacred_foundry::CARD),
+    Some(&crate::cards::sacred_peaks::CARD),
+    Some(&crate::cards::safe_haven::CARD),
+    Some(&crate::cards::salt_flats::CARD),
+    Some(&crate::cards::salt_marsh::CARD),
+    Some(&crate::cards::saltcrusted_steppe::CARD),
+    Some(&crate::cards::sanctum_of_eternity::CARD),
+    Some(&crate::cards::sanctum_of_ugin::CARD),
+    Some(&crate::cards::sand_silos::CARD),
+    Some(&crate::cards::sandsteppe_citadel::CARD),
+    Some(&crate::cards::sandstone_bridge::CARD),
+    Some(&crate::cards::sandstone_needle::CARD),
+    Some(&crate::cards::sandstorm_verge::CARD),
+    Some(&crate::cards::saprazzan_cove::CARD),
+    Some(&crate::cards::saprazzan_skerry::CARD),
+    Some(&crate::cards::sapseep_forest::CARD),
+    Some(&crate::cards::savage_lands::CARD),
+    Some(&crate::cards::savage_mansion::CARD),
+    Some(&crate::cards::savai_triome::CARD),
+    Some(&crate::cards::scabland::CARD),
+    Some(&crate::cards::scattered_groves::CARD),
+    Some(&crate::cards::scavenger_grounds::CARD),
+    Some(&crate::cards::scene_of_the_crime::CARD),
+    Some(&crate::cards::school_of_the_unseen::CARD),
+    Some(&crate::cards::scorched_geyser::CARD),
+    Some(&crate::cards::scorched_ruins::CARD),
+    Some(&crate::cards::scoured_barrens::CARD),
+    Some(&crate::cards::scrying_sheets::CARD),
+    Some(&crate::cards::sea_gate::CARD),
+    Some(&crate::cards::sea_gate_restoration::CARD),
+    Some(&crate::cards::sea_gate_wreckage::CARD),
+    Some(&crate::cards::sea_of_clouds::CARD),
+    Some(&crate::cards::seachrome_coast::CARD),
+    Some(&crate::cards::seafarer_s_quay::CARD),
+    Some(&crate::cards::seafloor_debris::CARD),
+    Some(&crate::cards::search_for_azcanta::CARD),
+    Some(&crate::cards::seaside_citadel::CARD),
+    Some(&crate::cards::seaside_haven::CARD),
+    Some(&crate::cards::seat_of_the_synod::CARD),
+    Some(&crate::cards::secluded_courtyard::CARD),
+    Some(&crate::cards::secluded_glen::CARD),
+    Some(&crate::cards::secluded_starforge::CARD),
+    Some(&crate::cards::secluded_steppe::CARD),
+    Some(&crate::cards::secret_base::CARD),
+    Some(&crate::cards::secret_passage::CARD),
+    Some(&crate::cards::secret_tunnel::CARD),
+    Some(&crate::cards::seething_landscape::CARD),
+    Some(&crate::cards::sejiri_refuge::CARD),
+    Some(&crate::cards::sejiri_shelter::CARD),
+    Some(&crate::cards::sejiri_steppe::CARD),
+    Some(&crate::cards::selesnya_guildgate::CARD),
+    Some(&crate::cards::selesnya_sanctuary::CARD),
+    Some(&crate::cards::sequestered_stash::CARD),
+    Some(&crate::cards::seraph_sanctuary::CARD),
+    Some(&crate::cards::serpent_s_pass::CARD),
+    Some(&crate::cards::serra_s_sanctum::CARD),
+    Some(&crate::cards::shadowblood_ridge::CARD),
+    Some(&crate::cards::shadowy_backstreet::CARD),
+    Some(&crate::cards::shambling_vent::CARD),
+    Some(&crate::cards::sharlayan_nation_of_scholars::CARD),
+    Some(&crate::cards::shattered_landscape::CARD),
+    Some(&crate::cards::shattered_sanctum::CARD),
+    Some(&crate::cards::shatterskull_smashing::CARD),
+    Some(&crate::cards::shefet_dunes::CARD),
+    Some(&crate::cards::shelldock_isle::CARD),
+    Some(&crate::cards::sheltered_thicket::CARD),
+    Some(&crate::cards::sheltered_valley::CARD),
+    Some(&crate::cards::sheltering_landscape::CARD),
+    Some(&crate::cards::shifting_woodland::CARD),
+    Some(&crate::cards::shimmerdrift_vale::CARD),
+    Some(&crate::cards::shimmering_grotto::CARD),
+    Some(&crate::cards::shineshadow_snarl::CARD),
+    Some(&crate::cards::shinka_the_bloodsoaked_keep::CARD),
+    Some(&crate::cards::shipwreck_marsh::CARD),
+    Some(&crate::cards::shire_terrace::CARD),
+    Some(&crate::cards::shivan_gorge::CARD),
+    Some(&crate::cards::shivan_oasis::CARD),
+    Some(&crate::cards::shivan_reef::CARD),
+    Some(&crate::cards::shizo_death_s_storehouse::CARD),
+    Some(&crate::cards::shrine_of_the_forsaken_gods::CARD),
+    Some(&crate::cards::sidequest_catch_a_fish::CARD),
+    Some(&crate::cards::silent_clearing::CARD),
+    Some(&crate::cards::silundi_vision::CARD),
+    Some(&crate::cards::silverbluff_bridge::CARD),
+    Some(&crate::cards::silverquill_campus::CARD),
+    Some(&crate::cards::simic_growth_chamber::CARD),
+    Some(&crate::cards::simic_guildgate::CARD),
+    Some(&crate::cards::sinister_hideout::CARD),
+    Some(&crate::cards::sink_into_stupor::CARD),
+    Some(&crate::cards::skarrg_the_rage_pits::CARD),
+    Some(&crate::cards::skemfar_elderhall::CARD),
+    Some(&crate::cards::skybridge_towers::CARD),
+    Some(&crate::cards::skyclave_cleric::CARD),
+    Some(&crate::cards::skycloud_expanse::CARD),
+    Some(&crate::cards::skycoach_waypoint::CARD),
+    Some(&crate::cards::skyline_cascade::CARD),
+    Some(&crate::cards::skyshroud_forest::CARD),
+    Some(&crate::cards::slagwoods_bridge::CARD),
+    Some(&crate::cards::slayers_stronghold::CARD),
+    Some(&crate::cards::slippery_karst::CARD),
+    Some(&crate::cards::sliver_hive::CARD),
+    Some(&crate::cards::smoldering_crater::CARD),
+    Some(&crate::cards::smoldering_marsh::CARD),
+    Some(&crate::cards::smoldering_spires::CARD),
+    Some(&crate::cards::snow_covered_forest::CARD),
+    Some(&crate::cards::snow_covered_island::CARD),
+    Some(&crate::cards::snow_covered_mountain::CARD),
+    Some(&crate::cards::snow_covered_plains::CARD),
+    Some(&crate::cards::snow_covered_swamp::CARD),
+    Some(&crate::cards::snow_covered_wastes::CARD),
+    Some(&crate::cards::snowfield_sinkhole::CARD),
+    Some(&crate::cards::soaring_seacliff::CARD),
+    Some(&crate::cards::sodden_verdure::CARD),
+    Some(&crate::cards::sokenzan_crucible_of_defiance::CARD),
+    Some(&crate::cards::soldevi_excavations::CARD),
+    Some(&crate::cards::song_mad_treachery::CARD),
+    Some(&crate::cards::sorrow_s_path::CARD),
+    Some(&crate::cards::soulstone_sanctuary::CARD),
+    Some(&crate::cards::soured_springs::CARD),
+    Some(&crate::cards::spara_s_headquarters::CARD),
+    Some(&crate::cards::spawning_bed::CARD),
+    Some(&crate::cards::spawning_pool::CARD),
+    Some(&crate::cards::spectacle_summit::CARD),
+    Some(&crate::cards::spectator_seating::CARD),
+    Some(&crate::cards::spikefield_hazard::CARD),
+    Some(&crate::cards::spinerock_knoll::CARD),
+    Some(&crate::cards::spire_garden::CARD),
+    Some(&crate::cards::spire_of_industry::CARD),
+    Some(&crate::cards::spirebluff_canal::CARD),
+    Some(&crate::cards::springjack_pasture::CARD),
+    Some(&crate::cards::spymaster_s_vault::CARD),
+    Some(&crate::cards::stalking_stones::CARD),
+    Some(&crate::cards::stardew_valley::CARD),
+    Some(&crate::cards::stark_industries::CARD),
+    Some(&crate::cards::starlit_sanctum::CARD),
+    Some(&crate::cards::starting_town::CARD),
+    Some(&crate::cards::steam_vents::CARD),
+    Some(&crate::cards::stensia_bloodhall::CARD),
+    Some(&crate::cards::stirring_wildwood::CARD),
+    Some(&crate::cards::stomping_ground::CARD),
+    Some(&crate::cards::stone_quarry::CARD),
+    Some(&crate::cards::storm_the_vault::CARD),
+    Some(&crate::cards::stormcarved_coast::CARD),
+    Some(&crate::cards::strangled_cemetery::CARD),
+    Some(&crate::cards::strength_of_the_harvest::CARD),
+    Some(&crate::cards::strip_mine::CARD),
+    Some(&crate::cards::study::CARD),
+    Some(&crate::cards::study_hall::CARD),
+    Some(&crate::cards::stump_stomp::CARD),
+    Some(&crate::cards::submerged_boneyard::CARD),
+    Some(&crate::cards::subterranean_cavern::CARD),
+    Some(&crate::cards::subterranean_hangar::CARD),
+    Some(&crate::cards::suburban_sanctuary::CARD),
+    Some(&crate::cards::sulfur_falls::CARD),
+    Some(&crate::cards::sulfur_vent::CARD),
+    Some(&crate::cards::sulfurous_mire::CARD),
+    Some(&crate::cards::sulfurous_springs::CARD),
+    Some(&crate::cards::sun_blessed_peak::CARD),
+    Some(&crate::cards::sunbaked_canyon::CARD),
+    Some(&crate::cards::sunbillow_verge::CARD),
+    Some(&crate::cards::sundering_eruption::CARD),
+    Some(&crate::cards::sundown_pass::CARD),
+    Some(&crate::cards::sungrass_prairie::CARD),
+    Some(&crate::cards::sunhome_fortress_of_the_legion::CARD),
+    Some(&crate::cards::sunken_citadel::CARD),
+    Some(&crate::cards::sunken_palace::CARD),
+    Some(&crate::cards::sunken_ruins::CARD),
+    Some(&crate::cards::sunlit_marsh::CARD),
+    Some(&crate::cards::sunpetal_grove::CARD),
+    Some(&crate::cards::sunscorched_desert::CARD),
+    Some(&crate::cards::sunscorched_divide::CARD),
+    Some(&crate::cards::suppression_ray::CARD),
+    Some(&crate::cards::surtland_frostpyre::CARD),
+    Some(&crate::cards::surveillance_room::CARD),
+    Some(&crate::cards::survivors_encampment::CARD),
+    Some(&crate::cards::susur_secundi_void_altar::CARD),
+    Some(&crate::cards::svogthos_the_restless_tomb::CARD),
+    Some(&crate::cards::svyelunite_temple::CARD),
+    Some(&crate::cards::swarmyard::CARD),
+    Some(&crate::cards::swiftwater_cliffs::CARD),
+    Some(&crate::cards::tcri_building::CARD),
+    Some(&crate::cards::tainted_field::CARD),
+    Some(&crate::cards::tainted_isle::CARD),
+    Some(&crate::cards::tainted_peak::CARD),
+    Some(&crate::cards::tainted_wood::CARD),
+    Some(&crate::cards::takenuma_abandoned_mire::CARD),
+    Some(&crate::cards::talon_gates_of_madara::CARD),
+    Some(&crate::cards::tangled_florahedron::CARD),
+    Some(&crate::cards::tangled_islet::CARD),
+    Some(&crate::cards::tanglepool_bridge::CARD),
+    Some(&crate::cards::tarnation_vista::CARD),
+    Some(&crate::cards::tarnished_citadel::CARD),
+    Some(&crate::cards::tarrian_s_journal::CARD),
+    Some(&crate::cards::tectonic_edge::CARD),
+    Some(&crate::cards::teetering_peaks::CARD),
+    Some(&crate::cards::teferi_s_isle::CARD),
+    Some(&crate::cards::temple_of_abandon::CARD),
+    Some(&crate::cards::temple_of_deceit::CARD),
+    Some(&crate::cards::temple_of_enlightenment::CARD),
+    Some(&crate::cards::temple_of_epiphany::CARD),
+    Some(&crate::cards::temple_of_malady::CARD),
+    Some(&crate::cards::temple_of_malice::CARD),
+    Some(&crate::cards::temple_of_mystery::CARD),
+    Some(&crate::cards::temple_of_plenty::CARD),
+    Some(&crate::cards::temple_of_silence::CARD),
+    Some(&crate::cards::temple_of_triumph::CARD),
+    Some(&crate::cards::temple_of_the_dragon_queen::CARD),
+    Some(&crate::cards::temple_of_the_false_god::CARD),
+    Some(&crate::cards::tendo_ice_bridge::CARD),
+    Some(&crate::cards::terminal_moraine::CARD),
+    Some(&crate::cards::terrain_generator::CARD),
+    Some(&crate::cards::terramorphic_expanse::CARD),
+    Some(&crate::cards::thalakos_lowlands::CARD),
+    Some(&crate::cards::thaumatic_compass::CARD),
+    Some(&crate::cards::thawing_glaciers::CARD),
+    Some(&crate::cards::the_autonomous_furnace::CARD),
+    Some(&crate::cards::the_biblioplex::CARD),
+    Some(&crate::cards::the_big_top::CARD),
+    Some(&crate::cards::the_black_gate::CARD),
+    Some(&crate::cards::the_dross_pits::CARD),
+    Some(&crate::cards::the_everflowing_well::CARD),
+    Some(&crate::cards::the_fair_basilica::CARD),
+    Some(&crate::cards::the_gold_saucer::CARD),
+    Some(&crate::cards::the_great_mound::CARD),
+    Some(&crate::cards::the_grey_havens::CARD),
+    Some(&crate::cards::the_hunter_maze::CARD),
+    Some(&crate::cards::the_lonely_mountain::CARD),
+    Some(&crate::cards::the_monumental_facade::CARD),
+    Some(&crate::cards::the_mycosynth_gardens::CARD),
+    Some(&crate::cards::the_seedcore::CARD),
+    Some(&crate::cards::the_shire::CARD),
+    Some(&crate::cards::the_surgical_bay::CARD),
+    Some(&crate::cards::the_tabernacle_at_pendrell_vale::CARD),
+    Some(&crate::cards::the_world_tree::CARD),
+    Some(&crate::cards::thespian_s_stage::CARD),
+    Some(&crate::cards::thornglint_bridge::CARD),
+    Some(&crate::cards::thornspire_verge::CARD),
+    Some(&crate::cards::thornwood_falls::CARD),
+    Some(&crate::cards::thousand_moons_smithy::CARD),
+    Some(&crate::cards::thran_portal::CARD),
+    Some(&crate::cards::thran_quarry::CARD),
+    Some(&crate::cards::three_tree_city::CARD),
+    Some(&crate::cards::thriving_bluff::CARD),
+    Some(&crate::cards::thriving_grove::CARD),
+    Some(&crate::cards::thriving_heath::CARD),
+    Some(&crate::cards::thriving_isle::CARD),
+    Some(&crate::cards::thriving_moor::CARD),
+    Some(&crate::cards::throne_of_makindi::CARD),
+    Some(&crate::cards::throne_of_the_high_city::CARD),
+    Some(&crate::cards::thundering_falls::CARD),
+    Some(&crate::cards::timber_gorge::CARD),
+    Some(&crate::cards::timberland_ruins::CARD),
+    Some(&crate::cards::timberline_ridge::CARD),
+    Some(&crate::cards::tinder_farm::CARD),
+    Some(&crate::cards::titan_s_grave::CARD),
+    Some(&crate::cards::tocasia_s_dig_site::CARD),
+    Some(&crate::cards::tolaria::CARD),
+    Some(&crate::cards::tolaria_west::CARD),
+    Some(&crate::cards::tolarian_academy::CARD),
+    Some(&crate::cards::tomb_fortress::CARD),
+    Some(&crate::cards::tomb_of_urami::CARD),
+    Some(&crate::cards::tomb_of_the_spirit_dragon::CARD),
+    Some(&crate::cards::tournament_grounds::CARD),
+    Some(&crate::cards::training_center::CARD),
+    Some(&crate::cards::training_compound::CARD),
+    Some(&crate::cards::tramway_station::CARD),
+    Some(&crate::cards::tranquil_cove::CARD),
+    Some(&crate::cards::tranquil_expanse::CARD),
+    Some(&crate::cards::tranquil_garden::CARD),
+    Some(&crate::cards::tranquil_landscape::CARD),
+    Some(&crate::cards::tranquil_thicket::CARD),
+    Some(&crate::cards::transguild_promenade::CARD),
+    Some(&crate::cards::treasure_map::CARD),
+    Some(&crate::cards::treasure_vault::CARD),
+    Some(&crate::cards::tree_of_tales::CARD),
+    Some(&crate::cards::treetop_village::CARD),
+    Some(&crate::cards::trenchpost::CARD),
+    Some(&crate::cards::treno_dark_city::CARD),
+    Some(&crate::cards::trenzalore_clocktower::CARD),
+    Some(&crate::cards::tresserhorn_sinks::CARD),
+    Some(&crate::cards::treva_s_ruins::CARD),
+    Some(&crate::cards::tropical_island::CARD),
+    Some(&crate::cards::turbulent_fen::CARD),
+    Some(&crate::cards::turbulent_moor::CARD),
+    Some(&crate::cards::turbulent_springs::CARD),
+    Some(&crate::cards::turbulent_steppe::CARD),
+    Some(&crate::cards::turbulent_wilderness::CARD),
+    Some(&crate::cards::turntimber_grove::CARD),
+    Some(&crate::cards::turntimber_symbiosis::CARD),
+    Some(&crate::cards::turtle_lair::CARD),
+    Some(&crate::cards::twilight_mire::CARD),
+    Some(&crate::cards::twisted_landscape::CARD),
+    Some(&crate::cards::twists_and_turns::CARD),
+    Some(&crate::cards::tyrite_sanctum::CARD),
+    Some(&crate::cards::ugin_s_labyrinth::CARD),
+    Some(&crate::cards::umara_wizard::CARD),
+    Some(&crate::cards::umbral_expanse::CARD),
+    Some(&crate::cards::uncharted_haven::CARD),
+    Some(&crate::cards::unclaimed_territory::CARD),
+    Some(&crate::cards::undercity_sewers::CARD),
+    Some(&crate::cards::underdark_rift::CARD),
+    Some(&crate::cards::underdome::CARD),
+    Some(&crate::cards::underground_mortuary::CARD),
+    Some(&crate::cards::underground_river::CARD),
+    Some(&crate::cards::undergrowth_stadium::CARD),
+    Some(&crate::cards::undiscovered_paradise::CARD),
+    Some(&crate::cards::unholy_citadel::CARD),
+    Some(&crate::cards::unholy_grotto::CARD),
+    Some(&crate::cards::university_campus::CARD),
+    Some(&crate::cards::unknown_shores::CARD),
+    Some(&crate::cards::unstable_frontier::CARD),
+    Some(&crate::cards::untaidake_the_cloud_keeper::CARD),
+    Some(&crate::cards::urban_retreat::CARD),
+    Some(&crate::cards::urborg::CARD),
+    Some(&crate::cards::urborg_volcano::CARD),
+    Some(&crate::cards::urborg_tomb_of_yawgmoth::CARD),
+    Some(&crate::cards::urza_s_cave::CARD),
+    Some(&crate::cards::urza_s_factory::CARD),
+    Some(&crate::cards::urza_s_fun_house::CARD),
+    Some(&crate::cards::urza_s_mine::CARD),
+    Some(&crate::cards::urza_s_power_plant::CARD),
+    Some(&crate::cards::urza_s_tower::CARD),
+    Some(&crate::cards::urza_s_workshop::CARD),
+    Some(&crate::cards::uthros_titanic_godcore::CARD),
+    Some(&crate::cards::valakut_awakening::CARD),
+    Some(&crate::cards::valakut_the_molten_pinnacle::CARD),
+    Some(&crate::cards::valgavoth_s_lair::CARD),
+    Some(&crate::cards::vance_s_blasting_cannons::CARD),
+    Some(&crate::cards::vastwood_fortification::CARD),
+    Some(&crate::cards::vault_of_champions::CARD),
+    Some(&crate::cards::vault_of_whispers::CARD),
+    Some(&crate::cards::vault_of_the_archangel::CARD),
+    Some(&crate::cards::vec_townships::CARD),
+    Some(&crate::cards::vector_imperial_capital::CARD),
+    Some(&crate::cards::veldt::CARD),
+    Some(&crate::cards::verdant_catacombs::CARD),
+    Some(&crate::cards::vernal_fen::CARD),
+    Some(&crate::cards::vesuva::CARD),
+    Some(&crate::cards::vibrant_cityscape::CARD),
+    Some(&crate::cards::villainous_hideout::CARD),
+    Some(&crate::cards::vineglimmer_snarl::CARD),
+    Some(&crate::cards::viridescent_bog::CARD),
+    Some(&crate::cards::vitu_ghazi_the_city_tree::CARD),
+    Some(&crate::cards::vivid_crag::CARD),
+    Some(&crate::cards::vivid_creek::CARD),
+    Some(&crate::cards::vivid_grove::CARD),
+    Some(&crate::cards::vivid_marsh::CARD),
+    Some(&crate::cards::vivid_meadow::CARD),
+    Some(&crate::cards::volatile_fault::CARD),
+    Some(&crate::cards::volatile_fjord::CARD),
+    Some(&crate::cards::volcanic_island::CARD),
+    Some(&crate::cards::voldaren_estate::CARD),
+    Some(&crate::cards::wandering_fumarole::CARD),
+    Some(&crate::cards::wanderwine_hub::CARD),
+    Some(&crate::cards::war_room::CARD),
+    Some(&crate::cards::warped_landscape::CARD),
+    Some(&crate::cards::wastes::CARD),
+    Some(&crate::cards::wastewood_verge::CARD),
+    Some(&crate::cards::waterfront_district::CARD),
+    Some(&crate::cards::waterlogged_grove::CARD),
+    Some(&crate::cards::waterlogged_teachings::CARD),
+    Some(&crate::cards::watermarket::CARD),
+    Some(&crate::cards::waterveil_cavern::CARD),
+    Some(&crate::cards::welcome_to::CARD),
+    Some(&crate::cards::westvale_abbey::CARD),
+    Some(&crate::cards::white_lotus_hideout::CARD),
+    Some(&crate::cards::wild_roads::CARD),
+    Some(&crate::cards::willowrush_verge::CARD),
+    Some(&crate::cards::wind_scarred_crag::CARD),
+    Some(&crate::cards::windbrisk_heights::CARD),
+    Some(&crate::cards::winding_canyons::CARD),
+    Some(&crate::cards::windurst_federation_center::CARD),
+    Some(&crate::cards::wintermoon_mesa::CARD),
+    Some(&crate::cards::wirewood_lodge::CARD),
+    Some(&crate::cards::witch_enchanter::CARD),
+    Some(&crate::cards::witch_s_clinic::CARD),
+    Some(&crate::cards::witch_s_cottage::CARD),
+    Some(&crate::cards::witherbloom_campus::CARD),
+    Some(&crate::cards::wizards_school::CARD),
+    Some(&crate::cards::wooded_bastion::CARD),
+    Some(&crate::cards::wooded_foothills::CARD),
+    Some(&crate::cards::wooded_ridgeline::CARD),
+    Some(&crate::cards::woodland_cemetery::CARD),
+    Some(&crate::cards::woodland_chasm::CARD),
+    Some(&crate::cards::woodland_stream::CARD),
+    Some(&crate::cards::xander_s_lounge::CARD),
+    Some(&crate::cards::yavimaya_coast::CARD),
+    Some(&crate::cards::yavimaya_hollow::CARD),
+    Some(&crate::cards::yavimaya_cradle_of_growth::CARD),
+    Some(&crate::cards::zanarkand_ancient_metropolis::CARD),
+    Some(&crate::cards::zhalfirin_void::CARD),
+    Some(&crate::cards::ziatora_s_proving_ground::CARD),
+    Some(&crate::cards::zoetic_cavern::CARD),
+    Some(&crate::cards::zof_consumption::CARD),
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x858ff21dac790188;
+pub const POOL_HASH: u64 = 0x93c712006ec3a940;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

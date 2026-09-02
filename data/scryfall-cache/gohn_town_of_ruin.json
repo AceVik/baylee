@@ -1,0 +1,22 @@
+{
+  "id": "99582781-613e-4a33-aec7-7569b4a961aa",
+  "oracle_id": "13fbd525-c9ee-4bd6-b269-94fb264024b6",
+  "name": "Gohn, Town of Ruin",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "278",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

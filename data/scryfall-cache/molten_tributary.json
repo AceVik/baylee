@@ -1,0 +1,22 @@
+{
+  "id": "9c6d0f64-b8e1-41bc-ab86-bd6783daf72a",
+  "oracle_id": "58c592ed-20fc-481b-909b-2315567e5f20",
+  "name": "Molten Tributary",
+  "mana_cost": "",
+  "type_line": "Land — Island Mountain",
+  "oracle_text": "({T}: Add {U} or {R}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "387",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

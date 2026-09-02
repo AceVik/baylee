@@ -1,0 +1,21 @@
+{
+  "id": "5f82ffe7-c5a2-453d-9820-3c576b6f263c",
+  "oracle_id": "ef3b8b0c-cea7-4bae-934c-9c65fd64245d",
+  "name": "Everglades",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Swamp you control to its owner's hand.\n{T}: Add {C}{B}.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "c14",
+  "set_name": "Commander 2014",
+  "collector_number": "294",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

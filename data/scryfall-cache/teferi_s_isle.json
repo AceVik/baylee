@@ -1,0 +1,21 @@
+{
+  "id": "b6ed7ca8-fd91-46e3-9149-a3de23c7078e",
+  "oracle_id": "ce55657d-d82f-4528-a83e-5cad7de111fd",
+  "name": "Teferi's Isle",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nTeferi's Isle enters tapped.\n{T}: Add {U}{U}.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "mir",
+  "set_name": "Mirage",
+  "collector_number": "330",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

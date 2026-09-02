@@ -1,0 +1,21 @@
+{
+  "id": "dd2e8770-c72b-439c-8f79-3aa24646cdd5",
+  "oracle_id": "29c7f059-2eeb-40f9-8f50-03eba2d0d5e0",
+  "name": "Timberland Ruins",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\n{T}, Sacrifice this land: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "330",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "609d3ecf-f88d-4268-a8d3-4bf2bcf5df60",
+  "oracle_id": "a731e87b-8d99-4b64-8ee3-8e540d652366",
+  "name": "Malakir Rebirth // Malakir Mire",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "111",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Malakir Rebirth",
+      "mana_cost": "{B}",
+      "type_line": "Instant",
+      "oracle_text": "Choose target creature. You lose 2 life. Until end of turn, that creature gains \"When this creature dies, return it to the battlefield tapped under its owner's control.\"",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Malakir Mire",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "212d97c5-c144-483b-b42e-00623477e928",
+  "oracle_id": "046f5783-cc7b-416a-8cf6-2bcef9c2cc1a",
+  "name": "Simic Growth Chamber",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {G}{U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "298",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

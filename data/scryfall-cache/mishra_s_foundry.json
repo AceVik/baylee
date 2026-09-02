@@ -1,0 +1,19 @@
+{
+  "id": "da7699b2-e1af-4bc0-8c5b-84ba3e868d7c",
+  "oracle_id": "b43e9772-6ad4-49c7-9557-b18ee1e4587d",
+  "name": "Mishra's Foundry",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}: This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land.\n{1}, {T}: Target attacking Assembly-Worker gets +2/+2 until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "bro",
+  "set_name": "The Brothers' War",
+  "collector_number": "265",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

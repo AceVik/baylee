@@ -1,0 +1,40 @@
+{
+  "id": "d0d484a6-5610-4f1d-95ec-eda273c255e4",
+  "oracle_id": "727f3201-1cfc-4ab2-9dfe-be4f7251f42f",
+  "name": "Boggart Trawler // Boggart Bog",
+  "mana_cost": null,
+  "type_line": "Creature — Goblin // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "243",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Boggart Trawler",
+      "mana_cost": "{2}{B}",
+      "type_line": "Creature — Goblin",
+      "oracle_text": "When this creature enters, exile target player's graveyard.",
+      "power": "3",
+      "toughness": "1",
+      "loyalty": null
+    },
+    {
+      "name": "Boggart Bog",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

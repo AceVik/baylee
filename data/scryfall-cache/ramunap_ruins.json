@@ -1,0 +1,21 @@
+{
+  "id": "727beb1f-1445-4398-970c-e31819d54bc6",
+  "oracle_id": "d0d35864-1edc-4af1-9b89-3d7e94908011",
+  "name": "Ramunap Ruins",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "{T}: Add {C}.\n{T}, Pay 1 life: Add {R}.\n{2}{R}{R}, {T}, Sacrifice a Desert: This land deals 2 damage to each opponent.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "otc",
+  "set_name": "Outlaws of Thunder Junction Commander",
+  "collector_number": "311",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,41 @@
+{
+  "id": "90630b20-fc83-475f-bcd5-8bcfee0cf241",
+  "oracle_id": "3a3e8c9b-e458-4661-980d-0a84a4c2452b",
+  "name": "Glasswing Grace // Age-Graced Chapel",
+  "mana_cost": null,
+  "type_line": "Enchantment — Aura // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "254",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Glasswing Grace",
+      "mana_cost": "{3}{W/B}{W/B}",
+      "type_line": "Enchantment — Aura",
+      "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2 and has flying and lifelink.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Age-Graced Chapel",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {W} or {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

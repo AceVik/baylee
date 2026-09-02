@@ -1,0 +1,22 @@
+{
+  "id": "6d103181-25a1-4928-ac37-adf11038d5b5",
+  "oracle_id": "8b96f837-7c32-473a-b5ae-1d66527eaf7b",
+  "name": "Jwar Isle Refuge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "znc",
+  "set_name": "Zendikar Rising Commander",
+  "collector_number": "133",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

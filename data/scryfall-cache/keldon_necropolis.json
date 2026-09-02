@@ -1,0 +1,21 @@
+{
+  "id": "8d168f4d-e8f1-459f-a507-93730ddd20a4",
+  "oracle_id": "ea4d6fcd-21e0-4e9f-b406-a89042998d98",
+  "name": "Keldon Necropolis",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {C}.\n{4}{R}, {T}, Sacrifice a creature: Keldon Necropolis deals 2 damage to any target.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "300",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

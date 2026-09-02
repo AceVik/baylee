@@ -1,0 +1,40 @@
+{
+  "id": "9e8c0009-787f-480b-84b6-bf297f1fb466",
+  "oracle_id": "5e7eca9c-a7b8-4b7b-a0a0-e8937530145a",
+  "name": "Vance's Blasting Cannons // Spitfire Bastion",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "xln",
+  "set_name": "Ixalan",
+  "collector_number": "173",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Vance's Blasting Cannons",
+      "mana_cost": "{3}{R}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "At the beginning of your upkeep, exile the top card of your library. If it's a nonland card, you may cast that card this turn.\nWhenever you cast your third spell in a turn, you may transform Vance's Blasting Cannons.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Spitfire Bastion",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Vance's Blasting Cannons.)\n{T}: Add {R}.\n{2}{R}, {T}: Spitfire Bastion deals 3 damage to any target.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

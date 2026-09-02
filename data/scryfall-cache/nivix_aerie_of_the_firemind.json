@@ -1,0 +1,22 @@
+{
+  "id": "a025a42d-cbcc-4bd2-9331-5c7dc677da20",
+  "oracle_id": "9c482f1d-08b4-4882-918c-448a556d3fbe",
+  "name": "Nivix, Aerie of the Firemind",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}{U}{R}, {T}: Exile the top card of your library. Until your next turn, you may cast it if it's an instant or sorcery spell.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "ddj",
+  "set_name": "Duel Decks: Izzet vs. Golgari",
+  "collector_number": "36",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

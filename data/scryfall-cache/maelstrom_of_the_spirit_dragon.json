@@ -1,0 +1,19 @@
+{
+  "id": "c4e90bfb-d9a5-48a9-9ff9-b0f50a813eee",
+  "oracle_id": "49e9fba7-8465-4bbb-95db-73a7e149f494",
+  "name": "Maelstrom of the Spirit Dragon",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Dragon spell or an Omen spell.\n{4}, {T}, Sacrifice this land: Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "260",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

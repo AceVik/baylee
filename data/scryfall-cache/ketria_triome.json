@@ -1,0 +1,23 @@
+{
+  "id": "a249b1f4-2b22-4b67-a207-e0c4ae95d2e1",
+  "oracle_id": "6bae00e8-06cf-4ac4-a1cc-757e454109fe",
+  "name": "Ketria Triome",
+  "mana_cost": "",
+  "type_line": "Land — Forest Island Mountain",
+  "oracle_text": "({T}: Add {G}, {U}, or {R}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R",
+    "U"
+  ],
+  "set": "iko",
+  "set_name": "Ikoria: Lair of Behemoths",
+  "collector_number": "250",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

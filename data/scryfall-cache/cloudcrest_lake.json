@@ -1,0 +1,22 @@
+{
+  "id": "9bcbd030-762e-4754-ae95-685d59ccdfb9",
+  "oracle_id": "8df14d53-472c-416e-93c6-6c0b7f9b614e",
+  "name": "Cloudcrest Lake",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {W} or {U}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "274",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

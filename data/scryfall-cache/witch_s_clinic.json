@@ -1,0 +1,19 @@
+{
+  "id": "d2422e3e-a923-4516-b87c-cac748354dca",
+  "oracle_id": "05899372-9784-4bdb-9c28-504c71fed906",
+  "name": "Witch's Clinic",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Target commander gains lifelink until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "325",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "651a1a4f-bdaa-44d6-ac45-050894788063",
+  "oracle_id": "a37544b6-0048-4213-8e40-76ba8a0b6d1b",
+  "name": "Soaring Seacliff",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target creature gains flying until end of turn.\n{T}: Add {U}.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "c20",
+  "set_name": "Commander 2020",
+  "collector_number": "315",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

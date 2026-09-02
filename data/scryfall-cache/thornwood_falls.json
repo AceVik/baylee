@@ -1,0 +1,22 @@
+{
+  "id": "ebb502c2-5fd0-46a9-b77d-010f4a942056",
+  "oracle_id": "ec96cde2-f1e6-495c-94e2-3e8ae79e556c",
+  "name": "Thornwood Falls",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "269",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

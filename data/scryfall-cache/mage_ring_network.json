@@ -1,0 +1,19 @@
+{
+  "id": "f060ea2b-717a-47ae-a4d6-b0594e838459",
+  "oracle_id": "136596a0-b179-40be-b42d-c0b992621c95",
+  "name": "Mage-Ring Network",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {C} for each storage counter removed this way.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1009",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

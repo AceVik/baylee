@@ -1,0 +1,23 @@
+{
+  "id": "48810b27-0646-4ff9-9d4d-c6d09b2e0267",
+  "oracle_id": "e4cf6c2f-0f1e-4980-9ef9-e4eabcae42a9",
+  "name": "Frontier Bivouac",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}, {U}, or {R}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R",
+    "U"
+  ],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "150",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

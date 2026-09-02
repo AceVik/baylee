@@ -1,0 +1,22 @@
+{
+  "id": "4c830a99-595b-4aed-9f6b-85a78917f498",
+  "oracle_id": "876ac6f6-74de-4666-84c6-83d81f054723",
+  "name": "Celestial Colonnade",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {U}.\n{3}{W}{U}: Until end of turn, this land becomes a 4/4 white and blue Elemental creature with flying and vigilance. It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "uma",
+  "set_name": "Ultimate Masters",
+  "collector_number": "238",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

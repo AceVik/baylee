@@ -1,6 +1,6 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
-use baylee_cards_codegen::{acceptance, catalog, forge, ledger, scryfall, stubgen};
+use baylee_cards_codegen::{acceptance, catalog, forge, forgegen, ledger, scryfall, stubgen};
 use clap::{Parser, Subcommand};
 use std::collections::BTreeMap;
 use std::fs;
@@ -41,6 +41,18 @@ enum Cmd {
         /// Where to write the dump.
         #[arg(long)]
         out: PathBuf,
+    },
+    /// Report how much of the forge-reference corpus the transcoder reads.
+    ForgeReport {
+        /// Path to the forge-reference cardsfolder.
+        #[arg(
+            long,
+            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
+        )]
+        forge: PathBuf,
+        /// Print this many refused scripts, for finding the next rule to add.
+        #[arg(long, default_value_t = 0)]
+        samples: usize,
     },
     /// Show Scryfall + forge-reference data for a card side by side.
     Explain {
@@ -117,6 +129,7 @@ fn main() -> anyhow::Result<()> {
             cache,
         } => codegen(&root, check, &forge, &cache),
         Cmd::PoolDump { out } => pool_dump(&out),
+        Cmd::ForgeReport { forge, samples } => forge_report(&root, &forge, samples),
         Cmd::Explain { name, forge, cache } => explain(&root, &name, &forge, &cache),
         Cmd::CardBatch {
             cards,
@@ -200,6 +213,7 @@ fn cards(
     agent: &ureq::Agent,
     cache: &Path,
     cats: &catalog::SubtypeCatalogs,
+    forge: Option<&forgegen::ForgeLookup>,
     changed: &mut Vec<PathBuf>,
 ) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
@@ -224,7 +238,7 @@ fn cards(
         let card = scryfall::fetch_named(name, agent, cache)?;
         let oracle_id = card.oracle_id.clone().unwrap_or_default();
         let index = ledger.assign(&oracle_id, &card.name);
-        let (info, content) = stubgen::render_stub(&card, index, cats)?;
+        let (info, content) = stubgen::render_stub(&card, index, cats, forge)?;
         let stub_path = root.join(format!("crates/baylee-cards/src/cards/{}.rs", info.slug));
         // Implemented cards are hand-owned: only touch files that are
         // missing or still carry the GENERATED STUB marker.
@@ -285,12 +299,11 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
         &mut changed,
     )?;
 
-    // 2. The card pool → per-card stubs + registry.
-    cards(root, check, &agent, &cache, &cats, &mut changed)?;
-
-    // 3. forge-reference index.
+    // 2. forge-reference index. Built before the stubs, because a stub is
+    //    transcoded from the rules reference when one is checked out locally
+    //    (read as an automated lookup, never copied).
     let forge_dir = root.join(forge_dir);
-    if forge_dir.exists() {
+    let lookup = if forge_dir.exists() {
         let index = forge::build_index(&forge_dir)?;
         write_or_check(
             check,
@@ -299,12 +312,25 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
             &mut changed,
         )?;
         println!("forge index: {} scripts", index.len());
+        Some(forgegen::ForgeLookup::new(forge_dir.clone(), index))
     } else {
         println!(
             "note: forge-reference not found at {}, skipping index",
             forge_dir.display()
         );
-    }
+        None
+    };
+
+    // 3. The card pool → per-card stubs + registry.
+    cards(
+        root,
+        check,
+        &agent,
+        &cache,
+        &cats,
+        lookup.as_ref(),
+        &mut changed,
+    )?;
 
     if check {
         if changed.is_empty() {
@@ -454,6 +480,16 @@ fn code_costs(content: &str) -> Vec<String> {
             }
         }
     }
+    // A costless face writes no `mana_cost` line at all — `FaceDef::DEFAULT`
+    // supplies `ManaCost::ZERO` and the authoring rule is never to restate a
+    // default. So a face the loop above did not see *is* a free face, which
+    // is how a land on the front of a modal double-faced card gets its
+    // "(no cost)" back. Reading only the written lines made the checker
+    // demand that a Land carry the cost of the Sorcery on its other side.
+    let faces = content.matches("face! {").count();
+    if faces > costs.len() {
+        costs.push("(no cost)".to_string());
+    }
     costs
 }
 
@@ -526,20 +562,33 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
     let names = acceptance::all_names(&rows, &pool_text);
     let mut problems = 0usize;
+    let mut stubs = 0usize;
     for name in &names {
-        let slug = baylee_cards_codegen::stubgen::slug(name);
+        // Multi-face cards are filed under their front face, the same way
+        // `codegen` slugs them — "Zof Consumption // Zof Bloodbog" is one
+        // file called `zof_consumption`.
+        let slug = baylee_cards_codegen::stubgen::slug(name.split(" // ").next().unwrap_or(name));
         let path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
         let Ok(content) = fs::read_to_string(&path) else {
             println!("MISSING FILE: {slug}");
             problems += 1;
             continue;
         };
+        // A stub has nothing to claim: `CardDef::DEFAULT` is
+        // `Unimplemented`, and writing the line out would be restating a
+        // default. The header is still checked, because that is what the
+        // person who finishes the card reads.
+        let is_stub = content.contains("// GENERATED STUB");
+        stubs += usize::from(is_stub);
         for check in [
             ("header name", content.contains("//!")),
             ("set line", content.contains("Set:")),
             ("scryfall id", content.contains("Scryfall ID:")),
             ("oracle id", content.contains("Oracle ID:")),
-            ("coverage flag", content.contains("coverage: Coverage::")),
+            (
+                "coverage flag",
+                is_stub || content.contains("coverage: Coverage::"),
+            ),
         ] {
             if !check.1 {
                 println!("{slug}: missing {}", check.0);
@@ -551,7 +600,11 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     if problems > 0 {
         anyhow::bail!("{problems} convention problem(s) found");
     }
-    println!("validate: {} cards conform", names.len());
+    println!(
+        "validate: {} cards conform ({} finished, {stubs} stubs)",
+        names.len(),
+        names.len() - stubs
+    );
     Ok(())
 }
 
@@ -786,4 +839,101 @@ fn dev_table(
         .status()?;
     anyhow::ensure!(status.success(), "the client exited with {status}");
     Ok(())
+}
+
+/// Counts how many forge-reference scripts the transcoder reads in full.
+///
+/// The number is the honest ceiling on what `codegen` can generate from the
+/// rules reference: a script it refuses becomes an ordinary stub, so this is
+/// also the list of rules worth adding next.
+fn forge_report(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<()> {
+    let dir = root.join(forge_dir);
+    let cache = root.join("data/scryfall-cache");
+    let agent = ureq::Agent::new_with_defaults();
+    let mut cats = catalog::SubtypeCatalogs {
+        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
+        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
+        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
+        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
+        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
+        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
+    };
+    cats.normalize();
+    let mut files = Vec::new();
+    collect_scripts(&dir, &mut files)?;
+    files.sort();
+    let (mut read, mut refused) = (0usize, 0usize);
+    let mut causes: BTreeMap<String, usize> = BTreeMap::new();
+    let mut shown = 0usize;
+    for path in &files {
+        let text = fs::read_to_string(path)?;
+        let script = forgegen::parse(&text);
+        if forgegen::transcode(&script, &cats).is_some() {
+            read += 1;
+        } else {
+            refused += 1;
+            *causes.entry(refusal_cause(&script)).or_insert(0usize) += 1;
+            if shown < samples {
+                shown += 1;
+                println!("--- refused: {}\n{text}", path.display());
+            }
+        }
+    }
+    let total = read + refused;
+    println!(
+        "forge transcoder: {read} / {total} scripts read in full ({}%)",
+        (read * 100).checked_div(total).unwrap_or(0)
+    );
+    let mut ranked: Vec<(&String, &usize)> = causes.iter().collect();
+    ranked.sort_by(|a, b| b.1.cmp(a.1));
+    println!("what the refused scripts need next:");
+    for (cause, n) in ranked.into_iter().take(30) {
+        println!("  {n:>6}  {cause}");
+    }
+    Ok(())
+}
+
+fn collect_scripts(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            collect_scripts(&path, out)?;
+        } else if path.extension().is_some_and(|e| e == "txt") {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+/// The most likely single reason a script was refused, for ranking work.
+///
+/// This is a heuristic over the script's own text rather than a report from
+/// the transcoder: it names the first thing in the script that no rule
+/// claims, which is what makes the output a worklist.
+fn refusal_cause(script: &forgegen::ForgeScript) -> String {
+    if let Some(line) = script.unknown_lines.first() {
+        let head = line.split(':').next().unwrap_or(line);
+        return format!("unmodelled line kind `{head}:`");
+    }
+    for line in &script.keywords {
+        if forgegen::keyword_const_of(line).is_none() {
+            let head = line.split(':').next().unwrap_or(line);
+            let head = head.split(' ').next().unwrap_or(head);
+            return format!("keyword `{head}`");
+        }
+    }
+    for (kind, spec) in &script.rules {
+        if *kind == 'S' {
+            return "static ability (S:)".to_string();
+        }
+        if *kind == 'R' {
+            return "replacement effect (R:)".to_string();
+        }
+        for api in forgegen::apis_used(spec, &script.svars) {
+            if !forgegen::is_supported_api(&api) {
+                return format!("effect `{api}`");
+            }
+        }
+    }
+    "supported effects, unsupported parameters".to_string()
 }

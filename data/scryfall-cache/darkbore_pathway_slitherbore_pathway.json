@@ -1,0 +1,41 @@
+{
+  "id": "87a4e5fe-161f-42da-9ca2-67c8e8970e94",
+  "oracle_id": "868e6e68-4367-4073-a864-235d5961ae56",
+  "name": "Darkbore Pathway // Slitherbore Pathway",
+  "mana_cost": null,
+  "type_line": "Land // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "254",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Darkbore Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Slitherbore Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

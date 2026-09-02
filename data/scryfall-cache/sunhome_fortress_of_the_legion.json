@@ -1,0 +1,22 @@
+{
+  "id": "4ebb97da-e4d5-41ba-9a70-2a1de91f513c",
+  "oracle_id": "a9f8344c-1705-4254-81d6-aa05e0c69c29",
+  "name": "Sunhome, Fortress of the Legion",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}{R}{W}, {T}: Target creature gains double strike until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "otc",
+  "set_name": "Outlaws of Thunder Junction Commander",
+  "collector_number": "324",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "b0f794f0-3588-4fe2-8792-64a58482ff8b",
+  "oracle_id": "603dc263-270c-4a16-9b75-41f36fd7dfde",
+  "name": "Pine Barrens",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {B} or {G}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "240",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

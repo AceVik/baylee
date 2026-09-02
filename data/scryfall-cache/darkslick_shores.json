@@ -1,0 +1,22 @@
+{
+  "id": "c49305d1-ac95-43ea-b02d-c3c7205bcda6",
+  "oracle_id": "a2b48695-f7d7-42ce-a8a0-2a723428542a",
+  "name": "Darkslick Shores",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "otc",
+  "set_name": "Outlaws of Thunder Junction Commander",
+  "collector_number": "281",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

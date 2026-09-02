@@ -1,0 +1,21 @@
+{
+  "id": "d0c5c07b-df81-4941-ae7e-2d38e317059d",
+  "oracle_id": "62934aab-b6fa-41b2-ac05-d3fa0e3c5a79",
+  "name": "Turntimber Grove",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target creature gets +1/+1 until end of turn.\n{T}: Add {G}.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "ddp",
+  "set_name": "Duel Decks: Zendikar vs. Eldrazi",
+  "collector_number": "34",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

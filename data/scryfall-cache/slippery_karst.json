@@ -1,0 +1,21 @@
+{
+  "id": "c41073e8-01cc-4d19-acb5-caaf2861bc6a",
+  "oracle_id": "58bfd9a1-67ce-41d0-be38-f05addd1dd9e",
+  "name": "Slippery Karst",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "256",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "a11a0f9c-2253-468f-a9c0-42e1e38aad96",
+  "oracle_id": "6e743fbf-b5b6-4176-a4f2-6933f521f2fe",
+  "name": "New Benalia",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, scry 1. (Look at the top card of your library. You may put that card on the bottom.)\n{T}: Add {W}.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "c18",
+  "set_name": "Commander 2018",
+  "collector_number": "270",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "e4c79155-b6d8-46df-891f-487b24c4e0d5",
+  "oracle_id": "dd3fd7cd-d8a1-48e2-861d-c7c40086dc75",
+  "name": "Blinkmoth Well",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Tap target noncreature artifact.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mrd",
+  "set_name": "Mirrodin",
+  "collector_number": "279",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

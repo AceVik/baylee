@@ -1,0 +1,19 @@
+{
+  "id": "676703fe-bd80-413c-8704-1da5d3248b7e",
+  "oracle_id": "6bb00a28-8b5a-4049-93b7-3db02de88aeb",
+  "name": "Forsaken City",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land doesn't untap during your untap step.\nAt the beginning of your upkeep, you may exile a card from your hand. If you do, untap this land.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "pls",
+  "set_name": "Planeshift",
+  "collector_number": "139",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

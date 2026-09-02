@@ -1,0 +1,19 @@
+{
+  "id": "d481d871-d1e3-439b-bfd5-5b2212f9b0c8",
+  "oracle_id": "13aab4fc-4c89-45e6-8275-b074b00d0ee9",
+  "name": "Zhalfirin Void",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, scry 1. (Look at the top card of your library. You may put that card on the bottom.)\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "afc",
+  "set_name": "Forgotten Realms Commander",
+  "collector_number": "273",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

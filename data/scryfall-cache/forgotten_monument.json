@@ -1,0 +1,19 @@
+{
+  "id": "de8c1c02-e533-46b2-a3eb-91dff561854b",
+  "oracle_id": "71393988-ad6f-43fd-9978-c0de15ae8e87",
+  "name": "Forgotten Monument",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "{T}: Add {C}.\nOther Caves you control have \"{T}, Pay 1 life: Add one mana of any color.\"",
+  "colors": [],
+  "color_identity": [],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "272",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

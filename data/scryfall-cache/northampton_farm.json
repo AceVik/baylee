@@ -1,0 +1,19 @@
+{
+  "id": "dbca168e-095f-4fbc-88f8-3048d83caf94",
+  "oracle_id": "e05f1a43-16ce-4e88-b0ad-2202efb25516",
+  "name": "Northampton Farm",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Exile target creature you own.\n{2}, {T}, Sacrifice this land: Return a creature card exiled with this land to the battlefield under your control. Return each other card exiled with this land to its owner's hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tmt",
+  "set_name": "Teenage Mutant Ninja Turtles",
+  "collector_number": "188",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "dc2a3de1-01ac-4425-8534-e5019e01f2cd",
+  "oracle_id": "a4fc174e-7fa6-41a8-ae03-255f226840f9",
+  "name": "Billiard Room",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.\n{4}, {T}: Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "clu",
+  "set_name": "Ravnica: Clue Edition",
+  "collector_number": "13",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

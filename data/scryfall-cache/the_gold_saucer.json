@@ -1,0 +1,19 @@
+{
+  "id": "5363c881-443d-43df-afd8-f81e1a1741a2",
+  "oracle_id": "93e38650-ce22-4ab9-b79d-cc7b6477c075",
+  "name": "The Gold Saucer",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Flip a coin. If you win the flip, create a Treasure token.\n{3}, {T}, Sacrifice two artifacts: Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "279",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

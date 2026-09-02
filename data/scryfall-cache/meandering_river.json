@@ -1,0 +1,22 @@
+{
+  "id": "e283db9e-6a51-4b28-9f6c-0c040a9d6d8c",
+  "oracle_id": "2d9663be-c466-4191-85e2-a69ce0965432",
+  "name": "Meandering River",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "khc",
+  "set_name": "Kaldheim Commander",
+  "collector_number": "114",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

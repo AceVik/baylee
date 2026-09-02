@@ -1,0 +1,21 @@
+{
+  "id": "0b47f6d2-9f65-47a4-bfc4-15619befe53d",
+  "oracle_id": "1861e642-21d5-4232-89f3-b5557f2946c1",
+  "name": "Phyrexian Tower",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice a creature: Add {B}{B}.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "303",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

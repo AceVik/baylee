@@ -1,0 +1,40 @@
+{
+  "id": "3d715e9f-223d-462e-8ce3-eebbaf1cd021",
+  "oracle_id": "2f4374f6-c695-4a5d-a6d6-0e41eaa587ca",
+  "name": "Dowsing Device // Geode Grotto",
+  "mana_cost": null,
+  "type_line": "Artifact // Land — Cave",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "146",
+  "rarity": "uncommon",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Dowsing Device",
+      "mana_cost": "{1}{R}",
+      "type_line": "Artifact",
+      "oracle_text": "Whenever this artifact or another artifact you control enters, up to one target creature you control gets +1/+0 and gains haste until end of turn. Then transform this artifact if you control four or more artifacts.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Geode Grotto",
+      "mana_cost": "",
+      "type_line": "Land — Cave",
+      "oracle_text": "(Transforms from Dowsing Device.)\n{T}: Add {R}.\n{2}{R}, {T}: Until end of turn, target creature gains haste and gets +X/+0, where X is the number of artifacts you control. Activate only as a sorcery.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

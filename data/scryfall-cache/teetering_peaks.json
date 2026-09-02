@@ -1,0 +1,21 @@
+{
+  "id": "e56aca36-bb51-45e3-9ef9-9f9f2aa1e088",
+  "oracle_id": "4a9437a6-4e61-48b6-8194-1c6ba6432250",
+  "name": "Teetering Peaks",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target creature gets +2/+0 until end of turn.\n{T}: Add {R}.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "zen",
+  "set_name": "Zendikar",
+  "collector_number": "226",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

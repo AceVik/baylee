@@ -1,0 +1,19 @@
+{
+  "id": "020e1348-1a35-4cc8-bad6-9fbddfa79277",
+  "oracle_id": "d565cd3d-68d4-4039-9e45-7e69e31d0ffb",
+  "name": "Ugin's Labyrinth",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Imprint — When this land enters, you may exile a colorless card with mana value 7 or greater from your hand.\n{T}: Add {C}. If a card is exiled with this land, add {C}{C} instead.\n{T}: Return the exiled card to its owner's hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "233",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

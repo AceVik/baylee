@@ -1,0 +1,22 @@
+{
+  "id": "bd3ae4fa-4c97-410a-8c0a-bd203342595d",
+  "oracle_id": "4722105b-0085-4bb8-bca1-9de0d3eb5600",
+  "name": "Stormcarved Coast",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {U} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "sos",
+  "set_name": "Secrets of Strixhaven",
+  "collector_number": "263",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

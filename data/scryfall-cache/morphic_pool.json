@@ -1,0 +1,22 @@
+{
+  "id": "48e40927-dd87-42ed-b805-0ae8ba81f5fb",
+  "oracle_id": "bd004c9d-771e-4e63-a97d-a2259c096af8",
+  "name": "Morphic Pool",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you have two or more opponents.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "357",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

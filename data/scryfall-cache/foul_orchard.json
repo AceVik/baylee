@@ -1,0 +1,22 @@
+{
+  "id": "1e1bad7b-e102-4dff-b79a-fd755c2b6d49",
+  "oracle_id": "ad6a2776-801f-4743-8268-6d654122171e",
+  "name": "Foul Orchard",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "khc",
+  "set_name": "Kaldheim Commander",
+  "collector_number": "110",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

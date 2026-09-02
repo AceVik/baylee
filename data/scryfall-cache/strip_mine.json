@@ -1,0 +1,19 @@
+{
+  "id": "f57fd4c9-0004-4f71-a30f-2720943f57ca",
+  "oracle_id": "d21a89eb-7c5b-459a-acc7-12b20b13bf79",
+  "name": "Strip Mine",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Destroy target land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "316",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

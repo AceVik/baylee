@@ -1,0 +1,19 @@
+{
+  "id": "1f8b915f-3e82-4b05-b963-01ebff7a8f7b",
+  "oracle_id": "de5b995c-9691-4555-9070-66bcbc29f955",
+  "name": "Public Thoroughfare",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you tap an untapped artifact or land you control.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mkm",
+  "set_name": "Murders at Karlov Manor",
+  "collector_number": "265",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

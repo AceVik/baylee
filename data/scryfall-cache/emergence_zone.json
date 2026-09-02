@@ -1,0 +1,19 @@
+{
+  "id": "ab95f6e7-b806-47fe-a071-6c38b3176d94",
+  "oracle_id": "7536eb66-959d-4dca-9b75-895572ef733c",
+  "name": "Emergence Zone",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash.",
+  "colors": [],
+  "color_identity": [],
+  "set": "war",
+  "set_name": "War of the Spark",
+  "collector_number": "245",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

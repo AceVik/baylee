@@ -1,0 +1,22 @@
+{
+  "id": "963c100e-4e12-438f-b5ae-14391406dff6",
+  "oracle_id": "ebb3e2ff-2214-4e11-88fb-e0fa84288cf1",
+  "name": "Forlorn Flats",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, it deals 1 damage to target opponent.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "otj",
+  "set_name": "Outlaws of Thunder Junction",
+  "collector_number": "258",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

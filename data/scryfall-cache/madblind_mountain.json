@@ -1,0 +1,21 @@
+{
+  "id": "513adae2-6436-4284-9f23-87ef627e81b7",
+  "oracle_id": "0ee0b090-3f1e-49d6-bcad-91e0cf1d12ae",
+  "name": "Madblind Mountain",
+  "mana_cost": "",
+  "type_line": "Land — Mountain",
+  "oracle_text": "({T}: Add {R}.)\nThis land enters tapped.\n{R}, {T}: Shuffle your library. Activate only if you control two or more red permanents.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "shm",
+  "set_name": "Shadowmoor",
+  "collector_number": "274",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

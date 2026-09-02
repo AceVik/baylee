@@ -1,0 +1,22 @@
+{
+  "id": "f79313f8-0b79-4fe3-8eb1-db523587b714",
+  "oracle_id": "c737d27b-db14-4bd4-8f16-bcbd4401c47b",
+  "name": "Caldera Lake",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {U} or {R}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "235",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

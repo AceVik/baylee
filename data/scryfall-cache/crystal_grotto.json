@@ -1,0 +1,19 @@
+{
+  "id": "6f6f9d3d-600d-43f3-a915-612e5d53aaa1",
+  "oracle_id": "f15fb0cc-8e96-4f03-94d0-b51410415afd",
+  "name": "Crystal Grotto",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, scry 1.\n{T}: Add {C}.\n{1}, {T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "woe",
+  "set_name": "Wilds of Eldraine",
+  "collector_number": "254",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "32779721-b021-4bd4-95d1-4a19b78d9faa",
+  "oracle_id": "34320ebf-da97-44a4-bbeb-a9da06548289",
+  "name": "Blackbloom Rogue // Blackbloom Bog",
+  "mana_cost": null,
+  "type_line": "Creature — Human Rogue // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "91",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Blackbloom Rogue",
+      "mana_cost": "{2}{B}",
+      "type_line": "Creature — Human Rogue",
+      "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nThis creature gets +3/+0 as long as an opponent has eight or more cards in their graveyard.",
+      "power": "2",
+      "toughness": "3",
+      "loyalty": null
+    },
+    {
+      "name": "Blackbloom Bog",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

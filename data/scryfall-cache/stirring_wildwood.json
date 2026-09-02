@@ -1,0 +1,22 @@
+{
+  "id": "22f40dfc-a35d-4094-9805-0de8b7f61cb0",
+  "oracle_id": "e900f211-dc8b-40f7-a217-1b1462b15c26",
+  "name": "Stirring Wildwood",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {W}.\n{1}{G}{W}: Until end of turn, this land becomes a 3/4 green and white Elemental creature with reach. It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "uma",
+  "set_name": "Ultimate Masters",
+  "collector_number": "251",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

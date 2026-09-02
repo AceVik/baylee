@@ -1,0 +1,21 @@
+{
+  "id": "63eb18e0-c723-4de4-8498-c5362c75b2b4",
+  "oracle_id": "42d121a2-5266-483a-ab16-e0a8073cd6a3",
+  "name": "Halimar Depths",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, look at the top three cards of your library, then put them back in any order.\n{T}: Add {U}.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "282",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

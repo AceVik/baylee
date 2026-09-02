@@ -1,0 +1,19 @@
+{
+  "id": "eaeaf9f2-d196-4607-a704-06f2315d8cc5",
+  "oracle_id": "c4bc5bc4-e589-42c5-91fa-2ebc96448e85",
+  "name": "Petrified Field",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Return target land card from your graveyard to your hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "323",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

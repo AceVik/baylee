@@ -1,0 +1,21 @@
+{
+  "id": "099352e2-38c8-4fb4-a25f-6d928aa20f9e",
+  "oracle_id": "008f2698-1721-45a3-8353-10f2f400dc8f",
+  "name": "Shizo, Death's Storehouse",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {B}.\n{B}, {T}: Target legendary creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "dmc",
+  "set_name": "Dominaria United Commander",
+  "collector_number": "233",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

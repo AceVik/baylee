@@ -1,0 +1,21 @@
+{
+  "id": "c781e932-4605-47aa-add1-4ee62f4e7ead",
+  "oracle_id": "08911e8e-cd67-4960-a927-958c33632469",
+  "name": "Sandstone Bridge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target creature gets +1/+1 and gains vigilance until end of turn.\n{T}: Add {W}.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "bfz",
+  "set_name": "Battle for Zendikar",
+  "collector_number": "243",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

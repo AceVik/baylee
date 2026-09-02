@@ -1,0 +1,22 @@
+{
+  "id": "8817a1d6-ef39-4e7c-8277-74aea012803b",
+  "oracle_id": "4139f40a-873b-4842-96a2-b7875de1c20a",
+  "name": "TCRI Building",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {U} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "tmt",
+  "set_name": "Teenage Mutant Ninja Turtles",
+  "collector_number": "189",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

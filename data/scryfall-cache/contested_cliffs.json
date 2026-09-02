@@ -1,0 +1,22 @@
+{
+  "id": "5796e5e4-32a0-4fe3-9912-80684aee489d",
+  "oracle_id": "b891a683-2ebc-4e9c-b402-5dd9c1b42b69",
+  "name": "Contested Cliffs",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{R}{G}, {T}: Target Beast creature you control fights target creature an opponent controls. (Each deals damage equal to its power to the other.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "c13",
+  "set_name": "Commander 2013",
+  "collector_number": "282",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "f7e9db98-3a2d-46d8-a07f-99d66a4d9f2f",
+  "oracle_id": "c2878f4e-3044-4d60-8ec1-b325edfca397",
+  "name": "Lumbering Falls",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {U}.\n{2}{G}{U}: Until end of turn, this land becomes a 3/3 green and blue Elemental creature with hexproof. It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "afc",
+  "set_name": "Forgotten Realms Commander",
+  "collector_number": "247",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

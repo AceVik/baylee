@@ -1,0 +1,21 @@
+{
+  "id": "c05b097f-5b76-49b7-88fb-aef56431df39",
+  "oracle_id": "6c9a854c-0509-4ed4-9d94-c45b823b65e5",
+  "name": "Heart of Yavimaya",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If this land would enter, sacrifice a Forest instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {G}.\n{T}: Target creature gets +1/+1 until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "me2",
+  "set_name": "Masters Edition II",
+  "collector_number": "231",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

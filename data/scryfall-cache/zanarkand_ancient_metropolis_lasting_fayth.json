@@ -1,0 +1,40 @@
+{
+  "id": "881e4c00-3b9a-47a1-bf66-1badda994c88",
+  "oracle_id": "5f2b3ea8-99ee-47a4-8a1c-4b27478d524c",
+  "name": "Zanarkand, Ancient Metropolis // Lasting Fayth",
+  "mana_cost": "{4}{G}{G}",
+  "type_line": "Land — Town // Sorcery — Adventure",
+  "oracle_text": null,
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "293",
+  "rarity": "rare",
+  "layout": "adventure",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Zanarkand, Ancient Metropolis",
+      "mana_cost": "",
+      "type_line": "Land — Town",
+      "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Lasting Fayth",
+      "mana_cost": "{4}{G}{G}",
+      "type_line": "Sorcery — Adventure",
+      "oracle_text": "Create a 1/1 colorless Hero creature token. Put a +1/+1 counter on it for each land you control. (Then exile this card. You may play the land later from exile.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

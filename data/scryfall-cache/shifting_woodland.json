@@ -1,0 +1,21 @@
+{
+  "id": "059164e1-894d-4586-9800-e60d6fbd6eb6",
+  "oracle_id": "7c2a4fe5-43e8-4e20-bef2-0278d18afc4b",
+  "name": "Shifting Woodland",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Forest.\n{T}: Add {G}.\nDelirium — {2}{G}{G}: This land becomes a copy of target permanent card in your graveyard until end of turn. Activate only if there are four or more card types among cards in your graveyard.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "228",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

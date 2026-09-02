@@ -1,0 +1,22 @@
+{
+  "id": "f9b8a159-5e58-4432-8ecd-62f39afa96da",
+  "oracle_id": "52d14717-0cbc-4d7e-b546-54ea91580338",
+  "name": "Dimir Guildgate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "688",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

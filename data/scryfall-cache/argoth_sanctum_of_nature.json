@@ -1,0 +1,21 @@
+{
+  "id": "b29c9e4f-7b98-4610-a681-ae6297e8fc72",
+  "oracle_id": "62648946-1708-48f4-ba40-c057563ab11b",
+  "name": "Argoth, Sanctum of Nature",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a legendary green creature.\n{T}: Add {G}.\n{2}{G}{G}, {T}: Create a 2/2 green Bear creature token, then mill three cards. Activate only as a sorcery.\n(Melds with Titania, Voice of Gaea.)",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "bro",
+  "set_name": "The Brothers' War",
+  "collector_number": "256",
+  "rarity": "rare",
+  "layout": "meld",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

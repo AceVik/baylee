@@ -1,0 +1,23 @@
+{
+  "id": "27b1ad2d-f02e-4e6b-a49a-f65d174bb0fc",
+  "oracle_id": "19b58ec9-bb88-4193-8ea8-c8f09ceec1ed",
+  "name": "Darigaaz's Caldera",
+  "mana_cost": "",
+  "type_line": "Land — Lair",
+  "oracle_text": "When this land enters, sacrifice it unless you return a non-Lair land you control to its owner's hand.\n{T}: Add {B}, {R}, or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G",
+    "R"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "243",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "726fe2e7-bd1b-4c11-a098-6c8abfbdf06e",
+  "oracle_id": "e043a795-6936-4d7e-9a77-e0175a27c8f5",
+  "name": "City of Ass",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add one and one-half mana of any one color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "unh",
+  "set_name": "Unhinged",
+  "collector_number": "134",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

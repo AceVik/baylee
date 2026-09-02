@@ -1,0 +1,22 @@
+{
+  "id": "f19d2b68-1415-4a0c-bb68-cfacb611c4d2",
+  "oracle_id": "657243dd-e479-4f4b-99d2-09b55d833a35",
+  "name": "Gruul Turf",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {R}{G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "152",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

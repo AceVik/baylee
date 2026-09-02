@@ -1,0 +1,21 @@
+{
+  "id": "eef65ebc-12d6-4438-a908-2a0c28329124",
+  "oracle_id": "a8052556-8962-4130-86a8-6fb7b6a324f7",
+  "name": "Thriving Grove",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped. As it enters, choose a color other than green.\n{T}: Add {G} or one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "579",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

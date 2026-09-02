@@ -1,0 +1,40 @@
+{
+  "id": "3cdf691e-96a5-45c7-9b94-6f04af81c8e4",
+  "oracle_id": "740aa9d9-91a9-431e-8bf9-1344e5273e27",
+  "name": "Twists and Turns // Mycoid Maze",
+  "mana_cost": null,
+  "type_line": "Enchantment // Land — Cave",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "217",
+  "rarity": "uncommon",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Twists and Turns",
+      "mana_cost": "{G}",
+      "type_line": "Enchantment",
+      "oracle_text": "If a creature you control would explore, instead you scry 1, then that creature explores.\nWhen this enchantment enters, target creature you control explores.\nWhen a land you control enters, if you control seven or more lands, transform this enchantment.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Mycoid Maze",
+      "mana_cost": "",
+      "type_line": "Land — Cave",
+      "oracle_text": "(Transforms from Twists and Turns.)\n{T}: Add {G}.\n{3}{G}, {T}: Look at the top four cards of your library. You may reveal a creature card from among them and put that card into your hand. Put the rest on the bottom of your library in a random order.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

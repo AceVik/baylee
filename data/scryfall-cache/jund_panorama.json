@@ -1,0 +1,19 @@
+{
+  "id": "50d8346a-e0b5-41eb-be89-7d1eb0e84f28",
+  "oracle_id": "f39f33ac-074d-442d-ae4c-1d694ee315f3",
+  "name": "Jund Panorama",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic Swamp, Mountain, or Forest card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ncc",
+  "set_name": "New Capenna Commander",
+  "collector_number": "408",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "c50c4580-979b-4863-86b9-16e258198972",
+  "oracle_id": "eb002bbc-08df-4bf0-bea3-46494ad261b6",
+  "name": "Turtle Lair",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Ninja or Turtle spell.\n{3}, {T}: Target Ninja or Turtle can't be blocked this turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tmt",
+  "set_name": "Teenage Mutant Ninja Turtles",
+  "collector_number": "190",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

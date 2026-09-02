@@ -1,0 +1,21 @@
+{
+  "id": "7aed7d9d-d796-493e-98fd-c5b1a26621ed",
+  "oracle_id": "9f8fe514-77ed-41b4-a6f3-c6f095bb97be",
+  "name": "Tranquil Thicket",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\nCycling {G} ({G}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "318",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

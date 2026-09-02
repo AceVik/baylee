@@ -1,0 +1,21 @@
+{
+  "id": "8ab9d56f-9178-4ec9-a5f6-b934f50d8d9d",
+  "oracle_id": "b6c7c708-5212-4100-b954-b77855b27915",
+  "name": "Lupinflower Village",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {W}. Spend this mana only to cast a creature spell.\n{1}{W}, {T}, Sacrifice this land: Look at the top six cards of your library. You may reveal a Bat, Bird, Mouse, or Rabbit card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "256",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

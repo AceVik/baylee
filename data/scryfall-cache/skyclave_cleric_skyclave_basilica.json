@@ -1,0 +1,40 @@
+{
+  "id": "014027c4-7f9d-4096-b308-ea4be574c0d4",
+  "oracle_id": "da9e3910-9a1c-43a9-9138-ca971b2bccae",
+  "name": "Skyclave Cleric // Skyclave Basilica",
+  "mana_cost": null,
+  "type_line": "Creature — Kor Cleric // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "W"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "40",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Skyclave Cleric",
+      "mana_cost": "{1}{W}",
+      "type_line": "Creature — Kor Cleric",
+      "oracle_text": "When this creature enters, you gain 2 life.",
+      "power": "1",
+      "toughness": "3",
+      "loyalty": null
+    },
+    {
+      "name": "Skyclave Basilica",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "6da04570-5d3c-4e9f-a9c1-20589a4bcc24",
+  "oracle_id": "e3b67368-1dd6-419b-a95d-7131b1dba23f",
+  "name": "Geothermal Bog",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Mountain",
+  "oracle_text": "({T}: Add {B} or {R}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "278",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

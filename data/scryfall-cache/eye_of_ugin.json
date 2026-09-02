@@ -1,0 +1,19 @@
+{
+  "id": "d2d5124b-4d73-4aa9-9331-88e03779ffad",
+  "oracle_id": "10d13ff6-c4d0-4753-8939-a8a90f0e92bb",
+  "name": "Eye of Ugin",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "Colorless Eldrazi spells you cast cost {2} less to cast.\n{7}, {T}: Search your library for a colorless creature card, reveal it, put it into your hand, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mm2",
+  "set_name": "Modern Masters 2015",
+  "collector_number": "242",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

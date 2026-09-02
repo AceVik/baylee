@@ -1,0 +1,22 @@
+{
+  "id": "c91e28db-307f-462a-88aa-581d10e77f10",
+  "oracle_id": "99c70f4e-de8a-426d-99aa-17b2f87625ba",
+  "name": "Training Compound",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {R} or {G}. Activate only if this land entered this turn or if you control a basic land.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "275",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

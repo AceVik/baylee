@@ -1,0 +1,21 @@
+{
+  "id": "25b57aaf-04fa-463d-8516-40fccd24d6ed",
+  "oracle_id": "5b6d933e-2830-4f5a-b244-a421aa9615dc",
+  "name": "Eumidian Hatchery",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life: Add {B}. Put a hatchling counter on this land.\nWhen this land is put into a graveyard from the battlefield, for each hatchling counter on it, create a 1/1 black Insect creature token with flying.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "20",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

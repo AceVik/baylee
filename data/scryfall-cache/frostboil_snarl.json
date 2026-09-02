@@ -1,0 +1,22 @@
+{
+  "id": "ae705a26-5371-4236-904c-fe3e58b4721d",
+  "oracle_id": "7137aae6-260d-41de-8b4e-42a8cf752697",
+  "name": "Frostboil Snarl",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As this land enters, you may reveal an Island or Mountain card from your hand. If you don't, this land enters tapped.\n{T}: Add {U} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "246",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

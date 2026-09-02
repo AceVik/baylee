@@ -1,0 +1,22 @@
+{
+  "id": "1c4efa6c-4f29-41cd-a728-bf0e479ace05",
+  "oracle_id": "5d641bf6-0f93-4189-8dc1-ec7ea446dade",
+  "name": "Tranquil Cove",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "270",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

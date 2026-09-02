@@ -1,0 +1,19 @@
+{
+  "id": "d86e9149-6fd9-44fc-b765-3e646c7d83d6",
+  "oracle_id": "75540897-53f6-433b-bd70-9851551df6ef",
+  "name": "Cave of Temptation",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{4}, {T}, Sacrifice this land: Put two +1/+1 counters on target creature. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh1",
+  "set_name": "Modern Horizons",
+  "collector_number": "237",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

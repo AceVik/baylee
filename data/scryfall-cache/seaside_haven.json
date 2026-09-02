@@ -1,0 +1,22 @@
+{
+  "id": "9c940a6b-3c5e-4ce2-92b6-63e2cb575c15",
+  "oracle_id": "4adc39dd-8de1-4298-947c-ff666ec3adeb",
+  "name": "Seaside Haven",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{W}{U}, {T}, Sacrifice a Bird: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "ons",
+  "set_name": "Onslaught",
+  "collector_number": "323",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

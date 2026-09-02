@@ -1,0 +1,22 @@
+{
+  "id": "2d3c85e2-58a5-4469-85ea-7e89268f310c",
+  "oracle_id": "67b2cd0c-ecc8-4129-b1ac-820c9924190c",
+  "name": "Duskmantle, House of Shadow",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{U}{B}, {T}: Target player mills a card.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "rav",
+  "set_name": "Ravnica: City of Guilds",
+  "collector_number": "277",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

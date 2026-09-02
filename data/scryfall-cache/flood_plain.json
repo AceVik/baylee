@@ -1,0 +1,19 @@
+{
+  "id": "61fc0fba-c285-4fad-85a6-79fd7f3f9c35",
+  "oracle_id": "9043d8d5-b38a-406f-a44c-49f579c644f0",
+  "name": "Flood Plain",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "994",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

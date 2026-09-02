@@ -1,0 +1,19 @@
+{
+  "id": "1024f555-e0d7-48ac-b86e-c87290eac832",
+  "oracle_id": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df",
+  "name": "Temple of the False God",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}{C}. Activate only if you control five or more lands.",
+  "colors": [],
+  "color_identity": [],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "416",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

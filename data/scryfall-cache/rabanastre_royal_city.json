@@ -1,0 +1,22 @@
+{
+  "id": "c44c9bbe-f4c6-41cf-b3c3-b943f4011bc1",
+  "oracle_id": "bd39e333-b0b8-4a85-8645-d77f4a3941db",
+  "name": "Rabanastre, Royal City",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "287",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "5319f782-2713-43b1-9b28-0d1ec7a39203",
+  "oracle_id": "b6114962-035e-4e7f-9009-4739bf83a05a",
+  "name": "Urborg",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {B}.\n{T}: Target creature loses first strike or swampwalk until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "me3",
+  "set_name": "Masters Edition III",
+  "collector_number": "214",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

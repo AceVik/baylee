@@ -1,0 +1,19 @@
+{
+  "id": "24d1e22c-0d99-4ed5-94f0-fd055fd8e2be",
+  "oracle_id": "2cdbfda3-98fc-4108-b551-c7049168924e",
+  "name": "White Lotus Hideout",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Lesson or Shrine spell.\n{1}, {T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "281",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

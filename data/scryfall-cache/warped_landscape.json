@@ -1,0 +1,19 @@
+{
+  "id": "3d313741-af67-47fd-9beb-8abc7d554715",
+  "oracle_id": "543e6bb3-a867-43bf-a737-2f5d6d8dc631",
+  "name": "Warped Landscape",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "c18",
+  "set_name": "Commander 2018",
+  "collector_number": "291",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

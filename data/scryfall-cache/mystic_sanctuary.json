@@ -1,0 +1,21 @@
+{
+  "id": "4cd86997-d7b9-4b5b-9488-11f5c679e4d3",
+  "oracle_id": "17b60106-a4c7-410a-8ac3-ec8e74e29a7c",
+  "name": "Mystic Sanctuary",
+  "mana_cost": "",
+  "type_line": "Land — Island",
+  "oracle_text": "({T}: Add {U}.)\nThis land enters tapped unless you control three or more other Islands.\nWhen this land enters untapped, you may put target instant or sorcery card from your graveyard on top of your library.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "388",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

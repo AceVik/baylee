@@ -1,0 +1,21 @@
+{
+  "id": "6389c242-2139-4f12-af30-2b080a1c5e83",
+  "oracle_id": "b0ea4975-a944-4585-8711-60f203cffa4a",
+  "name": "The Hunter Maze",
+  "mana_cost": "",
+  "type_line": "Land — Sphere",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\n{1}{G}, {T}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "one",
+  "set_name": "Phyrexia: All Will Be One",
+  "collector_number": "253",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

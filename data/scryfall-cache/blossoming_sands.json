@@ -1,0 +1,22 @@
+{
+  "id": "0a9df994-e0f4-4919-af99-4f643eb9199c",
+  "oracle_id": "45429b2c-be3b-4b2e-9bab-a059ccbda8cd",
+  "name": "Blossoming Sands",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "251",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

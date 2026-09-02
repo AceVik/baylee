@@ -1,0 +1,21 @@
+{
+  "id": "da397243-2193-4e5d-8dee-df37b70677e7",
+  "oracle_id": "d8e2efe0-33a4-4303-9e83-ac42ea5df8cb",
+  "name": "Vivid Crag",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped with two charge counters on it.\n{T}: Add {R}.\n{T}, Remove a charge counter from this land: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "cm2",
+  "set_name": "Commander Anthology Volume II",
+  "collector_number": "276",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

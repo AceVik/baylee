@@ -1,0 +1,19 @@
+{
+  "id": "65ff914e-3f3e-4b7a-b69d-73575b68fb8e",
+  "oracle_id": "660d44a2-391a-416c-b46c-ddcc3739f527",
+  "name": "Valgavoth's Lair",
+  "mana_cost": "",
+  "type_line": "Enchantment Land",
+  "oracle_text": "Hexproof\nThis land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "271",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

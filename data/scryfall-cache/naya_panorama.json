@@ -1,0 +1,19 @@
+{
+  "id": "6a546a28-8df5-4080-9f50-af86d84a066f",
+  "oracle_id": "71e28800-c42c-48c0-95e5-0296be54a4e8",
+  "name": "Naya Panorama",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic Mountain, Forest, or Plains card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ncc",
+  "set_name": "New Capenna Commander",
+  "collector_number": "417",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

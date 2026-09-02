@@ -1,0 +1,19 @@
+{
+  "id": "93f812bc-7663-4504-b566-79e2c0a0f845",
+  "oracle_id": "eb735501-19e7-4910-aa6a-6667fff6f4e5",
+  "name": "Study Hall",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color. When you spend this mana to cast your commander, scry X, where X is the number of times it's been cast from the command zone this game.",
+  "colors": [],
+  "color_identity": [],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "407",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

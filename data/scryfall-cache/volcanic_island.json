@@ -1,0 +1,22 @@
+{
+  "id": "2f607e7e-30c0-45e9-8f61-bf6e9fe63f2b",
+  "oracle_id": "c718911c-c955-4eb9-9e16-be4bd49a4e4e",
+  "name": "Volcanic Island",
+  "mana_cost": "",
+  "type_line": "Land — Island Mountain",
+  "oracle_text": "({T}: Add {U} or {R}.)",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "324",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

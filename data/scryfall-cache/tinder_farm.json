@@ -1,0 +1,23 @@
+{
+  "id": "989b5901-aeb0-4a48-8c53-3b0ec0e0deba",
+  "oracle_id": "af0ad159-8264-4526-9a95-eddd32c0a13f",
+  "name": "Tinder Farm",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\n{T}, Sacrifice this land: Add {R}{W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R",
+    "W"
+  ],
+  "set": "inv",
+  "set_name": "Invasion",
+  "collector_number": "329",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "203011ef-3737-4fd1-bd23-0e531b5a7c32",
+  "oracle_id": "c17d799f-adc9-4c41-87cf-b243b5ea3be1",
+  "name": "Ipnu Rivulet",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "{T}: Add {C}.\n{T}, Pay 1 life: Add {U}.\n{1}{U}, {T}, Sacrifice a Desert: Target player mills four cards. (They put the top four cards of their library into their graveyard.)",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "hou",
+  "set_name": "Hour of Devastation",
+  "collector_number": "180",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

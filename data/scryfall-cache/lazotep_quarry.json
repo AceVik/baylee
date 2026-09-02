@@ -1,0 +1,19 @@
+{
+  "id": "ff73b7f3-62f3-4a05-b439-bae2d0f63d2f",
+  "oracle_id": "0d2fa39a-9cac-4a1f-bb1e-b6162e6d5169",
+  "name": "Lazotep Quarry",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice a creature: Add one mana of any color.\n{X}{2}, {T}, Sacrifice a Desert: Exile target creature card with mana value X from your graveyard. Create a token that's a copy of it, except it's a 4/4 black Zombie. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "set": "m3c",
+  "set_name": "Modern Horizons 3 Commander",
+  "collector_number": "79",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

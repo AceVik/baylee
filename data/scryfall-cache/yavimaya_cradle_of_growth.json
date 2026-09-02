@@ -1,0 +1,19 @@
+{
+  "id": "4e4b6e22-93b2-4896-bba5-0ceaa5d8ea3c",
+  "oracle_id": "8dd5f5af-d2d8-4356-8617-8381081b930c",
+  "name": "Yavimaya, Cradle of Growth",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "Each land is a Forest in addition to its other land types.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "261",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "e44ee47c-95de-4090-97b6-188585d86b0c",
+  "oracle_id": "c098c507-5154-423a-a70b-f6dfd4959cf6",
+  "name": "Sunken Palace",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\n{1}{U}, {T}, Exile seven cards from your graveyard: Add {U}. When you spend this mana to cast a spell or activate an ability, copy that spell or ability. You may choose new targets for the copy. (Mana abilities can't be copied.)",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "m3c",
+  "set_name": "Modern Horizons 3 Commander",
+  "collector_number": "81",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

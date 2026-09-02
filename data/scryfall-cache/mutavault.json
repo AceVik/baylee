@@ -1,0 +1,19 @@
+{
+  "id": "52cc2f10-142d-4e6a-984e-b25f566cc960",
+  "oracle_id": "6b3cc59a-7ea5-4eb5-9bf9-5a9c07f80e2b",
+  "name": "Mutavault",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}: This land becomes a 2/2 creature with all creature types until end of turn. It's still a land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "903",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

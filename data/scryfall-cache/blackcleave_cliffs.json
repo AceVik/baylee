@@ -1,0 +1,22 @@
+{
+  "id": "f75715ce-744f-409c-aeb1-e66eb9186a74",
+  "oracle_id": "5ad94412-6f79-4c5d-bbd4-4ef5779a7b6d",
+  "name": "Blackcleave Cliffs",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "263",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

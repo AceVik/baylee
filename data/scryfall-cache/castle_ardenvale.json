@@ -1,0 +1,21 @@
+{
+  "id": "65e4de2e-47d2-4967-be31-9df0057a9c74",
+  "oracle_id": "f8f4fc60-725d-46d8-8e8f-e68e00d20589",
+  "name": "Castle Ardenvale",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Plains.\n{T}: Add {W}.\n{2}{W}{W}, {T}: Create a 1/1 white Human creature token.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "346",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

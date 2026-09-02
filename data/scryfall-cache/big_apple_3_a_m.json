@@ -1,0 +1,19 @@
+{
+  "id": "b9cc16f9-fea3-4527-9b81-3c84ce9c5e01",
+  "oracle_id": "dd01ef1f-f6be-498f-82e0-dc04833e685f",
+  "name": "Big Apple, 3 a.m.",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.\n{5}, {T}: Create a 1/1 black Rat creature token for each opponent you have.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tmc",
+  "set_name": "Teenage Mutant Ninja Turtles Eternal",
+  "collector_number": "42",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

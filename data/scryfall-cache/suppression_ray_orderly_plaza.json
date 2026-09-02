@@ -1,0 +1,41 @@
+{
+  "id": "0cccd328-457a-48ab-97fb-4bc319db2e60",
+  "oracle_id": "b592568b-11b0-4081-90a7-30cfb9c1ba80",
+  "name": "Suppression Ray // Orderly Plaza",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "260",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Suppression Ray",
+      "mana_cost": "{3}{W/U}{W/U}",
+      "type_line": "Sorcery",
+      "oracle_text": "Tap all creatures target player controls. You may pay any amount of {E}. If you do, choose up to that many creatures tapped this way. Put a stun counter on each of them. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Orderly Plaza",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {W} or {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

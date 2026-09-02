@@ -1,0 +1,19 @@
+{
+  "id": "bd9e6ba8-1c5e-4416-8bff-90db3b3b1f41",
+  "oracle_id": "48edc348-93f6-4dce-9cc4-7244d76b6f4a",
+  "name": "Accursed Duneyard",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Regenerate target Shade, Skeleton, Specter, Spirit, Vampire, Wraith, or Zombie. (The next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "drc",
+  "set_name": "Aetherdrift Commander",
+  "collector_number": "20",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

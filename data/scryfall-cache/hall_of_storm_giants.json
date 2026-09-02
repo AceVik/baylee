@@ -1,0 +1,21 @@
+{
+  "id": "bf8f052d-8840-4905-a807-9a305f4fd8f7",
+  "oracle_id": "087c8c0e-a91c-4e3c-8387-9312db01f343",
+  "name": "Hall of Storm Giants",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If you control two or more other lands, this land enters tapped.\n{T}: Add {U}.\n{5}{U}: Until end of turn, this land becomes a 7/7 blue Giant creature with ward {3}. It's still a land. (Whenever it becomes the target of a spell or ability an opponent controls, counter it unless that player pays {3}.)",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "afr",
+  "set_name": "Adventures in the Forgotten Realms",
+  "collector_number": "257",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

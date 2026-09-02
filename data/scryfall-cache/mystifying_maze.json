@@ -1,0 +1,19 @@
+{
+  "id": "faeeb2f8-0aa1-4f3e-848d-f4233996055b",
+  "oracle_id": "58bd67a8-1833-4827-aa33-1c141568f481",
+  "name": "Mystifying Maze",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}, {T}: Exile target attacking creature an opponent controls. At the beginning of the next end step, return it to the battlefield tapped under its owner's control.",
+  "colors": [],
+  "color_identity": [],
+  "set": "c17",
+  "set_name": "Commander 2017",
+  "collector_number": "264",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

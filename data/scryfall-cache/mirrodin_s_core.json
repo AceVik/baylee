@@ -1,0 +1,19 @@
+{
+  "id": "c0a9fbb3-9fe4-4ec6-82f0-3bb101524e1e",
+  "oracle_id": "ea53adbe-3f9a-4847-87c7-723ac2789918",
+  "name": "Mirrodin's Core",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Put a charge counter on this land.\n{T}, Remove a charge counter from this land: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "jmp",
+  "set_name": "Jumpstart",
+  "collector_number": "492",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "83f510b7-4cbd-4883-9c26-c8824bc668ac",
+  "oracle_id": "d71bda4c-3dee-4398-8fd0-f77d8743b887",
+  "name": "Gloomlake Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {U}.\n{T}: Add {B}. Activate only if you control an Island or a Swamp.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "260",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

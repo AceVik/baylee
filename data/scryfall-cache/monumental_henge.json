@@ -1,0 +1,21 @@
+{
+  "id": "62907e7b-e531-4f51-9a69-7e60ae525775",
+  "oracle_id": "c48df45c-3513-4d56-aed6-30c2f3a759cd",
+  "name": "Monumental Henge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Plains.\n{T}: Add {W}.\n{2}{W}{W}, {T}: Look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. (Artifacts, legendaries, and Sagas are historic.)",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "222",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

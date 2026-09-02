@@ -1,0 +1,41 @@
+{
+  "id": "8e7554bc-8583-4059-8895-c3845bc27ae3",
+  "oracle_id": "93b91d18-6acf-42e5-9a31-bc6e01f90c1f",
+  "name": "Hadana's Climb // Winged Temple of Orazca",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "rix",
+  "set_name": "Rivals of Ixalan",
+  "collector_number": "158",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Hadana's Climb",
+      "mana_cost": "{1}{G}{U}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control. Then if that creature has three or more +1/+1 counters on it, transform Hadana's Climb.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Winged Temple of Orazca",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Hadana's Climb.)\n{T}: Add one mana of any color.\n{1}{G}{U}, {T}: Target creature you control gains flying and gets +X/+X until end of turn, where X is its power.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

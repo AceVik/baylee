@@ -1,0 +1,22 @@
+{
+  "id": "5ceacc7d-d407-4f82-af58-9bdf8426924e",
+  "oracle_id": "c6e0574c-3e2b-4c40-b17a-05bce3d49309",
+  "name": "Wastewood Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {G}.\n{T}: Add {B}. Activate only if you control a Swamp or a Forest.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "268",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

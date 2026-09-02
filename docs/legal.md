@@ -16,8 +16,6 @@ Urheber- und Medienrecht.
 3. **Scryfall:** honor rate limits (≤ 10 req/s), cache card images
    (encouraged by their terms), "data and images provided by Scryfall"
    attribution in clients. No card images are committed to the repo.
-4. **Forge (GPL-3.0):** read-only rules reference during development; no
-   Forge files are copied or distributed.
-5. **Privacy:** self-hosted; minimal account data; account deletion
+4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint; no tracking. As a private, GitHub-hosted open-source project
    no Impressum is required (no commercial/public telemedia service).

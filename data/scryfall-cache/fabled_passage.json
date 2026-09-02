@@ -1,0 +1,19 @@
+{
+  "id": "62ef854d-ec9e-443d-a4ba-4b2875ed3fe7",
+  "oracle_id": "0c85b8f7-0bd0-4680-9ec5-d4b110460a54",
+  "name": "Fabled Passage",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. Then if you control four or more lands, untap that land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "242",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

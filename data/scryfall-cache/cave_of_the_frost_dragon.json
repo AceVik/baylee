@@ -1,0 +1,21 @@
+{
+  "id": "bdb41396-5008-4a5f-92ca-54ecac42e926",
+  "oracle_id": "1e4146d2-cfa0-4f5e-9761-3c83519b90c3",
+  "name": "Cave of the Frost Dragon",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If you control two or more other lands, this land enters tapped.\n{T}: Add {W}.\n{4}{W}: This land becomes a 3/4 white Dragon creature with flying until end of turn. It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "afr",
+  "set_name": "Adventures in the Forgotten Realms",
+  "collector_number": "253",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

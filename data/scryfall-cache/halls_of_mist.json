@@ -1,0 +1,19 @@
+{
+  "id": "b926a189-90b6-47bb-b5d6-b033e57007b4",
+  "oracle_id": "57d7deaf-ee08-49ab-b239-1c77a1f65225",
+  "name": "Halls of Mist",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nCreatures that attacked during their controller's last turn can't attack.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ice",
+  "set_name": "Ice Age",
+  "collector_number": "354",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

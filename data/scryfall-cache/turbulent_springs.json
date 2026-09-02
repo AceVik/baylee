@@ -1,0 +1,22 @@
+{
+  "id": "a25cb813-aa6d-469c-aa29-61ffa32267f2",
+  "oracle_id": "9aef7510-9f06-4939-8cae-f71330d1105e",
+  "name": "Turbulent Springs",
+  "mana_cost": "",
+  "type_line": "Land — Island Mountain",
+  "oracle_text": "({T}: Add {U} or {R}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "57",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

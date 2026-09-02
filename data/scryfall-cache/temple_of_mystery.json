@@ -1,0 +1,22 @@
+{
+  "id": "258077cf-edef-40fe-ab46-03c965ebe990",
+  "oracle_id": "7e26f0b7-20e6-46d5-8130-d98c14d6aa29",
+  "name": "Temple of Mystery",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, scry 1. (Look at the top card of your library. You may put that card on the bottom.)\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "414",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "dd148edc-9e43-41aa-bb50-f912115d3e72",
+  "oracle_id": "63dfe794-5f56-41ec-9883-5523b41cc3e0",
+  "name": "Arena of Glory",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Mountain.\n{T}: Add {R}.\n{R}, {T}, Exert this land: Add {R}{R}. If that mana is spent on a creature spell, it gains haste until end of turn. (An exerted permanent won't untap during your next untap step.)",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "215",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

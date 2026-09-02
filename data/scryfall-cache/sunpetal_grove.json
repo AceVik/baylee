@@ -1,0 +1,22 @@
+{
+  "id": "e83092ee-4a90-4eac-915f-3fd01b7d9bd0",
+  "oracle_id": "402ec768-76fb-474e-ae74-babc90d833c4",
+  "name": "Sunpetal Grove",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Forest or a Plains.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "272",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

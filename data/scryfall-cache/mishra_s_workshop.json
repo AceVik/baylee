@@ -1,0 +1,19 @@
+{
+  "id": "aac0c8df-f01d-4178-8d66-ee603f814d24",
+  "oracle_id": "ba284fe6-bb29-455c-8321-9714a0cdc05e",
+  "name": "Mishra's Workshop",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}{C}{C}. Spend this mana only to cast artifact spells.",
+  "colors": [],
+  "color_identity": [],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "305",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

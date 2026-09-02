@@ -1,0 +1,19 @@
+{
+  "id": "cf08c317-6f2d-47e3-ab5b-8af73fd3e404",
+  "oracle_id": "e6b77545-de5c-4f4a-b7ea-83498fb33ba8",
+  "name": "Holdout Settlement",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}. ({C} represents colorless mana.)\n{T}, Tap an untapped creature you control: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ogw",
+  "set_name": "Oath of the Gatewatch",
+  "collector_number": "172",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

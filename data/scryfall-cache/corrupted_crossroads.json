@@ -1,0 +1,19 @@
+{
+  "id": "7043e193-8051-4f1b-9633-9c1f250d3607",
+  "oracle_id": "6276a985-7630-476d-a94f-6c6adc88f6c4",
+  "name": "Corrupted Crossroads",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}. ({C} represents colorless mana.)\n{T}, Pay 1 life: Add one mana of any color. Spend this mana only to cast a spell with devoid.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ogw",
+  "set_name": "Oath of the Gatewatch",
+  "collector_number": "169",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

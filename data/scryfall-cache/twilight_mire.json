@@ -1,0 +1,22 @@
+{
+  "id": "3cc8186b-b46f-46c0-8dfb-9e423e430048",
+  "oracle_id": "db623754-e078-4030-ba07-818803c348a8",
+  "name": "Twilight Mire",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{B/G}, {T}: Add {B}{B}, {B}{G}, or {G}{G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "418",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "ef074a2e-a387-4af8-a180-74b145d93992",
+  "oracle_id": "926ce6a2-7bdd-4380-ac65-bc902ba0c284",
+  "name": "Thran Portal",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped unless you control two or fewer other lands.\nAs this land enters, choose a basic land type.\nThis land is the chosen type in addition to its other types.\nMana abilities of this land cost an additional 1 life to activate.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dmu",
+  "set_name": "Dominaria United",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

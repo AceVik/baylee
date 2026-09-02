@@ -1,0 +1,19 @@
+{
+  "id": "309a6684-ecb3-491c-899a-3aa15a51130b",
+  "oracle_id": "6d6a25fb-0432-4c7d-b0e6-e787ddc71218",
+  "name": "Cryptic Spires",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As you create your deck, circle two of the colors below.\nThis land enters tapped.\n{T}: Add one mana of either of the circled colors.",
+  "colors": [],
+  "color_identity": [],
+  "set": "2x2",
+  "set_name": "Double Masters 2022",
+  "collector_number": "332",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

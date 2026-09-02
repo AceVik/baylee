@@ -1,0 +1,19 @@
+{
+  "id": "87870792-e429-4eba-8193-cdce5c7b6c55",
+  "oracle_id": "46a07b53-ff58-4bd6-80dd-ded2eb0e29a3",
+  "name": "Snow-Covered Wastes",
+  "mana_cost": "",
+  "type_line": "Basic Snow Land",
+  "oracle_text": "{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "229",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

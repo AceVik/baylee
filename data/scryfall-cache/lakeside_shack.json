@@ -1,0 +1,22 @@
+{
+  "id": "a9367acd-393a-4966-ba60-af2ecd4e7596",
+  "oracle_id": "c56cd2ec-5907-4282-9162-d93b7dfd63b5",
+  "name": "Lakeside Shack",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless a player has 13 or less life.\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "262",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,41 @@
+{
+  "id": "d81c4b3f-81c2-403b-8a5d-c9415f73a1f9",
+  "oracle_id": "7d6ccd0b-df16-40b2-930b-bcde0b6ef73f",
+  "name": "Journey to Eternity // Atzal, Cave of Eternity",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment — Aura // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "rix",
+  "set_name": "Rivals of Ixalan",
+  "collector_number": "160",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Journey to Eternity",
+      "mana_cost": "{1}{B}{G}",
+      "type_line": "Legendary Enchantment — Aura",
+      "oracle_text": "Enchant creature you control\nWhen enchanted creature dies, return it to the battlefield under your control, then return this card to the battlefield transformed under your control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Atzal, Cave of Eternity",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Journey to Eternity.)\n{T}: Add one mana of any color.\n{3}{B}{G}, {T}: Return target creature card from your graveyard to the battlefield.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "bc7d3957-b483-4a1f-a244-293c90032f5e",
+  "oracle_id": "044d2788-6daa-4849-a813-1f577eef9295",
+  "name": "Pit of Offerings",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, exile up to three target cards from graveyards.\n{T}: Add {C}.\n{T}: Add one mana of any of the exiled cards' colors.",
+  "colors": [],
+  "color_identity": [],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "278",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

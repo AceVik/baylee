@@ -1,0 +1,22 @@
+{
+  "id": "266316d3-3bbc-4283-aab8-69629855909f",
+  "oracle_id": "32116127-cf96-4a1b-8896-a1ebc087b597",
+  "name": "Llanowar Wastes",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {G}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "383",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

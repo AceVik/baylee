@@ -1,0 +1,19 @@
+{
+  "id": "f436df63-41b9-416d-8e41-035261d4d0cc",
+  "oracle_id": "c4033d97-769f-4811-8b11-f85b8817b7a2",
+  "name": "Endless Sands",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Exile target creature you control.\n{4}, {T}, Sacrifice this land: Return each creature card exiled with this land to the battlefield under its owner's control.",
+  "colors": [],
+  "color_identity": [],
+  "set": "c20",
+  "set_name": "Commander 2020",
+  "collector_number": "272",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

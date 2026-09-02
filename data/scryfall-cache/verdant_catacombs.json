@@ -1,0 +1,19 @@
+{
+  "id": "94c229ea-90da-4aa0-bfda-b162fb3b5b8b",
+  "oracle_id": "67d60b24-d429-4ded-90d9-06e49f28c396",
+  "name": "Verdant Catacombs",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Swamp or Forest card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "260",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

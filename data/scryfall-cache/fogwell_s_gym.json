@@ -1,0 +1,21 @@
+{
+  "id": "e63523d5-0f2c-436a-b411-662eb11fd150",
+  "oracle_id": "850bb6f7-48d3-4d65-9220-b0bec5ee6b64",
+  "name": "Fogwell's Gym",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {R}. This land deals 1 damage to you.\n{2}{R}, {T}, Discard a card: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "754",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

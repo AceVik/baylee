@@ -1,0 +1,21 @@
+{
+  "id": "3d5fbb30-abfc-4e79-8ce5-bbb04a241c9f",
+  "oracle_id": "69ddca4b-5cc0-45f3-b2e6-a047c8d601be",
+  "name": "Spymaster's Vault",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Swamp.\n{T}: Add {B}.\n{B}, {T}: Target creature you control connives X, where X is the number of creatures that died this turn. (Draw X cards, then discard X cards. Put a +1/+1 counter on that creature for each nonland card discarded this way.)",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "230",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

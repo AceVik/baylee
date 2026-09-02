@@ -1,0 +1,40 @@
+{
+  "id": "890eee8d-a339-4143-adfa-1b17ec10c099",
+  "oracle_id": "6bc668f4-8fc7-4aaf-891b-277d8328b376",
+  "name": "Umara Wizard // Umara Skyfalls",
+  "mana_cost": null,
+  "type_line": "Creature — Merfolk Wizard // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "86",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Umara Wizard",
+      "mana_cost": "{4}{U}",
+      "type_line": "Creature — Merfolk Wizard",
+      "oracle_text": "Whenever you cast an instant, sorcery, or Wizard spell, this creature gains flying until end of turn.",
+      "power": "4",
+      "toughness": "3",
+      "loyalty": null
+    },
+    {
+      "name": "Umara Skyfalls",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "09d83c1d-6916-48e7-8a0d-b5abadc34b2a",
+  "oracle_id": "0498ea14-53d9-4655-a616-0ff3cf73de4e",
+  "name": "Foundry of the Consuls",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{5}, {T}, Sacrifice this land: Create two 1/1 colorless Thopter artifact creature tokens with flying.",
+  "colors": [],
+  "color_identity": [],
+  "set": "c18",
+  "set_name": "Commander 2018",
+  "collector_number": "248",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

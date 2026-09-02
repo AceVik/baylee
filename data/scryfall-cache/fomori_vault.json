@@ -1,0 +1,19 @@
+{
+  "id": "a5433b98-4657-4bbe-9e72-d3c94c6aa8ef",
+  "oracle_id": "622a53bd-d894-422c-a606-7126041afa02",
+  "name": "Fomori Vault",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{3}, {T}, Discard a card: Look at the top X cards of your library, where X is the number of artifacts you control. Put one of those cards into your hand and the rest on the bottom of your library in a random order.",
+  "colors": [],
+  "color_identity": [],
+  "set": "big",
+  "set_name": "The Big Score",
+  "collector_number": "29",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

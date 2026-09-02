@@ -1,0 +1,19 @@
+{
+  "id": "0726f70a-c1c4-4edb-86fb-9be280d9ea73",
+  "oracle_id": "4001b868-ada1-43f4-92e2-27ab0e80c913",
+  "name": "Vesuva",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "You may have this land enter tapped as a copy of any land on the battlefield.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tsr",
+  "set_name": "Time Spiral Remastered",
+  "collector_number": "289",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

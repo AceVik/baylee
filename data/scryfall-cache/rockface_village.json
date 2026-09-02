@@ -1,0 +1,21 @@
+{
+  "id": "62799d24-39a6-4e66-8ac3-7cafa99e6e6d",
+  "oracle_id": "7e103748-3f76-42ce-a063-d0256b2dce2b",
+  "name": "Rockface Village",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {R}. Spend this mana only to cast a creature spell.\n{R}, {T}: Target Lizard, Mouse, Otter, or Raccoon you control gets +1/+0 and gains haste until end of turn. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "259",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

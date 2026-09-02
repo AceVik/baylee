@@ -1,0 +1,21 @@
+{
+  "id": "9312821a-2059-4f44-9b20-c9522b827e38",
+  "oracle_id": "35c60b66-8c85-432e-90fe-99c19d21ed15",
+  "name": "Cori Mountain Monastery",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Plains or an Island.\n{T}: Add {R}.\n{3}{R}, {T}: Exile the top card of your library. Until the end of your next turn, you may play that card.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "252",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

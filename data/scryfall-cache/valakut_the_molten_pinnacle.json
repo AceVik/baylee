@@ -1,0 +1,21 @@
+{
+  "id": "37bce60d-2cb0-4772-9f5c-122a7ed426a0",
+  "oracle_id": "1bc44216-4e06-4f66-89b7-5c327004604e",
+  "name": "Valakut, the Molten Pinnacle",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhenever a Mountain you control enters, if you control at least five other Mountains, you may have this land deal 3 damage to any target.\n{T}: Add {R}.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "zen",
+  "set_name": "Zendikar",
+  "collector_number": "228",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "b6ca755c-4b17-450b-b995-bfec8a55396f",
+  "oracle_id": "bd8adca6-4f16-45f8-994a-fe55bd573bd0",
+  "name": "Turbulent Wilderness",
+  "mana_cost": "",
+  "type_line": "Land — Forest Island",
+  "oracle_text": "({T}: Add {G} or {U}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "59",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

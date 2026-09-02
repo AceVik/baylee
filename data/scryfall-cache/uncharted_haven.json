@@ -1,0 +1,19 @@
+{
+  "id": "68b90f54-d629-4126-82cc-13b51d6c1c3e",
+  "oracle_id": "d23c3613-bc5e-4fc5-939c-62a090c53a79",
+  "name": "Uncharted Haven",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "261",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

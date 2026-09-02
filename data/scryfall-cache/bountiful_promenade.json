@@ -1,0 +1,22 @@
+{
+  "id": "f0b11ba3-68ba-4067-af40-2a55e31b395e",
+  "oracle_id": "761cb262-f83b-4a99-9345-b773182a7671",
+  "name": "Bountiful Promenade",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you have two or more opponents.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "226",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

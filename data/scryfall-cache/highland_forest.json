@@ -1,0 +1,22 @@
+{
+  "id": "59f64a32-c364-4750-94ed-d4d71c1a3511",
+  "oracle_id": "35137378-6754-4bb1-a38e-5940890ccab1",
+  "name": "Highland Forest",
+  "mana_cost": "",
+  "type_line": "Snow Land — Mountain Forest",
+  "oracle_text": "({T}: Add {R} or {G}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "896",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

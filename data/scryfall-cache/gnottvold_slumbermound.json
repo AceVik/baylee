@@ -1,0 +1,22 @@
+{
+  "id": "735470df-65d8-43e9-837e-4869c8e4f052",
+  "oracle_id": "2e413d18-2c55-49be-9e49-54d170c978a2",
+  "name": "Gnottvold Slumbermound",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\n{3}{R}{G}{G}, {T}, Sacrifice this land: Destroy target land. Create a 4/4 green Troll Warrior creature token with trample.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "258",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "6e982bf8-382f-4987-bc39-28e1ce290340",
+  "oracle_id": "cb91e842-9f06-4863-a328-2cabe1bcfe27",
+  "name": "Ballroom",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {B}.\n{4}, {T}: Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "clu",
+  "set_name": "Ravnica: Clue Edition",
+  "collector_number": "12",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

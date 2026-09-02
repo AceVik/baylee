@@ -1,0 +1,19 @@
+{
+  "id": "cbab7e1f-305e-4733-aa70-b27285740925",
+  "oracle_id": "7fab8d65-af51-47d3-8f10-2676bf6e8ba3",
+  "name": "Eldrazi Temple",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {C}{C}. Spend this mana only to cast colorless Eldrazi spells or activate abilities of colorless Eldrazi.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "992",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

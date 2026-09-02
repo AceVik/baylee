@@ -1,0 +1,21 @@
+{
+  "id": "b39ebc4d-a01a-4401-ab3a-bf6142c93b47",
+  "oracle_id": "3678c06f-8a33-4a6d-bf20-5b92d5c05a95",
+  "name": "The Lonely Mountain",
+  "mana_cost": "",
+  "type_line": "Land — Mountain",
+  "oracle_text": "({T}: Add {R}.)\nThis land enters tapped unless you control an Equipment.\n{4}{R}, {T}: Create a 2/2 red Dwarf creature token. This ability costs {1} less to activate for each Equipment you control. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "hob",
+  "set_name": "The Hobbit",
+  "collector_number": "187",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

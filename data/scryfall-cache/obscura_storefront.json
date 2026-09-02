@@ -1,0 +1,19 @@
+{
+  "id": "d8eaf8d2-8029-49d9-a94b-a72dc31fc81f",
+  "oracle_id": "dc31a6f8-6228-4a25-b937-5d8d78514333",
+  "name": "Obscura Storefront",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, sacrifice it. When you do, search your library for a basic Plains, Island, or Swamp card, put it onto the battlefield tapped, then shuffle and you gain 1 life.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "291",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

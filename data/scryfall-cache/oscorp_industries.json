@@ -1,0 +1,23 @@
+{
+  "id": "1e609d6e-9e37-45d2-87de-8c76675f7cec",
+  "oracle_id": "f432eb6a-f1bf-4ce7-b915-1488dccb4bb9",
+  "name": "Oscorp Industries",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters from a graveyard, you lose 2 life.\n{T}: Add {U}, {B}, or {R}.\nMayhem (You may play this card from your graveyard if you discarded it this turn. Timing rules still apply.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R",
+    "U"
+  ],
+  "set": "spm",
+  "set_name": "Marvel's Spider-Man",
+  "collector_number": "182",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

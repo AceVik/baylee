@@ -1,0 +1,21 @@
+{
+  "id": "90f148e6-1a5e-46fc-9557-40c5c0038069",
+  "oracle_id": "cc999cf2-c99b-4911-8c52-6cc4a99fcc7b",
+  "name": "Emeria, the Sky Ruin",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nAt the beginning of your upkeep, if you control seven or more Plains, you may return target creature card from your graveyard to the battlefield.\n{T}: Add {W}.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "368",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

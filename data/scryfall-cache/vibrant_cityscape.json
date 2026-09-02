@@ -1,0 +1,19 @@
+{
+  "id": "b5e7cdb4-7b4d-4c6c-b016-d6cd3f9a04f2",
+  "oracle_id": "6a7f3e1f-6798-4644-b64c-7765f81f0938",
+  "name": "Vibrant Cityscape",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tmc",
+  "set_name": "Teenage Mutant Ninja Turtles Eternal",
+  "collector_number": "82",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

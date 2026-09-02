@@ -1,0 +1,22 @@
+{
+  "id": "67733bb9-9151-4ddc-b104-e48328bd1b28",
+  "oracle_id": "c792229b-4a0f-48d5-93e5-60bd4cae9c42",
+  "name": "Bretagard Stronghold",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\n{G}{W}{W}, {T}, Sacrifice this land: Put a +1/+1 counter on each of up to two target creatures you control. They gain vigilance and lifelink until end of turn. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "moc",
+  "set_name": "March of the Machine Commander",
+  "collector_number": "392",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

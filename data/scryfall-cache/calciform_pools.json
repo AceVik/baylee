@@ -1,0 +1,22 @@
+{
+  "id": "297a2b09-562a-46d8-905d-0b32e854e9d2",
+  "oracle_id": "2031bc31-81cc-407a-8615-29832f586bbc",
+  "name": "Calciform Pools",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n{1}, Remove X storage counters from this land: Add X mana in any combination of {W} and/or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "tsr",
+  "set_name": "Time Spiral Remastered",
+  "collector_number": "275",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

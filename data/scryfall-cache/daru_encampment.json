@@ -1,0 +1,21 @@
+{
+  "id": "12306750-86d6-4f70-820a-365894884e56",
+  "oracle_id": "29f27482-724d-4c15-b177-13337246d007",
+  "name": "Daru Encampment",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{W}, {T}: Target Soldier creature gets +1/+1 until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "ddf",
+  "set_name": "Duel Decks: Elspeth vs. Tezzeret",
+  "collector_number": "32",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

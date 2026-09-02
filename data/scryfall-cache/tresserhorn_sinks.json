@@ -1,0 +1,22 @@
+{
+  "id": "4bd8fe2c-2297-4e19-8a87-01eb99b8c6dc",
+  "oracle_id": "74a6597c-13ea-47bd-adb3-45671897b11b",
+  "name": "Tresserhorn Sinks",
+  "mana_cost": "",
+  "type_line": "Snow Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "csp",
+  "set_name": "Coldsnap",
+  "collector_number": "150",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

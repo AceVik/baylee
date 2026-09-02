@@ -1,0 +1,23 @@
+{
+  "id": "0b1a84b6-4202-4413-80ed-4142c51e619a",
+  "oracle_id": "2e69537c-c898-4e13-a72d-ce3957a90304",
+  "name": "Jungle Shrine",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}, {G}, or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R",
+    "W"
+  ],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "154",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

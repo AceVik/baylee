@@ -1,0 +1,40 @@
+{
+  "id": "bf573fb7-fa6c-4df7-8e5e-1e071585361e",
+  "oracle_id": "1f57a9f1-6b95-4395-bdf0-c5289b786ab1",
+  "name": "The Everflowing Well // The Myriad Pools",
+  "mana_cost": null,
+  "type_line": "Legendary Artifact // Legendary Artifact Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "56",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "The Everflowing Well",
+      "mana_cost": "{2}{U}",
+      "type_line": "Legendary Artifact",
+      "oracle_text": "When The Everflowing Well enters, mill two cards, then draw two cards.\nDescend 8 — At the beginning of your upkeep, if there are eight or more permanent cards in your graveyard, transform The Everflowing Well.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "The Myriad Pools",
+      "mana_cost": "",
+      "type_line": "Legendary Artifact Land",
+      "oracle_text": "(Transforms from The Everflowing Well.)\n{T}: Add {U}.\nWhenever you cast a permanent spell using mana produced by The Myriad Pools, up to one other target permanent you control becomes a copy of that spell until end of turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -32,6 +32,7 @@ cargo run -p xtask -- codegen --check    # CI: fail if generated files are stale
 cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
 cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + forge data side by side
 cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages for unimplemented cards
+cargo run -p xtask -- forge-report                        # how far the card transcoder reaches, and what it needs next
 cargo run -p xtask -- pool-dump --out /tmp/pool.txt       # every CardDef, for refactor equivalence diffs
 cargo run -p xtask -- dev-table --seats 4 --ai sharp      # a seated dev ticket (add --play to launch the client)
 ```
@@ -181,6 +182,42 @@ it. A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
 `// NOT SUPPORTED:` comment; extend the DSL rather than working around it.
 `docs/card-dsl.md` is the authoring contract, `docs/llm-learnings.md` gets
 updated after every card batch.
+
+#### Two readers write finished cards
+
+A stub is not always a stub. `codegen` runs two readers before it falls back
+to `// GENERATED STUB`, and each may only produce a card it understood *in
+full*:
+
+- `crates/baylee-cards-codegen/src/landgen.rs` reads a land's **printed
+  text**. Land text is formulaic — thirteen sentence shapes cover most of the
+  1206 unique lands Scryfall prints — so `{T}: Add {W} or {U}. This land deals
+  1 damage to you.` becomes a two-effect mana ability, and the intrinsic mana
+  of a Mountain Forest comes off the type line (CR 305.6), because Taiga
+  prints nothing but reminder text.
+- `crates/baylee-cards-codegen/src/forgegen.rs` reads a **forge-reference
+  script** (read as an automated lookup, never copied).
+  Names, costs, types and P/T are ignored there; Scryfall already carries
+  them. What it reads is `K:` keywords, `A:`/`T:` abilities and the `SVar:`
+  chains they link into.
+
+The rule both obey is the whole design: **one unread clause and the card is
+refused.** An unknown effect, an unclaimed parameter (`NoRegen$ True`), a
+computed `SVar`, a keyword that is data rather than a bit — any of them and
+the card stays an honest `Coverage::Unimplemented` stub. A generated
+`Implemented` therefore means what a hand-written one means. Getting this
+backwards would be worse than generating nothing: the deckbuilder offers
+`Implemented` cards as playable.
+
+`cargo run -p xtask -- forge-report` says how far the transcoder reaches and
+ranks what the refused scripts need next. The ceiling is **our** DSL, not
+Forge's: `Pump` blocks ~2300 scripts because `baylee-cards-dsl` has no "target
+creature gets +N/+N until end of turn" effect at all, so Giant Growth is
+inexpressible before it is untranscodable. Extend the DSL and the transcoder
+converts the gain into thousands of cards at once.
+
+A generated card is hand-owned from then on: `codegen` only writes files that
+are missing or still carry the `// GENERATED STUB` marker.
 
 A card file is written with the macros in `baylee-cards-dsl/src/build.rs` and
 opens with one import, `use baylee_cards_dsl::prelude::*;`. `card!` and

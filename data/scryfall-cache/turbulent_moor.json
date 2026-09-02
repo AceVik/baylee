@@ -1,0 +1,22 @@
+{
+  "id": "da54562d-8c09-4728-bb2b-ae8d464106b8",
+  "oracle_id": "2eb4da30-2600-4a7f-8e6c-6a090faa9a8d",
+  "name": "Turbulent Moor",
+  "mana_cost": "",
+  "type_line": "Land — Plains Swamp",
+  "oracle_text": "({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "56",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

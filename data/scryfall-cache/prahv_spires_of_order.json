@@ -1,0 +1,22 @@
+{
+  "id": "2a315f63-96ad-4a5f-8eb4-d81361797348",
+  "oracle_id": "37ff5ba6-0763-4c73-85bf-66856e67b8f3",
+  "name": "Prahv, Spires of Order",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}{W}{U}, {T}: Prevent all damage a source of your choice would deal this turn.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "dis",
+  "set_name": "Dissension",
+  "collector_number": "177",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

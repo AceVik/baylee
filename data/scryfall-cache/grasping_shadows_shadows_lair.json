@@ -1,0 +1,40 @@
+{
+  "id": "81b8b9c9-725d-476d-a3cf-55e3dc3e433d",
+  "oracle_id": "522a4b02-24c7-45d2-9097-2803cc9fffad",
+  "name": "Grasping Shadows // Shadows' Lair",
+  "mana_cost": null,
+  "type_line": "Enchantment // Land — Cave",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "108",
+  "rarity": "uncommon",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Grasping Shadows",
+      "mana_cost": "{3}{B}",
+      "type_line": "Enchantment",
+      "oracle_text": "Whenever a creature you control attacks alone, it gains deathtouch and lifelink until end of turn. Put a dread counter on this enchantment. Then if there are three or more dread counters on it, transform it.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Shadows' Lair",
+      "mana_cost": "",
+      "type_line": "Land — Cave",
+      "oracle_text": "(Transforms from Grasping Shadows.)\n{T}: Add {B}.\n{B}, {T}, Remove a dread counter from this land: You draw a card and you lose 1 life.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

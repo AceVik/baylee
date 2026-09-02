@@ -1,0 +1,19 @@
+{
+  "id": "1d1a645e-85c7-4044-b817-6e24744d245e",
+  "oracle_id": "4c77767a-8133-43bc-b7a5-09a73259d354",
+  "name": "Captivating Cave",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{4}, {T}, Sacrifice this land: Put two +1/+1 counters on target creature. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "268",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

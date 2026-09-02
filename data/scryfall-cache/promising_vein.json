@@ -1,0 +1,19 @@
+{
+  "id": "e9681a54-6413-4ff4-b6b1-ee4decb25bfa",
+  "oracle_id": "861eb7d7-7616-4620-a4fd-4b8c3bf00dd1",
+  "name": "Promising Vein",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "279",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

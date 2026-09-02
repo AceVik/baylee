@@ -1,0 +1,21 @@
+{
+  "id": "5474e67c-628f-41b0-aa31-3d85a267265a",
+  "oracle_id": "ca9f660b-e07d-4f42-a46e-abd0ca72510c",
+  "name": "Snow-Covered Mountain",
+  "mana_cost": "",
+  "type_line": "Basic Snow Land — Mountain",
+  "oracle_text": "({T}: Add {R}.)",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "282",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

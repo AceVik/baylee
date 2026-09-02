@@ -1,0 +1,19 @@
+{
+  "id": "a8c1dce3-6136-4294-9d2b-5ef8527d733b",
+  "oracle_id": "4cdb9f80-d08f-4986-99c8-573166d66082",
+  "name": "Night Market",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "258",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

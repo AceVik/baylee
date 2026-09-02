@@ -1,0 +1,19 @@
+{
+  "id": "3ab4e0a4-2faf-456b-99e3-ee06c008538c",
+  "oracle_id": "de417a82-8f03-4d7e-aee7-48f7d7eba61a",
+  "name": "Sandstorm Verge",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "{T}: Add {C}.\n{3}, {T}: Target creature can't block this turn. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "set": "otj",
+  "set_name": "Outlaws of Thunder Junction",
+  "collector_number": "263",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

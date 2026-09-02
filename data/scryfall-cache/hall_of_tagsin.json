@@ -1,0 +1,19 @@
+{
+  "id": "a8007012-39c5-4247-ba77-1cfcaade37fa",
+  "oracle_id": "fd809587-773c-47ec-8676-cefef6d1e38f",
+  "name": "Hall of Tagsin",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{4}, {T}: Create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")",
+  "colors": [],
+  "color_identity": [],
+  "set": "bro",
+  "set_name": "The Brothers' War",
+  "collector_number": "263",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

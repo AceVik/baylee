@@ -1,0 +1,21 @@
+{
+  "id": "aaa5bee9-3f6a-45b0-a282-6b23222e948f",
+  "oracle_id": "8dec6fcf-1254-4b1b-ba23-7a3e492a7241",
+  "name": "Secluded Steppe",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\nCycling {W} ({W}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "177",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

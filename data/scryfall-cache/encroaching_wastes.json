@@ -1,0 +1,19 @@
+{
+  "id": "a591bffd-2f03-48f4-a719-04f2142abd77",
+  "oracle_id": "43144f06-079b-4515-a03a-01ea3e90d586",
+  "name": "Encroaching Wastes",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}, {T}, Sacrifice this land: Destroy target nonbasic land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "481",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

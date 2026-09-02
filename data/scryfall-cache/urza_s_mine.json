@@ -1,0 +1,19 @@
+{
+  "id": "396bbb7d-ae61-4d8d-b931-9ed2f712832e",
+  "oracle_id": "33e85a8a-86df-4cdc-a9cc-8cbabe92c3c0",
+  "name": "Urza's Mine",
+  "mana_cost": "",
+  "type_line": "Land — Urza's Mine",
+  "oracle_text": "{T}: Add {C}. If you control an Urza's Power-Plant and an Urza's Tower, add {C}{C} instead.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1051",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

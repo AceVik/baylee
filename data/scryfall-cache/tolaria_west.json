@@ -1,0 +1,21 @@
+{
+  "id": "b005eef6-75f3-454f-a42b-d851bc84ac4e",
+  "oracle_id": "46eefc72-2d9e-4389-8ae1-26d9ee472b5c",
+  "name": "Tolaria West",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with mana value 0, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "tsr",
+  "set_name": "Time Spiral Remastered",
+  "collector_number": "286",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

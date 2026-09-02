@@ -1,0 +1,23 @@
+{
+  "id": "004eefa4-947b-45fc-b45c-5263bfd763bc",
+  "oracle_id": "2160849a-184f-4a49-8931-fd021e16f7cb",
+  "name": "Ancient Spring",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\n{T}, Sacrifice this land: Add {W}{B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U",
+    "W"
+  ],
+  "set": "inv",
+  "set_name": "Invasion",
+  "collector_number": "319",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

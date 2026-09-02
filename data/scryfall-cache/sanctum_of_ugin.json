@@ -1,0 +1,19 @@
+{
+  "id": "86798d03-9f2d-46bd-a660-13c8dd5535ce",
+  "oracle_id": "72cb5dcd-9b24-435c-921a-3766108374c4",
+  "name": "Sanctum of Ugin",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\nWhenever you cast a colorless spell with mana value 7 or greater, you may sacrifice this land. If you do, search your library for a colorless creature card, reveal it, put it into your hand, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "bfz",
+  "set_name": "Battle for Zendikar",
+  "collector_number": "242",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

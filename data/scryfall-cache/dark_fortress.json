@@ -1,0 +1,22 @@
+{
+  "id": "c16fd43c-7c47-4c1b-860f-91146532e89d",
+  "oracle_id": "40760bfa-a423-487c-ba29-043b2d00c736",
+  "name": "Dark Fortress",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {R}. Activate only if this land entered this turn or if you control a basic land.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "264",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

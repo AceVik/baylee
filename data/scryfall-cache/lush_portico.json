@@ -1,0 +1,22 @@
+{
+  "id": "c17816e8-28b1-4295-a637-efb0e5c18873",
+  "oracle_id": "d51831b1-7394-456e-a1de-6787a59f5932",
+  "name": "Lush Portico",
+  "mana_cost": "",
+  "type_line": "Land — Forest Plains",
+  "oracle_text": "({T}: Add {G} or {W}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "mkm",
+  "set_name": "Murders at Karlov Manor",
+  "collector_number": "263",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

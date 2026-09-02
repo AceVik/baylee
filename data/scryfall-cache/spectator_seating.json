@@ -1,0 +1,22 @@
+{
+  "id": "4c62dcfc-4bc8-4551-b3c7-9eec26be3362",
+  "oracle_id": "cf6d10ed-85c3-48f2-8ba0-2960e03b408b",
+  "name": "Spectator Seating",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you have two or more opponents.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "268",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

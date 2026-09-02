@@ -1,0 +1,19 @@
+{
+  "id": "37ccc3ab-9875-4bd2-bdbd-e3af5e01d682",
+  "oracle_id": "84cef34a-c3e1-4059-b4cd-c481938a53a5",
+  "name": "Diamond Valley",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness.",
+  "colors": [],
+  "color_identity": [],
+  "set": "me1",
+  "set_name": "Masters Edition",
+  "collector_number": "175",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

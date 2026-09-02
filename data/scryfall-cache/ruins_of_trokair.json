@@ -1,0 +1,21 @@
+{
+  "id": "525b4319-461a-499f-9986-857cba8f2e27",
+  "oracle_id": "ad7b610c-e276-4c71-9b53-1ccb6d2dafd2",
+  "name": "Ruins of Trokair",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\n{T}, Sacrifice this land: Add {W}{W}.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "me2",
+  "set_name": "Masters Edition II",
+  "collector_number": "234",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

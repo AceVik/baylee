@@ -1,0 +1,22 @@
+{
+  "id": "123cd67f-7226-4e69-8637-382380fb213e",
+  "oracle_id": "a5478263-47c9-447f-9c7a-c77ce0752947",
+  "name": "Tranquil Expanse",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "c18",
+  "set_name": "Commander 2018",
+  "collector_number": "289",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

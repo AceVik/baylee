@@ -1,0 +1,21 @@
+{
+  "id": "6aa85af8-15f5-4620-8aea-0b45c28372ed",
+  "oracle_id": "d8239a86-7184-4005-ba1e-2dddcd756c47",
+  "name": "Snow-Covered Swamp",
+  "mana_cost": "",
+  "type_line": "Basic Snow Land — Swamp",
+  "oracle_text": "({T}: Add {B}.)",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "280",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

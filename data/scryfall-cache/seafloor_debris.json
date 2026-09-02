@@ -1,0 +1,21 @@
+{
+  "id": "9e492399-d514-485a-8cdd-a3797a05e47a",
+  "oracle_id": "eef64810-4187-40c1-8e59-1cb8773ebea3",
+  "name": "Seafloor Debris",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\n{T}, Sacrifice this land: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "325",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

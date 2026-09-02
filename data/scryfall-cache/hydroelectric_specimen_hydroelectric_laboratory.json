@@ -1,0 +1,40 @@
+{
+  "id": "8689ecd7-e9a6-458b-99d2-6dbaca527f00",
+  "oracle_id": "573151f0-00d4-4a8a-8a09-745c5f376532",
+  "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+  "mana_cost": null,
+  "type_line": "Creature — Weird // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "240",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Hydroelectric Specimen",
+      "mana_cost": "{2}{U}",
+      "type_line": "Creature — Weird",
+      "oracle_text": "Flash\nWhen this creature enters, you may change the target of target instant or sorcery spell with a single target to this creature.",
+      "power": "1",
+      "toughness": "4",
+      "loyalty": null
+    },
+    {
+      "name": "Hydroelectric Laboratory",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

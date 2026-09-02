@@ -1,0 +1,19 @@
+{
+  "id": "25932483-58cd-4ae5-82bf-ab455177d117",
+  "oracle_id": "619173f4-0403-49cd-9659-2fedd5028a90",
+  "name": "Shire Terrace",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ltr",
+  "set_name": "The Lord of the Rings: Tales of Middle-earth",
+  "collector_number": "261",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

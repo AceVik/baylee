@@ -1,0 +1,21 @@
+{
+  "id": "57a194b3-2899-4dee-977a-c77df0b94dfe",
+  "oracle_id": "39451b4d-cd7a-40da-b457-cb51b609173f",
+  "name": "Seat of the Synod",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "{T}: Add {U}.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "176",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

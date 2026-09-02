@@ -1,0 +1,22 @@
+{
+  "id": "f6ca59cd-8779-4a84-a54b-e863b79c61f0",
+  "oracle_id": "840119bf-e60f-4ff7-9c9b-d420d09df545",
+  "name": "Underground Mortuary",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Forest",
+  "oracle_text": "({T}: Add {B} or {G}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "mkm",
+  "set_name": "Murders at Karlov Manor",
+  "collector_number": "271",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "c7ef4b15-efab-4255-ac2d-7794f253aa52",
+  "oracle_id": "7eadffcb-1e15-44c1-b1db-78c71b8ec1ce",
+  "name": "Rupture Spire",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you pay {1}.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "355",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

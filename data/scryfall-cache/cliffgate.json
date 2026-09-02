@@ -1,0 +1,21 @@
+{
+  "id": "557470dc-c594-4b26-81b9-356bedb0c215",
+  "oracle_id": "1999b5ac-21fb-4d99-ad72-58bf507f9a59",
+  "name": "Cliffgate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\nAs this land enters, choose a color other than red.\n{T}: Add {R} or one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "350",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

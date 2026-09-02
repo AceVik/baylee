@@ -1,0 +1,22 @@
+{
+  "id": "c819de09-dac2-407a-98c8-775865e9bdf8",
+  "oracle_id": "f0ec8681-da50-466b-8cdd-1dc710deccd9",
+  "name": "Deserted Beach",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "inr",
+  "set_name": "Innistrad Remastered",
+  "collector_number": "276",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

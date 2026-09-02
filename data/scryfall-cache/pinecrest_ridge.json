@@ -1,0 +1,22 @@
+{
+  "id": "7900552f-6147-49ec-8c02-f253e4896c4d",
+  "oracle_id": "d8ef7c7b-0201-4978-ac73-fd376a19830f",
+  "name": "Pinecrest Ridge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {R} or {G}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "281",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "9d483643-6a11-47f7-a0aa-190e0179525f",
+  "oracle_id": "99720c65-be96-4220-8ed4-720660bf6928",
+  "name": "Thornglint Bridge",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "This land enters tapped.\nIndestructible\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "258",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

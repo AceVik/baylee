@@ -1,0 +1,22 @@
+{
+  "id": "c0c73dd5-0a88-4a94-9c01-c1473433e46f",
+  "oracle_id": "db444f9d-4dde-4308-b0f2-7acfe6de871a",
+  "name": "Turbulent Steppe",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Plains",
+  "oracle_text": "({T}: Add {R} or {W}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "58",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

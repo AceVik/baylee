@@ -1,0 +1,22 @@
+{
+  "id": "17579dbd-e8dd-49f0-83df-25dd78691c4a",
+  "oracle_id": "b0a4680f-9707-431c-b5d5-7d4424783602",
+  "name": "Vec Townships",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {G} or {W}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "247",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

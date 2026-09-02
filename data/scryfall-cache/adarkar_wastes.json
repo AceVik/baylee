@@ -1,0 +1,22 @@
+{
+  "id": "42e0aa15-639a-4e88-9bd8-ce5e7c7d7649",
+  "oracle_id": "d5ad26cc-2bdb-46b7-b8bf-dd099d5fa09b",
+  "name": "Adarkar Wastes",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {W} or {U}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "147",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "92d4646c-a375-4835-aa58-8bb77d1a5abf",
+  "oracle_id": "fa2da325-6859-45bb-b185-35526b01bcc1",
+  "name": "Golgari Guildgate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "689",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "6098d8be-4e3f-455d-8799-91435bf45a1c",
+  "oracle_id": "c2cdefeb-3176-4faf-be54-a62d31f777a5",
+  "name": "Murky Sewer",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless a player has 13 or less life.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "263",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

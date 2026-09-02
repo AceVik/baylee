@@ -1,0 +1,21 @@
+{
+  "id": "d9fdbc02-7ab7-4f77-8a89-5a9e01eb32f5",
+  "oracle_id": "53d6113d-acdb-4754-9641-f7991a96c7b9",
+  "name": "Yavimaya Hollow",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {C}.\n{G}, {T}: Regenerate target creature.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "325",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

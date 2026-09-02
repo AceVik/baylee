@@ -1,0 +1,22 @@
+{
+  "id": "0742ddb6-71ed-444e-91ad-84f876725a4a",
+  "oracle_id": "7069d241-4e66-40bf-afd1-551a4a5457f0",
+  "name": "Hidden Lair",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {U} or {B}. Activate only if this land entered this turn or if you control a basic land.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "269",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

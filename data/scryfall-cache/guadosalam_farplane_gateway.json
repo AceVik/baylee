@@ -1,0 +1,22 @@
+{
+  "id": "dfcbc131-fd50-4908-b539-c8e52bb70c58",
+  "oracle_id": "849c97e4-df15-4ecb-bdf8-283bb497d90c",
+  "name": "Guadosalam, Farplane Gateway",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "281",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

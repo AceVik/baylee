@@ -1,0 +1,23 @@
+{
+  "id": "e3ddbebf-72cd-4d1b-ba0d-d94934654ab7",
+  "oracle_id": "e996cd67-739c-40f4-b276-0042acf26c71",
+  "name": "Dryad Arbor",
+  "mana_cost": "",
+  "type_line": "Land Creature — Forest Dryad",
+  "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "273",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}

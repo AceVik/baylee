@@ -1,0 +1,19 @@
+{
+  "id": "8eae4481-977f-4bb7-bb1a-ab7100e6ba47",
+  "oracle_id": "86ed6073-c35c-4d29-9911-5fe191dd875f",
+  "name": "The Biblioplex",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Look at the top card of your library. If it's an instant or sorcery card, you may reveal it and put it into your hand. If you don't put the card into your hand, you may put it into your graveyard. Activate only if you have exactly zero or seven cards in hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "stx",
+  "set_name": "Strixhaven: School of Mages",
+  "collector_number": "264",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "54f449ff-4025-465e-9ec5-a5cf42c4c9d3",
+  "oracle_id": "8291543f-d086-48aa-b2b7-5481ca8c9198",
+  "name": "Xander's Lounge",
+  "mana_cost": "",
+  "type_line": "Land — Island Swamp Mountain",
+  "oracle_text": "({T}: Add {U}, {B}, or {R}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R",
+    "U"
+  ],
+  "set": "snc",
+  "set_name": "Streets of New Capenna",
+  "collector_number": "260",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

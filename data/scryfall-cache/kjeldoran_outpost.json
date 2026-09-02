@@ -1,0 +1,21 @@
+{
+  "id": "db90c357-26e3-4ab2-a280-0d8d74b95048",
+  "oracle_id": "8b370db5-dfb9-4ea0-9017-bae3e767b041",
+  "name": "Kjeldoran Outpost",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If this land would enter, sacrifice a Plains instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {W}.\n{1}{W}, {T}: Create a 1/1 white Soldier creature token.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "301",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

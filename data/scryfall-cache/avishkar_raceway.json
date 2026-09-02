@@ -1,0 +1,19 @@
+{
+  "id": "08a6b378-c7fa-4226-a310-4ee7e550b4d6",
+  "oracle_id": "e2c35551-1ba5-4424-baf9-821b49bbcc8c",
+  "name": "Avishkar Raceway",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Start your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)\n{T}: Add {C}.\nMax speed — {3}, {T}, Discard a card: Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "249",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

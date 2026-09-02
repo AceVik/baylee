@@ -1,0 +1,40 @@
+{
+  "id": "a69541db-3f4e-412f-aa8e-dec1e74f74dc",
+  "oracle_id": "81036c9f-fe0a-45a7-bcd5-0d344f31055a",
+  "name": "Spikefield Hazard // Spikefield Cave",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "166",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Spikefield Hazard",
+      "mana_cost": "{R}",
+      "type_line": "Instant",
+      "oracle_text": "Spikefield Hazard deals 1 damage to any target. If a permanent dealt damage this way would die this turn, exile it instead.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Spikefield Cave",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

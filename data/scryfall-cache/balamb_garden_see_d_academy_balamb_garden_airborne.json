@@ -1,0 +1,41 @@
+{
+  "id": "001e9f20-5b15-41cb-bf82-46172decc235",
+  "oracle_id": "8b84fec5-617c-4088-8250-2ba1f1f9479a",
+  "name": "Balamb Garden, SeeD Academy // Balamb Garden, Airborne",
+  "mana_cost": null,
+  "type_line": "Land — Town // Legendary Artifact — Vehicle",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "272",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Balamb Garden, SeeD Academy",
+      "mana_cost": "",
+      "type_line": "Land — Town",
+      "oracle_text": "This land enters tapped.\n{T}: Add {G} or {U}.\n{5}{G}{U}, {T}: Transform this land. This ability costs {1} less to activate for each other Town you control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Balamb Garden, Airborne",
+      "mana_cost": "",
+      "type_line": "Legendary Artifact — Vehicle",
+      "oracle_text": "Flying\nWhenever Balamb Garden attacks, draw a card.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+      "power": "5",
+      "toughness": "4",
+      "loyalty": null
+    }
+  ]
+}

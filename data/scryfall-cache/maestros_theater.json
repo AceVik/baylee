@@ -1,0 +1,19 @@
+{
+  "id": "d4087ba6-8227-4ec3-a989-0833ad6c8788",
+  "oracle_id": "9464ddf2-4bcb-44f6-b945-89a132544de6",
+  "name": "Maestros Theater",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, sacrifice it. When you do, search your library for a basic Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle and you gain 1 life.",
+  "colors": [],
+  "color_identity": [],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "167",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "78045c43-5cbe-48ff-837d-e7c6baac2937",
+  "oracle_id": "a71e8d07-1a49-47a0-834e-de87d750a200",
+  "name": "Iron Hills",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {W}.\n{2}{R}{W}, {T}, Sacrifice this land: Put two +1/+1 counters on target Dwarf you control. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "hob",
+  "set_name": "The Hobbit",
+  "collector_number": "185",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

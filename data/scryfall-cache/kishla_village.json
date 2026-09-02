@@ -1,0 +1,21 @@
+{
+  "id": "9f0ff90d-7312-44df-afc5-29c768fa7758",
+  "oracle_id": "4eb428ab-f5b0-46ca-98dd-b3466a91ef97",
+  "name": "Kishla Village",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control an Island or a Swamp.\n{T}: Add {G}.\n{3}{G}, {T}: Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "88f0d9c9-8a1f-4b5a-b6f9-821ddd658d27",
+  "oracle_id": "c5fc8e7c-a87e-4586-a13c-d30e0a3aafbf",
+  "name": "Avengers Tower",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Hero spell or to activate an ability of a Hero source.\n{4}, {T}: Look at the top three cards of your library. You may reveal a Hero card from among them and put it into your hand. Put the rest on the bottom of your library in any order.",
+  "colors": [],
+  "color_identity": [],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "260",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

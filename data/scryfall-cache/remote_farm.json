@@ -1,0 +1,21 @@
+{
+  "id": "115cab84-60d7-4bf2-9beb-b4ed7b5ceaf4",
+  "oracle_id": "2c38f4c7-1b3f-42b4-a175-edab7acd6cc6",
+  "name": "Remote Farm",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {W}{W}. If there are no depletion counters on this land, sacrifice it.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "mmq",
+  "set_name": "Mercadian Masques",
+  "collector_number": "323",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

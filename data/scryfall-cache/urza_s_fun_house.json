@@ -1,0 +1,19 @@
+{
+  "id": "42c47a99-965c-4bde-935a-10f28cf5ccba",
+  "oracle_id": "6538fb05-7cc6-4bb9-9b57-11f4f07b5e59",
+  "name": "Urza's Fun House",
+  "mana_cost": "",
+  "type_line": "Land — Urza's",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {∞}. Activate only once and only if you control an Urza's Mine, an Urza's Power-Plant, and an Urza's Tower.\n{7}, {T}: Head to AskUrza.com and click Urza's Fun House.",
+  "colors": [],
+  "color_identity": [],
+  "set": "unf",
+  "set_name": "Unfinity",
+  "collector_number": "199",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

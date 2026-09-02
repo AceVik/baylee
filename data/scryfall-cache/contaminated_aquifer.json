@@ -1,0 +1,22 @@
+{
+  "id": "9fad6994-1280-4a8e-a2f5-34b4ed6ef6f5",
+  "oracle_id": "c27b771d-b5ec-459a-a101-f078cb8d0184",
+  "name": "Contaminated Aquifer",
+  "mana_cost": "",
+  "type_line": "Land — Island Swamp",
+  "oracle_text": "({T}: Add {U} or {B}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "353",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

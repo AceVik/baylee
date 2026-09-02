@@ -1,0 +1,22 @@
+{
+  "id": "40642193-712a-495e-9349-6fc8e54a66f4",
+  "oracle_id": "2896f01d-003b-4d68-9d0a-64990ba59cbe",
+  "name": "Scabland",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {R} or {W}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "243",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

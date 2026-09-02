@@ -1,0 +1,38 @@
+{
+  "id": "d4d379b5-7f56-4a7d-a4ac-131fc3d579c6",
+  "oracle_id": "8e4d0da0-c7d8-4a20-9bfd-02c1331a7a49",
+  "name": "Primal Amulet // Primal Wellspring",
+  "mana_cost": null,
+  "type_line": "Artifact // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [],
+  "set": "xln",
+  "set_name": "Ixalan",
+  "collector_number": "243",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Primal Amulet",
+      "mana_cost": "{4}",
+      "type_line": "Artifact",
+      "oracle_text": "Instant and sorcery spells you cast cost {1} less to cast.\nWhenever you cast an instant or sorcery spell, put a charge counter on this artifact. Then if there are four or more charge counters on it, you may remove those counters and transform it.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Primal Wellspring",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "(Transforms from Primal Amulet.)\n{T}: Add one mana of any color. When that mana is spent to cast an instant or sorcery spell, copy that spell and you may choose new targets for the copy.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

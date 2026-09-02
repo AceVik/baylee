@@ -1,0 +1,22 @@
+{
+  "id": "f9c77d35-8418-48fb-b7d7-7cfa763545c5",
+  "oracle_id": "bce30fd0-ed1e-495d-9149-6a4c81c45c7b",
+  "name": "Axgard Armory",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\n{1}{R}{R}{W}, {T}, Sacrifice this land: Search your library for an Aura card and/or an Equipment card, reveal them, put them into your hand, then shuffle.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "250",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

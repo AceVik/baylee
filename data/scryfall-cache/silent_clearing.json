@@ -1,0 +1,22 @@
+{
+  "id": "ac07e230-0297-4e1d-bdfe-119010e0ad8e",
+  "oracle_id": "fd45063f-c83c-431c-9104-f139c497ec0d",
+  "name": "Silent Clearing",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life: Add {W} or {B}.\n{1}, {T}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "mh1",
+  "set_name": "Modern Horizons",
+  "collector_number": "246",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

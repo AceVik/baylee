@@ -1,0 +1,41 @@
+{
+  "id": "0a08e0d2-1e60-47f5-9228-4c11a127089d",
+  "oracle_id": "c52fc8a1-43c6-41f8-b010-03be7c89ef1d",
+  "name": "Bloodsoaked Insight // Sanguine Morass",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "252",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Bloodsoaked Insight",
+      "mana_cost": "{5}{B/R}{B/R}",
+      "type_line": "Sorcery",
+      "oracle_text": "This spell costs {1} less to cast for each 1 life your opponents have lost this turn.\nTarget opponent exiles the top three cards of their library. Until the end of your next turn, you may play those cards. If you cast a spell this way, mana of any type can be spent to cast it.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Sanguine Morass",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

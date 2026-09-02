@@ -1,0 +1,22 @@
+{
+  "id": "c1ce9250-bdbe-4c77-9243-6db9ffffe69b",
+  "oracle_id": "3a5b3405-a1e3-4aad-ab4e-1b8db2d1f3a8",
+  "name": "Strangled Cemetery",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless a player has 13 or less life.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "268",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "ad7f87dd-1c43-4b6f-9d68-cc09ef76dbc2",
+  "oracle_id": "db8d8643-3d0b-4f20-bf53-f4cd26a0e8df",
+  "name": "Sheltered Thicket",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Forest",
+  "oracle_text": "({T}: Add {R} or {G}.)\nThis land enters tapped.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "167",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

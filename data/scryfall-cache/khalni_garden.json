@@ -1,0 +1,21 @@
+{
+  "id": "3e0f6ae6-b303-405a-8efa-91de9692768e",
+  "oracle_id": "b2d5ba45-8674-4428-89db-c2bbbf0bf5c5",
+  "name": "Khalni Garden",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, create a 0/1 green Plant creature token.\n{T}: Add {G}.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "c18",
+  "set_name": "Commander 2018",
+  "collector_number": "262",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

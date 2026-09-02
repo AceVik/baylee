@@ -1,0 +1,22 @@
+{
+  "id": "38bcd111-0830-4fc0-a113-37eb306fb1a0",
+  "oracle_id": "66d845a2-be4c-41bb-a357-3650461c03ed",
+  "name": "Highland Weald",
+  "mana_cost": "",
+  "type_line": "Snow Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "csp",
+  "set_name": "Coldsnap",
+  "collector_number": "147",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

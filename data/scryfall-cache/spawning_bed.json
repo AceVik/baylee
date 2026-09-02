@@ -1,0 +1,19 @@
+{
+  "id": "e3a532b2-de88-40af-8961-b01eada05bd3",
+  "oracle_id": "49e43de3-460b-4562-aef6-da43bd56debc",
+  "name": "Spawning Bed",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{6}, {T}, Sacrifice this land: Create three 1/1 colorless Eldrazi Scion creature tokens. They have \"Sacrifice this token: Add {C}.\"",
+  "colors": [],
+  "color_identity": [],
+  "set": "bfz",
+  "set_name": "Battle for Zendikar",
+  "collector_number": "248",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "ec50c1c3-885e-47d3-ada7-cc0edbf09df1",
+  "oracle_id": "675281ff-b81f-4e5e-9f85-9f8cd202b50b",
+  "name": "Inkmoth Nexus",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}: This land becomes a 1/1 Phyrexian Blinkmoth artifact creature with flying and infect until end of turn. It's still a land. (It deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "mbs",
+  "set_name": "Mirrodin Besieged",
+  "collector_number": "145",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

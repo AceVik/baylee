@@ -1,0 +1,22 @@
+{
+  "id": "c6eac43d-08b6-45a4-803b-10a321a241d7",
+  "oracle_id": "f6059731-2e10-4f72-a214-b257f1677e9e",
+  "name": "Mutant Town",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "tmt",
+  "set_name": "Teenage Mutant Ninja Turtles",
+  "collector_number": "187",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

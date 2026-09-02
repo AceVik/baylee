@@ -1,0 +1,21 @@
+{
+  "id": "219c1d76-40cf-4edf-8145-e6cec8ca39ad",
+  "oracle_id": "895a0e00-20a9-44f8-9215-66edcdf016b7",
+  "name": "Eiganjo Castle",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {W}.\n{W}, {T}: Prevent the next 2 damage that would be dealt to target legendary creature this turn.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "275",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

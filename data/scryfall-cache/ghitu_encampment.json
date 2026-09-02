@@ -1,0 +1,21 @@
+{
+  "id": "b6af3085-a24c-4a76-b4c0-a27a50993f1c",
+  "oracle_id": "9cc02c16-8cf9-4ac7-9475-231c27121968",
+  "name": "Ghitu Encampment",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\n{1}{R}: This land becomes a 2/1 red Warrior creature with first strike until end of turn. It's still a land. (It deals combat damage before creatures without first strike.)",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "ddn",
+  "set_name": "Duel Decks: Speed vs. Cunning",
+  "collector_number": "33",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

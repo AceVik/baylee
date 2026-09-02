@@ -1,0 +1,22 @@
+{
+  "id": "7beccfa6-3e4b-4460-954e-870cb39e462d",
+  "oracle_id": "ac4e1818-4873-4143-9b99-46f205d006d9",
+  "name": "Gongaga, Reactor Town",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "280",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

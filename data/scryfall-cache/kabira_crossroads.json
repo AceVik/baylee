@@ -1,0 +1,21 @@
+{
+  "id": "7f6a18b8-d490-490d-83a5-227a416ccf92",
+  "oracle_id": "b3dbb16f-fa8f-4406-bcf3-e647e4337619",
+  "name": "Kabira Crossroads",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 2 life.\n{T}: Add {W}.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "c17",
+  "set_name": "Commander 2017",
+  "collector_number": "259",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

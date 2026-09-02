@@ -1,0 +1,21 @@
+{
+  "id": "7eee4911-a654-46c3-a998-a3eac9c31791",
+  "oracle_id": "7647940e-c99c-401c-ad1d-9ec730f66b6f",
+  "name": "Balduvian Trading Post",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If this land would enter, sacrifice an untapped Mountain instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {C}{R}.\n{1}, {T}: This land deals 1 damage to target attacking creature.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "me2",
+  "set_name": "Masters Edition II",
+  "collector_number": "226",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

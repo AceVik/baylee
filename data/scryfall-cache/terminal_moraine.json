@@ -1,0 +1,19 @@
+{
+  "id": "9029f22b-f153-4f9a-a60f-ba2d0b6e0a1d",
+  "oracle_id": "58eaaa8b-45c6-439b-bdd1-5f4e77a75a8c",
+  "name": "Terminal Moraine",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "259",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "94e0ad38-31b3-46ba-9999-9b6ff57906ae",
+  "oracle_id": "02679a2e-303d-412f-87d8-0a37a8ca259c",
+  "name": "Blighted Woodland",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{3}{G}, {T}, Sacrifice this land: Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "881",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

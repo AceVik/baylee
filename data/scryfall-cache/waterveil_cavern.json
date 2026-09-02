@@ -1,0 +1,22 @@
+{
+  "id": "405805e0-07f6-420f-86f9-5bde822caa5c",
+  "oracle_id": "3debfa0d-9945-4a85-a714-7c3d3d74de4e",
+  "name": "Waterveil Cavern",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {U} or {B}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "286",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

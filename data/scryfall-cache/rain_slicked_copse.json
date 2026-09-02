@@ -1,0 +1,22 @@
+{
+  "id": "3f967dee-1c2e-423a-823b-9fc74e8053bc",
+  "oracle_id": "633a41f0-3889-49a0-b2fc-9baf59f4ddc2",
+  "name": "Rain-Slicked Copse",
+  "mana_cost": "",
+  "type_line": "Land — Forest Island",
+  "oracle_text": "({T}: Add {G} or {U}.)\nThis land enters tapped.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "397",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

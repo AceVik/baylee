@@ -1,0 +1,19 @@
+{
+  "id": "9c07dda8-06dd-499a-9825-dc6b9a73e455",
+  "oracle_id": "d1f10cca-8dfa-4ea5-b227-4446cd8514a8",
+  "name": "Drannith Ruins",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Put two +1/+1 counters on target non-Human creature that entered this turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mat",
+  "set_name": "March of the Machine: The Aftermath",
+  "collector_number": "50",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

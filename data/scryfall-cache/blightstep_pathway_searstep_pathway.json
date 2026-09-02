@@ -1,0 +1,41 @@
+{
+  "id": "0ce39a19-f51d-4a35-ae80-5b82eb15fcff",
+  "oracle_id": "e580a229-e800-4746-9d37-c32fcef8de28",
+  "name": "Blightstep Pathway // Searstep Pathway",
+  "mana_cost": null,
+  "type_line": "Land // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "252",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Blightstep Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Searstep Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

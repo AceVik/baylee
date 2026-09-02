@@ -1,0 +1,21 @@
+{
+  "id": "77e3ea71-ea9f-4bbf-93cb-0f6339f8a3ab",
+  "oracle_id": "3f347ebf-e0d2-4ae0-ad84-df7a460404e0",
+  "name": "Coral Atoll",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Island you control to its owner's hand.\n{T}: Add {C}{U}.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "480",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

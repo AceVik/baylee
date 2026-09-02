@@ -1,0 +1,22 @@
+{
+  "id": "b85e0aed-bfb2-4aa8-a754-849c4d9a6a58",
+  "oracle_id": "b3c7b46f-c9ab-40ca-b50b-a4e0d0bd9be8",
+  "name": "Restless Bivouac",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {W}.\n{1}{R}{W}: This land becomes a 2/2 red and white Ox creature until end of turn. It's still a land.\nWhenever this land attacks, put a +1/+1 counter on target creature you control.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "woe",
+  "set_name": "Wilds of Eldraine",
+  "collector_number": "257",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

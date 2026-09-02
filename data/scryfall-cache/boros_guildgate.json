@@ -1,0 +1,22 @@
+{
+  "id": "3e3c74ea-40e9-4ad9-a491-c208403b68ad",
+  "oracle_id": "73c423b7-cab8-4e69-8070-9edbf96a6c2c",
+  "name": "Boros Guildgate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "684",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

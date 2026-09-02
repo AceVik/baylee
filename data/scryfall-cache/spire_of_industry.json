@@ -1,0 +1,19 @@
+{
+  "id": "35e9ec06-a848-4230-84a2-19cb8034e0f0",
+  "oracle_id": "55a519b4-61cb-448a-875b-4d6dbe00580f",
+  "name": "Spire of Industry",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Pay 1 life: Add one mana of any color. Activate only if you control an artifact.",
+  "colors": [],
+  "color_identity": [],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "183",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

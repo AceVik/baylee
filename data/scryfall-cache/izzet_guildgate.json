@@ -1,0 +1,22 @@
+{
+  "id": "db9e6fc9-813d-4a71-8a68-8e0f83fa945d",
+  "oracle_id": "bf75a3d1-f184-4b48-a913-21caee1db084",
+  "name": "Izzet Guildgate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "691",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

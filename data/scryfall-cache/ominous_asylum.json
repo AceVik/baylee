@@ -1,0 +1,22 @@
+{
+  "id": "4329f94a-9110-4f07-b4a6-f1ccae97ccc9",
+  "oracle_id": "676141c3-a433-4aba-86fb-729628f96dfa",
+  "name": "Ominous Asylum",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.\n{4}, {T}: Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "spm",
+  "set_name": "Marvel's Spider-Man",
+  "collector_number": "181",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

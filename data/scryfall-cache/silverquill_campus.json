@@ -1,0 +1,22 @@
+{
+  "id": "354efff0-aea5-4274-94d6-9fce02430255",
+  "oracle_id": "2b65eb80-6fb7-429f-81f2-2fe125eba634",
+  "name": "Silverquill Campus",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {B}.\n{4}, {T}: Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "405",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

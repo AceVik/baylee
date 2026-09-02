@@ -1,0 +1,19 @@
+{
+  "id": "3ac535c1-9ef3-45b5-8959-7e79589d47ad",
+  "oracle_id": "40d45c02-6416-4e19-8fe3-0ddadf5ba627",
+  "name": "Blinkmoth Nexus",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}: This land becomes a 1/1 Blinkmoth artifact creature with flying until end of turn. It's still a land.\n{1}, {T}: Target Blinkmoth creature gets +1/+1 until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "2xm",
+  "set_name": "Double Masters",
+  "collector_number": "311",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

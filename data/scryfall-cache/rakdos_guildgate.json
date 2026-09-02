@@ -1,0 +1,22 @@
+{
+  "id": "e1f01964-c610-4d0f-a2b4-f52e46dc50d2",
+  "oracle_id": "361f534b-39d1-4421-b5a8-d3813c62f86d",
+  "name": "Rakdos Guildgate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "693",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

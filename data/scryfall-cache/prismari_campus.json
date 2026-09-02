@@ -1,0 +1,22 @@
+{
+  "id": "7c464dee-dd89-4955-ae40-8bb74e9ff42a",
+  "oracle_id": "3a3a1b35-ae4d-49d5-ae09-5a1693ad53ce",
+  "name": "Prismari Campus",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U} or {R}.\n{4}, {T}: Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "394",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

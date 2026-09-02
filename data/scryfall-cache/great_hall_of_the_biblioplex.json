@@ -1,0 +1,19 @@
+{
+  "id": "42d92674-2664-411c-b9c5-b04da7c845f4",
+  "oracle_id": "a8c70dab-1e27-4a9c-bd2d-910d5720d02d",
+  "name": "Great Hall of the Biblioplex",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Pay 1 life: Add one mana of any color. Spend this mana only to cast an instant or sorcery spell.\n{5}: If this land isn't a creature, it becomes a 2/4 Wizard creature with \"Whenever you cast an instant or sorcery spell, this creature gets +1/+0 until end of turn.\" It's still a land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "sos",
+  "set_name": "Secrets of Strixhaven",
+  "collector_number": "257",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "228e551e-023a-4c9a-8f32-58dae6ffdf7f",
+  "oracle_id": "ff0ab867-b710-4b1a-baed-95fc3cf68f79",
+  "name": "Valakut Awakening // Valakut Stoneforge",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "174",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Valakut Awakening",
+      "mana_cost": "{2}{R}",
+      "type_line": "Instant",
+      "oracle_text": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Valakut Stoneforge",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

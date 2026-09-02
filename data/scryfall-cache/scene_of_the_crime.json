@@ -1,0 +1,19 @@
+{
+  "id": "de039992-631b-4feb-a522-acdb0a6d1f26",
+  "oracle_id": "ba11a517-1dbd-4797-9f5e-46ce0f6c77c0",
+  "name": "Scene of the Crime",
+  "mana_cost": "",
+  "type_line": "Artifact Land — Clue",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{T}, Tap an untapped creature you control: Add one mana of any color.\n{2}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mkm",
+  "set_name": "Murders at Karlov Manor",
+  "collector_number": "267",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

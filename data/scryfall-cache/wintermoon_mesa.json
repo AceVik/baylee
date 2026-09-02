@@ -1,0 +1,19 @@
+{
+  "id": "f07144a6-6e47-4315-8353-f8958f014f41",
+  "oracle_id": "a4a6f95e-856c-4eb5-82ba-b2406be22b23",
+  "name": "Wintermoon Mesa",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Tap two target lands.",
+  "colors": [],
+  "color_identity": [],
+  "set": "pcy",
+  "set_name": "Prophecy",
+  "collector_number": "143",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

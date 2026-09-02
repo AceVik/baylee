@@ -1,0 +1,22 @@
+{
+  "id": "3c6e17f2-b1e4-4189-a02f-92fa4b13a1ed",
+  "oracle_id": "749c2c8e-9588-4e83-b07f-3c37eb63338b",
+  "name": "Snowfield Sinkhole",
+  "mana_cost": "",
+  "type_line": "Snow Land — Plains Swamp",
+  "oracle_text": "({T}: Add {W} or {B}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "915",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

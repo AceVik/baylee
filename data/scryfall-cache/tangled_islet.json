@@ -1,0 +1,22 @@
+{
+  "id": "bb1920f1-aab3-4066-8be9-029102886d03",
+  "oracle_id": "4b1f68a2-b606-4c64-bd44-a9714808316d",
+  "name": "Tangled Islet",
+  "mana_cost": "",
+  "type_line": "Land — Forest Island",
+  "oracle_text": "({T}: Add {G} or {U}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "411",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

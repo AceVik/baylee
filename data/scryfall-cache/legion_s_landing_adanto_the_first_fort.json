@@ -1,0 +1,40 @@
+{
+  "id": "05e2a5e6-3aaa-4096-bdd0-fcc1afe5a36c",
+  "oracle_id": "f7d8b91b-6541-4d3e-af51-7e000eac69c1",
+  "name": "Legion's Landing // Adanto, the First Fort",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "W"
+  ],
+  "set": "xln",
+  "set_name": "Ixalan",
+  "collector_number": "22",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Legion's Landing",
+      "mana_cost": "{W}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "When Legion's Landing enters, create a 1/1 white Vampire creature token with lifelink.\nWhen you attack with three or more creatures, transform Legion's Landing.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Adanto, the First Fort",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Legion's Landing.)\n{T}: Add {W}.\n{2}{W}, {T}: Create a 1/1 white Vampire creature token with lifelink.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

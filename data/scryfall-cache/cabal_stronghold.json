@@ -1,0 +1,21 @@
+{
+  "id": "0bda51ef-ee3e-48d4-92e2-c9083bbe0f80",
+  "oracle_id": "066cd584-773c-4623-be53-8f6feda5a26a",
+  "name": "Cabal Stronghold",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{3}, {T}: Add {B} for each basic Swamp you control.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "dom",
+  "set_name": "Dominaria",
+  "collector_number": "238",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

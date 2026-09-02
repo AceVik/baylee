@@ -1,0 +1,21 @@
+{
+  "id": "b670bb0f-680f-4036-bdb6-ac73e866a398",
+  "oracle_id": "126e9140-2c05-4c00-8b01-5653456c736a",
+  "name": "Lair of the Hydra",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If you control two or more other lands, this land enters tapped.\n{T}: Add {G}.\n{X}{G}: Until end of turn, this land becomes an X/X green Hydra creature. It's still a land. X can't be 0.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "afr",
+  "set_name": "Adventures in the Forgotten Realms",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "af7aafb7-6870-4d09-a191-70786766c459",
+  "oracle_id": "26259c65-8f4e-42a6-b8a7-f65c36d35c4d",
+  "name": "Hickory Woodlot",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {G}{G}. If there are no depletion counters on this land, sacrifice it.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "mmq",
+  "set_name": "Mercadian Masques",
+  "collector_number": "319",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

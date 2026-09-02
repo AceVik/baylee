@@ -1,0 +1,21 @@
+{
+  "id": "907b49ff-2020-4203-b93e-4b3306afc337",
+  "oracle_id": "f3bf22cf-0a6f-4fb6-ba82-63ce290308d6",
+  "name": "Spawning Pool",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}.\n{1}{B}: This land becomes a 1/1 black Skeleton creature with \"{B}: Regenerate this creature\" until end of turn. It's still a land. (If it regenerates, the next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "10e",
+  "set_name": "Tenth Edition",
+  "collector_number": "358",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

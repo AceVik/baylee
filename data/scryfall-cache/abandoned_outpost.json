@@ -1,0 +1,21 @@
+{
+  "id": "4945031e-1158-474c-9e50-1ec817acc767",
+  "oracle_id": "5a70ccfa-d12d-4e62-a1a4-f05cda2fd442",
+  "name": "Abandoned Outpost",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\n{T}, Sacrifice this land: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "312",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

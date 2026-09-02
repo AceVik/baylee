@@ -1,0 +1,22 @@
+{
+  "id": "f3e0b983-62e7-43fb-b5d5-402ea60a64d7",
+  "oracle_id": "941b0dd1-0df2-48ee-8829-615e9c3177a7",
+  "name": "Forsaken Sanctuary",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "c18",
+  "set_name": "Commander 2018",
+  "collector_number": "247",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

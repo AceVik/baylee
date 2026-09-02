@@ -1,0 +1,22 @@
+{
+  "id": "e5f3161d-3f69-4b06-ab73-c31fc0c1520c",
+  "oracle_id": "0935faa2-fb90-48db-8a92-906ba0f374c7",
+  "name": "Restless Vinestalk",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {U}.\n{3}{G}{U}: Until end of turn, this land becomes a 5/5 green and blue Plant creature with trample. It's still a land.\nWhenever this land attacks, up to one other target creature has base power and toughness 3/3 until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "woe",
+  "set_name": "Wilds of Eldraine",
+  "collector_number": "261",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

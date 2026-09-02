@@ -1,0 +1,21 @@
+{
+  "id": "6aded00a-0bf3-416e-8eac-15c04554705d",
+  "oracle_id": "18cbb47a-85b1-48f6-a024-8c3bbffa0d87",
+  "name": "Havenwood Battleground",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\n{T}, Sacrifice this land: Add {G}{G}.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "cma",
+  "set_name": "Commander Anthology",
+  "collector_number": "256",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

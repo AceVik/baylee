@@ -1,0 +1,21 @@
+{
+  "id": "afd2730f-878e-47ee-ad2a-73f8fa4e0794",
+  "oracle_id": "ac8cc74d-e43b-4118-bba0-dfa8b9c04d45",
+  "name": "Snow-Covered Plains",
+  "mana_cost": "",
+  "type_line": "Basic Snow Land — Plains",
+  "oracle_text": "({T}: Add {W}.)",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "276",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

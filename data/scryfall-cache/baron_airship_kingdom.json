@@ -1,0 +1,22 @@
+{
+  "id": "6e4bf840-802d-47d5-bffd-8ba495e19cf6",
+  "oracle_id": "cc710da0-5a2e-4bc4-8fdd-d90e7bc1f224",
+  "name": "Baron, Airship Kingdom",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "273",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

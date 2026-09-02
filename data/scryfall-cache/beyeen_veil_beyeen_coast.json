@@ -1,0 +1,40 @@
+{
+  "id": "5f411f08-45dd-4d73-8894-daf51c175150",
+  "oracle_id": "b03de49d-246f-44e2-9487-9e4e43ec7be4",
+  "name": "Beyeen Veil // Beyeen Coast",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "46",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Beyeen Veil",
+      "mana_cost": "{1}{U}",
+      "type_line": "Instant",
+      "oracle_text": "Creatures your opponents control get -2/-0 until end of turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Beyeen Coast",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

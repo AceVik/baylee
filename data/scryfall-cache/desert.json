@@ -1,0 +1,19 @@
+{
+  "id": "c74e13eb-6f82-4db1-9d0d-8310f48d9f6d",
+  "oracle_id": "195107ad-879d-4b02-a44a-a3ba70fedf88",
+  "name": "Desert",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "{T}: Add {C}.\n{T}: This land deals 1 damage to target attacking creature. Activate only during the end of combat step.",
+  "colors": [],
+  "color_identity": [],
+  "set": "afc",
+  "set_name": "Forgotten Realms Commander",
+  "collector_number": "233",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

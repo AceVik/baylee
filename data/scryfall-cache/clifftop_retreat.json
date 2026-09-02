@@ -1,0 +1,22 @@
+{
+  "id": "4a7f7767-1959-4812-8654-0a22634096b1",
+  "oracle_id": "d7faa3c8-46cf-46b2-bfa4-89000307cf18",
+  "name": "Clifftop Retreat",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Mountain or a Plains.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "231",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

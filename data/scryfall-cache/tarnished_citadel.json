@@ -1,0 +1,19 @@
+{
+  "id": "30375d24-ccfe-47a2-babd-1bda0a6298fe",
+  "oracle_id": "66ae2562-68e9-4c77-ba0a-57f8ff37f656",
+  "name": "Tarnished Citadel",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. This land deals 3 damage to you.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "329",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

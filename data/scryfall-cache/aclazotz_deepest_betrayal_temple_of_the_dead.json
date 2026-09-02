@@ -1,0 +1,40 @@
+{
+  "id": "627c392c-4d18-4eb2-a4e8-c668f61f5487",
+  "oracle_id": "fcdfe9d5-2743-4d3e-ab57-bf0f96beaa15",
+  "name": "Aclazotz, Deepest Betrayal // Temple of the Dead",
+  "mana_cost": null,
+  "type_line": "Legendary Creature — Bat God // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "88",
+  "rarity": "mythic",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Aclazotz, Deepest Betrayal",
+      "mana_cost": "{3}{B}{B}",
+      "type_line": "Legendary Creature — Bat God",
+      "oracle_text": "Flying, lifelink\nWhenever Aclazotz attacks, each opponent discards a card. For each opponent who can't, you draw a card.\nWhenever an opponent discards a land card, create a 1/1 black Bat creature token with flying.\nWhen Aclazotz dies, return it to the battlefield tapped and transformed under its owner's control.",
+      "power": "4",
+      "toughness": "4",
+      "loyalty": null
+    },
+    {
+      "name": "Temple of the Dead",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "(Transforms from Aclazotz, Deepest Betrayal.)\n{T}: Add {B}.\n{2}{B}, {T}: Transform this land. Activate only if a player has one or fewer cards in hand and only as a sorcery.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "27856bc5-4f39-4461-baa0-700442942aff",
+  "oracle_id": "f3658894-3d3d-4cd4-b0ac-c53e1d08747c",
+  "name": "Stalking Stones",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{6}: This land becomes a 3/3 Elemental artifact creature that's still a land. (This effect lasts indefinitely.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "245",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "435e9678-9ff3-4e5d-8061-3f806e1c2ed2",
+  "oracle_id": "7e8c2a18-e404-40ff-a9e0-ec3eeb6d576e",
+  "name": "Command Beacon",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Put your commander into your hand from the command zone.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "352",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

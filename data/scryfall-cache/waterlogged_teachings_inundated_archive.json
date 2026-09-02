@@ -1,0 +1,41 @@
+{
+  "id": "060f9675-4921-4cbb-bae2-54c85c679fd4",
+  "oracle_id": "e6ad1be9-f13d-4590-b3db-e2d0fff46f03",
+  "name": "Waterlogged Teachings // Inundated Archive",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "261",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Waterlogged Teachings",
+      "mana_cost": "{3}{U/B}",
+      "type_line": "Instant",
+      "oracle_text": "Search your library for an instant card or a card with flash, reveal it, put it into your hand, then shuffle.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Inundated Archive",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {U} or {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "7ee5e77f-ca43-480d-ac37-48336d3bf044",
+  "oracle_id": "6db442e5-fbcc-4456-a4c5-bea1aee3fc8e",
+  "name": "Radiant Fountain",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, you gain 2 life.\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "c21",
+  "set_name": "Commander 2021",
+  "collector_number": "310",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

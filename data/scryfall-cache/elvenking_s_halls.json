@@ -1,0 +1,22 @@
+{
+  "id": "cd477096-41b1-4907-9cb3-852cb22c9ba2",
+  "oracle_id": "a91e0154-14a9-4681-8236-04db231592a4",
+  "name": "Elvenking's Halls",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {U}.\n{2}{G}{U}, {T}, Sacrifice this land: Put two +1/+1 counters on target Elf you control. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "hob",
+  "set_name": "The Hobbit",
+  "collector_number": "182",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

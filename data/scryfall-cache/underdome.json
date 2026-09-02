@@ -1,0 +1,19 @@
+{
+  "id": "d5c362ea-16e2-4c13-bed2-735c8c09d975",
+  "oracle_id": "8375aaaa-edc2-4a0c-98f6-af07d61ebd0a",
+  "name": "Underdome",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to pay Un-costs.",
+  "colors": [],
+  "color_identity": [],
+  "set": "und",
+  "set_name": "Unsanctioned",
+  "collector_number": "86",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

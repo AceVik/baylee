@@ -1,0 +1,21 @@
+{
+  "id": "e1efb0d3-2c72-46ff-bdc1-1069967365a0",
+  "oracle_id": "7358e164-5704-4e78-9b21-6a9bf2a968ce",
+  "name": "Cabal Coffers",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{2}, {T}: Add {B} for each Swamp you control.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "301",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

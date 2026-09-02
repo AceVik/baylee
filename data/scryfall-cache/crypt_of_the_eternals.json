@@ -1,0 +1,23 @@
+{
+  "id": "cab5b199-e79d-4ca9-970c-cfd9df8fd1e4",
+  "oracle_id": "cc78776b-822b-4f11-8982-0805a25a9d36",
+  "name": "Crypt of the Eternals",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, you gain 1 life.\n{T}: Add {C}.\n{1}, {T}: Add {U}, {B}, or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R",
+    "U"
+  ],
+  "set": "hou",
+  "set_name": "Hour of Devastation",
+  "collector_number": "169",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

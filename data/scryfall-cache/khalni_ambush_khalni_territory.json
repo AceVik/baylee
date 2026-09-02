@@ -1,0 +1,40 @@
+{
+  "id": "99535539-aa73-41ed-86ab-21c97b92620d",
+  "oracle_id": "37a55560-6e32-4f54-b9a8-fd157aea6eb5",
+  "name": "Khalni Ambush // Khalni Territory",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "192",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Khalni Ambush",
+      "mana_cost": "{2}{G}",
+      "type_line": "Instant",
+      "oracle_text": "Target creature you control fights target creature you don't control. (Each deals damage equal to its power to the other.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Khalni Territory",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

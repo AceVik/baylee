@@ -1,0 +1,22 @@
+{
+  "id": "8bab22c5-4742-4f2e-bda1-26c72b09cd9c",
+  "oracle_id": "8f88b0bf-81bd-4223-9dad-d8c49ff4b87a",
+  "name": "Conservatory",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {W}.\n{4}, {T}: Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "clu",
+  "set_name": "Ravnica: Clue Edition",
+  "collector_number": "14",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

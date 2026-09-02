@@ -1,0 +1,40 @@
+{
+  "id": "301750a7-d1fd-435e-bfa8-9d2fb22ad627",
+  "oracle_id": "941a4b14-ea2a-4bd0-8cc2-d609f80df32c",
+  "name": "Jwari Disruption // Jwari Ruins",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "64",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Jwari Disruption",
+      "mana_cost": "{1}{U}",
+      "type_line": "Instant",
+      "oracle_text": "Counter target spell unless its controller pays {1}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Jwari Ruins",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

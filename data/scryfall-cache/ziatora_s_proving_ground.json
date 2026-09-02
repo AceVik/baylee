@@ -1,0 +1,23 @@
+{
+  "id": "75fdce80-e338-4a50-bdc6-786511feaeef",
+  "oracle_id": "f7e7b78c-c769-4720-8585-1874773eb342",
+  "name": "Ziatora's Proving Ground",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Mountain Forest",
+  "oracle_text": "({T}: Add {B}, {R}, or {G}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G",
+    "R"
+  ],
+  "set": "snc",
+  "set_name": "Streets of New Capenna",
+  "collector_number": "261",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

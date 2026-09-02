@@ -1,0 +1,21 @@
+{
+  "id": "3b3134b3-1bad-4b41-9e56-700125ff31fa",
+  "oracle_id": "8b4aa971-b919-4750-8388-33d4f42c9280",
+  "name": "Tree of Tales",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "319",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

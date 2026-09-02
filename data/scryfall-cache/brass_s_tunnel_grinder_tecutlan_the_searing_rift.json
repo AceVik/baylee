@@ -1,0 +1,40 @@
+{
+  "id": "d61d8895-7f2e-4c77-951f-4f1a49e96f57",
+  "oracle_id": "af1553eb-4f9f-4335-9078-56649bd8d8fc",
+  "name": "Brass's Tunnel-Grinder // Tecutlan, the Searing Rift",
+  "mana_cost": null,
+  "type_line": "Legendary Artifact // Legendary Land — Cave",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "135",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Brass's Tunnel-Grinder",
+      "mana_cost": "{2}{R}",
+      "type_line": "Legendary Artifact",
+      "oracle_text": "When Brass's Tunnel-Grinder enters, discard any number of cards, then draw that many cards plus one.\nAt the beginning of your end step, if you descended this turn, put a bore counter on Brass's Tunnel-Grinder. Then if there are three or more bore counters on it, remove those counters and transform it. (You descended if a permanent card was put into your graveyard from anywhere.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Tecutlan, the Searing Rift",
+      "mana_cost": "",
+      "type_line": "Legendary Land — Cave",
+      "oracle_text": "(Transforms from Brass's Tunnel-Grinder.)\n{T}: Add {R}.\nWhenever you cast a permanent spell using mana produced by Tecutlan, discover X, where X is that spell's mana value.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

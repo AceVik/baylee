@@ -1,0 +1,19 @@
+{
+  "id": "2f28ecdc-a4f0-4327-a78c-340be41555ee",
+  "oracle_id": "f705c0eb-9c6c-4315-a860-208ed0c5d93e",
+  "name": "Cloudpost",
+  "mana_cost": "",
+  "type_line": "Land — Locus",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C} for each Locus on the battlefield.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mrd",
+  "set_name": "Mirrodin",
+  "collector_number": "280",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

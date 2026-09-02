@@ -1,0 +1,21 @@
+{
+  "id": "c30fb2f1-f0a6-430f-86e5-817b55da469e",
+  "oracle_id": "7ba580c9-f933-43d9-b03d-a349faa6c641",
+  "name": "Fertile Thicket",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you may look at the top five cards of your library. If you do, reveal up to one basic land card from among them, then put that card on top of your library and the rest on the bottom in any order.\n{T}: Add {G}.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "ddr",
+  "set_name": "Duel Decks: Nissa vs. Ob Nixilis",
+  "collector_number": "27",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "3a7fd24e-84d8-405d-86e4-0571a9e23cc2",
+  "oracle_id": "ce148a0c-6c63-49d5-a156-99efae4e367a",
+  "name": "Vastwood Fortification // Vastwood Thicket",
+  "mana_cost": null,
+  "type_line": "Instant // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "216",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Vastwood Fortification",
+      "mana_cost": "{G}",
+      "type_line": "Instant",
+      "oracle_text": "Put a +1/+1 counter on target creature.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Vastwood Thicket",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

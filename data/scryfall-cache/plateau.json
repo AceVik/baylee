@@ -1,0 +1,22 @@
+{
+  "id": "bb979a96-a57d-4fb5-8ebe-0bd398272abe",
+  "oracle_id": "c7a15ca4-085f-4d92-8387-c3711c04c8fa",
+  "name": "Plateau",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Plains",
+  "oracle_text": "({T}: Add {R} or {W}.)",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "308",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

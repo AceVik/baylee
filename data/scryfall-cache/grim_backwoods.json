@@ -1,0 +1,22 @@
+{
+  "id": "606c5f42-fe5f-4dcd-b8f4-b67beabe3f0a",
+  "oracle_id": "5effaa94-7f87-4485-8959-473d584c5034",
+  "name": "Grim Backwoods",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}{B}{G}, {T}, Sacrifice a creature: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "377",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

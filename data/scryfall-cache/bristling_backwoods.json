@@ -1,0 +1,22 @@
+{
+  "id": "d61dfeb7-7f6b-4601-8396-2cbb98165489",
+  "oracle_id": "9cbc9f83-8979-42a5-a466-a8d89c8e6de8",
+  "name": "Bristling Backwoods",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, it deals 1 damage to target opponent.\n{T}: Add {R} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "otj",
+  "set_name": "Outlaws of Thunder Junction",
+  "collector_number": "253",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

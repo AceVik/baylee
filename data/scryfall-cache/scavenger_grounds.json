@@ -1,0 +1,19 @@
+{
+  "id": "9fbe68ba-ffe5-4fe0-ac0a-0b3221e4f395",
+  "oracle_id": "5ece7d03-9ee7-4953-a06e-9d8e41874903",
+  "name": "Scavenger Grounds",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}, Sacrifice a Desert: Exile all graveyards.",
+  "colors": [],
+  "color_identity": [],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "263",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

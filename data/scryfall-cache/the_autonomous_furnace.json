@@ -1,0 +1,21 @@
+{
+  "id": "c16f96f5-a2a6-4ac4-bdae-326cee92bf2e",
+  "oracle_id": "e2dd05d5-312e-47f1-873e-c0741ee6ef4a",
+  "name": "The Autonomous Furnace",
+  "mana_cost": "",
+  "type_line": "Land — Sphere",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\n{1}{R}, {T}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "one",
+  "set_name": "Phyrexia: All Will Be One",
+  "collector_number": "247",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

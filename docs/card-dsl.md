@@ -102,6 +102,36 @@ both are load-bearing:
 `FaceDef::DEFAULT.castable_from_hand` is `true`; only disturb and adventure
 backs opt out.
 
+## Generated cards, and why they may say `Implemented`
+
+Most card files are hand-written. Two of them are not, and the distinction
+matters when you open one:
+
+- **Lands** are read from their printed text by
+  `crates/baylee-cards-codegen/src/landgen.rs`.
+- **Everything else with a local forge-reference script** is read by
+  `crates/baylee-cards-codegen/src/forgegen.rs` (the checkout is an
+  automated lookup, never copied and never part of the build).
+
+Both write the *same* file standard as this document describes: the macros,
+one `use baylee_cards_dsl::prelude::*;`, the `//!` header `xtask validate`
+checks, and `Coverage::Implemented` only when the reader consumed **every**
+clause of the card. An unknown effect, a parameter no rule claimed, a
+computed amount, a keyword that is data rather than a bit — any one and the
+whole card is refused and generated as an ordinary stub instead. There is
+deliberately no partial path: a card that claims `Implemented` while quietly
+dropping "and they can't be regenerated" is worse than no card, because the
+deckbuilder offers it as playable.
+
+A generated file is hand-owned the moment it exists: `codegen` only writes
+files that are missing or still carry `// GENERATED STUB`, so editing one is
+exactly like editing any other card file.
+
+If you want more cards generated, the lever is usually **this document's
+vocabulary**, not the readers. `cargo run -p xtask -- forge-report` ranks
+what the corpus is waiting on, and the top entries are effects the DSL cannot
+express at all yet.
+
 ## The vocabulary
 
 ### Card faces & costs

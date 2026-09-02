@@ -1,0 +1,22 @@
+{
+  "id": "8522c51f-9126-41eb-84b5-f8489c7ad7ff",
+  "oracle_id": "5a54d6a3-b1d0-42fe-9531-604b34d197f1",
+  "name": "Thalakos Lowlands",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {W} or {U}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "246",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

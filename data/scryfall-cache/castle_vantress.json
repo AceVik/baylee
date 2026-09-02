@@ -1,0 +1,21 @@
+{
+  "id": "dead85f7-865c-4f7d-ad6c-014d4e90f8be",
+  "oracle_id": "cdf41cf4-4e77-453d-be5b-0abbbd358934",
+  "name": "Castle Vantress",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control an Island.\n{T}: Add {U}.\n{2}{U}{U}, {T}: Scry 2.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "267",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

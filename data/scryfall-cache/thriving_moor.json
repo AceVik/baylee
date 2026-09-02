@@ -1,0 +1,21 @@
+{
+  "id": "5d5eea5f-b9e8-4a10-8e7f-c42493a728cd",
+  "oracle_id": "bff416bb-d193-4c45-b2c1-7c297dbfad08",
+  "name": "Thriving Moor",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped. As it enters, choose a color other than black.\n{T}: Add {B} or one mana of the chosen color.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "582",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

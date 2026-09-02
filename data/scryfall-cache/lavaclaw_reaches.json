@@ -1,0 +1,22 @@
+{
+  "id": "409fcd0c-8449-4623-8bf0-cd7ca0937a4a",
+  "oracle_id": "340de307-982a-4b26-9dc0-99113dc766cd",
+  "name": "Lavaclaw Reaches",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.\n{1}{B}{R}: Until end of turn, this land becomes a 2/2 black and red Elemental creature with \"{X}: This creature gets +X/+0 until end of turn.\" It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "uma",
+  "set_name": "Ultimate Masters",
+  "collector_number": "245",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

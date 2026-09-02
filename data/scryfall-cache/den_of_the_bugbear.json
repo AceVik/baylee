@@ -1,0 +1,21 @@
+{
+  "id": "f231caf8-56c0-4719-a90d-5e5efbee3148",
+  "oracle_id": "f451b8f0-1ff5-4e8d-9f30-9352d83ed687",
+  "name": "Den of the Bugbear",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If you control two or more other lands, this land enters tapped.\n{T}: Add {R}.\n{3}{R}: Until end of turn, this land becomes a 3/2 red Goblin creature with \"Whenever this creature attacks, create a 1/1 red Goblin creature token that's tapped and attacking.\" It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "afr",
+  "set_name": "Adventures in the Forgotten Realms",
+  "collector_number": "254",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

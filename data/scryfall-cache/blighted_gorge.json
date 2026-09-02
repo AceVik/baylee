@@ -1,0 +1,21 @@
+{
+  "id": "f133ba0a-e141-4f57-9819-bc17bbacd7b3",
+  "oracle_id": "c2cb0afd-781f-4cfa-b680-ed1edfa81868",
+  "name": "Blighted Gorge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}{R}, {T}, Sacrifice this land: It deals 2 damage to any target.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "ddt",
+  "set_name": "Duel Decks: Merfolk vs. Goblins",
+  "collector_number": "58",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

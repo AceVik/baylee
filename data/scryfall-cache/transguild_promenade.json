@@ -1,0 +1,19 @@
+{
+  "id": "a0baaa39-7fce-4feb-9118-b1d6bc24f548",
+  "oracle_id": "98334bfa-c516-4c20-bdc5-9e32e7127adc",
+  "name": "Transguild Promenade",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you pay {1}.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmr",
+  "set_name": "Commander Legends",
+  "collector_number": "499",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

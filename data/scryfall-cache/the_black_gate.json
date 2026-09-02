@@ -1,0 +1,21 @@
+{
+  "id": "46418186-c215-47c4-9d0a-d15a1d8ca613",
+  "oracle_id": "40eb9904-dea3-47cf-963a-04821f98ba64",
+  "name": "The Black Gate",
+  "mana_cost": "",
+  "type_line": "Legendary Land — Gate",
+  "oracle_text": "As The Black Gate enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.\n{1}{B}, {T}: Choose a player with the most life or tied for most life. Target creature can't be blocked by creatures that player controls this turn.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "ltc",
+  "set_name": "Tales of Middle-earth Commander",
+  "collector_number": "80",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

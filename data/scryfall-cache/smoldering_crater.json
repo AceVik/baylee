@@ -1,0 +1,21 @@
+{
+  "id": "cbf82db0-26b9-4b32-832b-18710d1010b3",
+  "oracle_id": "be09e83f-6486-4f42-8d2e-416cb95173f9",
+  "name": "Smoldering Crater",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "plst",
+  "set_name": "The List",
+  "collector_number": "DMR-257",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

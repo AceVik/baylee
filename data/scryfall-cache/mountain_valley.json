@@ -1,0 +1,19 @@
+{
+  "id": "3094800e-9994-47c3-9ebc-536bf5de13cd",
+  "oracle_id": "0b7393aa-d563-45bc-9946-8e7d1729d498",
+  "name": "Mountain Valley",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Mountain or Forest card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "61",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "d45b0ed8-8692-4fa7-b32c-30d29028da3d",
+  "oracle_id": "3dfbf95e-a91b-429c-96e2-95ac777e7027",
+  "name": "Sejiri Steppe",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target creature you control gains protection from the color of your choice until end of turn.\n{T}: Add {W}.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "ddg",
+  "set_name": "Duel Decks: Knights vs. Dragons",
+  "collector_number": "36",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

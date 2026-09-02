@@ -1,0 +1,22 @@
+{
+  "id": "5b46b8d8-723a-4752-b97d-29ef83bd294c",
+  "oracle_id": "44b83535-fdbf-4307-bf53-ca20470a768d",
+  "name": "Drossforge Bridge",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "This land enters tapped.\nIndestructible\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "246",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "91cef7ce-aa9f-4659-ac24-394c5ab9f77c",
+  "oracle_id": "e7286688-ffbe-4d25-ad55-27990f005368",
+  "name": "Sliver Hive",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Sliver spell.\n{5}, {T}: Create a 1/1 colorless Sliver creature token. Activate only if you control a Sliver.",
+  "colors": [],
+  "color_identity": [],
+  "set": "m15",
+  "set_name": "Magic 2015",
+  "collector_number": "247",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

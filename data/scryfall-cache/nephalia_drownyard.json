@@ -1,0 +1,22 @@
+{
+  "id": "fe2e25b7-f950-482b-9e35-266b1278a71a",
+  "oracle_id": "6429b4ed-1845-4643-9a3d-85f7c12f2bba",
+  "name": "Nephalia Drownyard",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}{U}{B}, {T}: Target player mills three cards.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "lcc",
+  "set_name": "The Lost Caverns of Ixalan Commander",
+  "collector_number": "344",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

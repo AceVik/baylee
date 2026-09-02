@@ -1,0 +1,19 @@
+{
+  "id": "275471e3-ded1-40ac-91ef-369dce5764d9",
+  "oracle_id": "91d4a5fe-fd6d-4b14-a63f-61b4d0ecd9c4",
+  "name": "Inventors' Fair",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "At the beginning of your upkeep, if you control three or more artifacts, you gain 1 life.\n{T}: Add {C}.\n{4}, {T}, Sacrifice Inventors' Fair: Search your library for an artifact card, reveal it, put it into your hand, then shuffle. Activate only if you control three or more artifacts.",
+  "colors": [],
+  "color_identity": [],
+  "set": "kld",
+  "set_name": "Kaladesh",
+  "collector_number": "247",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

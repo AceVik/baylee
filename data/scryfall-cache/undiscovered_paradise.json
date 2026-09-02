@@ -1,0 +1,19 @@
+{
+  "id": "5f6e8830-5e62-4945-8b73-60f0628d38e7",
+  "oracle_id": "76c33d54-ce55-400e-bec5-79d33a5a20fb",
+  "name": "Undiscovered Paradise",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add one mana of any color. During your next untap step, as you untap your permanents, return this land to its owner's hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "vis",
+  "set_name": "Visions",
+  "collector_number": "167",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

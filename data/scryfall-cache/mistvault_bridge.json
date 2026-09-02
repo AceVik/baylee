@@ -1,0 +1,22 @@
+{
+  "id": "9f36a6e2-3e51-4a30-a225-10cfe6650b9d",
+  "oracle_id": "33ee23bc-6327-4a54-a704-dfd83be36bb5",
+  "name": "Mistvault Bridge",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "This land enters tapped.\nIndestructible\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "mh2",
+  "set_name": "Modern Horizons 2",
+  "collector_number": "249",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

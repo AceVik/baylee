@@ -1,0 +1,19 @@
+{
+  "id": "65ce9590-87c0-4057-bddb-fadc0de552f6",
+  "oracle_id": "5548ff43-e5f6-4a63-8562-a2b1de06d6f5",
+  "name": "Riveteers Overlook",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, sacrifice it. When you do, search your library for a basic Swamp, Mountain, or Forest card, put it onto the battlefield tapped, then shuffle and you gain 1 life.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "162",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "d130205f-53e3-4c04-967c-4808d7945880",
+  "oracle_id": "8f7f4061-8998-40e9-b980-c63f27e7a5cd",
+  "name": "Safe Haven",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{2}, {T}: Exile target creature you control.\nAt the beginning of your upkeep, you may sacrifice this land. If you do, return each card exiled with this land to the battlefield under its owner's control.",
+  "colors": [],
+  "color_identity": [],
+  "set": "tsb",
+  "set_name": "Time Spiral Timeshifted",
+  "collector_number": "121",
+  "rarity": "special",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

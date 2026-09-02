@@ -1,0 +1,21 @@
+{
+  "id": "c91ac3f2-9fcd-4b41-a168-ae7f70b67d3c",
+  "oracle_id": "f2000fb8-39c6-4ad6-a020-5245faaa1eba",
+  "name": "Fire Nation Palace",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a basic land.\n{T}: Add {R}.\n{1}{R}, {T}: Target creature you control gains firebending 4 until end of turn. (Whenever it attacks, add {R}{R}{R}{R}. This mana lasts until end of combat.)",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "268",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

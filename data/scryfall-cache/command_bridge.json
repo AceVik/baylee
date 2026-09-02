@@ -1,0 +1,19 @@
+{
+  "id": "247670d2-a7cd-4ed7-9c77-704c7962b815",
+  "oracle_id": "87c8e1ed-258a-4a89-bcc6-211405e49692",
+  "name": "Command Bridge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you tap an untapped permanent you control.\n{T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "eoe",
+  "set_name": "Edge of Eternities",
+  "collector_number": "252",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

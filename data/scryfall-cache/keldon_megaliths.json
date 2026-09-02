@@ -1,0 +1,21 @@
+{
+  "id": "da7c4600-1dc3-4a9d-a112-1b70abcb8951",
+  "oracle_id": "ec0ea7f7-52ce-40d1-b34c-e36dd4b26120",
+  "name": "Keldon Megaliths",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\nHellbent — {1}{R}, {T}: This land deals 1 damage to any target. Activate only if you have no cards in hand.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "jvc",
+  "set_name": "Duel Decks Anthology: Jace vs. Chandra",
+  "collector_number": "58",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

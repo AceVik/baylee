@@ -1,0 +1,19 @@
+{
+  "id": "d2507bc2-da17-4e46-b4c5-ba0080ce2c6f",
+  "oracle_id": "f3e8dc56-2810-474e-a6a7-9c3555f94ae9",
+  "name": "Rishadan Port",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Tap target land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "a25",
+  "set_name": "Masters 25",
+  "collector_number": "246",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

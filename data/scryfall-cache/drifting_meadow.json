@@ -1,0 +1,21 @@
+{
+  "id": "8cb024fa-2df1-4414-b0d7-6f700d152c51",
+  "oracle_id": "c6eb2814-0021-4308-ad44-6c8cc59b0d1c",
+  "name": "Drifting Meadow",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "245",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

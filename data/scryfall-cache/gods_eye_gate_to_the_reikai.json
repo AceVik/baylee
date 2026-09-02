@@ -1,0 +1,19 @@
+{
+  "id": "bdc33a21-d196-4c17-a296-87ff08e7ef69",
+  "oracle_id": "a66008c9-1ede-4dcf-8d35-6c0ed2390996",
+  "name": "Gods' Eye, Gate to the Reikai",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {C}.\nWhen Gods' Eye is put into a graveyard from the battlefield, create a 1/1 colorless Spirit creature token.",
+  "colors": [],
+  "color_identity": [],
+  "set": "bok",
+  "set_name": "Betrayers of Kamigawa",
+  "collector_number": "164",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

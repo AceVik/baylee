@@ -1,0 +1,21 @@
+{
+  "id": "03b9c9ed-fb6f-4f8d-bb1d-7999dec4245c",
+  "oracle_id": "c733873e-77db-471f-8061-139db24f7e7c",
+  "name": "Cephalid Coliseum",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {U}. This land deals 1 damage to you.\nThreshold — {U}, {T}, Sacrifice this land: Target player draws three cards, then discards three cards. Activate only if there are seven or more cards in your graveyard.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "349",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

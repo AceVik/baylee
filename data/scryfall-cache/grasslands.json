@@ -1,0 +1,19 @@
+{
+  "id": "ecf52798-b2e0-4d0a-a41b-8927bfa60375",
+  "oracle_id": "e80bd454-8bc5-4921-90cf-6ad28a27a88b",
+  "name": "Grasslands",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Forest or Plains card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1002",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

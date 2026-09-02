@@ -1,0 +1,40 @@
+{
+  "id": "50f8e2b6-98c7-4f28-bb39-e1fbe841f1ee",
+  "oracle_id": "d3b7b541-6f05-46c1-8031-c848c4bd4635",
+  "name": "Ojer Axonil, Deepest Might // Temple of Power",
+  "mana_cost": null,
+  "type_line": "Legendary Creature — God // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "158",
+  "rarity": "mythic",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Ojer Axonil, Deepest Might",
+      "mana_cost": "{2}{R}{R}",
+      "type_line": "Legendary Creature — God",
+      "oracle_text": "Trample\nIf a red source you control would deal an amount of noncombat damage less than Ojer Axonil's power to an opponent, that source deals damage equal to Ojer Axonil's power instead.\nWhen Ojer Axonil dies, return it to the battlefield tapped and transformed under its owner's control.",
+      "power": "4",
+      "toughness": "4",
+      "loyalty": null
+    },
+    {
+      "name": "Temple of Power",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "(Transforms from Ojer Axonil, Deepest Might.)\n{T}: Add {R}.\n{2}{R}, {T}: Transform this land. Activate only if red sources you controlled dealt 4 or more noncombat damage this turn and only as a sorcery.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "189b4925-b34b-43bd-869e-1b1db99450e6",
+  "oracle_id": "bce32541-3bc4-4553-ace2-784a58f164aa",
+  "name": "Bog Wreckage",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}.\n{T}, Sacrifice this land: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "314",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

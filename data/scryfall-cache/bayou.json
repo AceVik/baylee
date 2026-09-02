@@ -1,0 +1,22 @@
+{
+  "id": "bd7567df-b4d8-41a8-8eac-c05afa784bfe",
+  "oracle_id": "b76d1ae6-ad1d-4bac-b4c3-2e03e0e84d9b",
+  "name": "Bayou",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Forest",
+  "oracle_text": "({T}: Add {B} or {G}.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "vma",
+  "set_name": "Vintage Masters",
+  "collector_number": "293",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

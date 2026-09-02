@@ -1,0 +1,22 @@
+{
+  "id": "15f81ac6-a550-4782-a3a9-22d7fef1c206",
+  "oracle_id": "56f1a16a-9f41-41fb-b580-c200bca27cd6",
+  "name": "Fortified Village",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As this land enters, you may reveal a Forest or Plains card from your hand. If you don't, this land enters tapped.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "245",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

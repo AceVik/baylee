@@ -1,0 +1,22 @@
+{
+  "id": "1dde3c68-6f29-4c00-b668-c25ac9e3e13b",
+  "oracle_id": "64e29bfc-9313-4e8c-808c-bc27f6b018a6",
+  "name": "Bloodfell Caves",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "250",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

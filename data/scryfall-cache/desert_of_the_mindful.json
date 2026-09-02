@@ -1,0 +1,21 @@
+{
+  "id": "517f71a7-ec5b-46a6-b5ff-8c06abf0a630",
+  "oracle_id": "508f9e7e-2ff7-4593-b0a9-0612d7b5d646",
+  "name": "Desert of the Mindful",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\nCycling {1}{U} ({1}{U}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "c21",
+  "set_name": "Commander 2021",
+  "collector_number": "287",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

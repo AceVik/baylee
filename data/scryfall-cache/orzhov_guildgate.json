@@ -1,0 +1,22 @@
+{
+  "id": "a917be03-0c17-4454-b044-c4375e5c8085",
+  "oracle_id": "57b37df5-fee4-4720-931f-f0cb0a8b338c",
+  "name": "Orzhov Guildgate",
+  "mana_cost": "",
+  "type_line": "Land — Gate",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "692",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

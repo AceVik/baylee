@@ -1,0 +1,22 @@
+{
+  "id": "112b6577-fbd6-46dd-b77d-37df0abe9845",
+  "oracle_id": "d9dfef08-b824-4d56-a0e9-3dcefb7e4612",
+  "name": "Tranquil Garden",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {G} or {W}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "284",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

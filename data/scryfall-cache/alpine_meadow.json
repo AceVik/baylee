@@ -1,0 +1,22 @@
+{
+  "id": "8702d6b9-bb01-4841-a76d-4a576066c772",
+  "oracle_id": "8c281ebe-d9a1-48af-b58b-19c55aa4625b",
+  "name": "Alpine Meadow",
+  "mana_cost": "",
+  "type_line": "Snow Land — Mountain Plains",
+  "oracle_text": "({T}: Add {R} or {W}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "248",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

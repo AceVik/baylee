@@ -139,19 +139,48 @@ mod tests {
         }
     }
 
-    /// `coverage` defaults to `Unimplemented`, so a card that reaches the
-    /// acceptance pool without the line is reported as a stub rather than
-    /// quietly offered to deckbuilders.
+    /// `coverage` defaults to `Unimplemented`, and a stub must be *empty*:
+    /// abilities without the claim are abilities nothing will ever run,
+    /// because the deckbuilder refuses to offer the card at all.
+    ///
+    /// This used to read "the pool contains no stubs", which held while the
+    /// pool was 196 hand-finished cards and stopped being expressible the
+    /// moment the pool became every land Scryfall prints. The rule that
+    /// survives the growth is the one that was actually load-bearing: a card
+    /// either claims what it can do or does nothing, never something in
+    /// between. A generator that reads half a card and forgets to refuse it
+    /// fails here.
     #[test]
-    fn coverage_is_claimed_explicitly_or_not_at_all() {
-        let unimplemented: Vec<&str> = generated::ALL
-            .iter()
-            .filter(|(_, d)| !d.is_implemented())
-            .map(|(_, d)| d.name())
-            .collect();
+    fn an_unimplemented_card_carries_no_abilities() {
+        use baylee_cards_dsl::{Coverage, KeywordSet};
+
+        let mut offenders = Vec::new();
+        for (_, def) in generated::ALL {
+            match def.coverage {
+                Coverage::Implemented => {}
+                Coverage::Partial(reason) => assert!(
+                    !reason.is_empty(),
+                    "{} is Partial without saying what is missing",
+                    def.name()
+                ),
+                Coverage::Unimplemented => {
+                    let has_rules = !def.abilities.is_empty()
+                        || def
+                            .faces
+                            .iter()
+                            .any(|f| !f.abilities.is_empty() || !f.enter_modifiers.is_empty())
+                        || def.keywords != KeywordSet::EMPTY;
+                    if has_rules {
+                        offenders.push(def.name());
+                    }
+                }
+            }
+        }
+        offenders.sort_unstable();
         assert!(
-            unimplemented.is_empty(),
-            "acceptance pool contains stubs: {unimplemented:?}"
+            offenders.is_empty(),
+            "these cards carry rules but do not claim any coverage, so the \
+             deckbuilder hides rules that would otherwise run: {offenders:?}"
         );
     }
 
@@ -181,6 +210,11 @@ mod tests {
         ];
         let mut offenders = Vec::new();
         for (_, def) in generated::ALL {
+            // A stub taps for nothing on purpose and is never offered as
+            // playable; the bug this guards against is a *finished* land.
+            if !def.is_implemented() {
+                continue;
+            }
             for (i, face) in def.faces.iter().enumerate() {
                 if !face.types.contains(TypeSet::LAND) {
                     continue;

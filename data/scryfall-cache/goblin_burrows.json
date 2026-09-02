@@ -1,0 +1,21 @@
+{
+  "id": "dc36acc6-db4b-45b7-b526-7966ff82a44f",
+  "oracle_id": "ad65bb8e-57de-49f3-ba7c-be62cf3fe3df",
+  "name": "Goblin Burrows",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}{R}, {T}: Target Goblin creature gets +2/+0 until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "evg",
+  "set_name": "Duel Decks Anthology: Elves vs. Goblins",
+  "collector_number": "58",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

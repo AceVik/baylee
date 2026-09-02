@@ -1,0 +1,19 @@
+{
+  "id": "492181e4-5825-45d4-b8a1-37f29c32a845",
+  "oracle_id": "82c5ec8e-27be-475a-9921-ad61209fd022",
+  "name": "Unknown Shores",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "thb",
+  "set_name": "Theros Beyond Death",
+  "collector_number": "249",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

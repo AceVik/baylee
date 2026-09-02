@@ -1,0 +1,21 @@
+{
+  "id": "4678132d-85bc-49cc-b3be-62cf709de42b",
+  "oracle_id": "5baa7abe-5bdf-40ce-9a83-a93b7cae71a3",
+  "name": "Soldevi Excavations",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If this land would enter, sacrifice an untapped Island instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {C}{U}.\n{1}, {T}: Scry 1.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "me2",
+  "set_name": "Masters Edition II",
+  "collector_number": "236",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

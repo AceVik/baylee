@@ -1,0 +1,19 @@
+{
+  "id": "29c91aad-bf33-448e-b122-65940fb2e33b",
+  "oracle_id": "249fdd3e-376c-4ec2-a612-4353e0e61ee2",
+  "name": "The Seedcore",
+  "mana_cost": "",
+  "type_line": "Land — Sphere",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast Phyrexian creature spells.\nCorrupted — {T}: Target 1/1 creature gets +2/+1 until end of turn. Activate only if an opponent has three or more poison counters.",
+  "colors": [],
+  "color_identity": [],
+  "set": "one",
+  "set_name": "Phyrexia: All Will Be One",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

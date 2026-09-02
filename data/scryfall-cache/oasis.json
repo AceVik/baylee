@@ -1,0 +1,19 @@
+{
+  "id": "4949330d-9f12-459a-8a64-bd304fc53954",
+  "oracle_id": "4533ce78-0594-4195-96fb-46cbadd0db69",
+  "name": "Oasis",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Prevent the next 1 damage that would be dealt to target creature this turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "me4",
+  "set_name": "Masters Edition IV",
+  "collector_number": "248",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

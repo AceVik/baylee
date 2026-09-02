@@ -1,0 +1,22 @@
+{
+  "id": "1c244fc2-70f0-4149-b0d2-d49fc6bac2b0",
+  "oracle_id": "8683341a-e836-41e5-9034-4da09eb0ab42",
+  "name": "Dimension X",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {R} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "tmt",
+  "set_name": "Teenage Mutant Ninja Turtles",
+  "collector_number": "183",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

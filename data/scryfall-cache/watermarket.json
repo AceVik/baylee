@@ -1,0 +1,19 @@
+{
+  "id": "bf98bb09-c479-4dba-b542-ac5475fac697",
+  "oracle_id": "84d89a3d-4b28-4e19-8298-737ec6a06238",
+  "name": "Watermarket",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}{C}. Spend this mana only to cast spells with watermarks.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ust",
+  "set_name": "Unstable",
+  "collector_number": "166",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "6f787cb6-78cb-4baa-a9cf-cee8b7d8d6b1",
+  "oracle_id": "b02ab3c7-fe4a-443c-b860-ba971d3301b0",
+  "name": "Mercadian Bazaar",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {R} for each storage counter removed this way.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "mmq",
+  "set_name": "Mercadian Masques",
+  "collector_number": "321",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

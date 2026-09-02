@@ -1,0 +1,22 @@
+{
+  "id": "5c9d080f-28d7-41d6-a4e0-5b3e3a5ed770",
+  "oracle_id": "852c6520-d148-4923-a312-05a9af821f24",
+  "name": "Eroded Canyon",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, it deals 1 damage to target opponent.\n{T}: Add {U} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "otj",
+  "set_name": "Outlaws of Thunder Junction",
+  "collector_number": "256",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

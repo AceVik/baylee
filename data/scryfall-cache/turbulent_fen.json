@@ -1,0 +1,22 @@
+{
+  "id": "9737159b-256c-4004-ba5f-0417c35e1b30",
+  "oracle_id": "114dd40d-5ad8-4913-a08f-572b9521eb5b",
+  "name": "Turbulent Fen",
+  "mana_cost": "",
+  "type_line": "Land — Swamp Forest",
+  "oracle_text": "({T}: Add {B} or {G}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "55",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

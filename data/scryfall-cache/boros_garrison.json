@@ -1,0 +1,22 @@
+{
+  "id": "76ec3366-98f3-4903-8f7b-cfcdd60e3be1",
+  "oracle_id": "8fa3ac81-3dfe-4565-be99-5554f7597b4b",
+  "name": "Boros Garrison",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {R}{W}.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "clu",
+  "set_name": "Ravnica: Clue Edition",
+  "collector_number": "231",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

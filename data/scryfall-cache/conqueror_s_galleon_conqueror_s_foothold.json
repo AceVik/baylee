@@ -1,0 +1,38 @@
+{
+  "id": "02bb4b2a-3c9f-48ab-b2a5-ae31f06b82d9",
+  "oracle_id": "88b18901-50cd-461c-b1bc-be900210be8e",
+  "name": "Conqueror's Galleon // Conqueror's Foothold",
+  "mana_cost": null,
+  "type_line": "Artifact — Vehicle // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [],
+  "set": "xln",
+  "set_name": "Ixalan",
+  "collector_number": "234",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Conqueror's Galleon",
+      "mana_cost": "{4}",
+      "type_line": "Artifact — Vehicle",
+      "oracle_text": "When this Vehicle attacks, exile it at end of combat, then return it to the battlefield transformed under your control.\nCrew 4 (Tap any number of creatures you control with total power 4 or more: This Vehicle becomes an artifact creature until end of turn.)",
+      "power": "2",
+      "toughness": "10",
+      "loyalty": null
+    },
+    {
+      "name": "Conqueror's Foothold",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "(Transforms from Conqueror's Galleon.)\n{T}: Add {C}.\n{2}, {T}: Draw a card, then discard a card.\n{4}, {T}: Draw a card.\n{6}, {T}: Return target card from your graveyard to your hand.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

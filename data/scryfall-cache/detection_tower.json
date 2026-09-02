@@ -1,0 +1,19 @@
+{
+  "id": "02f99756-d334-4dba-a375-ba3d91ecae62",
+  "oracle_id": "93695c16-c441-492d-af12-b57df9739846",
+  "name": "Detection Tower",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Until end of turn, your opponents and creatures your opponents control with hexproof can be the targets of spells and abilities you control as though they didn't have hexproof.",
+  "colors": [],
+  "color_identity": [],
+  "set": "m19",
+  "set_name": "Core Set 2019",
+  "collector_number": "249",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

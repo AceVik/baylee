@@ -1,0 +1,22 @@
+{
+  "id": "cafd7db6-b04e-4fa2-bccd-981211132a93",
+  "oracle_id": "ebc5ac83-08d4-4d6b-b840-0c4ba71a38ab",
+  "name": "Vault of Champions",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you have two or more opponents.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "436",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

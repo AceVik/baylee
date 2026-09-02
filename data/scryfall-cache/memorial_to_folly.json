@@ -1,0 +1,21 @@
+{
+  "id": "2c5c070e-91d3-4613-8a46-0323ee425027",
+  "oracle_id": "2bc38f14-0314-4351-8138-e2b8bf041404",
+  "name": "Memorial to Folly",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}.\n{2}{B}, {T}, Sacrifice this land: Return target creature card from your graveyard to your hand.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "377",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

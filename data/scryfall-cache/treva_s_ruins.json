@@ -1,0 +1,23 @@
+{
+  "id": "4f39366c-00df-4528-a324-6a89d0c53f0a",
+  "oracle_id": "7b2c7758-2b89-49ff-8838-8dc9880c7209",
+  "name": "Treva's Ruins",
+  "mana_cost": "",
+  "type_line": "Land — Lair",
+  "oracle_text": "When this land enters, sacrifice it unless you return a non-Lair land you control to its owner's hand.\n{T}: Add {G}, {W}, or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U",
+    "W"
+  ],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "260",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

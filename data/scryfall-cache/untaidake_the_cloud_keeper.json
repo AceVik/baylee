@@ -1,0 +1,19 @@
+{
+  "id": "3c571f66-7a00-4cb0-9da9-8271083f49d3",
+  "oracle_id": "362f25a6-01ff-4c53-be52-c6346a9b0065",
+  "name": "Untaidake, the Cloud Keeper",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "Untaidake enters tapped.\n{T}, Pay 2 life: Add {C}{C}. Spend this mana only to cast legendary spells.",
+  "colors": [],
+  "color_identity": [],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "285",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

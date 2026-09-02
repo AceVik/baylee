@@ -1,0 +1,19 @@
+{
+  "id": "f8d7a2c7-666d-4fc6-bac8-ef8eb66e355d",
+  "oracle_id": "f3c40943-1d7c-4ea2-b34f-8df8b6775701",
+  "name": "Animal Sanctuary",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Put a +1/+1 counter on target Bird, Cat, Dog, Goat, Ox, or Snake.",
+  "colors": [],
+  "color_identity": [],
+  "set": "m21",
+  "set_name": "Core Set 2021",
+  "collector_number": "242",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "0c008129-daba-46bc-829c-d2c0c13ecdd3",
+  "oracle_id": "73e7a2ad-d11c-4867-b97d-f971809da778",
+  "name": "Glacial Chasm",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Cumulative upkeep—Pay 2 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen this land enters, sacrifice a land.\nCreatures you control can't attack.\nPrevent all damage that would be dealt to you.",
+  "colors": [],
+  "color_identity": [],
+  "set": "me2",
+  "set_name": "Masters Edition II",
+  "collector_number": "229",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

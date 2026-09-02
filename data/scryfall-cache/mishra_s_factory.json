@@ -1,0 +1,19 @@
+{
+  "id": "6e9fec20-a52c-42c0-9928-c572d9e1b21f",
+  "oracle_id": "5963e0ef-e0bc-4611-ad4f-813a4c0eacfb",
+  "name": "Mishra's Factory",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}: This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land.\n{T}: Target Assembly-Worker creature gets +1/+1 until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dmr",
+  "set_name": "Dominaria Remastered",
+  "collector_number": "251",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "8c6dc9af-ea7e-41f8-8c1e-22c588312053",
+  "oracle_id": "6f8cc374-e76c-4bfa-bf20-28dea0bfefbe",
+  "name": "Cinder Marsh",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {R}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "tpr",
+  "set_name": "Tempest Remastered",
+  "collector_number": "236",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "1d96dd97-ce88-4576-8261-c7866a06275d",
+  "oracle_id": "81763d7d-3897-4be9-bbf6-f6f5dee366ff",
+  "name": "Memorial to Genius",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\n{4}{U}, {T}, Sacrifice this land: Draw two cards.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "c21",
+  "set_name": "Commander 2021",
+  "collector_number": "301",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

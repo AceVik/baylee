@@ -1,0 +1,19 @@
+{
+  "id": "f73ce8ec-c916-48eb-ae20-c0d6d03d7145",
+  "oracle_id": "2c96ab90-155b-4bf4-acc9-65a2f0cd3189",
+  "name": "Capital City",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "274",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

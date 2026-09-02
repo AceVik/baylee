@@ -1,0 +1,19 @@
+{
+  "id": "d97e739f-8675-488e-be2b-4e455fbe390b",
+  "oracle_id": "495214b5-2eab-4fe4-8879-a30a57a67163",
+  "name": "Unstable Frontier",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Target land you control becomes the basic land type of your choice until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "con",
+  "set_name": "Conflux",
+  "collector_number": "145",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

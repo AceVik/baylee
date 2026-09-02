@@ -1,0 +1,19 @@
+{
+  "id": "b89070ab-4fe6-4919-b160-b32100fb4930",
+  "oracle_id": "6b9cd3d0-4316-4945-b960-12f51052d260",
+  "name": "Esper Panorama",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic Plains, Island, or Swamp card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ncc",
+  "set_name": "New Capenna Commander",
+  "collector_number": "399",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

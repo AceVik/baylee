@@ -1,0 +1,21 @@
+{
+  "id": "29b0027d-c232-4cdd-89c4-75947687aa71",
+  "oracle_id": "79301ae1-8c9c-4723-be21-dc27e1646f35",
+  "name": "Skyline Cascade",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, target creature an opponent controls doesn't untap during its controller's next untap step.\n{T}: Add {U}.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "bfz",
+  "set_name": "Battle for Zendikar",
+  "collector_number": "246",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

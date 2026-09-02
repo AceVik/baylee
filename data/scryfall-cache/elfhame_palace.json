@@ -1,0 +1,22 @@
+{
+  "id": "1ddd0084-349d-4d5f-86af-a3a65dcce73a",
+  "oracle_id": "cade8b94-2998-4d23-87bb-9fbdddd19dea",
+  "name": "Elfhame Palace",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G} or {W}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "c17",
+  "set_name": "Commander 2017",
+  "collector_number": "247",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

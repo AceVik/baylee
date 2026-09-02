@@ -1,0 +1,19 @@
+{
+  "id": "17f4a1aa-395f-423c-b70c-00cf178bb84d",
+  "oracle_id": "d427e61d-5b30-4d2a-bad2-2e7f016036ca",
+  "name": "Island of Wak-Wak",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Target creature with flying has base power 0 until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "set": "me1",
+  "set_name": "Masters Edition",
+  "collector_number": "176",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "21fe2f1b-bfd1-4682-ae23-069300de3791",
+  "oracle_id": "5578cf33-62f5-456c-a58c-f744a25df79b",
+  "name": "Svyelunite Temple",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\n{T}, Sacrifice this land: Add {U}{U}.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "me2",
+  "set_name": "Masters Edition II",
+  "collector_number": "237",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

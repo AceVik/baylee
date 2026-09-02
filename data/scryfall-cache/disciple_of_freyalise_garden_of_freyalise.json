@@ -1,0 +1,40 @@
+{
+  "id": "a8e9ea5a-5e10-4b77-baef-0352ff035483",
+  "oracle_id": "2699005b-a471-429f-a9d8-fbf2077ee2fd",
+  "name": "Disciple of Freyalise // Garden of Freyalise",
+  "mana_cost": null,
+  "type_line": "Creature — Elf Druid // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "250",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Disciple of Freyalise",
+      "mana_cost": "{3}{G}{G}{G}",
+      "type_line": "Creature — Elf Druid",
+      "oracle_text": "When this creature enters, you may sacrifice another creature. If you do, you gain X life and draw X cards, where X is that creature's power.",
+      "power": "3",
+      "toughness": "3",
+      "loyalty": null
+    },
+    {
+      "name": "Garden of Freyalise",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {G}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

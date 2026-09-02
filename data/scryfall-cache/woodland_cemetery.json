@@ -1,0 +1,22 @@
+{
+  "id": "4d6f6c96-f813-4864-b4e1-b2a0aa8be1e8",
+  "oracle_id": "c9fe1383-1331-4a58-a45a-3320250221a9",
+  "name": "Woodland Cemetery",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Swamp or a Forest.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "424",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "1a7e242e-bb48-4134-a1c2-6033713d658f",
+  "oracle_id": "f74c4d96-bc4a-4d32-9519-a753d192144e",
+  "name": "Search for Azcanta // Azcanta, the Sunken Ruin",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "xln",
+  "set_name": "Ixalan",
+  "collector_number": "74",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Search for Azcanta",
+      "mana_cost": "{1}{U}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "At the beginning of your upkeep, surveil 1. Then if you have seven or more cards in your graveyard, you may transform Search for Azcanta. (Look at the top card of your library. You may put that card into your graveyard.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Azcanta, the Sunken Ruin",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Search for Azcanta.)\n{T}: Add {U}.\n{2}{U}, {T}: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in any order.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

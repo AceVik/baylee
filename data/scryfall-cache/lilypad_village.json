@@ -1,0 +1,21 @@
+{
+  "id": "7e95a7cc-ed77-4ca4-80db-61c0fc68bf50",
+  "oracle_id": "5bb06e6f-e3af-4caa-b66d-77248ad46b61",
+  "name": "Lilypad Village",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {U}. Spend this mana only to cast a creature spell.\n{U}, {T}: Surveil 2. Activate only if a Bird, Frog, Otter, or Rat entered the battlefield under your control this turn.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "255",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

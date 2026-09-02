@@ -1,0 +1,22 @@
+{
+  "id": "5e7c2cf6-f36f-451b-bba5-19a82c659c4c",
+  "oracle_id": "2ffb2647-60bb-4916-b919-cbcf18e5e424",
+  "name": "Lava Tubes",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land doesn't untap during your untap step if it has a depletion counter on it.\nAt the beginning of your upkeep, remove a depletion counter from this land.\n{T}: Add {B} or {R}. Put a depletion counter on this land.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "ice",
+  "set_name": "Ice Age",
+  "collector_number": "358",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

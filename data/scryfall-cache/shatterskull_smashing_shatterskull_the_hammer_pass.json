@@ -1,0 +1,40 @@
+{
+  "id": "bc7239ea-f8aa-4a6f-87bd-c35359635673",
+  "oracle_id": "78301998-fd9b-4cd5-afad-dbcb43cac2a7",
+  "name": "Shatterskull Smashing // Shatterskull, the Hammer Pass",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "161",
+  "rarity": "mythic",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Shatterskull Smashing",
+      "mana_cost": "{X}{R}{R}",
+      "type_line": "Sorcery",
+      "oracle_text": "Shatterskull Smashing deals X damage divided as you choose among up to two target creatures and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided as you choose among them instead.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Shatterskull, the Hammer Pass",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

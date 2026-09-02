@@ -1,0 +1,19 @@
+{
+  "id": "405434c7-9206-45b7-af0f-d59aae294d39",
+  "oracle_id": "256b8c23-589e-429d-9e6e-433d55079eb4",
+  "name": "Sunscorched Desert",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "When this land enters, it deals 1 damage to target player or planeswalker.\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "akh",
+  "set_name": "Amonkhet",
+  "collector_number": "249",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

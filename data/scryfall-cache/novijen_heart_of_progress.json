@@ -1,0 +1,22 @@
+{
+  "id": "9a1e15e7-4ba6-41ad-b27b-aee2d037b6a7",
+  "oracle_id": "b3b5137d-0225-4dba-9231-d235ab0f137c",
+  "name": "Novijen, Heart of Progress",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{G}{U}, {T}: Put a +1/+1 counter on each creature that entered this turn.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "c21",
+  "set_name": "Commander 2021",
+  "collector_number": "305",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

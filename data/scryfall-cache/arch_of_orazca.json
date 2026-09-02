@@ -1,0 +1,19 @@
+{
+  "id": "581dcadd-7de4-4b39-bab0-d3567194a252",
+  "oracle_id": "3bb518ff-399b-4ce7-b9ad-a1d563dd7792",
+  "name": "Arch of Orazca",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\n{T}: Add {C}.\n{5}, {T}: Draw a card. Activate only if you have the city's blessing.",
+  "colors": [],
+  "color_identity": [],
+  "set": "lcc",
+  "set_name": "The Lost Caverns of Ixalan Commander",
+  "collector_number": "319",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

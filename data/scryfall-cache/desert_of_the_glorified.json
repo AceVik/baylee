@@ -1,0 +1,21 @@
+{
+  "id": "04a19aea-209d-4354-8c59-d08244185eb8",
+  "oracle_id": "190e664b-9875-4335-af46-353886ed18ff",
+  "name": "Desert of the Glorified",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}.\nCycling {1}{B} ({1}{B}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "hou",
+  "set_name": "Hour of Devastation",
+  "collector_number": "171",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

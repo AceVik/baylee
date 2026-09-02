@@ -1,0 +1,22 @@
+{
+  "id": "5fa4556f-2fdc-42e6-98cb-291cee2ca3ac",
+  "oracle_id": "32b03b48-06da-4a74-a7ac-e5ae39a4f428",
+  "name": "Fetid Pools",
+  "mana_cost": "",
+  "type_line": "Land — Island Swamp",
+  "oracle_text": "({T}: Add {U} or {B}.)\nThis land enters tapped.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "243",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "99255a66-b868-45fc-a2a9-0c89bd851b69",
+  "oracle_id": "a75b02ba-b0c8-47e3-a05c-e9ba221a7578",
+  "name": "Tarrian's Journal // The Tomb of Aclazotz",
+  "mana_cost": null,
+  "type_line": "Legendary Artifact — Book // Legendary Land — Cave",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "lci",
+  "set_name": "The Lost Caverns of Ixalan",
+  "collector_number": "126",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Tarrian's Journal",
+      "mana_cost": "{1}{B}",
+      "type_line": "Legendary Artifact — Book",
+      "oracle_text": "{T}, Sacrifice another artifact or creature: Draw a card. Activate only as a sorcery.\n{2}, {T}, Discard your hand: Transform Tarrian's Journal.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "The Tomb of Aclazotz",
+      "mana_cost": "",
+      "type_line": "Legendary Land — Cave",
+      "oracle_text": "(Transforms from Tarrian's Journal.)\n{T}: Add {B}.\n{T}: You may cast a creature spell from your graveyard this turn. If you do, it enters with a finality counter on it and is a Vampire in addition to its other types. (If a creature with a finality counter on it would die, exile it instead.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

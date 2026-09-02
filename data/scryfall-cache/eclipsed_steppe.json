@@ -1,0 +1,22 @@
+{
+  "id": "d890999a-dcc7-479e-b0f0-60388c737043",
+  "oracle_id": "6216635f-8e6e-40a3-9659-ef6352ab92ce",
+  "name": "Eclipsed Steppe",
+  "mana_cost": "",
+  "type_line": "Land — Plains Swamp",
+  "oracle_text": "({T}: Add {W} or {B}.)\nThis land enters tapped unless you control two or more basic lands.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "53",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

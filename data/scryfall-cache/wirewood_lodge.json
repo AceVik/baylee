@@ -1,0 +1,21 @@
+{
+  "id": "15a92571-1409-40c3-84c3-da01d6f1b104",
+  "oracle_id": "1275653f-de4e-4fe9-aad8-88555fa11680",
+  "name": "Wirewood Lodge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{G}, {T}: Untap target Elf.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "evg",
+  "set_name": "Duel Decks Anthology: Elves vs. Goblins",
+  "collector_number": "27",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

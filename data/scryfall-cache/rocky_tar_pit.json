@@ -1,0 +1,19 @@
+{
+  "id": "2aa1f7c6-f888-4384-9626-f106571e164c",
+  "oracle_id": "8709b5b1-ef9e-45b2-bf4f-ef4c4d613dcd",
+  "name": "Rocky Tar Pit",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Swamp or Mountain card, put it onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "173",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

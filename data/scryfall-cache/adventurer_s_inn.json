@@ -1,0 +1,19 @@
+{
+  "id": "f0da2ee1-986e-4cbf-92eb-d96fdb572ca5",
+  "oracle_id": "232bd88c-ecdb-43dd-b34a-d381cb3bedf2",
+  "name": "Adventurer's Inn",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "When this land enters, you gain 2 life.\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "271",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

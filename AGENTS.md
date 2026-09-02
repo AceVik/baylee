@@ -51,4 +51,6 @@
 ## Legal guardrails
 
 - Unofficial non-commercial fan project. No WotC assets in the repo.
-  Forge files are read-only reference, never copied (GPL-3.0). See `NOTICE`.
+  Forge files are read-only reference and are never copied into the repo or
+  distributed with it (GPL-3.0); codegen may read a local checkout as an
+  automated lookup. See `NOTICE`.

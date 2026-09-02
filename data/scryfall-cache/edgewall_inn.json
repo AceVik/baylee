@@ -1,0 +1,19 @@
+{
+  "id": "ec435e54-628a-43bd-8804-cbc37e375bce",
+  "oracle_id": "4dfd33e8-7e30-493b-8564-f7df5f0257aa",
+  "name": "Edgewall Inn",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nAs this land enters, choose a color.\n{T}: Add one mana of the chosen color.\n{3}, {T}, Sacrifice this land: Return target card that has an Adventure from your graveyard to your hand.",
+  "colors": [],
+  "color_identity": [],
+  "set": "woe",
+  "set_name": "Wilds of Eldraine",
+  "collector_number": "255",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

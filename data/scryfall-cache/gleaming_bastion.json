@@ -1,0 +1,22 @@
+{
+  "id": "c9131bf5-17e3-4aa6-97ed-ed6426b247d0",
+  "oracle_id": "7785ffd4-f169-475d-9558-ce4877b3378a",
+  "name": "Gleaming Bastion",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {W} or {U}. Activate only if this land entered this turn or if you control a basic land.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "267",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

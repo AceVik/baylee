@@ -1,0 +1,22 @@
+{
+  "id": "7e1cdc03-6faa-4138-9a52-caafbe34fb59",
+  "oracle_id": "e861bc08-4f0b-4d22-9b85-9d20227fd5b4",
+  "name": "Thornspire Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {R}.\n{T}: Add {G}. Activate only if you control a Mountain or a Forest.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "270",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

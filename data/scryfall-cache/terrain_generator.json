@@ -1,0 +1,19 @@
+{
+  "id": "f40e9f0f-8c0d-4bfd-9872-370ce3763006",
+  "oracle_id": "a949c96c-362c-45a3-bd5c-ce5ce153ee9e",
+  "name": "Terrain Generator",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: You may put a basic land card from your hand onto the battlefield tapped.",
+  "colors": [],
+  "color_identity": [],
+  "set": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "926",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

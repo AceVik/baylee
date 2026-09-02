@@ -1,0 +1,23 @@
+{
+  "id": "395fe900-ed19-438e-a658-ed7cf85818e5",
+  "oracle_id": "184c5a0d-7654-4421-86e4-7f04bcf49494",
+  "name": "Koskun Keep",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add {R}.\n{2}, {T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G",
+    "R"
+  ],
+  "set": "hml",
+  "set_name": "Homelands",
+  "collector_number": "114",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

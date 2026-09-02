@@ -1,0 +1,19 @@
+{
+  "id": "388169df-4cce-452d-9215-e3f814ff4fdf",
+  "oracle_id": "9ec5a487-d8ed-459a-8f58-56f6e9a2dfe8",
+  "name": "Labyrinth of Skophos",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{4}, {T}: Remove target attacking or blocking creature from combat.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mkc",
+  "set_name": "Murders at Karlov Manor Commander",
+  "collector_number": "272",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

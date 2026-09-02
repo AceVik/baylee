@@ -1,0 +1,22 @@
+{
+  "id": "d151c8e2-d715-470d-868a-f45191db9fa0",
+  "oracle_id": "977c2f33-b622-4172-9efb-7f523becd32b",
+  "name": "Blazemire Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {B}.\n{T}: Add {R}. Activate only if you control a Swamp or a Mountain.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "256",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

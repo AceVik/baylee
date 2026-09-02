@@ -1,0 +1,22 @@
+{
+  "id": "b4b47b80-69ed-44b0-afa0-ca90206dc16d",
+  "oracle_id": "d37f858e-03c8-4594-9b92-cd03699a1591",
+  "name": "Scoured Barrens",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "267",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

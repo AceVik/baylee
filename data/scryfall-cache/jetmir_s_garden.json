@@ -1,0 +1,23 @@
+{
+  "id": "26d40e03-6de4-4373-9fbf-04c1dd79e995",
+  "oracle_id": "f5896356-5744-4f7e-a4e5-1cc36dde5958",
+  "name": "Jetmir's Garden",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Forest Plains",
+  "oracle_text": "({T}: Add {R}, {G}, or {W}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R",
+    "W"
+  ],
+  "set": "snc",
+  "set_name": "Streets of New Capenna",
+  "collector_number": "250",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

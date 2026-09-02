@@ -1,0 +1,21 @@
+{
+  "id": "e85e4098-f872-4aa4-a71a-208b6090be28",
+  "oracle_id": "09496421-74e4-466a-9546-56f2a0c8eef4",
+  "name": "Vault of Whispers",
+  "mana_cost": "",
+  "type_line": "Artifact Land",
+  "oracle_text": "{T}: Add {B}.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "322",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

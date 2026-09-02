@@ -1,0 +1,22 @@
+{
+  "id": "74deeeaa-95e9-42c9-89e3-e317ea63e216",
+  "oracle_id": "5324192b-6687-41e4-8e56-326b21a5dbf3",
+  "name": "Moorland Haunt",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{W}{U}, {T}, Exile a creature card from your graveyard: Create a 1/1 white Spirit creature token with flying.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "voc",
+  "set_name": "Crimson Vow Commander",
+  "collector_number": "175",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "337f2d97-b317-4c10-b151-7acccf38fca8",
+  "oracle_id": "91fbb25b-8521-483f-88b0-77778d25f7fd",
+  "name": "Castle Embereth",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Mountain.\n{T}: Add {R}.\n{1}{R}{R}, {T}: Creatures you control get +1/+0 until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "347",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "64300b71-050f-47a3-83be-f24480bdc01d",
+  "oracle_id": "4034bec6-e3c7-4d3f-81df-7c903977a606",
+  "name": "Nomad Stadium",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {W}. This land deals 1 damage to you.\nThreshold — {W}, {T}, Sacrifice this land: You gain 4 life. Activate only if there are seven or more cards in your graveyard.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "322",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

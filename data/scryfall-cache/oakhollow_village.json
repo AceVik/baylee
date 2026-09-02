@@ -1,0 +1,21 @@
+{
+  "id": "0d49b016-b02b-459f-85e9-c04f6bdcb94e",
+  "oracle_id": "177b7fe4-8565-4631-b4d9-8b2b4282f3ac",
+  "name": "Oakhollow Village",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {G}. Spend this mana only to cast a creature spell.\n{G}, {T}: Put a +1/+1 counter on each Frog, Rabbit, Raccoon, or Squirrel you control that entered the battlefield this turn.",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "258",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

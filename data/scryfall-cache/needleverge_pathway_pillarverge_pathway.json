@@ -1,0 +1,41 @@
+{
+  "id": "6559047e-6ede-4815-a3a0-389062094f9d",
+  "oracle_id": "a9b8d020-4d72-4934-8942-df29ef19fc1d",
+  "name": "Needleverge Pathway // Pillarverge Pathway",
+  "mana_cost": null,
+  "type_line": "Land // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "263",
+  "rarity": "rare",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Needleverge Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Pillarverge Pathway",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "{T}: Add {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

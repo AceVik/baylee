@@ -1,0 +1,19 @@
+{
+  "id": "355dd460-b0e9-41f2-a058-b7f7e39ac387",
+  "oracle_id": "78a2972c-14f4-41f3-99f9-167948bdd73a",
+  "name": "Petrified Hamlet",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "When this land enters, choose a land card name.\nActivated abilities of sources with the chosen name can't be activated unless they're mana abilities.\nLands with the chosen name have \"{T}: Add {C}.\"\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "sos",
+  "set_name": "Secrets of Strixhaven",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

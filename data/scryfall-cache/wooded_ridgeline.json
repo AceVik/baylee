@@ -1,0 +1,22 @@
+{
+  "id": "e8e31184-dca4-48b1-be9d-581247c41d99",
+  "oracle_id": "c2ca3e20-23ca-4d2a-88a1-5e98ff884abb",
+  "name": "Wooded Ridgeline",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Forest",
+  "oracle_text": "({T}: Add {R} or {G}.)\nThis land enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "dmu",
+  "set_name": "Dominaria United",
+  "collector_number": "260",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

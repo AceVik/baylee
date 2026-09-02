@@ -1,0 +1,22 @@
+{
+  "id": "0c37e84e-e7e0-4dfe-bf17-daeb2e434861",
+  "oracle_id": "d473b507-8c33-4118-bc10-b0a268776074",
+  "name": "Choked Estuary",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As this land enters, you may reveal an Island or Swamp card from your hand. If you don't, this land enters tapped.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "229",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

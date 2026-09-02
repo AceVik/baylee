@@ -1,0 +1,22 @@
+{
+  "id": "484a7675-787f-49be-9b44-edd0a7d73812",
+  "oracle_id": "73a39a1b-2fb7-4328-8718-18569ae28e9e",
+  "name": "Lantern-Lit Graveyard",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {R}. This land doesn't untap during your next untap step.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "278",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

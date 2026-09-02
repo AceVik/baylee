@@ -1,0 +1,41 @@
+{
+  "id": "1d94ff37-f04e-48ee-8253-d62ab07f0632",
+  "oracle_id": "a656ad7f-133f-4d93-919a-43bcf1f815f3",
+  "name": "Profane Procession // Tomb of the Dusk Rose",
+  "mana_cost": null,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "rix",
+  "set_name": "Rivals of Ixalan",
+  "collector_number": "166",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Profane Procession",
+      "mana_cost": "{1}{W}{B}",
+      "type_line": "Legendary Enchantment",
+      "oracle_text": "{3}{W}{B}: Exile target creature. Then if there are three or more cards exiled with Profane Procession, transform it.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Tomb of the Dusk Rose",
+      "mana_cost": "",
+      "type_line": "Legendary Land",
+      "oracle_text": "(Transforms from Profane Procession.)\n{T}: Add one mana of any color.\n{2}{W}{B}, {T}: Put a creature card exiled with this permanent onto the battlefield under your control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

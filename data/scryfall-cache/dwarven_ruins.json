@@ -1,0 +1,21 @@
+{
+  "id": "0b6adef9-a1c5-452d-94c7-4110f4998180",
+  "oracle_id": "cbef6ad5-717f-4b02-9c62-e5deba407ad1",
+  "name": "Dwarven Ruins",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R}.\n{T}, Sacrifice this land: Add {R}{R}.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "me2",
+  "set_name": "Masters Edition II",
+  "collector_number": "227",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

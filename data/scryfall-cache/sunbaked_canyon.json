@@ -1,0 +1,22 @@
+{
+  "id": "c36820fa-ee86-4206-9a0d-737a67cf5208",
+  "oracle_id": "f97fd068-b83a-4621-bf8c-cc96e880ce90",
+  "name": "Sunbaked Canyon",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life: Add {R} or {W}.\n{1}, {T}, Sacrifice this land: Draw a card.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "mh1",
+  "set_name": "Modern Horizons",
+  "collector_number": "247",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

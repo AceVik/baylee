@@ -1,0 +1,22 @@
+{
+  "id": "e248204c-865d-42d9-b745-8ff73225b4a1",
+  "oracle_id": "387fe395-e4a0-4fb2-8d6c-88a1a21d2ed8",
+  "name": "Fortified Beachhead",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As this land enters, you may reveal a Soldier card from your hand. This land enters tapped unless you revealed a Soldier card this way or you control a Soldier.\n{T}: Add {W} or {U}.\n{5}, {T}: Soldiers you control get +1/+1 until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "bro",
+  "set_name": "The Brothers' War",
+  "collector_number": "262",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "f26672a8-f4ff-4c64-bb3e-f5072bbc9e3e",
+  "oracle_id": "622e2561-48b1-4aca-9abb-9a3c284dcceb",
+  "name": "Winding Canyons",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: You may cast creature spells this turn as though they had flash.",
+  "colors": [],
+  "color_identity": [],
+  "set": "wth",
+  "set_name": "Weatherlight",
+  "collector_number": "167",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

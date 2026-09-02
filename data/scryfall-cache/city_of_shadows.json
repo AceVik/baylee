@@ -1,0 +1,19 @@
+{
+  "id": "0629322b-e9e8-4cac-abe5-fff083bcc240",
+  "oracle_id": "043192d8-6077-46c3-b43f-b7caf6762869",
+  "name": "City of Shadows",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}, Exile a creature you control: Put a storage counter on this land.\n{T}: Add {C} for each storage counter on this land.",
+  "colors": [],
+  "color_identity": [],
+  "set": "me3",
+  "set_name": "Masters Edition III",
+  "collector_number": "206",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

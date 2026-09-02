@@ -1,0 +1,22 @@
+{
+  "id": "ec93087a-5728-40e8-8625-a1d175d5252c",
+  "oracle_id": "dfac0258-e148-4d7d-8ded-fc2466d9caa6",
+  "name": "Cinder Glade",
+  "mana_cost": "",
+  "type_line": "Land — Mountain Forest",
+  "oracle_text": "({T}: Add {R} or {G}.)\nThis land enters tapped unless you control two or more basic lands.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "230",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

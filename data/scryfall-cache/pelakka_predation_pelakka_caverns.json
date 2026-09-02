@@ -1,0 +1,40 @@
+{
+  "id": "e63f8b20-f45b-4293-9aac-cdc021939be6",
+  "oracle_id": "b0fd6889-20b4-439b-aa97-2e90aca1675a",
+  "name": "Pelakka Predation // Pelakka Caverns",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "B"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "120",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Pelakka Predation",
+      "mana_cost": "{2}{B}",
+      "type_line": "Sorcery",
+      "oracle_text": "Target opponent reveals their hand. You choose a card from it with mana value 3 or greater. That player discards that card.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Pelakka Caverns",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {B}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

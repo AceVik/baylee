@@ -1,0 +1,22 @@
+{
+  "id": "ffe08b0f-bb53-40b9-8057-10b60070459b",
+  "oracle_id": "a34a70b8-02e5-4e8c-a9e7-b21c5a11dddf",
+  "name": "Svogthos, the Restless Tomb",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{3}{B}{G}: Until end of turn, this land becomes a black and green Plant Zombie creature with \"This creature's power and toughness are each equal to the number of creature cards in your graveyard.\" It's still a land.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "cm2",
+  "set_name": "Commander Anthology Volume II",
+  "collector_number": "270",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "72474b66-1dda-409d-8703-b026c1777081",
+  "oracle_id": "cdc4048a-73ec-4ec1-a179-2b36c397bf1a",
+  "name": "Dakmor Salvage",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}.\nDredge 2 (If you would draw a card, you may mill two cards instead. If you do, return this card from your graveyard to your hand.)",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "eoc",
+  "set_name": "Edge of Eternities Commander",
+  "collector_number": "156",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

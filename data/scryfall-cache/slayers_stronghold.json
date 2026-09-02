@@ -1,0 +1,22 @@
+{
+  "id": "3b2c82ea-6793-407c-ac9f-5fc14d4d09ea",
+  "oracle_id": "2de7367b-a5a4-43f4-8f8f-b931ea28150d",
+  "name": "Slayers' Stronghold",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{R}{W}, {T}: Target creature gets +2/+0 and gains vigilance and haste until end of turn.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "mkc",
+  "set_name": "Murders at Karlov Manor Commander",
+  "collector_number": "295",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

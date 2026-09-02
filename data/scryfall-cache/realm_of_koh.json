@@ -1,0 +1,21 @@
+{
+  "id": "061ac694-610c-479f-b038-a4ef5270d5d7",
+  "oracle_id": "bb9ce416-eef1-49e8-89a0-2b6837505070",
+  "name": "Realm of Koh",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a basic land.\n{T}: Add {B}.\n{3}{B}, {T}: Create a 1/1 colorless Spirit creature token with \"This token can't block or be blocked by non-Spirit creatures.\"",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "tla",
+  "set_name": "Avatar: The Last Airbender",
+  "collector_number": "276",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

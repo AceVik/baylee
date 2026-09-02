@@ -1,0 +1,19 @@
+{
+  "id": "1438606d-556d-4b96-9662-fcac051af045",
+  "oracle_id": "5028dfe8-c505-4643-b493-760b1f19d47f",
+  "name": "School of the Unseen",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "set": "all",
+  "set_name": "Alliances",
+  "collector_number": "141",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

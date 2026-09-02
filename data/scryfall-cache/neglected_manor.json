@@ -1,0 +1,22 @@
+{
+  "id": "11cf1531-8a3c-4e28-a114-d3a342b33bb6",
+  "oracle_id": "c8c632ab-14ec-44e1-ac00-81d48336320d",
+  "name": "Neglected Manor",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless a player has 13 or less life.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "dsk",
+  "set_name": "Duskmourn: House of Horror",
+  "collector_number": "264",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

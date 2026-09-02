@@ -1,0 +1,22 @@
+{
+  "id": "18d236ce-3b78-403a-b5f9-4fb44123d85b",
+  "oracle_id": "5eb8b497-ec9a-4a89-ad29-1ec3ca82da7c",
+  "name": "Brushland",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {G} or {W}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "bro",
+  "set_name": "The Brothers' War",
+  "collector_number": "259",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

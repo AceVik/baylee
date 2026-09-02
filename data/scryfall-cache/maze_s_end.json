@@ -1,0 +1,19 @@
+{
+  "id": "ea9a4d1a-79dd-4b15-8e3b-f111f16d6bfc",
+  "oracle_id": "49479778-c4c0-43ba-a7b7-45f00d067462",
+  "name": "Maze's End",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{3}, {T}, Return this land to its owner's hand: Search your library for a Gate card, put it onto the battlefield, then shuffle. If you control ten or more Gates with different names, you win the game.",
+  "colors": [],
+  "color_identity": [],
+  "set": "fdn",
+  "set_name": "Foundations",
+  "collector_number": "727",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

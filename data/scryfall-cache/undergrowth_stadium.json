@@ -1,0 +1,22 @@
+{
+  "id": "f25aa8aa-e2f7-4634-8a96-2082e76c6503",
+  "oracle_id": "7c69f718-acc8-4851-8e5d-0cbaaa86192c",
+  "name": "Undergrowth Stadium",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you have two or more opponents.\n{T}: Add {B} or {G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "tmc",
+  "set_name": "Teenage Mutant Ninja Turtles Eternal",
+  "collector_number": "80",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

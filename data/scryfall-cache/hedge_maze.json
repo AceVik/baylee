@@ -1,0 +1,22 @@
+{
+  "id": "5260f8ae-805b-4eae-badf-62de0f768867",
+  "oracle_id": "ca4b6689-04ee-4227-9bdc-cb5a9590c745",
+  "name": "Hedge Maze",
+  "mana_cost": "",
+  "type_line": "Land — Forest Island",
+  "oracle_text": "({T}: Add {G} or {U}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "mkm",
+  "set_name": "Murders at Karlov Manor",
+  "collector_number": "262",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

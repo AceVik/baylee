@@ -1,0 +1,19 @@
+{
+  "id": "5041ae16-29ff-4ad5-8a37-4736e9409294",
+  "oracle_id": "b5fa5651-d714-44d6-867b-be0e3224b7ed",
+  "name": "Muraganda Raceway",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "Start your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)\n{T}: Add {C}.\nMax speed — {T}: Add {C}{C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "257",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

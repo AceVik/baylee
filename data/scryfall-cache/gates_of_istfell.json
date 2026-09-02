@@ -1,0 +1,22 @@
+{
+  "id": "2627acb7-57d9-4429-9bc5-e7dd444d8d48",
+  "oracle_id": "6f85c26e-3c87-4112-ad1a-8a5708555a93",
+  "name": "Gates of Istfell",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\n{2}{W}{U}{U}, {T}, Sacrifice this land: You gain 2 life and draw two cards.",
+  "colors": [],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "256",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

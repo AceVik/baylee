@@ -1,0 +1,21 @@
+{
+  "id": "53ec4ad3-9cf0-4f1b-a9db-d63feee594ab",
+  "oracle_id": "aeeab1df-0b8b-4bc4-a5f9-aac413449bec",
+  "name": "Mudflat Village",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {B}. Spend this mana only to cast a creature spell.\n{1}{B}, {T}, Sacrifice this land: Return target Bat, Lizard, Rat, or Squirrel card from your graveyard to your hand.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "blb",
+  "set_name": "Bloomburrow",
+  "collector_number": "257",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

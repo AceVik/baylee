@@ -1,0 +1,22 @@
+{
+  "id": "cc2741d8-2c02-4acd-8ca2-55b4bf6aef1c",
+  "oracle_id": "8220c5fa-28dc-40d0-a38a-d8eefc2795d6",
+  "name": "Stensia Bloodhall",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{3}{B}{R}, {T}: This land deals 2 damage to target player or planeswalker.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "isd",
+  "set_name": "Innistrad",
+  "collector_number": "247",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

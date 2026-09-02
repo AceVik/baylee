@@ -1,0 +1,21 @@
+{
+  "id": "848d686a-e2f7-488d-947f-a555099b74b1",
+  "oracle_id": "92392467-a22f-4dd7-a0eb-393bef956dc0",
+  "name": "Cabal Pit",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {B}. This land deals 1 damage to you.\nThreshold — {B}, {T}, Sacrifice this land: Target creature gets -2/-2 until end of turn. Activate only if there are seven or more cards in your graveyard.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "ody",
+  "set_name": "Odyssey",
+  "collector_number": "315",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

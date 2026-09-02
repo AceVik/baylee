@@ -1,0 +1,40 @@
+{
+  "id": "548dd152-f0b6-4e8f-9afc-a4ec1671b648",
+  "oracle_id": "4cc014f3-05e0-442e-9dee-03eab1aa65a3",
+  "name": "Lindblum, Industrial Regency // Mage Siege",
+  "mana_cost": "{2}{R}",
+  "type_line": "Land — Town // Instant — Adventure",
+  "oracle_text": null,
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "285",
+  "rarity": "rare",
+  "layout": "adventure",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Lindblum, Industrial Regency",
+      "mana_cost": "",
+      "type_line": "Land — Town",
+      "oracle_text": "This land enters tapped.\n{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Mage Siege",
+      "mana_cost": "{2}{R}",
+      "type_line": "Instant — Adventure",
+      "oracle_text": "Create a 0/1 black Wizard creature token with \"Whenever you cast a noncreature spell, this token deals 1 damage to each opponent.\"",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

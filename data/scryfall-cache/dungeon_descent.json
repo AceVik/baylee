@@ -1,0 +1,19 @@
+{
+  "id": "f4cccdbc-f4f4-42b6-9747-6ef703ff949a",
+  "oracle_id": "f086a63c-0c62-4674-bd27-82e7aed12b1a",
+  "name": "Dungeon Descent",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{4}, {T}, Tap an untapped legendary creature you control: Venture into the dungeon. Activate only as a sorcery. (Enter the first room or advance to the next room.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "afr",
+  "set_name": "Adventures in the Forgotten Realms",
+  "collector_number": "255",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

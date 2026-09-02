@@ -1,0 +1,21 @@
+{
+  "id": "5728f3ec-62bc-4c56-9242-bc2a5fa175ee",
+  "oracle_id": "852d4dc3-404d-4565-99e9-1eac8f6eca5e",
+  "name": "Desert of the Indomitable",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\nCycling {1}{G} ({1}{G}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "otc",
+  "set_name": "Outlaws of Thunder Junction Commander",
+  "collector_number": "285",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

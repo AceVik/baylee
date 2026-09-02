@@ -1,0 +1,21 @@
+{
+  "id": "6769de45-903f-4269-a100-9ceca1df26ac",
+  "oracle_id": "48a830f1-8965-4f97-b3d8-ca98eab1ba33",
+  "name": "Sand Silos",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nYou may choose not to untap this land during your untap step.\nAt the beginning of your upkeep, if this land is tapped, put a storage counter on it.\n{T}, Remove any number of storage counters from this land: Add {U} for each storage counter removed this way.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "5ed",
+  "set_name": "Fifth Edition",
+  "collector_number": "423",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

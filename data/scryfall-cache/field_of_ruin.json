@@ -1,0 +1,19 @@
+{
+  "id": "143147d2-2eec-41e7-b78a-592288b38630",
+  "oracle_id": "f825c98f-a327-440b-8c0d-ebe02e23bfb7",
+  "name": "Field of Ruin",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Destroy target nonbasic land an opponent controls. Each player searches their library for a basic land card, puts it onto the battlefield, then shuffles.",
+  "colors": [],
+  "color_identity": [],
+  "set": "moc",
+  "set_name": "March of the Machine Commander",
+  "collector_number": "400",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "55776293-fde5-481e-a069-31721866a7d7",
+  "oracle_id": "9c8007ac-4b3d-4444-93e9-f583185e5d81",
+  "name": "Blasted Landscape",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "cm2",
+  "set_name": "Commander Anthology Volume II",
+  "collector_number": "238",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

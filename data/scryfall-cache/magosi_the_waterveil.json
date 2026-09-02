@@ -1,0 +1,21 @@
+{
+  "id": "3c84cf70-4164-47ea-8da1-c0ca1ac132e1",
+  "oracle_id": "4bdffa67-e6b3-4588-b76e-c11db6f043ca",
+  "name": "Magosi, the Waterveil",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\n{U}, {T}: Put an eon counter on this land. Skip your next turn.\n{T}, Remove an eon counter from this land and return it to its owner's hand: Take an extra turn after this one.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "zen",
+  "set_name": "Zendikar",
+  "collector_number": "218",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

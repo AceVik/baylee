@@ -1,0 +1,19 @@
+{
+  "id": "9979db80-83f6-41ed-aea2-0c222e923add",
+  "oracle_id": "6a4ee425-b3b8-487d-866c-9e2d73682466",
+  "name": "Stardew Valley",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{2}, {T}, Tap an untapped creature you control: Create a Food token.\n{3}, {T}: Choose target permanent you control. Draw a card, then another player of your choice may gain control of that permanent. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "set": "sld",
+  "set_name": "Secret Lair Drop",
+  "collector_number": "2801",
+  "rarity": "mythic",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

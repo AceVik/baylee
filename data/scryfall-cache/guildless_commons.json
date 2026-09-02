@@ -1,0 +1,19 @@
+{
+  "id": "8f943d5d-e8a1-4fe1-aad5-80c7ccf15435",
+  "oracle_id": "ee723c7c-ec9f-4ffb-8f36-cd7637eb1fae",
+  "name": "Guildless Commons",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {C}{C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "cmm",
+  "set_name": "Commander Masters",
+  "collector_number": "1003",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

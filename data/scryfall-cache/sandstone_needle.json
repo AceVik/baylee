@@ -1,0 +1,21 @@
+{
+  "id": "82bc7c6b-2e3d-42d1-b2bb-b37b6f34d33b",
+  "oracle_id": "c8e0a1a5-8188-4677-9d8a-a18eb593343a",
+  "name": "Sandstone Needle",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {R}{R}. If there are no depletion counters on this land, sacrifice it.",
+  "colors": [],
+  "color_identity": [
+    "R"
+  ],
+  "set": "mmq",
+  "set_name": "Mercadian Masques",
+  "collector_number": "326",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

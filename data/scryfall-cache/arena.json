@@ -1,0 +1,19 @@
+{
+  "id": "e5b7afa9-e07a-4a84-a41f-7a8bc5c1d274",
+  "oracle_id": "12326d23-1fb5-4084-a23a-d6e2c90ea36c",
+  "name": "Arena",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{3}, {T}: Tap target creature you control and target creature of an opponent's choice they control. Those creatures fight each other. (Each deals damage equal to its power to the other.)",
+  "colors": [],
+  "color_identity": [],
+  "set": "tsb",
+  "set_name": "Time Spiral Timeshifted",
+  "collector_number": "117",
+  "rarity": "special",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

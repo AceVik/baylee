@@ -1,0 +1,22 @@
+{
+  "id": "855f59a5-17a8-4aca-8a4d-f98111eba14c",
+  "oracle_id": "1af15c1d-a41c-44cc-9614-d72694dd26e8",
+  "name": "Savage Mansion",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {R} or {G}.\n{4}, {T}: Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "R"
+  ],
+  "set": "spm",
+  "set_name": "Marvel's Spider-Man",
+  "collector_number": "183",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

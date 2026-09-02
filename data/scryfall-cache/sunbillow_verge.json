@@ -1,0 +1,22 @@
+{
+  "id": "94ed132f-b818-4dbf-9b4a-e5acb067e0a4",
+  "oracle_id": "a202276b-1f1b-4277-95ee-26877a204f5e",
+  "name": "Sunbillow Verge",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {W}.\n{T}: Add {R}. Activate only if you control a Mountain or a Plains.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "W"
+  ],
+  "set": "dft",
+  "set_name": "Aetherdrift",
+  "collector_number": "264",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

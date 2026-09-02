@@ -1,0 +1,19 @@
+{
+  "id": "8b63efb6-249c-4f57-9af1-baffe938520c",
+  "oracle_id": "92c9aad6-35ec-425d-be7d-393328992820",
+  "name": "Glimmerpost",
+  "mana_cost": "",
+  "type_line": "Land — Locus",
+  "oracle_text": "When this land enters, you gain 1 life for each Locus on the battlefield.\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "som",
+  "set_name": "Scars of Mirrodin",
+  "collector_number": "227",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

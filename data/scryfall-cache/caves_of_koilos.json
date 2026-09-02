@@ -1,0 +1,22 @@
+{
+  "id": "a8a57915-5226-4d3c-ae8e-a55c50f3c131",
+  "oracle_id": "33de01e9-ce5a-42d4-afcb-343cd54a6d80",
+  "name": "Caves of Koilos",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "365",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

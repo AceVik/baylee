@@ -1,0 +1,22 @@
+{
+  "id": "82c2a0f7-0f53-4627-8be8-227fde331a69",
+  "oracle_id": "70965b80-c8ad-4718-ae20-12a4d8228898",
+  "name": "Skemfar Elderhall",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\n{2}{B}{B}{G}, {T}, Sacrifice this land: Up to one target creature you don't control gets -2/-2 until end of turn. Create two 1/1 green Elf Warrior creature tokens. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "268",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

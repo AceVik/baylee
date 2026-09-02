@@ -1,0 +1,21 @@
+{
+  "id": "98ad5f0c-8775-4e89-8e92-84a6ade93e35",
+  "oracle_id": "33a90122-7280-4481-9b97-5879194cae40",
+  "name": "Dalkovan Encampment",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Swamp or a Mountain.\n{T}: Add {W}.\n{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking. Sacrifice them at the beginning of the next end step.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "tdm",
+  "set_name": "Tarkir: Dragonstorm",
+  "collector_number": "253",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

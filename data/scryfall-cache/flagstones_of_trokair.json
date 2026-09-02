@@ -1,0 +1,21 @@
+{
+  "id": "a0acea27-88de-4d27-8da2-8f82439526a1",
+  "oracle_id": "f73979bb-91a5-4388-b70b-0cd7a4e14291",
+  "name": "Flagstones of Trokair",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {W}.\nWhen Flagstones of Trokair is put into a graveyard from the battlefield, you may search your library for a Plains card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [],
+  "color_identity": [
+    "W"
+  ],
+  "set": "tsr",
+  "set_name": "Time Spiral Remastered",
+  "collector_number": "278",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

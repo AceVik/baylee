@@ -1,0 +1,19 @@
+{
+  "id": "42681dce-5c63-4e56-955e-39f085ea6ae9",
+  "oracle_id": "e10e84a7-d564-487a-ac64-5a001a45ee90",
+  "name": "Rath's Edge",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {C}.\n{4}, {T}, Sacrifice a land: Rath's Edge deals 1 damage to any target.",
+  "colors": [],
+  "color_identity": [],
+  "set": "nem",
+  "set_name": "Nemesis",
+  "collector_number": "142",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

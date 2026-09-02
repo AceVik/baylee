@@ -1,0 +1,22 @@
+{
+  "id": "445bd162-b523-45f4-83d0-ffc702fc1fac",
+  "oracle_id": "33f52df8-4b44-4422-8b0a-37fead9c894b",
+  "name": "Vineglimmer Snarl",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "As this land enters, you may reveal a Forest or Island card from your hand. If you don't, this land enters tapped.\n{T}: Add {G} or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "420",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

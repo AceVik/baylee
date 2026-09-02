@@ -1,0 +1,19 @@
+{
+  "id": "049d7a08-1605-4ce2-b8c5-634ce2a261e0",
+  "oracle_id": "cd535fa3-6fd8-4227-97fd-3ef07cb0598d",
+  "name": "Sheltered Valley",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "If this land would enter, instead sacrifice each other permanent named Sheltered Valley you control, then put this land onto the battlefield.\nAt the beginning of your upkeep, if you control three or fewer lands, you gain 1 life.\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "all",
+  "set_name": "Alliances",
+  "collector_number": "142",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

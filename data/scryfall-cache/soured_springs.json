@@ -1,0 +1,22 @@
+{
+  "id": "67daa31c-d9c4-4c22-b29c-1b8a17d577e5",
+  "oracle_id": "e579edd7-4f6c-4f22-a72f-0a20d7a698a2",
+  "name": "Soured Springs",
+  "mana_cost": "",
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, it deals 1 damage to target opponent.\n{T}: Add {U} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "set": "otj",
+  "set_name": "Outlaws of Thunder Junction",
+  "collector_number": "264",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

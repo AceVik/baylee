@@ -1,0 +1,19 @@
+{
+  "id": "219c7b57-b62b-42d1-85d9-4b57624a3f54",
+  "oracle_id": "b3e28bcf-0ed0-4406-b615-68ddc55b349a",
+  "name": "Great Hall of the Citadel",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add two mana in any combination of colors. Spend this mana only to cast legendary spells.",
+  "colors": [],
+  "color_identity": [],
+  "set": "ltr",
+  "set_name": "The Lord of the Rings: Tales of Middle-earth",
+  "collector_number": "254",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

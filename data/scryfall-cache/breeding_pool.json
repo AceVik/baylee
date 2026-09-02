@@ -1,0 +1,22 @@
+{
+  "id": "63e4dc07-c742-41bd-8301-861637908fd1",
+  "oracle_id": "20283c4a-f1f0-42f0-bc08-6da87474426b",
+  "name": "Breeding Pool",
+  "mana_cost": "",
+  "type_line": "Land — Forest Island",
+  "oracle_text": "({T}: Add {G} or {U}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U"
+  ],
+  "set": "trk",
+  "set_name": "Star Trek",
+  "collector_number": "279",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

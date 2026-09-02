@@ -1,0 +1,41 @@
+{
+  "id": "a7143aa7-b16d-4e63-910c-6ceec55483f3",
+  "oracle_id": "1a8c996d-ca93-4c17-ace5-66ecd6b99317",
+  "name": "Strength of the Harvest // Haven of the Harvest",
+  "mana_cost": null,
+  "type_line": "Enchantment — Aura // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "G",
+    "W"
+  ],
+  "set": "mh3",
+  "set_name": "Modern Horizons 3",
+  "collector_number": "258",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Strength of the Harvest",
+      "mana_cost": "{2}{G/W}",
+      "type_line": "Enchantment — Aura",
+      "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 for each creature and/or enchantment you control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Haven of the Harvest",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {G} or {W}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

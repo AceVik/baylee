@@ -1,0 +1,22 @@
+{
+  "id": "d76df9d0-56cf-4351-a5e8-e6ae6fc791d1",
+  "oracle_id": "98d20908-6d68-4d31-b719-207f93c9b402",
+  "name": "Goblin-town",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.\n{2}{B}{R}, {T}, Sacrifice this land: Put two +1/+1 counters on target Goblin or Orc you control. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "hob",
+  "set_name": "The Hobbit",
+  "collector_number": "183",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

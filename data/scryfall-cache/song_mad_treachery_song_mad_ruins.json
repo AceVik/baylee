@@ -1,0 +1,40 @@
+{
+  "id": "782ca27f-9f18-476c-b582-89c06fb2e322",
+  "oracle_id": "81b61770-2ed5-4a50-84d0-97790002fc5a",
+  "name": "Song-Mad Treachery // Song-Mad Ruins",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "R"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "165",
+  "rarity": "uncommon",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Song-Mad Treachery",
+      "mana_cost": "{3}{R}{R}",
+      "type_line": "Sorcery",
+      "oracle_text": "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Song-Mad Ruins",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "This land enters tapped.\n{T}: Add {R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

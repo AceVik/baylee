@@ -1,0 +1,23 @@
+{
+  "id": "977f1b44-166c-4faf-8a7b-d431707e90ce",
+  "oracle_id": "e0c3c87b-83e3-4cff-b05f-78a192e2bba4",
+  "name": "Irrigation Ditch",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\n{T}, Sacrifice this land: Add {G}{U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U",
+    "W"
+  ],
+  "set": "inv",
+  "set_name": "Invasion",
+  "collector_number": "324",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,40 @@
+{
+  "id": "193071fe-180b-4d35-ba78-9c16675c29fc",
+  "oracle_id": "4a8d41fe-e04d-484b-a7d1-19be311e6ca7",
+  "name": "Sea Gate Restoration // Sea Gate, Reborn",
+  "mana_cost": null,
+  "type_line": "Sorcery // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [
+    "U"
+  ],
+  "set": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "76",
+  "rarity": "mythic",
+  "layout": "modal_dfc",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Sea Gate Restoration",
+      "mana_cost": "{4}{U}{U}{U}",
+      "type_line": "Sorcery",
+      "oracle_text": "Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size for the rest of the game.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Sea Gate, Reborn",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

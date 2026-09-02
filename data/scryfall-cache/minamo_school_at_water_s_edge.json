@@ -1,0 +1,21 @@
+{
+  "id": "7536292c-da25-41c8-ba28-1e35758a7f3d",
+  "oracle_id": "17784f90-89a1-47a5-83ef-ae60dfc30bd1",
+  "name": "Minamo, School at Water's Edge",
+  "mana_cost": "",
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {U}.\n{U}, {T}: Untap target legendary permanent.",
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "chk",
+  "set_name": "Champions of Kamigawa",
+  "collector_number": "279",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

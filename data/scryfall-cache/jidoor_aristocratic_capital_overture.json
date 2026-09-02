@@ -1,0 +1,40 @@
+{
+  "id": "98b2d5b5-f85b-4c42-a0f5-a76f6af304ba",
+  "oracle_id": "bd513d9d-5aa2-4860-bd86-8b5d9430f133",
+  "name": "Jidoor, Aristocratic Capital // Overture",
+  "mana_cost": "{4}{U}{U}",
+  "type_line": "Land — Town // Sorcery — Adventure",
+  "oracle_text": null,
+  "colors": [],
+  "color_identity": [
+    "U"
+  ],
+  "set": "fin",
+  "set_name": "Final Fantasy",
+  "collector_number": "284",
+  "rarity": "rare",
+  "layout": "adventure",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Jidoor, Aristocratic Capital",
+      "mana_cost": "",
+      "type_line": "Land — Town",
+      "oracle_text": "This land enters tapped.\n{T}: Add {U}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    },
+    {
+      "name": "Overture",
+      "mana_cost": "{4}{U}{U}",
+      "type_line": "Sorcery — Adventure",
+      "oracle_text": "Target opponent mills half their library, rounded down. (Then exile this card. You may play the land later from exile.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

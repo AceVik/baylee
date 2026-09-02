@@ -1,0 +1,21 @@
+{
+  "id": "a07a0e31-ace6-40ad-8700-2d58135b5320",
+  "oracle_id": "d83c86c1-126d-49e9-9b13-9e55784c49c5",
+  "name": "Leechridden Swamp",
+  "mana_cost": "",
+  "type_line": "Land — Swamp",
+  "oracle_text": "({T}: Add {B}.)\nThis land enters tapped.\n{B}, {T}: Each opponent loses 1 life. Activate only if you control two or more black permanents.",
+  "colors": [],
+  "color_identity": [
+    "B"
+  ],
+  "set": "dsc",
+  "set_name": "Duskmourn: House of Horror Commander",
+  "collector_number": "286",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

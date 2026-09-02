@@ -1,0 +1,22 @@
+{
+  "id": "a23c757e-5944-47ce-b06f-27b4c403044c",
+  "oracle_id": "75d8ef26-b745-448b-94b9-3c64668ce171",
+  "name": "Great Hall of Starnheim",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {B}.\n{W}{W}{B}, {T}, Sacrifice this land and a creature you control: Create a 4/4 white Angel Warrior creature token with flying and vigilance. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "khm",
+  "set_name": "Kaldheim",
+  "collector_number": "259",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "17db644c-1acf-477d-9c20-f72221f1108a",
+  "oracle_id": "cfd60d1f-9832-4408-b84e-0fd3018b015b",
+  "name": "Forbidden Orchard",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add one mana of any color.\nWhenever you tap this land for mana, target opponent creates a 1/1 colorless Spirit creature token.",
+  "colors": [],
+  "color_identity": [],
+  "set": "2x2",
+  "set_name": "Double Masters 2022",
+  "collector_number": "323",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

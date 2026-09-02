@@ -1,0 +1,19 @@
+{
+  "id": "51f8b918-ac13-4538-a39d-6553580bf39b",
+  "oracle_id": "76695b15-d0ba-41eb-85f1-52ba5d14b8ba",
+  "name": "Rainbow Vale",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add one mana of any color. An opponent gains control of this land at the beginning of the next end step.",
+  "colors": [],
+  "color_identity": [],
+  "set": "me1",
+  "set_name": "Masters Edition",
+  "collector_number": "179",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

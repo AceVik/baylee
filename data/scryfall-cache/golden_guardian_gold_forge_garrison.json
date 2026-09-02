@@ -1,0 +1,38 @@
+{
+  "id": "397ba02d-f347-46f7-b028-dd4ba55faa2f",
+  "oracle_id": "58afb897-4d57-4b53-a5c3-b532cb3d5180",
+  "name": "Golden Guardian // Gold-Forge Garrison",
+  "mana_cost": null,
+  "type_line": "Artifact Creature — Golem // Land",
+  "oracle_text": null,
+  "colors": null,
+  "color_identity": [],
+  "set": "rix",
+  "set_name": "Rivals of Ixalan",
+  "collector_number": "179",
+  "rarity": "rare",
+  "layout": "transform",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": [
+    {
+      "name": "Golden Guardian",
+      "mana_cost": "{4}",
+      "type_line": "Artifact Creature — Golem",
+      "oracle_text": "Defender\n{2}: This creature fights another target creature you control. When this creature dies this turn, return it to the battlefield transformed under your control.",
+      "power": "4",
+      "toughness": "4",
+      "loyalty": null
+    },
+    {
+      "name": "Gold-Forge Garrison",
+      "mana_cost": "",
+      "type_line": "Land",
+      "oracle_text": "(Transforms from Golden Guardian.)\n{T}: Add two mana of any one color.\n{4}, {T}: Create a 4/4 colorless Golem artifact creature token.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null
+    }
+  ]
+}

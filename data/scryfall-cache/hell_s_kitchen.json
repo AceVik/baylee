@@ -1,0 +1,22 @@
+{
+  "id": "6137c34e-cc4c-4342-a8e4-cfa9c767c67b",
+  "oracle_id": "1337d89e-a883-4568-a14f-9ca3305cc3df",
+  "name": "Hell's Kitchen",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {B} or {R}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "R"
+  ],
+  "set": "msh",
+  "set_name": "Marvel Super Heroes",
+  "collector_number": "268",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,22 @@
+{
+  "id": "c155cc10-09f4-424b-b366-142adf9c1712",
+  "oracle_id": "aa6dbdf2-2379-4ff5-8a6c-70258784dc35",
+  "name": "Desolate Lighthouse",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}{U}{R}, {T}: Draw a card, then discard a card.",
+  "colors": [],
+  "color_identity": [
+    "R",
+    "U"
+  ],
+  "set": "lcc",
+  "set_name": "The Lost Caverns of Ixalan Commander",
+  "collector_number": "327",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

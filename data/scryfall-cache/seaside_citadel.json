@@ -1,0 +1,23 @@
+{
+  "id": "b681599f-aa7a-4b3a-a36a-dc6d70fd6a11",
+  "oracle_id": "2ae77795-6a80-498b-bf69-6fd612f601e4",
+  "name": "Seaside Citadel",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}, {W}, or {U}.",
+  "colors": [],
+  "color_identity": [
+    "G",
+    "U",
+    "W"
+  ],
+  "set": "ecc",
+  "set_name": "Lorwyn Eclipsed Commander",
+  "collector_number": "166",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

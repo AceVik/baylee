@@ -1,0 +1,21 @@
+{
+  "id": "14394198-0993-46ee-a3ea-5c7084a78772",
+  "oracle_id": "b53f216d-1592-4eee-b204-502a805fbc8c",
+  "name": "Treetop Village",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\n{1}{G}: This land becomes a 3/3 green Ape creature with trample until end of turn. It's still a land. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "colors": [],
+  "color_identity": [
+    "G"
+  ],
+  "set": "ddu",
+  "set_name": "Duel Decks: Elves vs. Inventors",
+  "collector_number": "30",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

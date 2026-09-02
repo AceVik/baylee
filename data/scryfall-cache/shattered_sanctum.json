@@ -1,0 +1,22 @@
+{
+  "id": "5aa0c810-3b7d-4661-979e-e84fb327742d",
+  "oracle_id": "c854ecb0-cc60-4c48-a9aa-7f2348a7a8c6",
+  "name": "Shattered Sanctum",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "set": "sos",
+  "set_name": "Secrets of Strixhaven",
+  "collector_number": "260",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

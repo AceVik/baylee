@@ -1,0 +1,22 @@
+{
+  "id": "54d852fc-0f3a-4791-a147-b21ca6964763",
+  "oracle_id": "6bd6d259-1af7-4dff-a79c-48a616d2a36e",
+  "name": "Viridescent Bog",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{1}, {T}: Add {B}{G}.",
+  "colors": [],
+  "color_identity": [
+    "B",
+    "G"
+  ],
+  "set": "soc",
+  "set_name": "Secrets of Strixhaven Commander",
+  "collector_number": "421",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}
