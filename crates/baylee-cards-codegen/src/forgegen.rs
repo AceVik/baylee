@@ -222,7 +222,14 @@ impl Tx<'_> {
             let mut atoms = alt.split('.');
             let base = atoms.next()?.trim();
             match base {
-                "Card" | "Permanent" | "Any" => {}
+                // Forge's `Any` is "any target" — a creature, a planeswalker,
+                // a battle *or a player*. `TargetSpec` has no variant that
+                // spans objects and players, so this is a filter the DSL
+                // cannot say, not a filter that matches everything. Reading
+                // it as `Filter::Any` produced a Blighted Gorge that could
+                // not burn a player and still called itself implemented.
+                "Any" => return None,
+                "Card" | "Permanent" => {}
                 "Creature" => clauses.push("Filter::CREATURE".to_string()),
                 "Artifact" => clauses.push("Filter::ARTIFACT".to_string()),
                 "Enchantment" => clauses.push("Filter::ENCHANTMENT".to_string()),
@@ -267,13 +274,20 @@ impl Tx<'_> {
     }
 
     /// A `ValidTgts$` value as a `TargetSpec` expression.
-    fn target_spec(&mut self, valid: &str) -> Option<String> {
+    /// The zone a target lives in comes from the *effect*, not from the
+    /// valid-string: `TargetSpec::Object` enumerates the battlefield and
+    /// nothing else, so a counterspell built out of one offers permanents
+    /// as targets and counters nothing.
+    fn target_spec(&mut self, valid: &str, api: &str) -> Option<String> {
         if valid == "Player" || valid == "Opponent" {
             return Some("TargetSpec::AnyPlayer".to_string());
         }
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("TARGET", &expr);
-        Some(format!("TargetSpec::Object(&{name})"))
+        Some(match api {
+            "Counter" => format!("TargetSpec::Spell(&{name})"),
+            _ => format!("TargetSpec::Object(&{name})"),
+        })
     }
 
     /// `Defined$ You` and friends as a `PlayerRel`.
@@ -291,7 +305,7 @@ impl Tx<'_> {
         let (api, mut p) = Params::parse(spec)?;
         p.drop_prose();
         if let Some(valid) = p.take("ValidTgts") {
-            let spec = self.target_spec(&valid)?;
+            let spec = self.target_spec(&valid, &api)?;
             if chain.target.get_or_insert(spec.clone()) != &spec {
                 return None; // two different targets in one chain
             }
@@ -818,9 +832,9 @@ mod tests {
     #[test]
     fn a_damage_spell_keeps_its_target_and_its_amount() {
         let body = read(
-            "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\n\
-             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | SpellDescription$ deals 3 damage.\n\
-             Oracle:Lightning Bolt deals 3 damage to any target.",
+            "Name:Shock the Bear\nManaCost:R\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | SpellDescription$ deals 3 damage.\n\
+             Oracle:Shock the Bear deals 3 damage to target creature.",
         );
         assert_eq!(body.abilities.len(), 1);
         assert!(body.abilities[0].starts_with("spell!("));
@@ -955,6 +969,36 @@ mod tests {
         assert!(refused(
             "Name:X\nManaCost:G\nTypes:Instant\nA:SP$ Pump | NumAtt$ +1 | NumDef$ +1"
         ));
+    }
+
+    /// Where a target lives is the effect's business, not the valid
+    /// string's: `TargetSpec::Object` enumerates the battlefield only.
+    #[test]
+    fn a_counterspell_targets_the_stack_and_not_the_battlefield() {
+        let body = read(
+            "Name:Negate\nManaCost:1 U\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card.nonCreature\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("TargetSpec::Spell"), "{text}");
+        assert!(!text.contains("TargetSpec::Object"), "{text}");
+    }
+
+    /// Forge's `Any` means creature, planeswalker, battle *or player*, and
+    /// no `TargetSpec` spans objects and players. Read as `Filter::Any` it
+    /// silently produced a burn spell that could not point at a player.
+    #[test]
+    fn any_target_is_refused_rather_than_read_as_everything() {
+        assert!(refused(
+            "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3"
+        ));
+        // A damage spell that names what it may hit is still read.
+        let body = read(
+            "Name:X\nManaCost:R\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3\n",
+        );
+        assert!(body.abilities.join("\n").contains("Effect::DealDamage"));
     }
 
     /// of these would otherwise generate a card missing half its rules.
