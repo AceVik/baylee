@@ -31,7 +31,7 @@
 //! ```text
 //! GET  /health                     → {"ok":true,"frame":1234,"width":…}
 //! GET  /state                      → the dump below
-//! POST /key      {"name":"Space","shift":false,…}
+//! POST /key      {"name":"Space","shift":false,"hold":false,"release":false}
 //! POST /text     {"text":"dev@baylee.local"}
 //! POST /pointer  {"x":100,"y":200,"button":"left","press":true}
 //! POST /screenshot {"path":"/tmp/table.png"}   (replies once written)
@@ -413,6 +413,27 @@ fn type_text(body: &str, window: Entity, keys: &mut MessageWriter<KeyboardInput>
     typed
 }
 
+/// A modifier by name.
+///
+/// `crate::keys` deliberately does not list these: in a keymap a modifier is a
+/// *flag* on a chord, never a binding of its own, so its table has no entry
+/// for one. The harness still has to be able to hold shift, because part of
+/// the client is about shift being down — a double-faced card turns over for
+/// as long as it is.
+fn modifier_code(name: &str) -> Option<KeyCode> {
+    Some(match name {
+        "ShiftLeft" | "Shift" => KeyCode::ShiftLeft,
+        "ShiftRight" => KeyCode::ShiftRight,
+        "ControlLeft" | "Control" | "Ctrl" => KeyCode::ControlLeft,
+        "ControlRight" => KeyCode::ControlRight,
+        "AltLeft" | "Alt" => KeyCode::AltLeft,
+        "AltRight" => KeyCode::AltRight,
+        "SuperLeft" | "Super" | "Meta" => KeyCode::SuperLeft,
+        "SuperRight" => KeyCode::SuperRight,
+        _ => return None,
+    })
+}
+
 /// The logical key a named physical key produces.
 ///
 /// A real keyboard reports both, and the client reads both: shortcuts go
@@ -453,19 +474,38 @@ fn press_chord(
     window: Option<Entity>,
 ) -> Result<Vec<KeyCode>, String> {
     let name = field(body, "name").ok_or("no key name")?;
-    let key = crate::keys::key_code(name).ok_or_else(|| format!("unknown key: {name}"))?;
+    let key = crate::keys::key_code(name)
+        .or_else(|| modifier_code(name))
+        .ok_or_else(|| format!("unknown key: {name}"))?;
+    // `hold` keeps the key down until a matching `release`, because some of
+    // the client is about a key *being* held rather than pressed: shift turns
+    // a double-faced card over for as long as it is down. A harness that
+    // could only tap could not reach that at all.
+    let hold = flag(body, "hold");
+    let release = flag(body, "release");
     if let Some(window) = window {
         // Both channels, because a real key reaches both.
-        for state in [ButtonState::Pressed, ButtonState::Released] {
+        let states: &[ButtonState] = if hold {
+            &[ButtonState::Pressed]
+        } else if release {
+            &[ButtonState::Released]
+        } else {
+            &[ButtonState::Pressed, ButtonState::Released]
+        };
+        for state in states {
             typing.write(KeyboardInput {
                 key_code: key,
                 logical_key: logical_key(name),
-                state,
+                state: *state,
                 text: None,
                 repeat: false,
                 window,
             });
         }
+    }
+    if release {
+        keys.release(key);
+        return Ok(Vec::new());
     }
     let mut down = Vec::new();
     for (present, modifier) in [
@@ -481,7 +521,9 @@ fn press_chord(
     }
     keys.press(key);
     down.push(key);
-    Ok(down)
+    // A held key is not returned: what is returned is released next frame,
+    // and this one stays down until it is asked for by name.
+    Ok(if hold { Vec::new() } else { down })
 }
 
 /// Moves the cursor, and says which button (if any) is to be clicked there.

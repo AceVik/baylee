@@ -99,6 +99,10 @@ pub struct PoolCard {
     /// Basic lands are the one card a deck may hold any number of.
     #[serde(default)]
     pub basic_land: bool,
+    /// Whether the card is printed on both sides, and so has a back to turn
+    /// over in the preview.
+    #[serde(default)]
+    pub two_faced: bool,
     /// The printing the registry names: the art key, and what a row that
     /// picks nothing is served as.
     #[serde(default)]

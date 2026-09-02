@@ -45,6 +45,7 @@ pub mod cardtext;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub mod devctl;
 pub mod face;
+pub mod flip;
 pub mod host;
 pub mod hud;
 pub mod input;
@@ -256,6 +257,7 @@ impl Plugin for DuelPlugin {
         prefs::install(app);
         ambience::install(app);
         loading::install(app);
+        flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .init_state::<DuelPhase>()
             .insert_resource(self.config.clone())

@@ -63,6 +63,7 @@ impl Plugin for LobbyPlugin {
         crate::prefs::install(app);
         crate::ambience::install(app);
         crate::loading::install(app);
+        crate::flip::install(app);
         app.init_resource::<Mailbox>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()

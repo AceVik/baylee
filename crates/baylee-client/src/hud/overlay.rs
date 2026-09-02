@@ -515,7 +515,53 @@ pub fn sync_overlay(
                     ),],
                 ))
                 .id();
-            commands.entity(tooltip).add_child(visual);
+            // A card printed on both sides can be turned over with shift.
+            // The frame holds both faces and the turn; a single-faced card
+            // gets the frame too, and simply has nothing on its far side, so
+            // the shape of the tree does not depend on the card.
+            let frame = commands
+                .spawn((
+                    crate::flip::Flip::default(),
+                    Node {
+                        width: px(img_w),
+                        height: px(img_h),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands
+                .entity(visual)
+                .insert((crate::flip::Side::Front, Visibility::Inherited));
+            commands.entity(frame).add_child(visual);
+            if let Some(back) = key
+                .filter(|_| two_faced(view, hovered))
+                .map(|key| ImageKey {
+                    face: baylee_client_core::images::Face::Back,
+                    ..key
+                })
+            {
+                let art = textures.get(back, statics, &assets);
+                let far = spawn_card_art(
+                    &mut commands,
+                    art,
+                    None,
+                    img_w,
+                    img_h,
+                    crate::face::Detail::Full,
+                    &fonts,
+                    CardLook::art(back, finish_of(statics, Some(back)), 0),
+                    cards.as_mut(),
+                );
+                commands.entity(far).insert((
+                    crate::flip::Side::Back,
+                    // Hidden until the turn passes the quarter, where the
+                    // card is edge-on and the swap cannot be seen.
+                    Visibility::Hidden,
+                ));
+                commands.entity(frame).add_child(far);
+            }
+            commands.entity(tooltip).add_child(frame);
             commands.entity(root).add_child(tooltip);
 
             // The speech-bubble tail, pointing at the hovered card.
@@ -934,4 +980,18 @@ pub fn animate_overlay(
     for mut node in &mut panels {
         node.top = px(top);
     }
+}
+
+/// Whether the hovered object is a card printed on both sides.
+///
+/// The view says which face is up, not how many there are, so the answer
+/// comes from the registry the client already links for ability labels and
+/// mana sources. A token or a face-down permanent has no card and therefore
+/// no back.
+fn two_faced(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
+    hovered
+        .and_then(|id| view.object(id))
+        .and_then(|object| object.card.as_ref())
+        .and_then(|card| baylee_cards::by_index(card.index))
+        .is_some_and(|def| def.faces.len() > 1)
 }
