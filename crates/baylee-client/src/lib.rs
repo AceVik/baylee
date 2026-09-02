@@ -35,6 +35,7 @@
 // cases where it is right.
 #![allow(clippy::needless_pass_by_value)]
 
+pub mod abilities;
 pub mod buildui;
 pub mod cardmat;
 pub mod cardtext;
@@ -147,6 +148,12 @@ pub struct Duel {
     /// judgement, not something the engine said, and the difference is worth
     /// keeping visible at the type level.
     pub reachable: std::collections::HashSet<ObjectId>,
+    /// The permanent whose abilities the prompt bar is offering.
+    ///
+    /// Only ever set for one with more than one thing to do: a single
+    /// ability activates on the click that found it, because a menu of one is
+    /// a menu that only ever wastes a tap.
+    pub ability_menu: Option<ObjectId>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -340,6 +347,11 @@ fn poll_host(
                 }
                 let seat = duel.seat().unwrap_or(PlayerId::new(0));
                 duel.interaction = Some(Interaction::new(*pending, seat));
+                // A chooser belongs to the choice it was opened under. It
+                // would heal itself anyway — the options are rebuilt from the
+                // current `LegalActions` — but a menu that outlives its
+                // question is a menu a player has to dismiss.
+                duel.ability_menu = None;
                 rebuild_board(&mut duel);
             }
             HostMessage::Failed(reason) => {

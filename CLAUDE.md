@@ -409,6 +409,17 @@ out halfway through. In hand this is a third state: `Openings { playable,
 reachable }`, gold for what the engine offered and indigo for what this client
 is offering to do about it.
 
+Activating an ability by hand did not exist at all until now —
+`Interaction::activate` was written and nothing called it, so a Forest, a mana
+dork and a planeswalker were equally inert under the pointer.
+`crates/baylee-client/src/abilities.rs` is the list, built only from
+`LegalActions`, each entry labelled out of the registry ("Tap for {G}", "+1")
+because "Ability 2" is a label a player has to guess at. One option activates
+on the click that found it; several open a chooser on its own row of the
+prompt bar, which sends by *position* and rebuilds the list from the current
+`LegalActions` when pressed — a bar drawn a frame ago must not be able to send
+an ability the engine has since withdrawn.
+
 Nothing on the table is positioned directly. `table::sync_scene` writes a
 `Motion` target and `table::glide` moves the card there, so a repacked lane, a
 tap, a hover and a card entering play all animate through one door and cannot

@@ -511,6 +511,19 @@ one set, because they are two different claims — gold is the engine saying
 yes, indigo is this client offering to tap lands first. Clicking either casts;
 the difference is what happens in between.
 
+Manual activation is the other half, and the half that did not exist at all:
+`Interaction::activate` was written and nothing called it, so a Forest, a mana
+dork and a planeswalker were equally inert under the pointer.
+`baylee-client/src/abilities.rs` is the list — built only from `LegalActions`,
+in a stable order, each entry labelled from the registry, because "Ability 2"
+is a label a player has to guess at and "Tap for {G}" and "+1" are not. One
+option activates on the click that found it; several open a chooser in the
+prompt bar, on its own row, because these are not answers to the pending
+choice and a mana ability does not belong next to the button that ends the
+turn. The chooser sends by *position*: the list is rebuilt from the current
+`LegalActions` when the button is pressed, so a bar drawn a frame ago cannot
+send an ability the engine has since withdrawn.
+
 ## Settings, and what belongs to whom
 
 Two stores, split on one question: is this about the *player* or about *this

@@ -267,3 +267,44 @@ fn a_spell_the_lands_cannot_pay_for_gets_no_plan() {
     let cost = baylee_core::mana::ManaCost::try_parse("{7}").expect("a valid cost");
     assert!(manaplan::plan(&cost, &pool, &sources).is_none());
 }
+
+/// The manual half, which is the half that did not exist at all: a client
+/// that cannot activate an ability cannot play a game, whatever it does with
+/// mana automatically.
+#[test]
+fn a_permanent_offers_exactly_what_it_can_do_and_never_the_same_tap_twice() {
+    use baylee_client::abilities;
+    use baylee_client_core::interaction::Interaction;
+
+    let mut table = Table::open();
+    table.walk_to_main();
+
+    let interaction = Interaction::new(table.pending.clone().expect("priority"), PlayerId::new(0));
+    let forest = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Forest")
+        .expect("a Forest on the table")
+        .id;
+
+    // One button, not two. A Forest is offered by the engine as the CR 305.6
+    // shortcut *and* as the `{T}: Add {G}` printed on the card, and it can
+    // still only be tapped once.
+    let options = abilities::options(table.view(), &interaction, forest);
+    assert_eq!(options.len(), 1, "{options:?}");
+    assert_eq!(options[0].label, "Tap for G");
+
+    // And it is an action the engine takes.
+    table.submit(options[0].action.clone());
+    let pool = table
+        .view()
+        .seat(PlayerId::new(0))
+        .expect("own seat")
+        .mana_pool;
+    assert_eq!(pool.green, 1, "the Forest made a green mana");
+
+    // A card in hand is not a permanent and offers nothing to activate.
+    let in_hand = table.view().hand.first().expect("a hand").id;
+    assert!(abilities::options(table.view(), &interaction, in_hand).is_empty());
+}

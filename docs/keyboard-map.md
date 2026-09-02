@@ -99,8 +99,11 @@ did; this only removes the requirement. Player tabs at the top switch board view
 (Untap, Upkeep, Draw, Main 1, Begin Combat, Attackers, Blockers, Damage, End
 of Combat, Main 2, End Step, Cleanup) has its own rail button toggling green /
 red on click; the rail's "Next ▶" and "End ⏭" buttons fast-forward like `Tab`.
-The prompt bar carries the answers for whatever is pending, including combat's
-"Aim next", "Attack"/"Block" and "None". The hand bar scrolls horizontally
+Clicking your own permanent activates what it is offering: one ability goes
+straight through, several open a chooser on its own row of the prompt bar
+("Tap for G", "+1", "Ability 2"). The prompt bar carries the answers for
+whatever is pending, including combat's "Aim next", "Attack"/"Block" and
+"None". The hand bar scrolls horizontally
 with the mouse wheel.
 
 ## Rules

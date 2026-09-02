@@ -16,8 +16,8 @@
 
 use crate::Duel;
 use crate::hud::{
-    HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton, PlayerTab, PreviewResize,
-    PromptAction, PromptButton, RailButton,
+    AbilityButton, HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton, PlayerTab,
+    PreviewResize, PromptAction, PromptButton, RailButton,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -69,9 +69,35 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
         duel.mana_run = Some(crate::ManaRun::new(plan, object));
         return;
     }
+    // A permanent with something to do does it. One ability goes straight
+    // through — a menu of one only ever wastes a tap — and several open the
+    // chooser in the prompt bar, because "ability 2" is not a thing a player
+    // should have to count out on a card.
+    if let Some(options) = abilities_of(duel, object) {
+        match options.len() {
+            0 => {}
+            1 => {
+                duel.ability_menu = None;
+                duel.submit(options[0].action.clone());
+                return;
+            }
+            _ => {
+                duel.ability_menu = Some(object);
+                return;
+            }
+        }
+    }
+    duel.ability_menu = None;
     if let Some(i) = duel.interaction.as_mut() {
         i.toggle(object);
     }
+}
+
+/// What `object` is offering, if anything.
+fn abilities_of(duel: &Duel, object: ObjectId) -> Option<Vec<crate::abilities::AbilityOption>> {
+    let view = duel.view.as_ref()?;
+    let interaction = duel.interaction.as_ref()?;
+    Some(crate::abilities::options(view, interaction, object))
 }
 
 /// Keyboard handling: every key comes from the account's keymap.
@@ -457,6 +483,7 @@ pub fn pointer(
     menu_buttons: Query<&MenuButton>,
     knobs: Query<&OverlayKnob>,
     prompt_buttons: Query<&PromptButton>,
+    ability_buttons: Query<&AbilityButton>,
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
@@ -494,6 +521,21 @@ pub fn pointer(
                 MenuAction::Concede => duel.submit(PlayerAction::Concede),
                 // Draw offers need mutual agreement — a protocol item.
                 MenuAction::OfferDraw => duel.submit(PlayerAction::OfferDraw),
+            }
+            continue;
+        }
+        // Rebuilt from `LegalActions` here rather than trusted from the bar:
+        // a chooser drawn a frame ago must not be able to send an ability the
+        // engine has since stopped offering.
+        if let Some(button) = find_in_lineage(e, &ability_buttons, &parents) {
+            let action = duel
+                .ability_menu
+                .and_then(|object| abilities_of(&duel, object))
+                .and_then(|options| options.get(button.index).cloned())
+                .map(|option| option.action);
+            duel.ability_menu = None;
+            if let Some(action) = action {
+                duel.submit(action);
             }
             continue;
         }

@@ -43,20 +43,7 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
 
     // Printed mana abilities: Command Tower, a Llanowar Elf, a Sol Ring.
     for &(id, index) in &legal.abilities {
-        let Some(object) = view.battlefield.iter().find(|o| o.id == id) else {
-            continue;
-        };
-        let Some(card) = object.card else {
-            continue;
-        };
-        let Some(def) = baylee_cards::by_index(card.index) else {
-            continue;
-        };
-        let abilities = def.abilities_for_face(card.face as usize);
-        let Some(ability) = usize::try_from(index).ok().and_then(|i| abilities.get(i)) else {
-            continue;
-        };
-        if let Some(source) = mana_ability(id, index, ability) {
+        if let Some(source) = printed_source(view, id, index) {
             sources.push(source);
         }
     }
@@ -73,6 +60,37 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     });
     sources.dedup_by(|a, b| a.id == b.id);
     sources
+}
+
+/// Ability `index` of `object`, out of the registry.
+///
+/// The face matters: an MDFC's back has its own abilities, and reading the
+/// front's list for it would name the wrong one.
+#[must_use]
+pub fn ability_at(
+    view: &PlayerView,
+    object: baylee_core::ids::ObjectId,
+    index: u32,
+) -> Option<&'static AbilityDef> {
+    let card = view.object(object)?.card?;
+    let def = baylee_cards::by_index(card.index)?;
+    let abilities = def.abilities_for_face(card.face as usize);
+    abilities.get(usize::try_from(index).ok()?)
+}
+
+/// The source that ability `index` of `object` is, when it is one this client
+/// can read.
+///
+/// Also the answer to "is this a mana ability" for the ability chooser, which
+/// has to leave them out: a Forest's printed `{T}: Add {G}` is the same tap as
+/// the CR 305.6 shortcut, and offering both is offering the same button twice.
+#[must_use]
+pub fn printed_source(
+    view: &PlayerView,
+    object: baylee_core::ids::ObjectId,
+    index: u32,
+) -> Option<Source> {
+    mana_ability(object, index, ability_at(view, object, index)?)
 }
 
 /// Reads one ability as a mana source, or decides it is not one this can use.

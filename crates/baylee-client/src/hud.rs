@@ -167,6 +167,18 @@ pub struct PromptButton {
     pub action: PromptAction,
 }
 
+/// One offered ability, in the chooser under the prompt.
+///
+/// Carries the position rather than the action itself, because the list is
+/// rebuilt from `LegalActions` when the button is pressed: a bar that was
+/// drawn a frame ago must not be able to send an ability the engine has since
+/// stopped offering.
+#[derive(Component)]
+pub struct AbilityButton {
+    /// Position in the list [`crate::abilities::options`] returns.
+    pub index: usize,
+}
+
 /// What a prompt button answers.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PromptAction {
@@ -274,6 +286,10 @@ pub struct HudRevision {
     /// the client until the answer is sent — so without them here the combat
     /// line would be drawn once and then stay wrong for the whole step.
     combat: Option<(usize, usize, usize)>,
+    /// Which permanent's abilities the chooser is offering. Opened by a click
+    /// and closed by the next one, neither of which is a new snapshot, so
+    /// without it here the chooser would never appear.
+    ability_menu: Option<ObjectId>,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -546,6 +562,7 @@ pub fn sync_overlay(
         i.focus_position()
             .map(|(focus, count)| (focus, count, i.declared()))
     });
+    let ability_menu = duel.ability_menu;
     let focus = duel.focus;
     let overlay_closed = duel.overlay_closed;
     let preview_scale = settings.preview_scale;
@@ -562,6 +579,7 @@ pub fn sync_overlay(
         && revision.faces == faces.always()
         && revision.texts == texts.len()
         && revision.combat == combat
+        && revision.ability_menu == ability_menu
         && !existing.is_empty()
     {
         return;
@@ -578,6 +596,7 @@ pub fn sync_overlay(
     revision.faces = faces.always();
     revision.texts = texts.len();
     revision.combat = combat;
+    revision.ability_menu = ability_menu;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -812,6 +831,50 @@ pub fn sync_overlay(
                             Text::new(*label),
                             tf(&fonts, 13.0),
                             TextColor(palette::PANEL),
+                        )],
+                    ))
+                    .id();
+                commands.entity(row).add_child(button);
+            }
+            commands.entity(bar).add_child(row);
+        }
+
+        // The ability chooser, when a permanent was clicked that offers more
+        // than one thing. Its own row rather than more entries in `answers`,
+        // because these are not answers to the pending choice — they are
+        // things to *do* while holding priority, and mixing them with "OK"
+        // would put a mana ability next to the button that ends the turn.
+        if let Some(options) = duel
+            .ability_menu
+            .and_then(|object| ability_options(&duel, object))
+            .filter(|options| options.len() > 1)
+        {
+            let row = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: px(6),
+                        flex_wrap: FlexWrap::Wrap,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            for (index, option) in options.iter().enumerate() {
+                let button = commands
+                    .spawn((
+                        AbilityButton { index },
+                        Node {
+                            padding: UiRect::axes(px(12), px(5)),
+                            border_radius: btn_radius(),
+                            ..default()
+                        },
+                        BackgroundColor(palette::PANEL_LIT),
+                        soft_shadow(),
+                        children![(
+                            Text::new(option.label.clone()),
+                            tf(&fonts, 13.0),
+                            TextColor(palette::INK),
                         )],
                     ))
                     .id();
@@ -2089,4 +2152,12 @@ mod close_tests {
              next duel's first frame skip its own rebuild"
         );
     }
+}
+
+/// The abilities the chooser should draw for `object`.
+fn ability_options(duel: &Duel, object: ObjectId) -> Option<Vec<crate::abilities::AbilityOption>> {
+    let view = duel.view.as_ref()?;
+    let interaction = duel.interaction.as_ref()?;
+    let options = crate::abilities::options(view, interaction, object);
+    (!options.is_empty()).then_some(options)
 }
