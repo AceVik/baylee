@@ -316,11 +316,11 @@ fn render_face(
         "None",
     );
 
-    let mut out = String::from("    FaceDef {\n");
+    let mut out = String::from("    face! {\n");
     for field in &fields {
         out.push_str(&format!("        {field},\n"));
     }
-    out.push_str("        ..FaceDef::DEFAULT\n    },\n");
+    out.push_str("    },\n");
     for u in unknown {
         out.push_str(&format!(
             "    // FIXME(codegen): unknown type-line word {u:?}\n"
@@ -342,7 +342,7 @@ fn render_card_literal(
     face_defs: &str,
 ) -> String {
     let mut fields = vec![
-        format!("index: CardIndex::new({index})"),
+        format!("index: {index}"),
         format!("oracle_id: {oracle_id:?}"),
         format!("scryfall_id: {:?}", card.id),
     ];
@@ -365,12 +365,12 @@ fn render_card_literal(
         "PartnerKind::None",
     );
 
-    let mut out = String::from("pub static CARD: CardDef = CardDef {\n");
+    let mut out = String::from("card! {\n");
     for field in &fields {
         out.push_str(&format!("    {field},\n"));
     }
     out.push_str(&format!("    faces: &[\n{face_defs}    ],\n"));
-    out.push_str("    ..CardDef::DEFAULT\n};\n\n");
+    out.push_str("}\n\n");
     out
 }
 
@@ -422,20 +422,23 @@ pub fn render_stub(
             ));
         }
     }
-    out.push_str("// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.\n#![allow(unused_imports, missing_docs)]\n\n");
-    out.push_str(
-        "use baylee_cards_dsl::{CardDef, CommanderRule, Coverage, FaceDef, KeywordSet, PartnerKind};\n\
-         use baylee_core::color::{Color, ColorSet};\n\
-         use baylee_core::generated::subtypes;\n\
-         use baylee_core::ids::CardIndex;\n\
-         use baylee_core::mana::ManaCost;\n\
-         use baylee_core::types::{SupertypeSet, TypeSet};\n\n",
-    );
+    out.push_str("// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.\n\n");
+    // One import, not six. The old list was the same for every card whether
+    // or not the card used it, which is why every stub also had to carry
+    // `#![allow(unused_imports)]` — an allow that then hid two dozen genuinely
+    // dead imports in hand-finished files for as long as it existed.
+    out.push_str("use baylee_cards_dsl::prelude::*;\n");
 
     let mut face_defs = String::new();
     for f in &faces {
         face_defs.push_str(&render_face(&card.name, f, cats)?);
     }
+    // Only when a face names one: an unused import is a warning now that the
+    // stub no longer carries a blanket `allow`.
+    if face_defs.contains("subtypes::") {
+        out.push_str("use baylee_core::generated::subtypes;\n");
+    }
+    out.push('\n');
     out.push_str(&render_card_literal(
         card, index, &oracle_id, &faces, &face_defs,
     ));
@@ -647,8 +650,11 @@ mod tests {
     fn a_stub_omits_every_field_that_matches_the_default() {
         let cats = SubtypeCatalogs::default();
         let (_, text) = render_stub(&bare_card("Nothing", "Land"), 7, &cats).unwrap();
-        assert!(text.contains("..FaceDef::DEFAULT"));
-        assert!(text.contains("..CardDef::DEFAULT"));
+        // The tail is the macro's job now; what matters is unchanged — a
+        // stub states what is printed and nothing else.
+        assert!(text.contains("card! {"));
+        assert!(text.contains("face! {"));
+        assert!(!text.contains("#![allow("), "the blanket allow is gone");
         for absent in [
             "mana_cost:",
             "supertypes:",
@@ -669,7 +675,7 @@ mod tests {
             );
         }
         assert!(text.contains("    types: TypeSet::LAND,\n"));
-        assert!(text.contains("    index: CardIndex::new(7),\n"));
+        assert!(text.contains("    index: 7,\n"));
     }
 
     /// `coverage` is never emitted: `CardDef::DEFAULT` is

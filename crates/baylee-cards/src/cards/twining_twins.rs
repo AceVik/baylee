@@ -7,53 +7,38 @@
 // exile later — CR 715).
 // NOTE: data corrected against Scryfall (the stub header had a modal
 // ETB from a different card).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static NONTOKEN_CREATURE: Filter = Filter::And(&[
-    Filter::HasType(TypeSet::CREATURE),
-    Filter::Not(&Filter::IsToken),
-]);
-static BACK_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
-    effects: &[Effect::ExileAndReturnAtEndStep],
-    targets: Some(TargetReq::one(TargetSpec::Object(&NONTOKEN_CREATURE))),
-}];
+static NONTOKEN_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::IsToken)]);
+static BACK_ABILITIES: &[AbilityDef] = &[
+    spell!(&[Effect::ExileAndReturnAtEndStep], targets: Some(TargetReq::one(TargetSpec::Object(&NONTOKEN_CREATURE)))),
+];
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(176),
+card! {
+    index: 176,
     oracle_id: "105aea98-8eb9-4fb2-a0cb-7c7513317c5b",
     scryfall_id: "043718ea-59f6-4d1a-94c5-271704c1a38a",
     faces: &[
-        FaceDef {
+        face! {
             name: "Twining Twins",
             mana_cost: baylee_core::mana!("{2}{U}{U}"),
             types: TypeSet::CREATURE,
             subtypes: &[creature::FAERIE, creature::WIZARD],
             power: Some(4),
             toughness: Some(4),
-            ..FaceDef::DEFAULT
         },
-        FaceDef {
+        face! {
             name: "Swift Spiral",
             mana_cost: baylee_core::mana!("{1}{W}"),
             types: TypeSet::INSTANT,
             abilities: BACK_ABILITIES,
             adventure: true,
-            ..FaceDef::DEFAULT
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     keywords: KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::Ward { mana: 1 }],
-    ..CardDef::DEFAULT
-};
+}

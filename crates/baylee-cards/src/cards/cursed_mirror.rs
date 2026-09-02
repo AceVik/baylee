@@ -4,44 +4,25 @@
 //! Set: SOC #242 — Secrets of Strixhaven Commander | Scryfall ID: 077392b3-6b06-46c8-8737-51e85f690448 | Oracle ID: 4d67e2a7-4aa7-44cc-853b-500d7aac046d
 // IMPLEMENTED — {R} mana + until-EOT clone with haste (layer-1 copy
 // effect with UntilEndOfTurn duration).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, CopyMod, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-static ANY_CREATURE: Filter = Filter::HasType(TypeSet::CREATURE);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(28),
+card! {
+    index: 28,
     oracle_id: "4d67e2a7-4aa7-44cc-853b-500d7aac046d",
     scryfall_id: "077392b3-6b06-46c8-8737-51e85f690448",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Cursed Mirror",
         mana_cost: baylee_core::mana!("{2}{R}"),
         types: TypeSet::ARTIFACT,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Red]),
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana(ManaColor::Red, 1)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
+        mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
         AbilityDef::CopyOnEnterUntilEot {
-            target: TargetSpec::Object(&ANY_CREATURE),
+            target: TargetSpec::Object(&Filter::CREATURE),
             mods: &[CopyMod::AddKeyword(KeywordSet::HASTE)],
         },
     ],
-    ..CardDef::DEFAULT
-};
+}

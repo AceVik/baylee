@@ -3,32 +3,20 @@
 //! Oracle: Miracle {1}{U} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)
 //! Set: INR #90 — Innistrad Remastered | Scryfall ID: 0f46a800-b443-461d-87e0-5587249a42d8 | Oracle ID: 5c58b8e6-c572-461e-893e-a8c05f20ba17
 // IMPLEMENTED — extra-turn queue + self-exile + miracle cast.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(168),
+card! {
+    index: 168,
     oracle_id: "5c58b8e6-c572-461e-893e-a8c05f20ba17",
     scryfall_id: "0f46a800-b443-461d-87e0-5587249a42d8",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Temporal Mastery",
         mana_cost: baylee_core::mana!("{5}{U}{U}"),
         types: TypeSet::SORCERY,
         miracle: Some(baylee_core::mana!("{1}{U}")),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[Effect::TakeExtraTurn, Effect::ExileSource],
-        targets: None,
-    }],
-    ..CardDef::DEFAULT
-};
+    abilities: &[spell!(&[Effect::TakeExtraTurn, Effect::ExileSource])],
+}

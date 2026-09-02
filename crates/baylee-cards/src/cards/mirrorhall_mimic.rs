@@ -5,49 +5,36 @@
 // graveyard, exile on resolution).
 // NOTE: Ghastly Mimicry's aura effect ("enchanted creature is a copy of
 // Mirrorhall Mimic") is an aura-attachment rules item (M3+).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, CopyMod, Coverage, FaceDef, Filter, KeywordSet,
-    PartnerKind, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature, enchantment};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::{creature, enchantment};
 
-static ANY_CREATURE: Filter = Filter::HasType(TypeSet::CREATURE);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(95),
+card! {
+    index: 95,
     oracle_id: "5768fe50-a134-492c-a725-5ed02610c39f",
     scryfall_id: "823ad188-bd56-476d-9853-bed90bfad582",
     faces: &[
-        FaceDef {
+        face! {
             name: "Mirrorhall Mimic",
             mana_cost: baylee_core::mana!("{3}{U}"),
             types: TypeSet::CREATURE,
             subtypes: &[creature::SPIRIT],
             power: Some(2),
             toughness: Some(2),
-            ..FaceDef::DEFAULT
         },
-        FaceDef {
+        face! {
             name: "Ghastly Mimicry",
             mana_cost: baylee_core::mana!("{5}{U}"),
             types: TypeSet::ENCHANTMENT,
             subtypes: &[enchantment::AURA],
             castable_from_hand: false, // disturb: cast from the graveyard
             disturb: true,
-            ..FaceDef::DEFAULT
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::CopyOnEnter {
-        target: TargetSpec::Object(&ANY_CREATURE),
+        target: TargetSpec::Object(&Filter::CREATURE),
         mods: &[CopyMod::AddSubtype(creature::SPIRIT)],
     }],
-    ..CardDef::DEFAULT
-};
+}

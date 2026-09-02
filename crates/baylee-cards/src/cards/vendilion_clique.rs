@@ -6,25 +6,15 @@
 // IMPLEMENTED — flash/flying + hand-attack (choose a nonland card from
 // the target player's hand, bottom it, draw). The hand reveal is a
 // protocol presentation item; the choice itself is engine-complete.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    PartnerKind, PlayerRel, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static NONLAND: Filter = Filter::LacksType(TypeSet::LAND);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(181),
+card! {
+    index: 181,
     oracle_id: "244d4807-0802-41bc-9460-55ac38a28a72",
     scryfall_id: "cd702cf1-10ca-4448-9fb1-b6de635e839c",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Vendilion Clique",
         mana_cost: baylee_core::mana!("{1}{U}{U}"),
         types: TypeSet::CREATURE,
@@ -32,26 +22,19 @@ pub static CARD: CardDef = CardDef {
         subtypes: &[creature::FAERIE, creature::WIZARD],
         power: Some(3),
         toughness: Some(1),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::FLASH.union(KeywordSet::FLYING),
     commander: CommanderRule::Legendary,
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Triggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        once_per_turn: false,
-        effects: &[
+    abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[
             Effect::BottomCardFromHand {
                 player: PlayerRel::Opponent,
-                filter: &NONLAND,
+                filter: &Filter::NONLAND,
             },
             Effect::DrawCardsFor {
                 amount: Amount::Fixed(1),
                 who: PlayerRel::Opponent,
             },
-        ],
-        targets: None,
-    }],
-    ..CardDef::DEFAULT
-};
+        ])],
+}

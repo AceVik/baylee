@@ -5,26 +5,16 @@
 //! Oracle: Evoke—Exile a white card from your hand.
 //! Set: MSC #37 — Marvel Super Heroes Commander | Scryfall ID: 47a6234f-309f-4e03-9263-66da48b57153 | Oracle ID: dcb9c2a7-ae54-4ddc-a567-640bf4bf4366
 // IMPLEMENTED — flash/lifelink, exile ETB with life, pitch-evoke.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, AltCondition, AlternativeCost, Amount, CardDef, CommanderRule, Cost, CostPart,
-    Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec,
-    Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
-
-static CREATURE_OTHER: Filter = Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::Another]);
 static WHITE_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White]));
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(152),
+use baylee_cards_dsl::prelude::*;
+
+card! {
+    index: 152,
     oracle_id: "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
     scryfall_id: "47a6234f-309f-4e03-9263-66da48b57153",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Solitude",
         mana_cost: baylee_core::mana!("{3}{W}{W}"),
         types: TypeSet::CREATURE,
@@ -41,35 +31,23 @@ pub static CARD: CardDef = CardDef {
             },
             condition: AltCondition::Always,
         }],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::FLASH.union(KeywordSet::LIFELINK),
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&Filter::This),
-            once_per_turn: false,
-            effects: &[
+        triggered!(Trigger::EntersBattlefield(&Filter::This), &[
                 Effect::Exile {
-                    target: TargetSpec::Object(&CREATURE_OTHER),
+                    target: TargetSpec::Object(&Filter::ANOTHER_CREATURE),
                 },
                 Effect::GainLifeFor {
                     amount: Amount::TargetPower,
                     who: PlayerRel::ControllerOfTarget,
                 },
-            ],
-            targets: Some(TargetReq::up_to_one(TargetSpec::Object(&CREATURE_OTHER))),
-        },
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefieldEvoked,
-            once_per_turn: false,
-            effects: &[Effect::SacrificeSelf],
-            targets: None,
-        },
+            ], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::ANOTHER_CREATURE)))),
+        triggered!(Trigger::EntersBattlefieldEvoked, &[Effect::SacrificeSelf]),
     ],
-    ..CardDef::DEFAULT
-};
+}
 
 // Pitch path: exile a white card from hand, no mana spent; creature is
 // sacrificed after its ETB.

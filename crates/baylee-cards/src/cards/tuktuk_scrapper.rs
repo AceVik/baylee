@@ -3,47 +3,31 @@
 //! Set: WWK #94 — Worldwake | Scryfall ID: d3a84a2a-6384-497a-8ee2-de0fa74fcc80 | Oracle ID: 85cf2403-b419-4364-8ac9-67dd1ceddf9e
 // IMPLEMENTED — rally artifact destruction + damage per Ally (damage hits
 // the destroyed artifact's controller).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    PartnerKind, TargetReq, TargetSpec, Trigger, ZoneSel,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use crate::filters::YOUR_ALLIES;
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static ALLY_ETB: Filter = Filter::And(&[
-    Filter::ControlledByYou,
-    Filter::Or(&[Filter::This, Filter::HasSubtype(creature::ALLY)]),
-]);
 static ALLIES_YOU: Filter =
     Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
-static ARTIFACT: Filter = Filter::HasType(TypeSet::ARTIFACT);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(174),
+card! {
+    index: 174,
     oracle_id: "85cf2403-b419-4364-8ac9-67dd1ceddf9e",
     scryfall_id: "d3a84a2a-6384-497a-8ee2-de0fa74fcc80",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Tuktuk Scrapper",
         mana_cost: baylee_core::mana!("{3}{R}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::GOBLIN, creature::ARTIFICER, creature::ALLY],
         power: Some(2),
         toughness: Some(2),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Red]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Triggered {
-        trigger: Trigger::EntersBattlefield(&ALLY_ETB),
-        once_per_turn: false,
-        effects: &[
+    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_ALLIES), &[
             Effect::Destroy {
-                target: TargetSpec::Object(&ARTIFACT),
+                target: TargetSpec::Object(&Filter::ARTIFACT),
             },
             Effect::DealDamageToTargetController {
                 amount: Amount::CountOf {
@@ -51,8 +35,5 @@ pub static CARD: CardDef = CardDef {
                     zone: ZoneSel::Battlefield,
                 },
             },
-        ],
-        targets: Some(TargetReq::up_to_one(TargetSpec::Object(&ARTIFACT))),
-    }],
-    ..CardDef::DEFAULT
-};
+        ], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::ARTIFACT))))],
+}

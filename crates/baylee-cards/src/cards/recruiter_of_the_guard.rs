@@ -3,47 +3,29 @@
 //! Set: CN2 #90 — Conspiracy: Take the Crown | Scryfall ID: 8e4c6ba1-1abc-478f-9b7c-97e9e3c92fb0 | Oracle ID: d521a329-a53a-4962-810a-2abed80df260
 // IMPLEMENTED — ETB tutor with the real toughness filter
 // (Filter::ToughnessAtMost).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, Find, KeywordSet,
-    PartnerKind, SearchDest, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static TOUGH_CREATURE: Filter = Filter::And(&[
-    Filter::HasType(TypeSet::CREATURE),
-    Filter::ToughnessAtMost(2),
-]);
+static TOUGH_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::ToughnessAtMost(2)]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(126),
+card! {
+    index: 126,
     oracle_id: "d521a329-a53a-4962-810a-2abed80df260",
     scryfall_id: "8e4c6ba1-1abc-478f-9b7c-97e9e3c92fb0",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Recruiter of the Guard",
         mana_cost: baylee_core::mana!("{2}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::SOLDIER],
         power: Some(1),
         toughness: Some(1),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Triggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        once_per_turn: false,
-        effects: &[Effect::SearchLibrary {
+    abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::SearchLibrary {
             filter: &TOUGH_CREATURE,
             finds: &[Find::HAND],
             optional: true,
-        }],
-        targets: None,
-    }],
-    ..CardDef::DEFAULT
-};
+        }])],
+}

@@ -7,42 +7,24 @@
 // restricted mana provenance (spendable only on Ally spells). The "or
 // activate an ability of an Ally source" half of the restriction is a
 // payment-solver refinement (spells only today).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind, TokenDef,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
 use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(77),
+card! {
+    index: 77,
     oracle_id: "d9a24444-289f-473f-9985-8df275257555",
     scryfall_id: "da2c83d4-a95f-47ff-a08f-694eb78d6b9b",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Jasmine Dragon Tea Shop",
         types: TypeSet::LAND,
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana(ManaColor::Colorless, 1)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana_choice(&[
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        mana_ability!(&[Effect::mana_choice(&[
                 ManaColor::White,
                 ManaColor::Blue,
                 ManaColor::Black,
@@ -51,24 +33,11 @@ pub static CARD: CardDef = CardDef {
             ])
             .restricted(
                 &Filter::HasSubtype(creature::ALLY),
-                baylee_cards_dsl::SpendRider::None,
-            )],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
-        AbilityDef::Activated {
-            cost: Cost {
+                SpendRider::None,
+            )]),
+        activated!(Cost {
                 mana: baylee_core::mana!("{5}"),
                 parts: &[CostPart::TapSelf],
-            },
-            effects: &[Effect::CreateToken { token: &ALLY_TOKEN }],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-        },
+            }, &[Effect::CreateToken { token: &ALLY_TOKEN }]),
     ],
-    ..CardDef::DEFAULT
-};
+}

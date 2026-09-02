@@ -3,24 +3,14 @@
 //! Oracle: Create a token that's a copy of target creature. If this spell was kicked, create five of those tokens instead.
 //! Set: SOC #202 — Secrets of Strixhaven Commander | Scryfall ID: 5032d71d-d9f8-498c-97d1-271c2e9c1c47 | Oracle ID: fb60739e-1dc3-481d-a056-ad72e665c680
 // IMPLEMENTED — kicker + 1 or 5 token copies.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Cost, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    PartnerKind, TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-static ANY_CREATURE: Filter = Filter::HasType(TypeSet::CREATURE);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(135),
+card! {
+    index: 135,
     oracle_id: "fb60739e-1dc3-481d-a056-ad72e665c680",
     scryfall_id: "5032d71d-d9f8-498c-97d1-271c2e9c1c47",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Rite of Replication",
         mana_cost: baylee_core::mana!("{2}{U}{U}"),
         types: TypeSet::SORCERY,
@@ -28,16 +18,11 @@ pub static CARD: CardDef = CardDef {
             mana: baylee_core::mana!("{5}"),
             parts: &[],
         }],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[Effect::CreateTokenCopyOf {
-            target: Some(TargetSpec::Object(&ANY_CREATURE)),
+    abilities: &[spell!(&[Effect::CreateTokenCopyOf {
+            target: Some(TargetSpec::Object(&Filter::CREATURE)),
             kicked_bonus: 4,
-        }],
-        targets: Some(TargetReq::one(TargetSpec::Object(&ANY_CREATURE))),
-    }],
-    ..CardDef::DEFAULT
-};
+        }], targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))],
+}

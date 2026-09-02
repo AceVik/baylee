@@ -6,59 +6,37 @@
 //! Set: 2X2 #169 — Double Masters 2022 | Scryfall ID: bc010302-e715-4946-89eb-a214e0b836ba | Oracle ID: 3a30089d-cd2d-49be-9b06-7a2454117692
 // PARTIAL — +1 and −1 implemented; −6 needs directional multiplayer control
 // rotation (M2+; heads-up it is a straight swap, still unimplemented).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    PartnerKind, TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, planeswalker};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::planeswalker;
 
 static OWNED_PERMANENT: Filter = Filter::And(&[Filter::OwnedByYou, Filter::Another]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(3),
+card! {
+    index: 3,
     oracle_id: "3a30089d-cd2d-49be-9b06-7a2454117692",
     scryfall_id: "bc010302-e715-4946-89eb-a214e0b836ba",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Aminatou, the Fateshifter",
         mana_cost: baylee_core::mana!("{W}{U}{B}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::AMINATOU],
         loyalty: Some(3),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Black]),
     commander: CommanderRule::ExplicitlyAllowed,
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Loyalty {
-            cost: 1,
-            effects: &[
+        loyalty!(1, &[
                 Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 },
                 Effect::PutFromHandOnTop { count: 1 },
-            ],
-            target: None,
-        },
-        AbilityDef::Loyalty {
-            cost: -1,
-            effects: &[Effect::Blink {
+            ]),
+        loyalty!(-1, &[Effect::Blink {
                 target: TargetSpec::Object(&OWNED_PERMANENT),
-            }],
-            target: Some(TargetSpec::Object(&OWNED_PERMANENT)),
-        },
-        AbilityDef::Loyalty {
-            cost: -6,
-            effects: &[Effect::ControlRotation],
-            target: None,
-        },
+            }], target: Some(TargetSpec::Object(&OWNED_PERMANENT))),
+        loyalty!(-6, &[Effect::ControlRotation]),
     ],
-    ..CardDef::DEFAULT
-};
+}

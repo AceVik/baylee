@@ -30,6 +30,18 @@ enum Cmd {
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
     },
+    /// Dump every compiled `CardDef` — the equivalence check for a refactor.
+    ///
+    /// A change that is meant to alter no rules (new macros, shared filters,
+    /// a reshuffled literal) must leave this output byte-identical. Take a
+    /// dump before, one after, and diff: anything that moved has the card's
+    /// name on it. It is a tool rather than a test because there is nothing
+    /// for it to assert on its own — the baseline lives outside the repo.
+    PoolDump {
+        /// Where to write the dump.
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Show Scryfall + forge-reference data for a card side by side.
     Explain {
         /// Exact card name.
@@ -104,6 +116,7 @@ fn main() -> anyhow::Result<()> {
             forge,
             cache,
         } => codegen(&root, check, &forge, &cache),
+        Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::Explain { name, forge, cache } => explain(&root, &name, &forge, &cache),
         Cmd::CardBatch {
             cards,
@@ -539,6 +552,27 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         anyhow::bail!("{problems} convention problem(s) found");
     }
     println!("validate: {} cards conform", names.len());
+    Ok(())
+}
+
+/// Writes every compiled `CardDef` to `out`, one `Debug` rendering per card.
+///
+/// The point is the diff, not the content: a refactor that is supposed to
+/// change no rules produces the same bytes, and one that slipped produces a
+/// hunk with the card's name in it. That is how the macro/prelude refactor of
+/// the whole pool was held to "not one rule moved".
+fn pool_dump(out: &Path) -> anyhow::Result<()> {
+    use std::fmt::Write as _;
+    let mut text = String::new();
+    for def in baylee_cards::all() {
+        let _ = writeln!(text, "{def:#?}");
+    }
+    fs::write(out, &text)?;
+    println!(
+        "pool dump: {} cards -> {}",
+        baylee_cards::count(),
+        out.display()
+    );
     Ok(())
 }
 

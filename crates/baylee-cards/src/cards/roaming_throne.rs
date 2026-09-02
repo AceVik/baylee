@@ -6,30 +6,22 @@
 //! Set: LCI #258 — The Lost Caverns of Ixalan | Scryfall ID: 32fd8b7c-baf3-4d3d-be6f-044a917b11a0 | Oracle ID: 3640c29b-1534-4952-b297-619ade948431
 // IMPLEMENTED — ward {2} (synthetic trigger), choose-a-type on entry
 // (gains the subtype), and the chosen-type trigger multiplier.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, EnterModifier, FaceDef, Filter, KeywordSet,
-    PartnerKind, ReplacementRule, TriggerEventKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
 static OTHER_CHOSEN_TYPE_CREATURE_YOU_CONTROL: Filter = Filter::And(&[
     Filter::Another,
-    Filter::HasType(TypeSet::CREATURE),
+    Filter::CREATURE,
     Filter::ControlledByYou,
     Filter::MatchesChosenTypeOfSource,
 ]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(136),
+card! {
+    index: 136,
     oracle_id: "3640c29b-1534-4952-b297-619ade948431",
     scryfall_id: "32fd8b7c-baf3-4d3d-be6f-044a917b11a0",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Roaming Throne",
         mana_cost: baylee_core::mana!("{4}"),
         types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
@@ -37,7 +29,6 @@ pub static CARD: CardDef = CardDef {
         power: Some(4),
         toughness: Some(4),
         enter_modifiers: &[EnterModifier::ChooseSubtype],
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
@@ -47,5 +38,4 @@ pub static CARD: CardDef = CardDef {
             event: TriggerEventKind::Any,
         }),
     ],
-    ..CardDef::DEFAULT
-};
+}

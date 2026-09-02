@@ -4,33 +4,23 @@
 //! Set: MBC #73 — Mystery Booster Commander Edition | Scryfall ID: 9b29492a-8bdd-4806-8d1b-3058ed277cc1 | Oracle ID: 539f5396-d99a-417d-a84c-dff7930b5900
 // IMPLEMENTED — its own any-color mana + the lands-you-control grant
 // (GrantActivated static).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    ALL_MANA_COLORS, ANY_COLOR_MANA, AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef,
-    CommanderRule, Cost, Coverage, Effect, FaceDef, Filter, KeywordSet, Layer, Modifier,
-    PartnerKind, StaticAbility,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(19),
+card! {
+    index: 19,
     oracle_id: "539f5396-d99a-417d-a84c-dff7930b5900",
     scryfall_id: "9b29492a-8bdd-4806-8d1b-3058ed277cc1",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Chromatic Lantern",
         mana_cost: baylee_core::mana!("{3}"),
         types: TypeSet::ARTIFACT,
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
-            filter: Filter::And(&[Filter::HasType(TypeSet::LAND), Filter::ControlledByYou]),
+            filter: Filter::And(&[Filter::LAND, Filter::ControlledByYou]),
             modifier: Modifier::GrantActivated {
                 cost: Cost::TAP,
                 effects: ANY_COLOR_MANA,
@@ -38,14 +28,6 @@ pub static CARD: CardDef = CardDef {
             },
             cross_zone: false,
         }),
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana_choice(ALL_MANA_COLORS)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
+        mana_ability!(&[Effect::mana_choice(ALL_MANA_COLORS)]),
     ],
-    ..CardDef::DEFAULT
-};
+}

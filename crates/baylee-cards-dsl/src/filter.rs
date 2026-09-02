@@ -97,6 +97,49 @@ pub enum ZoneRef {
 }
 
 impl Filter {
-    // Note: compose filters inline (`Filter::And(&[A, B])`) — in `static`
-    // context the slice promotes to `'static` automatically.
+    // Compose filters inline (`Filter::And(&[A, B])`) — in `static` context
+    // the slice promotes to `'static` automatically, so a card needs a
+    // `static` of its own only for a filter it refers to more than once.
+    //
+    // The constants below are the ones the pool kept reinventing: "a
+    // creature" was written out as `HasType(TypeSet::CREATURE)` in a
+    // differently-named `static` in twenty-six card files, which is
+    // twenty-six chances to write `LacksType` by accident and no way to
+    // grep for the ones that did.
+
+    /// A creature.
+    pub const CREATURE: Self = Self::HasType(TypeSet::CREATURE);
+    /// An artifact.
+    pub const ARTIFACT: Self = Self::HasType(TypeSet::ARTIFACT);
+    /// An enchantment.
+    pub const ENCHANTMENT: Self = Self::HasType(TypeSet::ENCHANTMENT);
+    /// A land.
+    pub const LAND: Self = Self::HasType(TypeSet::LAND);
+    /// A planeswalker.
+    pub const PLANESWALKER: Self = Self::HasType(TypeSet::PLANESWALKER);
+    /// Anything that is not a land — "nonland permanent".
+    pub const NONLAND: Self = Self::LacksType(TypeSet::LAND);
+    /// Anything that is not a creature.
+    pub const NONCREATURE: Self = Self::LacksType(TypeSet::CREATURE);
+    /// A basic land.
+    ///
+    /// The clause order is the one the pool already used, so swapping a
+    /// hand-written filter for this constant is provably the same data and
+    /// not merely the same meaning.
+    pub const BASIC_LAND: Self = Self::And(&[Self::HasSupertype(SupertypeSet::BASIC), Self::LAND]);
+    /// An instant or a sorcery.
+    pub const INSTANT_OR_SORCERY: Self = Self::Or(&[
+        Self::HasType(TypeSet::INSTANT),
+        Self::HasType(TypeSet::SORCERY),
+    ]);
+    /// An artifact or an enchantment.
+    pub const ARTIFACT_OR_ENCHANTMENT: Self = Self::Or(&[Self::ARTIFACT, Self::ENCHANTMENT]);
+    /// A creature that is not a token.
+    pub const NONTOKEN_CREATURE: Self = Self::And(&[Self::CREATURE, Self::Not(&Self::IsToken)]);
+    /// A creature other than the source ("another creature").
+    pub const ANOTHER_CREATURE: Self = Self::And(&[Self::CREATURE, Self::Another]);
+    /// A creature you control.
+    pub const YOUR_CREATURE: Self = Self::And(&[Self::CREATURE, Self::ControlledByYou]);
+    /// A creature an opponent controls.
+    pub const OPPONENT_CREATURE: Self = Self::And(&[Self::CREATURE, Self::ControlledByOpponent]);
 }

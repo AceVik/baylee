@@ -4,23 +4,13 @@
 //! Set: KHM #240 — Kaldheim | Scryfall ID: 1246c42d-57c0-4cba-959a-15ad89d8a50b | Oracle ID: 9b2cdbed-c733-409b-b0e4-2c8960c25111
 // IMPLEMENTED — cross-zone type granting (library/hand/graveyard/stack) +
 // shapeshifter token creation.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, Layer, Modifier, PartnerKind, StaticAbility, TokenDef,
-    ZoneRef,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
 // Creatures you control (battlefield), creature spells you control (stack),
 // creature cards you own that aren't on the battlefield — CR 613.4 layer 4.
 static NEXUS_FILTER: Filter = Filter::And(&[
-    Filter::HasType(TypeSet::CREATURE),
+    Filter::CREATURE,
     Filter::Or(&[
         Filter::And(&[
             Filter::ControlledByYou,
@@ -33,15 +23,14 @@ static NEXUS_FILTER: Filter = Filter::And(&[
 
 use crate::tokens::SHAPESHIFTER_2_2_BLUE_CHANGELING as SHAPESHIFTER_TOKEN;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(92),
+card! {
+    index: 92,
     oracle_id: "9b2cdbed-c733-409b-b0e4-2c8960c25111",
     scryfall_id: "1246c42d-57c0-4cba-959a-15ad89d8a50b",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Maskwood Nexus",
         mana_cost: baylee_core::mana!("{4}"),
         types: TypeSet::ARTIFACT,
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
@@ -51,22 +40,14 @@ pub static CARD: CardDef = CardDef {
             modifier: Modifier::AllCreatureTypes,
             cross_zone: true,
         }),
-        AbilityDef::Activated {
-            cost: Cost {
+        activated!(Cost {
                 mana: baylee_core::mana!("{3}"),
                 parts: &[CostPart::TapSelf],
-            },
-            effects: &[Effect::CreateToken {
+            }, &[Effect::CreateToken {
                 token: &SHAPESHIFTER_TOKEN,
-            }],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-        },
+            }]),
     ],
-    ..CardDef::DEFAULT
-};
+}
 
 // Engine-level coverage lives in baylee-engine (m2 cross-zone test):
 // with Nexus out, a non-Ally creature card in the library counts as an

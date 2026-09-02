@@ -4,37 +4,26 @@
 // IMPLEMENTED — creature hexproof+indestructible EOT, no-life-loss,
 // no-lose/no-win suppression, and player hexproof (ChoosePlayer filters
 // hexproofed players out).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Duration, Effect, FaceDef, Filter, KeywordSet,
-    Layer, Modifier, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
-
-static ALL_CREATURES: Filter = Filter::HasType(TypeSet::CREATURE);
 static HEXPROOF_INDESTRUCTIBLE: KeywordSet = KeywordSet::HEXPROOF.union(KeywordSet::INDESTRUCTIBLE);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(47),
+use baylee_cards_dsl::prelude::*;
+
+card! {
+    index: 47,
     oracle_id: "39213de3-6a4a-4879-a7f9-70f45013765e",
     scryfall_id: "9dab0052-7f0c-4b56-847f-20552666a271",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Everybody Lives!",
         mana_cost: baylee_core::mana!("{1}{W}"),
         types: TypeSet::INSTANT,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[
+    abilities: &[spell!(&[
             Effect::CreateContinuousEffect {
                 layer: Layer::Ability,
-                filter: &ALL_CREATURES,
+                filter: &Filter::CREATURE,
                 modifier: Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE),
                 duration: Duration::UntilEndOfTurn,
             },
@@ -56,8 +45,5 @@ pub static CARD: CardDef = CardDef {
                 modifier: Modifier::PlayerHexproof,
                 duration: Duration::UntilEndOfTurn,
             },
-        ],
-        targets: None,
-    }],
-    ..CardDef::DEFAULT
-};
+        ])],
+}

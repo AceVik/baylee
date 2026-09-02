@@ -5,35 +5,20 @@
 //! Set: TLA #241 — Avatar: The Last Airbender | Scryfall ID: f0fa5897-1da7-488f-bb19-1632e969c050 | Oracle ID: 6b68acc2-b9d5-495b-8054-c04bae1349f1
 // IMPLEMENTED — menace + prowess (engine-level keyword trigger) + Ally
 // grants (layer 6) + token on noncreature spells.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    Layer, Modifier, PartnerKind, StaticAbility, TokenDef, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use crate::filters::ANOTHER_ALLY;
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static YOUR_ALLIES: Filter = Filter::And(&[
-    Filter::ControlledByYou,
-    Filter::HasSubtype(creature::ALLY),
-    Filter::Another,
-]);
-static NONCREATURE_SPELL: Filter = Filter::And(&[
-    Filter::ControlledByYou,
-    Filter::LacksType(TypeSet::CREATURE),
-]);
+static NONCREATURE_SPELL: Filter = Filter::And(&[Filter::ControlledByYou, Filter::NONCREATURE]);
 
 use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(149),
+card! {
+    index: 149,
     oracle_id: "6b68acc2-b9d5-495b-8054-c04bae1349f1",
     scryfall_id: "f0fa5897-1da7-488f-bb19-1632e969c050",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Sokka, Tenacious Tactician",
         mana_cost: baylee_core::mana!("{1}{U}{R}"),
         types: TypeSet::CREATURE,
@@ -41,7 +26,6 @@ pub static CARD: CardDef = CardDef {
         subtypes: &[creature::HUMAN, creature::WARRIOR, creature::ALLY],
         power: Some(2),
         toughness: Some(2),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Red]),
     keywords: KeywordSet::MENACE.union(KeywordSet::PROWESS),
@@ -50,19 +34,13 @@ pub static CARD: CardDef = CardDef {
     abilities: &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
-            filter: YOUR_ALLIES,
+            filter: ANOTHER_ALLY,
             modifier: Modifier::AddKeyword(KeywordSet::MENACE.union(KeywordSet::PROWESS)),
             cross_zone: false,
         }),
-        AbilityDef::Triggered {
-            trigger: Trigger::SpellCast(&NONCREATURE_SPELL),
-            once_per_turn: false,
-            effects: &[Effect::CreateTokenN {
+        triggered!(Trigger::SpellCast(&NONCREATURE_SPELL), &[Effect::CreateTokenN {
                 token: &ALLY_TOKEN,
                 amount: Amount::Fixed(1),
-            }],
-            targets: None,
-        },
+            }]),
     ],
-    ..CardDef::DEFAULT
-};
+}

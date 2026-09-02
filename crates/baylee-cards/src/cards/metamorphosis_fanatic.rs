@@ -5,25 +5,15 @@
 //! Set: DSC #21 — Duskmourn: House of Horror Commander | Scryfall ID: 16448d95-ee21-4def-b880-26f6f159c213 | Oracle ID: 017aa9b3-a8ea-4588-9c50-e914a7d8e4ee
 // IMPLEMENTED — lifelink 4/4 + ETB reanimate with a lifelink counter +
 // miracle cast.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Effect, FaceDef, Filter,
-    KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static CREATURE_CARD: Filter = Filter::HasType(TypeSet::CREATURE);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(94),
+card! {
+    index: 94,
     oracle_id: "017aa9b3-a8ea-4588-9c50-e914a7d8e4ee",
     scryfall_id: "16448d95-ee21-4def-b880-26f6f159c213",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Metamorphosis Fanatic",
         mana_cost: baylee_core::mana!("{4}{B}{B}"),
         types: TypeSet::CREATURE,
@@ -31,29 +21,22 @@ pub static CARD: CardDef = CardDef {
         power: Some(4),
         toughness: Some(4),
         miracle: Some(baylee_core::mana!("{1}{B}")),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::LIFELINK,
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Triggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        once_per_turn: false,
-        effects: &[
+    abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[
             Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You),
+                target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
             },
             Effect::AddCounter {
                 kind: CounterKind::Lifelink,
                 amount: Amount::Fixed(1),
             },
-        ],
-        targets: Some(TargetReq {
-            spec: TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You),
+        ], targets: Some(TargetReq {
+            spec: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
             min: 0,
             max: 1,
             count_is_x: false,
-        }),
-    }],
-    ..CardDef::DEFAULT
-};
+        }))],
+}

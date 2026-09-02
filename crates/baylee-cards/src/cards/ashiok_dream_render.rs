@@ -4,30 +4,21 @@
 //! Set: WAR #228 — War of the Spark | Scryfall ID: f2df3258-c053-48a8-974f-d80899b2cd93 | Oracle ID: 93723b12-db34-4047-885e-8606415b1553
 // IMPLEMENTED — search suppression (OpponentsCantSearch checked in the
 // search ops) + the mill/exile-graveyards loyalty ability.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    Layer, Modifier, PartnerKind, PlayerRel, StaticAbility, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, planeswalker};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::planeswalker;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(8),
+card! {
+    index: 8,
     oracle_id: "93723b12-db34-4047-885e-8606415b1553",
     scryfall_id: "f2df3258-c053-48a8-974f-d80899b2cd93",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Ashiok, Dream Render",
         mana_cost: baylee_core::mana!("{1}{U/B}{U/B}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::ASHIOK],
         loyalty: Some(5),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black]),
     coverage: Coverage::Implemented,
@@ -38,9 +29,7 @@ pub static CARD: CardDef = CardDef {
             modifier: Modifier::OpponentsCantSearch,
             cross_zone: false,
         }),
-        AbilityDef::Loyalty {
-            cost: -1,
-            effects: &[
+        loyalty!(-1, &[
                 Effect::Mill {
                     amount: Amount::Fixed(4),
                     target: PlayerRel::ControllerOfTarget,
@@ -48,9 +37,6 @@ pub static CARD: CardDef = CardDef {
                 Effect::ExileGraveyard {
                     player: PlayerRel::EachOpponent,
                 },
-            ],
-            target: Some(TargetSpec::AnyPlayer),
-        },
+            ], target: Some(TargetSpec::AnyPlayer)),
     ],
-    ..CardDef::DEFAULT
-};
+}

@@ -6,57 +6,39 @@
 //! Set: TDM #11 — Tarkir: Dragonstorm | Scryfall ID: 73a065e3-b530-4e62-ab3c-4f6f908184ec | Oracle ID: f78af825-023a-42e9-8374-5c52303a1417
 // PARTIAL — token doubling, +1 token, −3 destroy implemented; 0's flying-
 // until-next-turn needs UntilYourNextTurn duration (M2+).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Duration, Effect, FaceDef,
-    Filter, KeywordSet, Layer, Modifier, PartnerKind, ReplacementRule, TargetReq, TargetSpec,
-    TokenDef,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature, planeswalker};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::planeswalker;
 
-static YOURS: Filter = Filter::ControlledByYou;
 static BIG_ENEMY_CREATURE: Filter = Filter::And(&[
     Filter::ControlledByOpponent,
-    Filter::HasType(TypeSet::CREATURE),
+    Filter::CREATURE,
     Filter::CmcAtLeast(3),
 ]);
-static YOUR_CREATURES: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasType(TypeSet::CREATURE)]);
+static YOUR_CREATURES: Filter = Filter::And(&[Filter::ControlledByYou, Filter::CREATURE]);
 
 use crate::tokens::SOLDIER_1_1_WHITE as SOLDIER;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(40),
+card! {
+    index: 40,
     oracle_id: "f78af825-023a-42e9-8374-5c52303a1417",
     scryfall_id: "73a065e3-b530-4e62-ab3c-4f6f908184ec",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Elspeth, Storm Slayer",
         mana_cost: baylee_core::mana!("{3}{W}{W}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::ELSPETH],
         loyalty: Some(5),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
-            controller_filter: &YOURS,
+            controller_filter: &Filter::ControlledByYou,
         }),
-        AbilityDef::Loyalty {
-            cost: 1,
-            effects: &[Effect::CreateToken { token: &SOLDIER }],
-            target: None,
-        },
-        AbilityDef::Loyalty {
-            cost: 0,
-            effects: &[
+        loyalty!(1, &[Effect::CreateToken { token: &SOLDIER }]),
+        loyalty!(0, &[
                 Effect::AddCounterFilter {
                     filter: &YOUR_CREATURES,
                     kind: CounterKind::P1P1,
@@ -68,16 +50,9 @@ pub static CARD: CardDef = CardDef {
                     modifier: Modifier::AddKeyword(KeywordSet::FLYING),
                     duration: Duration::UntilYourNextTurn,
                 },
-            ],
-            target: None,
-        },
-        AbilityDef::Loyalty {
-            cost: -3,
-            effects: &[Effect::Destroy {
+            ]),
+        loyalty!(-3, &[Effect::Destroy {
                 target: TargetSpec::Object(&BIG_ENEMY_CREATURE),
-            }],
-            target: Some(TargetSpec::Object(&BIG_ENEMY_CREATURE)),
-        },
+            }], target: Some(TargetSpec::Object(&BIG_ENEMY_CREATURE))),
     ],
-    ..CardDef::DEFAULT
-};
+}

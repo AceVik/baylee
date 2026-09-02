@@ -7704,6 +7704,7 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "baylee-cards",
  "baylee-cards-codegen",
  "clap",
  "serde_json",

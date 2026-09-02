@@ -2,45 +2,20 @@
 //! Oracle: {T}: Add {C}. {T}: Each player gains control of all creatures they own.
 //! Set: C13 #262 — Commander 2013 | Scryfall ID: 54734347-eee7-4c52-b514-7342afeccabd | Oracle ID: cb8ec2e4-8223-4172-8f2c-37c918a573fa
 // IMPLEMENTED.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature, land};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(71),
+card! {
+    index: 71,
     oracle_id: "cb8ec2e4-8223-4172-8f2c-37c918a573fa",
     scryfall_id: "54734347-eee7-4c52-b514-7342afeccabd",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Homeward Path",
         types: TypeSet::LAND,
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana(ManaColor::Colorless, 1)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::AllCreaturesToOwner],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-        },
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        activated!(Cost::TAP, &[Effect::AllCreaturesToOwner]),
     ],
-    ..CardDef::DEFAULT
-};
+}

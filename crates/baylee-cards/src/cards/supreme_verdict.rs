@@ -3,34 +3,20 @@
 //! Oracle: Destroy all creatures.
 //! Set: RVR #67 — Ravnica Remastered | Scryfall ID: 3892f1c5-937e-4ef4-b6f9-e0c0ded070d0 | Oracle ID: 0230de18-8d15-4cfa-9d42-7ccddd9f9570
 // IMPLEMENTED — uncounterable wrath.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-static CREATURES: Filter = Filter::HasType(TypeSet::CREATURE);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(160),
+card! {
+    index: 160,
     oracle_id: "0230de18-8d15-4cfa-9d42-7ccddd9f9570",
     scryfall_id: "3892f1c5-937e-4ef4-b6f9-e0c0ded070d0",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Supreme Verdict",
         mana_cost: baylee_core::mana!("{1}{W}{U}{U}"),
         types: TypeSet::SORCERY,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     keywords: KeywordSet::UNCOUNTERABLE,
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[Effect::DestroyAll { filter: &CREATURES }],
-        targets: None,
-    }],
-    ..CardDef::DEFAULT
-};
+    abilities: &[spell!(&[Effect::DestroyAll { filter: &Filter::CREATURE }])],
+}

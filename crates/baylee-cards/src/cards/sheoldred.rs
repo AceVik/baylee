@@ -5,30 +5,15 @@
 // IMPLEMENTED — menace + ETB edict + conditional flip; all three saga
 // chapters on the back face (lore counters, chapter triggers, sacrifice
 // after III).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, Amount, CardDef,
-    CommanderRule, Cost, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel,
-    TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature, enchantment};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::{creature, enchantment};
 
 static NONTOKEN_CREATURE_OR_WALKER: Filter = Filter::And(&[
     Filter::Not(&Filter::IsToken),
-    Filter::Or(&[
-        Filter::HasType(TypeSet::CREATURE),
-        Filter::HasType(TypeSet::PLANESWALKER),
-    ]),
+    Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER]),
 ]);
-static CREATURE_OR_WALKER: Filter = Filter::Or(&[
-    Filter::HasType(TypeSet::CREATURE),
-    Filter::HasType(TypeSet::PLANESWALKER),
-]);
+static CREATURE_OR_WALKER: Filter = Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER]);
 
 static BACK_ABILITIES: &[AbilityDef] = &[
     AbilityDef::SagaChapter {
@@ -63,12 +48,12 @@ static BACK_ABILITIES: &[AbilityDef] = &[
     },
 ];
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(143),
+card! {
+    index: 143,
     oracle_id: "97652492-7906-4d79-983c-fa1dc1239eba",
     scryfall_id: "bf2249e6-af74-4b88-8eb7-144ce8fa7f6b",
     faces: &[
-        FaceDef {
+        face! {
             name: "Sheoldred",
             mana_cost: baylee_core::mana!("{3}{B}{B}"),
             types: TypeSet::CREATURE,
@@ -76,30 +61,23 @@ pub static CARD: CardDef = CardDef {
             subtypes: &[creature::PHYREXIAN, creature::PRAETOR],
             power: Some(4),
             toughness: Some(5),
-            ..FaceDef::DEFAULT
         },
-        FaceDef {
+        face! {
             name: "The True Scriptures",
             mana_cost: baylee_core::mana!("{2}{B}{B}"),
             types: TypeSet::ENCHANTMENT,
             subtypes: &[enchantment::SAGA],
             abilities: BACK_ABILITIES,
-            ..FaceDef::DEFAULT
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::MENACE,
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&Filter::This),
-            once_per_turn: false,
-            effects: &[Effect::SacrificeFilter {
+        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::SacrificeFilter {
                 who: PlayerRel::EachOpponent,
                 filter: &NONTOKEN_CREATURE_OR_WALKER,
-            }],
-            targets: None,
-        },
+            }]),
         AbilityDef::ActivatedConditional {
             cost: Cost {
                 mana: baylee_core::mana!("{4}{B}"),
@@ -113,5 +91,4 @@ pub static CARD: CardDef = CardDef {
             condition: ActivationCondition::OpponentGraveyardCountAtLeast(8),
         },
     ],
-    ..CardDef::DEFAULT
-};
+}

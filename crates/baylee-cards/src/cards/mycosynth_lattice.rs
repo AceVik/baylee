@@ -5,26 +5,17 @@
 //! Set: BBD #241 — Battlebond | Scryfall ID: 94f89714-3b26-46a2-b9a8-3e664f391cd9 | Oracle ID: ae1f2ab5-c6a5-4d49-a746-3cb4668bf805
 // IMPLEMENTED — type (layer 4), colour (layer 5) and "spend mana as though it
 // were mana of any color", which every affordability and payment check reads.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, FaceDef, Filter, KeywordSet, Layer, Modifier,
-    PartnerKind, StaticAbility,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(100),
+card! {
+    index: 100,
     oracle_id: "ae1f2ab5-c6a5-4d49-a746-3cb4668bf805",
     scryfall_id: "94f89714-3b26-46a2-b9a8-3e664f391cd9",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Mycosynth Lattice",
         mana_cost: baylee_core::mana!("{6}"),
         types: TypeSet::ARTIFACT,
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
@@ -47,5 +38,4 @@ pub static CARD: CardDef = CardDef {
             cross_zone: false,
         }),
     ],
-    ..CardDef::DEFAULT
-};
+}

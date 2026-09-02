@@ -5,42 +5,26 @@
 //! Set: MH2 #238 — Modern Horizons 2 | Scryfall ID: a16fabbe-4557-4067-b882-f2e5dbd8b458 | Oracle ID: 913e6182-706a-4872-8c8a-e146b0ae0738
 // IMPLEMENTED — +2/+2, protection from green/white, the blink+ramp
 // damage trigger, and equip.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
-    FaceDef, Filter, Find, KeywordSet, Layer, Modifier, PartnerKind, SearchDest, StaticAbility,
-    TargetReq, TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, artifact};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::artifact;
 
-static EQUIPPED: Filter = Filter::AttachedToBySource;
 /// Equip targets "target creature you control" (CR 702.6a).
-static CREATURE_YOU_CONTROL: Filter =
-    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]);
+static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 static GREEN_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Green]));
 static WHITE_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White]));
-static CREATURE_YOU_OWN: Filter =
-    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::OwnedByYou]);
-static BASIC_LAND: Filter = Filter::And(&[
-    Filter::HasSupertype(SupertypeSet::BASIC),
-    Filter::HasType(TypeSet::LAND),
-]);
+static CREATURE_YOU_OWN: Filter = Filter::And(&[Filter::CREATURE, Filter::OwnedByYou]);
+static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(163),
+card! {
+    index: 163,
     oracle_id: "913e6182-706a-4872-8c8a-e146b0ae0738",
     scryfall_id: "a16fabbe-4557-4067-b882-f2e5dbd8b458",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Sword of Hearth and Home",
         mana_cost: baylee_core::mana!("{3}"),
         types: TypeSet::ARTIFACT,
         subtypes: &[artifact::EQUIPMENT],
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
@@ -62,10 +46,7 @@ pub static CARD: CardDef = CardDef {
             modifier: Modifier::ProtectionFrom(&WHITE_F),
             cross_zone: false,
         }),
-        AbilityDef::Triggered {
-            trigger: Trigger::DealsCombatDamageToPlayer(&EQUIPPED),
-            once_per_turn: false,
-            effects: &[
+        triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource), &[
                 Effect::Blink {
                     target: TargetSpec::Object(&CREATURE_YOU_OWN),
                 },
@@ -74,27 +55,17 @@ pub static CARD: CardDef = CardDef {
                     finds: &[Find::BATTLEFIELD],
                     optional: true,
                 },
-            ],
-            targets: Some(TargetReq {
+            ], targets: Some(TargetReq {
                 spec: TargetSpec::Object(&CREATURE_YOU_OWN),
                 min: 0,
                 max: 1,
                 count_is_x: false,
-            }),
-        },
-        AbilityDef::Activated {
-            cost: baylee_cards_dsl::Cost {
+            })),
+        activated!(Cost {
                 mana: baylee_core::mana!("{2}"),
                 parts: &[],
-            },
-            effects: &[Effect::AttachSelf {
+            }, &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
-            }],
-            target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
-            timing: ActivationTiming::SorcerySpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-        },
+            }], target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)), timing: ActivationTiming::SorcerySpeed),
     ],
-    ..CardDef::DEFAULT
-};
+}

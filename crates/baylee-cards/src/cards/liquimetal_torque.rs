@@ -3,52 +3,26 @@
 //! Oracle: {T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn.
 //! Set: MH2 #228 — Modern Horizons 2 | Scryfall ID: 13c6101a-da40-4785-8ccb-4e779bbbdb55 | Oracle ID: b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad
 // IMPLEMENTED — mana rock + timed type change.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Duration,
-    Effect, FaceDef, Filter, KeywordSet, Layer, Modifier, PartnerKind, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-static NONLAND: Filter = Filter::LacksType(TypeSet::LAND);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(86),
+card! {
+    index: 86,
     oracle_id: "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
     scryfall_id: "13c6101a-da40-4785-8ccb-4e779bbbdb55",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Liquimetal Torque",
         mana_cost: baylee_core::mana!("{2}"),
         types: TypeSet::ARTIFACT,
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana(ManaColor::Colorless, 1)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::CreateContinuousEffect {
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        activated!(Cost::TAP, &[Effect::CreateContinuousEffect {
                 layer: Layer::Type,
-                filter: &NONLAND,
+                filter: &Filter::NONLAND,
                 modifier: Modifier::AddType(TypeSet::ARTIFACT),
                 duration: Duration::UntilEndOfTurn,
-            }],
-            target: Some(TargetSpec::Object(&NONLAND)),
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-        },
+            }], target: Some(TargetSpec::Object(&Filter::NONLAND))),
     ],
-    ..CardDef::DEFAULT
-};
+}

@@ -6,75 +6,45 @@
 // IMPLEMENTED — all three loyalty abilities, including the −8 emblem
 // (emblem objects carry abilities; the command zone is scanned for
 // triggers).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Duration, Effect, FaceDef, Filter, KeywordSet,
-    Layer, Modifier, PartnerKind, TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, planeswalker};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::planeswalker;
 
-static PERMANENT_YOU_OWN: Filter = Filter::And(&[
-    Filter::OwnedByYou,
-    Filter::InZone(baylee_cards_dsl::ZoneRef::Battlefield),
-]);
-static ALL_CREATURES: Filter = Filter::HasType(TypeSet::CREATURE);
+static PERMANENT_YOU_OWN: Filter =
+    Filter::And(&[Filter::OwnedByYou, Filter::InZone(ZoneRef::Battlefield)]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(183),
+card! {
+    index: 183,
     oracle_id: "a8bf8ff8-d924-4fd2-b5ed-05b38f55325a",
     scryfall_id: "8f61a0ea-c2e8-4571-9669-19abd8bbc874",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Venser, the Sojourner",
         mana_cost: baylee_core::mana!("{3}{W}{U}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::VENSER],
         loyalty: Some(3),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Loyalty {
-            cost: 2,
-            effects: &[Effect::ExileAndReturnAtEndStep],
-            target: Some(TargetSpec::Object(&PERMANENT_YOU_OWN)),
-        },
-        AbilityDef::Loyalty {
-            cost: -1,
-            effects: &[Effect::CreateContinuousEffect {
+        loyalty!(2, &[Effect::ExileAndReturnAtEndStep], target: Some(TargetSpec::Object(&PERMANENT_YOU_OWN))),
+        loyalty!(-1, &[Effect::CreateContinuousEffect {
                 layer: Layer::Ability,
-                filter: &ALL_CREATURES,
+                filter: &Filter::CREATURE,
                 modifier: Modifier::AddKeyword(KeywordSet::UNBLOCKABLE),
                 duration: Duration::UntilEndOfTurn,
-            }],
-            target: None,
-        },
-        AbilityDef::Loyalty {
-            cost: -8,
-            effects: &[Effect::CreateEmblem {
+            }]),
+        loyalty!(-8, &[Effect::CreateEmblem {
                 abilities: EMBLEM_ABILITIES,
-            }],
-            target: None,
-        },
+            }]),
     ],
-    ..CardDef::DEFAULT
-};
+}
 
-static ANY_PERMANENT: Filter = Filter::Any;
-static YOUR_SPELL: Filter = Filter::ControlledByYou;
-static EMBLEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Triggered {
-    trigger: Trigger::SpellCast(&YOUR_SPELL),
-    once_per_turn: false,
-    effects: &[Effect::Exile {
-        target: TargetSpec::Object(&ANY_PERMANENT),
-    }],
-    targets: Some(baylee_cards_dsl::TargetReq::one(TargetSpec::Object(
-        &ANY_PERMANENT,
-    ))),
-}];
+static EMBLEM_ABILITIES: &[AbilityDef] = &[
+    triggered!(Trigger::SpellCast(&Filter::ControlledByYou), &[Effect::Exile {
+        target: TargetSpec::Object(&Filter::Any),
+    }], targets: Some(TargetReq::one(TargetSpec::Object(
+        &Filter::Any,
+    )))),
+];

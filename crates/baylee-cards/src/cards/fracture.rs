@@ -2,42 +2,26 @@
 //! Oracle: Destroy target artifact, enchantment, or planeswalker.
 //! Set: SOC #310 — Secrets of Strixhaven Commander | Scryfall ID: cba33bf7-0919-408c-8eb0-0bb9fe920c81 | Oracle ID: f21d0319-0509-4ac1-b6e3-10955a26fd7a
 // IMPLEMENTED — flexible destroy.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+static ARTIFACT_ENCHANTMENT_OR_WALKER: Filter =
+    Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT, Filter::PLANESWALKER]);
 
-static ARTIFACT_ENCHANTMENT_OR_WALKER: Filter = Filter::Or(&[
-    Filter::HasType(TypeSet::ARTIFACT),
-    Filter::HasType(TypeSet::ENCHANTMENT),
-    Filter::HasType(TypeSet::PLANESWALKER),
-]);
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(56),
+card! {
+    index: 56,
     oracle_id: "f21d0319-0509-4ac1-b6e3-10955a26fd7a",
     scryfall_id: "cba33bf7-0919-408c-8eb0-0bb9fe920c81",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Fracture",
         mana_cost: baylee_core::mana!("{W}{B}"),
         types: TypeSet::INSTANT,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[Effect::Destroy {
+    abilities: &[spell!(&[Effect::Destroy {
             target: TargetSpec::Object(&ARTIFACT_ENCHANTMENT_OR_WALKER),
-        }],
-        targets: Some(TargetReq::one(TargetSpec::Object(
+        }], targets: Some(TargetReq::one(TargetSpec::Object(
             &ARTIFACT_ENCHANTMENT_OR_WALKER,
-        ))),
-    }],
-    ..CardDef::DEFAULT
-};
+        ))))],
+}

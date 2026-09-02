@@ -2,40 +2,23 @@
 //! Oracle: ({T}: Add {R} or {G}.)
 //! Set: VMA #317 — Vintage Masters | Scryfall ID: 0c2c39fc-b564-4ab5-833c-ff029760b7a7 | Oracle ID: 22e3cf1d-3559-4ce1-954c-8dc815342979
 // IMPLEMENTED — two-color mana choice.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, land};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::land;
 
 static COLORS: &[ManaColor] = &[ManaColor::Red, ManaColor::Green];
-static SUBS: &[baylee_core::ids::SubtypeId] = &[land::MOUNTAIN, land::FOREST];
+static SUBS: &[SubtypeId] = &[land::MOUNTAIN, land::FOREST];
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(165),
+card! {
+    index: 165,
     oracle_id: "22e3cf1d-3559-4ce1-954c-8dc815342979",
     scryfall_id: "0c2c39fc-b564-4ab5-833c-ff029760b7a7",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Taiga",
         types: TypeSet::LAND,
         subtypes: SUBS,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Red, Color::Green]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Activated {
-        cost: Cost::TAP,
-        effects: &[Effect::mana_choice(COLORS)],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: true,
-        zone: ActivationZone::Battlefield,
-    }],
-    ..CardDef::DEFAULT
-};
+    abilities: &[mana_ability!(&[Effect::mana_choice(COLORS)])],
+}

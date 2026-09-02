@@ -3,37 +3,22 @@
 //! Oracle: Destroy target nonland permanent.
 //! Set: SNC #230 — Streets of New Capenna | Scryfall ID: 2daab74d-d66b-4164-aa19-24e8d5536f7d | Oracle ID: 713f16db-95ec-479e-a48c-7a69f7668d7f
 // IMPLEMENTED — uncounterable single-target destroy.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-static NONLAND: Filter = Filter::LacksType(TypeSet::LAND);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(185),
+card! {
+    index: 185,
     oracle_id: "713f16db-95ec-479e-a48c-7a69f7668d7f",
     scryfall_id: "2daab74d-d66b-4164-aa19-24e8d5536f7d",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Void Rend",
         mana_cost: baylee_core::mana!("{W}{U}{B}"),
         types: TypeSet::INSTANT,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Black]),
     keywords: KeywordSet::UNCOUNTERABLE,
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[Effect::Destroy {
-            target: TargetSpec::Object(&NONLAND),
-        }],
-        targets: Some(TargetReq::one(TargetSpec::Object(&NONLAND))),
-    }],
-    ..CardDef::DEFAULT
-};
+    abilities: &[spell!(&[Effect::Destroy {
+            target: TargetSpec::Object(&Filter::NONLAND),
+        }], targets: Some(TargetReq::one(TargetSpec::Object(&Filter::NONLAND))))],
+}

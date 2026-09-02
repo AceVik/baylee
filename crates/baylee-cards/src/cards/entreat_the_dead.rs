@@ -3,40 +3,25 @@
 //! Oracle: Miracle {X}{B}{B} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)
 //! Set: C18 #15 — Commander 2018 | Scryfall ID: 31a147bb-37ef-4a52-82e2-160a53323516 | Oracle ID: 2de6c3d9-1759-40a2-99c6-8cbe17b4bcdd
 // IMPLEMENTED — X-target mass reanimation + miracle cast.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    PlayerRel, TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-static CREATURE_CARD: Filter = Filter::HasType(TypeSet::CREATURE);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(43),
+card! {
+    index: 43,
     oracle_id: "2de6c3d9-1759-40a2-99c6-8cbe17b4bcdd",
     scryfall_id: "31a147bb-37ef-4a52-82e2-160a53323516",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Entreat the Dead",
         mana_cost: baylee_core::mana!("{X}{X}{B}{B}{B}"),
         types: TypeSet::SORCERY,
         miracle: Some(baylee_core::mana!("{X}{B}{B}")),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You),
-        }],
-        targets: Some(TargetReq::x_targets(TargetSpec::CardInGraveyard(
-            &CREATURE_CARD,
+    abilities: &[spell!(&[Effect::GraveyardToBattlefield {
+            target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
+        }], targets: Some(TargetReq::x_targets(TargetSpec::CardInGraveyard(
+            &Filter::CREATURE,
             PlayerRel::You,
-        ))),
-    }],
-    ..CardDef::DEFAULT
-};
+        ))))],
+}

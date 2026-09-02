@@ -6,53 +6,27 @@
 // IMPLEMENTED — choose-a-type, {C}, and the restricted any-color mana:
 // it pays only for creature spells of the chosen type and makes them
 // uncounterable (mana provenance + Uncounterable rider).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    ALL_MANA_COLORS, AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule,
-    Cost, Coverage, Effect, EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+static CHOSEN_TYPE_CREATURE_SPELL: Filter =
+    Filter::And(&[Filter::CREATURE, Filter::MatchesChosenTypeOfSource]);
 
-static CHOSEN_TYPE_CREATURE_SPELL: Filter = Filter::And(&[
-    Filter::HasType(TypeSet::CREATURE),
-    Filter::MatchesChosenTypeOfSource,
-]);
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(17),
+card! {
+    index: 17,
     oracle_id: "89ca686a-7c72-4d8f-9290-e89635624a83",
     scryfall_id: "3aad15a2-8a1b-4460-9b06-e85863081878",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Cavern of Souls",
         types: TypeSet::LAND,
         enter_modifiers: &[EnterModifier::ChooseSubtype],
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana(ManaColor::Colorless, 1)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana_choice(ALL_MANA_COLORS).restricted(
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        mana_ability!(&[Effect::mana_choice(ALL_MANA_COLORS).restricted(
                 &CHOSEN_TYPE_CREATURE_SPELL,
-                baylee_cards_dsl::SpendRider::Uncounterable,
-            )],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
+                SpendRider::Uncounterable,
+            )]),
     ],
-    ..CardDef::DEFAULT
-};
+}

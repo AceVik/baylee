@@ -7,6 +7,7 @@
 #![warn(missing_docs)]
 
 pub mod ability;
+pub mod build;
 pub mod cost;
 pub mod effect;
 pub mod filter;
@@ -30,18 +31,21 @@ pub use ability::{
     AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, CopyMod, SpellMode,
     StepKind, Trigger, TriggerEventKind,
 };
+pub use build::prelude;
+pub use build::{ActivatedParts, LoyaltyParts, SpellParts, TriggeredParts};
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, SearchDest,
     SpendRider, TargetReq, TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
+// Re-exported so the authoring macros can name them through `$crate`, and so
+// a card file needs exactly one import (see `build::prelude`).
+pub use baylee_core::color::{Color, ColorSet};
+pub use baylee_core::ids::{CardIndex, SubtypeId};
+pub use baylee_core::mana::{ManaColor, ManaCost};
+pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility};
-
-use baylee_core::color::ColorSet;
-use baylee_core::ids::{CardIndex, SubtypeId};
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
 #[derive(Debug)]

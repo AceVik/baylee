@@ -6,36 +6,25 @@
 //! Set: AFR #81 — Adventures in the Forgotten Realms | Scryfall ID: d1f629fb-b097-4240-8560-ef47f5678f48 | Oracle ID: 36f68aa3-9955-46f1-bc87-497f16ef5222
 // IMPLEMENTED — all three levels: no-max-hand-size (L1), draw-two
 // level-up (L2), and the draw-watcher counter grant (L3, GrantTriggered).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, Amount, CardDef,
-    CommanderRule, Cost, CounterKind, Coverage, Duration, Effect, FaceDef, Filter, KeywordSet,
-    Layer, Modifier, PartnerKind, PlayerRel, StaticAbility, TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, enchantment};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::enchantment;
 
-static YOUR_CREATURE: Filter =
-    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]);
+static YOUR_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 static LEVEL3_FX: &[Effect] = &[Effect::AddCounter {
     kind: CounterKind::P1P1,
     amount: Amount::Fixed(1),
 }];
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(192),
+card! {
+    index: 192,
     oracle_id: "36f68aa3-9955-46f1-bc87-497f16ef5222",
     scryfall_id: "d1f629fb-b097-4240-8560-ef47f5678f48",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Wizard Class",
         mana_cost: baylee_core::mana!("{U}"),
         types: TypeSet::ENCHANTMENT,
         subtypes: &[enchantment::CLASS],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
@@ -97,5 +86,4 @@ pub static CARD: CardDef = CardDef {
             condition: ActivationCondition::CountersOnSelfExactly(CounterKind::Level, 1),
         },
     ],
-    ..CardDef::DEFAULT
-};
+}

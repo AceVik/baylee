@@ -4,43 +4,29 @@
 //! Set: MSC #125 — Marvel Super Heroes Commander | Scryfall ID: 41d45a8a-ea1d-4fbc-86d2-5d6340f3b639 | Oracle ID: 42bb7ea9-f6e4-4551-8d93-3b1eae84b865
 // IMPLEMENTED — convoke (generic {1} per tapped creature; the
 // colored-mana option is a payment refinement) + mass phase-out.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+static YOUR_NONLAND_PERMANENTS: Filter = Filter::And(&[Filter::NONLAND, Filter::ControlledByYou]);
 
-static YOUR_NONLAND_PERMANENTS: Filter =
-    Filter::And(&[Filter::LacksType(TypeSet::LAND), Filter::ControlledByYou]);
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(22),
+card! {
+    index: 22,
     oracle_id: "42bb7ea9-f6e4-4551-8d93-3b1eae84b865",
     scryfall_id: "41d45a8a-ea1d-4fbc-86d2-5d6340f3b639",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Clever Concealment",
         mana_cost: baylee_core::mana!("{2}{W}{W}"),
         types: TypeSet::INSTANT,
         convoke: true,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[Effect::PhaseOut {
+    abilities: &[spell!(&[Effect::PhaseOut {
             target: Some(TargetSpec::Object(&YOUR_NONLAND_PERMANENTS)),
-        }],
-        targets: Some(TargetReq {
+        }], targets: Some(TargetReq {
             spec: TargetSpec::Object(&YOUR_NONLAND_PERMANENTS),
             min: 0,
             max: u8::MAX,
             count_is_x: false,
-        }),
-    }],
-    ..CardDef::DEFAULT
-};
+        }))],
+}

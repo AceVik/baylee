@@ -6,16 +6,6 @@
 // IMPLEMENTED — waterbend (kicker-style additional cost paid via
 // convoke taps on artifacts AND creatures), kick-branched outcome,
 // self-exile always.
-#![allow(unused_imports, missing_docs)]
-
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Cost, Coverage, Duration, Effect, FaceDef, Filter,
-    KeywordSet, Layer, Modifier, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
 
 static KICKED_OUTCOME: &[Effect] = &[
     Effect::ShuffleGraveyardIntoLibrary,
@@ -33,11 +23,13 @@ static NORMAL_OUTCOME: &[Effect] = &[Effect::DrawCards {
     amount: Amount::Fixed(2),
 }];
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(156),
+use baylee_cards_dsl::prelude::*;
+
+card! {
+    index: 156,
     oracle_id: "68979160-b5ce-4787-8a1e-1f40e614c3b0",
     scryfall_id: "0c019e76-c88e-4d1b-a546-0f4e462ef44a",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Spirit Water Revival",
         mana_cost: baylee_core::mana!("{4}{U}"),
         types: TypeSet::SORCERY,
@@ -46,19 +38,14 @@ pub static CARD: CardDef = CardDef {
             parts: &[],
         }],
         convoke: true,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[
+    abilities: &[spell!(&[
             Effect::IfKicked {
                 then: KICKED_OUTCOME,
                 otherwise: NORMAL_OUTCOME,
             },
             Effect::ExileSource,
-        ],
-        targets: None,
-    }],
-    ..CardDef::DEFAULT
-};
+        ])],
+}

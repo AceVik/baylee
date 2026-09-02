@@ -3,54 +3,37 @@
 //! Set: MH3 #216 — Modern Horizons 3 | Scryfall ID: 579743fe-f71e-4cb2-8629-d6b02ed1591d | Oracle ID: fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57
 // IMPLEMENTED — fetchland (tap + pay life + sacrifice → search Swamp/Mountain
 // to the battlefield tapped, shuffle).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
-    Effect, FaceDef, Filter, Find, KeywordSet, PartnerKind, SearchDest,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, land};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::land;
 
 static SEARCH_FILTER: Filter = Filter::Or(&[
     Filter::HasSubtype(land::SWAMP),
     Filter::HasSubtype(land::MOUNTAIN),
 ]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(13),
+card! {
+    index: 13,
     oracle_id: "fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57",
     scryfall_id: "579743fe-f71e-4cb2-8629-d6b02ed1591d",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Bloodstained Mire",
         types: TypeSet::LAND,
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Activated {
-        cost: Cost {
+    abilities: &[activated!(Cost {
             mana: ManaCost::ZERO,
             parts: &[
                 CostPart::TapSelf,
                 CostPart::SacrificeSelf,
                 CostPart::PayLife(1),
             ],
-        },
-        effects: &[Effect::SearchLibrary {
+        }, &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
             finds: &[Find::BATTLEFIELD],
             optional: false,
-        }],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: false,
-        zone: ActivationZone::Battlefield,
-    }],
-    ..CardDef::DEFAULT
-};
+        }])],
+}
 
 // Fetchland family coverage lives in baylee-engine (fetchland test with
 // Polluted Delta + the land-wave group test).

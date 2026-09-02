@@ -6,38 +6,25 @@
 // IMPLEMENTED — artifact lock, +1 animation, and the −2 wish. The wish
 // reads the seat's sideboard, which now lives outside the game rather
 // than being shuffled into the library.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Duration, Effect, FaceDef, Filter,
-    KeywordSet, Layer, Modifier, PartnerKind, StaticAbility, TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, planeswalker};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::planeswalker;
 
-static NONCREATURE_ARTIFACT: Filter = Filter::And(&[
-    Filter::HasType(TypeSet::ARTIFACT),
-    Filter::LacksType(TypeSet::CREATURE),
-]);
+static NONCREATURE_ARTIFACT: Filter = Filter::And(&[Filter::ARTIFACT, Filter::NONCREATURE]);
 
-static ARTIFACT_YOU_OWN: Filter =
-    Filter::And(&[Filter::OwnedByYou, Filter::HasType(TypeSet::ARTIFACT)]);
+static ARTIFACT_YOU_OWN: Filter = Filter::And(&[Filter::OwnedByYou, Filter::ARTIFACT]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(81),
+card! {
+    index: 81,
     oracle_id: "a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1",
     scryfall_id: "deb3721d-fba1-444f-8b31-1cd10c94c4a0",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Karn, the Great Creator",
         mana_cost: baylee_core::mana!("{4}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::KARN],
         loyalty: Some(5),
-        ..FaceDef::DEFAULT
     }],
     commander: CommanderRule::Legendary,
     coverage: Coverage::Implemented,
@@ -48,9 +35,7 @@ pub static CARD: CardDef = CardDef {
             modifier: Modifier::CantActivateArtifacts,
             cross_zone: false,
         }),
-        AbilityDef::Loyalty {
-            cost: 1,
-            effects: &[
+        loyalty!(1, &[
                 Effect::CreateContinuousEffect {
                     layer: Layer::Type,
                     filter: &NONCREATURE_ARTIFACT,
@@ -63,16 +48,9 @@ pub static CARD: CardDef = CardDef {
                     toughness: Amount::TargetCmc,
                     duration: Duration::UntilEndOfTurn,
                 },
-            ],
-            target: Some(TargetSpec::Object(&NONCREATURE_ARTIFACT)),
-        },
-        AbilityDef::Loyalty {
-            cost: -2,
-            effects: &[Effect::WishToHand {
+            ], target: Some(TargetSpec::Object(&NONCREATURE_ARTIFACT))),
+        loyalty!(-2, &[Effect::WishToHand {
                 filter: &ARTIFACT_YOU_OWN,
-            }],
-            target: None,
-        },
+            }]),
     ],
-    ..CardDef::DEFAULT
-};
+}

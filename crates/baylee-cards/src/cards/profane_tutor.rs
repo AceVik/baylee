@@ -3,27 +3,16 @@
 //! Oracle: Search your library for a card, put that card into your hand, then shuffle.
 //! Set: MH2 #97 — Modern Horizons 2 | Scryfall ID: 2afc6f7d-ab59-4d64-bd11-6bd0fd4bfcd2 | Oracle ID: 27a1f42c-0b86-4609-9609-1fa9cab7e7c9
 // IMPLEMENTED — suspend 2 demonic-tutor variant.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, Find, KeywordSet,
-    PartnerKind, SearchDest,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-static ANY_CARD: Filter = Filter::Any;
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(120),
+card! {
+    index: 120,
     oracle_id: "27a1f42c-0b86-4609-9609-1fa9cab7e7c9",
     scryfall_id: "2afc6f7d-ab59-4d64-bd11-6bd0fd4bfcd2",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Profane Tutor",
         types: TypeSet::SORCERY,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     coverage: Coverage::Implemented,
@@ -32,14 +21,10 @@ pub static CARD: CardDef = CardDef {
             counters: 2,
             cost: baylee_core::mana!("{1}{B}"),
         },
-        AbilityDef::Spell {
-            effects: &[Effect::SearchLibrary {
-                filter: &ANY_CARD,
+        spell!(&[Effect::SearchLibrary {
+                filter: &Filter::Any,
                 finds: &[Find::HAND],
                 optional: false,
-            }],
-            targets: None,
-        },
+            }]),
     ],
-    ..CardDef::DEFAULT
-};
+}

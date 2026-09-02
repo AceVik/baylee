@@ -8,58 +8,38 @@
 // counters, sorcery speed), artifact-creature at 8+, 8+ flying, the
 // artifact hexproof/indestructible grant, and the 1+ modal counter
 // trigger.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost,
-    CounterKind, Coverage, Effect, FaceDef, Filter, KeywordSet, Layer, Modifier, PartnerKind,
-    SpellMode, StaticAbility, StepKind, TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, artifact};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::artifact;
 
-static ANOTHER_CREATURE: Filter = Filter::And(&[
-    Filter::Another,
-    Filter::HasType(TypeSet::CREATURE),
-    Filter::ControlledByYou,
-]);
-static OTHER_ARTIFACT: Filter = Filter::And(&[Filter::Another, Filter::HasType(TypeSet::ARTIFACT)]);
+static ANOTHER_CREATURE: Filter =
+    Filter::And(&[Filter::Another, Filter::CREATURE, Filter::ControlledByYou]);
+static OTHER_ARTIFACT: Filter = Filter::And(&[Filter::Another, Filter::ARTIFACT]);
 static HEXPROOF_INDESTRUCTIBLE: KeywordSet = KeywordSet::HEXPROOF.union(KeywordSet::INDESTRUCTIBLE);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(73),
+card! {
+    index: 73,
     oracle_id: "554df866-3dbb-4811-8573-6033481591aa",
     scryfall_id: "46900ec7-eb18-45c4-8e90-a48b665cfdee",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Inspirit, Flagship Vessel",
         mana_cost: baylee_core::mana!("{4}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[artifact::SPACECRAFT],
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
         // Station: tap another creature → its power in charge counters,
         // sorcery speed. It's an artifact creature at 8+.
-        AbilityDef::Activated {
-            cost: Cost::FREE,
-            effects: &[
+        activated!(Cost::FREE, &[
                 Effect::TapTarget,
                 Effect::AddCounterFilter {
                     filter: &Filter::This,
                     kind: CounterKind::Charge,
                     amount: Amount::TargetPower,
                 },
-            ],
-            target: Some(TargetSpec::Object(&ANOTHER_CREATURE)),
-            timing: ActivationTiming::SorcerySpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-        },
+            ], target: Some(TargetSpec::Object(&ANOTHER_CREATURE)), timing: ActivationTiming::SorcerySpeed),
         AbilityDef::Static(StaticAbility {
             layer: Layer::Type,
             filter: Filter::This,
@@ -84,7 +64,7 @@ pub static CARD: CardDef = CardDef {
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
             filter: Filter::And(&[
-                Filter::HasType(TypeSet::ARTIFACT),
+                Filter::ARTIFACT,
                 Filter::ControlledByYou,
                 Filter::Another,
             ]),
@@ -96,28 +76,19 @@ pub static CARD: CardDef = CardDef {
         AbilityDef::ModalTriggered {
             trigger: Trigger::StepBegin {
                 step: StepKind::CombatBegin,
-                whose: baylee_cards_dsl::PlayerRel::You,
+                whose: PlayerRel::You,
             },
             modes: &[
-                SpellMode {
-                    effects: &[Effect::AddCounter {
+                mode!(&[Effect::AddCounter {
                         kind: CounterKind::P1P1,
                         amount: Amount::Fixed(1),
-                    }],
-                    target: Some(TargetSpec::Object(&OTHER_ARTIFACT)),
-                    cost_override: None,
-                },
-                SpellMode {
-                    effects: &[Effect::AddCounter {
+                    }], target: Some(TargetSpec::Object(&OTHER_ARTIFACT))),
+                mode!(&[Effect::AddCounter {
                         kind: CounterKind::Charge,
                         amount: Amount::Fixed(2),
-                    }],
-                    target: Some(TargetSpec::Object(&OTHER_ARTIFACT)),
-                    cost_override: None,
-                },
+                    }], target: Some(TargetSpec::Object(&OTHER_ARTIFACT))),
             ],
             once_per_turn: false,
         },
     ],
-    ..CardDef::DEFAULT
-};
+}

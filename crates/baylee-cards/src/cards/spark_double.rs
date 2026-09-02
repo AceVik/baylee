@@ -4,38 +4,26 @@
 // IMPLEMENTED — clone of your creature/planeswalker, not legendary,
 // with both bonus counters (the creature-irrelevant counter is harmless
 // on the other card type, matching the card's effect in play).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, CopyMod, CounterKind, Coverage, FaceDef, Filter,
-    KeywordSet, PartnerKind, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
 static YOUR_CREATURE_OR_WALKER: Filter = Filter::And(&[
-    Filter::Or(&[
-        Filter::HasType(TypeSet::CREATURE),
-        Filter::HasType(TypeSet::PLANESWALKER),
-    ]),
+    Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER]),
     Filter::ControlledByYou,
 ]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(154),
+card! {
+    index: 154,
     oracle_id: "8dcb35e5-ae44-455f-86e3-4a77d496ff34",
     scryfall_id: "c41b9ba2-0006-4d8e-b600-efe81ff5e0cc",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Spark Double",
         mana_cost: baylee_core::mana!("{3}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ILLUSION],
         power: Some(0),
         toughness: Some(0),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
@@ -47,5 +35,4 @@ pub static CARD: CardDef = CardDef {
             CopyMod::AddCounter(CounterKind::Loyalty, 1),
         ],
     }],
-    ..CardDef::DEFAULT
-};
+}

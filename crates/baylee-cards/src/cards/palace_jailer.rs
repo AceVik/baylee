@@ -4,53 +4,30 @@
 //! Set: C17 #21 — Commander 2017 | Scryfall ID: 3a8c2a84-e0f2-4611-af3d-42f4578ad4e3 | Oracle ID: 180eda7c-fca2-403b-85cd-8ffebaf9f408
 // IMPLEMENTED — monarch designation (become monarch, monarch draw at end
 // step, monarch-linked exile release).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    TargetReq, TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static ENEMY_CREATURE: Filter = Filter::And(&[
-    Filter::ControlledByOpponent,
-    Filter::HasType(TypeSet::CREATURE),
-]);
+static ENEMY_CREATURE: Filter = Filter::And(&[Filter::ControlledByOpponent, Filter::CREATURE]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(109),
+card! {
+    index: 109,
     oracle_id: "180eda7c-fca2-403b-85cd-8ffebaf9f408",
     scryfall_id: "3a8c2a84-e0f2-4611-af3d-42f4578ad4e3",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Palace Jailer",
         mana_cost: baylee_core::mana!("{2}{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::SOLDIER],
         power: Some(2),
         toughness: Some(2),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&Filter::This),
-            once_per_turn: false,
-            effects: &[Effect::BecomeMonarch],
-            targets: None,
-        },
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&Filter::This),
-            once_per_turn: false,
-            effects: &[Effect::ExileLinked {
+        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::BecomeMonarch]),
+        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::ExileLinked {
                 target: TargetSpec::Object(&ENEMY_CREATURE),
-            }],
-            targets: Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE))),
-        },
+            }], targets: Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE)))),
     ],
-    ..CardDef::DEFAULT
-};
+}

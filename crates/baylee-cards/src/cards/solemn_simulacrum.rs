@@ -3,56 +3,33 @@
 //! Oracle: When this creature dies, you may draw a card.
 //! Set: MSC #215 — Marvel Super Heroes Commander | Scryfall ID: daafd816-f7c1-4630-9e5c-a1e5db570a35 | Oracle ID: 00c0543c-2a1f-4425-8283-4062d74a1637
 // IMPLEMENTED — ETB ramp + dies cantrip.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, Find,
-    KeywordSet, PartnerKind, SearchDest, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static BASIC_LAND: Filter = Filter::And(&[
-    Filter::HasSupertype(SupertypeSet::BASIC),
-    Filter::HasType(TypeSet::LAND),
-]);
+static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(151),
+card! {
+    index: 151,
     oracle_id: "00c0543c-2a1f-4425-8283-4062d74a1637",
     scryfall_id: "daafd816-f7c1-4630-9e5c-a1e5db570a35",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Solemn Simulacrum",
         mana_cost: baylee_core::mana!("{4}"),
         types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
         subtypes: &[creature::GOLEM],
         power: Some(2),
         toughness: Some(2),
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&Filter::This),
-            once_per_turn: false,
-            effects: &[Effect::SearchLibrary {
+        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::SearchLibrary {
                 filter: &BASIC_LAND,
                 finds: &[Find::BATTLEFIELD_TAPPED],
                 optional: true,
-            }],
-            targets: None,
-        },
-        AbilityDef::Triggered {
-            trigger: Trigger::Dies(&Filter::This),
-            once_per_turn: false,
-            effects: &[Effect::DrawCards {
+            }]),
+        triggered!(Trigger::Dies(&Filter::This), &[Effect::DrawCards {
                 amount: Amount::Fixed(1),
-            }],
-            targets: None,
-        },
+            }]),
     ],
-    ..CardDef::DEFAULT
-};
+}

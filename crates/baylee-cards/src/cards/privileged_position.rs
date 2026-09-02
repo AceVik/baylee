@@ -3,28 +3,19 @@
 //! Oracle: Other permanents you control have hexproof. (They can't be the targets of spells or abilities your opponents control.)
 //! Set: 2X2 #263 — Double Masters 2022 | Scryfall ID: 9655bbe4-062f-4278-ad05-a326a64c5b69 | Oracle ID: abd62af0-c17d-4f62-af15-9ea83037b990
 // IMPLEMENTED — hexproof grant to your other permanents (layer 6).
-#![allow(unused_imports, missing_docs)]
-
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, FaceDef, Filter, KeywordSet, Layer, Modifier,
-    PartnerKind, StaticAbility,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
 
 static OTHER_YOURS: Filter = Filter::And(&[Filter::ControlledByYou, Filter::Another]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(119),
+use baylee_cards_dsl::prelude::*;
+
+card! {
+    index: 119,
     oracle_id: "abd62af0-c17d-4f62-af15-9ea83037b990",
     scryfall_id: "9655bbe4-062f-4278-ad05-a326a64c5b69",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Privileged Position",
         mana_cost: baylee_core::mana!("{2}{G/W}{G/W}{G/W}"),
         types: TypeSet::ENCHANTMENT,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Green]),
     coverage: Coverage::Implemented,
@@ -34,5 +25,4 @@ pub static CARD: CardDef = CardDef {
         modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
         cross_zone: false,
     })],
-    ..CardDef::DEFAULT
-};
+}

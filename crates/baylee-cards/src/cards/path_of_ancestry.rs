@@ -7,43 +7,24 @@
 // sharing a type with your commander.
 // NOTE: the scry trigger queues via the synthetic-ability path (stacked
 // as an ability).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
-    EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+static COMMANDER_TYPE_CREATURE_SPELL: Filter =
+    Filter::And(&[Filter::CREATURE, Filter::SharesSubtypeWithCommander]);
 
-static COMMANDER_TYPE_CREATURE_SPELL: Filter = Filter::And(&[
-    Filter::HasType(TypeSet::CREATURE),
-    Filter::SharesSubtypeWithCommander,
-]);
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(111),
+card! {
+    index: 111,
     oracle_id: "b473e293-59e3-4e04-acf2-622604aeb25f",
     scryfall_id: "b1aaa7b0-1cac-4a92-b880-7ef1ac00618f",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Path of Ancestry",
         types: TypeSet::LAND,
         enter_modifiers: &[EnterModifier::Tapped],
-        ..FaceDef::DEFAULT
     }],
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Activated {
-        cost: Cost::TAP,
-        effects: &[Effect::mana_commander_identity().restricted(
+    abilities: &[mana_ability!(&[Effect::mana_commander_identity().restricted(
             &COMMANDER_TYPE_CREATURE_SPELL,
-            baylee_cards_dsl::SpendRider::Scry(1),
-        )],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: true,
-        zone: ActivationZone::Battlefield,
-    }],
-    ..CardDef::DEFAULT
-};
+            SpendRider::Scry(1),
+        )])],
+}

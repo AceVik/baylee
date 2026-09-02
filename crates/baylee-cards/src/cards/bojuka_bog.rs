@@ -4,48 +4,26 @@
 //! Set: C18 #259 — Commander 2018 | Scryfall ID: 55b5b094-9d2d-4d96-b90c-78fecdae725a | Oracle ID: 04b7362d-0490-4cb0-b5d7-2a7732f659ce
 // IMPLEMENTED — ETB tapped + exile target player's graveyard (opponent
 // auto-resolves heads-up; multiplayer player choice is a protocol M3 item).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
-    EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(14),
+card! {
+    index: 14,
     oracle_id: "04b7362d-0490-4cb0-b5d7-2a7732f659ce",
     scryfall_id: "55b5b094-9d2d-4d96-b90c-78fecdae725a",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Bojuka Bog",
         types: TypeSet::LAND,
         enter_modifiers: &[EnterModifier::Tapped],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana(ManaColor::Black, 1)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&Filter::This),
-            once_per_turn: false,
-            effects: &[Effect::ExileGraveyard {
+        mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
+        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::ExileGraveyard {
                 player: PlayerRel::Chosen,
-            }],
-            targets: Some(baylee_cards_dsl::TargetReq::one(
-                baylee_cards_dsl::TargetSpec::AnyPlayer,
-            )),
-        },
+            }], targets: Some(TargetReq::one(
+                TargetSpec::AnyPlayer,
+            ))),
     ],
-    ..CardDef::DEFAULT
-};
+}

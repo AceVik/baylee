@@ -2,38 +2,21 @@
 //! Oracle: ({T}: Add {B}.)
 //! Set: TRK #319 — Star Trek | Scryfall ID: f3cc07cd-cc79-4745-b0b7-eade60175cc3 | Oracle ID: b2c6aa39-2d2a-459c-a555-fb48ba993373
 // IMPLEMENTED — basic land mana ability.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, Coverage, Effect,
-    FaceDef, Filter, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, land};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::land;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(74),
+card! {
+    index: 74,
     oracle_id: "b2c6aa39-2d2a-459c-a555-fb48ba993373",
     scryfall_id: "f3cc07cd-cc79-4745-b0b7-eade60175cc3",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Island",
         types: TypeSet::LAND,
         supertypes: SupertypeSet::BASIC,
         subtypes: &[land::ISLAND],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Activated {
-        cost: Cost::TAP,
-        effects: &[Effect::mana(ManaColor::Blue, 1)],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: true,
-        zone: ActivationZone::Battlefield,
-    }],
-    ..CardDef::DEFAULT
-};
+    abilities: &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])],
+}

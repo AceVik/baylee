@@ -3,46 +3,29 @@
 //! {T}: Add White or Blue.
 //! Set: BFZ #241 — Battle for Zendikar | Scryfall ID: b2e133b4-2263-4ac2-8d16-7bf307d5e104 | Oracle ID: 5330e24a-8568-446e-840a-594cd08bd1bc
 // IMPLEMENTED — checkland (ETB tapped unless you control a PLAINS/ISLAND) + 2-color mana.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, EnterModifier, FaceDef, Filter, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
+use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::land;
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
 
 static CHECK: Filter = Filter::And(&[
     Filter::ControlledByYou,
-    Filter::HasType(TypeSet::LAND),
+    Filter::LAND,
     Filter::Or(&[
         Filter::HasSubtype(land::PLAINS),
         Filter::HasSubtype(land::ISLAND),
     ]),
 ]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(117),
+card! {
+    index: 117,
     oracle_id: "5330e24a-8568-446e-840a-594cd08bd1bc",
     scryfall_id: "b2e133b4-2263-4ac2-8d16-7bf307d5e104",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Prairie Stream",
         types: TypeSet::LAND,
         enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Activated {
-        cost: Cost::TAP,
-        effects: &[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: true,
-        zone: ActivationZone::Battlefield,
-    }],
-    ..CardDef::DEFAULT
-};
+    abilities: &[mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])],
+}

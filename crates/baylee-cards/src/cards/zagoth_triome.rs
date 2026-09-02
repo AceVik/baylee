@@ -4,23 +4,15 @@
 //! Cycling {2}
 //! Set: IKO #259 — Ikoria: Lair of Behemoths | Scryfall ID: cc520518-2063-4b57-a0d4-10cf62a7175e | Oracle ID: fdd46004-eaba-4024-8687-39b23dc6a58c
 // IMPLEMENTED — triome (3 land types → intrinsic mana, ETB tapped, cycling {2}).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, CostPart,
-    Coverage, Effect, EnterModifier, FaceDef, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, land};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::{self};
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(193),
+card! {
+    index: 193,
     oracle_id: "fdd46004-eaba-4024-8687-39b23dc6a58c",
     scryfall_id: "cc520518-2063-4b57-a0d4-10cf62a7175e",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Zagoth Triome",
         types: TypeSet::LAND,
         subtypes: &[
@@ -29,36 +21,20 @@ pub static CARD: CardDef = CardDef {
             subtypes::land::ISLAND,
         ],
         enter_modifiers: &[EnterModifier::Tapped],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black, Color::Green]),
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana_choice(&[
+        mana_ability!(&[Effect::mana_choice(&[
                 ManaColor::Blue,
                 ManaColor::Black,
                 ManaColor::Green,
-            ])],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
-        AbilityDef::Activated {
-            cost: Cost {
+            ])]),
+        activated!(Cost {
                 mana: baylee_core::mana!("{2}"),
                 parts: &[CostPart::DiscardSelf],
-            },
-            effects: &[Effect::DrawCards {
+            }, &[Effect::DrawCards {
                 amount: Amount::Fixed(1),
-            }],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: false,
-            zone: ActivationZone::Hand,
-        },
+            }], zone: ActivationZone::Hand),
     ],
-    ..CardDef::DEFAULT
-};
+}

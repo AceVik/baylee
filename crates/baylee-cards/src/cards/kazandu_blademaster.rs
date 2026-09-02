@@ -3,47 +3,28 @@
 //! Oracle: Whenever this creature or another Ally you control enters, you may put a +1/+1 counter on this creature.
 //! Set: ZEN #16 — Zendikar | Scryfall ID: 9642bdbf-c03f-4c48-a5c8-c9201a08b834 | Oracle ID: 133f5d30-d883-493e-93a1-cf9583db460b
 // IMPLEMENTED — first strike, vigilance, rally counter on self.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, CounterKind, Coverage, Effect, FaceDef, Filter,
-    KeywordSet, PartnerKind, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use crate::filters::YOUR_ALLIES;
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static ALLY_ETB: Filter = Filter::And(&[
-    Filter::ControlledByYou,
-    Filter::Or(&[Filter::This, Filter::HasSubtype(creature::ALLY)]),
-]);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(83),
+card! {
+    index: 83,
     oracle_id: "133f5d30-d883-493e-93a1-cf9583db460b",
     scryfall_id: "9642bdbf-c03f-4c48-a5c8-c9201a08b834",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Kazandu Blademaster",
         mana_cost: baylee_core::mana!("{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::SOLDIER, creature::ALLY],
         power: Some(1),
         toughness: Some(1),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::FIRST_STRIKE.union(KeywordSet::VIGILANCE),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Triggered {
-        trigger: Trigger::EntersBattlefield(&ALLY_ETB),
-        once_per_turn: false,
-        effects: &[Effect::AddCounter {
+    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_ALLIES), &[Effect::AddCounter {
             kind: CounterKind::P1P1,
             amount: Amount::Fixed(1),
-        }],
-        targets: None,
-    }],
-    ..CardDef::DEFAULT
-};
+        }])],
+}

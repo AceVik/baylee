@@ -32,6 +32,7 @@ cargo run -p xtask -- codegen --check    # CI: fail if generated files are stale
 cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
 cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + forge data side by side
 cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages for unimplemented cards
+cargo run -p xtask -- pool-dump --out /tmp/pool.txt       # every CardDef, for refactor equivalence diffs
 cargo run -p xtask -- dev-table --seats 4 --ai sharp      # a seated dev ticket (add --play to launch the client)
 ```
 
@@ -176,15 +177,42 @@ renumbers an existing one — a `CardIndex` is what saved decks and replays
 name. The `//!`
 header (name, cost, oracle text, set, Scryfall id) is the human-verification
 surface and `xtask validate` fails if it drifts from the `CardDef` built below
-it. Field defaults come from `CardDef::DEFAULT` / `FaceDef::DEFAULT` via a
-struct-update tail — never restate a default. A mechanic the DSL cannot express
-gets `Coverage::Partial("reason")` and a `// NOT SUPPORTED:` comment; extend
-the DSL rather than working around it. `docs/card-dsl.md` is the authoring
-contract, `docs/llm-learnings.md` gets updated after every card batch.
+it. A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
+`// NOT SUPPORTED:` comment; extend the DSL rather than working around it.
+`docs/card-dsl.md` is the authoring contract, `docs/llm-learnings.md` gets
+updated after every card batch.
+
+A card file is written with the macros in `baylee-cards-dsl/src/build.rs` and
+opens with one import, `use baylee_cards_dsl::prelude::*;`. `card!` and
+`face!` are the `CardDef`/`FaceDef` literals with their `..DEFAULT` tail
+supplied (and `card!` writes the doc comment on the `pub static CARD` it
+defines); `mana_ability!`, `activated!`, `triggered!`, `spell!`, `loyalty!`
+and `mode!` do the same for the five ability shapes that make up most of the
+pool. **Never restate a default** — that rule is why all of it exists.
+
+What is load-bearing about the ability macros is that their defaults are
+*rules* defaults, not merely common ones: instant speed is CR 602.2, the
+battlefield is CR 113.6, and `mana_ability: false` is CR 605.1 making a mana
+ability the exception. That last one is why a mana ability has its own macro
+instead of a flag — an ability wrongly marked `true` would silently skip the
+stack, and nothing in the test suite reads that as a rules bug. Fields with no
+rules answer (a trigger, an effect list) are positional arguments, so they
+cannot be forgotten.
+
+Filters compose inline; a slice promotes to `'static` in a `static`. Named
+predicates live on `Filter` itself (`CREATURE`, `NONLAND`, `BASIC_LAND`,
+`INSTANT_OR_SORCERY`, …) and pool-specific ones in
+`crates/baylee-cards/src/filters.rs` beside `crate::tokens` — the line is
+whether the knowledge is about Magic or about *this pool*. Before that split,
+"a creature" was spelled out in a differently-named `static` in twenty-six
+card files.
 
 Several tests exist purely to turn convention into a build failure — a card
 sitting at the wrong `CardIndex`, or a card claiming a keyword no rule reads.
-Expect that shape when adding data.
+Expect that shape when adding data. For a change that is meant to move no
+rules at all, `cargo run -p xtask -- pool-dump --out <path>` renders every
+compiled `CardDef`; take one before and one after and diff. That is what held
+the macro refactor of all 197 card files to a byte-identical pool.
 
 ### Hidden information is unrepresentable, not omitted
 

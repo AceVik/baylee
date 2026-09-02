@@ -15,7 +15,20 @@ must be kept truthful (it's the human-verification surface):
 //! Oracle: Lightning Bolt deals 3 damage to any target.
 //! Set: M11 #149 — Magic 2011 | Scryfall ID: <uuid> | Oracle ID: <uuid>
 // IMPLEMENTED — one-line summary of the implementation.
+
+use baylee_cards_dsl::prelude::*;
 ```
+
+One import, and it is the only one most cards need — the prelude carries the
+whole vocabulary plus the macros below. Add a second `use` line only for
+something outside it: a subtype module
+(`use baylee_core::generated::subtypes::creature;`), a token
+(`use crate::tokens::…`), or a shared filter (`use crate::filters::…`).
+
+Do **not** add `#![allow(unused_imports, missing_docs)]`. It used to be on
+every card file because the generated import list was identical for every
+card whether the card used it or not; it is gone, and with it the two dozen
+genuinely dead imports it had been hiding.
 
 Rules:
 
@@ -35,25 +48,29 @@ Rules:
 card file ends its literals with a struct-update tail:
 
 ```rust
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(104),
+card! {
+    index: 104,
     oracle_id: "f4232466-dd6a-49bf-be6c-95905c3ded17",
     scryfall_id: "ced43447-fefc-482a-b8fa-33b9616aa532",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Ondu Cleric",
         mana_cost: baylee_core::mana!("{1}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::CLERIC, creature::ALLY],
         power: Some(1),
         toughness: Some(1),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,
     abilities: &[/* … */],
-    ..CardDef::DEFAULT
-};
+}
 ```
+
+`card!` and `face!` *are* those literals — they expand to `CardDef { … ,
+..CardDef::DEFAULT }` and `FaceDef { … , ..FaceDef::DEFAULT }`. Two things
+come with them: the tail can no longer be forgotten, and `card!` writes the
+doc comment on the `pub static CARD` it defines. The three identity fields
+are mandatory and come first, in the order codegen writes them.
 
 Never write a field back just to restate its default (`loyalty: None`,
 `delve: false`, `partner: PartnerKind::None`, …) — a reviewer should be able
@@ -117,6 +134,46 @@ backs opt out.
   prowess), supports ward {1}/{2}
 - `AbilityDef::Suspend { counters }`
 
+#### Write them through the macros
+
+The five shapes that make up most of the pool have a macro that supplies the
+fields the rules already imply, so an ability states what the card says and
+nothing more:
+
+```rust
+mana_ability!(&[Effect::mana(ManaColor::Green, 1)])   // {T}: Add {G}
+mana_ability!(SAC_COST, ANY_COLOR_MANA)               // any other cost
+activated!(Cost::TAP, EFFECTS)                        // {T}: …
+activated!(EQUIP, EFFECTS, timing: ActivationTiming::SorcerySpeed)
+triggered!(Trigger::EntersBattlefield(&Filter::This), EFFECTS)
+spell!(EFFECTS)
+spell!(EFFECTS, targets: Some(TargetReq::one(&Filter::CREATURE)))
+loyalty!(-3, EFFECTS, target: Some(TargetSpec::Object(&Filter::CREATURE)))
+mode!(DRAW_EFFECTS)                                   // one arm of a modal
+```
+
+The required arguments come first and positionally, because they are the
+ones an ability cannot be written without; everything after them is
+`field: value` in any order, and anything left out takes its rules default:
+
+| field | default | why that is the rules answer |
+| --- | --- | --- |
+| `timing` | `InstantSpeed` | CR 602.2 — unless the card restricts it |
+| `mana_ability` | `false` | CR 605.1 makes it the exception |
+| `zone` | `Battlefield` | CR 113.6 |
+| `target` / `targets` | `None` | an ability targets only when it says "target" |
+| `once_per_turn` | `false` | a trigger fires on every occurrence |
+
+`mana_ability: false` is the load-bearing one: an ability wrongly marked
+`true` would silently skip the stack, and no test would read that as a rules
+bug. That is why it is a default you have to opt *out* of, and why a mana
+ability gets its own macro rather than a flag.
+
+A shape without a macro (`Static`, `Replacement`, `CopyOnEnter`, `Ward`,
+`Suspend`, `ModalSpell`, `ModalTriggered`, `SagaChapter`, `Echo`,
+`Prepared`) is written as the plain enum literal — those have no fields the
+rules can supply for you.
+
 ### As-it-enters modifiers (`FaceDef::enter_modifiers`)
 
 `Tapped`, `TappedUnless(filter)`, `TappedOrPayLife(n)`, `ChooseSubtype`
@@ -146,6 +203,27 @@ the object the trigger was about), `AbilityOnStack(filter)`,
 `HasKeyword`, `CmcAtMost`, `CmcAtLeast`, `MatchesChosenTypeOfSource`
 (Roaming Throne & co.), `InZone(ZoneRef)` (incl. `NotBattlefield` for
 cross-zone effects).
+
+**Compose them inline.** In `static` context a slice promotes to `'static`
+automatically, so `Filter::And(&[Filter::CREATURE, Filter::ControlledByYou])`
+needs no named `static` at all. Give a filter a name only when the same card
+refers to it twice.
+
+**Reach for the named ones first.** `Filter` carries constants for the
+predicates the pool kept reinventing — `CREATURE`, `ARTIFACT`,
+`ENCHANTMENT`, `LAND`, `PLANESWALKER`, `NONLAND`, `NONCREATURE`,
+`BASIC_LAND`, `NONTOKEN_CREATURE`, `INSTANT_OR_SORCERY`,
+`ARTIFACT_OR_ENCHANTMENT`, `ANOTHER_CREATURE`, `YOUR_CREATURE`,
+`OPPONENT_CREATURE`. "A creature" had been written out as
+`HasType(TypeSet::CREATURE)` in a differently-named `static` in twenty-six
+card files, which is twenty-six chances to type `LacksType` by accident and
+no way to grep for the one that did.
+
+A filter that is about *this pool* rather than about Magic goes in
+`crates/baylee-cards/src/filters.rs` (`YOUR_ALLIES`, `ANOTHER_ALLY`), beside
+`crate::tokens`, which draws the same line. It earns a place there by being
+written twice; one card's own compound filter stays in that card's file,
+where the oracle sentence it encodes is a line above it.
 
 ### Effects (ops)
 
@@ -207,14 +285,10 @@ ask which — so it declines any land with more than one, and such a land taps
 for nothing at all unless the card supplies the choice itself:
 
 ```rust
-abilities: &[AbilityDef::Activated {
-    cost: Cost::TAP,
-    effects: &[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])],
-    target: None,
-    timing: ActivationTiming::InstantSpeed,
-    mana_ability: true,
-    zone: ActivationZone::Battlefield,
-}],
+abilities: &[mana_ability!(&[Effect::mana_choice(&[
+    ManaColor::White,
+    ManaColor::Black,
+])])],
 ```
 
 `baylee-cards`'s `a_land_with_two_basic_types_prints_its_own_mana_ability`
@@ -246,22 +320,22 @@ amount. Harabaz Druid was written with the wrong one and paid X² mana.
 Fetchland (activated with composite cost + filtered search):
 
 ```rust
-abilities: &[AbilityDef::Activated {
-    cost: Cost {
+abilities: &[activated!(
+    Cost {
         mana: ManaCost::ZERO,
         parts: &[CostPart::TapSelf, CostPart::SacrificeSelf, CostPart::PayLife(1)],
     },
-    effects: &[Effect::SearchLibrary {
+    &[Effect::SearchLibrary {
         filter: &LAND_TYPE_PAIR,
         finds: &[Find::BATTLEFIELD_TAPPED],
         optional: false,
-    }],
-    target: None,
-    timing: ActivationTiming::InstantSpeed,
-    mana_ability: false,
-    zone: ActivationZone::Battlefield,
-}],
+    }]
+)],
 ```
+
+Note what is *not* written: this ability uses the stack, is activatable at
+instant speed and functions on the battlefield, and all three are what the
+rules already say. Only the cost and the effect are the card.
 
 A search says *what* it looks for and *where* each find goes; the two rules
 every printed search also obeys are derived, not declared, so a card cannot
@@ -279,24 +353,25 @@ get them wrong:
 Rally trigger (filter "self or another Ally you control"):
 
 ```rust
-static ALLY_ETB: Filter = Filter::And(&[
-    Filter::ControlledByYou,
-    Filter::Or(&[Filter::This, Filter::HasSubtype(creature::ALLY)]),
-]);
-abilities: &[AbilityDef::Triggered {
-    trigger: Trigger::EntersBattlefield(&ALLY_ETB),
-    effects: &[Effect::GainLife { amount: Amount::Fixed(1) }],
-    targets: None,
-    once_per_turn: false,
-}],
+use crate::filters::YOUR_ALLIES;
+
+abilities: &[triggered!(
+    Trigger::EntersBattlefield(&YOUR_ALLIES),
+    &[Effect::GainLife { amount: Amount::Fixed(1) }]
+)],
 ```
+
+The filter is shared rather than restated: the rally wording is "this
+creature **or another** Ally", so the source is part of the match, and six
+card files had each written that out. A seventh writing `Another` instead
+would have been a silent rules bug in a card that still compiled.
 
 Static anthem via layers (deregisters itself when the source leaves):
 
 ```rust
 abilities: &[AbilityDef::Static(StaticAbility {
     layer: Layer::PtModify,
-    filter: Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::ControlledByYou]),
+    filter: Filter::YOUR_CREATURE,
     modifier: Modifier::ModifyPT(1, 1),
     cross_zone: false,
 })],

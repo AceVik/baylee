@@ -5,34 +5,22 @@
 //! Set: SOC #151 — Secrets of Strixhaven Commander | Scryfall ID: b26d50dd-54a1-43ce-9884-3999f698d97b | Oracle ID: 8c31fec9-e4b3-4761-990e-7be38eb05604
 // IMPLEMENTED — flying, protection from black, echo {3}{W}{W} (delayed
 // upkeep pay-or-sacrifice), ETB reanimation.
-#![allow(unused_imports, missing_docs)]
-
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, Layer,
-    Modifier, PartnerKind, PlayerRel, StaticAbility, TargetReq, TargetSpec, Trigger,
-};
 
 static BLACK_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Black]));
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::creature;
 
-static CREATURE_GY: Filter = Filter::HasType(TypeSet::CREATURE);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(80),
+card! {
+    index: 80,
     oracle_id: "8c31fec9-e4b3-4761-990e-7be38eb05604",
     scryfall_id: "b26d50dd-54a1-43ce-9884-3999f698d97b",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Karmic Guide",
         mana_cost: baylee_core::mana!("{3}{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ANGEL, creature::SPIRIT],
         power: Some(2),
         toughness: Some(2),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::FLYING,
@@ -47,17 +35,11 @@ pub static CARD: CardDef = CardDef {
             modifier: Modifier::ProtectionFrom(&BLACK_F),
             cross_zone: false,
         }),
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&Filter::This),
-            once_per_turn: false,
-            effects: &[Effect::GraveyardToBattlefield {
-                target: TargetSpec::CardInGraveyard(&CREATURE_GY, PlayerRel::You),
-            }],
-            targets: Some(TargetReq::one(TargetSpec::CardInGraveyard(
-                &CREATURE_GY,
+        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GraveyardToBattlefield {
+                target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
+            }], targets: Some(TargetReq::one(TargetSpec::CardInGraveyard(
+                &Filter::CREATURE,
                 PlayerRel::You,
-            ))),
-        },
+            )))),
     ],
-    ..CardDef::DEFAULT
-};
+}

@@ -4,58 +4,36 @@
 //! Set: RVR #40 — Ravnica Remastered | Scryfall ID: dfb7c4b9-f2f4-4d4e-baf2-86551c8150fe | Oracle ID: d75b9c82-1b49-4c3e-a1b5-aeef57d6644b
 // IMPLEMENTED — modal spell: single-target bounce or overloaded mass bounce
 // (choose cast mode in the wizard).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    SpellMode, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
-
-static NOT_MINE: Filter = Filter::And(&[
-    Filter::Not(&Filter::ControlledByYou),
-    Filter::LacksType(TypeSet::LAND),
-]);
-static NONLAND: Filter = Filter::LacksType(TypeSet::LAND);
+static NOT_MINE: Filter = Filter::And(&[Filter::Not(&Filter::ControlledByYou), Filter::NONLAND]);
 
 static NORMAL_EFFECTS: &[Effect] = &[Effect::ReturnToHand {
     target: TargetSpec::Object(&NOT_MINE),
 }];
 static OVERLOAD_EFFECTS: &[Effect] = &[Effect::ReturnAllToHand {
-    filter: &NONLAND,
+    filter: &Filter::NONLAND,
     opponents_only: true,
 }];
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(29),
+use baylee_cards_dsl::prelude::*;
+
+card! {
+    index: 29,
     oracle_id: "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b",
     scryfall_id: "dfb7c4b9-f2f4-4d4e-baf2-86551c8150fe",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Cyclonic Rift",
         mana_cost: baylee_core::mana!("{1}{U}"),
         types: TypeSet::INSTANT,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::ModalSpell {
         modes: &[
-            SpellMode {
-                effects: NORMAL_EFFECTS,
-                target: Some(TargetSpec::Object(&NOT_MINE)),
-                cost_override: None,
-            },
-            SpellMode {
-                effects: OVERLOAD_EFFECTS,
-                target: None,
-                cost_override: Some(baylee_core::mana!("{6}{U}")),
-            },
+            mode!(NORMAL_EFFECTS, target: Some(TargetSpec::Object(&NOT_MINE))),
+            mode!(OVERLOAD_EFFECTS, cost_override: Some(baylee_core::mana!("{6}{U}"))),
         ],
     }],
-    ..CardDef::DEFAULT
-};
+}
 
 // Engine-level coverage in baylee-engine s7 tests: both modes resolve.

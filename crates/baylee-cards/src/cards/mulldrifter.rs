@@ -4,22 +4,14 @@
 //! Oracle: Evoke {2}{U} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)
 //! Set: ECC #67 — Lorwyn Eclipsed Commander | Scryfall ID: 3de308cc-14ac-407e-99e7-568572ecd0e7 | Oracle ID: 24d0f5e7-0d9e-4b76-900e-a7274e80312d
 // IMPLEMENTED — evoke (alternative cost + sacrifice on ETB when evoked).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, AltCondition, AlternativeCost, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(99),
+card! {
+    index: 99,
     oracle_id: "24d0f5e7-0d9e-4b76-900e-a7274e80312d",
     scryfall_id: "3de308cc-14ac-407e-99e7-568572ecd0e7",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Mulldrifter",
         mana_cost: baylee_core::mana!("{4}{U}"),
         types: TypeSet::CREATURE,
@@ -33,29 +25,17 @@ pub static CARD: CardDef = CardDef {
             },
             condition: AltCondition::Always,
         }],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::FLYING,
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefield(&Filter::This),
-            once_per_turn: false,
-            effects: &[Effect::DrawCards {
+        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::DrawCards {
                 amount: Amount::Fixed(2),
-            }],
-            targets: None,
-        },
-        AbilityDef::Triggered {
-            trigger: Trigger::EntersBattlefieldEvoked,
-            once_per_turn: false,
-            effects: &[Effect::SacrificeSelf],
-            targets: None,
-        },
+            }]),
+        triggered!(Trigger::EntersBattlefieldEvoked, &[Effect::SacrificeSelf]),
     ],
-    ..CardDef::DEFAULT
-};
+}
 
 // Evoke path: cast for {2}{U}, ETB draws 2, then it is sacrificed.
 // Full path: cast for {4}{U}, it stays.

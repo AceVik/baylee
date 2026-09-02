@@ -4,38 +4,21 @@
 //! Set: FDN #281 — Foundations | Scryfall ID: 8fbd1ae0-3d4c-492a-a1ea-85a95fa3d7b6 | Oracle ID: 73864fcc-1bde-4bc0-831e-2b93e546e417
 // IMPLEMENTED — shockland (pay 2 life or enters tapped) with the
 // two-colour mana ability its type line grants (CR 305.6).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule, Cost, Coverage,
-    Effect, EnterModifier, FaceDef, KeywordSet, PartnerKind,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, land};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::{self};
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(61),
+card! {
+    index: 61,
     oracle_id: "73864fcc-1bde-4bc0-831e-2b93e546e417",
     scryfall_id: "8fbd1ae0-3d4c-492a-a1ea-85a95fa3d7b6",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Godless Shrine",
         types: TypeSet::LAND,
         subtypes: &[subtypes::land::PLAINS, subtypes::land::SWAMP],
         enter_modifiers: &[EnterModifier::TappedOrPayLife(2)],
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Activated {
-        cost: Cost::TAP,
-        effects: &[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: true,
-        zone: ActivationZone::Battlefield,
-    }],
-    ..CardDef::DEFAULT
-};
+    abilities: &[mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])])],
+}

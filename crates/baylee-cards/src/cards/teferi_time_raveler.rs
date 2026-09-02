@@ -4,36 +4,24 @@
 //! Oracle: −3: Return up to one target artifact, creature, or enchantment to its owner's hand. Draw a card.
 //! Set: RVR #232 — Ravnica Remastered | Scryfall ID: 662fe50f-d75c-422c-8c6c-1f9b5c4ba21f | Oracle ID: ae7604bb-4818-45a3-960c-cf3d83f15964
 // PARTIAL — timing lock + −3 implemented; +1 needs UntilYourNextTurn (M2+).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, Amount, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet,
-    Layer, Modifier, PartnerKind, StaticAbility, TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, planeswalker};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes::planeswalker;
 
-static BOUNCE_TARGET: Filter = Filter::Or(&[
-    Filter::HasType(TypeSet::ARTIFACT),
-    Filter::HasType(TypeSet::CREATURE),
-    Filter::HasType(TypeSet::ENCHANTMENT),
-]);
+static BOUNCE_TARGET: Filter =
+    Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE, Filter::ENCHANTMENT]);
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(166),
+card! {
+    index: 166,
     oracle_id: "ae7604bb-4818-45a3-960c-cf3d83f15964",
     scryfall_id: "662fe50f-d75c-422c-8c6c-1f9b5c4ba21f",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Teferi, Time Raveler",
         mana_cost: baylee_core::mana!("{1}{W}{U}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::TEFERI],
         loyalty: Some(4),
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     commander: CommanderRule::Legendary,
@@ -45,28 +33,19 @@ pub static CARD: CardDef = CardDef {
             modifier: Modifier::OpponentsCastAsSorcery,
             cross_zone: false,
         }),
-        AbilityDef::Loyalty {
-            cost: 1,
-            effects: &[Effect::CreateContinuousEffect {
+        loyalty!(1, &[Effect::CreateContinuousEffect {
                 layer: Layer::Text,
                 filter: &Filter::Any,
                 modifier: Modifier::SorceriesHaveFlash,
-                duration: baylee_cards_dsl::Duration::UntilYourNextTurn,
-            }],
-            target: None,
-        },
-        AbilityDef::Loyalty {
-            cost: -3,
-            effects: &[
+                duration: Duration::UntilYourNextTurn,
+            }]),
+        loyalty!(-3, &[
                 Effect::ReturnToHand {
                     target: TargetSpec::Object(&BOUNCE_TARGET),
                 },
                 Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 },
-            ],
-            target: Some(TargetSpec::Object(&BOUNCE_TARGET)),
-        },
+            ], target: Some(TargetSpec::Object(&BOUNCE_TARGET))),
     ],
-    ..CardDef::DEFAULT
-};
+}

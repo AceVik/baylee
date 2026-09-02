@@ -2,50 +2,23 @@
 //! Oracle: {T}: Add {C}. {T}: Put target creature card from your graveyard on top of your library.
 //! Set: PD3 #352 — Premium Deck Series: Graveborn | Scryfall ID: f465ae5f-61f0-42c4-978f-841ba1226f56 | Oracle ID: 73b8cf90-3c71-4f8b-a29f-61894b7f27c9
 // IMPLEMENTED.
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost, CostPart, Coverage,
-    Effect, FaceDef, Filter, KeywordSet, PartnerKind, PlayerRel, TargetReq, TargetSpec, Trigger,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{self, creature, land};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_cards_dsl::prelude::*;
 
-static CREATURE_CARD: Filter = Filter::HasType(TypeSet::CREATURE);
-
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(186),
+card! {
+    index: 186,
     oracle_id: "73b8cf90-3c71-4f8b-a29f-61894b7f27c9",
     scryfall_id: "f465ae5f-61f0-42c4-978f-841ba1226f56",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Volrath's Stronghold",
         types: TypeSet::LAND,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     coverage: Coverage::Implemented,
     abilities: &[
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::mana(ManaColor::Colorless, 1)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-        },
-        AbilityDef::Activated {
-            cost: Cost::TAP,
-            effects: &[Effect::GraveyardToTop {
-                target: TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You),
-            }],
-            target: Some(TargetSpec::CardInGraveyard(&CREATURE_CARD, PlayerRel::You)),
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-        },
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        activated!(Cost::TAP, &[Effect::GraveyardToTop {
+                target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
+            }], target: Some(TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You))),
     ],
-    ..CardDef::DEFAULT
-};
+}

@@ -4,38 +4,24 @@
 //! Set: MH1 #7 — Modern Horizons | Scryfall ID: 2da5f3f8-5eef-498f-ba2c-2f3fbc3745aa | Oracle ID: 0fd57894-b917-41c8-a394-360d1d31b236
 // IMPLEMENTED — blink + rebound (exile on resolution, free re-cast at
 // your next upkeep).
-#![allow(unused_imports, missing_docs)]
 
-use baylee_cards_dsl::{
-    AbilityDef, CardDef, CommanderRule, Coverage, Effect, FaceDef, Filter, KeywordSet, PartnerKind,
-    TargetReq, TargetSpec,
-};
-use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::CardIndex;
-use baylee_core::mana::ManaCost;
-use baylee_core::types::{SupertypeSet, TypeSet};
+static YOUR_CREATURE: Filter = Filter::And(&[Filter::ControlledByYou, Filter::CREATURE]);
 
-static YOUR_CREATURE: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasType(TypeSet::CREATURE)]);
+use baylee_cards_dsl::prelude::*;
 
-pub static CARD: CardDef = CardDef {
-    index: CardIndex::new(44),
+card! {
+    index: 44,
     oracle_id: "0fd57894-b917-41c8-a394-360d1d31b236",
     scryfall_id: "2da5f3f8-5eef-498f-ba2c-2f3fbc3745aa",
-    faces: &[FaceDef {
+    faces: &[face! {
         name: "Ephemerate",
         mana_cost: baylee_core::mana!("{W}"),
         types: TypeSet::INSTANT,
-        ..FaceDef::DEFAULT
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     keywords: KeywordSet::REBOUND,
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Spell {
-        effects: &[Effect::Blink {
+    abilities: &[spell!(&[Effect::Blink {
             target: TargetSpec::Object(&YOUR_CREATURE),
-        }],
-        targets: Some(TargetReq::one(TargetSpec::Object(&YOUR_CREATURE))),
-    }],
-    ..CardDef::DEFAULT
-};
+        }], targets: Some(TargetReq::one(TargetSpec::Object(&YOUR_CREATURE))))],
+}
