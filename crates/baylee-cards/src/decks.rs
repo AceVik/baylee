@@ -132,6 +132,78 @@ pub fn load_acceptance(text: &str, deck_name: &str) -> Result<LoadedDeck, String
     })
 }
 
+/// A two-seat mirror game built to exercise one card.
+///
+/// A probe deck alone proves less than it looks: four copies in sixty cards
+/// are often never drawn inside a short game, so a sweep over the pool can
+/// pass without most of its cards ever having been in play. This puts the
+/// card where it cannot be missed — one copy in the opening hand, and, when
+/// it is a permanent, one already on the battlefield so its static,
+/// triggered and activated abilities are live from turn one.
+///
+/// Returns `None` when the card is not registered or there are no basic
+/// lands to pad with.
+#[must_use]
+pub fn probe_preset(seed: u64, card: CardIndex) -> Option<GamePreset> {
+    use baylee_core::types::TypeSet;
+
+    let deck = probe_deck(card, 4, 60)?;
+    let def = by_index(card)?;
+    let is_permanent = def.faces.first().is_some_and(|f| {
+        f.types.contains(TypeSet::LAND)
+            || f.types.contains(TypeSet::CREATURE)
+            || f.types.contains(TypeSet::ARTIFACT)
+            || f.types.contains(TypeSet::ENCHANTMENT)
+            || f.types.contains(TypeSet::PLANESWALKER)
+    });
+
+    let mut prints: Vec<PrintInfo> = Vec::new();
+    let mut entries = |cards: &[DeckCard]| -> Vec<DeckEntry> {
+        cards
+            .iter()
+            .map(|c| DeckEntry {
+                card: c.index,
+                print: print_ref_for(&mut prints, &c.print),
+            })
+            .collect()
+    };
+    // The opening hand: the card plus enough lands to cast it.
+    let mut hand_cards = vec![DeckCard::plain(card)];
+    hand_cards.extend(deck.main.iter().rev().take(6).cloned());
+    let seat = |deck: Vec<DeckEntry>, hand: Vec<DeckEntry>, field: Vec<DeckEntry>| SeatSpec {
+        controller: SeatController::Ai(AIProfile::default()),
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
+        deck,
+        sideboard: vec![],
+        starting_life: None,
+        starting_hand: Some(hand),
+        starting_battlefield: field,
+        emblems: vec![],
+        team: None,
+    };
+    let field_cards = if is_permanent {
+        vec![DeckCard::plain(card)]
+    } else {
+        vec![]
+    };
+    let seats = (0..2)
+        .map(|_| {
+            let d = entries(&deck.main);
+            let h = entries(&hand_cards);
+            let f = entries(&field_cards);
+            seat(d, h, f)
+        })
+        .collect();
+    Some(GamePreset {
+        format: FormatId::Freeform,
+        seed,
+        house_rules: HouseRules::default(),
+        modifiers: vec![],
+        prints,
+        seats,
+    })
+}
+
 /// The print-table slot for one printing, deduplicated.
 ///
 /// Deduplicated on the *whole* printing rather than on the id: a foil and a
@@ -232,6 +304,57 @@ pub fn preset_for_all(seed: u64, decks: &[&LoadedDeck]) -> GamePreset {
     }
 }
 
+/// The five basic lands, by registry index, in colour order.
+///
+/// Resolved by name because that is the only handle a basic has that does
+/// not move: the ledger hands out indices in the order cards were added, so
+/// hard-coding them would break the first time somebody reorders the pool.
+#[must_use]
+pub fn basic_lands() -> [Option<CardIndex>; 5] {
+    ["Plains", "Island", "Swamp", "Mountain", "Forest"].map(by_name)
+}
+
+/// A deck built to put one card into a real game: `copies` of it, padded to
+/// `size` with basic lands in its own colours.
+///
+/// This is what lets the self-play harness reach a card that no acceptance
+/// deck contains. The padding follows the card's colour identity so that a
+/// spell in the deck is actually castable — a deck of Islands will never
+/// cast a Forest card, and a card that is never cast proves nothing.
+/// A colourless identity pads with all five, which keeps generic costs
+/// payable without pretending to a colour.
+///
+/// Returns `None` when the registry has no basic lands to pad with.
+#[must_use]
+pub fn probe_deck(card: CardIndex, copies: usize, size: usize) -> Option<LoadedDeck> {
+    let basics = basic_lands();
+    let def = by_index(card)?;
+    let identity = def.color_identity;
+    let wanted: Vec<CardIndex> = if identity.is_empty() {
+        basics.iter().flatten().copied().collect()
+    } else {
+        identity.iter().filter_map(|c| basics[c as usize]).collect()
+    };
+    // A colour whose basic is not registered falls back to whatever is.
+    let pad: Vec<CardIndex> = if wanted.is_empty() {
+        basics.iter().flatten().copied().collect()
+    } else {
+        wanted
+    };
+    if pad.is_empty() {
+        return None;
+    }
+    let mut main: Vec<DeckCard> = (0..copies).map(|_| DeckCard::plain(card)).collect();
+    for i in main.len()..size {
+        main.push(DeckCard::plain(pad[i % pad.len()]));
+    }
+    Some(LoadedDeck {
+        name: format!("probe: {}", def.name()),
+        main,
+        sideboard: vec![],
+        commanders: vec![],
+    })
+}
 #[cfg(test)]
 mod tests {
     use super::*;
