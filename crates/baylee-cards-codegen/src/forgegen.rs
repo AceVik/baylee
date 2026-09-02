@@ -531,7 +531,7 @@ impl Tx<'_> {
             }
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
-            "ChangeZone" => self.change_zone(p, aimed)?,
+            "ChangeZone" => self.change_zone(p, target)?,
             "Tap" => vec!["Effect::TapTarget".to_string()],
             "Untap" => vec!["Effect::UntapTarget".to_string()],
             "Counter" => {
@@ -703,9 +703,17 @@ impl Tx<'_> {
     /// Graveyard is the pair that makes the point: it is *not* `Destroy`,
     /// which checks indestructible (CR 700.4), and generating one for the
     /// other would quietly kill creatures that survive.
-    fn change_zone(&self, p: &mut Params, target: &str) -> Option<Vec<String>> {
+    fn change_zone(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
         let origin = p.take("Origin")?;
         let destination = p.take("Destination")?;
+        // A library search is a different effect, not a zone change with a
+        // hidden target: a card in a library cannot be targeted at all
+        // (CR 115.4 needs a visible object), so `Effect::SearchLibrary`
+        // *finds* rather than moves, and carries the shuffle with it.
+        if origin == "Library" {
+            return self.search_library(p, &destination, target);
+        }
+        let target = target.unwrap_or("TargetSpec::AnyPlayer");
         let itself = match p.take("Defined").as_deref() {
             None => false,
             Some("Self") => true,
@@ -732,6 +740,79 @@ impl Tx<'_> {
                 return None;
             }
         })
+    }
+
+    /// `Origin$ Library`: the fetchland sentence — "search your library for
+    /// an Island or Swamp card, put it onto the battlefield, then shuffle".
+    ///
+    /// `finds` is positional and its length is how many cards may be found,
+    /// so `ChangeNum$ 2` is the same `Find` twice rather than a count beside
+    /// it. Nothing here targets, and a line that says it does is a different
+    /// card.
+    fn search_library(
+        &mut self,
+        p: &mut Params,
+        destination: &str,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target.is_some() {
+            self.note("`ChangeZone` searching a library *and* targeting".to_string());
+            return None;
+        }
+        let tapped = match p.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!("`ChangeZone` found `Tapped$ {other}`"));
+                return None;
+            }
+        };
+        let find = match (destination, tapped) {
+            ("Battlefield", false) => "Find::BATTLEFIELD",
+            ("Battlefield", true) => "Find::BATTLEFIELD_TAPPED",
+            ("Hand", false) => "Find::HAND",
+            _ => {
+                self.note(format!("`ChangeZone` searching into {destination}"));
+                return None;
+            }
+        };
+        // "You may search" and "search for up to two" are both this flag:
+        // the player may end up with fewer cards than `finds` allows.
+        let optional = match p.take("Optional").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!("`ChangeZone` found `Optional$ {other}`"));
+                return None;
+            }
+        };
+        // Claimed rather than read: `Mandatory$ True` is the default, our
+        // search always shuffles (CR 701.19d), and `Hidden$ True` only says
+        // the library is a hidden zone, which it is.
+        for (key, expected) in [
+            ("Mandatory", "True"),
+            ("Shuffle", "True"),
+            ("Hidden", "True"),
+        ] {
+            if let Some(value) = p.take(key)
+                && value != expected
+            {
+                self.note(format!("`ChangeZone` with `{key}$ {value}`"));
+                return None;
+            }
+        }
+        let count = plain_number(p.take("ChangeNum").as_deref().unwrap_or("1"), self.svars)?;
+        let count = usize::try_from(count).ok()?;
+        if count == 0 || count > 4 {
+            self.note(format!("`ChangeZone` finding {count} cards"));
+            return None;
+        }
+        let filter = self.filter_expr(&p.take("ChangeType")?)?;
+        let name = self.body.filter_static("SEARCH", &filter);
+        let finds = vec![find; count].join(", ");
+        Some(vec![format!(
+            "Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds}], optional: {optional} }}"
+        )])
     }
 
     /// `Produced$ Combo W U | Amount$ 2` and friends.
@@ -1729,6 +1810,37 @@ mod tests {
         assert_eq!(
             refusal_reason(&script, &cats()).as_deref(),
             Some("`Animate` of something other than the source")
+        );
+    }
+
+    /// A fetchland: `Origin$ Library` is a *search*, not a zone change with
+    /// a hidden target — a card in a library cannot be targeted at all.
+    #[test]
+    fn a_library_change_zone_is_a_search() {
+        let body = read(
+            "Name:X\nTypes:Land\n\
+             A:AB$ ChangeZone | Cost$ T Sac<1/CARDNAME> | Origin$ Library | Destination$ Battlefield | ChangeType$ Forest",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "activated!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD], optional: false }])"
+            ]
+        );
+
+        // `finds` is positional and its length is the count, so two cards
+        // are the same `Find` twice — and `Tapped$ True` is a different
+        // `Find`, not a flag beside it.
+        let two = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | Tapped$ True | ChangeNum$ 2 | Optional$ True | ChangeType$ Forest",
+        );
+        assert!(
+            two.abilities.join("").contains(
+                "finds: &[Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED], optional: true"
+            ),
+            "{:?}",
+            two.abilities
         );
     }
 
