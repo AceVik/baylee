@@ -63,6 +63,7 @@ impl FaceCtx<'_> {
 #[allow(clippy::too_many_arguments)] // a slot, a card, and the material store
 pub(super) fn spawn_card_art(
     commands: &mut Commands,
+    lang: Lang,
     image: Handle<Image>,
     built: Option<&CardFace>,
     width: f32,
@@ -81,7 +82,7 @@ pub(super) fn spawn_card_art(
         })
         .id();
     let child = if let Some(face) = built {
-        crate::face::spawn_ui(commands, face, width, detail, fonts)
+        crate::face::spawn_ui(commands, lang, face, width, detail, fonts)
     } else if let Some(cards) = cards {
         commands
             .spawn((

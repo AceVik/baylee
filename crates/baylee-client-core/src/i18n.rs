@@ -854,6 +854,33 @@ messages! {
     /// OPPONENT
     RailOpponent { en: "OPPONENT", de: "GEGNER" },
 
+
+    // ---- what an ability costs
+    /// Tap for {0}
+    TapFor { en: "Tap for {0}", de: "Tappen für {0}" },
+    /// Ability {0}
+    AbilityNumbered { en: "Ability {0}", de: "Fähigkeit {0}" },
+    /// Sacrifice this
+    CostSacrificeThis { en: "Sacrifice this", de: "Opfere dies" },
+    /// Sacrifice
+    CostSacrifice { en: "Sacrifice", de: "Opfern" },
+    /// Pay {0} life
+    CostPayLife { en: "Pay {0} life", de: "Zahle {0} Leben" },
+    /// Pay X life
+    CostPayXLife { en: "Pay X life", de: "Zahle X Leben" },
+    /// Discard
+    CostDiscard { en: "Discard", de: "Abwerfen" },
+    /// Discard this
+    CostDiscardThis { en: "Discard this", de: "Wirf dies ab" },
+    /// Exile this
+    CostExileThis { en: "Exile this", de: "Schicke dies ins Exil" },
+    /// Return this
+    CostReturnThis { en: "Return this", de: "Nimm dies zurück" },
+    /// Exile a card
+    CostExileACard { en: "Exile a card", de: "Schicke eine Karte ins Exil" },
+    /// Rules text unavailable
+    NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
+
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {
         en: "the gateway did not answer: {0}",

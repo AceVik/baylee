@@ -153,6 +153,7 @@ fn spawn_stack_entry(
 
     let art = spawn_stack_card(
         commands,
+        lang,
         item.art,
         stack_face(item, view, faces, textures),
         STACK_CARD_W,
@@ -211,7 +212,7 @@ fn spawn_stack_entry(
 
     if !item.targets.is_empty() {
         let targets = spawn_stack_targets(
-            commands, item, next, statics, textures, assets, fonts, cards,
+            commands, lang, item, next, statics, textures, assets, fonts, cards,
         );
         commands.entity(body).add_child(targets);
     }
@@ -223,6 +224,7 @@ fn spawn_stack_entry(
 #[allow(clippy::too_many_arguments)] // the same slot arguments again
 fn spawn_stack_targets(
     commands: &mut Commands,
+    lang: Lang,
     item: &baylee_client_core::board::StackItem,
     next: bool,
     statics: &GameStatic,
@@ -262,6 +264,7 @@ fn spawn_stack_targets(
     for target in &item.targets {
         let chip = spawn_stack_target(
             commands,
+            lang,
             target,
             statics,
             textures,
@@ -293,6 +296,7 @@ fn stack_face(
 #[allow(clippy::too_many_arguments)] // the slot, the card, and the stores
 fn spawn_stack_card(
     commands: &mut Commands,
+    lang: Lang,
     art: Option<ImageKey>,
     face: Option<CardFace>,
     width: f32,
@@ -322,6 +326,7 @@ fn spawn_stack_card(
         let image = textures.get(key, statics, assets);
         let visual = spawn_card_art(
             commands,
+            lang,
             image,
             face.as_ref(),
             width,
@@ -344,6 +349,7 @@ fn spawn_stack_card(
 #[allow(clippy::too_many_arguments)] // as above
 fn spawn_stack_target(
     commands: &mut Commands,
+    lang: Lang,
     target: &baylee_client_core::board::StackTarget,
     statics: &GameStatic,
     textures: &mut CardTextures,
@@ -354,6 +360,7 @@ fn spawn_stack_target(
     if target.art.is_some() {
         return spawn_stack_card(
             commands,
+            lang,
             target.art,
             None,
             STACK_TARGET_W,

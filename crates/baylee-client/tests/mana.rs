@@ -295,7 +295,12 @@ fn a_permanent_offers_exactly_what_it_can_do_and_never_the_same_tap_twice() {
     // One button, not two. A Forest is offered by the engine as the CR 305.6
     // shortcut *and* as the `{T}: Add {G}` printed on the card, and it can
     // still only be tapped once.
-    let options = abilities::options(table.view(), &interaction, forest);
+    let options = abilities::options(
+        baylee_client_core::Lang::En,
+        table.view(),
+        &interaction,
+        forest,
+    );
     assert_eq!(options.len(), 1, "{options:?}");
     assert_eq!(options[0].label, "Tap for G");
 
@@ -310,7 +315,15 @@ fn a_permanent_offers_exactly_what_it_can_do_and_never_the_same_tap_twice() {
 
     // A card in hand is not a permanent and offers nothing to activate.
     let in_hand = table.view().hand.first().expect("a hand").id;
-    assert!(abilities::options(table.view(), &interaction, in_hand).is_empty());
+    assert!(
+        abilities::options(
+            baylee_client_core::Lang::En,
+            table.view(),
+            &interaction,
+            in_hand
+        )
+        .is_empty()
+    );
 }
 
 /// Bloodstained Mire — `{T}, Sacrifice this, Pay 1 life:` a fetch. Chosen
@@ -348,7 +361,12 @@ fn a_non_mana_ability_is_named_by_what_it_costs() {
         .expect("the fetchland is on the table")
         .id;
 
-    let options = abilities::options(table.view(), &interaction, mire);
+    let options = abilities::options(
+        baylee_client_core::Lang::En,
+        table.view(),
+        &interaction,
+        mire,
+    );
     assert_eq!(options.len(), 1, "{options:?}");
     assert_eq!(options[0].label, "{T}, Sacrifice this, Pay 1 life");
     assert_eq!(

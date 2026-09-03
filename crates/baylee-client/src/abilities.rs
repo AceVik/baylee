@@ -11,6 +11,7 @@
 //! `baylee-client-core`. "Ability 2" is a label a player has to guess at;
 //! "Tap for {G}" and "+1" are not.
 
+use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::manaplan::Tap;
 use baylee_core::ids::ObjectId;
@@ -38,6 +39,7 @@ pub struct AbilityOption {
 /// shortcut first, then printed abilities by index.
 #[must_use]
 pub fn options(
+    lang: Lang,
     view: &PlayerView,
     interaction: &Interaction,
     object: ObjectId,
@@ -72,7 +74,7 @@ pub fn options(
         if let Some(action) = action {
             out.push(AbilityOption {
                 action,
-                label: mana_label(&source),
+                label: mana_label(lang, &source),
             });
         }
     }
@@ -90,19 +92,19 @@ pub fn options(
         };
         out.push(AbilityOption {
             action,
-            label: printed_label(view, object, index),
+            label: printed_label(lang, view, object, index),
         });
     }
     out
 }
 
 /// "Tap for {G}", or "Tap for WUBRG" where there is a choice to make.
-fn mana_label(source: &baylee_client_core::manaplan::Source) -> String {
+fn mana_label(lang: Lang, source: &baylee_client_core::manaplan::Source) -> String {
     let colors: String = source.colors.iter().map(|c| pip(*c)).collect();
     if source.amount > 1 && source.colors.len() == 1 {
-        return format!("Tap for {}", colors.repeat(source.amount as usize));
+        return Phrase::TapFor.fill(lang, &[&colors.repeat(source.amount as usize)]);
     }
-    format!("Tap for {colors}")
+    Phrase::TapFor.fill(lang, &[&colors])
 }
 
 /// A printed ability's label: a planeswalker's loyalty cost, otherwise what
@@ -114,8 +116,8 @@ fn mana_label(source: &baylee_client_core::manaplan::Source) -> String {
 /// player has to count out on the card, and it was the only one this could
 /// produce. `{2}, {T}` is read at a glance and is the half of an ability a
 /// player is actually deciding about.
-fn printed_label(view: &PlayerView, object: ObjectId, index: u32) -> String {
-    let unnamed = || format!("Ability {}", index + 1);
+fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) -> String {
+    let unnamed = || Phrase::AbilityNumbered.fill(lang, &[&(index + 1).to_string()]);
     let Some(def) = crate::manasources::ability_at(view, object, index) else {
         return unnamed();
     };
@@ -128,7 +130,7 @@ fn printed_label(view: &PlayerView, object: ObjectId, index: u32) -> String {
             }
         }
         AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
-            cost_label(cost).unwrap_or_else(unnamed)
+            cost_label(lang, cost).unwrap_or_else(unnamed)
         }
         _ => unnamed(),
     }
@@ -139,7 +141,7 @@ fn printed_label(view: &PlayerView, object: ObjectId, index: u32) -> String {
 /// `None` for a free ability: "" is not a button and "Free" would be a claim
 /// about the *effect* rather than the cost, so the caller falls back to the
 /// ability's position instead.
-fn cost_label(cost: &Cost) -> Option<String> {
+fn cost_label(lang: Lang, cost: &Cost) -> Option<String> {
     let mut parts: Vec<String> = Vec::new();
     if cost.mana != ManaCost::ZERO {
         parts.push(cost.mana.to_string());
@@ -148,15 +150,15 @@ fn cost_label(cost: &Cost) -> Option<String> {
         parts.push(match part {
             CostPart::TapSelf => "{T}".to_string(),
             CostPart::UntapSelf => "{Q}".to_string(),
-            CostPart::SacrificeSelf => "Sacrifice this".to_string(),
-            CostPart::Sacrifice(_) => "Sacrifice".to_string(),
-            CostPart::PayLife(n) => format!("Pay {n} life"),
-            CostPart::PayLifeX => "Pay X life".to_string(),
-            CostPart::Discard(_) => "Discard".to_string(),
-            CostPart::DiscardSelf => "Discard this".to_string(),
-            CostPart::ExileSelf => "Exile this".to_string(),
-            CostPart::ReturnSelfToHand => "Return this".to_string(),
-            CostPart::ExileFromHand(_) => "Exile a card".to_string(),
+            CostPart::SacrificeSelf => Phrase::CostSacrificeThis.text(lang).to_string(),
+            CostPart::Sacrifice(_) => Phrase::CostSacrifice.text(lang).to_string(),
+            CostPart::PayLife(n) => Phrase::CostPayLife.fill(lang, &[&n.to_string()]),
+            CostPart::PayLifeX => Phrase::CostPayXLife.text(lang).to_string(),
+            CostPart::Discard(_) => Phrase::CostDiscard.text(lang).to_string(),
+            CostPart::DiscardSelf => Phrase::CostDiscardThis.text(lang).to_string(),
+            CostPart::ExileSelf => Phrase::CostExileThis.text(lang).to_string(),
+            CostPart::ReturnSelfToHand => Phrase::CostReturnThis.text(lang).to_string(),
+            CostPart::ExileFromHand(_) => Phrase::CostExileACard.text(lang).to_string(),
         });
     }
     (!parts.is_empty()).then(|| parts.join(", "))

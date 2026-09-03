@@ -28,6 +28,7 @@
 //! row of nodes.
 
 use baylee_client_core::card_face::{CardFace, Stats, TextBlock};
+use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_core::color::{Color as MagicColor, ColorSet};
 use baylee_core::mana::{ManaSymbol, Variable};
 use bevy::prelude::*;
@@ -229,6 +230,7 @@ const fn color_letter(color: MagicColor) -> &'static str {
 #[allow(clippy::too_many_lines)] // one card, top to bottom
 pub fn spawn_ui(
     commands: &mut Commands,
+    lang: Lang,
     face: &CardFace,
     width: f32,
     detail: Detail,
@@ -328,7 +330,7 @@ pub fn spawn_ui(
             // and saying so beats an empty box.
             let node = commands
                 .spawn((
-                    Text::new("Rules text unavailable"),
+                    Text::new(Phrase::NoRulesTextHere.text(lang)),
                     text_font(fonts, body_size),
                     TextColor(MUTED),
                 ))

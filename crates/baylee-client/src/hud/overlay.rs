@@ -376,7 +376,7 @@ pub fn sync_overlay(
         // would put a mana ability next to the button that ends the turn.
         if let Some(options) = duel
             .ability_menu
-            .and_then(|object| ability_options(&duel, object))
+            .and_then(|object| ability_options(&duel, lang, object))
             .filter(|options| options.len() > 1)
         {
             let row = commands
@@ -428,6 +428,7 @@ pub fn sync_overlay(
         let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
         let hand_bar = spawn_hand_bar(
             &mut commands,
+            lang,
             board,
             view,
             statics,
@@ -469,6 +470,7 @@ pub fn sync_overlay(
             };
             let visual = spawn_card_art(
                 &mut commands,
+                lang,
                 image,
                 built.as_ref(),
                 img_w,
@@ -551,6 +553,7 @@ pub fn sync_overlay(
                 let art = textures.get(back, statics, &assets);
                 let far = spawn_card_art(
                     &mut commands,
+                    lang,
                     art,
                     None,
                     img_w,
@@ -596,6 +599,7 @@ pub fn sync_overlay(
     if let Some(statics) = duel.statics.as_ref() {
         let overlay = spawn_own_board_overlay(
             &mut commands,
+            lang,
             board,
             view,
             statics,
@@ -770,6 +774,7 @@ pub(super) fn spawn_player_tab(
 #[allow(clippy::too_many_lines)] // panel + knob + lanes are one flat build
 pub(super) fn spawn_own_board_overlay(
     commands: &mut Commands,
+    lang: Lang,
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
     statics: &GameStatic,
@@ -893,6 +898,7 @@ pub(super) fn spawn_own_board_overlay(
             }
             let visual = spawn_card_art(
                 commands,
+                lang,
                 image,
                 built.as_ref(),
                 OVERLAY_CARD_W,
