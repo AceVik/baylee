@@ -881,6 +881,13 @@ messages! {
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 
+    /// Taking your seat
+    VeilTakingSeat { en: "Taking your seat", de: "Nehme deinen Platz ein" },
+    /// Talking to the gateway
+    VeilTalking {
+        en: "Talking to the gateway",
+        de: "Spreche mit dem Gateway",
+    },
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {
         en: "the gateway did not answer: {0}",

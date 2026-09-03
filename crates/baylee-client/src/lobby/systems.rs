@@ -943,9 +943,10 @@ fn in_lineage<'a>(
 /// a screen that says nothing for thirty seconds is a screen a player will
 /// click again.
 pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading::Loading>) {
+    let lang = state.lobby.lang();
     match state.lobby.screen() {
-        Screen::Seated(_) => loading.show("Taking your seat"),
-        _ if state.lobby.busy() => loading.show("Talking to the gateway"),
+        Screen::Seated(_) => loading.show(Phrase::VeilTakingSeat.text(lang)),
+        _ if state.lobby.busy() => loading.show(Phrase::VeilTalking.text(lang)),
         _ => loading.clear(),
     }
 }

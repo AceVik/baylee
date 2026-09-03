@@ -736,6 +736,18 @@ Who says what:
 - Values that are also identifiers stay identifiers. A house AI's difficulty is
   `"sharp"` on the wire and in `SeatSpec`; only its label is translated, by
   `lobby::ui::ai_name`.
+  The same line runs through the builder: `KINDS` is `(&str, Phrase)` because
+  the key is matched against a printed type line, and `Action::group` is a
+  `Phrase` because it is *also* the key the keymap panel groups by — a
+  `Phrase` compares as itself in every language, where the English string
+  would have been a key that changed meaning when the screen did.
+- A whole sentence is one phrase, never a translated verb with a translated
+  noun pasted on. `choose_line` takes `Phrase::NounCards` as an argument to
+  `Phrase::ChooseUpTo` for exactly that reason: a count and a noun agree
+  differently in different languages.
+- `input.rs` asks for ability labels in English on purpose and says so: that
+  path reads only each option's `action` — it picks by position or takes the
+  only one there is — and never draws a label.
 
 One setting feeds two readers. `ClientSettings.lang` is both the code the
 catalog is asked for and, through `Lang::of`, the language the interface draws
