@@ -199,6 +199,14 @@ pub struct Duel {
     /// box under the player's fingers. It is cleared when an action is sent
     /// and when a choice arrives that is not asking for a type.
     pub subtype_filter: String,
+    /// Whether the concede button is waiting for its second press.
+    ///
+    /// There is no undo in the engine and conceding is the most irreversible
+    /// thing in the game, so it is the one menu item that takes two presses.
+    /// Any other click, any bound key and any choice arriving from the host
+    /// disarm it — an armed button left standing across a turn would be a
+    /// worse trap than no confirmation at all.
+    pub concede_armed: bool,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -238,6 +246,24 @@ impl Duel {
     #[must_use]
     pub fn is_my_turn_to_act(&self) -> bool {
         self.interaction.as_ref().is_some_and(Interaction::is_mine)
+    }
+
+    /// Whether the engine would take a draw offer right now.
+    ///
+    /// `Engine::offer_draw` refuses anything but the offerer's own priority,
+    /// because the offer suspends a decision that has to be handed back
+    /// untouched if anyone refuses (CR 104.4a). The button was drawn live
+    /// whatever the game was doing, so the usual answer to pressing it was an
+    /// `IllegalAction` in the prompt bar.
+    ///
+    /// Priority is the whole condition. The engine's other refusal — nobody
+    /// left to offer to — cannot happen while this seat holds priority, since
+    /// a game with one player in it has already ended.
+    #[must_use]
+    pub fn can_offer_draw(&self) -> bool {
+        self.interaction.as_ref().is_some_and(|i| {
+            i.is_mine() && matches!(i.pending(), baylee_engine::choice::Pending::Priority { .. })
+        })
     }
 }
 
@@ -423,6 +449,8 @@ fn poll_host(
                 // current `LegalActions` — but a menu that outlives its
                 // question is a menu a player has to dismiss.
                 duel.ability_menu = None;
+                // …and so is a half-pressed concession. The game moved on.
+                duel.concede_armed = false;
                 rebuild_board(&mut duel);
             }
             HostMessage::Failed(reason) => {

@@ -34,13 +34,13 @@ Two consequences worth knowing before changing anything here:
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
 | Open the zone browser (graveyards, exile, the stack) | `G` (or a pile chip) | implemented |
-| Battlefield camera: pan | arrows, left-drag, touch-drag | implemented |
+| Battlefield camera: pan | arrows (not while choosing a number), left-drag, touch-drag | implemented |
 | Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
 | Battlefield camera: rotate | `Shift+←/→`, right-drag, rotate gesture | implemented |
 | Select a phase/step button (the rail's keyboard cursor) | `⇧W` / `⇧S` | implemented |
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Fast-forward to the next turn | `⇧Tab` | implemented |
-| Number choices (X) | arrows | implemented |
+| Number choices (X) | arrows, digits, `⌫` (or the `−`/`+` buttons) | implemented |
 | Mulligan keep / bottom | `K` / `B` | implemented |
 | Yes / no | `Y` / `N` | implemented |
 | Game log | `L` | planned |
@@ -49,7 +49,16 @@ Two consequences worth knowing before changing anything here:
 The camera controls are deliberately *not* in the keymap: they are held-key
 analogue input rather than discrete actions, and a rebinding screen listing
 "pan left" beside "keep this hand" would be describing two different kinds of
-thing.
+thing. That is also why the arrows have one exception written into the camera
+rather than into the keymap: `NumberUp`/`NumberDown` *are* discrete actions
+bound to the same keys, so while a number is being chosen the arrows belong to
+the number and the table holds still. Without it the same press raised X and
+panned the board out from under it.
+
+A number is typed as well as stepped: a digit appends to what stands (`1`
+then `2` reads 12), falls back to the digit alone when appending would leave
+the offered range, and `⌫` takes one off. Twelve presses of `↑` is not a way
+to say "X is my whole hand of lands".
 
 ## Combat
 

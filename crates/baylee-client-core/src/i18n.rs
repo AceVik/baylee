@@ -833,6 +833,8 @@ messages! {
     OfferADraw { en: "Offer a draw", de: "Remis anbieten" },
     /// Concede
     Concede { en: "Concede", de: "Aufgeben" },
+    /// Concede, armed and waiting for the second press.
+    ConcedeConfirm { en: "Concede? Press again", de: "Aufgeben? Nochmal drücken" },
     /// Aim next
     AimNext { en: "Aim next", de: "Nächstes Ziel" },
     /// Attack

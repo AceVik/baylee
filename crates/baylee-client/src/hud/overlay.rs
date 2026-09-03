@@ -113,6 +113,11 @@ pub fn sync_overlay(
         duel.browser.tab(),
         duel.browser.filter().to_string(),
     );
+    let menu = (duel.can_offer_draw(), duel.concede_armed);
+    let number = duel
+        .interaction
+        .as_ref()
+        .and_then(|i| matches!(i.prompt(), Prompt::ChooseNumber { .. }).then(|| i.number()));
 
     if revision.seq == seq
         && revision.prompt == prompt
@@ -129,6 +134,8 @@ pub fn sync_overlay(
         && revision.ability_menu == ability_menu
         && revision.ability_pick == ability_pick
         && revision.browser == browser
+        && revision.menu == menu
+        && revision.number == number
         && !existing.is_empty()
     {
         return;
@@ -148,6 +155,8 @@ pub fn sync_overlay(
     revision.ability_menu = ability_menu;
     revision.ability_pick = ability_pick;
     revision.browser = browser;
+    revision.menu = menu;
+    revision.number = number;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -238,10 +247,38 @@ pub fn sync_overlay(
             Pickable::IGNORE,
         ))
         .id();
+    // A draw needs this seat's own priority (CR 104.4a, and `offer_draw`
+    // refuses anything else), so the button says so instead of being a live
+    // button whose usual answer is an error in the prompt bar. Concede is
+    // always legal and is greyed by nothing — what it has instead is a second
+    // press, because there is no undo behind it.
+    let armed = duel.concede_armed;
     for (action, label, enabled) in [
-        (MenuAction::OfferDraw, Phrase::OfferADraw.text(lang), true),
-        (MenuAction::Concede, Phrase::Concede.text(lang), true),
+        (
+            MenuAction::OfferDraw,
+            Phrase::OfferADraw.text(lang),
+            duel.can_offer_draw(),
+        ),
+        (
+            MenuAction::Concede,
+            if armed {
+                Phrase::ConcedeConfirm.text(lang)
+            } else {
+                Phrase::Concede.text(lang)
+            },
+            true,
+        ),
     ] {
+        let lit = match (action, armed) {
+            (MenuAction::Concede, true) => palette::DANGER,
+            _ if enabled => palette::PANEL_LIT,
+            _ => palette::PANEL,
+        };
+        let ink = match (action, armed) {
+            (MenuAction::Concede, true) => palette::PANEL,
+            _ if enabled => palette::INK,
+            _ => palette::DEAD,
+        };
         let button = commands
             .spawn((
                 MenuButton { action },
@@ -250,17 +287,9 @@ pub fn sync_overlay(
                     border_radius: btn_radius(),
                     ..default()
                 },
-                BackgroundColor(if enabled {
-                    palette::PANEL_LIT
-                } else {
-                    palette::PANEL
-                }),
+                BackgroundColor(lit),
                 soft_shadow(),
-                children![(
-                    Text::new(label),
-                    tf(&fonts, 13.0),
-                    TextColor(if enabled { palette::INK } else { palette::DEAD }),
-                )],
+                children![(Text::new(label), tf(&fonts, 13.0), TextColor(ink))],
             ))
             .id();
         commands.entity(menu_row).add_child(button);
@@ -352,6 +381,36 @@ pub fn sync_overlay(
                 .spawn((Text::new(line), tf(&fonts, 13.0), TextColor(palette::MUTED)))
                 .id();
             commands.entity(bar).add_child(aim);
+        }
+
+        // ---- the number stepper -------------------------------------------
+        //
+        // The one choice with nothing on the table to click. The headline
+        // already says the range; what was missing was the value itself and
+        // any way at all to change it with a pointer.
+        if let (Some(value), false) = (number, waiting) {
+            let row = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: px(10),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let minus = spawn_step(&mut commands, &fonts, -1, "\u{2212}");
+            let shown = commands
+                .spawn((
+                    Text::new(value.to_string()),
+                    tf(&fonts, 20.0),
+                    TextColor(palette::INK),
+                ))
+                .id();
+            let plus = spawn_step(&mut commands, &fonts, 1, "+");
+            commands.entity(row).add_children(&[minus, shown, plus]);
+            commands.entity(bar).add_child(row);
         }
 
         // Answer buttons, matching the pending choice.
@@ -851,6 +910,32 @@ pub fn sync_overlay(
         );
         commands.entity(root).add_child(tray);
     }
+}
+
+/// One arm of the number stepper.
+fn spawn_step(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str) -> Entity {
+    commands
+        .spawn((
+            PromptButton {
+                action: PromptAction::Step(delta),
+            },
+            Node {
+                width: px(30),
+                height: px(30),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::ACCENT),
+            soft_shadow(),
+            children![(
+                Text::new(glyph.to_string()),
+                tf(fonts, 17.0),
+                TextColor(palette::PANEL),
+            )],
+        ))
+        .id()
 }
 
 /// One player tab: name, life, zone counts; active highlighted, lost

@@ -147,9 +147,17 @@ pub fn keyboard(
     if subtype_keys(fired, &mut typed, &mut duel) {
         return;
     }
+    // Same reason, and the same place in the order: a digit is bound to no
+    // action, so `Fired` is empty for exactly the keys a number choice wants.
+    if number_keys(&mut typed, &mut duel) {
+        return;
+    }
     if fired.quiet() {
         return;
     }
+    // The keyboard's half of the same rule as the pointer's: any bound key
+    // forgets a half-pressed concession.
+    duel.concede_armed = false;
     look_around(fired, &mut duel, &mut rig, &mut settings, &mut prefs);
     // The ability menu owns the keyboard while it stands: a list of things to
     // do is not a background for the cursor to walk over.
@@ -221,6 +229,53 @@ fn look_around(
             duel.browser.open();
         }
     }
+}
+
+/// Typing a number rather than stepping to it.
+///
+/// Stepping from 0 to 9 is nine presses, and X is routinely somebody's whole
+/// hand of lands. So a digit types: it appends to what stands, and falls back
+/// to the digit alone when appending would leave the offered range — which is
+/// what a player means by typing `7` when the value already reads `12` and the
+/// maximum is 9. Backspace takes a digit off, and the interaction clamps
+/// whatever comes out, so nothing typed here is expressible outside the range
+/// the engine offered.
+fn number_keys(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
+    if !matches!(
+        duel.interaction.as_ref().map(Interaction::prompt),
+        Some(Prompt::ChooseNumber { .. })
+    ) {
+        return false;
+    }
+    let mut touched = false;
+    for event in typed.read() {
+        if !event.state.is_pressed() {
+            continue;
+        }
+        let Some(i) = duel.interaction.as_mut() else {
+            continue;
+        };
+        match &event.logical_key {
+            Key::Character(s) => {
+                for digit in s.chars().filter_map(|c| c.to_digit(10)) {
+                    let appended = i.number().saturating_mul(10).saturating_add(digit);
+                    // `set_number` clamps, so "did it fit" is asked by
+                    // comparing what came back with what went in.
+                    if i.set_number(appended) != appended {
+                        i.set_number(digit);
+                    }
+                    touched = true;
+                }
+            }
+            Key::Backspace => {
+                let shorter = i.number() / 10;
+                i.set_number(shorter);
+                touched = true;
+            }
+            _ => {}
+        }
+    }
+    touched
 }
 
 /// The creature types still on screen, in the engine's order.
@@ -459,15 +514,8 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
     // offered range — a player can hold a key without producing something the
     // engine would reject.
     let step = i32::from(fired.has(Action::NumberUp)) - i32::from(fired.has(Action::NumberDown));
-    if step != 0
-        && let Some(i) = duel.interaction.as_mut()
-    {
-        let next = if step > 0 {
-            i.number().saturating_add(1)
-        } else {
-            i.number().saturating_sub(1)
-        };
-        i.set_number(next);
+    if step != 0 {
+        step_number(duel, step);
     }
 
     // Cancel: an open preview first, then a selected phase button, then a
@@ -480,6 +528,23 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
         } else if let Some(i) = duel.interaction.as_mut() {
             i.cancel();
         }
+    }
+}
+
+/// Moves a number choice by one, in whichever direction.
+///
+/// The one door for both arms of the stepper and both keys, so a click and a
+/// key cannot come to disagree about what "up" is. The interaction clamps, so
+/// holding a key stops at the boundary rather than producing something the
+/// engine would reject.
+fn step_number(duel: &mut Duel, delta: i32) {
+    if let Some(i) = duel.interaction.as_mut() {
+        let next = if delta > 0 {
+            i.number().saturating_add(1)
+        } else {
+            i.number().saturating_sub(1)
+        };
+        i.set_number(next);
     }
 }
 
@@ -714,6 +779,33 @@ fn pick_choice(duel: &mut Duel, index: usize) {
 /// through the same [`activate_card`] a card on the table does.
 ///
 /// Returns whether the click belonged to the browser.
+/// The two buttons in the top-right menu.
+///
+/// `was_armed` is the concession's state *before* this click, taken once at
+/// the top of the loop: every click disarms, so the second press only counts
+/// when nothing happened in between.
+fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
+    match action {
+        // Two presses, because there is no undo behind this one.
+        MenuAction::Concede => {
+            if was_armed {
+                duel.submit(PlayerAction::Concede);
+            } else {
+                duel.concede_armed = true;
+            }
+        }
+        // Re-checked and not merely drawn greyed: a button drawn a frame ago
+        // must not send what the engine has since withdrawn, which is the same
+        // rule the ability chooser follows. Draw offers still need mutual
+        // agreement — a protocol item.
+        MenuAction::OfferDraw => {
+            if duel.can_offer_draw() {
+                duel.submit(PlayerAction::OfferDraw);
+            }
+        }
+    }
+}
+
 fn browser_click(
     duel: &mut Duel,
     entity: Entity,
@@ -776,6 +868,11 @@ pub fn pointer(
 ) {
     for click in clicks.read() {
         let e = click.entity;
+        // Every click disarms the concession, and the concede branch below
+        // reads what it *was*. Taken here rather than in that branch so the
+        // rule is one line and cannot be forgotten by a widget added later:
+        // a half-pressed concession survives exactly nothing.
+        let was_armed = std::mem::take(&mut duel.concede_armed);
         if let Some(object) = find_in_lineage(e, &cards, &parents)
             .map(|v| v.object)
             .or_else(|| find_in_lineage(e, &hand_cards, &parents).map(|h| h.object))
@@ -810,11 +907,7 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &menu_buttons, &parents) {
-            match button.action {
-                MenuAction::Concede => duel.submit(PlayerAction::Concede),
-                // Draw offers need mutual agreement — a protocol item.
-                MenuAction::OfferDraw => duel.submit(PlayerAction::OfferDraw),
-            }
+            menu_click(&mut duel, button.action, was_armed);
             continue;
         }
         if let Some(button) = find_in_lineage(e, &ability_buttons, &parents) {
@@ -855,6 +948,12 @@ pub fn pointer(
                 }
                 PromptAction::DeclareNothing => {
                     declare_nothing(&mut duel);
+                    None
+                }
+                // Stepping changes nothing the engine can hear either: the
+                // number is not an answer until Confirm sends it.
+                PromptAction::Step(delta) => {
+                    step_number(&mut duel, delta);
                     None
                 }
             };
@@ -969,9 +1068,21 @@ pub fn camera_controls(
     let right = Vec2::new(rig.yaw.cos(), -rig.yaw.sin());
     let forward = Vec2::new(-rig.yaw.sin(), -rig.yaw.cos());
 
+    // The arrows are `NumberUp`/`NumberDown` in the standard keymap, and this
+    // function reads `KeyCode` directly rather than through it — so while a
+    // number is being chosen the same press was both raising X and panning the
+    // table under it. The choice wins; the mouse and the touch gestures below
+    // are untouched, because neither of them is bound to anything.
+    let stepping = matches!(
+        duel.interaction.as_ref().map(Interaction::prompt),
+        Some(Prompt::ChooseNumber { .. })
+    );
+
     // ---- keyboard: pan / zoom / rotate ----------------------------------
     let pan_step = rig.distance * 0.02;
-    if shift {
+    if stepping {
+        // nothing: the arrows belong to the number
+    } else if shift {
         if keys.pressed(KeyCode::ArrowUp) {
             rig.distance = (rig.distance * 0.985).max(crate::table::CameraRig::MIN_DISTANCE);
         }
@@ -1184,6 +1295,261 @@ mod tests {
             app.world().resource::<crate::Duel>().outbox(),
             [PlayerAction::PlayLand { card: obj(3) }],
             "the land under the cursor is what the primary key plays"
+        );
+    }
+
+    /// Builds the app the two menu-button tests share: the real `pointer`
+    /// system, and a click helper that goes through the real message.
+    fn menu_app(
+        duel: crate::Duel,
+    ) -> (bevy::app::App, bevy::prelude::Entity, bevy::prelude::Entity) {
+        use crate::hud::MenuAction;
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+            .insert_resource(duel)
+            .add_systems(Update, super::pointer);
+        let draw = app
+            .world_mut()
+            .spawn(crate::hud::MenuButton {
+                action: MenuAction::OfferDraw,
+            })
+            .id();
+        let concede = app
+            .world_mut()
+            .spawn(crate::hud::MenuButton {
+                action: MenuAction::Concede,
+            })
+            .id();
+        (app, draw, concede)
+    }
+
+    /// One click on one entity, as the picking backend would report it.
+    fn click(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
+        use bevy::camera::NormalizedRenderTarget;
+        use bevy::picking::events::{Click, Pointer};
+        use bevy::picking::pointer::{Location, PointerId};
+        use bevy::prelude::*;
+        use bevy::window::{PrimaryWindow, WindowRef};
+
+        let window = app
+            .world_mut()
+            .query_filtered::<Entity, With<PrimaryWindow>>()
+            .single(app.world())
+            .unwrap_or_else(|_| {
+                app.world_mut()
+                    .spawn((Window::default(), PrimaryWindow))
+                    .id()
+            });
+        let camera = app.world_mut().spawn_empty().id();
+        let target = WindowRef::Entity(window)
+            .normalize(Some(window))
+            .expect("a window is a render target");
+        let location = Location {
+            target: NormalizedRenderTarget::Window(target),
+            position: Vec2::ZERO,
+        };
+        let event = Click {
+            button: bevy::picking::pointer::PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(camera, 0.0, None, None),
+            duration: std::time::Duration::from_millis(10),
+            count: 1,
+        };
+        app.world_mut()
+            .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+        app.update();
+    }
+
+    /// The engine refuses a draw offer outside the offerer's own priority, so
+    /// the button used to be a live button whose usual answer was an error.
+    #[test]
+    fn a_draw_is_only_offered_from_this_seats_own_priority() {
+        use bevy::prelude::*;
+
+        // A choice that is not priority: the offer is not sent.
+        let (mut app, draw, _) = menu_app(crate::Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                Pending::YesNo {
+                    player: PlayerId::new(0),
+                    prompt: baylee_engine::choice::YesNoPrompt::Generic,
+                    source: None,
+                },
+                PlayerId::new(0),
+            )),
+            ..Default::default()
+        });
+        click(&mut app, draw);
+        assert!(
+            app.world().resource::<crate::Duel>().outbox().is_empty(),
+            "a draw was offered without priority, which the engine refuses"
+        );
+
+        // And with priority it goes.
+        let (mut app, draw, _) = menu_app(crate::Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                Pending::Priority {
+                    player: PlayerId::new(0),
+                    legal: Box::new(LegalActions {
+                        can_pass: true,
+                        lands: vec![],
+                        castable: vec![],
+                        mana_abilities: vec![],
+                        abilities: vec![],
+                        suspendable: vec![],
+                    }),
+                },
+                PlayerId::new(0),
+            )),
+            ..Default::default()
+        });
+        click(&mut app, draw);
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox(),
+            [PlayerAction::OfferDraw]
+        );
+    }
+
+    /// One misclick used to end a ranked game.
+    #[test]
+    fn conceding_takes_two_presses_and_anything_else_forgets_the_first() {
+        let (mut app, draw, concede) = menu_app(crate::Duel::default());
+
+        click(&mut app, concede);
+        assert!(
+            app.world().resource::<crate::Duel>().outbox().is_empty(),
+            "one press conceded the game"
+        );
+        assert!(app.world().resource::<crate::Duel>().concede_armed);
+
+        // Anything else in between and the first press is forgotten.
+        click(&mut app, draw);
+        assert!(!app.world().resource::<crate::Duel>().concede_armed);
+        click(&mut app, concede);
+        assert!(app.world().resource::<crate::Duel>().outbox().is_empty());
+
+        // Twice in a row, and it goes.
+        click(&mut app, concede);
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox(),
+            [PlayerAction::Concede]
+        );
+    }
+
+    /// A number choice with a range, ready to be typed at.
+    fn number_duel(max: u32) -> crate::Duel {
+        crate::Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                Pending::ChooseNumber {
+                    player: PlayerId::new(0),
+                    min: 0,
+                    max,
+                },
+                PlayerId::new(0),
+            )),
+            ..Default::default()
+        }
+    }
+
+    /// Stepping from 0 to 12 is twelve presses, and X is routinely somebody's
+    /// whole hand of lands.
+    #[test]
+    fn a_number_can_be_typed_rather_than_stepped_to() {
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::{Key, KeyboardInput};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .insert_resource(number_duel(20))
+            .add_systems(Update, super::keyboard);
+        let window = app.world_mut().spawn_empty().id();
+
+        let type_digit = |app: &mut App, c: char| {
+            app.world_mut().write_message(KeyboardInput {
+                key_code: KeyCode::Digit0,
+                logical_key: Key::Character(c.to_string().into()),
+                state: bevy::input::ButtonState::Pressed,
+                text: Some(c.to_string().into()),
+                repeat: false,
+                window,
+            });
+            app.update();
+        };
+
+        type_digit(&mut app, '1');
+        type_digit(&mut app, '2');
+        let number = |app: &App| {
+            app.world()
+                .resource::<crate::Duel>()
+                .interaction
+                .as_ref()
+                .expect("the choice stands")
+                .number()
+        };
+        assert_eq!(number(&app), 12, "a second digit appends");
+
+        // …and a digit that would leave the range is the whole answer instead,
+        // which is what a player means by typing 7 at a maximum of 20.
+        type_digit(&mut app, '7');
+        assert_eq!(number(&app), 7);
+
+        // Backspace takes one off.
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::Backspace,
+            logical_key: Key::Backspace,
+            state: bevy::input::ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+        assert_eq!(number(&app), 0);
+    }
+
+    /// The arrows are bound to `NumberUp`/`NumberDown`, and `camera_controls`
+    /// reads `KeyCode` directly rather than through the keymap — so the same
+    /// press was raising X and panning the table out from under it.
+    #[test]
+    fn the_arrows_do_not_pan_the_table_while_a_number_is_being_chosen() {
+        use bevy::input::ButtonInput;
+        use bevy::input::mouse::{MouseMotion, MouseWheel};
+        use bevy::prelude::*;
+
+        let run = |duel: crate::Duel| {
+            let mut app = App::new();
+            app.init_resource::<ButtonInput<KeyCode>>()
+                .init_resource::<ButtonInput<MouseButton>>()
+                .init_resource::<crate::table::CameraRig>()
+                .add_message::<MouseMotion>()
+                .add_message::<MouseWheel>()
+                .add_message::<bevy::input::gestures::PanGesture>()
+                .add_message::<bevy::input::gestures::PinchGesture>()
+                .add_message::<bevy::input::gestures::RotationGesture>()
+                .insert_resource(duel)
+                .add_systems(Update, super::camera_controls);
+            app.world_mut()
+                .resource_mut::<ButtonInput<KeyCode>>()
+                .press(KeyCode::ArrowUp);
+            app.update();
+            app.world().resource::<crate::table::CameraRig>().target
+        };
+
+        assert_eq!(
+            run(number_duel(20)),
+            crate::table::CameraRig::default().target,
+            "the arrow panned the table while it was choosing a number"
+        );
+        assert_ne!(
+            run(crate::Duel::default()),
+            crate::table::CameraRig::default().target,
+            "and with no number pending the arrow still pans"
         );
     }
 

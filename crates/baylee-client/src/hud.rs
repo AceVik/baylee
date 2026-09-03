@@ -212,6 +212,13 @@ pub enum PromptAction {
     DeclareNothing,
     /// Aim the next declaration at the next defender (or attacker).
     AimNext,
+    /// One arm of the number stepper: `+1` or `-1`.
+    ///
+    /// A prompt button rather than a component of its own, because that is
+    /// what it is — the one choice with nothing on the table to click, and
+    /// the arms belong in the same bar as every other answer. It also keeps
+    /// `input::pointer` off Bevy's system-parameter limit.
+    Step(i32),
 }
 
 /// One card in the zone browser.
@@ -351,6 +358,15 @@ pub struct HudRevision {
         Option<baylee_client_core::browser::BrowseZone>,
         String,
     ),
+    /// The value a number choice stands at. It changes with no new snapshot —
+    /// stepping X never leaves the client until Confirm — so without it the
+    /// stepper would draw the opening value and then stay wrong.
+    number: Option<u32>,
+    /// The two menu buttons' states: whether a draw may be offered at all,
+    /// and whether concede is waiting for its second press. The first follows
+    /// the pending choice, the second nothing but the pointer, and a button
+    /// whose label changes has to be redrawn when it does.
+    menu: (bool, bool),
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
