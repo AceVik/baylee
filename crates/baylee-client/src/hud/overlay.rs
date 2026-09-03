@@ -108,6 +108,11 @@ pub fn sync_overlay(
     let focus = duel.focus;
     let overlay_open = duel.overlay_open;
     let preview_scale = settings.preview_scale;
+    let browser = (
+        duel.browser.is_open(),
+        duel.browser.tab(),
+        duel.browser.filter().to_string(),
+    );
 
     if revision.seq == seq
         && revision.prompt == prompt
@@ -123,6 +128,7 @@ pub fn sync_overlay(
         && revision.combat == combat
         && revision.ability_menu == ability_menu
         && revision.ability_pick == ability_pick
+        && revision.browser == browser
         && !existing.is_empty()
     {
         return;
@@ -141,6 +147,7 @@ pub fn sync_overlay(
     revision.combat = combat;
     revision.ability_menu = ability_menu;
     revision.ability_pick = ability_pick;
+    revision.browser = browser;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -823,6 +830,26 @@ pub fn sync_overlay(
             cards.as_mut(),
         );
         commands.entity(root).add_child(stack);
+    }
+
+    // ---- the pile chips, and the browser they open ----------------------
+    let strip = tray::spawn_pile_strip(&mut commands, lang, &duel.browser, view, &fonts);
+    commands.entity(root).add_child(strip);
+    if let (true, Some(statics)) = (duel.browser.is_open(), duel.statics.as_ref()) {
+        let tray = tray::spawn_tray(
+            &mut commands,
+            lang,
+            &duel.browser,
+            view,
+            duel.interaction.as_ref(),
+            statics,
+            &mut textures,
+            &assets,
+            &fonts,
+            &faces,
+            cards.as_mut(),
+        );
+        commands.entity(root).add_child(tray);
     }
 }
 

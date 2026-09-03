@@ -94,6 +94,8 @@ mod glyph {
     pub const CARET_DOWN: char = '\u{f0d7}';
     /// Expand (resize handle).
     pub const EXPAND: char = '\u{f065}';
+    /// Crown (the command zone).
+    pub const COMMAND: char = '\u{f521}';
 }
 
 /// Root of the overlay.
@@ -212,6 +214,40 @@ pub enum PromptAction {
     AimNext,
 }
 
+/// One card in the zone browser.
+///
+/// Carries the object, not an index: a tray row is a card, and a click on a
+/// card means exactly what a click on the same card on the table means —
+/// which is the whole reason the browser exists rather than a second way of
+/// answering choices.
+#[derive(Component)]
+pub struct TrayCard {
+    /// The object this row stands for.
+    pub object: ObjectId,
+}
+
+/// A zone tab in the browser. `None` is the "all zones" tab.
+#[derive(Component)]
+pub struct TrayTab {
+    /// The zone this tab shows.
+    pub zone: Option<baylee_client_core::browser::BrowseZone>,
+}
+
+/// The browser's close button.
+#[derive(Component)]
+pub struct TrayClose;
+
+/// A zone count that opens the browser on that pile when clicked.
+///
+/// The counts were already drawn — in the seat tabs and in the own-board
+/// overlay — and were the one place the interface said "there are seven
+/// cards here" and gave the player no way to look at them.
+#[derive(Component)]
+pub struct PileChip {
+    /// The pile it opens, or `None` for every zone at once.
+    pub zone: Option<baylee_client_core::browser::BrowseZone>,
+}
+
 /// The scrolling strip inside the hand bar.
 #[derive(Component)]
 pub struct HandStrip;
@@ -307,6 +343,14 @@ pub struct HudRevision {
     /// Which entry of that chooser the keyboard is on — same reason, and
     /// without it the highlight would never move.
     ability_pick: usize,
+    /// What the zone browser is showing. Opened by a choice arriving and
+    /// by a click on a pile chip, neither of which need be a new snapshot,
+    /// and the tab and filter move with no snapshot at all.
+    browser: (
+        bool,
+        Option<baylee_client_core::browser::BrowseZone>,
+        String,
+    ),
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -416,6 +460,7 @@ mod hand;
 mod overlay;
 mod rail;
 mod stack;
+mod tray;
 
 #[cfg(test)]
 mod tests;

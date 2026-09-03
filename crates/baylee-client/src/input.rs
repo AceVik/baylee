@@ -17,7 +17,8 @@
 use crate::Duel;
 use crate::hud::{
     AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton,
-    PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton,
+    PileChip, PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton, TrayCard,
+    TrayClose, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -30,6 +31,19 @@ use baylee_engine::choice::PlayerAction;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
+
+/// Every widget the zone browser puts on screen, as one system parameter.
+///
+/// Bundled rather than four more arguments because `pointer` already sits at
+/// Bevy's parameter limit — and because they are one thing: the tray, its
+/// tabs, its close button, and the pile chips that open it.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct TrayWidgets<'w, 's> {
+    cards: Query<'w, 's, &'static TrayCard>,
+    tabs: Query<'w, 's, &'static TrayTab>,
+    close: Query<'w, 's, &'static TrayClose>,
+    chips: Query<'w, 's, &'static PileChip>,
+}
 
 /// Finds a component on the clicked entity or one of its ancestors —
 /// a click on a button's icon or text belongs to the button.
@@ -679,6 +693,49 @@ fn pick_choice(duel: &mut Duel, index: usize) {
     }
 }
 
+/// A click on the zone browser or on one of the chips that opens it.
+///
+/// Its own function rather than four more arms in [`pointer`]: they are one
+/// widget, and the browser is meant to be a second *place* to click a card,
+/// not a second way to answer a choice — which is why a tray card goes
+/// through the same [`activate_card`] a card on the table does.
+///
+/// Returns whether the click belonged to the browser.
+fn browser_click(
+    duel: &mut Duel,
+    entity: Entity,
+    tray: &TrayWidgets,
+    parents: &Query<&ChildOf>,
+) -> bool {
+    if let Some(card) = find_in_lineage(entity, &tray.cards, parents) {
+        activate_card(duel, card.object);
+        return true;
+    }
+    // A tab inside the open tray switches zone; a chip outside it opens and
+    // closes the whole panel. Two different jobs, so two components.
+    if let Some(tab) = find_in_lineage(entity, &tray.tabs, parents) {
+        duel.browser.show(tab.zone);
+        return true;
+    }
+    if find_in_lineage(entity, &tray.close, parents).is_some() {
+        duel.browser.close();
+        return true;
+    }
+    if let Some(chip) = find_in_lineage(entity, &tray.chips, parents) {
+        let zone = chip.zone;
+        // A second click on the pile already showing puts it away, so a chip
+        // is a toggle rather than a one-way door.
+        if duel.browser.is_open() && duel.browser.tab() == zone {
+            duel.browser.close();
+        } else {
+            duel.browser.open();
+            duel.browser.show(zone);
+        }
+        return true;
+    }
+    false
+}
+
 /// Pointer handling: clicking a card, a player tab, or a rail button.
 ///
 /// A click means "this object", and what that does depends entirely on the
@@ -698,6 +755,7 @@ pub fn pointer(
     prompt_buttons: Query<&PromptButton>,
     ability_buttons: Query<&AbilityButton>,
     choice_buttons: Query<&ChoiceButton>,
+    tray: TrayWidgets,
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
@@ -752,6 +810,9 @@ pub fn pointer(
         }
         if let Some(button) = find_in_lineage(e, &choice_buttons, &parents) {
             pick_choice(&mut duel, button.index);
+            continue;
+        }
+        if browser_click(&mut duel, e, &tray, &parents) {
             continue;
         }
         if let Some(button) = find_in_lineage(e, &prompt_buttons, &parents) {

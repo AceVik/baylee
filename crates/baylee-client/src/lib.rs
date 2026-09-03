@@ -182,6 +182,15 @@ pub struct Duel {
     /// as it is rebuilt, because the engine may withdraw an ability while
     /// the menu stands.
     pub ability_pick: usize,
+    /// The zone browser: every zone a choice can reach that the table
+    /// cannot draw.
+    ///
+    /// Beside the interaction rather than inside it, and holding no
+    /// selection of its own: the interaction is the one truth about the
+    /// answer being assembled, and two copies of a selection are two things
+    /// that can disagree. What lives here is only what the *player* said
+    /// about the panel — open, which tab, what is typed.
+    pub browser: baylee_client_core::browser::Browser,
     /// What has been typed into the creature-type filter.
     ///
     /// It lives here and not on the `Interaction` because the interaction is
@@ -403,6 +412,12 @@ fn poll_host(
                     duel.subtype_filter.clear();
                 }
                 duel.interaction = Some(Interaction::new(*pending, seat));
+                // Decided here and not per frame: a panel that re-decided
+                // every frame whether to be open could never be closed.
+                let d = &mut *duel;
+                if let Some(v) = d.view.as_ref() {
+                    d.browser.follow(v, d.interaction.as_ref());
+                }
                 // A chooser belongs to the choice it was opened under. It
                 // would heal itself anyway — the options are rebuilt from the
                 // current `LegalActions` — but a menu that outlives its
