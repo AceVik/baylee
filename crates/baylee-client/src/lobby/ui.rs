@@ -164,7 +164,17 @@ pub(super) fn spawn_camera(
 }
 
 /// Drops the whole lobby when a duel takes the screen.
-pub(super) fn teardown(mut commands: Commands, screen: Query<Entity, With<LobbyScreen>>) {
+///
+/// The veil goes with it. `waiting` raises it while a seat is being fetched
+/// and only that system ever lowers it — and that system stops running the
+/// moment the duel opens, which is exactly when the seat has arrived. Left
+/// alone, "Taking your seat" sat over the table for the rest of the game.
+pub(super) fn teardown(
+    mut commands: Commands,
+    mut loading: ResMut<crate::loading::Loading>,
+    screen: Query<Entity, With<LobbyScreen>>,
+) {
+    loading.clear();
     for entity in &screen {
         commands.entity(entity).despawn();
     }
@@ -760,13 +770,18 @@ fn table(
     commands.entity(lock).add_child(box_);
     commands.entity(head_row).add_child(lock);
     // How many chairs is the one thing that cannot be changed after the
-    // table exists, so it is asked before it does.
+    // table exists, so it is asked before it does. One label and a row of
+    // numbers rather than a button per size: at two to eight, seven buttons
+    // each spelling out "Open a table for N" is most of a screen's width
+    // saying almost nothing, and it ran off the edge of a 1728-wide window.
+    let caption = note(commands, fonts, metrics, "Open a table for");
+    commands.entity(head_row).add_child(caption);
     for chairs in MIN_CHAIRS..=MAX_CHAIRS {
         let b = button(
             commands,
             fonts,
             metrics,
-            &format!("Open a table for {chairs}"),
+            &chairs.to_string(),
             Press::OpenRoom(chairs),
             palette::PANEL_LIT,
             !lobby.busy(),
@@ -1408,7 +1423,14 @@ pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow:
             Node {
                 width,
                 flex_grow: grow,
-                flex_shrink: 0.0,
+                // A panel that grows to fill the row is also the one that has
+                // to give way, and `min_width` has to be told: a flex item's
+                // default minimum is its *content*, so a panel holding a row
+                // wider than the window silently pushed the window's edge
+                // instead of letting that row wrap. Seven table sizes made
+                // that visible; two never had.
+                flex_shrink: if grow > 0.0 { 1.0 } else { 0.0 },
+                min_width: px(0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap * 0.8),
                 padding: UiRect::all(px(metrics.pad * 0.8)),
