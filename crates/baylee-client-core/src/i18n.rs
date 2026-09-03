@@ -742,6 +742,118 @@ messages! {
         de: "{0} Karte(n) sind noch nicht vollständig umgesetzt und spielen nicht wie gedruckt.",
     },
 
+
+    // ---- the table
+    /// Waiting for seat {0}
+    WaitingForSeat { en: "Waiting for seat {0}", de: "Warte auf Platz {0}" },
+    /// Waiting
+    JustWaiting { en: "Waiting", de: "Warte" },
+    /// Keep this hand? (the next mulligan is free)
+    MulliganFree {
+        en: "Keep this hand? (the next mulligan is free)",
+        de: "Diese Hand behalten? (der nächste Mulligan ist frei)",
+    },
+    /// Keep this hand? ({0} taken)
+    MulliganTaken { en: "Keep this hand? ({0} taken)", de: "Diese Hand behalten? ({0} genommen)" },
+    /// Put {0} card(s) on the bottom
+    PutOnBottom { en: "Put {0} card(s) on the bottom", de: "Lege {0} Karte(n) nach unten" },
+    /// You have priority
+    YouHavePriority { en: "You have priority", de: "Du hast Priorität" },
+    /// Declare attackers
+    DeclareAttackers { en: "Declare attackers", de: "Angreifer deklarieren" },
+    /// Declare blockers
+    DeclareBlockers { en: "Declare blockers", de: "Blocker deklarieren" },
+    /// Discard {0} card(s)
+    DiscardCards { en: "Discard {0} card(s)", de: "Wirf {0} Karte(n) ab" },
+    /// Legend rule: keep one
+    LegendRule { en: "Legend rule: keep one", de: "Legendenregel: behalte eine" },
+    /// card(s)
+    NounCards { en: "card(s)", de: "Karte(n)" },
+    /// target(s)
+    NounTargets { en: "target(s)", de: "Ziel(e)" },
+    /// Choose up to {0} {1}
+    ChooseUpTo { en: "Choose up to {0} {1}", de: "Wähle bis zu {0} {1}" },
+    /// Choose {0} {1}
+    ChooseExactly { en: "Choose {0} {1}", de: "Wähle {0} {1}" },
+    /// Choose {0}–{1} {2}
+    ChooseBetween { en: "Choose {0}–{1} {2}", de: "Wähle {0}–{1} {2}" },
+    /// Choose a creature type
+    ChooseCreatureType { en: "Choose a creature type", de: "Wähle einen Kreaturtyp" },
+    /// Choose a colour
+    ChooseColour { en: "Choose a colour", de: "Wähle eine Farbe" },
+    /// Choose a number ({0}–{1})
+    ChooseNumberIn { en: "Choose a number ({0}–{1})", de: "Wähle eine Zahl ({0}–{1})" },
+    /// Choose a player
+    ChoosePlayer { en: "Choose a player", de: "Wähle einen Spieler" },
+    /// Choose how to cast
+    ChooseHowToCast { en: "Choose how to cast", de: "Wähle, wie gewirkt wird" },
+    /// Put these in order
+    PutInOrder { en: "Put these in order", de: "Bringe diese in eine Reihenfolge" },
+    /// The game is over
+    TheGameIsOver { en: "The game is over", de: "Das Spiel ist vorbei" },
+    /// Pay {0} life? Otherwise it enters tapped
+    PayLifeOrTapped {
+        en: "Pay {0} life? Otherwise it enters tapped",
+        de: "{0} Leben zahlen? Sonst kommt es getappt ins Spiel",
+    },
+    /// Pay the additional cost?
+    PayAdditionalCost { en: "Pay the additional cost?", de: "Die zusätzlichen Kosten zahlen?" },
+    /// Pay {{0}}?
+    PayTax { en: "Pay {{0}}?", de: "{{0}} zahlen?" },
+    /// Cast it for its miracle cost?
+    CastForMiracle { en: "Cast it for its miracle cost?", de: "Für die Wunderkosten wirken?" },
+    /// A draw was offered. Accept?
+    DrawWasOffered {
+        en: "A draw was offered. Accept?",
+        de: "Ein Remis wurde angeboten. Annehmen?",
+    },
+    /// Yes or no?
+    YesOrNo { en: "Yes or no?", de: "Ja oder nein?" },
+    /// Offer a draw
+    OfferADraw { en: "Offer a draw", de: "Remis anbieten" },
+    /// Concede
+    Concede { en: "Concede", de: "Aufgeben" },
+    /// Aim next
+    AimNext { en: "Aim next", de: "Nächstes Ziel" },
+    /// Attack
+    Attack { en: "Attack", de: "Angreifen" },
+    /// Block
+    Block { en: "Block", de: "Blocken" },
+    /// None
+    DeclareNone { en: "None", de: "Keine" },
+    /// Keep
+    KeepHand { en: "Keep", de: "Behalten" },
+    /// Mulligan
+    TakeMulligan { en: "Mulligan", de: "Mulligan" },
+    /// OK
+    ConfirmOk { en: "OK", de: "OK" },
+    /// Stack
+    StackTitle { en: "Stack", de: "Stapel" },
+    /// Spell
+    StackSpell { en: "Spell", de: "Zauber" },
+    /// Ability
+    StackAbilityBare { en: "Ability", de: "Fähigkeit" },
+    /// Ability · {0}
+    StackAbility { en: "Ability · {0}", de: "Fähigkeit · {0}" },
+    /// Seat {0}
+    SeatNumbered { en: "Seat {0}", de: "Platz {0}" },
+    /// You ({0})
+    YouNamed { en: "You ({0})", de: "Du ({0})" },
+    /// Aimed at {0} ({1} of {2})
+    AimedAt { en: "Aimed at {0} ({1} of {2})", de: "Zielt auf {0} ({1} von {2})" },
+    /// {0} declared
+    DeclaredCount { en: "{0} declared", de: "{0} deklariert" },
+    /// a seat
+    ASeat { en: "a seat", de: "ein Platz" },
+    /// a permanent
+    APermanent { en: "a permanent", de: "eine bleibende Karte" },
+    /// nothing
+    AimingAtNothing { en: "nothing", de: "nichts" },
+    /// YOU
+    RailYou { en: "YOU", de: "DU" },
+    /// OPPONENT
+    RailOpponent { en: "OPPONENT", de: "GEGNER" },
+
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {
         en: "the gateway did not answer: {0}",

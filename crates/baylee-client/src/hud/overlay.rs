@@ -67,11 +67,12 @@ pub fn sync_overlay(
         mode: &mode,
         settings: &settings,
     };
+    let lang = Lang::of(&settings.lang);
     let seq = duel.board.as_ref().map(|b| b.seq);
     let prompt = duel
         .interaction
         .as_ref()
-        .map(|i| i.prompt().headline())
+        .map(|i| i.prompt().headline(lang))
         .or_else(|| duel.last_error.clone());
     let hovered = duel.hovered;
     let selected: Vec<ObjectId> = duel
@@ -172,6 +173,7 @@ pub fn sync_overlay(
     for seat in &view.seats {
         let tab = spawn_player_tab(
             &mut commands,
+            lang,
             view,
             duel.statics.as_ref(),
             seat,
@@ -193,8 +195,8 @@ pub fn sync_overlay(
         ))
         .id();
     for (action, label, enabled) in [
-        (MenuAction::OfferDraw, "Remis", true),
-        (MenuAction::Concede, "Aufgeben", true),
+        (MenuAction::OfferDraw, Phrase::OfferADraw.text(lang), true),
+        (MenuAction::Concede, Phrase::Concede.text(lang), true),
     ] {
         let button = commands
             .spawn((
@@ -226,6 +228,7 @@ pub fn sync_overlay(
     let window_h = windows.single().map_or(800.0, Window::height);
     let rail = spawn_phase_rail(
         &mut commands,
+        lang,
         view,
         &orders,
         autopilot,
@@ -278,7 +281,7 @@ pub fn sync_overlay(
             .interaction
             .as_ref()
             .filter(|i| i.is_combat() && !waiting)
-            .and_then(|i| combat_line(i, view, duel.statics.as_ref()))
+            .and_then(|i| combat_line(i, view, duel.statics.as_ref(), lang))
         {
             let aim = commands
                 .spawn((Text::new(line), tf(&fonts, 13.0), TextColor(palette::MUTED)))
@@ -288,15 +291,24 @@ pub fn sync_overlay(
 
         // Answer buttons, matching the pending choice.
         let combat_answers = [
-            (PromptAction::AimNext, "Aim next"),
-            (PromptAction::Confirm, "Attack"),
-            (PromptAction::DeclareNothing, "None"),
+            (PromptAction::AimNext, Phrase::AimNext.text(lang)),
+            (PromptAction::Confirm, Phrase::Attack.text(lang)),
+            (PromptAction::DeclareNothing, Phrase::DeclareNone.text(lang)),
         ];
         let block_answers = [
-            (PromptAction::AimNext, "Aim next"),
-            (PromptAction::Confirm, "Block"),
-            (PromptAction::DeclareNothing, "None"),
+            (PromptAction::AimNext, Phrase::AimNext.text(lang)),
+            (PromptAction::Confirm, Phrase::Block.text(lang)),
+            (PromptAction::DeclareNothing, Phrase::DeclareNone.text(lang)),
         ];
+        let mulligan_answers = [
+            (PromptAction::Keep, Phrase::KeepHand.text(lang)),
+            (PromptAction::Mulligan, Phrase::TakeMulligan.text(lang)),
+        ];
+        let yes_no_answers = [
+            (PromptAction::Yes, Phrase::ActAnswerYes.text(lang)),
+            (PromptAction::No, Phrase::ActAnswerNo.text(lang)),
+        ];
+        let ok_answer = [(PromptAction::Confirm, Phrase::ConfirmOk.text(lang))];
         let answers: &[(PromptAction, &str)] = if waiting {
             &[]
         } else {
@@ -305,13 +317,8 @@ pub fn sync_overlay(
                 .as_ref()
                 .map(baylee_client_core::Interaction::pending)
             {
-                Some(baylee_engine::choice::Pending::Mulligan { .. }) => &[
-                    (PromptAction::Keep, "Keep"),
-                    (PromptAction::Mulligan, "Mulligan"),
-                ],
-                Some(baylee_engine::choice::Pending::YesNo { .. }) => {
-                    &[(PromptAction::Yes, "Yes"), (PromptAction::No, "No")]
-                }
+                Some(baylee_engine::choice::Pending::Mulligan { .. }) => &mulligan_answers,
+                Some(baylee_engine::choice::Pending::YesNo { .. }) => &yes_no_answers,
                 // Combat always offers all three, including with nothing
                 // declared: "none" is a real answer, and the step does not
                 // end until somebody gives one.
@@ -323,7 +330,7 @@ pub fn sync_overlay(
                         .as_ref()
                         .is_some_and(baylee_client_core::Interaction::can_confirm) =>
                 {
-                    &[(PromptAction::Confirm, "OK")]
+                    &ok_answer
                 }
                 _ => &[],
             }
@@ -610,6 +617,7 @@ pub fn sync_overlay(
     if let (false, Some(statics)) = (board.stack.is_empty(), duel.statics.as_ref()) {
         let stack = spawn_stack_panel(
             &mut commands,
+            lang,
             board,
             view,
             statics,
@@ -628,6 +636,7 @@ pub fn sync_overlay(
 #[allow(clippy::too_many_lines)] // the icon+number spans are naturally flat
 pub(super) fn spawn_player_tab(
     commands: &mut Commands,
+    lang: Lang,
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &baylee_view::SeatView,
@@ -636,7 +645,7 @@ pub(super) fn spawn_player_tab(
 ) -> Entity {
     let player = seat.player;
     let name = statics.map_or_else(
-        || format!("Seat {player}"),
+        || Phrase::SeatNumbered.fill(lang, &[&player.to_string()]),
         |s| s.seat_name(player).to_string(),
     );
     let team = statics.and_then(|s| s.seats.iter().find(|i| i.player == player)?.team);
@@ -657,7 +666,7 @@ pub(super) fn spawn_player_tab(
 
     let marker = if has_priority { "▶ " } else { "" };
     let display = if is_local {
-        format!("You ({name})")
+        Phrase::YouNamed.fill(lang, &[&name])
     } else {
         name.clone()
     };

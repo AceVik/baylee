@@ -15,6 +15,8 @@
 //! The overlay is retained-UI: it is rebuilt only when something it shows
 //! actually changed (snapshot, prompt, hover, selection, orders).
 
+use baylee_client_core::i18n::{Lang, Phrase};
+
 use crate::Duel;
 use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of, glow_bits};
 use crate::textures::CardTextures;

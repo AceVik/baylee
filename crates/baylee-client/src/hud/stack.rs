@@ -30,6 +30,7 @@ const STACK_PANEL_W: f32 = 296.0;
 #[allow(clippy::too_many_arguments)] // a panel, a view, and the material store
 pub(super) fn spawn_stack_panel(
     commands: &mut Commands,
+    lang: Lang,
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
     statics: &GameStatic,
@@ -71,7 +72,7 @@ pub(super) fn spawn_stack_panel(
             },
             children![
                 (
-                    Text::new("Stack"),
+                    Text::new(Phrase::StackTitle.text(lang)),
                     tf(fonts, 13.0),
                     TextColor(palette::MUTED),
                 ),
@@ -96,6 +97,7 @@ pub(super) fn spawn_stack_panel(
     for item in &board.stack {
         let entry = spawn_stack_entry(
             commands,
+            lang,
             item,
             view,
             statics,
@@ -114,6 +116,7 @@ pub(super) fn spawn_stack_panel(
 #[allow(clippy::too_many_arguments)] // the same slot arguments, one level down
 fn spawn_stack_entry(
     commands: &mut Commands,
+    lang: Lang,
     item: &baylee_client_core::board::StackItem,
     view: &PlayerView,
     statics: &GameStatic,
@@ -189,11 +192,11 @@ fn spawn_stack_entry(
     // when the source has left — the picture above may be missing, the
     // sentence must not be.
     let kind = match item.kind {
-        baylee_client_core::board::StackKind::Spell => "Spell".to_string(),
+        baylee_client_core::board::StackKind::Spell => Phrase::StackSpell.text(lang).to_string(),
         baylee_client_core::board::StackKind::Ability { source } => {
             view.object(source).map_or_else(
-                || "Ability".to_string(),
-                |o| format!("Ability · {}", o.name),
+                || Phrase::StackAbilityBare.text(lang).to_string(),
+                |o| Phrase::StackAbility.fill(lang, &[&o.name]),
             )
         }
     };
