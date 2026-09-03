@@ -626,9 +626,17 @@ seat actually being awaited. Two tests hold it — one per host — and each end
 by playing the refused seat's *next* action, because asserting that a
 `ChoiceRequest` came back does not prove the seat can still act.
 
-Then: the zone browser and the pile chips; the "every offered option is drawn"
-invariant; and `duel_flow.rs` rewritten to answer through the browser model
-rather than by hand-building actions.
+~~Then: the zone browser and the pile chips; the "every offered option is
+drawn" invariant; and `duel_flow.rs` rewritten to answer through the browser
+model rather than by hand-building actions.~~ **Lock B — done.**
+`baylee-client-core/src/browser.rs` is the model, and it has no `Hand` and no
+`Battlefield` zone on purpose: `BoardModel` and `Browser` cover disjoint halves
+of the table, which is what lets
+`every_offered_object_is_drawn_somewhere` assert that each offered id is drawn
+*exactly once* rather than at least once. The panel is `hud/tray.rs`, opened by
+the pile chips or by `G`. The chips sit in the HUD rather than at the mat
+corners as planned above, because the zone counts they replace are `TextSpan`s
+inside one text entity, and a span has no layout node to click.
 
 **Second, the common turn made fast and safe.** The keymap swap; the
 `ChooseNumber` stepper and digit picks; arm-then-act with mana abilities

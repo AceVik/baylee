@@ -425,7 +425,7 @@ mod tests {
     /// player goes looking for it.
     #[test]
     fn every_action_and_every_rule_has_a_row() {
-        assert_eq!(Action::ALL.len(), 25);
+        assert_eq!(Action::ALL.len(), 26);
         assert_eq!(AutoRule::ALL.len(), 4);
         for action in Action::ALL {
             assert!(!action.label().text(Lang::En).is_empty());
@@ -461,7 +461,7 @@ mod tests {
     #[test]
     fn a_bound_action_reads_as_its_keys_and_an_unbound_one_says_so() {
         let mut keymap = Keymap::standard();
-        assert_eq!(chords_of(&keymap, Action::Confirm, Lang::En), "Enter");
+        assert_eq!(chords_of(&keymap, Action::Confirm, Lang::En), "Space");
         assert_eq!(chords_of(&keymap, Action::NumberUp, Lang::En), "↑  /  →");
         keymap.bind(Action::Confirm, vec![]);
         assert_eq!(chords_of(&keymap, Action::Confirm, Lang::En), "unbound");

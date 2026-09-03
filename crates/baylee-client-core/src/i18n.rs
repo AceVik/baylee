@@ -426,6 +426,8 @@ messages! {
     ActToggleOverlay { en: "Hide the board overlay", de: "Brett-Overlay ausblenden" },
     /// Read card text instead of art
     ActToggleTextView { en: "Read card text instead of art", de: "Kartentext statt Bild lesen" },
+    /// Open the zone browser
+    ActToggleBrowser { en: "Open the zone browser", de: "Zonenbrowser öffnen" },
     /// Keep this hand
     ActMulliganKeep { en: "Keep this hand", de: "Diese Hand behalten" },
     /// Mulligan

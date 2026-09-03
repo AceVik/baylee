@@ -62,6 +62,8 @@ pub enum Action {
     ToggleOverlay,
     /// Latch the constructed card face on.
     ToggleTextView,
+    /// Open the zone browser, or shut it again.
+    ToggleBrowser,
     /// Keep the opening hand.
     MulliganKeep,
     /// Take another one.
@@ -86,7 +88,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         Self::Primary,
         Self::Confirm,
         Self::Cancel,
@@ -112,6 +114,7 @@ impl Action {
         Self::NumberDown,
         Self::ToggleOverlay,
         Self::ToggleTextView,
+        Self::ToggleBrowser,
     ];
 
     /// How the action is named to a player.
@@ -137,6 +140,7 @@ impl Action {
             Self::NextTurn => Phrase::ActNextTurn,
             Self::ToggleOverlay => Phrase::ActToggleOverlay,
             Self::ToggleTextView => Phrase::ActToggleTextView,
+            Self::ToggleBrowser => Phrase::ActToggleBrowser,
             Self::MulliganKeep => Phrase::ActMulliganKeep,
             Self::MulliganTake => Phrase::ActMulliganTake,
             Self::AnswerYes => Phrase::ActAnswerYes,
@@ -175,7 +179,9 @@ impl Action {
             | Self::AnswerNo
             | Self::NumberUp
             | Self::NumberDown => Phrase::GroupQuestions,
-            Self::ToggleOverlay | Self::ToggleTextView => Phrase::GroupDisplay,
+            Self::ToggleOverlay | Self::ToggleTextView | Self::ToggleBrowser => {
+                Phrase::GroupDisplay
+            }
         }
     }
 }
@@ -304,14 +310,19 @@ impl Keymap {
     ///
     /// `docs/keyboard-map.md` is the commitment these keep: every choice the
     /// game can ask is answerable without a pointer, and nothing needs a drag.
+    ///
+    /// Space is `Confirm` and Enter is `Primary`, which is both the MTGO and
+    /// Arena convention and the way round that does not generate misclicks:
+    /// `Primary` means "the card under the cursor, else pass", so on Space it
+    /// was a pass key whose meaning depended on where the mouse was resting.
     #[must_use]
     pub fn standard() -> Self {
         let mut bindings = BTreeMap::new();
         let mut bind = |action, chords: Vec<Chord>| {
             bindings.insert(action, chords);
         };
-        bind(Action::Primary, vec![Chord::key("Space")]);
-        bind(Action::Confirm, vec![Chord::key("Enter")]);
+        bind(Action::Primary, vec![Chord::key("Enter")]);
+        bind(Action::Confirm, vec![Chord::key("Space")]);
         bind(Action::Cancel, vec![Chord::key("Escape")]);
         bind(Action::ActivateCard, vec![Chord::key("KeyE")]);
         bind(Action::CursorLeft, vec![Chord::key("KeyA")]);
@@ -325,6 +336,7 @@ impl Keymap {
         bind(Action::NextTurn, vec![Chord::shift("Tab")]);
         bind(Action::ToggleOverlay, vec![Chord::key("KeyX")]);
         bind(Action::ToggleTextView, vec![Chord::key("KeyT")]);
+        bind(Action::ToggleBrowser, vec![Chord::key("KeyG")]);
         bind(Action::MulliganKeep, vec![Chord::key("KeyK")]);
         bind(Action::MulliganTake, vec![Chord::key("KeyB")]);
         bind(Action::AnswerYes, vec![Chord::key("KeyY")]);
@@ -342,6 +354,43 @@ impl Keymap {
         bind(Action::FocusNextSeat, vec![Chord::key("KeyF")]);
         bind(Action::FocusHome, vec![Chord::key("KeyH")]);
         Self { bindings }
+    }
+
+    /// The bindings this client shipped before Space and Enter were swapped.
+    ///
+    /// Kept only so [`Keymap::migrated`] can recognise a player who never
+    /// touched their keys. It is not offered anywhere and nothing binds to it.
+    fn legacy() -> Self {
+        let mut map = Self::standard();
+        map.bindings
+            .insert(Action::Primary, vec![Chord::key("Space")]);
+        map.bindings
+            .insert(Action::Confirm, vec![Chord::key("Enter")]);
+        map.bindings.remove(&Action::ToggleBrowser);
+        map
+    }
+
+    /// Brings a stored keymap up to the current standard, if it is safe to.
+    ///
+    /// The problem this solves: [`Keymap`] is `#[serde(transparent)]`, so a
+    /// stored map *replaces* the defaults whole rather than merging into
+    /// them. A player who saved anything at all before the Space/Enter swap
+    /// would keep the old bindings for ever, and would never see a key bound
+    /// to an action added later.
+    ///
+    /// So the rule is all-or-nothing and needs no heuristic: a map that is
+    /// exactly the previous standard belongs to someone who never customised
+    /// anything, and becomes the new standard. Every other map is a player's
+    /// own and is returned untouched — including one that only *looks* close,
+    /// because guessing which rows of somebody's keymap to overwrite is how a
+    /// settings screen loses a binding without saying so.
+    #[must_use]
+    pub fn migrated(self) -> Self {
+        if self == Self::legacy() {
+            Self::standard()
+        } else {
+            self
+        }
     }
 
     /// The chords bound to an action. Empty means the player unbound it,
@@ -535,9 +584,17 @@ impl Preferences {
     /// Never an error: preferences are a convenience, and a player whose
     /// stored blob is from a client three versions old should get a working
     /// keymap rather than a screen that will not open.
+    ///
+    /// The one place [`Keymap::migrated`] is called, and deliberately so:
+    /// both ways a stored blob reaches the client — this machine's file and
+    /// the account's copy from the gateway — come through here.
     #[must_use]
     pub fn from_json(text: &str) -> Self {
-        serde_json::from_str(text).unwrap_or_default()
+        let stored: Self = serde_json::from_str(text).unwrap_or_default();
+        Self {
+            keymap: stored.keymap.migrated(),
+            ..stored
+        }
     }
 
     /// The stored form. Stable for an unchanged value, so saving twice
@@ -611,11 +668,11 @@ mod tests {
     fn rebinding_takes_the_key_off_whatever_had_it() {
         let mut map = Keymap::standard();
         let space = Chord::key("Space");
-        assert_eq!(map.holder_of(&space), Some(Action::Primary));
+        assert_eq!(map.holder_of(&space), Some(Action::Confirm));
         map.bind(Action::AnswerYes, vec![space.clone()]);
         assert_eq!(map.holder_of(&space), Some(Action::AnswerYes));
         assert!(
-            map.chords(Action::Primary).is_empty(),
+            map.chords(Action::Confirm).is_empty(),
             "the old owner must lose it, or the same key does two things"
         );
         assert!(map.conflicts().is_empty());
@@ -651,6 +708,48 @@ mod tests {
         assert!(!Chord::shift("Space").plain());
     }
 
+    /// A player who never opened the settings screen gets the swap.
+    #[test]
+    fn an_untouched_keymap_is_brought_up_to_the_current_standard() {
+        let stored = Preferences {
+            keymap: Keymap::legacy(),
+            ..Preferences::default()
+        };
+        let read = Preferences::from_json(&stored.to_json());
+        assert_eq!(read.keymap, Keymap::standard());
+        assert_eq!(read.keymap.chords(Action::Confirm), &[Chord::key("Space")]);
+        assert_eq!(read.keymap.chords(Action::Primary), &[Chord::key("Enter")]);
+        assert_eq!(
+            read.keymap.chords(Action::ToggleBrowser),
+            &[Chord::key("KeyG")],
+            "an action added after the blob was stored has no key at all"
+        );
+    }
+
+    /// And a player who changed *anything* keeps every row they had, including
+    /// the two the swap is about — overwriting half of somebody's keymap
+    /// because the other half looked untouched is the failure mode here.
+    #[test]
+    fn a_customised_keymap_is_left_exactly_as_it_was() {
+        let mut keymap = Keymap::legacy();
+        keymap.bind(Action::CombatNone, vec![Chord::key("KeyZ")]);
+        let stored = Preferences {
+            keymap: keymap.clone(),
+            ..Preferences::default()
+        };
+        let read = Preferences::from_json(&stored.to_json());
+        assert_eq!(read.keymap, keymap);
+        assert_eq!(read.keymap.chords(Action::Primary), &[Chord::key("Space")]);
+    }
+
+    /// Reading twice must not do anything the second time.
+    #[test]
+    fn the_migration_leaves_a_current_keymap_alone() {
+        assert_eq!(Keymap::standard().migrated(), Keymap::standard());
+        let blob = Preferences::default().to_json();
+        assert_eq!(Preferences::from_json(&blob), Preferences::default());
+    }
+
     #[test]
     fn preferences_survive_a_round_trip_through_the_gateway() {
         let mut prefs = Preferences::default();
@@ -670,7 +769,7 @@ mod tests {
     fn nonsense_from_the_store_gives_a_working_client_rather_than_no_client() {
         let prefs = Preferences::from_json("{\"keymap\": 7, not json at all");
         assert!(prefs.is_default());
-        assert_eq!(prefs.keymap.chords(Action::Confirm), &[Chord::key("Enter")]);
+        assert_eq!(prefs.keymap.chords(Action::Confirm), &[Chord::key("Space")]);
     }
 
     #[test]

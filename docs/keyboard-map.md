@@ -21,8 +21,8 @@ Two consequences worth knowing before changing anything here:
 
 | Action | Default | Status |
 |---|---|---|
-| The click (card under cursor → phase toggle → pass) | `Space` | implemented |
-| Confirm / pass (never toggles anything else) | `Enter` | implemented |
+| The click (card under cursor → phase toggle → pass) | `Enter` | implemented |
+| Confirm / pass (never toggles anything else) | `Space` | implemented |
 | Cancel: preview, then phase selection, then half-built answer | `Esc` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select) | `E` | implemented |
@@ -33,6 +33,7 @@ Two consequences worth knowing before changing anything here:
 | Slide the own-board overlay down/up | `X` (or the knob) | implemented |
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
+| Open the zone browser (graveyards, exile, the stack) | `G` (or a pile chip) | implemented |
 | Battlefield camera: pan | arrows, left-drag, touch-drag | implemented |
 | Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
 | Battlefield camera: rotate | `Shift+←/→`, right-drag, rotate gesture | implemented |
@@ -65,7 +66,7 @@ thing the next declaration will be pointed at.
   planeswalker — or, when blocking, tapping an attacker — aims at it directly.
 - Tapping a creature then declares it *against the focus*. Tapping it again
   calls the declaration off.
-- `Enter` sends what stands; `O` sends nothing at all. Both are real answers,
+- `Space` sends what stands; `O` sends nothing at all. Both are real answers,
   and the step does not end until one of them is given.
 
 ## Automation

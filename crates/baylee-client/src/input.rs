@@ -11,8 +11,10 @@
 //!
 //! Which key does what is the account's, not this module's: every binding
 //! comes from `Keymap` and is resolved through `crate::keys`. The primary key
-//! (`Space` by default) is "the click", with a fixed precedence: the card
-//! under the cursor, then the selected phase button, then confirm/pass.
+//! (`Enter` by default) is "the click", with a fixed precedence: the card
+//! under the cursor, then the selected phase button, then confirm/pass —
+//! which is why it is not the pass key: `Space` is `Confirm` and passes
+//! whatever the cursor happens to be resting on.
 
 use crate::Duel;
 use crate::hud::{
@@ -207,6 +209,17 @@ fn look_around(
         // so it is remembered.
         settings.prefer_text_view = !settings.prefer_text_view;
         settings.save();
+    }
+    if fired.has(Action::ToggleBrowser) {
+        // A latch rather than a held key, for the same reason the pile chips
+        // are buttons: reading a graveyard is not a glance, and a held key is
+        // not a gesture a phone has. The tab it was last left on is kept, so
+        // a player checking their own yard twice does not re-pick it.
+        if duel.browser.is_open() {
+            duel.browser.close();
+        } else {
+            duel.browser.open();
+        }
     }
 }
 
@@ -1155,22 +1168,62 @@ mod tests {
         {
             let prefs = app.world().resource::<crate::prefs::Prefs>();
             let mut probe = ButtonInput::<KeyCode>::default();
-            probe.press(KeyCode::Space);
+            probe.press(KeyCode::Enter);
             assert!(
                 crate::keys::Fired::of(&probe, prefs.keymap()).has(Action::Primary),
-                "space is the primary key in the standard map"
+                "enter is the primary key in the standard map"
             );
         }
 
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
-            .press(KeyCode::Space);
+            .press(KeyCode::Enter);
         app.update();
 
         assert_eq!(
             app.world().resource::<crate::Duel>().outbox(),
             [PlayerAction::PlayLand { card: obj(3) }],
             "the land under the cursor is what the primary key plays"
+        );
+    }
+
+    /// The browser had a pointer route and no keyboard one, which is exactly
+    /// the promise `docs/keyboard-map.md` makes and the reason the action was
+    /// added rather than the chip being the only way in.
+    #[test]
+    fn the_browser_key_opens_the_tray_and_shuts_it_again() {
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::KeyboardInput;
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .init_resource::<crate::Duel>()
+            .add_systems(Update, super::keyboard);
+
+        // `reset_all` and not `clear`: a key that is still held is not pressed
+        // again, and the second press would fire nothing at all.
+        let press = |app: &mut App, key: KeyCode| {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.reset_all();
+            keys.press(key);
+            app.update();
+        };
+
+        assert!(!app.world().resource::<crate::Duel>().browser.is_open());
+        press(&mut app, KeyCode::KeyG);
+        assert!(
+            app.world().resource::<crate::Duel>().browser.is_open(),
+            "the browser key did not open the tray"
+        );
+        press(&mut app, KeyCode::KeyG);
+        assert!(
+            !app.world().resource::<crate::Duel>().browser.is_open(),
+            "it is a latch, so the same key shuts it"
         );
     }
 }

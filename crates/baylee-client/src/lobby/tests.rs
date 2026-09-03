@@ -1086,7 +1086,7 @@ fn a_key_can_be_rebound_from_the_settings_screen() {
             .resource::<crate::prefs::Prefs>()
             .keymap()
             .chords(Action::Confirm),
-        &[Chord::key("Enter")]
+        &[Chord::key("Space")]
     );
 }
 
