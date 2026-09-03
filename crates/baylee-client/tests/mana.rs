@@ -440,3 +440,123 @@ fn clicking_a_permanent_with_one_ability_activates_it() {
         "and the life was paid"
     );
 }
+
+/// Yavimaya Coast — a painland, and therefore a permanent with two mana
+/// abilities: `{T}: Add {C}` and `{T}: Add {G} or {U}` for a life.
+const PAINLAND: &str = "40b36bc6-c185-4bda-99e7-0118953c2c97";
+
+fn preset_with_a_painland() -> GamePreset {
+    let mut preset = preset();
+    preset.seats[0].starting_battlefield.push(entry(PAINLAND));
+    preset
+}
+
+/// The ability chooser can be answered without a pointer.
+///
+/// It could not, and that is the whole reason this test exists: opening the
+/// menu on a permanent with two abilities put the keyboard in a room with one
+/// door, `Esc`. Confirm did nothing, the cursor keys walked the table behind
+/// the menu, and the only way to activate the second ability was the mouse —
+/// which breaks the keymap's promise that every choice is answerable without
+/// one.
+#[test]
+fn the_ability_chooser_answers_to_the_keyboard() {
+    use baylee_client::Duel;
+    use baylee_client::input::{ability_menu_keys, activate_card};
+    use baylee_client::keys::Fired;
+    use baylee_client_core::interaction::Interaction;
+    use baylee_client_core::prefs::Action;
+
+    let mut table = Table::open_with(&preset_with_a_painland());
+    table.walk_to_main();
+
+    let coast = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Yavimaya Coast")
+        .expect("the painland is on the table")
+        .id;
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+
+    activate_card(&mut duel, coast);
+    assert_eq!(
+        duel.ability_menu,
+        Some(coast),
+        "two abilities are a menu, not a guess"
+    );
+    assert_eq!(duel.ability_pick, 0, "a fresh menu starts at the top");
+
+    // The cursor walks it, and wraps rather than sticking at the end.
+    assert!(ability_menu_keys(
+        Fired::of_actions(&[Action::CursorDown]),
+        &mut duel
+    ));
+    assert_eq!(duel.ability_pick, 1);
+    assert!(ability_menu_keys(
+        Fired::of_actions(&[Action::CursorDown]),
+        &mut duel
+    ));
+    assert_eq!(duel.ability_pick, 0, "the list is a ring");
+
+    // And confirm sends the entry the highlight is on — the second one,
+    // which is the one a pointer used to be needed for.
+    assert!(ability_menu_keys(
+        Fired::of_actions(&[Action::CursorUp]),
+        &mut duel
+    ));
+    assert_eq!(duel.ability_pick, 1);
+    assert!(ability_menu_keys(
+        Fired::of_actions(&[Action::Confirm]),
+        &mut duel
+    ));
+    assert!(duel.ability_menu.is_none(), "answering closes the menu");
+    assert_eq!(
+        duel.outbox().first().cloned().expect("the key sent one"),
+        PlayerAction::ActivateAbility {
+            source: coast,
+            ability_index: 1,
+        }
+    );
+}
+
+/// Cancel puts the menu away and sends nothing.
+#[test]
+fn cancelling_the_ability_chooser_activates_nothing() {
+    use baylee_client::Duel;
+    use baylee_client::input::{ability_menu_keys, activate_card};
+    use baylee_client::keys::Fired;
+    use baylee_client_core::interaction::Interaction;
+    use baylee_client_core::prefs::Action;
+
+    let mut table = Table::open_with(&preset_with_a_painland());
+    table.walk_to_main();
+
+    let coast = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Yavimaya Coast")
+        .expect("the painland is on the table")
+        .id;
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+    activate_card(&mut duel, coast);
+    assert!(ability_menu_keys(
+        Fired::of_actions(&[Action::Cancel]),
+        &mut duel
+    ));
+    assert!(duel.ability_menu.is_none());
+    assert!(duel.outbox().is_empty(), "cancel is not an answer");
+}

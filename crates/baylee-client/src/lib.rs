@@ -173,6 +173,14 @@ pub struct Duel {
     /// ability activates on the click that found it, because a menu of one is
     /// a menu that only ever wastes a tap.
     pub ability_menu: Option<ObjectId>,
+    /// Which entry of that menu the keyboard is on.
+    ///
+    /// A menu the pointer can answer and the keyboard cannot is not a menu,
+    /// it is a trap — and it was one: the chooser used to swallow every key
+    /// except cancel. Reset whenever the menu opens, and clamped to the list
+    /// as it is rebuilt, because the engine may withdraw an ability while
+    /// the menu stands.
+    pub ability_pick: usize,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.

@@ -103,6 +103,7 @@ pub fn sync_overlay(
             .map(|(focus, count)| (focus, count, i.declared()))
     });
     let ability_menu = duel.ability_menu;
+    let ability_pick = duel.ability_pick;
     let focus = duel.focus;
     let overlay_open = duel.overlay_open;
     let preview_scale = settings.preview_scale;
@@ -120,6 +121,7 @@ pub fn sync_overlay(
         && revision.texts == texts.len()
         && revision.combat == combat
         && revision.ability_menu == ability_menu
+        && revision.ability_pick == ability_pick
         && !existing.is_empty()
     {
         return;
@@ -137,6 +139,7 @@ pub fn sync_overlay(
     revision.texts = texts.len();
     revision.combat = combat;
     revision.ability_menu = ability_menu;
+    revision.ability_pick = ability_pick;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -407,20 +410,33 @@ pub fn sync_overlay(
                 ))
                 .id();
             for (index, option) in options.iter().enumerate() {
+                // The keyboard's entry is drawn as the chosen one, so the two
+                // ways of answering the menu are visibly the same menu.
+                let picked = index == duel.ability_pick;
                 let button = commands
                     .spawn((
                         AbilityButton { index },
                         Node {
                             padding: UiRect::axes(px(12), px(5)),
+                            border: UiRect::all(px(1)),
                             border_radius: btn_radius(),
                             ..default()
                         },
-                        BackgroundColor(palette::PANEL_LIT),
+                        BackgroundColor(if picked {
+                            palette::ACTIVE
+                        } else {
+                            palette::PANEL_LIT
+                        }),
+                        BorderColor::all(if picked {
+                            palette::ACTIVE
+                        } else {
+                            palette::MUTED
+                        }),
                         soft_shadow(),
                         children![(
                             Text::new(option.label.clone()),
                             tf(&fonts, 13.0),
-                            TextColor(palette::INK),
+                            TextColor(if picked { palette::PANEL } else { palette::INK }),
                         )],
                     ))
                     .id();

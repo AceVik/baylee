@@ -292,6 +292,9 @@ pub struct HudRevision {
     /// and closed by the next one, neither of which is a new snapshot, so
     /// without it here the chooser would never appear.
     ability_menu: Option<ObjectId>,
+    /// Which entry of that chooser the keyboard is on — same reason, and
+    /// without it the highlight would never move.
+    ability_pick: usize,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.

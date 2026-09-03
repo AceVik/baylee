@@ -658,6 +658,37 @@ turn. The chooser sends by *position*: the list is rebuilt from the current
 `LegalActions` when the button is pressed, so a bar drawn a frame ago cannot
 send an ability the engine has since withdrawn.
 
+The chooser is also answerable without a pointer, which it was not: it opened,
+took the keyboard hostage and let go of it only for `Esc`. Confirm reached
+`Interaction::confirm` — which during priority means *pass* — and the cursor
+keys walked the table behind the open menu. It now owns the keyboard while it
+stands: the cursor keys ring through the entries, the primary key or confirm
+activates the highlighted one, cancel puts it away, and the entry the keyboard
+is on is drawn as the chosen one so the two ways of answering are visibly the
+same menu. The list is rebuilt from `LegalActions` on the key as well as on
+the click, for the same reason.
+
+## The pointer only speaks when it moves
+
+`Pointer<Over>` fires when the *card* moves under the pointer exactly as
+readily as when the pointer moves over the card — and on this table the cards
+are always moving: a repacked lane, a tap, a hover lift, a permanent arriving.
+A pointer left resting anywhere near the board therefore re-pinned
+`Duel::hovered` every few frames, and the keyboard cursor could not walk at
+all. Measured at a live table: twelve `KeyD` presses with the pointer over a
+hand card moved the cursor once; with the pointer parked over empty felt the
+same twelve cycled the hand cleanly. A game that had been played that way for
+half an hour then stalled outright — four legal land drops on offer and the
+cursor pinned to a permanent that was not one of them.
+
+So `pointer_hover` accepts `Over` and `Out` only in the few frames following a
+real `CursorMoved`, and drains them otherwise. The keyboard wins a tie, the
+mouse takes the cursor back the moment it actually moves, and the grace of a
+few frames covers the gap between the cursor event and the picking pass that
+follows it. This is what the keymap's commitment — every choice answerable
+without a pointer — costs in practice: not a key that was missing, but a
+pointer that would not stay quiet.
+
 ## Settings, and what belongs to whom
 
 Two stores, split on one question: is this about the *player* or about *this

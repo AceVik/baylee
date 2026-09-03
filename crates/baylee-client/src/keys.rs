@@ -197,6 +197,23 @@ impl Fired {
         Self(flags)
     }
 
+    /// The same flags, built from actions rather than from keys.
+    ///
+    /// Not everything that fires an action has a chord behind it: a button in
+    /// the prompt bar, a touch target on a phone, and a test all name the
+    /// *action*. This is how they enter the pipeline the keyboard already
+    /// uses, instead of every handler growing a second way in.
+    #[must_use]
+    pub fn of_actions(actions: &[Action]) -> Self {
+        let mut flags = [false; Action::ALL.len()];
+        for action in actions {
+            if let Some(slot) = Action::ALL.iter().position(|a| a == action) {
+                flags[slot] = true;
+            }
+        }
+        Self(flags)
+    }
+
     /// Whether an action fired.
     #[must_use]
     pub fn has(&self, action: Action) -> bool {
