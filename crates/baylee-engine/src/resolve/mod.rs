@@ -740,7 +740,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             // Ashiok, Dream Render: opponents can't search libraries.
             if state.effects.iter().any(|fx| {
                 matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
-                    && fx.controller != you
+                    && state.is_opponent(fx.controller, you)
             }) {
                 return None;
             }
@@ -752,7 +752,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 .iter()
                 .find(|fx| {
                     matches!(fx.modifier, baylee_cards_dsl::Modifier::SearchTakeover)
-                        && fx.controller != you
+                        && state.is_opponent(fx.controller, you)
                 })
                 .map(|fx| fx.controller);
             let options: Vec<ObjectId> = state
@@ -910,7 +910,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             // Ashiok, Dream Render: opponents can't search libraries.
             if state.effects.iter().any(|fx| {
                 matches!(fx.modifier, baylee_cards_dsl::Modifier::OpponentsCantSearch)
-                    && fx.controller != you
+                    && state.is_opponent(fx.controller, you)
             }) {
                 return None;
             }

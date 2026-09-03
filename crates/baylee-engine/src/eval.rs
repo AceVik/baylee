@@ -53,7 +53,7 @@ pub fn matches_projected(
         Filter::Monocolored => chars.colors.len() == 1,
         Filter::IsToken => obj.card.is_none(),
         Filter::ControlledByYou => obj.controller == you,
-        Filter::ControlledByOpponent => obj.controller != you,
+        Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
@@ -113,7 +113,7 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Vec<PlayerId
         PlayerRel::Opponent | PlayerRel::EachOpponent => state
             .players
             .iter()
-            .filter(|p| p.id != you && !p.has_lost)
+            .filter(|p| state.is_opponent(p.id, you) && !p.has_lost)
             .map(|p| p.id)
             .collect(),
         PlayerRel::EachPlayer => state
@@ -236,7 +236,10 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
     if keywords.contains(baylee_cards_dsl::KeywordSet::SHROUD) {
         return true;
     }
-    keywords.contains(baylee_cards_dsl::KeywordSet::HEXPROOF) && obj.controller != you
+    // Hexproof stops opponents only (CR 702.11a), so a teammate may
+    // target it — and in a game with no teams that is everyone else.
+    keywords.contains(baylee_cards_dsl::KeywordSet::HEXPROOF)
+        && state.is_opponent(obj.controller, you)
 }
 
 /// The players a spell or ability may target.
@@ -261,8 +264,9 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
                 return false;
             }
             // "Target opponent" is a choice over a smaller set, not a
-            // different kind of choice (CR 115.1).
-            if opponents_only && p.id == you {
+            // different kind of choice (CR 115.1) — and the set is the
+            // opponents, so a teammate is out of it as surely as you are.
+            if opponents_only && !state.is_opponent(p.id, you) {
                 return false;
             }
             // Player hexproof (Everybody Lives!): can't be targeted by spells

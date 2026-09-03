@@ -307,7 +307,7 @@ fn combat_kills_and_wins() {
                     .unwrap();
             }
             Pending::GameOver(result) => {
-                assert_eq!(result.winner, Some(p0));
+                assert_eq!(result.winner, Some(crate::win::Victor::Player(p0)));
                 return;
             }
             other => panic!("unexpected pending: {other:?}"),

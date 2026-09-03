@@ -266,11 +266,12 @@ impl EngineRunner {
         };
         self.ended = true;
         // A draw has no winner, which is a shorter list rather than a
-        // different message.
-        let winners = result
-            .winner
-            .map(|p| u32::from(p.get()))
+        // different message — and a team win is a longer one, which is why
+        // the field was a list from the start.
+        let winners = session
+            .winning_seats(*result)
             .into_iter()
+            .map(|p| u32::from(p.get()))
             .collect();
         let reason = format!("{:?}", result.reason);
         Some(Envelope {

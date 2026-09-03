@@ -104,6 +104,29 @@ impl Session {
             .collect()
     }
 
+    /// The seats that won: one for a solo winner, every seat on the team for
+    /// a team win — the dead ones included, because a team wins as a team
+    /// (CR 104.2b) — and none at all for a draw.
+    ///
+    /// It lives here rather than in the engine because a `Victor::Team` names
+    /// a team and a client's roster names seats, and the seat roster is what
+    /// this session already keeps.
+    #[must_use]
+    pub fn winning_seats(&self, result: baylee_engine::win::GameResult) -> Vec<PlayerId> {
+        let Some(victor) = result.winner else {
+            return Vec::new();
+        };
+        (0..self.seats.len())
+            .map(|i| PlayerId::new(i as u8))
+            .filter(|seat| {
+                victor.includes(
+                    *seat,
+                    self.teams.get(seat.get() as usize).copied().flatten(),
+                )
+            })
+            .collect()
+    }
+
     /// Names the table for the payload clients are sent.
     ///
     /// The rules kernel has never heard of an account, so a host supplies this

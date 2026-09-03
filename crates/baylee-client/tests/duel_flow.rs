@@ -347,7 +347,10 @@ fn a_whole_game_can_be_won_through_the_clients_combat_path() {
     let Some(Pending::GameOver(result)) = client.pending else {
         panic!("the game never ended: {:?}", client.pending);
     };
-    assert_eq!(result.winner, Some(PlayerId::new(0)));
+    assert_eq!(
+        result.winner,
+        Some(baylee_engine::win::Victor::Player(PlayerId::new(0)))
+    );
     assert!(client.errors.is_empty(), "{:?}", client.errors);
 
     let view = client.view.expect("a final view");

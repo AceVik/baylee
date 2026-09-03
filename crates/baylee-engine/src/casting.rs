@@ -131,7 +131,7 @@ pub fn can_cast(
         matches!(
             fx.modifier,
             baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
-        ) && fx.controller != player
+        ) && state.is_opponent(fx.controller, player)
     });
     // Flash (CR 702.8a) makes a card castable whenever an instant could be,
     // whatever its types say — Snapcaster Mage, Restoration Angel, the
