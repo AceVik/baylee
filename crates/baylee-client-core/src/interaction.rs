@@ -124,7 +124,13 @@ pub enum Prompt {
         max: u8,
     },
     /// Choose a creature type.
-    ChooseSubtype,
+    ChooseSubtype {
+        /// The types on offer, in the engine's order.
+        ///
+        /// There are about three hundred and fifty of them, which is why
+        /// this is the one indexed choice with a filter in front of it.
+        options: Vec<SubtypeId>,
+    },
     /// Choose a colour.
     ChooseColor {
         /// The allowed colours.
@@ -180,7 +186,7 @@ impl Prompt {
             Self::LegendRule => Phrase::LegendRule.text(lang).to_string(),
             Self::ChooseCards { min, max, .. } => choose_line(lang, Phrase::NounCards, *min, *max),
             Self::ChooseTargets { min, max } => choose_line(lang, Phrase::NounTargets, *min, *max),
-            Self::ChooseSubtype => Phrase::ChooseCreatureType.text(lang).to_string(),
+            Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
             Self::ChooseNumber { min, max } => {
                 Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()])
@@ -514,7 +520,9 @@ impl Interaction {
                 min: *min,
                 max: *max,
             },
-            Pending::ChooseSubtype { .. } => Prompt::ChooseSubtype,
+            Pending::ChooseSubtype { options, .. } => Prompt::ChooseSubtype {
+                options: options.clone(),
+            },
             Pending::ChooseColor { options, .. } => Prompt::ChooseColor {
                 options: options.clone(),
             },

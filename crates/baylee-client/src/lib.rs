@@ -182,6 +182,14 @@ pub struct Duel {
     /// as it is rebuilt, because the engine may withdraw an ability while
     /// the menu stands.
     pub ability_pick: usize,
+    /// What has been typed into the creature-type filter.
+    ///
+    /// It lives here and not on the `Interaction` because the interaction is
+    /// rebuilt from scratch on every `HostMessage::Choice`, and a re-sent
+    /// snapshot (a print table earned, a seat reattaching) would empty the
+    /// box under the player's fingers. It is cleared when an action is sent
+    /// and when a choice arrives that is not asking for a type.
+    pub subtype_filter: String,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -195,6 +203,8 @@ impl Duel {
     /// one system boundary, which is what lets input handlers stay plain
     /// functions of the board model.
     pub fn submit(&mut self, action: PlayerAction) {
+        // Whatever was typed belonged to the question just answered.
+        self.subtype_filter.clear();
         self.outbox.push(action);
     }
 
@@ -389,6 +399,9 @@ fn poll_host(
                     reports.write(DuelReport::Finished);
                 }
                 let seat = duel.seat().unwrap_or(PlayerId::new(0));
+                if !matches!(*pending, Pending::ChooseSubtype { .. }) {
+                    duel.subtype_filter.clear();
+                }
                 duel.interaction = Some(Interaction::new(*pending, seat));
                 // A chooser belongs to the choice it was opened under. It
                 // would heal itself anyway — the options are rebuilt from the

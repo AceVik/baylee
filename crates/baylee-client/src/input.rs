@@ -23,10 +23,11 @@ use crate::keys::Fired;
 use crate::settings::ClientSettings;
 use crate::table::CardVisual;
 use baylee_client_core::automation::AutoPilot;
-use baylee_client_core::interaction::{Interaction, SelectionOutcome};
+use baylee_client_core::interaction::{Interaction, Prompt, SelectionOutcome};
 use baylee_client_core::prefs::Action;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::PlayerAction;
+use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 
@@ -117,12 +118,19 @@ fn abilities_of(duel: &Duel, object: ObjectId) -> Option<Vec<crate::abilities::A
 /// keymap's job, not this function's.
 pub fn keyboard(
     keys: Res<ButtonInput<KeyCode>>,
+    mut typed: MessageReader<KeyboardInput>,
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut rig: ResMut<crate::table::CameraRig>,
     mut settings: ResMut<crate::settings::ClientSettings>,
 ) {
     let fired = Fired::of(&keys, prefs.keymap());
+    // Before the quiet check, and not after it: a letter typed into the type
+    // filter is usually bound to no action at all, so `Fired` is empty for
+    // exactly the keys the box cares about most.
+    if subtype_keys(fired, &mut typed, &mut duel) {
+        return;
+    }
     if fired.quiet() {
         return;
     }
@@ -186,6 +194,101 @@ fn look_around(
         settings.prefer_text_view = !settings.prefer_text_view;
         settings.save();
     }
+}
+
+/// The creature types still on screen, in the engine's order.
+fn visible_types(duel: &Duel) -> Vec<crate::choices::ChoiceOption> {
+    duel.interaction
+        .as_ref()
+        .map(Interaction::prompt)
+        .and_then(|p| {
+            crate::choices::options(
+                &p,
+                baylee_client_core::Lang::En,
+                duel.statics.as_ref(),
+                &duel.subtype_filter,
+            )
+        })
+        .unwrap_or_default()
+}
+
+/// Typing into the creature-type filter, and walking what it leaves.
+///
+/// While the box is up the keymap is swallowed whole, because letters *are*
+/// chords: `W` walks the cursor and `E` activates a card, and a player
+/// spelling "Elemental" would otherwise play half their turn. Only the keys
+/// that mean something to a list survive — the cursor walks the rows, Confirm
+/// takes the highlighted one, Cancel empties the box.
+///
+/// Returns whether it consumed the frame.
+fn subtype_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
+    if !matches!(
+        duel.interaction.as_ref().map(Interaction::prompt),
+        Some(Prompt::ChooseSubtype { .. })
+    ) {
+        return false;
+    }
+    let before = duel.subtype_filter.clone();
+    for event in typed.read() {
+        if !event.state.is_pressed() {
+            continue;
+        }
+        match &event.logical_key {
+            Key::Character(s) => duel
+                .subtype_filter
+                .extend(s.chars().filter(|c| !c.is_control())),
+            Key::Backspace => {
+                duel.subtype_filter.pop();
+            }
+            _ => {}
+        }
+    }
+    let rows = visible_types(duel);
+    if duel.subtype_filter != before {
+        // The highlight follows the list. A row that has just been filtered
+        // away must not stay picked, or Confirm answers a type the player can
+        // no longer see.
+        if let Some(first) = rows.first().map(|row| row.index)
+            && let Some(i) = duel.interaction.as_mut()
+        {
+            i.choose_index(first);
+        }
+        return true;
+    }
+    if fired.has(Action::Cancel) {
+        duel.subtype_filter.clear();
+        return true;
+    }
+    let step = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp))
+        + i32::from(fired.has(Action::CursorRight))
+        - i32::from(fired.has(Action::CursorLeft));
+    let picked = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::chosen_index);
+    if step != 0 && !rows.is_empty() {
+        let at = picked
+            .and_then(|p| rows.iter().position(|row| row.index == p))
+            .and_then(|p| i32::try_from(p).ok())
+            .unwrap_or(0);
+        let len = i32::try_from(rows.len()).unwrap_or(1);
+        let next = usize::try_from((at + step).rem_euclid(len)).unwrap_or(0);
+        if let Some(row) = rows.get(next)
+            && let Some(i) = duel.interaction.as_mut()
+        {
+            i.choose_index(row.index);
+        }
+        return true;
+    }
+    if (fired.has(Action::Confirm) || fired.has(Action::Primary))
+        // Only a row that is still on screen: the filter may have moved on
+        // since the highlight was set.
+        && picked.is_some_and(|p| rows.iter().any(|row| row.index == p))
+        && let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm)
+    {
+        duel.submit(action);
+    }
+    true
 }
 
 /// The open ability chooser: the cursor keys walk it, the primary key or
@@ -554,9 +657,16 @@ fn pick_choice(duel: &mut Duel, index: usize) {
         // indexed choice at all, and how many rows it has. The labels are the
         // renderer's business.
         .and_then(|p| {
-            crate::choices::options(&p, baylee_client_core::Lang::En, duel.statics.as_ref())
+            crate::choices::options(
+                &p,
+                baylee_client_core::Lang::En,
+                duel.statics.as_ref(),
+                &duel.subtype_filter,
+            )
         })
-        .is_some_and(|rows| index < rows.len());
+        // Not `index < rows.len()`: a filtered list's rows carry the
+        // engine's own indices, and most of them are not on screen.
+        .is_some_and(|rows| rows.iter().any(|row| row.index == index));
     if !offered {
         return;
     }

@@ -427,6 +427,44 @@ pub fn sync_overlay(
             commands.entity(bar).add_child(row);
         }
 
+        // ---- the type-to-filter box, for the one choice whose list is too
+        // long to look at. Drawn whether or not anything matches: a filter
+        // with no rows under it is exactly when a player needs to see what
+        // they typed.
+        if !waiting
+            && let Some(Prompt::ChooseSubtype { .. }) = duel
+                .interaction
+                .as_ref()
+                .map(baylee_client_core::Interaction::prompt)
+        {
+            let field = commands
+                .spawn((
+                    Node {
+                        padding: UiRect::axes(px(10), px(5)),
+                        border: UiRect::all(px(1)),
+                        border_radius: btn_radius(),
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(palette::PANEL),
+                    BorderColor::all(palette::ACTIVE),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            // A caret with nothing before it, so an empty box still reads as
+            // somewhere to type rather than as a blank panel.
+            let text = commands
+                .spawn((
+                    Text::new(format!("{}_", duel.subtype_filter)),
+                    tf(&fonts, 14.0),
+                    TextColor(palette::INK),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(field).add_child(text);
+            commands.entity(bar).add_child(field);
+        }
+
         // ---- the indexed chooser: a colour, a seat, a way to cast ---------
         //
         // Its own row, above the ability menu and below the answers, because
@@ -439,7 +477,9 @@ pub fn sync_overlay(
             .as_ref()
             .filter(|_| !waiting)
             .map(baylee_client_core::Interaction::prompt)
-            .and_then(|p| crate::choices::options(&p, lang, duel.statics.as_ref()))
+            .and_then(|p| {
+                crate::choices::options(&p, lang, duel.statics.as_ref(), &duel.subtype_filter)
+            })
             .filter(|rows| !rows.is_empty())
         {
             let picked = duel
@@ -458,11 +498,13 @@ pub fn sync_overlay(
                     Pickable::IGNORE,
                 ))
                 .id();
-            for (index, option) in rows.iter().enumerate() {
-                let on = picked == Some(index);
+            for option in &rows {
+                let on = picked == Some(option.index);
                 let button = commands
                     .spawn((
-                        ChoiceButton { index },
+                        ChoiceButton {
+                            index: option.index,
+                        },
                         Node {
                             padding: UiRect::axes(px(10), px(5)),
                             border: UiRect::all(px(1)),
@@ -1152,7 +1194,10 @@ pub fn animate_overlay(
 /// clicking something rather than by pressing a button.
 ///
 /// `None` for every choice that draws its own answers, so a hint never
-/// appears next to a row of buttons that already says what to do.
+/// appears next to a row of buttons that already says what to do. A creature
+/// type is the exception, because there the hint is not about where to click
+/// — it is about the box, and a list cut to twelve of three hundred and fifty
+/// says nothing about typing on its own.
 const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
     match prompt {
         // The seat's own hand, which the engine does not enumerate because it
@@ -1161,6 +1206,7 @@ const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
         Prompt::ChooseCards { .. } | Prompt::ChooseTargets { .. } | Prompt::LegendRule => {
             Some(Phrase::HintClickBoard)
         }
+        Prompt::ChooseSubtype { .. } => Some(Phrase::HintTypeToFilter),
         _ => None,
     }
 }

@@ -765,11 +765,35 @@ the *current* prompt when the button is pressed, so a bar drawn a frame ago
 answers nothing rather than the wrong thing. That is the same rule the ability
 chooser follows, and for the same reason.
 
-A creature type is deliberately not in that list. The engine offers all three
-hundred and fifty of them and three hundred and fifty buttons is not a
-chooser; it wants a type-to-filter field. The *model* answers it now
-(`Mode::Subtype`, with the test), the renderer does not, and `choices::options`
-returns `None` for it rather than pretending.
+A creature type is the same list with a filter in front of it, because the
+engine offers all three hundred and fifty and three hundred and fifty buttons
+is not a chooser. A box takes what is typed, twelve matching rows are drawn,
+the cursor walks them and Confirm takes the highlighted one. Cavern of Souls
+is why this is not a nicety: it asks its question **as it enters**, so the
+lock it caused was a land drop rather than a deliberate tap, and the card is
+`Coverage::Implemented`, so the deckbuilder offers it.
+
+The filter forces one thing that is easy to get wrong and silent when you do:
+**a row's position stops being its answer.** Twelve rows out of three hundred
+and fifty are on screen, so `ChoiceOption` carries the engine's own `index`,
+the button is keyed on that, and both the overlay and the click handler get
+their rows from the same `choices::options` call. A chooser that sent the
+position would name the wrong creature type — only for players who typed, and
+without ever erroring.
+
+What is typed lives on `Duel`, not on the `Interaction`. The interaction is
+rebuilt from scratch on every `HostMessage::Choice` (`lib.rs`), and a re-sent
+snapshot — a print table earned, a seat reattaching — would empty the box under
+the player's fingers. It is cleared when an action is sent and when a choice
+arrives that is not asking for a type.
+
+The keyboard is swallowed whole while the box is up, and that is not caution:
+letters *are* chords. `W` walks the cursor and `E` activates a card, so a
+player spelling "Elemental" would otherwise play half their turn. Only the
+keys that mean something to a list survive. The gate also sits **before** the
+`Fired::quiet()` early return, because a letter typed into a filter is usually
+bound to no action at all — `Fired` is empty for exactly the keys the box cares
+about most.
 
 The half of this that has nothing to do with buttons: a choice answered by
 **clicking** has to say so. "Discard 1 card(s)" stood alone at every cleanup —

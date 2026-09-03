@@ -803,6 +803,8 @@ messages! {
     HintClickHand { en: "Click a card in your hand", de: "Klicke eine Karte auf deiner Hand an" },
     /// Click what you are choosing
     HintClickBoard { en: "Click what you are choosing", de: "Klicke an, was du wählst" },
+    /// Type to narrow the list
+    HintTypeToFilter { en: "Type to narrow the list", de: "Tippe, um die Liste einzugrenzen" },
     /// Put these in order
     PutInOrder { en: "Put these in order", de: "Bringe diese in eine Reihenfolge" },
     /// The game is over

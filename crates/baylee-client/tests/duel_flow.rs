@@ -167,22 +167,45 @@ impl Client {
                     &interaction.prompt(),
                     baylee_client_core::Lang::En,
                     self.statics.as_ref(),
+                    "",
                 )
                 .expect("an indexed choice offers rows");
                 assert!(!rows.is_empty(), "a choice with no rows cannot be answered");
-                interaction.choose_index(0).then(|| interaction.confirm())?
+                let index = rows[0].index;
+                interaction
+                    .choose_index(index)
+                    .then(|| interaction.confirm())?
             }
             // A cast option has rows too, but only when the engine offered
             // any; an empty list would be a chooser with nothing in it.
             Pending::ChooseCastMode { .. } => {
                 interaction.choose_index(0).then(|| interaction.confirm())?
             }
-            // A creature type is answered through the same two calls, and
-            // deliberately not through `choices::options`: three hundred
-            // and fifty rows is not a chooser, so the renderer has none
-            // yet. The model answers it, which is what this checks.
-            Pending::ChooseSubtype { .. } => {
-                interaction.choose_index(0).then(|| interaction.confirm())?
+            // A creature type goes the whole way a player does: type a few
+            // letters, take what is still on screen, send *that row's* index.
+            // Answering it with `choose_index(0)` would pass just as green
+            // while proving nothing about the filter -- which is the same
+            // shortcut that hid the colour bug, one prompt along.
+            Pending::ChooseSubtype { options, .. } => {
+                let typed = options
+                    .first()
+                    .and_then(|id| baylee_core::generated::subtypes::name(*id))
+                    .map_or(String::new(), |name| name[..2].to_lowercase());
+                let rows = baylee_client::choices::options(
+                    &interaction.prompt(),
+                    baylee_client_core::Lang::En,
+                    self.statics.as_ref(),
+                    &typed,
+                )
+                .expect("a creature type is a chooser");
+                assert!(
+                    !rows.is_empty(),
+                    "typing the start of an offered type must leave it on screen"
+                );
+                let index = rows[0].index;
+                interaction
+                    .choose_index(index)
+                    .then(|| interaction.confirm())?
             }
             // Combat, driven the way `input.rs` drives it: aim, declare each
             // candidate against the aim, confirm. Nothing here reaches past
@@ -238,6 +261,103 @@ fn run(preset: &GamePreset, steps: usize, fight: Fight) -> (Client, LocalHost) {
 
 /// The same duel with a dual land on the table, so a mana ability that asks
 /// which colour is reachable at all.
+/// Cavern of Souls in the opening hand.
+///
+/// It asks its question as it *enters*, not when it is tapped, so this is the
+/// worse half of the same deadlock: a land drop -- the most ordinary thing a
+/// turn contains -- and the game stops. The card is `Coverage::Implemented`,
+/// so the deckbuilder offers it.
+fn cavern_preset(seed: u64) -> GamePreset {
+    let mut preset = duel_preset(seed);
+    let cavern = card("89ca686a-7c72-4d8f-9290-e89635624a83");
+    preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        card: cavern,
+        print: PrintRef::new(0),
+    }]);
+    preset
+}
+
+/// Playing Cavern of Souls asks for a creature type, and the client answers
+/// it the way a player does: type a few letters, take a row that is still on
+/// screen, send *that row's* index.
+///
+/// The index is the point. A filtered list shows twelve of some three hundred
+/// and fifty, so a row's position is not its answer, and a chooser that sent
+/// the position would name the wrong creature type -- silently, and only for
+/// players who typed.
+#[test]
+fn a_cavern_of_souls_can_be_played_and_its_type_answered() {
+    let preset = cavern_preset(7);
+    let mut host =
+        LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"]).expect("the duel starts");
+    let mut client = Client::default();
+    client.absorb(host.poll());
+
+    // Walk to a priority that offers the land, playing it rather than passing.
+    let mut played = false;
+    for _ in 0..200 {
+        let pending = client.pending.clone().expect("a choice");
+        if let Pending::Priority { legal, .. } = &pending
+            && let Some(land) = legal.lands.first().copied()
+        {
+            let interaction = Interaction::new(pending.clone(), PlayerId::new(0));
+            let action = interaction
+                .play_card(land)
+                .expect("the engine offered this land drop");
+            host.submit(action);
+            client.absorb(host.poll());
+            played = true;
+            break;
+        }
+        let Some(action) = client.answer(PlayerId::new(0)) else {
+            break;
+        };
+        host.submit(action);
+        client.absorb(host.poll());
+    }
+    assert!(played, "the land never came up as playable");
+
+    let pending = client.pending.clone().expect("a choice");
+    let Pending::ChooseSubtype { options, .. } = &pending else {
+        panic!("a Cavern entering the battlefield asks for a creature type, got {pending:?}");
+    };
+    assert!(
+        options.len() > baylee_client::choices::SUBTYPE_ROWS,
+        "the engine offers every creature type, which is why there is a filter"
+    );
+
+    // Type "elf", and check the row that comes back answers the engine's own
+    // option rather than the position it happens to sit at.
+    let mut interaction = Interaction::new(pending.clone(), PlayerId::new(0));
+    let rows = baylee_client::choices::options(
+        &interaction.prompt(),
+        baylee_client_core::Lang::En,
+        client.statics.as_ref(),
+        "elf",
+    )
+    .expect("a creature type is a chooser");
+    assert_eq!(rows[0].label, "Elf");
+    assert!(
+        rows[0].index > 0,
+        "an elf is not the engine's first creature type, so position != answer"
+    );
+    let elf = options[rows[0].index];
+
+    assert!(interaction.choose_index(rows[0].index));
+    let action = interaction.confirm().expect("a picked row is submittable");
+    assert_eq!(
+        action,
+        PlayerAction::ChooseSubtype(elf),
+        "the chooser answered the type the row named"
+    );
+    host.submit(action);
+    client.absorb(host.poll());
+    assert!(
+        !matches!(client.pending, Some(Pending::ChooseSubtype { .. })),
+        "the engine moved on, so the answer was accepted"
+    );
+}
+
 fn dual_land_preset(seed: u64) -> GamePreset {
     let mut preset = duel_preset(seed);
     // Underground Sea: `{T}: Add {U} or {B}` -- a mana ability the engine
@@ -253,8 +373,8 @@ fn dual_land_preset(seed: u64) -> GamePreset {
 /// Tapping a dual land is a question, and the client has to be able to answer
 /// it. This is the deadlock this test exists for: the prompt bar drew "Choose
 /// a colour" with no buttons under it, `Interaction::choose_index` was never
-/// called by anything, and the game stopped there for good -- in every deck
-/// with a dual land in it, which is most of them.
+/// called by anything, and the game stopped there for good -- in any deck with
+/// a dual land, the first time one was tapped for its mana.
 #[test]
 fn a_dual_land_can_be_tapped_and_the_colour_answered() {
     let preset = dual_land_preset(11);
@@ -301,6 +421,7 @@ fn a_dual_land_can_be_tapped_and_the_colour_answered() {
         &interaction.prompt(),
         baylee_client_core::Lang::En,
         client.statics.as_ref(),
+        "",
     )
     .expect("a colour choice is a chooser");
     assert_eq!(rows.len(), 2, "one row per colour the engine offered");
