@@ -479,6 +479,7 @@ mod tests {
             exile: vec![vec![]; lives.len()],
             command: vec![vec![]; lives.len()],
             combat: CombatView::default(),
+            looking_at: Vec::new(),
         }
     }
 

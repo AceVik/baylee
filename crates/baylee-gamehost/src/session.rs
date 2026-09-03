@@ -207,7 +207,13 @@ impl Session {
     /// The order matters: the entry has to be there before the object that
     /// points at it, or the client draws a card it cannot key an image on.
     fn view_envelopes(&mut self, seat: PlayerId, priority: Option<PlayerId>) -> Vec<Envelope> {
-        let view = crate::view::player_view(self.engine.state(), seat, priority, self.seq);
+        let view = crate::view::player_view(
+            self.engine.state(),
+            seat,
+            priority,
+            self.seq,
+            Some(self.engine.pending()),
+        );
         let mut out = Vec::new();
         if self.reveal(seat, &view) {
             out.push(self.game_static_envelope(seat));
@@ -266,6 +272,7 @@ impl Session {
                         player,
                         priority_holder(&pending),
                         self.seq,
+                        Some(&pending),
                     );
                     agent.act(&view, &pending)
                 }
@@ -318,6 +325,7 @@ impl Session {
             player,
             priority_holder(pending),
             self.seq,
+            Some(pending),
         );
         Some((player, agent.act(&view, pending)))
     }
@@ -345,6 +353,7 @@ impl Session {
             seat,
             priority_holder(&pending),
             self.seq,
+            Some(&pending),
         );
         let mut out = vec![view_envelope(self.seq, &view)];
         if pending_player(&pending) == Some(seat) || matches!(pending, Pending::GameOver(_)) {

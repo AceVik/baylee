@@ -80,8 +80,13 @@ pub fn play_game<L: CardLookup>(
         }
         let player = pending_player(&pending)?;
         // The agent sees what a client would see, and nothing else.
-        let view =
-            crate::view::player_view(engine.state(), player, priority_holder(&pending), i as u64);
+        let view = crate::view::player_view(
+            engine.state(),
+            player,
+            priority_holder(&pending),
+            i as u64,
+            Some(&pending),
+        );
         let action = agents[player.get() as usize].act(&view, &pending);
         if let Err(err) = engine.apply(player, action) {
             // Late legality/payment misses are AI mis-evaluation, not engine

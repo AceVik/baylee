@@ -14,8 +14,10 @@
 //! Anything a seat may not know must be *unrepresentable* here, not merely
 //! omitted by a caller:
 //!
-//! - Library contents are never present, only counts.
-//! - Another seat's hand is only a count.
+//! - Library contents are never present, only counts — except the ones a
+//!   pending choice is holding in front of this seat, which arrive in
+//!   [`PlayerView::looking_at`] and leave again with the question.
+//! - Another seat's hand is only a count, with the same exception.
 //! - A face-down permanent reveals its identity only to controllers who are
 //!   entitled to look ([`PublicObject::card`] is `None` otherwise).
 //!
@@ -36,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 7;
+pub const VIEW_VERSION: u32 = 8;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -756,6 +758,23 @@ pub struct PlayerView {
     pub command: Vec<Vec<PublicObject>>,
     /// Combat, when combat is declared.
     pub combat: CombatView,
+    /// Cards this seat is being *shown*, which live in no zone it can see.
+    ///
+    /// A library search, a scry, an opponent's revealed hand: the engine asks
+    /// the seat about object ids that are in nobody's graveyard and on no
+    /// battlefield, and a client that cannot resolve them cannot draw the
+    /// choice, let alone answer it. This is the field they arrive in.
+    ///
+    /// The entitlement is not a second judgement, which is what keeps it
+    /// inside the rule this crate is built on: **an object the engine asks
+    /// you about is an object you are allowed to see.** The host fills this
+    /// from the pending choice itself, only for the seat being asked, and
+    /// only while it is being asked — so there is no state here that could
+    /// outlive the question and no list a seat could be given by accident.
+    ///
+    /// Empty in every view where nothing is being shown, which is nearly all
+    /// of them.
+    pub looking_at: Vec<PublicObject>,
 }
 
 impl PlayerView {
@@ -765,6 +784,11 @@ impl PlayerView {
     /// a client is entitled to the art of a card it can see, and to nothing
     /// else. Combat is not walked — it names objects by id, and every one of
     /// them is already on the battlefield.
+    ///
+    /// [`Self::looking_at`] *is* walked, and has to be: a card offered out of
+    /// a library is a card this seat can see, and one whose printing it has
+    /// never been sent. Without it a tutor would open a dialog of blank
+    /// rectangles.
     pub fn prints(&self) -> impl Iterator<Item = PrintRef> + '_ {
         let public = self
             .battlefield
@@ -773,6 +797,7 @@ impl PlayerView {
             .chain(self.graveyards.iter().flatten())
             .chain(self.exile.iter().flatten())
             .chain(self.command.iter().flatten())
+            .chain(&self.looking_at)
             .filter_map(|o| o.card.map(|c| c.print));
         self.hand.iter().map(|o| o.card.print).chain(public)
     }
@@ -791,6 +816,10 @@ impl PlayerView {
     }
 
     /// The object with a given handle, wherever it currently is.
+    ///
+    /// [`Self::looking_at`] is searched last, so a card that is both on the
+    /// table and being shown answers as the object on the table — the
+    /// projected one, which is the one the rules are about.
     #[must_use]
     pub fn object(&self, id: ObjectId) -> Option<&PublicObject> {
         self.battlefield
@@ -799,6 +828,7 @@ impl PlayerView {
             .chain(self.graveyards.iter().flatten())
             .chain(self.exile.iter().flatten())
             .chain(self.command.iter().flatten())
+            .chain(self.looking_at.iter())
             .find(|o| o.id == id)
     }
 
@@ -890,6 +920,7 @@ mod tests {
             exile: vec![vec![]; seats as usize],
             command: vec![vec![]; seats as usize],
             combat: CombatView::default(),
+            looking_at: Vec::new(),
         }
     }
 

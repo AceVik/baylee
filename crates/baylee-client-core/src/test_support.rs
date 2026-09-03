@@ -94,6 +94,7 @@ impl ViewBuilder {
                 exile: vec![Vec::new(); n],
                 command: vec![Vec::new(); n],
                 combat: CombatView::default(),
+                looking_at: Vec::new(),
             },
         }
     }

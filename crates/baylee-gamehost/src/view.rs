@@ -10,11 +10,13 @@
 //! the printed card. A client cannot run the layer system, so an anthem, a
 //! clone, or an animated land has to arrive already resolved.
 
+use baylee_ai::pending_player;
 use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_engine::choice::Pending;
 use baylee_engine::object::{GameObject, ObjectKind};
 use baylee_engine::state::GameState;
 use baylee_engine::turn::{Phase as EnginePhase, Step as EngineStep};
-use baylee_engine::zone::ZoneLocation;
+use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{
     AttackerView, BlockerView, CardIdentity, CombatView, CounterEntry, CounterKind, GameStatic,
     HandObject, ObjectStatus, Phase, PlayerView, PublicObject, SeatView, Step, TargetRef,
@@ -201,16 +203,88 @@ fn mana_pool(pool: &baylee_core::mana::ManaPool) -> baylee_view::ManaPoolView {
     }
 }
 
+/// The objects a pending choice puts in front of the seat it is asking.
+///
+/// Only the choices that can name a *hidden* object are listed. Combat is
+/// not: [`Pending::ChooseAttackers`] and [`Pending::ChooseBlockers`] name
+/// creatures, and every creature in a declaration is on the battlefield, which
+/// the view already carries in full. Neither is [`Pending::YesNo`]'s miracle
+/// card — a miracle is revealed from the hand it was drawn into, and that is
+/// the asking seat's own hand.
+const fn offered(pending: &Pending) -> &[ObjectId] {
+    match pending {
+        Pending::ChooseCards { options, .. }
+        | Pending::ChooseTargets { options, .. }
+        | Pending::LegendChoice { options, .. } => options.as_slice(),
+        Pending::OrderObjects { objects, .. } => objects.as_slice(),
+        _ => &[],
+    }
+}
+
+/// Whether `seat`'s view already carries this object somewhere.
+///
+/// The zones a view sends in full are the public ones plus the seat's own
+/// hand; a library, a sideboard and somebody else's hand are counts. An
+/// object in one of those is an object the client has no other way to draw,
+/// which is exactly what [`PlayerView::looking_at`] is for.
+const fn shown_elsewhere(obj: &GameObject, seat: PlayerId) -> bool {
+    match obj.zone {
+        Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile | Zone::Command => true,
+        Zone::Hand => match obj.zone_owner {
+            Some(owner) => owner.get() == seat.get(),
+            None => false,
+        },
+        Zone::Library | Zone::OutsideGame => false,
+    }
+}
+
+/// The hidden cards this seat is being shown, if any.
+///
+/// The entitlement rule is one sentence and it is the whole safety argument:
+/// **an object the engine asks you about is an object you may see.** A search
+/// is only offered to the searcher, a scry only to the scrying player, and
+/// the engine has already filtered both down to what that player is allowed
+/// to look at — so this function adds no judgement of its own beyond checking
+/// that the question is addressed to `seat`.
+///
+/// It is deliberately not a memory. The list is rebuilt from the outstanding
+/// choice on every view, so a card stops being visible the instant the choice
+/// is answered, and there is no place for one to linger.
+fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> Vec<PublicObject> {
+    let Some(pending) = pending else {
+        return Vec::new();
+    };
+    if pending_player(pending) != Some(seat) {
+        return Vec::new();
+    }
+    offered(pending)
+        .iter()
+        .filter(|id| {
+            state
+                .object(**id)
+                .is_some_and(|obj| !shown_elsewhere(obj, seat))
+        })
+        .filter_map(|id| public_object(state, *id, seat))
+        .collect()
+}
+
 /// Builds the hidden-information-filtered view of `state` for `seat`.
 ///
 /// `priority` is the seat that currently holds priority, which the engine
 /// tracks in its pending choice rather than in the state itself.
+///
+/// `pending` is the outstanding choice, and it is here for one reason:
+/// [`PlayerView::looking_at`]. A tutor, a scry and a revealed hand all ask a
+/// seat about objects that are in no zone the view carries, so the choice
+/// itself is what decides which hidden objects this seat may see. Pass `None`
+/// and the view is exactly what it was before — nothing else reads it.
 #[must_use]
 pub fn player_view(
     state: &GameState,
     seat: PlayerId,
     priority: Option<PlayerId>,
     seq: u64,
+    pending: Option<&Pending>,
 ) -> PlayerView {
     let hand = state
         .zones
@@ -286,6 +360,7 @@ pub fn player_view(
                 })
                 .collect(),
         },
+        looking_at: looking_at(state, seat, pending),
     }
 }
 
@@ -434,7 +509,7 @@ mod tests {
         let preset = mixed_print_preset();
         let engine = Engine::new(&preset, Registry).expect("game starts");
         let seat = PlayerId::new(0);
-        let view = player_view(engine.state(), seat, None, 0);
+        let view = player_view(engine.state(), seat, None, 0, None);
 
         let battlefield: Vec<u16> = view
             .battlefield
@@ -520,7 +595,7 @@ mod tests {
 
         // Every object the view can project; a card-backed one carries a
         // printing and no token id, and the two are mutually exclusive.
-        let view = player_view(engine.state(), PlayerId::new(0), None, 1);
+        let view = player_view(engine.state(), PlayerId::new(0), None, 1, None);
         for object in &view.battlefield {
             assert!(
                 object.card.is_none() || object.token.is_none(),
@@ -582,7 +657,7 @@ mod tests {
             .apply(seat, PlayerAction::PlayLand { card })
             .expect("playing a land from hand is legal");
 
-        let view = player_view(engine.state(), seat, None, 1);
+        let view = player_view(engine.state(), seat, None, 1, None);
         let played = view
             .battlefield
             .iter()
@@ -623,7 +698,7 @@ mod tests {
         let engine = Engine::new(&preset, Registry).expect("game starts");
         let me = PlayerId::new(0);
         let them = PlayerId::new(1);
-        let view = player_view(engine.state(), me, None, 1);
+        let view = player_view(engine.state(), me, None, 1, None);
 
         let their_hand = engine.state().zones.list(ZoneLocation::Hand(them));
         assert!(!their_hand.is_empty(), "the opponent holds cards");
@@ -649,7 +724,7 @@ mod tests {
         let preset = mixed_print_preset();
         let engine = Engine::new(&preset, Registry).expect("game starts");
         for seat in [PlayerId::new(0), PlayerId::new(1)] {
-            let view = player_view(engine.state(), seat, None, 1);
+            let view = player_view(engine.state(), seat, None, 1, None);
             let visible = ids_in(&view);
             for owner in [PlayerId::new(0), PlayerId::new(1)] {
                 let library = engine.state().zones.list(ZoneLocation::Library(owner));
@@ -691,8 +766,8 @@ mod tests {
             .status
             .insert(baylee_engine::object::Status::FACE_DOWN);
 
-        let mine = player_view(engine.state(), me, None, 1);
-        let theirs = player_view(engine.state(), them, None, 1);
+        let mine = player_view(engine.state(), me, None, 1, None);
+        let theirs = player_view(engine.state(), them, None, 1, None);
         let of = |v: &baylee_view::PlayerView| {
             v.battlefield
                 .iter()
@@ -709,5 +784,198 @@ mod tests {
             "the opponent was handed the card identity of a face-down permanent"
         );
         assert_eq!(of(&theirs).name, "Face-down");
+    }
+
+    /// A search offered to `player`, over `options`.
+    fn search(player: PlayerId, options: Vec<ObjectId>) -> Pending {
+        Pending::ChooseCards {
+            player,
+            options,
+            min: 1,
+            max: 1,
+            prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
+        }
+    }
+
+    /// The first `n` cards of a seat's library, as object ids.
+    fn library(engine: &Engine<Registry>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(seat))
+            .iter()
+            .take(n)
+            .copied()
+            .collect()
+    }
+
+    /// A tutor hands a seat object ids out of its own library. Every other
+    /// zone the client can draw from is in the view already; these are in
+    /// none of them, so without `looking_at` the dialog is a row of blanks
+    /// and the choice cannot be answered at all.
+    #[test]
+    fn a_searching_seat_is_shown_the_cards_it_was_offered() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let seat = PlayerId::new(0);
+        let offered = library(&engine, seat, 3);
+        let pending = search(seat, offered.clone());
+
+        let view = player_view(engine.state(), seat, None, 0, Some(&pending));
+        let shown: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
+        assert_eq!(
+            shown, offered,
+            "the searcher was not shown what it was asked about"
+        );
+        assert!(
+            view.looking_at.iter().all(|o| o.card.is_some()),
+            "a card offered out of a library arrived without its identity"
+        );
+    }
+
+    /// The entitlement is the question, not the game state: the seat being
+    /// asked sees the search, and the table does not. This is the sentence
+    /// the whole field rests on, so it is the one with a test.
+    #[test]
+    fn nobody_else_is_shown_another_seat_s_search() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let searcher = PlayerId::new(0);
+        let pending = search(searcher, library(&engine, searcher, 3));
+
+        let theirs = player_view(engine.state(), PlayerId::new(1), None, 0, Some(&pending));
+        assert!(
+            theirs.looking_at.is_empty(),
+            "an opponent was shown the cards a searching seat is looking through"
+        );
+    }
+
+    /// And it is not a memory. The list is rebuilt from the outstanding
+    /// choice every time, so the moment the question is gone the cards are
+    /// gone with it — there is nowhere for one to linger.
+    #[test]
+    fn a_card_stops_being_shown_when_the_question_ends() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let seat = PlayerId::new(0);
+
+        let view = player_view(engine.state(), seat, None, 0, None);
+        assert!(
+            view.looking_at.is_empty(),
+            "a view with no pending choice was still showing cards"
+        );
+    }
+
+    /// Most choices name things that are already on the table, and those must
+    /// not arrive twice: a client that drew `looking_at` as a dialog would
+    /// open one over an ordinary "target creature".
+    #[test]
+    fn an_offer_of_things_already_in_view_shows_nothing_extra() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let seat = PlayerId::new(0);
+        let battlefield: Vec<ObjectId> =
+            engine.state().zones.list(ZoneLocation::Battlefield).clone();
+        assert!(!battlefield.is_empty(), "the preset seats a battlefield");
+        let pending = Pending::ChooseTargets {
+            player: seat,
+            options: battlefield,
+            player_options: vec![],
+            min: 1,
+            max: 1,
+        };
+
+        let view = player_view(engine.state(), seat, None, 0, Some(&pending));
+        assert!(
+            view.looking_at.is_empty(),
+            "objects the view already carries were repeated as things being shown"
+        );
+    }
+
+    /// A seat earns a printing by seeing the card, and a card out of a
+    /// library is a card it now sees. Without this the print table has no
+    /// entry for it and the dialog draws rectangles.
+    #[test]
+    fn a_card_being_shown_earns_its_printing() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let seat = PlayerId::new(0);
+        let pending = search(seat, library(&engine, seat, 3));
+
+        let view = player_view(engine.state(), seat, None, 0, Some(&pending));
+        for object in &view.looking_at {
+            let print = object
+                .card
+                .expect("a library card is known to its owner")
+                .print;
+            assert!(
+                view.prints().any(|p| p == print),
+                "a card being shown did not earn its printing"
+            );
+        }
+    }
+    /// A seat's own hand is in its view already, so being asked about it
+    /// shows nothing twice. This is the arm of [`shown_elsewhere`] with a
+    /// judgement in it: hand is the one zone whose visibility depends on
+    /// whose hand it is.
+    #[test]
+    fn a_seat_asked_about_its_own_hand_is_shown_nothing_extra() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let seat = PlayerId::new(0);
+        let hand = engine.state().zones.list(ZoneLocation::Hand(seat)).clone();
+        assert!(!hand.is_empty(), "the preset deals a starting hand");
+        let pending = Pending::ChooseCards {
+            player: seat,
+            options: hand,
+            min: 1,
+            max: 1,
+            prompt: baylee_engine::choice::ChoicePrompt::PutBackOnTop,
+        };
+
+        let view = player_view(engine.state(), seat, None, 0, Some(&pending));
+        assert!(
+            view.looking_at.is_empty(),
+            "a seat's own hand was repeated as something it is being shown"
+        );
+    }
+
+    /// And the other side of the same arm, which is where the whole rule is
+    /// worth its cost: a discard-at-random or a Thoughtseize asks one seat
+    /// about *another* seat's hand. Those cards are hidden from everyone by
+    /// default, and the question is what entitles this seat to them — so the
+    /// asked seat sees them, in full, and only while it is asked.
+    #[test]
+    fn a_seat_asked_about_another_hand_is_shown_it() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let hand = engine.state().zones.list(ZoneLocation::Hand(them)).clone();
+        assert!(!hand.is_empty(), "the preset deals a starting hand");
+        let pending = Pending::ChooseCards {
+            player: me,
+            options: hand.clone(),
+            min: 1,
+            max: 1,
+            prompt: baylee_engine::choice::ChoicePrompt::Generic,
+        };
+
+        let view = player_view(engine.state(), me, None, 0, Some(&pending));
+        let shown: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
+        assert_eq!(
+            shown, hand,
+            "the asked seat was not shown the hand in question"
+        );
+        assert!(
+            view.looking_at.iter().all(|o| o.card.is_some()),
+            "a card this seat is being asked about arrived without its identity"
+        );
+
+        // The owner of that hand is being asked nothing, and is shown nothing.
+        let theirs = player_view(engine.state(), them, None, 0, Some(&pending));
+        assert!(
+            theirs.looking_at.is_empty(),
+            "a seat not being asked was handed a list anyway"
+        );
     }
 }
