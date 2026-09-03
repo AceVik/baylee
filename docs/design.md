@@ -145,12 +145,18 @@ fails on both locks and on every future one of the same shape.
   Fixed. The next breaking view change is a bump to 9. One audit worked from
   the stale number, which is what a stale contract file costs.
 - The copy limit was enforced **per row** in the gateway (`main.rs`) and **per
-  card** in the client (`deckbuilder/builder.rs`). `CLAUDE.md` asserts the
-  opposite. Two printings of one card therefore saved with eight copies — and
-  through the side that is supposed to be doing the enforcing, so it was a way
-  to cheat rather than a display bug. **Fixed:** `parse_deck_lines` now
-  accumulates per `CardIndex`. The client was right; `CLAUDE.md` described the
-  code backwards.
+  card** in the client (`deckbuilder/builder.rs`). Two printings of one card
+  therefore saved with eight copies — through the side that is supposed to be
+  doing the enforcing, so it was a way to cheat rather than a display bug.
+  **Fixed:** `parse_deck_lines` now accumulates per `CardIndex`.
+
+  This one is not a `CLAUDE.md` correction, and calling it one was my own
+  error. The file says "the copy limit stays on the card, as the gateway
+  enforces it" — which was a true statement of the *intent* and a false
+  statement about the code, because the gateway did not do it. The file is
+  correct as of the fix; nothing in it needs changing. Worth keeping as a
+  reminder that a doc which disagrees with an enforcing code path is a bug
+  report about the code, not a typo in the prose.
 
   One question that fix deliberately does **not** answer: both sides count per
   *list*, so four in the deck and four in the sideboard is eight legal copies.

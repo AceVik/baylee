@@ -531,6 +531,30 @@ mod tests {
         );
     }
 
+    /// A refusal answers the seat. It must not also buy it time.
+    ///
+    /// Re-asking made a refused action produce frames where it used to produce
+    /// none, so it is worth saying outright that the clock does not notice: it
+    /// is anchored to the sequence number it was armed at, a refusal moves
+    /// nothing, and the arming loop leaves an identical `Clock` alone. Without
+    /// that, a seat could hold its own decision open indefinitely by sending
+    /// illegal actions at it, which is a cheat rather than a bug.
+    #[test]
+    fn a_refusal_does_not_restart_the_clock() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(30));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        let before = runner.clock().expect("a seat is on the clock");
+        let out = act(&mut runner, 0, &PlayerAction::PassPriority);
+        assert!(!out.is_empty(), "the refusal was answered at all");
+        assert_eq!(
+            runner.clock(),
+            Some(before),
+            "a refused action re-armed the clock"
+        );
+    }
+
     /// The clock is the one thing the rules kernel must not own, and it must
     /// not run against a player who is not there to see it.
     #[test]
