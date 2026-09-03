@@ -454,8 +454,14 @@ pub enum LobbyRequest {
 /// The outcome of a [`LobbyRequest`], handed back by the shell.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LobbyEvent {
-    /// The account now exists. It comes with no token; a log-in follows.
-    Registered,
+    /// The account now exists. It comes with no token, so a log-in follows
+    /// — unless the gateway sends confirmation mail, in which case the
+    /// log-in would be refused until the link is clicked and there is
+    /// nothing to do but say so.
+    Registered {
+        /// Whether the gateway wants the address confirmed first.
+        confirmation_required: bool,
+    },
     /// Signed in.
     LoggedIn {
         /// The account bearer token, for every later call.
@@ -1242,7 +1248,18 @@ impl Lobby {
         match event {
             // Sign-up hands back no token, so the credentials that are still
             // in the form go straight into a log-in.
-            LobbyEvent::Registered => {
+            LobbyEvent::Registered {
+                confirmation_required,
+            } => {
+                if confirmation_required {
+                    self.note(Phrase::ConfirmYourEmail);
+                    self.password.clear();
+                    // Back to the log-in form: the account exists, and what
+                    // is left to do is click a link in a mailbox and come
+                    // back.
+                    self.screen = Screen::SignIn { registering: false };
+                    return None;
+                }
                 self.note(Phrase::AccountCreated);
                 self.busy = true;
                 Some(LobbyRequest::LogIn {
@@ -1458,7 +1475,9 @@ mod tests {
         lobby.type_char('x');
         lobby.submit();
         assert_eq!(
-            lobby.apply(LobbyEvent::Registered),
+            lobby.apply(LobbyEvent::Registered {
+                confirmation_required: false,
+            }),
             Some(LobbyRequest::LogIn {
                 email: "a".to_string(),
                 password: "x".to_string(),

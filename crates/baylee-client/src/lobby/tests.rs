@@ -121,6 +121,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // one assertion per body the gateway reads
 fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
     let (login, _) = build(
         "http://gw",
@@ -147,7 +148,12 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
     );
     assert_eq!(
         body(&register),
-        serde_json::json!({ "email": "a@b.c", "display_name": "V", "password": "pw" })
+        serde_json::json!({
+            "email": "a@b.c",
+            "display_name": "V",
+            "password": "pw",
+            "lang": "en"
+        })
     );
     let (deck, _) = build(
         "http://gw",
@@ -335,7 +341,9 @@ fn the_gateways_own_answers_decode() {
     );
     assert_eq!(
         decode(Lang::En, Expect::Registered, &answer(200, r#"{"ok":true}"#)),
-        LobbyEvent::Registered
+        LobbyEvent::Registered {
+            confirmation_required: false,
+        }
     );
     assert_eq!(
         decode(

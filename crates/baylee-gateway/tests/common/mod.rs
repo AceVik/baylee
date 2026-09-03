@@ -37,6 +37,16 @@ impl Drop for Gateway {
 ///
 /// `label` keeps two tests running at once from sharing a store file.
 pub fn spawn_gateway(label: &str) -> Gateway {
+    spawn_gateway_with(label, &[])
+}
+
+/// The same, with extra environment for the gateway process.
+///
+/// Used by the confirmation tests, which need a gateway that has a mailer:
+/// whether an address must be confirmed is not a switch of its own, it is
+/// whether `BAYLEE_SMTP_URL` is set.
+#[allow(dead_code)] // not every test binary in this directory needs it
+pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     let probe = std::net::TcpListener::bind("127.0.0.1:0").expect("a free port");
     let port = probe.local_addr().expect("bound").port();
     drop(probe);
@@ -53,6 +63,7 @@ pub fn spawn_gateway(label: &str) -> Gateway {
         .env("STORE_PATH", &store_path)
         .env("BAYLEE_AGENT_TOKEN", &agent_token)
         .env("RUST_LOG", if loud { "info" } else { "off" })
+        .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
         .stdout(std::process::Stdio::null())
         .stderr(if loud {
             std::process::Stdio::inherit()

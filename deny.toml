@@ -15,6 +15,9 @@ allow = [
     "Zlib",
     "MPL-2.0",
     "CC0-1.0",
+    # `quoted_printable`, which lettre uses to encode a mail body. Zero-clause
+    # BSD: permissive with no attribution requirement at all.
+    "0BSD",
     "OFL-1.1",
 ]
 

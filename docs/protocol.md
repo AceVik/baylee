@@ -250,6 +250,36 @@ agent runs somewhere else. With no agent connected, `POST /lobby/games` answers
 `503`: there is nothing to run the game, and handing out a seat token for a
 table that will never start would be worse.
 
+## Confirming an address, and why it is optional
+
+`BAYLEE_SMTP_URL` decides the whole feature. Without it the gateway has no
+mailer, `POST /auth/register` marks the account confirmed on creation, and
+everything behaves exactly as it did before confirmation existed — which is
+the development default and what every other test in the suite assumes. With
+it, a fresh account gets a link by mail and `POST /auth/login` answers `403`
+`confirm your e-mail address first` until the link is followed.
+
+Three details are load-bearing:
+
+- **The confirmation check runs after the password check.** Answering "confirm
+  your e-mail" to a *wrong* password would tell a stranger that the address
+  exists, which is the one thing every other answer on that route is careful
+  not to say. `POST /auth/confirm/resend` answers `{"ok":true}` for the same
+  reason, whether or not there was anything to send.
+- **Only the hash of the link's token is stored**, like a session token's:
+  the store is a file on disk, and a live link in it would be a live login.
+  A link lasts 24 hours, a new one invalidates the last, and following one
+  spends it.
+- **`BAYLEE_PUBLIC_URL` is where the link points.** The gateway cannot work
+  out its own public address, and taking it from a request header is how a
+  confirmation link ends up pointing at whatever `Host:` an attacker sent.
+
+`GET /auth/config` reports `confirmation_required` beside
+`registration_enabled`, so a client can say "check your e-mail" instead of
+trying a log-in that is going to be refused. The mail itself is written in
+the `lang` the account registered with — kept on the account, so a resend
+months later still lands in the language the player signed up in.
+
 ## From an account to a seat
 
 The websocket below is opened with a *seat token*, and there is exactly one
@@ -258,7 +288,9 @@ which is what turned this from a curl recipe into a contract:
 
 | step | call | answer |
 | --- | --- | --- |
-| sign up | `POST /auth/register` `{email, display_name, password}` | `{"ok":true}` |
+| sign up | `POST /auth/register` `{email, display_name, password, lang}` | `{"ok":true, "confirmation_required":bool}` |
+| confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
+| send it again | `POST /auth/confirm/resend` `{email}` | `{"ok":true}`, always |
 | sign in | `POST /auth/login` `{email, password}` | `{token, expires_at}` |
 | decks | `GET /decks` | `[{id, name, cards, sideboard, commander}]` |
 | one deck | `GET /decks/{id}` | `{id, name, cards:[…], sideboard:[…], commander}` |

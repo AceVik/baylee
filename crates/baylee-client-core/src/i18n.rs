@@ -888,6 +888,11 @@ messages! {
         en: "Talking to the gateway",
         de: "Spreche mit dem Gateway",
     },
+    /// Check your e-mail — a confirmation link is on its way.
+    ConfirmYourEmail {
+        en: "account created — check your e-mail for the confirmation link",
+        de: "Konto erstellt — prüfe deine E-Mail auf den Bestätigungslink",
+    },
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {
         en: "the gateway did not answer: {0}",

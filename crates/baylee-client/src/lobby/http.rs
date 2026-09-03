@@ -52,6 +52,10 @@ pub(super) fn build(
                     "email": email,
                     "display_name": display_name,
                     "password": password,
+                    // What the confirmation mail is written in. The gateway
+                    // keeps it on the account, so a later resend still lands
+                    // in the language the player signed up in.
+                    "lang": lang,
                 }),
             ),
             Expect::Registered,
@@ -307,7 +311,14 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
 
     let body = response.text().unwrap_or_default();
     match expect {
-        Expect::Registered => LobbyEvent::Registered,
+        // A gateway written before confirmation existed sends no such
+        // field, and `false` is what it meant: it never asked.
+        Expect::Registered => LobbyEvent::Registered {
+            confirmation_required: serde_json::from_str::<serde_json::Value>(body)
+                .ok()
+                .and_then(|v| v.get("confirmation_required")?.as_bool())
+                .unwrap_or(false),
+        },
         // An edit answers `204` with no body and needs no id: the builder
         // already holds the one it is editing.
         Expect::DeckSaved => LobbyEvent::DeckSaved {

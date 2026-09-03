@@ -9,6 +9,7 @@
 mod auth;
 mod engine;
 mod lobby;
+mod mail;
 mod pool;
 mod store;
 
@@ -25,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use store::{Account, Deck, Store, StoredToken};
+use store::{Account, Confirmation, Deck, Store, StoredToken};
 use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
@@ -40,6 +41,9 @@ struct AppState {
     save_tx: tokio::sync::mpsc::UnboundedSender<()>,
     /// Registration toggle (`BAYLEE_REGISTRATION=off` to disable).
     registration_enabled: bool,
+    /// Where confirmation mail goes, and — because it is the same
+    /// question — whether an address has to be confirmed at all.
+    mail: mail::Mailer,
     /// Proxies whose `X-Forwarded-For` header may be trusted for rate
     /// limiting (`BAYLEE_TRUSTED_PROXIES`, comma-separated IPs). Empty =
     /// the header is never trusted; anyone can set it, so trusting it
@@ -132,6 +136,7 @@ async fn main() {
         save_tx,
         registration_enabled: std::env::var("BAYLEE_REGISTRATION")
             .map_or(true, |v| !matches!(v.as_str(), "off" | "0" | "false")),
+        mail: mail::Mailer::from_env(),
         trusted_proxies: std::env::var("BAYLEE_TRUSTED_PROXIES")
             .unwrap_or_default()
             .split(',')
@@ -146,6 +151,8 @@ async fn main() {
         .route("/auth/config", get(auth_config))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
+        .route("/auth/confirm", get(confirm))
+        .route("/auth/confirm/resend", post(resend_confirmation))
         .route("/auth/logout", post(logout))
         .route("/me", get(me))
         .route("/decks", get(list_decks).post(create_deck))
@@ -249,6 +256,22 @@ struct RegisterBody {
     email: String,
     display_name: String,
     password: String,
+    /// The language to write to this account in. Defaulted, because a client
+    /// written before this field existed still registers.
+    #[serde(default)]
+    lang: String,
+}
+
+/// What `POST /auth/confirm/resend` takes.
+#[derive(Deserialize)]
+struct ResendBody {
+    email: String,
+}
+
+/// What `GET /auth/confirm` takes.
+#[derive(Deserialize)]
+struct ConfirmQuery {
+    token: String,
 }
 
 #[derive(Deserialize)]
@@ -287,7 +310,108 @@ fn rate_limit_ip(state: &AppState, peer: IpAddr, headers: &HeaderMap) -> String 
 async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "registration_enabled": state.registration_enabled,
+        "confirmation_required": state.mail.required(),
     }))
+}
+
+/// How long a confirmation link is good for.
+const CONFIRM_TTL_SECS: u64 = 24 * 3600;
+
+/// Mints a confirmation link for an account and mails it.
+///
+/// Returns without sending on a gateway with no mailer, which is the whole
+/// reason the account was already marked confirmed by then: an unconfigured
+/// gateway must behave exactly as it did before any of this existed.
+async fn mail_confirmation(state: &Shared, account_id: &str) {
+    if !state.mail.required() {
+        return;
+    }
+    let issued = auth::IssuedToken::new();
+    let (email, display_name, lang) = {
+        let mut store = state.store.lock();
+        let now = auth::now_secs();
+        store.clear_confirmations(account_id, now);
+        let Some(account) = store.accounts.get(account_id) else {
+            return;
+        };
+        let who = (
+            account.email.clone(),
+            account.display_name.clone(),
+            account.lang.clone(),
+        );
+        let token_hash = auth::token_hash(&issued.token);
+        store.confirmations.insert(
+            token_hash.clone(),
+            Confirmation {
+                token_hash,
+                account_id: account_id.to_string(),
+                expires_at: now + CONFIRM_TTL_SECS,
+            },
+        );
+        who
+    };
+    state.request_save();
+    state
+        .mail
+        .send_confirmation(&email, &display_name, &lang, &issued.token)
+        .await;
+}
+
+/// The link in the mail.
+///
+/// Plain text rather than a redirect into the client: the gateway does not
+/// know where a client is served from — a native build is not served at all —
+/// and a redirect target read off a header is how an open redirect happens.
+async fn confirm(
+    State(state): State<Shared>,
+    Query(query): Query<ConfirmQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let now = auth::now_secs();
+    let mut store = state.store.lock();
+    let Some(found) = store.confirmations.remove(&auth::token_hash(&query.token)) else {
+        return Err(err(StatusCode::BAD_REQUEST, "that link is not valid"));
+    };
+    if found.expires_at <= now {
+        drop(store);
+        state.request_save();
+        return Err(err(StatusCode::BAD_REQUEST, "that link has expired"));
+    }
+    if let Some(account) = store.accounts.get_mut(&found.account_id) {
+        account.confirmed_at = Some(now);
+    }
+    drop(store);
+    state.request_save();
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// Sends the link again.
+///
+/// Answers `{"ok":true}` whatever happened, for the same reason registration
+/// does: a route that said "no such account" would be an address oracle, and
+/// this one needs no password to call.
+async fn resend_confirmation(
+    State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Json(body): Json<ResendBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    if !state
+        .limiter
+        .allow(&rate_limit_ip(&state, addr.ip(), &headers))
+    {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
+    }
+    let account_id = {
+        let store = state.store.lock();
+        store
+            .account_by_email(&body.email)
+            .filter(|a| a.confirmed_at.is_none())
+            .map(|a| a.id.clone())
+    };
+    if let Some(account_id) = account_id {
+        mail_confirmation(&state, &account_id).await;
+    }
+    Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 async fn register(
@@ -322,23 +446,41 @@ async fn register(
     let password_hash = tokio::task::spawn_blocking(move || auth::hash_password(&password))
         .await
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
-    let mut store = state.store.lock();
-    let email_taken = store.account_by_email(&body.email).is_some();
-    let name_taken = store.account_by_display_name(&body.display_name).is_some();
-    if !email_taken && !name_taken {
-        let email = body.email.to_lowercase();
-        let account = Account {
-            id: auth::new_id(),
-            email,
-            display_name: body.display_name,
-            password_hash,
-            created_at: auth::now_secs(),
-        };
-        let id = account.id.clone();
-        store.accounts.insert(id, account);
+    let created = {
+        let mut store = state.store.lock();
+        let email_taken = store.account_by_email(&body.email).is_some();
+        let name_taken = store.account_by_display_name(&body.display_name).is_some();
+        if email_taken || name_taken {
+            None
+        } else {
+            let now = auth::now_secs();
+            let account = Account {
+                id: auth::new_id(),
+                email: body.email.to_lowercase(),
+                display_name: body.display_name,
+                password_hash,
+                created_at: now,
+                // A gateway that sends no mail confirms on the spot. That is
+                // not a weaker rule than it looks: it is the same rule, asked
+                // of a gateway that never asked the question.
+                confirmed_at: (!state.mail.required()).then_some(now),
+                lang: body.lang,
+            };
+            let id = account.id.clone();
+            store.accounts.insert(id.clone(), account);
+            Some(id)
+        }
+    };
+    if let Some(id) = created {
         state.request_save();
+        mail_confirmation(&state, &id).await;
     }
-    Ok(Json(serde_json::json!({ "ok": true })))
+    // Anti-enumeration again, and the reason the mail is sent before the
+    // answer rather than after it: the answer is the same either way, so it
+    // must not be *timed* differently either.
+    Ok(Json(
+        serde_json::json!({ "ok": true, "confirmation_required": state.mail.required() }),
+    ))
 }
 
 async fn login(
@@ -359,9 +501,13 @@ async fn login(
         let store = state.store.lock();
         store
             .account_by_email(&creds.email)
-            .map(|a| (a.id.clone(), a.password_hash.clone()))
+            .map(|a| ((a.id.clone(), a.confirmed_at), a.password_hash.clone()))
     };
-    let (account_id, stored_hash) = account.unzip();
+    let (account, stored_hash) = account.unzip();
+    let (account_id, confirmed_at) = match account {
+        Some((id, confirmed)) => (Some(id), confirmed),
+        None => (None, None),
+    };
     let password = creds.password.clone();
     let ok = tokio::task::spawn_blocking(move || {
         auth::verify_password(stored_hash.as_deref(), &password)
@@ -373,6 +519,16 @@ async fn login(
     };
     if !ok {
         return Err(err(StatusCode::UNAUTHORIZED, "invalid credentials"));
+    }
+    // Checked *after* the password, deliberately: answering "confirm your
+    // e-mail first" to a wrong password would tell a stranger the address
+    // exists, which is the one thing every other answer on this route is
+    // careful not to say.
+    if state.mail.required() && confirmed_at.is_none() {
+        return Err(err(
+            StatusCode::FORBIDDEN,
+            "confirm your e-mail address first",
+        ));
     }
     let issued = auth::IssuedToken::new();
     let mut store = state.store.lock();
