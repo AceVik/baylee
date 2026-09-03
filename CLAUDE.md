@@ -386,16 +386,27 @@ starter deck" (it posts the acceptance file's `Allytifact` rows in one tap)
 and "play the house AI offline" (a `LocalHost`, no account).
 
 A table of more than two chairs is a **room**, arranged in the open before
-anyone plays: `POST /lobby/games {seats: 2..=4, name}` opens one, `POST
-/lobby/games/{id}/seats/{seat}` arranges a chair, `POST .../leave` frees one.
-Two authorities that do not overlap — the host sets `kind`/`ai` on any chair
-nobody is sitting in, every player sets `deck_id` on their own and nothing
-else. There is deliberately **no start route**: a room starts the moment every
-chair is ready (a human chair with an account and a deck, or an AI chair, which
-is ready as soon as it is configured), which is the same rule the two-seat open
-table always followed when its second player sat down. `GET /lobby/games`
-describes the whole arrangement in display names, never account ids, with
-`you`/`yours` answering "is that me". `docs/protocol.md` §Rooms is normative.
+anyone plays: `POST /lobby/games {seats: 2..=8, name, password}` opens one,
+`POST /lobby/games/{id}/seats/{seat}` arranges a chair, `POST .../leave` frees
+one. Two authorities that do not overlap — the host sets `kind`/`ai` on any
+chair nobody is sitting in, every player sets `deck_id` on their own and
+nothing else. Eight is `GamePreset::validate`'s bound, so the gateway refuses
+exactly what the engine would.
+
+Starting takes **two statements by two people**: `POST .../ready {ready}` is a
+player's own (a `409` without a deck, and cleared if the host puts a different
+deck in that chair), `POST .../start` is the host's, and it is a `409` until
+every chair is ready — an AI chair being ready as soon as it is configured.
+The room used to start itself when the last chair got a deck, which meant
+picking a deck to look at it put you in a game. `POST .../host {seat}` hands
+the room on, and so does leaving: a room passes to whoever **joined earliest**
+and is closed only when nobody is left in it. A non-empty `password` locks the
+room; the listing carries `"locked"` and never the password.
+
+`GET /lobby/games` describes the whole arrangement in display names, never
+account ids, with `you`/`yours` answering "is that me" and `startable` saying
+whether the host's button would do anything. `docs/protocol.md` §Rooms is
+normative.
 
 The deck builder is `Screen::Build`, and the same split once more: all of it
 decides in `crates/baylee-client-core/src/deckbuilder.rs`. Two things fix its

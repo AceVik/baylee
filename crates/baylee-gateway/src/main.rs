@@ -136,6 +136,9 @@ async fn main() {
         .route("/settings", get(get_settings).put(put_settings))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/seats/{seat}", post(set_seat))
+        .route("/lobby/games/{id}/ready", post(set_ready))
+        .route("/lobby/games/{id}/start", post(start_room))
+        .route("/lobby/games/{id}/host", post(hand_over))
         .route("/lobby/games/{id}/leave", post(leave_game))
         .route("/games/{id}/ws", get(game_ws))
         // The control and engine planes. Neither carries a player's traffic
@@ -848,15 +851,16 @@ struct CreateGameBody {
     /// What the table is called in the list.
     #[serde(default)]
     name: String,
+    /// A password for the room. Empty or absent leaves it open.
+    #[serde(default)]
+    password: String,
 }
 
 /// The most seats a room may have.
 ///
-/// The rules kernel is written for any number of players and the preset
-/// carries a `Vec` of seats, but three- and four-player games have had far
-/// less play than duels. Four is where that gets uncomfortable rather than
-/// where the engine stops.
-const MAX_SEATS: usize = 4;
+/// The most seats a room may have — the same eight `GamePreset::validate`
+/// allows, so the gateway refuses exactly what the engine would.
+const MAX_SEATS: usize = 8;
 
 /// Builds a `LoadedDeck` from a stored deck.
 /// Uses the same parser as validation, so counts are already bounded.
@@ -944,12 +948,13 @@ fn room_preset(
     Ok(preset)
 }
 
-/// Starts a room whose seats are all settled, if they are.
+/// Starts a room whose seats are all settled.
 ///
-/// There is no "start" button on the wire on purpose: a room starts when
-/// every chair is ready, which is the same rule the two-seat open table has
-/// always followed when its second player sat down. A host who has given up
-/// waiting for a friend hands that chair to the AI, and that is the start.
+/// A room used to start itself the moment the last chair became ready, which
+/// read well until "ready" stopped meaning "has a deck": a player who picked
+/// a deck to look at it was already in a game. Now every chair says it is
+/// ready and the host says go, which is two different statements by two
+/// different people and needs both.
 ///
 /// Returns whether the game was started. The engine is ordered *outside* the
 /// lobby lock, and a failure to order one puts the room back the way it was
@@ -1021,7 +1026,7 @@ async fn create_game(
     if !(2..=MAX_SEATS).contains(&chairs) {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            "a table seats between two and four",
+            "a table seats between two and eight",
         ));
     }
     {
@@ -1036,11 +1041,11 @@ async fn create_game(
             auth::now_secs(),
         );
         game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
+        if !body.password.is_empty() {
+            game.password_hash = Some(auth::token_hash(&body.password));
+        }
         lobby.games.insert(game_id.clone(), game);
     }
-    // A two-seat room with the host in it is never ready yet, but a host who
-    // asked for something else might be — and the rule is one rule.
-    try_start(&state, &game_id)?;
     Ok(Json(serde_json::json!({
         "game_id": game_id,
         "seat": 0,
@@ -1054,6 +1059,9 @@ struct JoinGameBody {
     /// Which chair to take. The first free one when the body does not say.
     #[serde(default)]
     seat: Option<usize>,
+    /// The room's password, for a room that has one.
+    #[serde(default)]
+    password: Option<String>,
 }
 
 async fn join_game(
@@ -1074,6 +1082,15 @@ async fn join_game(
         if game.state != LobbyState::Waiting {
             return Err(err(StatusCode::CONFLICT, "game already started"));
         }
+        // Before anything else is checked, and answered the same way whether
+        // the password was wrong or missing: a locked room should not tell a
+        // stranger how full it is.
+        if let Some(want) = &game.password_hash {
+            let given = body.password.as_deref().unwrap_or_default();
+            if &auth::token_hash(given) != want {
+                return Err(err(StatusCode::FORBIDDEN, "wrong password"));
+            }
+        }
         if game
             .seats
             .iter()
@@ -1081,6 +1098,7 @@ async fn join_game(
         {
             return Err(err(StatusCode::CONFLICT, "you are already at this table"));
         }
+        let seq = game.claim_seq();
         let free =
             |s: &&mut lobby::LobbySeat| s.kind == lobby::SeatKind::Human && s.account_id.is_none();
         let chair = match body.seat {
@@ -1100,9 +1118,9 @@ async fn join_game(
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
         chair.deck_name = deck_name;
         chair.deck = Some(deck);
+        chair.joined_seq = Some(seq);
         chair.seat
     };
-    try_start(&state, &id)?;
     Ok(Json(serde_json::json!({
         "game_id": id,
         "seat": seat,
@@ -1172,22 +1190,27 @@ async fn set_seat(
             }
             match kind.as_str() {
                 "ai" => {
+                    let deck = chair.deck.take();
+                    let deck_name = std::mem::take(&mut chair.deck_name);
+                    let profile = chair.ai.take();
+                    chair.vacate();
                     chair.kind = lobby::SeatKind::Ai;
-                    chair.ai.get_or_insert_with(|| "steady".to_string());
-                    chair.account_id = None;
-                    chair.seat_token_hash = None;
-                    if chair.deck.is_none() {
-                        chair.deck_name = "house AI".to_string();
-                    }
+                    chair.ai = Some(profile.unwrap_or_else(|| "steady".to_string()));
+                    chair.deck = deck;
+                    chair.deck_name = if chair.deck.is_some() {
+                        deck_name
+                    } else {
+                        "house AI".to_string()
+                    };
                 }
                 "human" => {
-                    chair.kind = lobby::SeatKind::Human;
-                    chair.ai = None;
                     // An AI's deck was the host's choice for a chair that is
                     // now waiting for a person, who brings their own.
                     if chair.account_id.is_none() {
-                        chair.deck = None;
-                        chair.deck_name = String::new();
+                        chair.vacate();
+                    } else {
+                        chair.kind = lobby::SeatKind::Human;
+                        chair.ai = None;
                     }
                 }
                 _ => return Err(err(StatusCode::BAD_REQUEST, "kind must be human or ai")),
@@ -1214,13 +1237,134 @@ async fn set_seat(
             }
             chair.deck_name = deck_name;
             chair.deck = Some(deck);
+            // A deck they have not seen yet is not a deck they said yes to.
+            // Without this the host could swap an opponent into a game they
+            // had already declared themselves ready for.
+            chair.said_ready = false;
         }
     }
-    try_start(&state, &id)?;
     Ok(Json(listing(&state, &account_id)))
 }
 
-/// Gives up a seat, and closes the room if the host is the one leaving.
+#[derive(Deserialize)]
+struct ReadyBody {
+    /// Absent means ready; a client withdraws by sending `false`.
+    #[serde(default = "yes")]
+    ready: bool,
+}
+
+/// `serde` default for [`ReadyBody::ready`].
+const fn yes() -> bool {
+    true
+}
+
+/// Says whether the caller is ready to play.
+///
+/// Only ever about the caller's own chair — the host arranges the table, but
+/// nobody declares anyone else ready.
+async fn set_ready(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<ReadyBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    {
+        let mut lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get_mut(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if game.state != LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        let chair = game
+            .seats
+            .iter_mut()
+            .find(|s| s.account_id.as_ref() == Some(&account_id))
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "you are not at this table"))?;
+        if body.ready && chair.deck.is_none() {
+            return Err(err(StatusCode::CONFLICT, "pick a deck first"));
+        }
+        chair.said_ready = body.ready;
+    }
+    Ok(Json(listing(&state, &account_id)))
+}
+
+/// Starts the room. The host's call, and only once every chair is ready.
+async fn start_room(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    {
+        let lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if !game.hosted_by(&account_id) {
+            return Err(err(StatusCode::FORBIDDEN, "only the host starts the game"));
+        }
+        if game.state != LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        if !game.seats.iter().all(lobby::LobbySeat::ready) {
+            return Err(err(StatusCode::CONFLICT, "not everyone is ready"));
+        }
+    }
+    // Outside the lock it took to check: `try_start` takes it again, and
+    // ordering the engine must not happen underneath it.
+    if !try_start(&state, &id)? {
+        return Err(err(StatusCode::CONFLICT, "the room is no longer ready"));
+    }
+    Ok(Json(listing(&state, &account_id)))
+}
+
+#[derive(Deserialize)]
+struct HostBody {
+    /// The chair to hand the room to.
+    seat: usize,
+}
+
+/// Hands the room to another player.
+///
+/// By seat rather than by name or account: the caller is looking at a
+/// listing of chairs, and a seat index is the one handle in it that cannot
+/// be ambiguous when two people share a display name.
+async fn hand_over(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<HostBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    {
+        let mut lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get_mut(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if !game.hosted_by(&account_id) {
+            return Err(err(StatusCode::FORBIDDEN, "not your room"));
+        }
+        if game.state != LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        let chair = game
+            .seats
+            .get(body.seat)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such seat"))?;
+        let Some(new_host) = chair.account_id.clone() else {
+            return Err(err(StatusCode::CONFLICT, "nobody is sitting there"));
+        };
+        game.host = Some(new_host);
+    }
+    Ok(Json(listing(&state, &account_id)))
+}
+
+/// Gives up a seat, handing the room on if the host is the one leaving.
 async fn leave_game(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -1235,12 +1379,6 @@ async fn leave_game(
     if game.state != LobbyState::Waiting {
         return Err(err(StatusCode::CONFLICT, "game already started"));
     }
-    // The room is the host's; without them there is nobody to arrange it, and
-    // leaving it listed would advertise a table that can never start.
-    if game.host.as_ref() == Some(&account_id) {
-        game.finish(auth::now_secs());
-        return Ok(StatusCode::NO_CONTENT);
-    }
     let Some(chair) = game
         .seats
         .iter_mut()
@@ -1248,7 +1386,14 @@ async fn leave_game(
     else {
         return Err(err(StatusCode::NOT_FOUND, "you are not at this table"));
     };
-    *chair = lobby::LobbySeat::open(chair.seat);
+    chair.vacate();
+    // A room outlives its host: it passes to whoever has been here longest,
+    // and only a room with nobody left in it is closed. The earlier version
+    // closed it the moment the host stood up, which threw everyone else out
+    // of a table they were sitting at.
+    if game.hosted_by(&account_id) && !game.hand_over_host() {
+        game.finish(auth::now_secs());
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 

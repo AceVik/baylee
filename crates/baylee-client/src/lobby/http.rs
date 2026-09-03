@@ -118,6 +118,7 @@ pub(super) fn build(
             mode,
             chairs,
             name,
+            password,
         } => (
             json_post(
                 &format!("{base}/lobby/games"),
@@ -126,6 +127,7 @@ pub(super) fn build(
                     "mode": mode.wire(),
                     "seats": chairs,
                     "name": name,
+                    "password": password,
                 }),
             ),
             Expect::Seat,
@@ -134,10 +136,15 @@ pub(super) fn build(
             game_id,
             deck_id,
             seat,
+            password,
         } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/join"),
-                &serde_json::json!({ "deck_id": deck_id, "seat": seat }),
+                &serde_json::json!({
+                    "deck_id": deck_id,
+                    "seat": seat,
+                    "password": password,
+                }),
             ),
             Expect::Seat,
         ),
@@ -161,6 +168,29 @@ pub(super) fn build(
             ),
             // Arranging a chair answers with the listing, so the room the
             // player is looking at redraws without a second round trip.
+            Expect::Games,
+        ),
+        // All three answer with the listing, so the room the player is
+        // looking at redraws without a second round trip.
+        LobbyRequest::SetReady { game_id, ready } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/ready"),
+                &serde_json::json!({ "ready": ready }),
+            ),
+            Expect::Games,
+        ),
+        LobbyRequest::StartGame { game_id } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/start"),
+                &serde_json::json!({}),
+            ),
+            Expect::Games,
+        ),
+        LobbyRequest::HandOver { game_id, seat } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/host"),
+                &serde_json::json!({ "seat": seat }),
+            ),
             Expect::Games,
         ),
         LobbyRequest::LeaveGame { game_id } => (

@@ -734,6 +734,31 @@ fn table(
         let b = button(commands, fonts, metrics, label, press, tone, !lobby.busy());
         commands.entity(head_row).add_child(b);
     }
+    // One box, two uses: it locks a room the moment it is opened, and it is
+    // what a locked room is joined with. They are never both wanted at once,
+    // and two boxes a player has to tell apart would be worse than one that
+    // says what it is for.
+    let secret = "\u{2022}".repeat(lobby.room_password().chars().count());
+    let lock = commands
+        .spawn((
+            Node {
+                width: px(metrics.tap * 4.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let box_ = text_field(
+        commands,
+        fonts,
+        metrics,
+        "ROOM PASSWORD",
+        &secret,
+        lobby.focus() == Field::RoomPassword,
+        Field::RoomPassword,
+    );
+    commands.entity(lock).add_child(box_);
+    commands.entity(head_row).add_child(lock);
     // How many chairs is the one thing that cannot be changed after the
     // table exists, so it is asked before it does.
     for chairs in MIN_CHAIRS..=MAX_CHAIRS {
@@ -815,11 +840,44 @@ fn table(
             commands.entity(row).add_child(join);
         }
         if game.seated() && game.state == "waiting" {
+            // Ready is the player's own statement and start is the host's:
+            // two different buttons because they are two different claims,
+            // and a host has to make both.
+            let ready = game.i_am_ready();
+            let say = button(
+                commands,
+                fonts,
+                metrics,
+                if ready { "Not ready" } else { "Ready" },
+                Press::Ready(index, !ready),
+                if ready {
+                    palette::PANEL
+                } else {
+                    palette::ACCENT
+                },
+                !lobby.busy(),
+            );
+            commands.entity(row).add_child(say);
+            if game.yours {
+                let start = button(
+                    commands,
+                    fonts,
+                    metrics,
+                    "Start",
+                    Press::StartRoom(index),
+                    palette::ACCENT,
+                    !lobby.busy() && game.startable,
+                );
+                commands.entity(row).add_child(start);
+            }
             let leave = button(
                 commands,
                 fonts,
                 metrics,
-                if game.yours { "Close" } else { "Leave" },
+                // A host who leaves no longer closes the room — it passes to
+                // whoever has been there longest — so the button says the
+                // same thing for everyone.
+                "Leave",
                 Press::LeaveTable(index),
                 palette::PANEL,
                 !lobby.busy(),
@@ -839,17 +897,26 @@ fn table(
 }
 
 /// How a table reads under its name: how full it is, and what it waits for.
+///
+/// Seated and ready are counted separately, because since a player has to say
+/// they are ready the two answer different questions — a full table can still
+/// be waiting for everyone in it.
 fn host_note(game: &GameSummary) -> String {
-    let ready = game.seats.iter().filter(|s| s.ready).count();
     let total = game.seats.len();
     if game.state != "waiting" {
         return format!("{total} seats");
     }
-    let waiting = total - ready;
+    let seated = game
+        .seats
+        .iter()
+        .filter(|s| s.taken || s.kind == SeatKind::Ai)
+        .count();
+    let waiting = game.seats.iter().filter(|s| !s.ready).count();
+    let lock = if game.locked { " · locked" } else { "" };
     if waiting == 0 {
-        format!("{ready}/{total} seated")
+        format!("{seated}/{total} seated · ready{lock}")
     } else {
-        format!("{ready}/{total} seated · waiting for {waiting}")
+        format!("{seated}/{total} seated · waiting for {waiting}{lock}")
     }
 }
 
@@ -963,6 +1030,19 @@ fn seat_rows(
                     commands.entity(line).add_child(pick);
                 }
             }
+        }
+        // The room can be handed to anyone else who is sitting at it, which
+        // is also how a host leaves without taking the table with them.
+        if game.yours && !mine && seat.taken && seat.kind == SeatKind::Human {
+            let pass = chip(
+                commands,
+                fonts,
+                metrics,
+                "make host",
+                Press::HandOver(index, seat.seat),
+                false,
+            );
+            commands.entity(line).add_child(pass);
         }
         // A free chair is one anyone else can take, by name rather than by
         // whichever one the gateway would have picked.

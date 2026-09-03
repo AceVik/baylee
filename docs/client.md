@@ -387,15 +387,23 @@ gateway's routes is tested without a gateway.
 **Rooms.** The table screen lists every room the gateway knows and draws each
 one seat by seat: who is sitting there, whether they are a person or the AI,
 at what difficulty, what they brought, and whether that chair is ready. A host
-opens a room by picking a size (2 to 4) instead of pressing one "host" button,
+opens a room by picking a size (2 to 8) instead of pressing one "host" button,
 and from then on every chair is a row of controls — the host's rows switch a
-chair between a person and the AI and pick the AI's difficulty, everyone
-else's row is read-only except for the one chair that is theirs, where the
-only control is which deck to bring. Sitting down is a tap on an open chair;
-standing up is a tap on your own. There is no start button anywhere, because
-the gateway has no start route: the table starts when the last chair goes
-ready, and the lobby finds that out the same way it always has, by re-reading
-the list.
+chair between a person and the AI, pick the AI's difficulty, and hand the room
+to anyone else sitting at it; everyone else's row is read-only except for the
+one chair that is theirs, where the only control is which deck to bring.
+Sitting down is a tap on an open chair; standing up is a tap on your own, and
+it no longer takes the table with it when the person standing up is the host.
+
+Two buttons on the table's own row, because they are two different claims:
+**Ready** is this player saying so and every player has one, **Start** is the
+host's and is greyed until the listing says `startable`. The lobby finds out
+that a room has started the way it always has, by re-reading the list.
+
+One box, two uses: **ROOM PASSWORD** locks a room as it is opened and is what
+a locked one is joined with. Never two boxes — they are never both wanted at
+once — and it is spent on the next open or join and then cleared, because a
+password left lying in a text box is the next room's password by accident.
 
 The seat rows are drawn from the listing verbatim, which is why they carry no
 account ids — the client is shown display names and a `you` flag, and has

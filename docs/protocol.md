@@ -329,22 +329,32 @@ opening payload below, and the client believes the table.
 ### Rooms
 
 A table with more than two chairs is a **room**, and the whole of it is
-arranged before anyone plays. `POST /lobby/games` with `seats: 2..=4` opens
+arranged before anyone plays. `POST /lobby/games` with `seats: 2..=8` opens
 one; the host takes the first chair and every other chair starts open. `name`
 is what the table is called in the list, and may be empty — the listing then
-falls back to the host's display name.
+falls back to the host's display name. Eight is `GamePreset::validate`'s own
+bound, so a room the gateway opens is never one the engine would then refuse
+to build.
+
+`password` locks the room: a non-empty one is stored as a SHA-256 hash and
+every `POST …/join` has to carry it or get a `403` — checked before anything
+else about the room, so a stranger with the wrong password cannot learn how
+full it is. Argon2 guards an account; this guards a table for an evening and
+is checked on every join, which is a different trade. The listing says only
+`"locked": true`.
 
 `GET /lobby/games` describes a room completely, because deciding whether to sit
 down means seeing what is already at the table:
 
 ```json
 { "id": "…", "name": "Kitchen table", "host": "viktor", "yours": false,
-  "state": "waiting",
+  "state": "waiting", "locked": false, "startable": true,
   "seats": [ { "seat": 0, "kind": "human", "ai": null, "taken": true,
-               "player": "viktor", "you": false, "deck": "Mono-Green",
-               "ready": true },
+               "player": "viktor", "you": false, "host": true,
+               "deck": "Mono-Green", "ready": true },
              { "seat": 1, "kind": "ai", "ai": "sharp", "taken": false,
-               "player": null, "you": false, "deck": "", "ready": true } ] }
+               "player": null, "you": false, "host": false,
+               "deck": "", "ready": true } ] }
 ```
 
 Never an account id — a `player` is a display name, and `you` / `yours` answer
@@ -360,17 +370,30 @@ in (`409`). Every **player** sets exactly one thing, the deck they themselves
 will play, through the same route with `deck_id`; a deck that is not theirs is
 a `403`, and so is any attempt to arrange a seat that is not their own.
 
-**There is no start button.** A room starts the moment every chair is ready: a
-human chair with an account and a deck in it, or an AI chair, which is ready as
-soon as it is configured (an AI the host gave no deck plays the house deck). It
-is the same rule the two-seat open table has always followed when its second
-player sat down, so a host who has given up waiting simply hands the last chair
-to the AI, and that is the start.
+**Starting takes two statements by two people.** `POST …/ready {ready}` is a
+player saying they are ready, and only ever about their own chair — a `409` if
+they have no deck yet, and reset by the host putting a different deck in that
+chair, because a deck they have not seen is not one they said yes to. An AI
+chair needs none of this: it is ready as soon as it is configured, and one the
+host gave no deck plays the house deck. `POST …/start` is the host's go, a
+`403` for anyone else and a `409` while any chair is not ready; `startable` on
+the listing is that same condition, published so a player can see who
+everyone is waiting for.
 
-`POST …/leave` frees a chair. A guest leaving leaves the chair open and the
-room standing; the **host** leaving closes the room, because without them
-nobody can arrange it, and a table that can never start should not be
-advertised as one that might.
+A room used to start itself the moment the last chair had a deck in it. That
+read well until "ready" and "has a deck" stopped being the same sentence:
+picking a deck to look at it put you in a game.
+
+`POST …/host {seat}` hands the room to whoever is sitting in that chair — by
+seat rather than by name, which is the one handle that stays unambiguous when
+two players share a display name. `403` for anyone but the host, `409` for an
+empty chair.
+
+`POST …/leave` frees a chair, and a room outlives its host: it passes to the
+player who **joined earliest** — arrival order, not seat order, because chairs
+are taken in whatever order people pick them — and only a room with nobody
+left in it is closed. Closing it the moment the host stood up, which is what
+happened before, threw everyone else out of a table they were sitting at.
 
 **A seat token is not always usable yet.** `mode:"ai"` and a join both order an
 engine before answering, so the socket can be opened at once — it simply waits

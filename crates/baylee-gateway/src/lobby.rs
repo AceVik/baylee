@@ -57,6 +57,20 @@ pub struct LobbySeat {
     /// choice, or the deck the host gave an AI — and what the preset is built
     /// from when the game starts.
     pub deck: Option<crate::store::Deck>,
+    /// Whether the person in this chair has said they are ready.
+    ///
+    /// Separate from having a deck, because they answer different questions:
+    /// a chair with a deck in it is *able* to play, and this is the player
+    /// saying they want to. Before it existed a room started the instant the
+    /// last deck was chosen, which meant a player who picked a deck to look
+    /// at it was already in a game.
+    pub said_ready: bool,
+    /// Where in the arrival order this player sits, for handing the room on.
+    ///
+    /// Not the seat index: chairs may be taken in any order, and "the next
+    /// player who joined" is a question about time. `None` for an empty or
+    /// AI chair.
+    pub joined_seq: Option<u64>,
 }
 
 impl LobbySeat {
@@ -71,19 +85,30 @@ impl LobbySeat {
             seat_token_hash: None,
             deck_name: String::new(),
             deck: None,
+            said_ready: false,
+            joined_seq: None,
         }
     }
 
     /// Whether the seat is settled enough for the game to start: somebody is
-    /// in it, and they have something to play.
+    /// in it, they have something to play, and they have said so.
     #[must_use]
     pub fn ready(&self) -> bool {
         match self.kind {
-            SeatKind::Human => self.account_id.is_some() && self.deck.is_some(),
+            SeatKind::Human => self.account_id.is_some() && self.deck.is_some() && self.said_ready,
             // An AI the host gave no deck plays the house deck, so there is
             // nothing left to wait for.
             SeatKind::Ai => true,
         }
+    }
+
+    /// Empties the chair, keeping only which chair it is.
+    ///
+    /// A seat is reset in three places — a player leaving, the host turning a
+    /// chair over to the AI, and a chair turned back to a human — and each
+    /// one that forgot a field left something of the last occupant behind.
+    pub fn vacate(&mut self) {
+        *self = Self::open(self.seat);
     }
 }
 
@@ -138,6 +163,16 @@ pub struct LobbyGame {
     pub created_at: u64,
     /// When the game ended (unix seconds), for the cleanup grace period.
     pub finished_at: Option<u64>,
+    /// SHA-256 of the room's password, if the host set one.
+    ///
+    /// Hashed rather than kept, because it is a password and people reuse
+    /// them — but SHA-256 rather than Argon2 like an account's, because this
+    /// one guards a table for an evening and is checked on every join. The
+    /// listing says only whether a room *has* one.
+    pub password_hash: Option<String>,
+    /// Hands out [`LobbySeat::joined_seq`]. Monotonic for the room's life, so
+    /// a player who leaves and comes back is at the back of the queue.
+    pub next_seq: u64,
 }
 
 impl LobbyGame {
@@ -161,13 +196,53 @@ impl LobbyGame {
             first.account_id = Some(account_id.clone());
             first.deck_name = deck_name;
             first.deck = Some(deck);
+            first.joined_seq = Some(0);
         }
         Self {
             state: LobbyState::Waiting,
             seats,
             host: Some(account_id),
             name,
+            next_seq: 1,
             ..Self::blank(id, created_at)
+        }
+    }
+
+    /// The next arrival number, for a player sitting down.
+    pub fn claim_seq(&mut self) -> u64 {
+        let seq = self.next_seq;
+        self.next_seq += 1;
+        seq
+    }
+
+    /// Whether `account_id` may arrange this room.
+    #[must_use]
+    pub fn hosted_by(&self, account_id: &str) -> bool {
+        self.host.as_deref() == Some(account_id)
+    }
+
+    /// Hands the room to the player who joined next, and says whether it
+    /// found one.
+    ///
+    /// The rule is arrival order, not seat order: the chairs of a room are
+    /// taken in whatever order people pick them, and "who has been here
+    /// longest" is the only answer that does not depend on where they chose
+    /// to sit. A room this leaves with no host at all has nobody to arrange
+    /// it and is the caller's to close.
+    pub fn hand_over_host(&mut self) -> bool {
+        let host = self.host.clone();
+        let next = self
+            .seats
+            .iter()
+            .filter(|s| s.kind == SeatKind::Human && s.account_id.is_some())
+            .filter(|s| s.account_id != host)
+            .min_by_key(|s| s.joined_seq.unwrap_or(u64::MAX));
+        match next.and_then(|s| s.account_id.clone()) {
+            Some(account_id) => {
+                self.host = Some(account_id);
+                true
+            }
+            None => false,
         }
     }
 
@@ -198,6 +273,8 @@ impl LobbyGame {
             updates: broadcast::channel(256).0,
             created_at,
             finished_at: None,
+            password_hash: None,
+            next_seq: 0,
         }
     }
 
@@ -257,6 +334,15 @@ impl Lobby {
                     "name": g.name,
                     "host": g.host.as_ref().and_then(|h| names.get(h)),
                     "yours": g.host.as_deref() == Some(me),
+                    // Whether, never what: a client needs to know to ask for
+                    // a password, and nothing else about it belongs on a
+                    // listing every signed-in player can read.
+                    "locked": g.password_hash.is_some(),
+                    // Whether the room could start if the host said so. It is
+                    // the host's button, but every player can see why it is
+                    // not lit yet.
+                    "startable": g.state == LobbyState::Waiting
+                        && g.seats.iter().all(LobbySeat::ready),
                     "state": match g.state {
                         LobbyState::Waiting => "waiting",
                         LobbyState::Playing => "playing",
@@ -279,6 +365,7 @@ impl Lobby {
                             // their account.
                             "player": s.account_id.as_ref().and_then(|a| names.get(a)),
                             "you": s.account_id.as_deref() == Some(me),
+                            "host": s.account_id.is_some() && s.account_id == g.host,
                             "deck": s.deck_name,
                             "ready": s.ready(),
                         })

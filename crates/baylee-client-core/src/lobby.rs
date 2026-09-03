@@ -48,6 +48,10 @@ pub enum Field {
     DisplayName,
     /// The password. A shell is expected to draw this masked.
     Password,
+    /// A room's password, on the table screen. Not part of the sign-in form
+    /// at all — it shares the caret machinery because a client has one caret,
+    /// not because the two fields are related.
+    RoomPassword,
 }
 
 impl Field {
@@ -59,7 +63,7 @@ impl Field {
         match self {
             Self::Email => FieldKind::Email,
             Self::DisplayName => FieldKind::Name,
-            Self::Password => FieldKind::Password,
+            Self::Password | Self::RoomPassword => FieldKind::Password,
         }
     }
 }
@@ -95,9 +99,10 @@ pub struct DeckSummary {
 
 /// The fewest chairs a table may have.
 pub const MIN_CHAIRS: usize = 2;
-/// The most chairs a table may have. The gateway enforces the same bound;
-/// this is what stops a client offering a number that would be refused.
-pub const MAX_CHAIRS: usize = 4;
+/// The most chairs a table may have. The gateway enforces the same bound —
+/// which is `GamePreset::validate`'s — and this is what stops a client
+/// offering a number that would be refused.
+pub const MAX_CHAIRS: usize = 8;
 
 /// Who a chair is meant for.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -111,6 +116,12 @@ pub enum SeatKind {
 }
 
 /// A seat in a listed game.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a wire DTO: the four flags are four independent answers the \
+              gateway sends, and packing them into an enum here would only \
+              move the decoding somewhere it cannot be checked against JSON"
+)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GameSeat {
     /// Seat number at the table.
@@ -130,6 +141,9 @@ pub struct GameSeat {
     /// Whether that is the player reading the list.
     #[serde(default)]
     pub you: bool,
+    /// Whether the person in this chair arranges the room.
+    #[serde(default)]
+    pub host: bool,
     /// The deck this chair plays, as far as it is decided.
     #[serde(default)]
     pub deck: String,
@@ -162,6 +176,15 @@ pub struct GameSummary {
     pub yours: bool,
     /// `"waiting"`, `"playing"` or `"over"`.
     pub state: String,
+    /// Whether the room asks for a password before letting anyone in. Never
+    /// the password itself — the listing is public to every signed-in player.
+    #[serde(default)]
+    pub locked: bool,
+    /// Whether every chair is ready, so the host's start button does
+    /// something. Visible to everyone, because a player waiting to start
+    /// should be able to see who they are waiting for.
+    #[serde(default)]
+    pub startable: bool,
     /// Every seat at the table, taken or not.
     #[serde(default)]
     pub seats: Vec<GameSeat>,
@@ -180,6 +203,18 @@ impl GameSummary {
         self.seats.iter().find(|s| s.you).map(|s| s.seat)
     }
 
+    /// This player's own chair, if they are at the table.
+    #[must_use]
+    pub fn mine(&self) -> Option<&GameSeat> {
+        self.seats.iter().find(|s| s.you)
+    }
+
+    /// Whether this player has said they are ready.
+    #[must_use]
+    pub fn i_am_ready(&self) -> bool {
+        self.mine().is_some_and(|s| s.ready)
+    }
+
     /// Whether this player is at the table at all.
     #[must_use]
     pub fn seated(&self) -> bool {
@@ -187,9 +222,18 @@ impl GameSummary {
     }
 
     /// How the table reads in a list: what it is called, and how full it is.
+    ///
+    /// *Occupied*, not ready. It used to count ready chairs, which meant the
+    /// same thing back when a chair with a deck in it was ready — and stopped
+    /// meaning it the moment a player had to say so, at which point a full
+    /// table read "0/4 seated".
     #[must_use]
     pub fn headline(&self) -> String {
-        let taken = self.seats.iter().filter(|s| s.ready).count();
+        let taken = self
+            .seats
+            .iter()
+            .filter(|s| s.taken || s.kind == SeatKind::Ai)
+            .count();
         let name = if self.name.trim().is_empty() {
             "table".to_string()
         } else {
@@ -296,6 +340,8 @@ pub enum LobbyRequest {
         chairs: usize,
         /// What to call it in the list.
         name: String,
+        /// A password for the room. Empty leaves it open.
+        password: String,
     },
     /// `POST /lobby/games/{id}/join`.
     JoinGame {
@@ -305,6 +351,8 @@ pub enum LobbyRequest {
         deck_id: String,
         /// Which chair, or the first free one.
         seat: Option<u32>,
+        /// The room's password, for a locked room.
+        password: String,
     },
     /// `POST /lobby/games/{id}/seats/{seat}` — arrange one chair.
     SetSeat {
@@ -318,6 +366,25 @@ pub enum LobbyRequest {
         ai: Option<String>,
         /// The deck the chair plays.
         deck_id: Option<String>,
+    },
+    /// `POST /lobby/games/{id}/ready` — say whether this player is ready.
+    SetReady {
+        /// The table.
+        game_id: String,
+        /// Ready, or taking it back.
+        ready: bool,
+    },
+    /// `POST /lobby/games/{id}/start` — the host's go.
+    StartGame {
+        /// The table to start.
+        game_id: String,
+    },
+    /// `POST /lobby/games/{id}/host` — hand the room to another chair.
+    HandOver {
+        /// The table.
+        game_id: String,
+        /// The chair that takes it over.
+        seat: u32,
     },
     /// `POST /lobby/games/{id}/leave` — give up a chair, or close the room.
     LeaveGame {
@@ -397,6 +464,7 @@ pub struct Lobby {
     email: String,
     display_name: String,
     password: String,
+    room_password: String,
     token: Option<String>,
     decks: Vec<DeckSummary>,
     games: Vec<GameSummary>,
@@ -462,13 +530,14 @@ impl Lobby {
         *self.field_mut(field) = value.to_string();
     }
 
-    /// The text in one sign-in field.
+    /// The text in one field.
     #[must_use]
     pub fn field(&self, field: Field) -> &str {
         match field {
             Field::Email => &self.email,
             Field::DisplayName => &self.display_name,
             Field::Password => &self.password,
+            Field::RoomPassword => &self.room_password,
         }
     }
 
@@ -549,13 +618,34 @@ impl Lobby {
 
     /// Moves the caret to the next field — the Tab key. The display name is
     /// not in the ring when the form is logging in, because it is not shown.
+    ///
+    /// The room password is not in the ring at all: it lives on another
+    /// screen, where it is the only field there is and Tab has nowhere to go.
     pub fn cycle_focus(&mut self) {
         self.focus = match (self.focus, self.registering()) {
             (Field::Email, true) => Field::DisplayName,
             (Field::Email, false) | (Field::DisplayName, _) => Field::Password,
             (Field::Password, _) => Field::Email,
+            (Field::RoomPassword, _) => Field::RoomPassword,
         };
         self.focus_epoch += 1;
+    }
+
+    /// What has been typed into the room password box.
+    #[must_use]
+    pub fn room_password(&self) -> &str {
+        &self.room_password
+    }
+
+    /// Empties the room password box.
+    ///
+    /// Called once a room has been opened or joined: a password left lying in
+    /// a text box is the next room's password by accident.
+    pub fn clear_room_password(&mut self) {
+        self.room_password.clear();
+        if self.focus == Field::RoomPassword {
+            self.focus = Field::Email;
+        }
     }
 
     /// Appends one typed character to the focused field.
@@ -744,15 +834,30 @@ impl Lobby {
         self.open_room(mode, 2, String::new())
     }
 
-    /// Opens a table of a chosen size, under a chosen name.
+    /// Opens a table of a chosen size, under a chosen name, locked with
+    /// whatever is in the room password box.
     pub fn open_room(
         &mut self,
         mode: GameMode,
         chairs: usize,
         name: String,
     ) -> Option<LobbyRequest> {
+        let password = self.room_password.clone();
+        self.open_locked_room(mode, chairs, name, password)
+    }
+
+    /// Opens a table with an explicit password, for a caller that has one
+    /// that did not come from the box.
+    pub fn open_locked_room(
+        &mut self,
+        mode: GameMode,
+        chairs: usize,
+        name: String,
+        password: String,
+    ) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
         self.busy = true;
+        self.room_password.clear();
         self.asked_for = Some(mode);
         self.status = "opening a table…".to_string();
         Some(LobbyRequest::CreateGame {
@@ -760,6 +865,7 @@ impl Lobby {
             mode,
             chairs: chairs.clamp(MIN_CHAIRS, MAX_CHAIRS),
             name,
+            password,
         })
     }
 
@@ -768,17 +874,68 @@ impl Lobby {
         self.join_seat(game_id, None)
     }
 
-    /// Sits down in a named chair.
+    /// Sits down in a named chair, sending whatever is in the room password
+    /// box — which a room that is not locked simply ignores.
     pub fn join_seat(&mut self, game_id: &str, seat: Option<u32>) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
+        let password = std::mem::take(&mut self.room_password);
         self.busy = true;
-        // A table only starts once every chair is settled, so sitting down no
-        // longer means the game begins — the seat screen waits either way.
+        // A table only starts once every chair is ready and the host says go,
+        // so sitting down does not begin the game — the seat screen waits
+        // either way.
         self.asked_for = None;
         self.status = "sitting down…".to_string();
         Some(LobbyRequest::JoinGame {
             game_id: game_id.to_string(),
             deck_id,
+            seat,
+            password,
+        })
+    }
+
+    /// Says whether this player is ready to play.
+    pub fn set_ready(&mut self, game_id: &str, ready: bool) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.status = if ready {
+            "ready…".to_string()
+        } else {
+            "not ready…".to_string()
+        };
+        Some(LobbyRequest::SetReady {
+            game_id: game_id.to_string(),
+            ready,
+        })
+    }
+
+    /// Starts the room. The host's call, and only when every chair is ready.
+    ///
+    /// The button is hidden for anyone else and greyed until the listing says
+    /// `startable`, but nothing here is a check — the gateway refuses both
+    /// cases, and this is only about not offering a player a button that does
+    /// nothing.
+    pub fn start_room(&mut self, game_id: &str) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.status = "starting…".to_string();
+        Some(LobbyRequest::StartGame {
+            game_id: game_id.to_string(),
+        })
+    }
+
+    /// Hands the room to another chair.
+    pub fn hand_over(&mut self, game_id: &str, seat: u32) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.status = "handing the room over…".to_string();
+        Some(LobbyRequest::HandOver {
+            game_id: game_id.to_string(),
             seat,
         })
     }
@@ -993,6 +1150,7 @@ impl Lobby {
             Field::Email => &mut self.email,
             Field::DisplayName => &mut self.display_name,
             Field::Password => &mut self.password,
+            Field::RoomPassword => &mut self.room_password,
         }
     }
 
@@ -1126,6 +1284,7 @@ mod tests {
                 mode: GameMode::Ai,
                 chairs: 2,
                 name: String::new(),
+                password: String::new(),
             })
         );
     }
@@ -1179,8 +1338,123 @@ mod tests {
                 game_id: "g7".to_string(),
                 deck_id: "d1".to_string(),
                 seat: None,
+                password: String::new(),
             })
         );
+    }
+
+    /// The box is typed into once and spent once — on opening a room or on
+    /// joining one, whichever comes first. A password left lying in a text
+    /// box is the next room's password by accident.
+    #[test]
+    fn the_room_password_goes_with_the_next_table_and_is_then_forgotten() {
+        let mut lobby = seated_lobby();
+        lobby.focus_on(Field::RoomPassword);
+        for ch in "kitchen".chars() {
+            lobby.type_char(ch);
+        }
+        assert_eq!(lobby.room_password(), "kitchen");
+        assert_eq!(
+            lobby.join_seat("g7", Some(2)),
+            Some(LobbyRequest::JoinGame {
+                game_id: "g7".to_string(),
+                deck_id: "d1".to_string(),
+                seat: Some(2),
+                password: "kitchen".to_string(),
+            })
+        );
+        assert!(lobby.room_password().is_empty(), "and it is gone");
+
+        lobby.apply(LobbyEvent::Failed("wrong password".to_string()));
+        lobby.focus_on(Field::RoomPassword);
+        for ch in "supper".chars() {
+            lobby.type_char(ch);
+        }
+        assert_eq!(
+            lobby.open_room(GameMode::Open, 3, "Kitchen".to_string()),
+            Some(LobbyRequest::CreateGame {
+                deck_id: "d1".to_string(),
+                mode: GameMode::Open,
+                chairs: 3,
+                name: "Kitchen".to_string(),
+                password: "supper".to_string(),
+            })
+        );
+        assert!(lobby.room_password().is_empty());
+    }
+
+    /// Ready, start and handover are three different statements, and the two
+    /// that are the host's are not the one that is the player's.
+    #[test]
+    fn a_room_is_readied_started_and_handed_on_by_name() {
+        let mut lobby = seated_lobby();
+        assert_eq!(
+            lobby.set_ready("g7", true),
+            Some(LobbyRequest::SetReady {
+                game_id: "g7".to_string(),
+                ready: true,
+            })
+        );
+        lobby.apply(LobbyEvent::Games(vec![]));
+        assert_eq!(
+            lobby.set_ready("g7", false),
+            Some(LobbyRequest::SetReady {
+                game_id: "g7".to_string(),
+                ready: false,
+            })
+        );
+        lobby.apply(LobbyEvent::Games(vec![]));
+        assert_eq!(
+            lobby.start_room("g7"),
+            Some(LobbyRequest::StartGame {
+                game_id: "g7".to_string(),
+            })
+        );
+        lobby.apply(LobbyEvent::Games(vec![]));
+        assert_eq!(
+            lobby.hand_over("g7", 2),
+            Some(LobbyRequest::HandOver {
+                game_id: "g7".to_string(),
+                seat: 2,
+            })
+        );
+        // And all three obey the one-request-in-flight rule, so a double tap
+        // on "start" cannot order two engines.
+        assert_eq!(lobby.start_room("g7"), None);
+    }
+
+    /// A full table is not a ready one, and the line under a room's name has
+    /// to say which it is. It counted ready chairs back when having a deck
+    /// *was* being ready, and would have read "0/4 seated" at a full table
+    /// the moment that stopped being true.
+    #[test]
+    fn a_rooms_headline_counts_who_is_sitting_down_not_who_is_ready() {
+        let room = GameSummary {
+            id: "g".to_string(),
+            name: "Kitchen".to_string(),
+            state: "waiting".to_string(),
+            seats: vec![
+                GameSeat {
+                    seat: 0,
+                    taken: true,
+                    ready: false,
+                    ..GameSeat::default()
+                },
+                GameSeat {
+                    seat: 1,
+                    kind: SeatKind::Ai,
+                    ready: true,
+                    ..GameSeat::default()
+                },
+                GameSeat {
+                    seat: 2,
+                    ..GameSeat::default()
+                },
+            ],
+            ..GameSummary::default()
+        };
+        assert!(room.headline().contains("2/3"), "{}", room.headline());
+        assert!(!room.i_am_ready(), "nobody here is this player");
     }
 
     #[test]
@@ -1698,6 +1972,7 @@ mod tests {
                     ..GameSeat::default()
                 },
             ],
+            ..GameSummary::default()
         };
         assert!(room.joinable());
         room.seats[1].kind = SeatKind::Ai;

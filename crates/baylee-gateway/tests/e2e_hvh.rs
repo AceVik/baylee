@@ -100,6 +100,28 @@ async fn human_vs_human_both_seats_receive_updates() {
     assert_eq!(status, 200, "join game: {body}");
     let seat_token_b = json_field(&body, "seat_token").to_string();
 
+    // Both say they are ready, and the host starts the table. Sitting down is
+    // not the same statement as being ready to play, so neither is enough on
+    // its own.
+    for token in &tokens {
+        let (status, body) = http(
+            port,
+            "POST",
+            &format!("/lobby/games/{game_id}/ready"),
+            Some(token),
+            "{}",
+        );
+        assert_eq!(status, 200, "ready: {body}");
+    }
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&tokens[0]),
+        "",
+    );
+    assert_eq!(status, 200, "start: {body}");
+
     // Connect both seat sockets.
     let url = |token: &str| format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={token}");
     let mut ws_a = None;

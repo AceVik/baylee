@@ -401,6 +401,27 @@ pub(super) fn clicks(
                     dispatch(&state, &mailbox, request);
                 }
             }
+            Press::Ready(index, ready) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.set_ready(&game, ready);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
+            Press::StartRoom(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.start_room(&game);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
+            Press::HandOver(index, seat) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.hand_over(&game, seat);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
             Press::SeatKind(index, seat, kind) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
@@ -728,8 +749,14 @@ pub(crate) enum Press {
     Join(usize),
     /// Sit down in a named chair of a listed table.
     JoinSeat(usize, u32),
-    /// Give up a chair, or close the room when hosting it.
+    /// Give up a chair. The room outlives it.
     LeaveTable(usize),
+    /// Say whether this player is ready at a listed table.
+    Ready(usize, bool),
+    /// Start a room this account hosts.
+    StartRoom(usize),
+    /// Hand the room to the player in a chair.
+    HandOver(usize, u32),
     /// Make a chair a person's or the AI's.
     SeatKind(usize, u32, SeatKind),
     /// Set an AI chair's difficulty.

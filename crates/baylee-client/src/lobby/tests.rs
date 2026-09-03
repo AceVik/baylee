@@ -87,6 +87,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 mode: GameMode::Ai,
                 chairs: 2,
                 name: String::new(),
+                password: String::new(),
             },
             "POST",
             "http://gw/lobby/games",
@@ -96,6 +97,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 game_id: "g1".to_string(),
                 deck_id: "d1".to_string(),
                 seat: None,
+                password: String::new(),
             },
             "POST",
             "http://gw/lobby/games/g1/join",
@@ -167,11 +169,12 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             mode: GameMode::Open,
             chairs: 2,
             name: String::new(),
+            password: String::new(),
         },
     );
     assert_eq!(
         body(&game),
-        serde_json::json!({ "deck_id": "d1", "mode": "open", "seats": 2, "name": "" })
+        serde_json::json!({ "deck_id": "d1", "mode": "open", "seats": 2, "name": "", "password": "" })
     );
     let (join, _) = build(
         "http://gw",
@@ -181,11 +184,12 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             game_id: "g1".to_string(),
             deck_id: "d1".to_string(),
             seat: None,
+            password: String::new(),
         },
     );
     assert_eq!(
         body(&join),
-        serde_json::json!({ "deck_id": "d1", "seat": null })
+        serde_json::json!({ "deck_id": "d1", "seat": null, "password": "" })
     );
 
     // Arranging a chair, which is the room's own verb.
@@ -600,12 +604,16 @@ fn a_finger_gets_a_target_it_can_hit() {
 #[test]
 fn a_phone_drops_what_it_has_no_room_for() {
     let mut app = headless();
-    app.world_mut()
-        .resource_mut::<LobbyState>()
-        .lobby
-        .apply(LobbyEvent::LoggedIn {
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
         });
+        // A real address: `headless` empties it so the startup probe reaches
+        // nothing, and an empty one would make the assertions below match any
+        // empty label on the screen rather than this one.
+        state.gateway = "http://gw.example:28766".to_string();
+    }
     sized(&mut app, 1400.0);
     app.update();
     let wide = labels(&mut app);
