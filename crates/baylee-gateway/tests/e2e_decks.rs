@@ -148,6 +148,23 @@ fn the_gateway_refuses_exactly_what_the_builder_calls_blocking() {
             "an unknown card in the sideboard",
             r#"{"name":"D","cards":["1 Forest"],"sideboard":["1 Not A Real Card"],"commander":null}"#,
         ),
+        // The limit is on the card. Once a printing became part of a row's
+        // identity, each of these was a pair of rows that passed a per-row
+        // check and stored more copies than the route's own error message
+        // allows — through the side that is supposed to be doing the
+        // enforcing, which is what made it a way to cheat.
+        (
+            "eight copies split across two printings",
+            r#"{"name":"D","cards":["4 Baleful Strix","4 Baleful Strix *F*"],"sideboard":[],"commander":null}"#,
+        ),
+        (
+            "five copies split across two rows of the same printing",
+            r#"{"name":"D","cards":["2 Baleful Strix","3 Baleful Strix"],"sideboard":[],"commander":null}"#,
+        ),
+        (
+            "the same split, in the sideboard",
+            r#"{"name":"D","cards":["1 Forest"],"sideboard":["4 Baleful Strix","4 Baleful Strix *F*"],"commander":null}"#,
+        ),
     ] {
         let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
         assert_eq!(status, 400, "{why}: {answer}");
@@ -155,6 +172,19 @@ fn the_gateway_refuses_exactly_what_the_builder_calls_blocking() {
 
     // And a basic land is the one card there may be any number of.
     let body = r#"{"name":"Mono-forest","cards":["40 Forest"],"sideboard":[],"commander":null}"#;
+    let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
+    assert_eq!(status, 200, "{answer}");
+
+    // The other half of counting per card: four copies *are* four copies
+    // however many pieces of cardboard they are. Owning two foils and two
+    // plain is an ordinary deck list, and the fix above must not refuse it.
+    let body = r#"{"name":"Split","cards":["2 Baleful Strix","2 Baleful Strix *F*"],"sideboard":[],"commander":null}"#;
+    let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
+    assert_eq!(status, 200, "{answer}");
+
+    // Each list is counted on its own, which is what `DeckBuilder::add_print`
+    // does — see the note in `docs/design.md` about whether it should.
+    let body = r#"{"name":"Both","cards":["4 Baleful Strix"],"sideboard":["4 Baleful Strix"],"commander":null}"#;
     let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
     assert_eq!(status, 200, "{answer}");
 }

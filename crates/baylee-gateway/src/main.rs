@@ -801,8 +801,20 @@ struct ParsedLine {
 /// The row grammar lives in `baylee_core::deckrow`, so a stored deck, an
 /// exported file and an imported one are read by the same code. A row that
 /// names only a card is the old form and still means what it meant.
+///
+/// The copy limit is counted **per card, not per row**. Once a printing became
+/// part of a row's identity, `4 Lightning Bolt (LEA)` and `4 Lightning Bolt
+/// (M10)` were two rows that each passed a per-row check — eight Bolts through
+/// a route whose own error message says 1–4. The client's builder had it right
+/// all along ("the copy limit is on the *card*", `deckbuilder/builder.rs`); it
+/// was this side that counted the wrong thing, and being the enforcing side is
+/// what made it a way to cheat rather than a display bug.
+///
+/// Per *list*, because this runs once for the deck and once for the sideboard
+/// — which is the same split `DeckBuilder::add_print` applies.
 fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Json<ErrorBody>)> {
     let mut out = Vec::with_capacity(lines.len());
+    let mut copies: std::collections::BTreeMap<u32, u32> = std::collections::BTreeMap::new();
     let mut total: u32 = 0;
     for line in lines {
         let row = baylee_core::deckrow::parse(line).map_err(|e| match e {
@@ -832,11 +844,21 @@ fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Js
                     .types
                     .contains(baylee_core::types::TypeSet::LAND)
         });
-        if count == 0 || (!basic_land && count > 4) {
+        if count == 0 {
             return Err(err(
                 StatusCode::BAD_REQUEST,
                 "invalid card count (1-4, unlimited for basic lands)",
             ));
+        }
+        if !basic_land {
+            let seen = copies.entry(index.get()).or_insert(0);
+            *seen = seen.saturating_add(count);
+            if *seen > 4 {
+                return Err(err(
+                    StatusCode::BAD_REQUEST,
+                    "invalid card count (1-4, unlimited for basic lands)",
+                ));
+            }
         }
         total = total
             .checked_add(count)

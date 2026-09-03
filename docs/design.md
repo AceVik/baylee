@@ -65,16 +65,35 @@ requires the offerer to hold priority (`engine/actions.rs:15-20`).
 The existing test asserts that a rejection *surfaces* (`host.rs:380-392`). It
 does not assert that the player can still answer.
 
-**This is almost certainly the fault I measured live yesterday** — a legal land
-under the cursor that no key and no click would play, with `last_error` null
-and the phase advancing on its own. The advancing phase is the house AI taking
-the seat.
+**This is consistent with the fault I measured live yesterday, and not yet
+confirmed as its cause** — a legal land under the cursor that no key and no
+click would play, with `last_error` null and the phase advancing on its own.
+The advancing phase fits: it is the house AI taking the seat. One thing does
+not. That `/state` dump showed `interaction` *present*, with `lands`
+containing the card; Lock A predicts `interaction: null`. Both can hold only
+if the AI answered and a fresh `Pending` arrived between the key and the read,
+which is plausible and unmeasured. The `outbox` / `mana_run` / `ability_menu`
+fields added to `/state` today are what settle it: a queued-but-unsent action
+or a mana run owning the keys are the two other shapes that look identical
+from outside. Fix Lock A regardless — it is a real defect on its own evidence,
+which is the `Vec::new()` at `engine-server/src/lib.rs:248`.
 
-Fix, in two halves. Client: keep `last_pending` on `Duel` and rebuild the
-`Interaction` when a `Failed` arrives in a `poll()` batch carrying no `Choice`,
-with `Phrase::WhyEngineRefused` on the prompt's second line. Engine-server: on
-a refusal, send the seat an error *and re-send the current `ChoiceRequest`*.
-One function. Without the second half the first is `LocalHost`-only.
+**Fixed.** The repair turned out to be smaller and better placed than the plan
+above, which wanted the client to remember `last_pending` and rebuild the
+`Interaction` itself. It does not have to: `Session::snapshot` already returns
+the outstanding choice for a seat, already sends it *only* to the seat being
+awaited, and is documented read-only precisely so a reconnect cannot pump an AI
+seat's turn. So both hosts just ask it again —
+
+- `LocalHost::submit` pushes the `Failed`, then feeds `snapshot(seat)` through
+  the same `host_message` decoder its normal traffic uses.
+- `EngineRunner::refused` sends an `Error` frame plus that snapshot, through
+  the existing `route`, so an unattached seat is still filtered out.
+
+Fixing it in the *host* rather than in `Duel` means the client keeps no new
+state and the rule holds for anything else that ever speaks the protocol.
+A `Phrase::WhyEngineRefused` on the prompt's second line is still worth having,
+but it is now cosmetic rather than load-bearing.
 
 ### Lock B — questions whose options are drawn nowhere
 
@@ -84,10 +103,14 @@ the client:
 
 ```
 grep -rn 'looking_at' crates/baylee-client/src crates/baylee-client-core/src
-→ test_support.rs:97
+→ table.rs:240    ….looking_at(look, Vec3::Y)      Transform, the camera
+→ table.rs:623    ….looking_at(Vec3::ZERO, Vec3::Y) Transform, the camera
+→ test_support.rs:97   looking_at: Vec::new(),      test scaffolding
 ```
 
-One hit, in test scaffolding. **Nothing has ever rendered it.** So a
+Three hits, unfiltered: two are Bevy's `Transform::looking_at` and have
+nothing to do with the field, and the third initialises it empty in a test.
+**Nothing has ever rendered it.** So a
 `ChooseCards` from a library search, and *every* `OrderObjects` (both are
 library reorders, `resolve/mod.rs:512,904`), draws a headline and
 `HintClickBoard` over a board containing nothing to click. The prompt bar shows
@@ -121,10 +144,21 @@ fails on both locks and on every future one of the same shape.
 - `VIEW_VERSION` is **8** (`crates/baylee-view/src/lib.rs:41`); the file said 7.
   Fixed. The next breaking view change is a bump to 9. One audit worked from
   the stale number, which is what a stale contract file costs.
-- The copy limit is enforced **per row** in the gateway (`main.rs:827-840`) and
-  **per card** in the client (`deckbuilder/builder.rs:506-517`). `CLAUDE.md`
-  asserts the opposite. Two printings of one card therefore save with eight
-  copies. The gateway is the side that must change.
+- The copy limit was enforced **per row** in the gateway (`main.rs`) and **per
+  card** in the client (`deckbuilder/builder.rs`). `CLAUDE.md` asserts the
+  opposite. Two printings of one card therefore saved with eight copies — and
+  through the side that is supposed to be doing the enforcing, so it was a way
+  to cheat rather than a display bug. **Fixed:** `parse_deck_lines` now
+  accumulates per `CardIndex`. The client was right; `CLAUDE.md` described the
+  code backwards.
+
+  One question that fix deliberately does **not** answer: both sides count per
+  *list*, so four in the deck and four in the sideboard is eight legal copies.
+  Real tournament rules count the two together. Changing that means changing
+  `DeckBuilder::add_print` in the same breath, because `CLAUDE.md`'s rule for
+  the builder is that a live save button always saves — so it is its own
+  change, with its own test, and not a thing to slip into a bug fix. Noted
+  here so it is not lost.
 
 ---
 
@@ -578,10 +612,17 @@ one `VIEW_VERSION` bump (8 → 9) where possible.
 ## 5. Sequencing
 
 **First, because nothing else matters while a fetchland freezes the table.**
-Lock A in the client and the one function in the engine-server; the zone
-browser and the pile chips; the "every offered option is drawn" invariant; and
-`duel_flow.rs` rewritten to answer through the browser model rather than by
-hand-building actions.
+~~Lock A~~ **— done.** Both hosts now answer a refusal with the error *and* the
+question again: `LocalHost::submit` re-reads `Session::snapshot`, and
+`EngineRunner::refused` does the same over the wire. `snapshot` is read-only,
+so re-asking cannot pump an AI seat's turn, and it sends the choice only to the
+seat actually being awaited. Two tests hold it — one per host — and each ends
+by playing the refused seat's *next* action, because asserting that a
+`ChoiceRequest` came back does not prove the seat can still act.
+
+Then: the zone browser and the pile chips; the "every offered option is drawn"
+invariant; and `duel_flow.rs` rewritten to answer through the browser model
+rather than by hand-building actions.
 
 **Second, the common turn made fast and safe.** The keymap swap; the
 `ChooseNumber` stepper and digit picks; arm-then-act with mana abilities
