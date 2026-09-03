@@ -242,14 +242,41 @@ impl EngineRunner {
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
-        // An illegal action is the seat's problem, not the game's: `act`
-        // already refused it and nothing moved.
-        let Ok(routed) = session.act(player, action) else {
+        match session.act(player, action) {
+            Ok(routed) => {
+                let mut out = self.route(&routed);
+                out.extend(self.ending());
+                out
+            }
+            Err(reason) => self.refused(player, &reason),
+        }
+    }
+
+    /// Answers a refused action: why it was refused, and the question again.
+    ///
+    /// Silence here is what turns a wrong action into a fatal one. The client
+    /// clears its `Interaction` the moment it submits (`flush_outbox` in
+    /// `baylee-client`), so a seat told nothing is left with no question in
+    /// front of it: every later key and click does nothing, and when the
+    /// decision clock runs out the house agent plays that seat's turn — which
+    /// looks, from the table, like the phase advancing on its own.
+    ///
+    /// Re-asking is safe because `Session::snapshot` is read-only: it never
+    /// pumps, so it cannot take a turn on an AI seat's behalf. It also sends
+    /// the choice only to the seat actually being awaited, so a refusal from a
+    /// seat that does not hold the decision gets the error and nothing more.
+    fn refused(&self, player: PlayerId, reason: &str) -> Vec<Envelope> {
+        let Some(session) = self.session.as_ref() else {
             return Vec::new();
         };
-        let mut out = self.route(&routed);
-        out.extend(self.ending());
-        out
+        let mut frames = vec![(player, error(reason))];
+        frames.extend(
+            session
+                .snapshot(player)
+                .into_iter()
+                .map(|env| (player, env)),
+        );
+        self.route(&frames)
     }
 
     /// `GameEnded`, once, when the game is over.
@@ -291,6 +318,16 @@ pub fn seat_frame(seat: u8, envelope: &Envelope) -> Envelope {
         msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
             seat: u32::from(seat),
             envelope: prost::Message::encode_to_vec(envelope),
+        })),
+    }
+}
+
+/// An error a seat may be shown.
+fn error(message: &str) -> Envelope {
+    Envelope {
+        msg: Some(v1::envelope::Msg::Error(v1::Error {
+            code: 1,
+            message: message.to_string(),
         })),
     }
 }
@@ -371,6 +408,23 @@ mod tests {
         })
     }
 
+    /// One seat's answer, wrapped the way its socket would deliver it.
+    fn act(runner: &mut EngineRunner, seat: u32, action: &PlayerAction) -> Vec<Envelope> {
+        let inner = Envelope {
+            msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
+                game_id: "g1".to_string(),
+                seat_token: String::new(),
+                action_json: serde_json::to_vec(action).expect("action serializes"),
+            })),
+        };
+        runner.handle(Envelope {
+            msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                seat,
+                envelope: prost::Message::encode_to_vec(&inner),
+            })),
+        })
+    }
+
     /// The `(seat, inner message)` of each frame, which is all a test cares
     /// about — the gateway never looks inside one either.
     fn frames(envelopes: &[Envelope]) -> Vec<(u32, v1::envelope::Msg)> {
@@ -428,6 +482,52 @@ mod tests {
         assert!(
             frames.len() > 1,
             "a seat that arrives late is left with only a roster"
+        );
+    }
+
+    /// A refusal must cost the seat the action and nothing else.
+    ///
+    /// The network half of the rule `LocalHost` obeys. The client clears its
+    /// `Interaction` the moment it submits, so an engine that answers a
+    /// refused action with silence leaves that seat holding no question at
+    /// all — it can never act again, and the decision clock then hands its
+    /// turns to the house agent, which from the table looks like the phase
+    /// advancing on its own.
+    #[test]
+    fn a_refused_action_is_answered_with_the_question_again() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(0));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        // The opening choice is a mulligan; passing priority is not an answer.
+        let out = act(&mut runner, 0, &PlayerAction::PassPriority);
+        let refusal = frames(&out);
+        assert!(
+            refusal
+                .iter()
+                .any(|(seat, msg)| *seat == 0 && matches!(msg, v1::envelope::Msg::Error(_))),
+            "the seat was not told why"
+        );
+        assert!(
+            refusal
+                .iter()
+                .any(|(seat, msg)| *seat == 0
+                    && matches!(msg, v1::envelope::Msg::ChoiceRequest(_))),
+            "the seat was not asked again"
+        );
+        // One seat's mistake is not everyone's business.
+        assert!(
+            refusal.iter().all(|(seat, _)| *seat == 0),
+            "the refusal was broadcast"
+        );
+        // And the question that came back is the one it still owes an answer
+        // to — proof the re-ask did not advance the game while saying no.
+        let out = act(&mut runner, 0, &PlayerAction::MulliganKeep);
+        assert!(
+            frames(&out)
+                .iter()
+                .any(|(_, msg)| matches!(msg, v1::envelope::Msg::StateDelta(_))),
+            "the seat could not play after the refusal"
         );
     }
 

@@ -149,7 +149,18 @@ impl DuelHost for LocalHost {
     fn submit(&mut self, action: PlayerAction) {
         match self.session.act(self.seat, action) {
             Ok(routed) => self.absorb(routed),
-            Err(reason) => self.pending_out.push(HostMessage::Failed(reason)),
+            // A refusal must cost the seat the action and nothing else. The
+            // client drops its `Interaction` the moment it submits, so a
+            // `Failed` on its own leaves the player holding no question at
+            // all — every later key and click then does nothing, which reads
+            // exactly like a dead client. `snapshot` is read-only, so handing
+            // the question back cannot advance the game.
+            Err(reason) => {
+                self.pending_out.push(HostMessage::Failed(reason));
+                let again = self.session.snapshot(self.seat);
+                self.pending_out
+                    .extend(again.into_iter().filter_map(host_message));
+            }
         }
     }
 
@@ -387,6 +398,23 @@ mod tests {
         assert!(
             out.iter().any(|m| matches!(m, HostMessage::Failed(_))),
             "a rejected action must surface, or the table just freezes"
+        );
+        // The half this test used to miss, and the reason it missed a real
+        // freeze: surfacing the error is not enough. The client drops its
+        // `Interaction` on submit, so a refusal that does not hand the
+        // question back leaves the seat unable to answer anything ever again.
+        assert!(
+            out.iter().any(|m| matches!(m, HostMessage::Choice(_))),
+            "a refusal must re-ask, not just say no"
+        );
+        // And the proof that it re-asked the *same* question, without having
+        // advanced the game while saying so: the mulligan is still answerable.
+        host.submit(PlayerAction::MulliganKeep);
+        assert!(
+            host.poll()
+                .iter()
+                .any(|m| matches!(m, HostMessage::View(_))),
+            "the seat can still play after a refusal"
         );
     }
 
