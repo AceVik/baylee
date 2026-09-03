@@ -23,6 +23,7 @@
 //! from the view bind group, which means nothing here is written per frame:
 //! a material is created once and never touched again while it is on screen.
 
+use baylee_client_core::cardrail;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use bevy::asset::embedded_asset;
 use bevy::prelude::*;
@@ -62,6 +63,18 @@ pub mod glow {
     /// than on its border. The border says what a card is; the face says
     /// what it can do.
     pub const SUMMONING_SICK: u32 = 16;
+
+    /// Where the keyword rail's eleven marks begin in the word.
+    ///
+    /// The rail is a *field* and not eleven more flags, because the shader
+    /// has to walk it: which mark a fragment is inside is the k-th set bit,
+    /// found in one loop bound at compile time. Slot order is
+    /// `baylee_client_core::cardrail::MARK_ORDER`, and nothing on the GPU
+    /// side ever sees the engine's keyword numbering.
+    pub const MARK_SHIFT: u32 = 8;
+
+    /// The eleven mark bits, in place.
+    pub const MARK_MASK: u32 = 0x7ff << MARK_SHIFT;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -75,7 +88,14 @@ const KEYWORD_BITS: [(u32, u32); 3] = [
     (14, glow::SHROUD),
 ];
 
-/// Translates the view's keyword bitset into the shader's three bits.
+/// Translates the view's keyword bitset into what the shader draws.
+///
+/// Two different things come out. The band bits are the three keywords the
+/// border is a *material* for; the rail field is the eleven the card wears as
+/// marks along its bottom edge. Which keyword goes where is not a matter of
+/// taste: a material composes with at most one other material before it says
+/// neither thing, and a creature can carry six combat keywords at once, so
+/// those have to be countable rather than mixed.
 ///
 /// Shroud swallows hexproof on the way through, because that is what the two
 /// keywords do to each other: a permanent with both may be targeted by
@@ -93,6 +113,15 @@ pub fn glow_bits(keywords: u128) -> u32 {
     }
     if bits & glow::SHROUD != 0 {
         bits &= !glow::HEXPROOF;
+    }
+    // The slot is counted in `u32` from the shift, rather than as an
+    // `enumerate()` index cast to one, so this function has no panic in it at
+    // all: eleven slots cannot overflow, but saying so with an `expect` would
+    // put a panic in the path every card on the board takes every frame.
+    for (slot, badge) in (glow::MARK_SHIFT..).zip(cardrail::MARK_ORDER) {
+        if keywords & badge.bit() != 0 {
+            bits |= 1 << slot;
+        }
     }
     bits
 }
@@ -423,6 +452,10 @@ impl Plugin for CardMaterialPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/card.wgsl");
         embedded_asset!(app, "shaders/card_ui.wgsl");
+        // The rail both of them import. Registered here rather than loaded on
+        // demand because it is not a shader in its own right: nothing sets it
+        // on a pipeline, and the two that import it name it by this path.
+        embedded_asset!(app, "shaders/card_common.wgsl");
         app.add_plugins(MaterialPlugin::<CardMaterial>::default())
             .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
             .init_resource::<UiCardMaterials>();
@@ -468,9 +501,10 @@ pub(crate) mod tests {
         }
     }
 
-    /// The shader reads three bits; the engine numbers more than a hundred
-    /// keywords and generates that numbering. A card glowing for the wrong
-    /// keyword would be a rules lie a player would believe.
+    /// The border speaks for three keywords and the rail for eleven more;
+    /// the engine numbers over a hundred and generates that numbering. A card
+    /// glowing for the wrong keyword would be a rules lie a player would
+    /// believe.
     #[test]
     fn the_glow_bits_are_the_keywords_they_claim_to_be() {
         use baylee_cards_dsl::KeywordSet;
@@ -480,8 +514,10 @@ pub(crate) mod tests {
         );
         assert_eq!(glow_bits(KeywordSet::HEXPROOF.bits()), glow::HEXPROOF);
         assert_eq!(glow_bits(KeywordSet::SHROUD.bits()), glow::SHROUD);
-        // And nothing else lights the border up.
-        assert_eq!(glow_bits(KeywordSet::FLYING.bits()), 0);
+        // And nothing else lights the *border* up: flying is a mark on the
+        // rail, and a keyword that turned the border green would be claiming
+        // a protection the card does not have.
+        assert_eq!(glow_bits(KeywordSet::FLYING.bits()) & !glow::MARK_MASK, 0);
         assert_eq!(glow_bits(0), 0);
     }
 
@@ -624,6 +660,110 @@ pub(crate) mod tests {
         .unwrap_or_else(|e| panic!("does not validate: {e:?}"));
     }
 
+    /// The value of a `const` declared in a WGSL file.
+    ///
+    /// Reading the shader's own text is the only way these constants can be
+    /// checked at all: one side is a Rust `const` the compiler knows about,
+    /// the other is a number in a `.wgsl` file that nothing but the GPU ever
+    /// parses. A mismatch is silent, and looks like a rail drawn in the wrong
+    /// place on a machine nobody is testing on.
+    pub(crate) fn wgsl_const(source: &str, name: &str) -> f32 {
+        let head = format!("const {name}:");
+        let line = source
+            .lines()
+            .map(str::trim_start)
+            .find(|line| line.starts_with(&head))
+            .unwrap_or_else(|| panic!("no `{name}` in the shader"));
+        let value = line
+            .rsplit_once('=')
+            .and_then(|(_, rhs)| rhs.trim().strip_suffix(';'))
+            .unwrap_or_else(|| panic!("cannot read `{line}`"));
+        // A ratio stays written as one — `63.0 / 88.0` says what it is and
+        // `0.7159091` does not — so the one operator that appears in these
+        // constants is evaluated here rather than banned from the shader.
+        let number = |text: &str| -> f32 {
+            let text = text.trim().trim_end_matches('u');
+            // A mask is written as a mask — `0x7ff` says eleven bits and
+            // `2047` says nothing — so the one other literal form these
+            // constants use is read here too.
+            if let Some(digits) = text.strip_prefix("0x") {
+                return u32::from_str_radix(digits, 16)
+                    .unwrap_or_else(|_| panic!("`{text}` is not a number"))
+                    as f32;
+            }
+            text.parse()
+                .unwrap_or_else(|_| panic!("`{text}` is not a number"))
+        };
+        match value.split_once('/') {
+            Some((num, den)) => number(num) / number(den),
+            None => number(value),
+        }
+    }
+
+    /// The rail is laid out twice — once in Rust so the pointer can hit-test
+    /// a mark, once in WGSL so the GPU can draw one — and the two have to be
+    /// the same rail. Nothing in either compiler can notice that they are.
+    #[test]
+    fn the_rail_is_in_the_same_place_in_both_languages() {
+        let src = include_str!("shaders/card_common.wgsl");
+        for (name, ours) in [
+            ("RAIL_INSET", cardrail::RAIL_INSET),
+            ("RAIL_SLOT", cardrail::RAIL_SLOT),
+            ("RAIL_SPAN", cardrail::RAIL_SPAN),
+            ("CARD_ASPECT", cardrail::CARD_ASPECT),
+        ] {
+            let theirs = wgsl_const(src, name);
+            assert!(
+                (ours - theirs).abs() < 1e-6,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+        assert_eq!(
+            wgsl_const(src, "MARK_COUNT") as usize,
+            cardrail::MARK_ORDER.len(),
+            "the shader draws a different number of marks than the rail has"
+        );
+        assert!(
+            (wgsl_const(src, "MARK_SHIFT") - glow::MARK_SHIFT as f32).abs() < f32::EPSILON,
+            "the marks are shifted differently on the two sides"
+        );
+        // The shift alone is not enough: a mask one bit short would drop the
+        // eleventh keyword silently, and defender is the eleventh.
+        assert!(
+            (wgsl_const(src, "MARK_FIELD") - (glow::MARK_MASK >> glow::MARK_SHIFT) as f32).abs()
+                < f32::EPSILON,
+            "the shader reads a different number of mark bits than the mask holds"
+        );
+    }
+
+    /// Every mark the rail carries is the keyword it claims to be, and the
+    /// three the border speaks for are not on it twice.
+    #[test]
+    fn the_rail_carries_the_keywords_it_says_it_does() {
+        use baylee_cards_dsl::KeywordSet;
+        let slot = |set: KeywordSet| glow_bits(set.bits()) >> glow::MARK_SHIFT;
+        assert_eq!(slot(KeywordSet::FLYING), 1 << 0);
+        assert_eq!(slot(KeywordSet::DEATHTOUCH), 1 << 3);
+        assert_eq!(slot(KeywordSet::DEFENDER), 1 << 10);
+        // The band's three keep the band and stay off the rail.
+        assert_eq!(slot(KeywordSet::HEXPROOF), 0);
+        assert_eq!(slot(KeywordSet::INDESTRUCTIBLE), 0);
+        assert_eq!(slot(KeywordSet::SHROUD), 0);
+        // And a creature wearing six of them is one word with six bits in it.
+        let six = KeywordSet::FLYING
+            .union(KeywordSet::TRAMPLE)
+            .union(KeywordSet::LIFELINK)
+            .union(KeywordSet::VIGILANCE)
+            .union(KeywordSet::HASTE)
+            .union(KeywordSet::MENACE);
+        assert_eq!(
+            glow_bits(six.bits()).count_ones(),
+            6,
+            "six keywords, six marks"
+        );
+        assert_eq!(glow_bits(six.bits()) & !glow::MARK_MASK, 0);
+    }
+
     /// The table shader, parsed and validated.
     ///
     /// A WGSL error is otherwise found when a real pipeline is built — which
@@ -645,7 +785,21 @@ struct Globals { time: f32 };
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(11) var<uniform> globals: Globals;
 ";
-        check_wgsl(include_str!("shaders/card.wgsl"), prelude);
+        check_wgsl(
+            include_str!("shaders/card.wgsl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+        );
+    }
+
+    /// The rail's own file, which is plain WGSL and needs nothing stubbed.
+    ///
+    /// It is checked alone as well as inside the two that import it, because
+    /// alone is how bevy compiles it: a module that failed only in isolation
+    /// would take both card shaders down with it and blame whichever pipeline
+    /// happened to be built first.
+    #[test]
+    fn the_marks_module_compiles() {
+        check_wgsl(include_str!("shaders/card_common.wgsl"), "");
     }
     /// The UI twin, held to the same standard. Its bind group is group 1 —
     /// `bevy_ui_render` puts the view layout first — and it reads `globals`
@@ -662,6 +816,9 @@ struct UiVertexOutput {
 };
 struct Globals { time: f32 };
 ";
-        check_wgsl(include_str!("shaders/card_ui.wgsl"), prelude);
+        check_wgsl(
+            include_str!("shaders/card_ui.wgsl"),
+            &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+        );
     }
 }

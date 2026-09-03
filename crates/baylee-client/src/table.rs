@@ -1500,26 +1500,13 @@ mod tests {
     /// which is the entire point of cutting the corner at all.
     #[test]
     fn the_mesh_and_the_shaders_round_the_card_alike() {
-        fn printed_corner(shader: &str, file: &str) -> f32 {
-            let line = shader
-                .lines()
-                .find(|l| l.trim_start().starts_with("const PRINTED_CORNER"))
-                .unwrap_or_else(|| panic!("{file} declares no PRINTED_CORNER"));
-            let value = line
-                .rsplit_once('=')
-                .and_then(|(_, rhs)| rhs.trim().strip_suffix(';'))
-                .unwrap_or_else(|| panic!("{file}: cannot read {line}"));
-            value.parse().expect("a float")
-        }
-        let table = printed_corner(include_str!("shaders/card.wgsl"), "card.wgsl");
-        let ui = printed_corner(include_str!("shaders/card_ui.wgsl"), "card_ui.wgsl");
-        assert!(
-            (table - ui).abs() < 1e-6,
-            "the two card shaders disagree: {table} and {ui}"
+        let printed = crate::cardmat::tests::wgsl_const(
+            include_str!("shaders/card_common.wgsl"),
+            "PRINTED_CORNER",
         );
         assert!(
-            (CARD_CORNER / CARD_WIDTH - table).abs() < 1e-6,
-            "the mesh rounds at {} of its width, the shaders at {table}",
+            (CARD_CORNER / CARD_WIDTH - printed).abs() < 1e-6,
+            "the mesh rounds at {} of its width, the shaders at {printed}",
             CARD_CORNER / CARD_WIDTH
         );
     }

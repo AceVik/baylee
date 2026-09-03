@@ -306,6 +306,41 @@ separation is the whole grammar:
   reason (see "Tapping lands for a spell"). It is added on top of any sheath
   instead of averaged into it, because the two are answering different
   questions and both have to stay legible.
+- **The rail says what the card does in combat.** Eleven keywords — flying,
+  first and double strike, deathtouch, haste, lifelink, menace, reach,
+  trample, vigilance, defender — are marks along the bottom edge, one slot
+  each, always in the same order (`client-core/src/cardrail.rs`). They are
+  marks and not more paint because paint cannot *count*: a creature can carry
+  six of these at once, and six colours mixed into one border is one colour
+  that says nothing. Hexproof and indestructible are deliberately absent —
+  the band already says them, and a mark repeating a sheath would be the same
+  claim twice in two languages. The marks shrink rather than spill, so eleven
+  keywords are eleven coloured pips where six are six pictograms; that
+  degradation is the honest one, since a rail that ran off the card or hid its
+  tail would both be lying about the creature.
+
+The pictograms live in a third shader file, `card_common.wgsl`, together with
+the printed corner both shaders cut at: it is everything the table and the
+overlay have to agree about. It contains no bindings and no bevy syntax at all
+— every shader-global it needs, the time and the colour underneath, arrives as
+a parameter — which is what lets bevy compile it as an imported module, what
+keeps it clear of the two different bind groups the two shaders read `globals`
+from, and what lets the naga test parse it on its own. Which mark a fragment
+is inside is found by walking the eleven bits to the k-th set one: a loop
+bound at compile time, no dynamic indexing, and WebGL2-safe like everything
+else here. *How many* marks there are is counted in that same loop, and that
+is not stylistic: `countOneBits` is what WGSL offers, naga lowers it to GLSL's
+`bitCount` with no version check, and `bitCount` arrived in ES 3.10 while
+WebGL2 compiles ES 3.00. The browser would have rejected the shader and the
+card pipeline with it, so the table would have drawn no cards at all — a
+whole-client failure from one builtin, in the one target
+`cargo check --target wasm32` cannot see, because WGSL is not lowered to GLSL
+until the pipeline is built in the browser.
+
+The bottom-right fifth of the card is left empty on purpose —
+power/toughness and the counter dice are going there, and a rail that had to
+move once they arrived would move on every card in every screenshot ever taken
+of this client.
 
 The border is drawn *inside* the card, over its printed frame. The mesh is
 exactly the card, and a glow that needed room around it would need every
@@ -320,8 +355,9 @@ antialiases through; in the overlay a UI node has no mesh, so `card_ui.wgsl`
 cuts the corner in alpha — and that is the one the player was actually looking
 at, since hand, preview, own-board overlay and printing picker all drew the
 scan square. Both cut with the same `corner_sdf` at the same `PRINTED_CORNER`
-(4.76%, which is 3 mm on a 63 mm card), and `hud::card_radius` is the same
-number again, because that wrapper node clips the card and carries its shadow.
+(4.76%, which is 3 mm on a 63 mm card, and lives in `card_common.wgsl` with
+the rail), and `hud::card_radius` is the same number again, because that
+wrapper node clips the card and carries its shadow.
 All of them used to be 10%, which took the white away by taking a tenth of the
 card with it, and made every permanent read as a token.
 

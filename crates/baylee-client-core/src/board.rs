@@ -111,29 +111,55 @@ impl KeywordBadge {
         }
     }
 
-    /// Decodes the badges present in a keyword bitset.
+    /// Every badge, in display order.
+    pub const ALL: [Self; 13] = [
+        Self::Flying,
+        Self::FirstStrike,
+        Self::DoubleStrike,
+        Self::Deathtouch,
+        Self::Haste,
+        Self::Hexproof,
+        Self::Indestructible,
+        Self::Lifelink,
+        Self::Menace,
+        Self::Reach,
+        Self::Trample,
+        Self::Vigilance,
+        Self::Defender,
+    ];
+
+    /// The engine's keyword bit this badge stands for.
+    ///
+    /// The one direction that was missing: the card surface has to go the
+    /// other way — "which bit is the mark in slot three" — and a second table
+    /// spelling that out would be a second place for the numbering to be
+    /// wrong in.
+    #[must_use]
+    pub const fn bit(self) -> u128 {
+        use keyword_bits as k;
+        match self {
+            Self::Flying => k::FLYING,
+            Self::FirstStrike => k::FIRST_STRIKE,
+            Self::DoubleStrike => k::DOUBLE_STRIKE,
+            Self::Deathtouch => k::DEATHTOUCH,
+            Self::Haste => k::HASTE,
+            Self::Hexproof => k::HEXPROOF,
+            Self::Indestructible => k::INDESTRUCTIBLE,
+            Self::Lifelink => k::LIFELINK,
+            Self::Menace => k::MENACE,
+            Self::Reach => k::REACH,
+            Self::Trample => k::TRAMPLE,
+            Self::Vigilance => k::VIGILANCE,
+            Self::Defender => k::DEFENDER,
+        }
+    }
+
+    /// Decodes the badges present in a keyword bitset, in display order.
     #[must_use]
     pub fn from_bits(bits: u128) -> Vec<Self> {
-        use keyword_bits as k;
-        let table = [
-            (k::FLYING, Self::Flying),
-            (k::FIRST_STRIKE, Self::FirstStrike),
-            (k::DOUBLE_STRIKE, Self::DoubleStrike),
-            (k::DEATHTOUCH, Self::Deathtouch),
-            (k::HASTE, Self::Haste),
-            (k::HEXPROOF, Self::Hexproof),
-            (k::INDESTRUCTIBLE, Self::Indestructible),
-            (k::LIFELINK, Self::Lifelink),
-            (k::MENACE, Self::Menace),
-            (k::REACH, Self::Reach),
-            (k::TRAMPLE, Self::Trample),
-            (k::VIGILANCE, Self::Vigilance),
-            (k::DEFENDER, Self::Defender),
-        ];
-        table
-            .iter()
-            .filter(|(bit, _)| bits & bit != 0)
-            .map(|(_, badge)| *badge)
+        Self::ALL
+            .into_iter()
+            .filter(|badge| bits & badge.bit() != 0)
             .collect()
     }
 }

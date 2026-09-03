@@ -16,11 +16,14 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
     finish: u32,
-    /// Keyword bits: 1 indestructible, 2 hexproof, 4 shroud.
+    /// What the rules have made this card, what it cannot do this turn, and
+    /// what this client is offering to do with it — the bits are
+    /// `cardmat::glow`, and the eleven above `MARK_SHIFT` are the rail.
     glow: u32,
     /// 1.0 when `art` holds real artwork, 0.0 when the card draws as `tint`.
     has_art: f32,
@@ -47,33 +50,10 @@ const GLOW_SUMMONING_SICK: u32 = 16u;
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
 
-/// The printed corner radius, as a fraction of the card's width.
-///
-/// A Magic card is 63 × 88 mm with a 3 mm corner — 4.76% — and a Scryfall
-/// scan is the whole rectangle, so everything outside that rounded rectangle
-/// is the white of the scanner bed and never the card. Cutting it is not a
-/// stylistic choice; it is the difference between a card and a photograph of
-/// one.
-const PRINTED_CORNER: f32 = 0.0476;
-
-/// The card's aspect, so a radius measured in widths means the same thing on
-/// both axes of a UV that is not square.
-const CARD_ASPECT: f32 = 63.0 / 88.0;
-
 /// What a card's corner is inked with once the scan's white is cut away: the
 /// same near-black as the slab's edge wall, so the corner reads as the card
 /// turning away rather than as a mark printed on it.
 const EDGE_INK: vec3<f32> = vec3<f32>(0.035, 0.038, 0.045);
-
-/// Signed distance to the printed card's rounded rectangle, in card widths.
-/// Negative inside the card, positive out in the scan's white corner.
-fn corner_sdf(uv: vec2<f32>) -> f32 {
-    // Width-units: x spans 1.0, y spans 1/aspect.
-    let half = vec2<f32>(0.5, 0.5 / CARD_ASPECT);
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT) - half;
-    let q = abs(p) - (half - vec2<f32>(PRINTED_CORNER));
-    return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - PRINTED_CORNER;
-}
 
 /// A cheap value-noise hash. Deterministic, and the same on every backend —
 /// two clients looking at the same foil see the same foil.
@@ -256,6 +236,19 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
             }
         }
     }
+
+    // ---- the rail, for the keywords a border cannot count
+    //
+    // Drawn after the travelling light so that an *offer* passes under the
+    // facts and never washes one out, and before the corner ink so that a
+    // mark can never survive outside the card. `card_common.wgsl` is shared
+    // with the UI twin: a creature in the own-board overlay is the same
+    // creature, and two hundred lines of pictogram kept in step by hand would
+    // not stay in step.
+    color = vec4<f32>(
+        mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb),
+        color.a,
+    );
 
     // ---- the corners the scanner saw and the card does not have
     //

@@ -13,6 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -46,25 +47,6 @@ const GLOW_SUMMONING_SICK: u32 = 16u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
-
-/// The printed corner radius, as a fraction of the card's width: 3 mm on a
-/// 63 mm card. Identical to the table shader, and load-bearing here in a way
-/// it is not there — a UI node is a rectangle, so this is the *only* thing
-/// standing between the player and the white corners of the scan.
-const PRINTED_CORNER: f32 = 0.0476;
-
-/// The card's aspect, so a radius measured in widths means the same thing on
-/// both axes of a UV that is not square.
-const CARD_ASPECT: f32 = 63.0 / 88.0;
-
-/// Signed distance to the printed card's rounded rectangle, in card widths.
-/// Negative inside the card, positive out in the scan's white corner.
-fn corner_sdf(uv: vec2<f32>) -> f32 {
-    let half = vec2<f32>(0.5, 0.5 / CARD_ASPECT);
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT) - half;
-    let q = abs(p) - (half - vec2<f32>(PRINTED_CORNER));
-    return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - PRINTED_CORNER;
-}
 
 fn hash21(p: vec2<f32>) -> f32 {
     var q = fract(p * vec2<f32>(123.34, 456.21));
@@ -202,6 +184,12 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             }
         }
     }
+
+    // ---- the rail, identical to the table's, from the same file
+    color = vec4<f32>(
+        mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb),
+        color.a,
+    );
 
     // ---- the corners the scanner saw and the card does not have
     //

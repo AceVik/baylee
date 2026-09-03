@@ -37,6 +37,7 @@
 pub mod automation;
 pub mod board;
 pub mod card_face;
+pub mod cardrail;
 pub mod deckbuilder;
 pub mod i18n;
 pub mod images;
