@@ -207,3 +207,26 @@ fn a_table_with_no_teams_ends_exactly_as_it_did_before() {
     assert_eq!(result.winner, Some(Victor::Player(PlayerId::new(0))));
     assert_eq!(result.reason, EndReason::LastPlayerStanding);
 }
+
+/// "Target opponent" is the same enumeration wherever it is asked â the cast
+/// wizard's player choice included, which used to build its own list and so
+/// offered the caster their own face.
+#[test]
+fn target_opponent_offers_neither_you_nor_your_teammate() {
+    use baylee_cards_dsl::TargetSpec;
+
+    let engine = table(&[Some(1), Some(1), Some(2)], &[], 23);
+    let state = engine.state();
+    let (a, b, c) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+
+    assert_eq!(
+        crate::eval::target_player_options(state, &TargetSpec::AnyOpponent, a),
+        vec![c],
+        "target opponent offered a seat that is not one"
+    );
+    // "Any player" is every player, teammate and self included (CR 115.1).
+    assert_eq!(
+        crate::eval::target_player_options(state, &TargetSpec::AnyPlayer, a),
+        vec![a, b, c]
+    );
+}

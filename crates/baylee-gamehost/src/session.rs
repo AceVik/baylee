@@ -71,7 +71,10 @@ impl Session {
             .seats
             .iter()
             .map(|s| match &s.controller {
-                SeatController::Ai(profile) => Some(SeatKind::Ai(HeuristicAgent::new(*profile))),
+                SeatController::Ai(profile) => Some(SeatKind::Ai(
+                    HeuristicAgent::new(*profile)
+                        .with_teams(preset.seats.iter().map(|s| s.team).collect()),
+                )),
                 _ => Some(SeatKind::Human),
             })
             .collect::<Option<_>>()?;

@@ -394,23 +394,16 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             WizardStage::ChoosePlayer => {
-                let options: Vec<PlayerId> = self
-                    .state
-                    .players
-                    .iter()
-                    .filter(|p| {
-                        !p.has_lost
-                            // Player hexproof (Everybody Lives!): can't be
-                            // targeted by spells/abilities.
-                            && !self.state.effects.iter().any(|fx| {
-                                matches!(
-                                    fx.modifier,
-                                    baylee_cards_dsl::Modifier::PlayerHexproof
-                                ) && fx.controller == p.id
-                            })
-                    })
-                    .map(|p| p.id)
-                    .collect();
+                // The same enumeration the object half of targeting uses, and
+                // for the same reason: "target opponent" is a choice over a
+                // smaller set, not a different kind of choice (CR 115.1), so
+                // the caster is out of it â and so is a teammate. Listing
+                // every living player here was a hole even before teams: a
+                // "target opponent" spell offered its own caster.
+                let spec = self
+                    .wizard_target_req(&wizard)
+                    .map_or(TargetSpec::AnyPlayer, |req| req.spec);
+                let options = eval::target_player_options(&self.state, &spec, wizard.player);
                 self.pending = Pending::ChoosePlayer {
                     player: wizard.player,
                     options,
