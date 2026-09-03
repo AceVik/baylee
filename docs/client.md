@@ -740,6 +740,62 @@ is on is drawn as the chosen one so the two ways of answering are visibly the
 same menu. The list is rebuilt from `LegalActions` on the key as well as on
 the click, for the same reason.
 
+## A choice you answer by picking, not by clicking the table
+
+Four of the engine's seventeen pending choices name something that is not on
+the table: a colour, a seat, one of several ways to cast a spell, and a
+creature type. The prompt bar drew the headline for all four and nothing else
+— no button, no hint — and `Interaction::choose_index`, which is how all four
+are answered, was never called by anything in the client. A tapped Underground
+Sea therefore printed **Choose a colour** and the game stopped there. For
+good — in any deck with a dual land, the first time one was tapped for its
+mana.
+
+`crates/baylee-client/src/choices.rs` is the list, and it is a sibling of
+`abilities.rs` for the same reason: the *label* needs mana symbols and seat
+names, which `baylee-client-core` does not carry. It reads `Prompt`, never
+`Pending` — the prompt already carries every option the engine offered, in the
+engine's order, and **that order is the answer**, so nothing there may sort. A
+colour is drawn as its mana pip and no word beside it, because a `{U}` disc
+says "blue" in every language there is.
+
+Picking sends. There is no second "OK" for these, because there is nothing to
+combine — one colour, one seat, one way to cast — and the list is rebuilt from
+the *current* prompt when the button is pressed, so a bar drawn a frame ago
+answers nothing rather than the wrong thing. That is the same rule the ability
+chooser follows, and for the same reason.
+
+A creature type is deliberately not in that list. The engine offers all three
+hundred and fifty of them and three hundred and fifty buttons is not a
+chooser; it wants a type-to-filter field. The *model* answers it now
+(`Mode::Subtype`, with the test), the renderer does not, and `choices::options`
+returns `None` for it rather than pretending.
+
+The half of this that has nothing to do with buttons: a choice answered by
+**clicking** has to say so. "Discard 1 card(s)" stood alone at every cleanup —
+no button, because nothing is submittable until a card is picked, and no hint,
+because none existed. A player who did not already know to click their hand
+had no way to find out. There is a line under the headline now, and the cards
+the choice would accept glow, from `Interaction::is_selectable` rather than
+from the board model: `selectable()` is empty for a discard *by design* (the
+engine does not enumerate a seat's own hand, which is already private), so the
+per-card question is the only one with an answer.
+
+The reason this survived a green test suite is worth writing down.
+`tests/duel_flow.rs` plays whole games through the client's own path and it
+answered a colour with `PlayerAction::ChooseColor(options[0])` — built by
+hand, in the test. So the suite proved that the *engine* accepts an answer,
+never that anybody could give one. Those arms go through
+`choices::options` → `choose_index` → `confirm` now, and
+`a_dual_land_can_be_tapped_and_the_colour_answered` seats an Underground Sea,
+taps it, and answers the question the way a click does.
+
+What the tests do not cover is the row on screen, and no live game reached it
+either: `manaplan` pays a dual's pip without ever asking, so the only route to
+that question is tapping the land by hand. The row is `abilities.rs`'s chooser
+node for node on the same prompt bar, and the test walks the identical path up
+to the spawn — which is the claim, and all of it.
+
 ## The pointer only speaks when it moves
 
 `Pointer<Over>` fires when the *card* moves under the pointer exactly as

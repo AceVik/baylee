@@ -787,6 +787,22 @@ messages! {
     ChoosePlayer { en: "Choose a player", de: "Wähle einen Spieler" },
     /// Choose how to cast
     ChooseHowToCast { en: "Choose how to cast", de: "Wähle, wie gewirkt wird" },
+    /// Printed cost
+    CastNormal { en: "Printed cost", de: "Gedruckte Kosten" },
+    /// Alternative cost
+    CastAlternative { en: "Alternative cost", de: "Alternative Kosten" },
+    /// Mode {0}
+    CastModeNumber { en: "Mode {0}", de: "Modus {0}" },
+    /// Back face
+    CastBackFace { en: "Back face", de: "Rückseite" },
+    /// Play as a land
+    CastLandFace { en: "Play as a land", de: "Als Land spielen" },
+    /// Miracle
+    CastMiracle { en: "Miracle", de: "Wunder" },
+    /// Click a card in your hand
+    HintClickHand { en: "Click a card in your hand", de: "Klicke eine Karte auf deiner Hand an" },
+    /// Click what you are choosing
+    HintClickBoard { en: "Click what you are choosing", de: "Klicke an, was du wählst" },
     /// Put these in order
     PutInOrder { en: "Put these in order", de: "Bringe diese in eine Reihenfolge" },
     /// The game is over

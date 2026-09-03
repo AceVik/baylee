@@ -154,15 +154,35 @@ impl Client {
             Pending::OrderObjects { objects, .. } => Some(PlayerAction::OrderObjects {
                 objects: objects.clone(),
             }),
-            Pending::ChooseColor { options, .. } => {
-                Some(PlayerAction::ChooseColor(*options.first()?))
+            // The choices answered by *position*, taken the way the prompt
+            // bar takes them: the rows out of `choices::options`, then
+            // `choose_index` and `confirm`. This used to build the action
+            // by hand, which is exactly how the client came to have no way
+            // of answering a colour at all -- a tapped dual land stopped
+            // the game dead while this test happily played on, because the
+            // test was proving that the *engine* accepts an answer, not
+            // that anybody could give one.
+            Pending::ChooseColor { .. } | Pending::ChoosePlayer { .. } => {
+                let rows = baylee_client::choices::options(
+                    &interaction.prompt(),
+                    baylee_client_core::Lang::En,
+                    self.statics.as_ref(),
+                )
+                .expect("an indexed choice offers rows");
+                assert!(!rows.is_empty(), "a choice with no rows cannot be answered");
+                interaction.choose_index(0).then(|| interaction.confirm())?
             }
-            Pending::ChoosePlayer { options, .. } => {
-                Some(PlayerAction::ChoosePlayer(*options.first()?))
+            // A cast option has rows too, but only when the engine offered
+            // any; an empty list would be a chooser with nothing in it.
+            Pending::ChooseCastMode { .. } => {
+                interaction.choose_index(0).then(|| interaction.confirm())?
             }
-            Pending::ChooseCastMode { .. } => Some(PlayerAction::ChooseMode(0)),
-            Pending::ChooseSubtype { options, .. } => {
-                Some(PlayerAction::ChooseSubtype(*options.first()?))
+            // A creature type is answered through the same two calls, and
+            // deliberately not through `choices::options`: three hundred
+            // and fifty rows is not a chooser, so the renderer has none
+            // yet. The model answers it, which is what this checks.
+            Pending::ChooseSubtype { .. } => {
+                interaction.choose_index(0).then(|| interaction.confirm())?
             }
             // Combat, driven the way `input.rs` drives it: aim, declare each
             // candidate against the aim, confirm. Nothing here reaches past
@@ -214,6 +234,96 @@ fn run(preset: &GamePreset, steps: usize, fight: Fight) -> (Client, LocalHost) {
         client.absorb(host.poll());
     }
     (client, host)
+}
+
+/// The same duel with a dual land on the table, so a mana ability that asks
+/// which colour is reachable at all.
+fn dual_land_preset(seed: u64) -> GamePreset {
+    let mut preset = duel_preset(seed);
+    // Underground Sea: `{T}: Add {U} or {B}` -- a mana ability the engine
+    // cannot resolve without asking, which is the whole point of it here.
+    let sea = card("4b22be3a-8ce1-47d1-b82e-6c3ccfb0548b");
+    preset.seats[0].starting_battlefield = vec![DeckEntry {
+        card: sea,
+        print: PrintRef::new(0),
+    }];
+    preset
+}
+
+/// Tapping a dual land is a question, and the client has to be able to answer
+/// it. This is the deadlock this test exists for: the prompt bar drew "Choose
+/// a colour" with no buttons under it, `Interaction::choose_index` was never
+/// called by anything, and the game stopped there for good -- in every deck
+/// with a dual land in it, which is most of them.
+#[test]
+fn a_dual_land_can_be_tapped_and_the_colour_answered() {
+    let preset = dual_land_preset(11);
+    let mut host =
+        LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"]).expect("the duel starts");
+    let mut client = Client::default();
+    client.absorb(host.poll());
+
+    // Walk to a priority that offers the land's ability, answering whatever
+    // is asked on the way.
+    let mut asked = false;
+    for _ in 0..200 {
+        let pending = client.pending.clone().expect("a choice");
+        if let Pending::Priority { legal, .. } = &pending
+            && let Some((source, index)) = legal.abilities.first().copied()
+        {
+            let interaction = Interaction::new(pending.clone(), PlayerId::new(0));
+            let action = interaction
+                .activate(source, index)
+                .expect("the engine offered this ability");
+            host.submit(action);
+            client.absorb(host.poll());
+            asked = true;
+            break;
+        }
+        let Some(action) = client.answer(PlayerId::new(0)) else {
+            break;
+        };
+        host.submit(action);
+        client.absorb(host.poll());
+    }
+    assert!(asked, "the land never offered its ability");
+
+    let pending = client.pending.clone().expect("a choice");
+    let Pending::ChooseColor { options, .. } = &pending else {
+        panic!("tapping a two-colour land asks which colour, got {pending:?}");
+    };
+    assert_eq!(options.len(), 2, "blue or black");
+
+    // And now the part that did not exist: the rows the prompt bar draws, and
+    // the answer a click on one of them sends.
+    let mut interaction = Interaction::new(pending.clone(), PlayerId::new(0));
+    let rows = baylee_client::choices::options(
+        &interaction.prompt(),
+        baylee_client_core::Lang::En,
+        client.statics.as_ref(),
+    )
+    .expect("a colour choice is a chooser");
+    assert_eq!(rows.len(), 2, "one row per colour the engine offered");
+    assert!(
+        rows.iter().all(|r| r.pip.is_some()),
+        "a colour row is drawn as its mana symbol"
+    );
+
+    assert!(interaction.choose_index(1));
+    let action = interaction.confirm().expect("a picked row is submittable");
+    assert_eq!(action, PlayerAction::ChooseColor(options[1]));
+    host.submit(action);
+    client.absorb(host.poll());
+
+    assert!(
+        !matches!(client.pending, Some(Pending::ChooseColor { .. })),
+        "the game is still asking for a colour after one was given"
+    );
+    assert!(
+        client.errors.is_empty(),
+        "engine refused: {:?}",
+        client.errors
+    );
 }
 
 #[test]

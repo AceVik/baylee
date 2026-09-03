@@ -17,6 +17,7 @@ pub(super) fn spawn_hand_bar(
     statics: &GameStatic,
     hovered: Option<ObjectId>,
     selected: &[ObjectId],
+    selectable: &[ObjectId],
     layout: HandLayout,
     scroll: f32,
     textures: &mut CardTextures,
@@ -63,6 +64,10 @@ pub(super) fn spawn_hand_bar(
     for (i, card) in board.hand.iter().enumerate() {
         let is_selected = selected.contains(&card.id);
         let is_hovered = hovered == Some(card.id);
+        // A card this choice would accept. Distinct from `playable`: that
+        // one is the engine offering to put the card on the stack, this one
+        // is a question already asked pointing at the hand.
+        let is_offered = selectable.contains(&card.id);
         // No border: the card is rounded like a real one; hover/selection
         // read as a soft accent glow instead of a frame.
         let shadow = if is_selected {
@@ -73,12 +78,17 @@ pub(super) fn spawn_hand_bar(
                 Val::Px(2.0),
                 Val::Px(10.0),
             )
-        } else if is_hovered || card.playable || card.reachable {
+        } else if is_hovered || is_offered || card.playable || card.reachable {
             // Three different claims, three different glows. Gold is the
             // engine saying yes; indigo is this client offering to tap lands
             // first, which is a weaker thing and reads as one.
             let (tint, spread) = if is_hovered {
                 (palette::ACCENT, 8.0)
+            } else if is_offered {
+                // The same gold as an offer from the engine, because that
+                // is exactly what it is -- weaker only so a card already
+                // picked still stands out from the ones that could be.
+                (palette::ACCENT, 5.0)
             } else if card.playable {
                 (palette::ACTIVE, 6.0)
             } else {

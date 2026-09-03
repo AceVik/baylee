@@ -16,8 +16,8 @@
 
 use crate::Duel;
 use crate::hud::{
-    AbilityButton, HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton, PlayerTab,
-    PreviewResize, PromptAction, PromptButton, RailButton,
+    AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton,
+    PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -521,6 +521,54 @@ fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
     duel.hovered = Some(grid[row as usize][col as usize]);
 }
 
+/// Sends the ability one row of the ability chooser stands for.
+///
+/// Rebuilt from `LegalActions` here rather than trusted from the bar: a
+/// chooser drawn a frame ago must not be able to send an ability the engine
+/// has since stopped offering.
+fn pick_ability(duel: &mut Duel, index: usize) {
+    let action = duel
+        .ability_menu
+        .and_then(|object| abilities_of(duel, object))
+        .and_then(|options| options.get(index).cloned())
+        .map(|option| option.action);
+    duel.ability_menu = None;
+    if let Some(action) = action {
+        duel.submit(action);
+    }
+}
+
+/// Answers an indexed choice: a colour, a seat, one of several ways to cast.
+///
+/// It answers on the click that picks it -- there is no second "OK", because
+/// there is nothing to combine. The rows are rebuilt from the *current*
+/// prompt first, so a button drawn before the engine moved on answers nothing
+/// rather than the wrong thing.
+fn pick_choice(duel: &mut Duel, index: usize) {
+    let offered = duel
+        .interaction
+        .as_ref()
+        .map(baylee_client_core::Interaction::prompt)
+        // The language is irrelevant here and deliberately not plumbed: only
+        // the *shape* of the answer is read back -- whether this prompt is an
+        // indexed choice at all, and how many rows it has. The labels are the
+        // renderer's business.
+        .and_then(|p| {
+            crate::choices::options(&p, baylee_client_core::Lang::En, duel.statics.as_ref())
+        })
+        .is_some_and(|rows| index < rows.len());
+    if !offered {
+        return;
+    }
+    let action = duel
+        .interaction
+        .as_mut()
+        .and_then(|i| i.choose_index(index).then(|| i.confirm())?);
+    if let Some(action) = action {
+        duel.submit(action);
+    }
+}
+
 /// Pointer handling: clicking a card, a player tab, or a rail button.
 ///
 /// A click means "this object", and what that does depends entirely on the
@@ -539,6 +587,7 @@ pub fn pointer(
     knobs: Query<&OverlayKnob>,
     prompt_buttons: Query<&PromptButton>,
     ability_buttons: Query<&AbilityButton>,
+    choice_buttons: Query<&ChoiceButton>,
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
@@ -587,19 +636,12 @@ pub fn pointer(
             }
             continue;
         }
-        // Rebuilt from `LegalActions` here rather than trusted from the bar:
-        // a chooser drawn a frame ago must not be able to send an ability the
-        // engine has since stopped offering.
         if let Some(button) = find_in_lineage(e, &ability_buttons, &parents) {
-            let action = duel
-                .ability_menu
-                .and_then(|object| abilities_of(&duel, object))
-                .and_then(|options| options.get(button.index).cloned())
-                .map(|option| option.action);
-            duel.ability_menu = None;
-            if let Some(action) = action {
-                duel.submit(action);
-            }
+            pick_ability(&mut duel, button.index);
+            continue;
+        }
+        if let Some(button) = find_in_lineage(e, &choice_buttons, &parents) {
+            pick_choice(&mut duel, button.index);
             continue;
         }
         if let Some(button) = find_in_lineage(e, &prompt_buttons, &parents) {

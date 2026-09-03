@@ -181,6 +181,18 @@ pub struct AbilityButton {
     pub index: usize,
 }
 
+/// One row of an indexed choice, in the chooser under the prompt.
+///
+/// Position, not the answer itself, for the same reason [`AbilityButton`]
+/// carries one: the list is rebuilt from the *current* prompt when the button
+/// is pressed, so a bar drawn a frame ago cannot answer a question the engine
+/// has since replaced.
+#[derive(Component)]
+pub struct ChoiceButton {
+    /// Position in the list [`crate::choices::options`] returns.
+    pub index: usize,
+}
+
 /// What a prompt button answers.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PromptAction {

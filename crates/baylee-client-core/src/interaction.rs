@@ -30,7 +30,7 @@
 //! divergent implementation of it.
 
 use crate::i18n::{Lang, Phrase};
-use baylee_core::ids::{Defender, ObjectId, PlayerId};
+use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
     BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, YesNoPrompt,
@@ -311,6 +311,13 @@ enum Mode {
     Player { options: Vec<PlayerId> },
     /// One of a fixed set of cast options.
     CastOption { count: usize },
+    /// One of a fixed set of creature types.
+    ///
+    /// Three hundred and fifty of them are offered, which is why the
+    /// answer is an index into the list rather than a click on the board:
+    /// a creature type is not a thing on the table. Narrowing that list is
+    /// the renderer's job; the model only ever hears which row was picked.
+    Subtype { options: Vec<SubtypeId> },
     /// A yes-or-no answer.
     YesNo,
     /// Priority: an action menu rather than a selection.
@@ -443,9 +450,13 @@ impl Interaction {
                 count: options.len(),
             },
             Pending::YesNo { .. } => Mode::YesNo,
-            // Subtype selection is answered from a searchable list in the UI
-            // rather than by clicking the board.
-            Pending::ChooseSubtype { .. } => Mode::Idle,
+            // Answered from a list rather than from the board, because a
+            // creature type is not a thing on it. `Mode::Idle` stood here
+            // until now, which made this the one pending choice a client
+            // could not answer at all.
+            Pending::ChooseSubtype { options, .. } => Mode::Subtype {
+                options: options.clone(),
+            },
             Pending::GameOver(_) => Mode::GameOver,
         }
     }
@@ -893,6 +904,7 @@ impl Interaction {
             Mode::CastOption { count } => *count,
             Mode::Color { options } => options.len(),
             Mode::Player { options } => options.len(),
+            Mode::Subtype { options } => options.len(),
             _ => 0,
         };
         if index >= count {
@@ -900,6 +912,16 @@ impl Interaction {
         }
         self.choice_index = Some(index);
         true
+    }
+
+    /// Which row of an indexed choice is picked, if one is.
+    ///
+    /// A colour, a seat, a cast option and a creature type are all answered
+    /// by position, and a chooser that cannot show which position is picked
+    /// is a row of identical buttons.
+    #[must_use]
+    pub const fn chosen_index(&self) -> Option<usize> {
+        self.choice_index
     }
 
     /// Whether the current answer is complete enough to submit.
@@ -915,9 +937,10 @@ impl Interaction {
             | Mode::Blockers { .. }
             | Mode::Number { .. }
             | Mode::Priority { .. } => true,
-            Mode::Color { .. } | Mode::Player { .. } | Mode::CastOption { .. } => {
-                self.choice_index.is_some()
-            }
+            Mode::Color { .. }
+            | Mode::Player { .. }
+            | Mode::CastOption { .. }
+            | Mode::Subtype { .. } => self.choice_index.is_some(),
             Mode::Mulligan | Mode::YesNo | Mode::Idle | Mode::GameOver => false,
         }
     }
@@ -972,6 +995,10 @@ impl Interaction {
                 let index = self.choice_index?;
                 (index < *count).then_some(PlayerAction::ChooseMode(index))
             }
+            Mode::Subtype { options } => options
+                .get(self.choice_index?)
+                .copied()
+                .map(PlayerAction::ChooseSubtype),
             _ => None,
         }
     }
@@ -1238,6 +1265,57 @@ mod tests {
             i.confirm(),
             Some(PlayerAction::ChooseColor(ManaColor::Blue))
         );
+    }
+
+    /// The one pending choice the client could not answer at all. It is
+    /// worth a test of its own rather than a line in the colour one: the
+    /// mode was `Idle`, so every accessor said "nothing to do here" and the
+    /// game simply stopped.
+    #[test]
+    fn a_creature_type_choice_is_answerable() {
+        let types: Vec<SubtypeId> = (0..350).map(SubtypeId::new).collect();
+        let mut i = interaction(Pending::ChooseSubtype {
+            player: me(),
+            options: types.clone(),
+        });
+        assert!(!i.can_confirm(), "nothing is picked yet");
+        assert_eq!(i.confirm(), None);
+        assert!(!i.choose_index(350), "index beyond the offered types");
+        assert!(i.choose_index(11));
+        assert_eq!(i.chosen_index(), Some(11));
+        assert!(i.can_confirm());
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::ChooseSubtype(types[11])),
+            "the answer names the type at the picked position"
+        );
+    }
+
+    /// Every choice answered by position answers the same way, which is what
+    /// lets one chooser row in the renderer serve all four.
+    #[test]
+    fn every_indexed_choice_reports_the_row_it_picked() {
+        let cases = [
+            Pending::ChooseColor {
+                player: me(),
+                options: vec![ManaColor::Blue, ManaColor::Black],
+            },
+            Pending::ChoosePlayer {
+                player: me(),
+                options: vec![PlayerId::new(0), PlayerId::new(1)],
+            },
+            Pending::ChooseSubtype {
+                player: me(),
+                options: vec![SubtypeId::new(0), SubtypeId::new(1)],
+            },
+        ];
+        for pending in cases {
+            let mut i = interaction(pending);
+            assert_eq!(i.chosen_index(), None, "nothing is picked to begin with");
+            assert!(i.choose_index(1));
+            assert_eq!(i.chosen_index(), Some(1));
+            assert!(i.confirm().is_some(), "a picked row is submittable");
+        }
     }
 
     #[test]

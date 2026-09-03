@@ -6,6 +6,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use baylee_client_core::interaction::Prompt;
 
 /// Removes the overlay when the duel hands the screen back.
 ///
@@ -147,6 +148,23 @@ pub fn sync_overlay(
     let (Some(board), Some(view)) = (duel.board.as_ref(), duel.view.as_ref()) else {
         return;
     };
+
+    // Which cards this choice will actually accept. `selected` says what a
+    // player has picked; this says what they *may* pick, which is the thing
+    // the hand had no way of showing: a cleanup discard lit nothing up at
+    // all, so the only clue that the hand was clickable was clicking it.
+    let selectable: Vec<ObjectId> = duel
+        .interaction
+        .as_ref()
+        .map(|i| {
+            board
+                .hand
+                .iter()
+                .map(|c| c.id)
+                .filter(|id| i.is_selectable(*id))
+                .collect()
+        })
+        .unwrap_or_default();
 
     let root = commands
         .spawn((
@@ -290,6 +308,27 @@ pub fn sync_overlay(
             .id();
         commands.entity(bar).add_child(headline);
 
+        // A choice that is answered by clicking has to say so. The prompt
+        // bar used to draw "Discard 1 card(s)" and stop: no button, because
+        // nothing is submittable until something is picked, and no hint,
+        // because none existed. A player who did not already know to click
+        // their hand had no way to find out.
+        if let Some(hint) = duel
+            .interaction
+            .as_ref()
+            .filter(|i| !waiting && i.selected().is_empty())
+            .and_then(|i| pick_hint(&i.prompt()))
+        {
+            let line = commands
+                .spawn((
+                    Text::new(hint.text(lang).to_string()),
+                    tf(&fonts, 12.0),
+                    TextColor(palette::MUTED),
+                ))
+                .id();
+            commands.entity(bar).add_child(line);
+        }
+
         // ---- combat: what the next declaration is aimed at -----------------
         //
         // Combat is the one choice where clicking a creature is not enough:
@@ -388,6 +427,85 @@ pub fn sync_overlay(
             commands.entity(bar).add_child(row);
         }
 
+        // ---- the indexed chooser: a colour, a seat, a way to cast ---------
+        //
+        // Its own row, above the ability menu and below the answers, because
+        // it is neither: these are not "OK" and they are not things to do
+        // while holding priority — they are *the* answer, and picking one
+        // sends it. Until this existed a tapped dual land drew "Choose a
+        // colour" with nothing under it and the game stopped there.
+        if let Some(rows) = duel
+            .interaction
+            .as_ref()
+            .filter(|_| !waiting)
+            .map(baylee_client_core::Interaction::prompt)
+            .and_then(|p| crate::choices::options(&p, lang, duel.statics.as_ref()))
+            .filter(|rows| !rows.is_empty())
+        {
+            let picked = duel
+                .interaction
+                .as_ref()
+                .and_then(baylee_client_core::Interaction::chosen_index);
+            let row = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: px(6),
+                        flex_wrap: FlexWrap::Wrap,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            for (index, option) in rows.iter().enumerate() {
+                let on = picked == Some(index);
+                let button = commands
+                    .spawn((
+                        ChoiceButton { index },
+                        Node {
+                            padding: UiRect::axes(px(10), px(5)),
+                            border: UiRect::all(px(1)),
+                            border_radius: btn_radius(),
+                            column_gap: px(5),
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(if on {
+                            palette::ACTIVE
+                        } else {
+                            palette::PANEL_LIT
+                        }),
+                        BorderColor::all(if on { palette::ACTIVE } else { palette::MUTED }),
+                        soft_shadow(),
+                    ))
+                    .id();
+                if let Some(pip) = option.pip {
+                    let mark = crate::manaui::spawn_pip(&mut commands, &fonts, pip, 20.0);
+                    commands.entity(button).add_child(mark);
+                }
+                if !option.label.is_empty() {
+                    let text = commands
+                        .spawn((
+                            Text::new(option.label.clone()),
+                            tf(&fonts, 13.0),
+                            TextColor(if on { palette::PANEL } else { palette::INK }),
+                            Pickable::IGNORE,
+                        ))
+                        .id();
+                    commands.entity(button).add_child(text);
+                }
+                if let Some(cost) = option.cost {
+                    for pip in baylee_client_core::manapip::cost(&cost) {
+                        let mark = crate::manaui::spawn_pip(&mut commands, &fonts, pip, 15.0);
+                        commands.entity(button).add_child(mark);
+                    }
+                }
+                commands.entity(row).add_child(button);
+            }
+            commands.entity(bar).add_child(row);
+        }
+
         // The ability chooser, when a permanent was clicked that offers more
         // than one thing. Its own row rather than more entries in `answers`,
         // because these are not answers to the pending choice — they are
@@ -466,6 +584,7 @@ pub fn sync_overlay(
             statics,
             hovered,
             &selected,
+            &selectable,
             layout,
             duel.hand_scroll,
             &mut textures,
@@ -1029,6 +1148,23 @@ pub fn animate_overlay(
 /// comes from the registry the client already links for ability labels and
 /// mana sources. A token or a face-down permanent has no card and therefore
 /// no back.
+/// The line that says how a choice is answered, when it is answered by
+/// clicking something rather than by pressing a button.
+///
+/// `None` for every choice that draws its own answers, so a hint never
+/// appears next to a row of buttons that already says what to do.
+const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
+    match prompt {
+        // The seat's own hand, which the engine does not enumerate because it
+        // is already private -- `Interaction::selectable` is empty for both.
+        Prompt::Discard { .. } | Prompt::BottomCards { .. } => Some(Phrase::HintClickHand),
+        Prompt::ChooseCards { .. } | Prompt::ChooseTargets { .. } | Prompt::LegendRule => {
+            Some(Phrase::HintClickBoard)
+        }
+        _ => None,
+    }
+}
+
 fn two_faced(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
     hovered
         .and_then(|id| view.object(id))
