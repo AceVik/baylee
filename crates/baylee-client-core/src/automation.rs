@@ -288,6 +288,14 @@ pub struct Situation {
     pub phase: Phase,
     /// The step the view is in.
     pub step: Step,
+    /// Whether anything on the stack belongs to the other side.
+    ///
+    /// Answered by the caller and not here, because "the other side" is a
+    /// question about the roster (teams) and this module knows only about
+    /// turns. Its own spell resolving is what a player passing priority
+    /// *wants*; an opponent's is the one thing a standing order must not
+    /// answer for them.
+    pub opposing_stack: bool,
 }
 
 /// The standing-order decision: given the pending choice, where the game
@@ -317,14 +325,25 @@ pub fn auto_answer(
     let skipped = orders.is_skipped_at(at.active_is_mine, at.phase, at.step);
     let quiet_turn = rules.skip_opponent_turns && !at.active_is_mine;
     match pending {
+        // Nothing to answer with is nothing to answer with, stack or no
+        // stack. This rule fires only when the seat has no land, no spell, no
+        // ability and nothing to suspend, so withholding the pass would leave
+        // a player looking at a window whose only legal action is the one
+        // being withheld.
         Pending::Priority { legal, .. }
-            if skipped
-                || quiet_turn
-                || pilot.is_some()
-                || (rules.pass_when_nothing_to_do && nothing_to_do(legal)) =>
+            if rules.pass_when_nothing_to_do && nothing_to_do(legal) =>
         {
             AutoAnswer::Pass
         }
+        // Every other automatic pass stops while the other side has something
+        // on the stack. A red rail row means "I do nothing here when nothing
+        // is happening"; it never meant "let their sorcery resolve
+        // unanswered", and without this line it did, because `Situation`
+        // carried no stack at all. The same goes for `skip_opponent_turns`
+        // and for the autopilot, which is allowed to fast-forward to a
+        // boundary and never to make a real decision.
+        Pending::Priority { .. } if at.opposing_stack => AutoAnswer::None,
+        Pending::Priority { .. } if skipped || quiet_turn || pilot.is_some() => AutoAnswer::Pass,
         Pending::ChooseAttackers { attackers, .. }
             if skipped
                 || matches!(pilot, Some(AutoPilot::ToNextTurn { .. }))
@@ -367,6 +386,7 @@ mod tests {
             active_is_mine,
             phase,
             step,
+            opposing_stack: false,
         }
     }
 
@@ -468,6 +488,94 @@ mod tests {
                 None,
             ),
             AutoAnswer::None
+        );
+    }
+
+    /// A red row means "I do nothing here when nothing is happening". It
+    /// never meant "let their sorcery resolve unanswered", and it did:
+    /// `Situation` carried no stack, so every automatic pass fired straight
+    /// through an opponent's spell.
+    #[test]
+    fn nothing_automatic_passes_while_the_other_side_has_the_stack() {
+        let mut orders = PhaseOrders::default();
+        orders.toggle(RailSide::Mine, RailRow::Damage);
+        let held = Situation {
+            opposing_stack: true,
+            ..at(true, true, Phase::Combat, Step::CombatDamage)
+        };
+
+        // The rail.
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                held,
+                &orders,
+                &AutoRules::default(),
+                None
+            ),
+            AutoAnswer::None
+        );
+        // The autopilot, which may fast-forward and may not decide.
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                held,
+                &PhaseOrders::default(),
+                &AutoRules::default(),
+                Some(&AutoPilot::ToNextPhase {
+                    from: Phase::Combat
+                }),
+            ),
+            AutoAnswer::None
+        );
+        // And skipping an opponent's turn.
+        let theirs = Situation {
+            opposing_stack: true,
+            ..at(true, false, Phase::FirstMain, Step::Main)
+        };
+        let quiet = AutoRules {
+            skip_opponent_turns: true,
+            ..AutoRules::default()
+        };
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                theirs,
+                &PhaseOrders::default(),
+                &quiet,
+                None
+            ),
+            AutoAnswer::None
+        );
+
+        // The one rule that still fires, because it is the one that means
+        // there is nothing to answer with: withholding the pass there would
+        // leave a window whose only legal action is the one being withheld.
+        let empty_handed = AutoRules {
+            pass_when_nothing_to_do: true,
+            ..AutoRules::default()
+        };
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                held,
+                &PhaseOrders::default(),
+                &empty_handed,
+                None
+            ),
+            AutoAnswer::Pass
+        );
+
+        // …and with the stack this seat's own, the rail passes as before.
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                at(true, true, Phase::Combat, Step::CombatDamage),
+                &orders,
+                &AutoRules::default(),
+                None
+            ),
+            AutoAnswer::Pass
         );
     }
 

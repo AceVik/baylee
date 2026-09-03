@@ -492,6 +492,13 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 active_is_mine,
                 phase,
                 step,
+                // Read here rather than in `automation`, because "the other
+                // side" is a question about the roster and that module knows
+                // only about turns.
+                opposing_stack: view
+                    .stack
+                    .iter()
+                    .any(|o| !hud::same_team(duel.statics.as_ref(), o.controller, view.seat)),
             },
             prefs.orders(),
             prefs.auto(),
