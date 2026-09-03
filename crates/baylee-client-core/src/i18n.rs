@@ -843,6 +843,13 @@ messages! {
     HoldingPriority { en: "Not asking you", de: "Du wirst nicht gefragt" },
     /// The button that cancels a running hold.
     HoldRelease { en: "Ask me again", de: "Wieder fragen" },
+    /// The armed button for a spell or a land: pressing it sends the card.
+    ArmedPlay { en: "Play this card", de: "Diese Karte spielen" },
+    /// The armed button for a spell whose mana still has to be tapped;
+    /// `{0}` is how many sources the plan will tap.
+    ArmedTapAndCast { en: "Tap {0}, then cast", de: "{0} antippen, dann zaubern" },
+    /// The button that puts an armed deed back, with nothing sent.
+    ArmedCancel { en: "Not yet", de: "Doch nicht" },
     /// Aim next
     AimNext { en: "Aim next", de: "Nächstes Ziel" },
     /// Attack

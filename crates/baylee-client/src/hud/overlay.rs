@@ -114,6 +114,7 @@ pub fn sync_overlay(
         duel.browser.filter().to_string(),
     );
     let menu = (duel.can_offer_draw(), duel.concede_armed);
+    let armed_deed = duel.armed.clone();
     let number = duel
         .interaction
         .as_ref()
@@ -135,6 +136,7 @@ pub fn sync_overlay(
         && revision.ability_pick == ability_pick
         && revision.browser == browser
         && revision.menu == menu
+        && revision.armed == armed_deed
         && revision.number == number
         && !existing.is_empty()
     {
@@ -156,6 +158,7 @@ pub fn sync_overlay(
     revision.ability_pick = ability_pick;
     revision.browser = browser;
     revision.menu = menu;
+    revision.armed.clone_from(&armed_deed);
     revision.number = number;
 
     for entity in &existing {
@@ -617,6 +620,29 @@ pub fn sync_overlay(
             commands.entity(bar).add_child(row);
         }
 
+        // What is armed, and the way back out of it. Its own row, above the
+        // chooser it replaces: arming is where the chooser ends, and the two
+        // are never open at once.
+        if let Some(label) = duel
+            .armed
+            .as_ref()
+            .and_then(|a| armed_label(&duel, lang, a))
+        {
+            let row = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: px(6),
+                        flex_wrap: FlexWrap::Wrap,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            spawn_armed(&mut commands, &fonts, lang, row, &label);
+            commands.entity(bar).add_child(row);
+        }
+
         // The ability chooser, when a permanent was clicked that offers more
         // than one thing. Its own row rather than more entries in `answers`,
         // because these are not answers to the pending choice — they are
@@ -912,6 +938,72 @@ pub fn sync_overlay(
             cards.as_mut(),
         );
         commands.entity(root).add_child(tray);
+    }
+}
+
+/// What an armed deed calls itself, or `None` when the engine no longer
+/// offers it.
+///
+/// Resolved against the *current* `LegalActions` here as well as at the two
+/// places that fire it, which is what stops a row drawn a frame ago from
+/// offering something that has since been withdrawn. The row simply
+/// disappears; the state itself is cleared by the next key or tap, both of
+/// which run the same resolution.
+fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<String> {
+    match &armed.deed {
+        crate::Deed::Play => duel
+            .interaction
+            .as_ref()
+            .and_then(|i| i.play_card(armed.object))
+            .map(|_| Phrase::ArmedPlay.text(lang).to_string()),
+        crate::Deed::Ability(action) => super::ability_options(duel, lang, armed.object)?
+            .into_iter()
+            .find(|o| o.action == *action)
+            .map(|o| o.label),
+        crate::Deed::Run(plan) => duel
+            .reachable
+            .contains(&armed.object)
+            .then(|| Phrase::ArmedTapAndCast.fill(lang, &[&plan.taps().to_string()])),
+    }
+}
+
+/// The armed deed as a pair of buttons: the deed itself, and the way back.
+///
+/// Two buttons and no label between them, because the first one *is* the
+/// label — a row that read "Play this card" beside a button called "Send"
+/// would be saying the same thing twice and leaving a player to work out
+/// which half was the button.
+fn spawn_armed(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity, label: &str) {
+    for (action, text, lit, ink) in [
+        (
+            MenuAction::SendArmed,
+            label,
+            palette::ACTIVE,
+            palette::PANEL,
+        ),
+        (
+            MenuAction::CancelArmed,
+            Phrase::ArmedCancel.text(lang),
+            palette::PANEL_LIT,
+            palette::INK,
+        ),
+    ] {
+        let button = commands
+            .spawn((
+                MenuButton { action },
+                Node {
+                    padding: UiRect::axes(px(12), px(5)),
+                    border: UiRect::all(px(1)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(lit),
+                BorderColor::all(lit),
+                soft_shadow(),
+                children![(Text::new(text.to_string()), tf(fonts, 13.0), TextColor(ink))],
+            ))
+            .id();
+        commands.entity(row).add_child(button);
     }
 }
 

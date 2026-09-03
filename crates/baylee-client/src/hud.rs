@@ -157,6 +157,15 @@ pub enum MenuAction {
     /// empty" and "the rest of this turn" is a two-key decision, and the way
     /// out of either is one.
     ReleaseHold,
+    /// Send the armed deed (`crate::Armed`).
+    SendArmed,
+    /// Put it back with nothing on the wire.
+    ///
+    /// Both of these are `MenuButton`s rather than a component of their own
+    /// because `pointer` is already at Bevy's system-parameter limit, and a
+    /// button is a button: what distinguishes them is what they do, which is
+    /// exactly what this enum is for.
+    CancelArmed,
 }
 
 /// The sliding own-board overlay (the panel, positioned by animation).
@@ -374,6 +383,10 @@ pub struct HudRevision {
     /// the pending choice, the second nothing but the pointer, and a button
     /// whose label changes has to be redrawn when it does.
     menu: (bool, bool),
+    /// What is armed and waiting for its second tap. Unlike a priority hold,
+    /// which always arrives with a new `seq`, this never leaves the client at
+    /// all — so without it here the armed row would never be drawn.
+    armed: Option<crate::Armed>,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.

@@ -30,6 +30,14 @@ pub struct AbilityOption {
     pub action: PlayerAction,
     /// What the button says.
     pub label: String,
+    /// Whether this is a mana ability (CR 605.1).
+    ///
+    /// The one exception to arm-then-act: floating mana is the cheap mistake,
+    /// so a mana ability stays one tap. Not `legal.mana_abilities`, which
+    /// carries the CR 305.6 shortcut and granted abilities but not a printed
+    /// `{T}: Add {G}` — a mana dork would otherwise ask for a confirmation a
+    /// basic land does not.
+    pub mana: bool,
 }
 
 /// Everything `object` is offering right now, in a stable order.
@@ -75,6 +83,7 @@ pub fn options(
             out.push(AbilityOption {
                 action,
                 label: mana_label(lang, &source),
+                mana: true,
             });
         }
     }
@@ -93,9 +102,32 @@ pub fn options(
         out.push(AbilityOption {
             action,
             label: printed_label(lang, view, object, index),
+            mana: makes_mana(view, object, index),
         });
     }
     out
+}
+
+/// Whether a printed ability is a mana ability (CR 605.1).
+///
+/// Read off the card's own `mana_ability` flag, which is the only answer that
+/// is true for every card. `manasources` reduces a permanent to the *one* tap
+/// it usually has, which is right for a mana plan and wrong here: Yavimaya
+/// Coast prints two mana abilities, and the second would have asked for a
+/// confirmation the first does not.
+fn makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool {
+    matches!(
+        crate::manasources::ability_at(view, object, index),
+        Some(
+            AbilityDef::Activated {
+                mana_ability: true,
+                ..
+            } | AbilityDef::ActivatedConditional {
+                mana_ability: true,
+                ..
+            }
+        )
+    )
 }
 
 /// "Tap for {G}", or "Tap for WUBRG" where there is a choice to make.

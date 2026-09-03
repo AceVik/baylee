@@ -16,7 +16,6 @@
 //! which is why it is not the pass key: `Space` is `Confirm` and passes
 //! whatever the cursor happens to be resting on.
 
-use crate::Duel;
 use crate::hud::{
     AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton,
     PileChip, PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton, TrayCard,
@@ -25,6 +24,7 @@ use crate::hud::{
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
 use crate::table::CardVisual;
+use crate::{Deed, Duel};
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::interaction::{Interaction, Prompt, SelectionOutcome};
 use baylee_client_core::prefs::Action;
@@ -75,15 +75,27 @@ fn find_in_lineage<'a, T: Component>(
 /// at a table would do without thinking about it. [`crate::mana_for`] works
 /// out which lands; the run in [`crate::ManaRun`] taps them and then casts.
 pub fn activate_card(duel: &mut Duel, object: ObjectId) {
-    if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
-        duel.submit(action);
+    // A second tap on the same card is the send. A tap on a different one is
+    // a change of mind and not a confirmation, so it disarms and arms afresh.
+    if duel.armed.as_ref().is_some_and(|a| a.object == object) {
+        fire_armed(duel);
+        return;
+    }
+    duel.armed = None;
+    if duel
+        .interaction
+        .as_ref()
+        .and_then(|i| i.play_card(object))
+        .is_some()
+    {
+        arm(duel, object, Deed::Play);
         return;
     }
     if duel.reachable.contains(&object)
         && let Some(plan) = crate::mana_for(duel, object)
     {
         duel.last_error = None;
-        duel.mana_run = Some(crate::ManaRun::new(plan, object));
+        arm(duel, object, Deed::Run(plan));
         return;
     }
     // A permanent with something to do does it. One ability goes straight
@@ -95,7 +107,7 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
             0 => {}
             1 => {
                 duel.ability_menu = None;
-                duel.submit(options[0].action.clone());
+                arm_ability(duel, object, &options[0]);
                 return;
             }
             _ => {
@@ -110,6 +122,73 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
         i.toggle(object);
     }
 }
+
+/// Arms a deed. The prompt bar draws what is armed, and the way out of it.
+fn arm(duel: &mut Duel, object: ObjectId, deed: Deed) {
+    duel.armed = Some(crate::Armed { object, deed });
+}
+
+/// One ability: sent outright when it makes mana, armed otherwise.
+///
+/// The exception is narrow on purpose (`docs/design.md` §2.5). Floating mana
+/// empties at end of step and a wrong colour is fixed by tapping another
+/// source, so it is the one cheap mistake in the game; everything else on a
+/// permanent — sacrificing it, paying life, a loyalty ability that can only
+/// be used once a turn — is not.
+fn arm_ability(duel: &mut Duel, object: ObjectId, option: &crate::abilities::AbilityOption) {
+    if option.mana {
+        duel.submit(option.action.clone());
+    } else {
+        arm(duel, object, Deed::Ability(option.action.clone()));
+    }
+}
+
+/// Sends what is armed, or disarms when the engine no longer offers it.
+///
+/// Everything is resolved against the *current* `LegalActions` rather than
+/// trusted from the tap that armed it — the rule the ability chooser and
+/// [`crate::ManaRun`] both already follow. A deed that has gone stale leaves
+/// nothing on the wire and says why.
+pub fn fire_armed(duel: &mut Duel) {
+    let Some(armed) = duel.armed.take() else {
+        return;
+    };
+    match armed.deed {
+        Deed::Play => {
+            match duel
+                .interaction
+                .as_ref()
+                .and_then(|i| i.play_card(armed.object))
+            {
+                Some(action) => duel.submit(action),
+                None => duel.last_error = Some(STALE.to_string()),
+            }
+        }
+        Deed::Ability(action) => {
+            let still_offered = abilities_of(duel, armed.object)
+                .is_some_and(|options| options.iter().any(|o| o.action == action));
+            if still_offered {
+                duel.submit(action);
+            } else {
+                duel.last_error = Some(STALE.to_string());
+            }
+        }
+        // A plan is not re-planned here: `ManaRun` re-checks every one of its
+        // steps against what the engine is offering as it spends them, and
+        // stops honestly if a land it counted on can no longer be tapped.
+        Deed::Run(plan) => {
+            duel.last_error = None;
+            duel.mana_run = Some(crate::ManaRun::new(plan, armed.object));
+        }
+    }
+}
+
+/// What the bar says when an armed deed no longer exists.
+///
+/// English here, like the mana run's own abort lines beside it: `last_error`
+/// is one channel carrying the gateway's words as well as the client's, and
+/// translating half of it would be worse than translating none.
+const STALE: &str = "the engine no longer offers that";
 
 /// What `object` is offering, if anything.
 /// English deliberately: only the `action` on each option is read here —
@@ -159,6 +238,12 @@ pub fn keyboard(
     // forgets a half-pressed concession.
     duel.concede_armed = false;
     look_around(fired, &mut duel, &mut rig, &mut settings, &mut prefs);
+    // An armed deed owns the keyboard first, and ahead of the ability menu:
+    // arming is where the chooser *ends*, so a confirm key reaching the menu
+    // instead would pick a second ability rather than send the first.
+    if armed_keys(fired, &mut duel) {
+        return;
+    }
     // The ability menu owns the keyboard while it stands: a list of things to
     // do is not a background for the cursor to walk over.
     if ability_menu_keys(fired, &mut duel) {
@@ -383,6 +468,27 @@ fn subtype_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &m
     true
 }
 
+/// An armed deed: the confirm keys send it, cancel disarms. Returns whether
+/// it consumed the frame.
+///
+/// Cancel is listed first in `docs/keyboard-map.md`'s Escape order for a
+/// reason — an armed deed is the cheapest thing in the client to undo,
+/// because it is the only one with nothing on the wire yet.
+pub fn armed_keys(fired: Fired, duel: &mut Duel) -> bool {
+    if duel.armed.is_none() {
+        return false;
+    }
+    if fired.has(Action::Cancel) {
+        duel.armed = None;
+        return true;
+    }
+    if fired.has(Action::Primary) || fired.has(Action::Confirm) || fired.has(Action::ActivateCard) {
+        fire_armed(duel);
+        return true;
+    }
+    false
+}
+
 /// The open ability chooser: the cursor keys walk it, the primary key or
 /// confirm takes the entry, cancel puts it away. Returns whether it consumed
 /// the frame.
@@ -414,10 +520,10 @@ pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
         return true;
     }
     if fired.has(Action::Primary) || fired.has(Action::Confirm) || fired.has(Action::ActivateCard) {
-        let action = options.get(duel.ability_pick).map(|o| o.action.clone());
+        let option = options.get(duel.ability_pick).cloned();
         duel.ability_menu = None;
-        if let Some(action) = action {
-            duel.submit(action);
+        if let Some(option) = option {
+            arm_ability(duel, object, &option);
         }
         return true;
     }
@@ -732,14 +838,13 @@ fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
 /// chooser drawn a frame ago must not be able to send an ability the engine
 /// has since stopped offering.
 fn pick_ability(duel: &mut Duel, index: usize) {
-    let action = duel
+    let picked = duel
         .ability_menu
-        .and_then(|object| abilities_of(duel, object))
-        .and_then(|options| options.get(index).cloned())
-        .map(|option| option.action);
+        .and_then(|object| Some((object, abilities_of(duel, object)?)))
+        .and_then(|(object, options)| Some((object, options.get(index).cloned()?)));
     duel.ability_menu = None;
-    if let Some(action) = action {
-        duel.submit(action);
+    if let Some((object, option)) = picked {
+        arm_ability(duel, object, &option);
     }
 }
 
@@ -825,6 +930,10 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
                 duel.submit(action);
             }
         }
+        // The same door the keys use, so the two ways of confirming cannot
+        // drift; `fire_armed` re-resolves against the current `LegalActions`.
+        MenuAction::SendArmed => fire_armed(duel),
+        MenuAction::CancelArmed => duel.armed = None,
     }
 }
 
@@ -1308,10 +1417,16 @@ mod tests {
             );
         }
 
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .press(KeyCode::Enter);
-        app.update();
+        // Twice, because playing a land is irreversible and therefore
+        // two-stage: the first press arms what the cursor is over and the
+        // second sends it. `reset_all` between them, or the key is still
+        // held and never fires again.
+        for _ in 0..2 {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.reset_all();
+            keys.press(KeyCode::Enter);
+            app.update();
+        }
 
         assert_eq!(
             app.world().resource::<crate::Duel>().outbox(),
@@ -1746,5 +1861,157 @@ mod tests {
         };
         super::menu_click(&mut fresh, MenuAction::ReleaseHold, false);
         assert!(fresh.outbox().is_empty());
+    }
+
+    /// A duel driven to seat 0's first main phase, out of a real `LocalHost`.
+    ///
+    /// Every one of the arming tests needs a `LegalActions` that actually
+    /// offers something, and a hand-built one offers whatever the test wanted
+    /// it to. This plays the opening the way the client does — keep the hand,
+    /// pass until the engine offers a land — and stops at the window where a
+    /// player has a decision to make.
+    fn duel_in_main_phase() -> (crate::Duel, crate::host::LocalHost) {
+        use crate::host::{DuelHost, HostMessage, LocalHost};
+        use baylee_engine::choice::Pending;
+
+        let seat = PlayerId::new(0);
+        let mut host = LocalHost::new(&crate::host::tests::duel_preset(), seat, &["You", "AI"])
+            .expect("the preset makes a game");
+        let mut duel = crate::Duel::default();
+        for _ in 0..64 {
+            for message in host.poll() {
+                match message {
+                    HostMessage::Static(s) => duel.statics = Some(*s),
+                    HostMessage::View(v) => duel.view = Some(*v),
+                    HostMessage::Choice(p) => {
+                        duel.interaction = Some(Interaction::new(*p, seat));
+                    }
+                    HostMessage::Failed(why) => panic!("the host refused: {why}"),
+                }
+            }
+            match duel.interaction.as_ref().map(Interaction::pending) {
+                Some(Pending::Mulligan { .. }) => host.submit(PlayerAction::MulliganKeep),
+                Some(Pending::Priority { legal, .. }) if !legal.lands.is_empty() => {
+                    return (duel, host);
+                }
+                Some(Pending::Priority { .. }) => host.submit(PlayerAction::PassPriority),
+                _ => break,
+            }
+        }
+        panic!("the game never offered seat 0 a land to play");
+    }
+
+    /// The whole of arm-then-act: the first tap says nothing, the second
+    /// sends, and cancel leaves the wire empty.
+    ///
+    /// There is no undo in the engine and there should not be one, so the
+    /// client owes a player the chance to take a tap back before it becomes a
+    /// game action. Tested at this level and not on `Interaction`, because
+    /// what is being claimed is about *taps*: an assertion that the second
+    /// call to a resolver returns an action would pass just as well if the
+    /// first one had already sent it.
+    #[test]
+    fn a_tap_arms_a_card_and_a_second_tap_plays_it() {
+        let (mut duel, _host) = duel_in_main_phase();
+        let land = duel
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+            .and_then(|l| l.lands.first().copied())
+            .expect("the window offers a land");
+
+        super::activate_card(&mut duel, land);
+        assert!(
+            duel.outbox().is_empty(),
+            "the first tap put a card on the wire"
+        );
+        assert_eq!(
+            duel.armed,
+            Some(crate::Armed {
+                object: land,
+                deed: crate::Deed::Play
+            })
+        );
+
+        super::activate_card(&mut duel, land);
+        assert_eq!(duel.outbox(), [PlayerAction::PlayLand { card: land }]);
+        assert!(duel.armed.is_none(), "firing left the deed armed");
+    }
+
+    /// Cancel is the whole point of arming: it has to leave nothing behind.
+    #[test]
+    fn cancel_disarms_with_nothing_on_the_wire() {
+        use crate::keys::Fired;
+        use baylee_client_core::prefs::{Action, Chord, Keymap};
+        use bevy::prelude::KeyCode;
+
+        let (mut duel, _host) = duel_in_main_phase();
+        let land = duel
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+            .and_then(|l| l.lands.first().copied())
+            .expect("the window offers a land");
+
+        super::activate_card(&mut duel, land);
+        assert!(duel.armed.is_some());
+
+        let mut keymap = Keymap::standard();
+        keymap.bind(Action::Cancel, vec![Chord::key("Escape")]);
+        let mut keys = bevy::input::ButtonInput::<KeyCode>::default();
+        keys.press(KeyCode::Escape);
+        assert!(super::armed_keys(Fired::of(&keys, &keymap), &mut duel));
+        assert!(duel.armed.is_none(), "cancel left the deed armed");
+        assert!(duel.outbox().is_empty(), "cancel sent something");
+    }
+
+    /// The exception, and the reason it is one: floating mana is the cheap
+    /// mistake in this game, so tapping a land stays a single tap.
+    #[test]
+    fn a_mana_ability_still_goes_through_on_one_tap() {
+        use crate::host::DuelHost;
+        let (mut duel, mut host) = duel_in_main_phase();
+        let land = duel
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+            .and_then(|l| l.lands.first().copied())
+            .expect("the window offers a land");
+
+        // Put the land in play first — it is the only mana source this deck
+        // has, and a land in hand makes no mana.
+        super::activate_card(&mut duel, land);
+        super::activate_card(&mut duel, land);
+        // `outbox` is private to `Duel` but declared in the crate root, so a
+        // child module may drain it — which is what `flush_outbox` does in
+        // the running client.
+        for action in std::mem::take(&mut duel.outbox) {
+            host.submit(action);
+        }
+        for message in host.poll() {
+            match message {
+                crate::host::HostMessage::View(v) => duel.view = Some(*v),
+                crate::host::HostMessage::Choice(p) => {
+                    duel.interaction = Some(Interaction::new(*p, PlayerId::new(0)));
+                }
+                _ => {}
+            }
+        }
+        let source = duel
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+            .and_then(|l| l.mana_abilities.first().copied())
+            .expect("the land that was just played can be tapped");
+
+        super::activate_card(&mut duel, source);
+        assert!(
+            duel.armed.is_none(),
+            "tapping for mana asked for a confirmation"
+        );
+        assert_eq!(
+            duel.outbox(),
+            [PlayerAction::ActivateManaAbility { source }]
+        );
     }
 }

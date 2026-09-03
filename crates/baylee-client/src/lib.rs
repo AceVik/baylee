@@ -119,6 +119,48 @@ pub enum DuelReport {
 #[derive(Resource)]
 pub struct InstalledHost(pub Box<dyn DuelHost>);
 
+/// A tap that has been made and not yet sent.
+///
+/// There is no undo in the engine and there should not be one — a journaled,
+/// deterministic kernel does not roll back — so the client's job is to make
+/// the irreversible **two-stage**. The first tap arms; a second tap on the
+/// same card, the confirm key, or the button in the prompt bar sends it;
+/// cancel disarms with nothing on the wire.
+///
+/// Mana abilities are the exception and stay one tap. Floating mana is the
+/// one cheap mistake in the game: it empties at end of step, and a wrong
+/// colour is fixed by tapping another land. Confirming those would put a
+/// second click on the most common action a player makes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Armed {
+    /// The card or permanent the player tapped.
+    pub object: ObjectId,
+    /// What the second tap will do with it.
+    pub deed: Deed,
+}
+
+/// What an [`Armed`] tap is waiting to do.
+///
+/// Two of the three are *intents* rather than built actions, and the third
+/// carries the action so it can be re-checked. That is the same rule
+/// [`ManaRun`] follows step by step: between the two taps the engine may have
+/// withdrawn the option, so every path that fires one of these resolves it
+/// against the *current* `LegalActions` and disarms instead of guessing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Deed {
+    /// Cast the spell, or play the land — `Interaction::play_card`.
+    Play,
+    /// Activate exactly this ability.
+    ///
+    /// The action and not its position in the chooser: a list rebuilt after
+    /// the engine withdrew an earlier entry would shift under a stored
+    /// index and fire the neighbour. Membership in the rebuilt list is
+    /// checked before it is sent, so an ability that is gone disarms.
+    Ability(PlayerAction),
+    /// Tap the sources of this plan, then cast — see [`ManaRun`].
+    Run(baylee_client_core::manaplan::Plan),
+}
+
 /// The client's own state for one duel.
 #[derive(Resource, Default)]
 pub struct Duel {
@@ -207,6 +249,17 @@ pub struct Duel {
     /// disarm it — an armed button left standing across a turn would be a
     /// worse trap than no confirmation at all.
     pub concede_armed: bool,
+    /// The tap that has been made and not sent — see [`Armed`].
+    ///
+    /// Deliberately *not* cleared when a choice arrives: `pump` hands the
+    /// acting seat its question again whenever anybody says anything, an
+    /// opponent's priority hold included, and a spell that disarmed itself
+    /// because the other player pressed `F6` would be a worse trap than no
+    /// confirmation at all. It is cleared on cancel, on firing, on arming
+    /// something else, and when the game asks a question that is not this
+    /// seat's priority — and it heals itself everywhere it is read, because
+    /// every one of those paths re-resolves it first.
+    pub armed: Option<Armed>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -493,6 +546,18 @@ fn poll_host(
                 duel.ability_menu = None;
                 // …and so is a half-pressed concession. The game moved on.
                 duel.concede_armed = false;
+                // An armed deed survives this, and that is the point: the
+                // acting seat is re-sent its own question every time anybody
+                // says anything, so clearing here would let the opponent
+                // disarm a spell by pressing `F6`. Only a question that is
+                // *not* this seat's priority window takes it — everything
+                // armable is a priority-window action.
+                if !matches!(
+                    duel.interaction.as_ref().map(Interaction::pending),
+                    Some(Pending::Priority { player, .. }) if *player == seat
+                ) {
+                    duel.armed = None;
+                }
                 rebuild_board(&mut duel);
             }
             HostMessage::Failed(reason) => {

@@ -544,16 +544,42 @@ convention. It is a swap of two rows in `Keymap::standard()` and no new action.
 
 There is no undo in the engine and there should not be one: a journaled,
 deterministic kernel does not roll back. So the client's job is to make the
-irreversible **two-stage**. A tap on a spell *arms* it — the card lifts, its
+irreversible **two-stage**. ~~A tap on a spell *arms* it — the card lifts, its
 mana plan is drawn as rings on the lands it would tap, and a second tap or
-Enter sends it; Escape disarms with nothing on the wire.
+Enter sends it; Escape disarms with nothing on the wire.~~
 
-**Mana abilities are the exception and stay one tap**, because floating mana is
-the one cheap mistake: it empties at end of step and a wrong colour is fixed by
-tapping another land. Exactly the entries in `legal.mana_abilities` — today any
-lone ability goes through on the click that found it, including "Sacrifice
-this:". Concede has no confirmation at all today; one misclick ends a ranked
-game.
+~~**Mana abilities are the exception and stay one tap**, because floating mana
+is the one cheap mistake: it empties at end of step and a wrong colour is fixed
+by tapping another land. Exactly the entries in `legal.mana_abilities` — today
+any lone ability goes through on the click that found it, including "Sacrifice
+this:".~~ ~~Concede has no confirmation at all today; one misclick ends a
+ranked game.~~
+
+**Done, except the drawing.** `Duel::armed` holds an [`Armed`] — an
+`ObjectId` and a `Deed` (`Play`, `Ability`, or a mana `Run`) — and the second
+tap on the same card, the confirm keys, or the button in the prompt bar send
+it. Everything is resolved against the *current* `LegalActions` at every one
+of those points rather than trusted from the tap that armed it, which is the
+rule `ManaRun` already followed step by step; a deed the engine has withdrawn
+disarms instead of guessing. Cancel is first in the Escape order, because an
+armed deed is the only state in the client with nothing on the wire behind it.
+
+Two decisions worth writing down. The exemption is **not** `legal.mana_abilities`
+after all: that list carries the CR 305.6 shortcut and granted abilities but
+not a printed `{T}: Add {G}`, so a mana dork would have asked for a
+confirmation a basic land does not. It is `AbilityOption::mana`, read off the
+card's own `mana_ability` flag (CR 605.1) — and not off the source list either,
+which reduces a permanent to the *one* tap it usually has: Yavimaya Coast
+prints two mana abilities, and the second would have asked. And picking from the
+**ability chooser arms** rather than sends — the chooser disambiguates, it does
+not confirm, and a lone "Sacrifice this:" arming while the same ability among
+three did not would be exactly the inconsistency a player trips on.
+
+What is left is the *drawing*: the card does not lift yet and the plan's lands
+wear no rings. Both want a new bit in the `glow` word (bits 5–7 are free below
+`MARK_SHIFT`) in `cardmat.rs` and in both `.wgsl` files. Until then the prompt
+bar's armed row — the deed as a button, the way back beside it — is the whole
+signal, which is enough to be safe and not yet enough to be good.
 
 ### 2.6 Touch
 
@@ -663,8 +689,8 @@ corners as planned above, because the zone counts they replace are `TextSpan`s
 inside one text entity, and a span has no layout node to click.
 
 **Second, the common turn made fast and safe.** ~~The keymap swap~~; ~~the
-`ChooseNumber` stepper and digit picks~~; arm-then-act with mana abilities
-exempt; ~~concede confirmation~~; ~~engine holds~~ and the stop preset; the
+`ChooseNumber` stepper and digit picks~~; ~~arm-then-act with mana abilities
+exempt~~; ~~concede confirmation~~; ~~engine holds~~ and the stop preset; the
 stack panel with runs.
 
 **Third, the board made legible.** The hearth shrunk and the own battlefield

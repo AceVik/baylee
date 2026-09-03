@@ -23,7 +23,8 @@ Two consequences worth knowing before changing anything here:
 |---|---|---|
 | The click (card under cursor → phase toggle → pass) | `Enter` | implemented |
 | Confirm / pass (never toggles anything else) | `Space` | implemented |
-| Cancel: preview, then phase selection, then half-built answer | `Esc` | implemented |
+| Cancel: armed deed, then preview, then phase selection, then half-built answer | `Esc` | implemented |
+| Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select) | `E` | implemented |
 | Look at the next opponent's board (wraps home) | `F` | implemented |
@@ -122,12 +123,35 @@ rather than to `Session::seq`: a hold produces a frame without moving the game,
 and a clock counting frames would restart on every press of `F6` at the other
 end of the table. Nobody but the seat being asked may wind its clock.
 
+## Arming
+
+There is no undo in the engine, so anything irreversible is **two-stage**: the
+first tap on a card *arms* it and puts nothing on the wire, and a second tap on
+the same card — or the confirm key, or the deed's own button in the prompt bar
+— sends it. `Esc` disarms. Tapping a different card is a change of mind rather
+than a confirmation: it disarms and arms the new one.
+
+**Mana abilities are the exception and stay one tap.** Floating mana is the one
+cheap mistake in the game — it empties at end of step and a wrong colour is
+fixed by tapping another source — so asking for a confirmation there would put
+a second click on the most common action a player makes. What counts as one is
+`abilities::AbilityOption::mana`, read off the card's own `mana_ability` flag
+(CR 605.1) — not `legal.mana_abilities`, which carries the CR 305.6 shortcut
+and granted abilities but not a printed `{T}: Add {G}`, and not the mana-source
+list, which reduces a permanent to the one tap it usually has.
+
+An armed deed is re-checked against the engine's *current* offer everywhere it
+is read — the two keys, the button, and the row that draws it — so a deed the
+engine has withdrawn between the taps disarms and says so rather than being
+sent. Picking from the ability chooser arms rather than sends: the chooser
+disambiguates, it does not confirm.
+
 ## Mouse
 
 Hovering a card lifts it and shows the large tooltip (cursor shared with WASD
-— one highlight, never two); clicking plays a playable card or selects it for
-the pending choice; chosen cards stay raised / accent-framed until the choice
-is answered.
+— one highlight, never two); clicking arms a playable card (a second click
+plays it) or selects it for the pending choice; chosen cards stay raised /
+accent-framed until the choice is answered.
 
 A card in hand can be lit two ways. **Gold** is the engine offering it: the
 mana is floating and one click casts it. **Indigo** is the client offering to
@@ -141,9 +165,9 @@ did; this only removes the requirement. Player tabs at the top switch board view
 (Untap, Upkeep, Draw, Main 1, Begin Combat, Attackers, Blockers, Damage, End
 of Combat, Main 2, End Step, Cleanup) has its own rail button toggling green /
 red on click; the rail's "Next ▶" and "End ⏭" buttons fast-forward like `Tab`.
-Clicking your own permanent activates what it is offering: one ability goes
-straight through, several open a chooser on its own row of the prompt bar
-("Tap for G", "+1", "Ability 2"). The prompt bar carries the answers for
+Clicking your own permanent activates what it is offering: one ability arms
+straight away (or goes through, if it makes mana), several open a chooser on
+its own row of the prompt bar ("Tap for G", "+1", "Ability 2"). The prompt bar carries the answers for
 whatever is pending, including combat's "Aim next", "Attack"/"Block" and
 "None". The hand bar scrolls horizontally
 with the mouse wheel.

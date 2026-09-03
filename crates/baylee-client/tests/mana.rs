@@ -414,6 +414,14 @@ fn clicking_a_permanent_with_one_ability_activates_it() {
         duel.ability_menu.is_none(),
         "one option needs no chooser at all"
     );
+    // Sacrificing a land and paying a life is irreversible, so the first
+    // click arms and the second sends (`docs/design.md` §2.5). This is the
+    // ability the design names as the reason the rule exists.
+    assert!(
+        duel.outbox().is_empty(),
+        "the first click sacrificed the land"
+    );
+    activate_card(&mut duel, mire);
     let action = duel.outbox().first().cloned().expect("the click sent one");
     assert_eq!(
         action,
