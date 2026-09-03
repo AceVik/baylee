@@ -53,6 +53,31 @@ whatever the creature is attacking (CR 702.19b), and a planeswalker that
 has left the battlefield absorbs nothing — the attack stands (CR 506.4c)
 but no damage is dealt and no lifelink is paid.
 
+## Teams: an opponent is a side
+A seat carries a `team` from the preset. `GameState::side_of` answers which
+side it plays for — its team, or itself when it has none — and `Side` is an
+enum rather than an `Option<u8>` so that two teamless seats cannot compare
+equal. Every rule that says *opponent* (CR 102.3) asks
+`GameState::is_opponent`: who may be attacked and whose planeswalkers, "each
+opponent", "target opponent", hexproof (CR 702.11a — a teammate may target
+it), "during an opponent's turn", Teferi's sorcery-speed lock, Ashiok,
+Opposition Agent, an opponent's graveyard. Rules that say *each other player*
+— a draw offer, a symmetrical effect — deliberately do not, because a
+teammate is not an opponent but is certainly another player.
+
+The game is decided between sides, not heads: `game_result()` counts the
+distinct sides still standing, so one side left is a win and none is a draw.
+The winner is a `Victor` — a seat or a team — because a team wins as a team
+however many of its members died getting there (CR 104.2b);
+`Session::winning_seats` turns one back into the seat list `GameEnded`
+carries. `GamePreset::validate` refuses a table where every seat shares a
+team, which would otherwise be over at the first state-based-action pass.
+
+`team` is deliberately absent from `snapshot_hash`: it is preset-constant, so
+it can tell no two states of one game apart. Turns stay individual and life
+totals stay separate — Two-Headed Giant (one turn per team, one life total,
+blocking for a teammate) is a further step, not this one.
+
 ## Events, replacement, triggers
 Proposed events are rewritten by applicable replacement effects (each at
 most once per event, CR 614.5), applied, journaled; matching triggers are

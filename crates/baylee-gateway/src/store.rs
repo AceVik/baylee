@@ -21,6 +21,38 @@ pub struct Account {
     pub password_hash: String,
     /// Created at (unix seconds).
     pub created_at: u64,
+    /// When the address was confirmed, if it has been.
+    ///
+    /// `None` on a gateway that sends mail means the account cannot log in
+    /// yet. On a gateway with no SMTP configured it means nothing at all —
+    /// see [`crate::mail::Mailer::required`] — which is why this is an
+    /// `Option` and not a bool: "never asked" and "asked and not answered"
+    /// are the same field, and only the mailer decides which one matters.
+    ///
+    /// Defaulted, so every account written before confirmation existed loads
+    /// as unconfirmed rather than failing to load. On a gateway that then
+    /// turns mail on, those accounts are asked to confirm — which is the
+    /// honest answer, since nobody ever checked their address.
+    #[serde(default)]
+    pub confirmed_at: Option<u64>,
+    /// The language the account registered in, for the mail it is sent.
+    #[serde(default)]
+    pub lang: String,
+}
+
+/// An outstanding "confirm your address" link.
+///
+/// Only the hash is kept, for the same reason a session token's is: the store
+/// is a file on disk, and a link in it would be a working login.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Confirmation {
+    /// SHA-256 of the token in the link.
+    pub token_hash: String,
+    /// The account it confirms.
+    pub account_id: String,
+    /// Expiry (unix seconds). A link that never expired would be a password
+    /// that never expired, sitting in a mailbox.
+    pub expires_at: u64,
 }
 
 /// A stored session token (only the SHA-256 hash is kept).
@@ -103,6 +135,9 @@ pub struct Store {
     /// `MAX_SETTINGS_BYTES`.
     #[serde(default)]
     pub settings: HashMap<String, serde_json::Value>,
+    /// Outstanding confirmation links, by token hash.
+    #[serde(default)]
+    pub confirmations: HashMap<String, Confirmation>,
 }
 
 impl Store {
@@ -131,6 +166,17 @@ impl Store {
         self.accounts
             .values()
             .find(|a| a.email.eq_ignore_ascii_case(email))
+    }
+
+    /// Drops every confirmation link for one account, and every link that has
+    /// expired.
+    ///
+    /// Both halves matter: a fresh link has to invalidate the last one that
+    /// was mailed, or a resend would leave two working links behind; and
+    /// nothing else ever walks this map, so expiry has to be swept somewhere.
+    pub fn clear_confirmations(&mut self, account_id: &str, now: u64) {
+        self.confirmations
+            .retain(|_, c| c.account_id != account_id && c.expires_at > now);
     }
 
     /// Find an account by display name (case-insensitive).

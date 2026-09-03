@@ -15,6 +15,8 @@
 //! The overlay is retained-UI: it is rebuilt only when something it shows
 //! actually changed (snapshot, prompt, hover, selection, orders).
 
+use baylee_client_core::i18n::{Lang, Phrase};
+
 use crate::Duel;
 use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of, glow_bits};
 use crate::textures::CardTextures;
@@ -377,10 +379,14 @@ pub fn team_color(team: Option<u8>) -> Color {
 }
 
 /// The abilities the chooser should draw for `object`.
-fn ability_options(duel: &Duel, object: ObjectId) -> Option<Vec<crate::abilities::AbilityOption>> {
+fn ability_options(
+    duel: &Duel,
+    lang: Lang,
+    object: ObjectId,
+) -> Option<Vec<crate::abilities::AbilityOption>> {
     let view = duel.view.as_ref()?;
     let interaction = duel.interaction.as_ref()?;
-    let options = crate::abilities::options(view, interaction, object);
+    let options = crate::abilities::options(lang, view, interaction, object);
     (!options.is_empty()).then_some(options)
 }
 

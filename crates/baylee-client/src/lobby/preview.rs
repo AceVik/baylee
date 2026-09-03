@@ -18,6 +18,13 @@ use super::*;
 pub struct HoverCard {
     /// The card's art, if there is a printing to fetch.
     pub url: Option<String>,
+    /// The back face's art, for a card that is printed on both sides.
+    ///
+    /// `None` for a single-faced card, and that is the whole check: a URL for
+    /// the back can be built for any printing and Scryfall answers 404 for
+    /// the ones that have no back, so what decides is the registry's face
+    /// count, which arrives on the pool row.
+    pub back_url: Option<String>,
     /// How the printing is finished, so a foil previews as one.
     pub finish: FinishTreatment,
 }
@@ -130,25 +137,60 @@ pub(super) fn preview(
     };
     let top = (hovered.at.y - height / 2.0).clamp(8.0, (h - height - 8.0).max(8.0));
 
-    let material = cards.preview(&url, card.finish, assets.load(url.clone()));
-    commands.spawn((
-        CardPreview {
-            epoch: hovered.epoch,
-        },
-        MaterialNode(material),
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(left),
-            top: px(top),
-            width: px(width),
-            height: px(height),
-            border_radius: BorderRadius::all(px(12)),
-            ..default()
-        },
-        GlobalZIndex(600),
-        // A preview must never eat the click that would add the card.
-        Pickable::IGNORE,
-    ));
+    // The frame that turns: it holds the position and the scale, and each
+    // face fills it. Two nodes rather than one swapped material, so the back
+    // can carry the mirroring that cancels the parent's negative scale.
+    let frame = commands
+        .spawn((
+            CardPreview {
+                epoch: hovered.epoch,
+            },
+            crate::flip::Flip::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(left),
+                top: px(top),
+                width: px(width),
+                height: px(height),
+                ..default()
+            },
+            GlobalZIndex(600),
+            // A preview must never eat the click that would add the card.
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    let mut face = |url: &str, side: crate::flip::Side| {
+        let material = cards.preview(url, card.finish, assets.load(url.to_string()));
+        let node = commands
+            .spawn((
+                MaterialNode(material),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    top: px(0),
+                    width: percent(100),
+                    height: percent(100),
+                    border_radius: BorderRadius::all(px(12)),
+                    ..default()
+                },
+                side,
+                // Hidden until the turn passes the quarter, where the card is
+                // edge-on and the swap cannot be seen.
+                if side == crate::flip::Side::Back {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Inherited
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(frame).add_child(node);
+    };
+    face(&url, crate::flip::Side::Front);
+    if let Some(back) = card.back_url.as_deref() {
+        face(back, crate::flip::Side::Back);
+    }
 }
 
 /// Takes the preview down when the builder does.
@@ -160,16 +202,27 @@ pub(super) fn despawn_preview(mut commands: Commands, previews: Query<Entity, Wi
 
 /// The art a pool row previews: the printing the registry names.
 pub(crate) fn hover_of_card(card: &baylee_client_core::deckbuilder::PoolCard) -> HoverCard {
+    let entry = baylee_view::PrintEntry {
+        scryfall_id: card.scryfall_id.clone(),
+        lang: "en".to_string(),
+        finish: baylee_view::Finish::Normal,
+    };
     HoverCard {
         url: baylee_client_core::images::image_url(
-            &baylee_view::PrintEntry {
-                scryfall_id: card.scryfall_id.clone(),
-                lang: "en".to_string(),
-                finish: baylee_view::Finish::Normal,
-            },
+            &entry,
             baylee_client_core::images::Face::Front,
             baylee_client_core::images::ArtSize::Normal,
         ),
+        back_url: card
+            .two_faced
+            .then(|| {
+                baylee_client_core::images::image_url(
+                    &entry,
+                    baylee_client_core::images::Face::Back,
+                    baylee_client_core::images::ArtSize::Normal,
+                )
+            })
+            .flatten(),
         finish: FinishTreatment::Plain,
     }
 }
@@ -180,26 +233,37 @@ pub(crate) fn hover_of_entry(
     print: &baylee_core::deckrow::PrintChoice,
 ) -> HoverCard {
     let finish = print.finish_or_default();
+    let entry = baylee_view::PrintEntry {
+        // A row that named an exact printing previews that one; one that only
+        // narrowed by set has no id to fetch with, so it falls back to the
+        // art the pool row shows.
+        scryfall_id: print
+            .scryfall_id
+            .clone()
+            .unwrap_or_else(|| card.scryfall_id.clone()),
+        lang: print.lang_or_default().to_string(),
+        finish: match finish {
+            Finish::Foil => baylee_view::Finish::Foil,
+            Finish::Etched => baylee_view::Finish::Etched,
+            Finish::Normal => baylee_view::Finish::Normal,
+        },
+    };
     HoverCard {
         url: baylee_client_core::images::image_url(
-            &baylee_view::PrintEntry {
-                // A row that named an exact printing previews that one; one
-                // that only narrowed by set has no id to fetch with, so it
-                // falls back to the art the pool row shows.
-                scryfall_id: print
-                    .scryfall_id
-                    .clone()
-                    .unwrap_or_else(|| card.scryfall_id.clone()),
-                lang: print.lang_or_default().to_string(),
-                finish: match finish {
-                    Finish::Foil => baylee_view::Finish::Foil,
-                    Finish::Etched => baylee_view::Finish::Etched,
-                    Finish::Normal => baylee_view::Finish::Normal,
-                },
-            },
+            &entry,
             baylee_client_core::images::Face::Front,
             baylee_client_core::images::ArtSize::Normal,
         ),
+        back_url: card
+            .two_faced
+            .then(|| {
+                baylee_client_core::images::image_url(
+                    &entry,
+                    baylee_client_core::images::Face::Back,
+                    baylee_client_core::images::ArtSize::Normal,
+                )
+            })
+            .flatten(),
         finish: crate::buildui::treatment(finish),
     }
 }

@@ -71,6 +71,13 @@ pub struct PoolCard {
     pub commander: bool,
     /// Basic lands are the one card a deck may hold any number of.
     pub basic_land: bool,
+    /// Whether the card is printed on both sides.
+    ///
+    /// The client cannot work this out for itself: a back-face image URL can
+    /// be *built* for any printing, and Scryfall answers 404 for the ones
+    /// that have no back. Sending the bit is one byte and saves the builder
+    /// from offering to turn a card that has nothing on the other side.
+    pub two_faced: bool,
     /// The printing codegen referenced, for art and for the catalog.
     pub scryfall_id: &'static str,
     /// Rules identity, shared by every printing and every language.
@@ -152,6 +159,7 @@ fn row(def: &'static CardDef) -> PoolCard {
         basic_land: face.is_some_and(|f| {
             f.supertypes.contains(SupertypeSet::BASIC) && f.types.contains(TypeSet::LAND)
         }),
+        two_faced: def.faces.len() > 1,
         scryfall_id: def.scryfall_id,
         oracle_id: def.oracle_id,
         alt_names: Vec::new(),

@@ -105,6 +105,29 @@ at, and because a table with nothing between the seat mats reads as an
 infinite green plane however good the grain is. The pool is candlelight and
 the inlay is gilt; a test asserts neither ever goes cold, since a blue light
 over a green table makes colour identity a guess.
+**The pool says which step it is.** The rim already answers *whose* turn it
+is; where in the turn we are was only ever readable off the rail, in text, at
+the far edge of the screen. `tabletop::phase_light` gives each of the twelve
+steps a lamp — cool and low through the beginning steps, the pool's own
+candlelight through a main phase, an ember rising into combat that peaks at
+damage, dusk at the end — and `table::sync_phase` eases the middle of the
+table towards it. Combat is the case it is for: a board going warm as
+attackers are declared says "something is about to happen to you" faster than
+a highlighted row.
+
+Three things keep it from becoming noise, and all three are the kind of
+mistake that is obvious only afterwards. It is a **wash**, blended over the
+pool, not a multiplier into it — multiplying candlelight by a cold colour
+gives grey, which is how a tint like this normally fails. It leaves the
+**medallion alone**: that is the colour wheel, the one thing on the table
+that has to stay literally true, and a red cast over it would be lying about
+colour identity. And it is sized against the *ring*, not against the pool's
+quad — the first version was 42 units wide at alpha 0.34 and read as "the
+table is red" rather than as a lamp over the middle of it. The colours
+themselves are argued with in `tabletop`'s tests (combat peaks at damage, a
+main phase barely washes at all, no step is a saturated filter) rather than
+looked at in a screenshot.
+
 Everything down here is `unlit`, and stays that way: card art must never be
 tinted by scene lighting, because colour identity has to be readable at a
 glance. The table gets its depth from shading painted into the textures
@@ -364,15 +387,50 @@ gateway's routes is tested without a gateway.
 **Rooms.** The table screen lists every room the gateway knows and draws each
 one seat by seat: who is sitting there, whether they are a person or the AI,
 at what difficulty, what they brought, and whether that chair is ready. A host
-opens a room by picking a size (2 to 4) instead of pressing one "host" button,
+opens a room by picking a size (2 to 8) instead of pressing one "host" button,
 and from then on every chair is a row of controls — the host's rows switch a
-chair between a person and the AI and pick the AI's difficulty, everyone
-else's row is read-only except for the one chair that is theirs, where the
-only control is which deck to bring. Sitting down is a tap on an open chair;
-standing up is a tap on your own. There is no start button anywhere, because
-the gateway has no start route: the table starts when the last chair goes
-ready, and the lobby finds that out the same way it always has, by re-reading
-the list.
+chair between a person and the AI, pick the AI's difficulty, and hand the room
+to anyone else sitting at it; everyone else's row is read-only except for the
+one chair that is theirs, where the only control is which deck to bring.
+Sitting down is a tap on an open chair; standing up is a tap on your own, and
+it no longer takes the table with it when the person standing up is the host.
+
+Two buttons on the table's own row, because they are two different claims:
+**Ready** is this player saying so and every player has one, **Start** is the
+host's and is greyed until the listing says `startable`.
+
+**The list arrives by itself.** `lobby/feed.rs` holds a websocket to
+`/lobby/ws` carrying the page this client is reading, re-sent whenever anything
+in the lobby moves — a chair taken, a room started, a game over. It is opened
+for the *query*, not just the account, so typing in the search box or stepping
+a page closes it and dials again; that is also why the URL is built from the
+same `GameQuery` the HTTP route uses. A socket that could not be opened is
+retried every four seconds, and `Feed::live()` is what the old two-second poll
+now waits on: it runs only while nothing is pushing.
+
+A panel takes its height from its content with the screen as a floor
+(`align_self: Start` plus `min_height: 100%`). Stretched to the row instead —
+what a flex item does unasked — it is exactly one screen tall while its rows
+carry on past the bottom, so a scrolled list leaves its own panel behind and is
+drawn straight onto the backdrop. Nine tables was the first time anything was
+long enough to show it.
+
+**SEARCH** matches a table's name and its host's, and **‹ Back / More ›**
+appear only when there is more than one page — a lobby with four tables in it
+should not have to explain what page it is on. Both are sent to the gateway
+rather than filtered here: the client holds one page, not the lobby.
+
+One box, two uses: **ROOM PASSWORD** locks a room as it is opened and is what
+a locked one is joined with. Never two boxes — they are never both wanted at
+once — and it is spent on the next open or join and then cleared, because a
+password left lying in a text box is the next room's password by accident.
+
+Both boxes on this screen are typed into for the first time: text entry used to
+be the sign-in form's alone, so the room password box could be focused and not
+filled. Tab rings between the two, Enter runs the search, and `typing_here()`
+is what stops a keystroke landing in a field the screen on show does not draw —
+the caret survives a change of screen, and without that guard a password ends
+up half-typed into a search box.
 
 The seat rows are drawn from the listing verbatim, which is why they carry no
 account ids — the client is shown display names and a `you` flag, and has
@@ -381,8 +439,9 @@ nothing else to leak.
 Hosting an open table is the one asymmetric case. A game against the house and
 a join are both playable the moment the gateway answers; an open table holds a
 seat whose game does not exist yet, so the lobby keeps the table screen up with
-a banner and re-reads the game list until somebody sits down opposite. Opening
-the socket earlier would connect and close again with nothing on it.
+a banner until somebody sits down opposite — which reaches it on the feed, the
+table turning `"playing"` being a lobby change like any other. Opening the seat
+socket earlier would connect and close again with nothing on it.
 
 The deck list offers *new*, *edit* and *delete*, all of which open or act on
 the builder below. Two buttons stay because nothing else does their job: "add
@@ -641,6 +700,65 @@ something everywhere else: a player who wants `Esc` on some other action has
 to be able to press it. Escape backs out, backspace unbinds, and unbinding is
 a real answer because a pointer still reaches everything.
 
+## The interface's own words
+
+Card text has been translated for as long as `/pool?lang=` existed — the
+gateway reads it out of the catalog, field by field, and falls back to English
+per field rather than per card. The *interface* was English and only English,
+every button and status line a literal at the point it was drawn.
+`baylee-client-core/src/i18n.rs` is the other half.
+
+A `Phrase` is an enum variant, not a key into a table read at runtime, and the
+`messages!` macro writes one arm per language for each: **a phrase with no
+German fails the build**. A file of strings — RON, JSON, Fluent — answers a
+missing key with a fallback, and a fallback is a screen that is half English.
+The cost is that a third language is a sweep through one file rather than a new
+file beside it, which is the right way round: the sweep *is* the work, and a
+build that ships half of it is what makes it never get finished. `Phrase::fill`
+substitutes `{0}`, `{1}` … left to right and leaves an unfilled placeholder
+standing, because a visible `{2}` is a bug report and a silently dropped one is
+a sentence that means something else.
+
+Two rules are tests rather than conventions: every phrase answers in every
+language, and a phrase's placeholder *set* is the same in all of them — `{0}`
+moving is what translation is, `{0}` vanishing is a bug.
+
+Who says what:
+
+- The lobby's own status lines go through `Lobby::note`, which reads the
+  language off the lobby. The shell has sentences too (`could not reach the
+  table: …`), and says them with `Lobby::tell` / `unseat_because` so it never
+  has to know which language it is in.
+- The gateway's refusals (`{"error":"…"}`) are shown in the words the gateway
+  sent. It is the gateway that knows why it said no, and translating those
+  means a code beside the prose — a protocol change, and deliberately separate
+  work.
+- Values that are also identifiers stay identifiers. A house AI's difficulty is
+  `"sharp"` on the wire and in `SeatSpec`; only its label is translated, by
+  `lobby::ui::ai_name`.
+  The same line runs through the builder: `KINDS` is `(&str, Phrase)` because
+  the key is matched against a printed type line, and `Action::group` is a
+  `Phrase` because it is *also* the key the keymap panel groups by — a
+  `Phrase` compares as itself in every language, where the English string
+  would have been a key that changed meaning when the screen did.
+- A whole sentence is one phrase, never a translated verb with a translated
+  noun pasted on. `choose_line` takes `Phrase::NounCards` as an argument to
+  `Phrase::ChooseUpTo` for exactly that reason: a count and a noun agree
+  differently in different languages.
+- `input.rs` asks for ability labels in English on purpose and says so: that
+  path reads only each option's `action` — it picks by position or takes the
+  only one there is — and never draws a label.
+
+One setting feeds two readers. `ClientSettings.lang` is both the code the
+catalog is asked for and, through `Lang::of`, the language the interface draws
+itself in — `Lang::of` reads `de-DE` and `en_GB` by their first part and
+answers English for anything it does not know, because a client that refused
+to start over a settings file would be worse than one that speaks English. The
+picker is a chip per language at the top of the settings screen, each naming
+itself in its own words, and it is written to the store on the click: the
+settings screen has no way out but a click, and a language that reverted on
+the next launch would read as a button that did nothing.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds
@@ -728,6 +846,68 @@ arithmetic it has no way to test.
 
 The duel's own overlay is still written in fixed pixels and has not had this
 pass yet.
+
+## Driving the client without its window
+
+`crates/baylee-client/src/devctl.rs` is a loopback HTTP harness that presses
+keys, moves and clicks the pointer, dumps what the client believes, and saves a
+screenshot — all while the window sits behind everything else on the desktop.
+It exists because the alternative is bringing a window to the front, pressing a
+key by hand and looking at it, which is neither repeatable nor available to
+anything automated.
+
+```bash
+BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control
+curl -s localhost:28770/health        # {"ok":true,"frame":1183,"width":1728,"height":1052,"scale":2}
+curl -s localhost:28770/state         # the view, the pending choice, the interaction
+curl -s -XPOST localhost:28770/pointer   -d '{"x":864,"y":655,"press":true}'
+curl -s -XPOST localhost:28770/key       -d '{"name":"Space","shift":false}'
+curl -s -XPOST localhost:28770/scroll    -d '{"y":-6}'
+curl -s -XPOST localhost:28770/screenshot -d '{"path":"/tmp/table.png"}'
+```
+
+Five things about it are load-bearing.
+
+**It is a compile-time feature, not a runtime switch.** A remote-control socket
+inside a game binary is a cheat vector, and the only guarantee worth having is
+that the code is absent from the shipped build. `BAYLEE_DEV_CONTROL` being
+unset is the second lock and loopback the third, never the first.
+
+**Keys are written into `ButtonInput<KeyCode>`, not synthesised as OS events.**
+That is both simpler and *more* faithful: `keys.rs` reads exactly that
+resource, so an injected press travels through the account's `Keymap` like any
+other — and focus stops mattering, which is the whole point.
+
+**A click is three frames, and this is where the first version was wrong.**
+Bevy's picking backend does not read `ButtonInput` at all: it reads
+`WindowEvent` messages, keeps the last cursor location in a `Local`, and only
+turns a press into a `Pointer<Click>` once a press and a release have landed on
+the same hovered entity. Setting `Window::cursor_position` and pressing the
+resource in one frame therefore answered `{"ok":true}` while nothing whatsoever
+was clicked — the screenshot after the click was byte-identical to the one
+before it. `/pointer` now writes a `CursorMoved` on the frame it arrives, the
+press on the next and the release on the one after, mirrored into `WindowEvent`
+exactly as `bevy_winit` does, and answers the caller only once the release is
+out. `devctl::tests::a_click_is_a_move_then_a_press_then_a_release` is that
+sequence as a test.
+
+**A wheel is written twice, for the same reason a click is.** `/scroll` sends a
+`MouseWheel` *and* the `WindowEvent::MouseWheel` beside it, because it is
+picking that turns a wheel into the `Pointer<Scroll>` a list listens for, and
+picking reads the window event. Written only as the plain message, the wheel
+reached everything except the lists. It lands wherever `/pointer` last put the
+cursor, the way a real wheel picks the list under it — and without it the
+harness cannot reach a control below the fold, which is how a lobby pager stays
+untested.
+
+**Coordinates are logical pixels, screenshots are physical.** `/health` reports
+`width`, `height` and `scale` so the ratio between the two is read rather than
+guessed; on a Retina display a guess is wrong by a factor of two.
+
+`/state` is deliberately the *client's* answer and not the engine's — the view
+it last received, beside the interaction state it built from it. A disagreement
+between the two is exactly the class of bug the endpoint exists to show, and
+one a screenshot cannot report.
 
 ## Verification
 

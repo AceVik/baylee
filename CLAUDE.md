@@ -35,6 +35,7 @@ cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages fo
 cargo run -p xtask -- forge-report                        # how far the card transcoder reaches, and what it needs next
 cargo run -p xtask -- pool-dump --out /tmp/pool.txt       # every CardDef, for refactor equivalence diffs
 cargo run -p xtask -- dev-table --seats 4 --ai sharp      # a seated dev ticket (add --play to launch the client)
+cargo run -p xtask -- dev-table --seats 3 --teams 1,1,2   # the same, as a 2v1
 ```
 
 `dev-table` skips the lobby's sign-in and deck-picking *screens* and nothing
@@ -42,7 +43,12 @@ else: the account (`dev@baylee.local`, reused across runs), the deck, the room
 and every AI chair are made through the gateway's own HTTP routes, and what it
 prints is an ordinary `SeatTicket`. The game therefore runs over the same
 engine ⇄ gateway ⇄ client sockets as any other — it is not a `LocalHost`
-shortcut, which is the whole point of having it.
+shortcut, which is the whole point of having it. It also says `ready` and
+`start` for the dev account, because a room does not start itself: a table of
+more than two chairs used to be arranged and then left sitting there.
+`--teams` puts the chairs on sides in seat order (`1,1,2` is a 2v1, `0` leaves
+a chair on its own side), which needs three chairs or more — a duel already
+has exactly two sides.
 
 `codegen`, `explain`, and `card-batch` default `--forge` to
 `../mtg/forge-reference/forge-gui/res/cardsfolder` (read-only GPL reference,
@@ -52,12 +58,21 @@ Running things:
 
 ```bash
 cargo run -p baylee-client                               # Bevy duel client, solo vs AI
+BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control   # drivable while unfocused
 trunk serve index.html --release                         # from crates/baylee-client/ — browser client on :8080
 BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) ./target/debug/baylee-gateway   # accounts/decks/lobby/proxy, 0.0.0.0:28766
 BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent                  # starts one engine per game
 ./target/debug/baylee-engine-server                      # dev harness only, 127.0.0.1:28765
 cargo bench -p baylee-engine -- --quick                  # numbers to compare against docs/perf-baseline.md
 ```
+
+`dev-control` opens a loopback HTTP harness (`/health`, `/state`, `/key`,
+`/text`, `/pointer`, `/scroll`, `/screenshot`) that drives and photographs the
+client while its window is in the background — a compile-time feature, because
+a remote-control socket in a shipped game binary is a cheat vector.
+`docs/client.md` §"Driving the client without its window" has the protocol,
+why a wheel is written twice, and the reason a click takes
+three frames.
 
 Always build the browser client `--release` (a dev-profile wasm is ~350 MB vs
 ~36 MB). Servers are quiet without `RUST_LOG=info` — the tracing subscriber
@@ -84,7 +99,10 @@ no rules" in `docs/protocol.md` for the whole circle.
 Env vars: gateway takes `PORT`, `STORE_PATH` (default `gateway-store.json` in
 the working directory, and *not* gitignored), `BAYLEE_REGISTRATION=off`,
 `BAYLEE_TRUSTED_PROXIES`, `DATABASE_URL`, `BAYLEE_AGENT_TOKEN` (the shared
-secret an agent presents; without it no agent may connect) and
+secret an agent presents; without it no agent may connect), `BAYLEE_SMTP_URL`
+/ `BAYLEE_MAIL_FROM` / `BAYLEE_PUBLIC_URL` (confirmation mail — without the
+first of them the gateway sends none and requires no confirmation, which is
+the development default) and
 `BAYLEE_ENGINE_URL` (what an engine is told to dial, default
 `ws://127.0.0.1:{PORT}/engine/ws` — right for one box, wrong the moment an
 agent runs elsewhere). The agent takes `BAYLEE_GATEWAY`, `BAYLEE_AGENT_TOKEN`,
@@ -378,16 +396,37 @@ starter deck" (it posts the acceptance file's `Allytifact` rows in one tap)
 and "play the house AI offline" (a `LocalHost`, no account).
 
 A table of more than two chairs is a **room**, arranged in the open before
-anyone plays: `POST /lobby/games {seats: 2..=4, name}` opens one, `POST
-/lobby/games/{id}/seats/{seat}` arranges a chair, `POST .../leave` frees one.
-Two authorities that do not overlap — the host sets `kind`/`ai` on any chair
-nobody is sitting in, every player sets `deck_id` on their own and nothing
-else. There is deliberately **no start route**: a room starts the moment every
-chair is ready (a human chair with an account and a deck, or an AI chair, which
-is ready as soon as it is configured), which is the same rule the two-seat open
-table always followed when its second player sat down. `GET /lobby/games`
-describes the whole arrangement in display names, never account ids, with
-`you`/`yours` answering "is that me". `docs/protocol.md` §Rooms is normative.
+anyone plays: `POST /lobby/games {seats: 2..=8, name, password}` opens one,
+`POST /lobby/games/{id}/seats/{seat}` arranges a chair, `POST .../leave` frees
+one. Two authorities that do not overlap — the host sets `kind`/`ai` on any
+chair nobody is sitting in, every player sets `deck_id` on their own and
+nothing else. Eight is `GamePreset::validate`'s bound, so the gateway refuses
+exactly what the engine would.
+
+Starting takes **two statements by two people**: `POST .../ready {ready}` is a
+player's own (a `409` without a deck, and cleared if the host puts a different
+deck in that chair), `POST .../start` is the host's, and it is a `409` until
+every chair is ready — an AI chair being ready as soon as it is configured.
+The room used to start itself when the last chair got a deck, which meant
+picking a deck to look at it put you in a game. `POST .../host {seat}` hands
+the room on, and so does leaving: a room passes to whoever **joined earliest**
+and is closed only when nobody is left in it. A non-empty `password` locks the
+room; the listing carries `"locked"` and never the password.
+
+`GET /lobby/games` describes the whole arrangement in display names, never
+account ids, with `you`/`yours` answering "is that me" and `startable` saying
+whether the host's button would do anything. It answers **one page** —
+`{games, total, offset, limit}`, searched with `q` over a table's name and its
+host's — in a **fixed total order** (waiting first, then newest, then id),
+because games live in a `HashMap` and paging an unordered collection hands out
+some rows twice and never shows others.
+
+`GET /lobby/ws?token=…&q=…&offset=…&limit=…` is the same page, pushed: sent on
+connect and again on every lobby change, rendered per socket because
+`yours`/`you` are per account. The client's search box and pager are part of
+the subscription, so changing either re-dials; a client with no socket falls
+back to polling the HTTP route. `docs/protocol.md` §Rooms and §"The lobby
+feed" are normative.
 
 The deck builder is `Screen::Build`, and the same split once more: all of it
 decides in `crates/baylee-client-core/src/deckbuilder.rs`. Two things fix its
@@ -446,8 +485,11 @@ join both order an engine before answering, so the socket can be opened at once
 and simply waits (up to 30 s) for that engine to attach. An **open** table
 orders nothing — it holds a seat whose game does not exist, so a socket opened
 against it is accepted and closed again with nothing on it. The lobby stays put
-and re-reads `GET /lobby/games` until that table's state turns `"playing"`.
-Nothing pushes that news; there is no socket to push it on.
+until that table's state turns `"playing"` — which the lobby feed pushes, the
+table's state being a lobby change like any other. `lobby/feed.rs` holds that
+socket; the two-second re-read that used to be the only way to learn it is
+still there behind `Feed::live()`, for a gateway that has no `/lobby/ws` or a
+socket that could not be opened.
 
 A card is a **slab**, not a decal: a rounded face with a thin wall around its
 edge (whose UVs borrow the face's, so the edge is the card's own border
@@ -566,3 +608,18 @@ keys; `W` and `⇧W` are two chords and telling them apart is the keymap's job.
 The keymap, the phase rail and the automation switches travel with the account
 over `GET`/`PUT /settings`, and `crates/baylee-client/src/settingsui.rs` is
 where a player changes them.
+
+The interface speaks the player's language, and `Phrase` is an enum rather
+than a key into a file: `baylee-client-core/src/i18n.rs` writes one arm per
+language with a macro, so **a phrase with no German is a compilation error**
+and there is no fallback that renders half a screen in English. Two tests hold
+it — every phrase answers in every language, and a phrase's `{0}`/`{1}` set is
+the same in all of them. The lobby's own lines go through `Lobby::note`, the
+shell's through `Lobby::tell`/`unseat_because`; the gateway's `{"error":…}`
+stays in the gateway's words, because translating those means a code beside
+the prose and that is a protocol change. Values that are also identifiers
+(`"sharp"` for a house AI) keep their wire spelling and translate only the
+label. `ClientSettings.lang` feeds both readers — the catalog's `lang=` and,
+through `Lang::of`, the interface itself — and the picker in `settingsui.rs`
+writes it on the click. `docs/client.md` §"The interface's own words" is
+normative.

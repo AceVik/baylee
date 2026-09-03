@@ -12,6 +12,7 @@
 //! request is not it.
 
 use crate::deckbuilder::DeckBuilder;
+use crate::i18n::{Lang, Phrase};
 use serde::{Deserialize, Serialize};
 
 /// Which screen the lobby is showing.
@@ -48,6 +49,13 @@ pub enum Field {
     DisplayName,
     /// The password. A shell is expected to draw this masked.
     Password,
+    /// A room's password, on the table screen. Not part of the sign-in form
+    /// at all — it shares the caret machinery because a client has one caret,
+    /// not because the two fields are related.
+    RoomPassword,
+    /// What the table list is being searched for. Also on the table screen,
+    /// and also not a sign-in field.
+    Search,
 }
 
 impl Field {
@@ -58,8 +66,8 @@ impl Field {
     pub fn kind(self) -> FieldKind {
         match self {
             Self::Email => FieldKind::Email,
-            Self::DisplayName => FieldKind::Name,
-            Self::Password => FieldKind::Password,
+            Self::DisplayName | Self::Search => FieldKind::Name,
+            Self::Password | Self::RoomPassword => FieldKind::Password,
         }
     }
 }
@@ -95,9 +103,10 @@ pub struct DeckSummary {
 
 /// The fewest chairs a table may have.
 pub const MIN_CHAIRS: usize = 2;
-/// The most chairs a table may have. The gateway enforces the same bound;
-/// this is what stops a client offering a number that would be refused.
-pub const MAX_CHAIRS: usize = 4;
+/// The most chairs a table may have. The gateway enforces the same bound —
+/// which is `GamePreset::validate`'s — and this is what stops a client
+/// offering a number that would be refused.
+pub const MAX_CHAIRS: usize = 8;
 
 /// Who a chair is meant for.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -111,6 +120,12 @@ pub enum SeatKind {
 }
 
 /// A seat in a listed game.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a wire DTO: the four flags are four independent answers the \
+              gateway sends, and packing them into an enum here would only \
+              move the decoding somewhere it cannot be checked against JSON"
+)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GameSeat {
     /// Seat number at the table.
@@ -130,12 +145,19 @@ pub struct GameSeat {
     /// Whether that is the player reading the list.
     #[serde(default)]
     pub you: bool,
+    /// Whether the person in this chair arranges the room.
+    #[serde(default)]
+    pub host: bool,
     /// The deck this chair plays, as far as it is decided.
     #[serde(default)]
     pub deck: String,
     /// Whether the chair is settled enough for the game to start.
     #[serde(default)]
     pub ready: bool,
+    /// Which team the chair plays for. `None` is a chair on its own side,
+    /// which is every chair at a table with no teams on it.
+    #[serde(default)]
+    pub team: Option<u8>,
 }
 
 impl GameSeat {
@@ -162,6 +184,15 @@ pub struct GameSummary {
     pub yours: bool,
     /// `"waiting"`, `"playing"` or `"over"`.
     pub state: String,
+    /// Whether the room asks for a password before letting anyone in. Never
+    /// the password itself — the listing is public to every signed-in player.
+    #[serde(default)]
+    pub locked: bool,
+    /// Whether every chair is ready, so the host's start button does
+    /// something. Visible to everyone, because a player waiting to start
+    /// should be able to see who they are waiting for.
+    #[serde(default)]
+    pub startable: bool,
     /// Every seat at the table, taken or not.
     #[serde(default)]
     pub seats: Vec<GameSeat>,
@@ -180,6 +211,18 @@ impl GameSummary {
         self.seats.iter().find(|s| s.you).map(|s| s.seat)
     }
 
+    /// This player's own chair, if they are at the table.
+    #[must_use]
+    pub fn mine(&self) -> Option<&GameSeat> {
+        self.seats.iter().find(|s| s.you)
+    }
+
+    /// Whether this player has said they are ready.
+    #[must_use]
+    pub fn i_am_ready(&self) -> bool {
+        self.mine().is_some_and(|s| s.ready)
+    }
+
     /// Whether this player is at the table at all.
     #[must_use]
     pub fn seated(&self) -> bool {
@@ -187,9 +230,18 @@ impl GameSummary {
     }
 
     /// How the table reads in a list: what it is called, and how full it is.
+    ///
+    /// *Occupied*, not ready. It used to count ready chairs, which meant the
+    /// same thing back when a chair with a deck in it was ready — and stopped
+    /// meaning it the moment a player had to say so, at which point a full
+    /// table read "0/4 seated".
     #[must_use]
     pub fn headline(&self) -> String {
-        let taken = self.seats.iter().filter(|s| s.ready).count();
+        let taken = self
+            .seats
+            .iter()
+            .filter(|s| s.taken || s.kind == SeatKind::Ai)
+            .count();
         let name = if self.name.trim().is_empty() {
             "table".to_string()
         } else {
@@ -198,6 +250,60 @@ impl GameSummary {
         format!("{name}  \u{b7}  {taken}/{} seated", self.seats.len())
     }
 }
+
+/// One page of the table list, as `GET /lobby/games` answers it.
+///
+/// `total` is what the search matched, not what this page holds — the two
+/// differ by exactly the rows the client did not ask for, and a pager with no
+/// idea how many there are is a Next button that has to be pressed to find
+/// out it does nothing.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+pub struct GameListing {
+    /// This page's tables, in the order the gateway ordered them.
+    #[serde(default)]
+    pub games: Vec<GameSummary>,
+    /// How many tables the search matched altogether.
+    #[serde(default)]
+    pub total: usize,
+    /// Where in that list this page starts.
+    #[serde(default)]
+    pub offset: usize,
+    /// How many rows a page holds.
+    #[serde(default)]
+    pub limit: usize,
+}
+
+impl GameListing {
+    /// A single, whole page of these tables — what a test means when it is
+    /// not about paging.
+    #[must_use]
+    pub fn of(games: Vec<GameSummary>) -> Self {
+        let total = games.len();
+        Self {
+            games,
+            total,
+            offset: 0,
+            limit: PAGE,
+        }
+    }
+}
+
+/// What the client asks a page of the table list for.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct GameQuery {
+    /// Free text, matched against a table's name and its host's.
+    pub q: String,
+    /// Where the page starts.
+    pub offset: usize,
+    /// How many rows it holds.
+    pub limit: usize,
+}
+
+/// How many tables one page of the list holds.
+///
+/// Smaller than the gateway's own default, because a row here is four lines
+/// of chairs rather than one line of text.
+pub const PAGE: usize = 8;
 
 /// What the gateway hands back when a seat is granted: everything a client
 /// needs to open the duel socket, and nothing else.
@@ -283,8 +389,8 @@ pub enum LobbyRequest {
         /// Which deck.
         deck_id: String,
     },
-    /// `GET /lobby/games`.
-    ListGames,
+    /// `GET /lobby/games` — one page of it.
+    ListGames(GameQuery),
     /// `POST /lobby/games`.
     CreateGame {
         /// The deck to sit down with.
@@ -296,6 +402,8 @@ pub enum LobbyRequest {
         chairs: usize,
         /// What to call it in the list.
         name: String,
+        /// A password for the room. Empty leaves it open.
+        password: String,
     },
     /// `POST /lobby/games/{id}/join`.
     JoinGame {
@@ -305,6 +413,8 @@ pub enum LobbyRequest {
         deck_id: String,
         /// Which chair, or the first free one.
         seat: Option<u32>,
+        /// The room's password, for a locked room.
+        password: String,
     },
     /// `POST /lobby/games/{id}/seats/{seat}` — arrange one chair.
     SetSeat {
@@ -318,6 +428,29 @@ pub enum LobbyRequest {
         ai: Option<String>,
         /// The deck the chair plays.
         deck_id: Option<String>,
+        /// Which team the chair plays for. Teams are numbered from 1 and
+        /// `0` puts the chair back on its own side, so that "leave it alone"
+        /// stays the absent field it is for everything else here.
+        team: Option<u8>,
+    },
+    /// `POST /lobby/games/{id}/ready` — say whether this player is ready.
+    SetReady {
+        /// The table.
+        game_id: String,
+        /// Ready, or taking it back.
+        ready: bool,
+    },
+    /// `POST /lobby/games/{id}/start` — the host's go.
+    StartGame {
+        /// The table to start.
+        game_id: String,
+    },
+    /// `POST /lobby/games/{id}/host` — hand the room to another chair.
+    HandOver {
+        /// The table.
+        game_id: String,
+        /// The chair that takes it over.
+        seat: u32,
     },
     /// `POST /lobby/games/{id}/leave` — give up a chair, or close the room.
     LeaveGame {
@@ -329,8 +462,14 @@ pub enum LobbyRequest {
 /// The outcome of a [`LobbyRequest`], handed back by the shell.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LobbyEvent {
-    /// The account now exists. It comes with no token; a log-in follows.
-    Registered,
+    /// The account now exists. It comes with no token, so a log-in follows
+    /// — unless the gateway sends confirmation mail, in which case the
+    /// log-in would be refused until the link is clicked and there is
+    /// nothing to do but say so.
+    Registered {
+        /// Whether the gateway wants the address confirmed first.
+        confirmation_required: bool,
+    },
     /// Signed in.
     LoggedIn {
         /// The account bearer token, for every later call.
@@ -378,8 +517,12 @@ pub enum LobbyEvent {
     DeckDeleted,
     /// A chair was given up, or a room closed.
     Left,
-    /// The tables that are open.
-    Games(Vec<GameSummary>),
+    /// The tables that are open — one page of them.
+    Games(GameListing),
+    /// A chair moved: somebody sat down, said they were ready, handed the
+    /// room on. What changed is not carried, because the page being read is
+    /// what has to be redrawn and only this client knows which page that is.
+    Moved,
     /// A seat, and the ticket that proves it.
     Seated(SeatHandover),
     /// The request failed, with something worth showing a player.
@@ -397,9 +540,15 @@ pub struct Lobby {
     email: String,
     display_name: String,
     password: String,
+    room_password: String,
+    search: String,
     token: Option<String>,
     decks: Vec<DeckSummary>,
     games: Vec<GameSummary>,
+    /// How many tables the current search matched, of which `games` is a page.
+    total: usize,
+    /// Where that page starts.
+    offset: usize,
     deck: Option<usize>,
     status: String,
     busy: bool,
@@ -412,6 +561,15 @@ pub struct Lobby {
     /// already in. A shell that has to *do* something when a field is picked —
     /// raise a keyboard, say — cannot tell that from the field alone.
     focus_epoch: u64,
+    /// The language everything this lobby says is said in.
+    ///
+    /// Held here rather than passed to each method because the status line is
+    /// written *at* the moment something happens, and the shell that renders
+    /// it a frame later has no idea what was meant. A line already on screen
+    /// is not re-translated when the language changes: it is one transient
+    /// sentence about something that has already finished, and the next one
+    /// arrives in the new language.
+    lang: crate::i18n::Lang,
     /// A table of ours that is open and has nobody in the other chair yet.
     awaiting: Option<SeatHandover>,
     /// What the seat now being granted was asked for.
@@ -462,13 +620,15 @@ impl Lobby {
         *self.field_mut(field) = value.to_string();
     }
 
-    /// The text in one sign-in field.
+    /// The text in one field.
     #[must_use]
     pub fn field(&self, field: Field) -> &str {
         match field {
             Field::Email => &self.email,
             Field::DisplayName => &self.display_name,
             Field::Password => &self.password,
+            Field::RoomPassword => &self.room_password,
+            Field::Search => &self.search,
         }
     }
 
@@ -534,8 +694,35 @@ impl Lobby {
     }
 
     /// Says something to the player without touching anything else.
+    ///
+    /// Words the *gateway* chose come through here: it is the gateway that
+    /// knows why it said no, and translating its refusals means sending a
+    /// code beside the prose, which is a protocol change and not this.
     pub fn say(&mut self, message: impl Into<String>) {
         self.status = message.into();
+    }
+
+    /// Says one of the client's own sentences, in the language it is set to.
+    pub(crate) fn note(&mut self, phrase: Phrase) {
+        self.status = phrase.text(self.lang).to_string();
+    }
+
+    /// The same, for the shell — which has its own sentences to say and no
+    /// business knowing which language this lobby is in.
+    pub fn tell(&mut self, phrase: Phrase, args: &[&str]) {
+        self.status = phrase.fill(self.lang, args);
+    }
+
+    /// The language this lobby speaks.
+    #[must_use]
+    pub fn lang(&self) -> Lang {
+        self.lang
+    }
+
+    /// Changes it. The shell does this when the setting is read at startup
+    /// and whenever the player picks another language.
+    pub fn set_lang(&mut self, lang: Lang) {
+        self.lang = lang;
     }
 
     /// Puts the caret in a field.
@@ -549,13 +736,62 @@ impl Lobby {
 
     /// Moves the caret to the next field — the Tab key. The display name is
     /// not in the ring when the form is logging in, because it is not shown.
+    ///
+    /// The table screen is its own ring of two — the search box and the room
+    /// password — because those two are the fields on it, and Tab between
+    /// screens would move the caret somewhere nobody can see it.
     pub fn cycle_focus(&mut self) {
+        if self.screen == Screen::Table {
+            self.focus = match self.focus {
+                Field::Search => Field::RoomPassword,
+                _ => Field::Search,
+            };
+            self.focus_epoch += 1;
+            return;
+        }
         self.focus = match (self.focus, self.registering()) {
             (Field::Email, true) => Field::DisplayName,
             (Field::Email, false) | (Field::DisplayName, _) => Field::Password,
             (Field::Password, _) => Field::Email,
+            (Field::RoomPassword, _) => Field::Search,
+            (Field::Search, _) => Field::RoomPassword,
         };
         self.focus_epoch += 1;
+    }
+
+    /// Whether the caret is in a field the screen on show actually draws.
+    ///
+    /// A shell asks this before typing: the caret survives a change of
+    /// screen, and characters going into a field nobody can see is how a
+    /// password ends up half-typed into a search box.
+    #[must_use]
+    pub fn typing_here(&self) -> bool {
+        match self.screen {
+            Screen::SignIn { registering } => match self.focus {
+                Field::Email | Field::Password => true,
+                Field::DisplayName => registering,
+                Field::RoomPassword | Field::Search => false,
+            },
+            Screen::Table => matches!(self.focus, Field::RoomPassword | Field::Search),
+            Screen::Build | Screen::Seated(_) => false,
+        }
+    }
+
+    /// What has been typed into the room password box.
+    #[must_use]
+    pub fn room_password(&self) -> &str {
+        &self.room_password
+    }
+
+    /// Empties the room password box.
+    ///
+    /// Called once a room has been opened or joined: a password left lying in
+    /// a text box is the next room's password by accident.
+    pub fn clear_room_password(&mut self) {
+        self.room_password.clear();
+        if self.focus == Field::RoomPassword {
+            self.focus = Field::Email;
+        }
     }
 
     /// Appends one typed character to the focused field.
@@ -588,7 +824,7 @@ impl Lobby {
                 self.focus_epoch += 1;
             }
         } else {
-            self.status = "this gateway is not taking new accounts".to_string();
+            self.note(Phrase::NoSignUps);
         }
     }
 
@@ -601,23 +837,23 @@ impl Lobby {
             return None;
         }
         if self.email.trim().is_empty() || self.password.is_empty() {
-            self.status = "an e-mail and a password, please".to_string();
+            self.note(Phrase::NeedEmailAndPassword);
             return None;
         }
         if registering && self.display_name.trim().is_empty() {
-            self.status = "a display name, please".to_string();
+            self.note(Phrase::NeedDisplayName);
             return None;
         }
         self.busy = true;
         if registering {
-            self.status = "creating the account…".to_string();
+            self.note(Phrase::CreatingAccount);
             Some(LobbyRequest::Register {
                 email: self.email.trim().to_string(),
                 display_name: self.display_name.trim().to_string(),
                 password: self.password.clone(),
             })
         } else {
-            self.status = "signing in…".to_string();
+            self.note(Phrase::SigningIn);
             Some(LobbyRequest::LogIn {
                 email: self.email.trim().to_string(),
                 password: self.password.clone(),
@@ -641,7 +877,7 @@ impl Lobby {
             return None;
         }
         self.busy = true;
-        self.status = "saving the deck…".to_string();
+        self.note(Phrase::SavingDeck);
         Some(LobbyRequest::SaveDeck {
             deck_id: None,
             name: name.to_string(),
@@ -682,7 +918,7 @@ impl Lobby {
         let deck_id = self.decks.get(index)?.id.clone();
         self.screen = Screen::Build;
         self.busy = true;
-        self.status = "opening the deck…".to_string();
+        self.note(Phrase::OpeningDeck);
         Some(LobbyRequest::LoadDeck { deck_id })
     }
 
@@ -693,7 +929,7 @@ impl Lobby {
         }
         let deck_id = self.decks.get(index)?.id.clone();
         self.busy = true;
-        self.status = "deleting the deck…".to_string();
+        self.note(Phrase::DeletingDeck);
         Some(LobbyRequest::DeleteDeck { deck_id })
     }
 
@@ -710,7 +946,7 @@ impl Lobby {
         }
         let request = self.builder.save()?;
         self.busy = true;
-        self.status = "saving the deck…".to_string();
+        self.note(Phrase::SavingDeck);
         Some(request)
     }
 
@@ -726,8 +962,77 @@ impl Lobby {
             return None;
         }
         self.pool_requested = true;
-        self.status = "loading the card pool…".to_string();
+        self.note(Phrase::LoadingPool);
         Some(LobbyRequest::LoadPool)
+    }
+
+    /// What the next read of the table list asks for.
+    #[must_use]
+    pub fn query(&self) -> GameQuery {
+        GameQuery {
+            q: self.search.trim().to_string(),
+            offset: self.offset,
+            limit: PAGE,
+        }
+    }
+
+    /// Asks for the current page of the table list.
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "every caller is an intent or an event handler answering \
+                  Option<LobbyRequest>, and unwrapping this one would put a \
+                  Some( at eight call sites to save it here"
+    )]
+    fn list(&mut self) -> Option<LobbyRequest> {
+        self.busy = true;
+        Some(LobbyRequest::ListGames(self.query()))
+    }
+
+    /// Reads the list again for what the search box now says.
+    ///
+    /// From the first page: a search is a different list, and the row that
+    /// was fourth in the old one is not the fourth in this one.
+    pub fn search_again(&mut self) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.offset = 0;
+        self.list()
+    }
+
+    /// How many tables the search matched, of which [`Lobby::games`] is a page.
+    #[must_use]
+    pub fn total(&self) -> usize {
+        self.total
+    }
+
+    /// Where the shown page starts in that list.
+    #[must_use]
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
+    /// Whether there is a page after this one.
+    #[must_use]
+    pub fn more(&self) -> bool {
+        self.offset + self.games.len() < self.total
+    }
+
+    /// Steps one page forwards or back, if there is one to step onto.
+    pub fn page(&mut self, forwards: bool) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        let next = if forwards {
+            if !self.more() {
+                return None;
+            }
+            self.offset + PAGE
+        } else {
+            self.offset.checked_sub(PAGE)?
+        };
+        self.offset = next;
+        self.list()
     }
 
     /// Re-reads decks and tables. Decks first: the answer chains into games.
@@ -744,22 +1049,38 @@ impl Lobby {
         self.open_room(mode, 2, String::new())
     }
 
-    /// Opens a table of a chosen size, under a chosen name.
+    /// Opens a table of a chosen size, under a chosen name, locked with
+    /// whatever is in the room password box.
     pub fn open_room(
         &mut self,
         mode: GameMode,
         chairs: usize,
         name: String,
     ) -> Option<LobbyRequest> {
+        let password = self.room_password.clone();
+        self.open_locked_room(mode, chairs, name, password)
+    }
+
+    /// Opens a table with an explicit password, for a caller that has one
+    /// that did not come from the box.
+    pub fn open_locked_room(
+        &mut self,
+        mode: GameMode,
+        chairs: usize,
+        name: String,
+        password: String,
+    ) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
         self.busy = true;
+        self.room_password.clear();
         self.asked_for = Some(mode);
-        self.status = "opening a table…".to_string();
+        self.note(Phrase::OpeningTable);
         Some(LobbyRequest::CreateGame {
             deck_id,
             mode,
             chairs: chairs.clamp(MIN_CHAIRS, MAX_CHAIRS),
             name,
+            password,
         })
     }
 
@@ -768,17 +1089,68 @@ impl Lobby {
         self.join_seat(game_id, None)
     }
 
-    /// Sits down in a named chair.
+    /// Sits down in a named chair, sending whatever is in the room password
+    /// box — which a room that is not locked simply ignores.
     pub fn join_seat(&mut self, game_id: &str, seat: Option<u32>) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
+        let password = std::mem::take(&mut self.room_password);
         self.busy = true;
-        // A table only starts once every chair is settled, so sitting down no
-        // longer means the game begins — the seat screen waits either way.
+        // A table only starts once every chair is ready and the host says go,
+        // so sitting down does not begin the game — the seat screen waits
+        // either way.
         self.asked_for = None;
-        self.status = "sitting down…".to_string();
+        self.note(Phrase::SittingDown);
         Some(LobbyRequest::JoinGame {
             game_id: game_id.to_string(),
             deck_id,
+            seat,
+            password,
+        })
+    }
+
+    /// Says whether this player is ready to play.
+    pub fn set_ready(&mut self, game_id: &str, ready: bool) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.note(if ready {
+            Phrase::SayingReady
+        } else {
+            Phrase::SayingNotReady
+        });
+        Some(LobbyRequest::SetReady {
+            game_id: game_id.to_string(),
+            ready,
+        })
+    }
+
+    /// Starts the room. The host's call, and only when every chair is ready.
+    ///
+    /// The button is hidden for anyone else and greyed until the listing says
+    /// `startable`, but nothing here is a check — the gateway refuses both
+    /// cases, and this is only about not offering a player a button that does
+    /// nothing.
+    pub fn start_room(&mut self, game_id: &str) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.note(Phrase::Starting);
+        Some(LobbyRequest::StartGame {
+            game_id: game_id.to_string(),
+        })
+    }
+
+    /// Hands the room to another chair.
+    pub fn hand_over(&mut self, game_id: &str, seat: u32) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.note(Phrase::HandingOver);
+        Some(LobbyRequest::HandOver {
+            game_id: game_id.to_string(),
             seat,
         })
     }
@@ -799,13 +1171,34 @@ impl Lobby {
             return None;
         }
         self.busy = true;
-        self.status = "arranging the table…".to_string();
+        self.note(Phrase::ArrangingTable);
         Some(LobbyRequest::SetSeat {
             game_id: game_id.to_string(),
             seat,
             kind,
             ai,
             deck_id: None,
+            team: None,
+        })
+    }
+
+    /// Moves a chair onto a side. `0` puts it back on its own.
+    ///
+    /// The host's, not the player's: a side is the format, and one the people
+    /// at the table can change is not a format. The gateway says so again.
+    pub fn seat_team(&mut self, game_id: &str, seat: u32, team: u8) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.note(Phrase::ArrangingTable);
+        Some(LobbyRequest::SetSeat {
+            game_id: game_id.to_string(),
+            seat,
+            kind: None,
+            ai: None,
+            deck_id: None,
+            team: Some(team),
         })
     }
 
@@ -813,13 +1206,14 @@ impl Lobby {
     pub fn seat_deck(&mut self, game_id: &str, seat: u32) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
         self.busy = true;
-        self.status = "arranging the table…".to_string();
+        self.note(Phrase::ArrangingTable);
         Some(LobbyRequest::SetSeat {
             game_id: game_id.to_string(),
             seat,
             kind: None,
             ai: None,
             deck_id: Some(deck_id),
+            team: None,
         })
     }
 
@@ -830,7 +1224,7 @@ impl Lobby {
         }
         self.busy = true;
         self.asked_for = None;
-        self.status = "leaving the table…".to_string();
+        self.note(Phrase::LeavingTable);
         Some(LobbyRequest::LeaveGame {
             game_id: game_id.to_string(),
         })
@@ -839,6 +1233,12 @@ impl Lobby {
     /// Leaves the seat screen without a seat, because the shell could not
     /// connect to the table it was handed — or because the game it opened has
     /// ended and the player is back.
+    pub fn unseat_because(&mut self, phrase: Phrase, args: &[&str]) {
+        let why = phrase.fill(self.lang, args);
+        self.unseat(why);
+    }
+
+    /// The same, in words somebody else chose — the gateway's, usually.
     pub fn unseat(&mut self, why: impl Into<String>) {
         if matches!(self.screen, Screen::Seated(_)) {
             self.screen = Screen::Table;
@@ -862,19 +1262,35 @@ impl Lobby {
         self.password.clear();
         self.focus = Field::Email;
         self.screen = Screen::SignIn { registering: false };
-        self.status = "signed out".to_string();
+        self.note(Phrase::SignedOut);
     }
 
     /// Feeds back the outcome of a request, and returns the next one the
     /// lobby wants made. Ending a request always clears [`Lobby::busy`] —
     /// chaining sets it again in the same breath.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one arm per event, read top to bottom: splitting it would \
+                  hide which events chain into another request"
+    )]
     pub fn apply(&mut self, event: LobbyEvent) -> Option<LobbyRequest> {
         self.busy = false;
         match event {
             // Sign-up hands back no token, so the credentials that are still
             // in the form go straight into a log-in.
-            LobbyEvent::Registered => {
-                self.status = "account created — signing in…".to_string();
+            LobbyEvent::Registered {
+                confirmation_required,
+            } => {
+                if confirmation_required {
+                    self.note(Phrase::ConfirmYourEmail);
+                    self.password.clear();
+                    // Back to the log-in form: the account exists, and what
+                    // is left to do is click a link in a mailbox and come
+                    // back.
+                    self.screen = Screen::SignIn { registering: false };
+                    return None;
+                }
+                self.note(Phrase::AccountCreated);
                 self.busy = true;
                 Some(LobbyRequest::LogIn {
                     email: self.email.trim().to_string(),
@@ -885,7 +1301,7 @@ impl Lobby {
                 self.token = Some(token);
                 self.password.clear();
                 self.screen = Screen::Table;
-                self.status = "signed in".to_string();
+                self.note(Phrase::SignedIn);
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
@@ -896,8 +1312,7 @@ impl Lobby {
                     Some(i) if i < self.decks.len() => Some(i),
                     _ => (!self.decks.is_empty()).then_some(0),
                 };
-                self.busy = true;
-                Some(LobbyRequest::ListGames)
+                self.list()
             }
             LobbyEvent::Pool { cards, has_text } => {
                 self.builder.set_pool(cards, has_text);
@@ -927,13 +1342,13 @@ impl Lobby {
                 self.needs_pool()
             }
             LobbyEvent::DeckSaved { deck_id } => {
-                self.status = "deck saved".to_string();
+                self.note(Phrase::DeckSaved);
                 self.builder.saved(deck_id.as_deref());
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
             LobbyEvent::DeckDeleted => {
-                self.status = "deck deleted".to_string();
+                self.note(Phrase::DeckDeleted);
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
@@ -942,11 +1357,13 @@ impl Lobby {
                 // nothing is being waited for any more.
                 self.awaiting = None;
                 self.status = String::new();
-                self.busy = true;
-                Some(LobbyRequest::ListGames)
+                self.list()
             }
-            LobbyEvent::Games(games) => {
-                self.games = games;
+            LobbyEvent::Moved => self.list(),
+            LobbyEvent::Games(listing) => {
+                self.games = listing.games;
+                self.total = listing.total;
+                self.offset = listing.offset;
                 // The table we are waiting at starts playing the moment
                 // somebody joins it; that is when the seat becomes usable.
                 let started = self.awaiting.as_ref().is_some_and(|h| {
@@ -955,8 +1372,15 @@ impl Lobby {
                         .any(|g| g.id == h.game_id && g.state == "playing")
                 });
                 if started && let Some(handover) = self.awaiting.take() {
-                    self.status = "an opponent sat down".to_string();
+                    self.note(Phrase::OpponentSatDown);
                     self.screen = Screen::Seated(handover);
+                }
+                // Tables close while somebody is reading page three of them.
+                // A page past the end of the list is an empty screen with a
+                // Back button, which is a worse answer than the first page.
+                if self.offset > 0 && self.offset >= self.total {
+                    self.offset = 0;
+                    return self.list();
                 }
                 None
             }
@@ -964,12 +1388,11 @@ impl Lobby {
                 if self.asked_for.take() == Some(GameMode::Open) {
                     // Ours, but not playable yet: the gateway builds the
                     // session when the second seat is filled.
-                    self.status = "table open — waiting for an opponent".to_string();
+                    self.note(Phrase::TableOpen);
                     self.awaiting = Some(handover);
-                    self.busy = true;
-                    return Some(LobbyRequest::ListGames);
+                    return self.list();
                 }
-                self.status = "taking the seat…".to_string();
+                self.note(Phrase::TakingTheSeat);
                 self.screen = Screen::Seated(handover);
                 None
             }
@@ -993,6 +1416,8 @@ impl Lobby {
             Field::Email => &mut self.email,
             Field::DisplayName => &mut self.display_name,
             Field::Password => &mut self.password,
+            Field::RoomPassword => &mut self.room_password,
+            Field::Search => &mut self.search,
         }
     }
 
@@ -1002,7 +1427,7 @@ impl Lobby {
             return None;
         }
         let Some(deck) = self.deck.and_then(|i| self.decks.get(i)) else {
-            self.status = "pick a deck first".to_string();
+            self.note(Phrase::PickADeckFirst);
             return None;
         };
         Some(deck.id.clone())
@@ -1034,9 +1459,9 @@ mod tests {
                 cards: 60,
                 commander: None,
             }])),
-            Some(LobbyRequest::ListGames)
+            Some(LobbyRequest::ListGames(lobby.query()))
         );
-        lobby.apply(LobbyEvent::Games(vec![]));
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
         lobby
     }
 
@@ -1080,7 +1505,9 @@ mod tests {
         lobby.type_char('x');
         lobby.submit();
         assert_eq!(
-            lobby.apply(LobbyEvent::Registered),
+            lobby.apply(LobbyEvent::Registered {
+                confirmation_required: false,
+            }),
             Some(LobbyRequest::LogIn {
                 email: "a".to_string(),
                 password: "x".to_string(),
@@ -1105,11 +1532,38 @@ mod tests {
         assert_eq!(lobby.field(Field::Password), "");
     }
 
+    /// The lobby's own sentences are drawn from the phrase table, so setting
+    /// the language changes what the *next* one says. Nothing re-translates a
+    /// line already on screen, which is the point: a status line is a record
+    /// of what just happened, not a label that keeps re-rendering.
+    #[test]
+    fn a_status_line_is_said_in_the_lobbys_language() {
+        let mut lobby = seated_lobby();
+        lobby.apply(LobbyEvent::Decks(vec![]));
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
+        assert_eq!(lobby.host(GameMode::Ai), None);
+        assert_eq!(lobby.status(), "pick a deck first");
+
+        lobby.set_lang(Lang::De);
+        assert_eq!(lobby.lang(), Lang::De);
+        assert_eq!(lobby.host(GameMode::Ai), None);
+        assert_eq!(lobby.status(), "wähle zuerst ein Deck");
+    }
+
+    /// The shell says things too, and has no business knowing the language.
+    #[test]
+    fn the_shell_says_its_own_sentences_in_that_language_too() {
+        let mut lobby = seated_lobby();
+        lobby.set_lang(Lang::De);
+        lobby.tell(Phrase::CouldNotReachTable, &["Zeitüberschreitung"]);
+        assert_eq!(lobby.status(), "Tisch nicht erreichbar: Zeitüberschreitung");
+    }
+
     #[test]
     fn a_table_cannot_be_opened_without_a_deck() {
         let mut lobby = seated_lobby();
         lobby.apply(LobbyEvent::Decks(vec![]));
-        lobby.apply(LobbyEvent::Games(vec![]));
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
         assert_eq!(lobby.selected(), None);
         assert_eq!(lobby.host(GameMode::Ai), None);
         assert_eq!(lobby.status(), "pick a deck first");
@@ -1126,6 +1580,7 @@ mod tests {
                 mode: GameMode::Ai,
                 chairs: 2,
                 name: String::new(),
+                password: String::new(),
             })
         );
     }
@@ -1179,8 +1634,123 @@ mod tests {
                 game_id: "g7".to_string(),
                 deck_id: "d1".to_string(),
                 seat: None,
+                password: String::new(),
             })
         );
+    }
+
+    /// The box is typed into once and spent once — on opening a room or on
+    /// joining one, whichever comes first. A password left lying in a text
+    /// box is the next room's password by accident.
+    #[test]
+    fn the_room_password_goes_with_the_next_table_and_is_then_forgotten() {
+        let mut lobby = seated_lobby();
+        lobby.focus_on(Field::RoomPassword);
+        for ch in "kitchen".chars() {
+            lobby.type_char(ch);
+        }
+        assert_eq!(lobby.room_password(), "kitchen");
+        assert_eq!(
+            lobby.join_seat("g7", Some(2)),
+            Some(LobbyRequest::JoinGame {
+                game_id: "g7".to_string(),
+                deck_id: "d1".to_string(),
+                seat: Some(2),
+                password: "kitchen".to_string(),
+            })
+        );
+        assert!(lobby.room_password().is_empty(), "and it is gone");
+
+        lobby.apply(LobbyEvent::Failed("wrong password".to_string()));
+        lobby.focus_on(Field::RoomPassword);
+        for ch in "supper".chars() {
+            lobby.type_char(ch);
+        }
+        assert_eq!(
+            lobby.open_room(GameMode::Open, 3, "Kitchen".to_string()),
+            Some(LobbyRequest::CreateGame {
+                deck_id: "d1".to_string(),
+                mode: GameMode::Open,
+                chairs: 3,
+                name: "Kitchen".to_string(),
+                password: "supper".to_string(),
+            })
+        );
+        assert!(lobby.room_password().is_empty());
+    }
+
+    /// Ready, start and handover are three different statements, and the two
+    /// that are the host's are not the one that is the player's.
+    #[test]
+    fn a_room_is_readied_started_and_handed_on_by_name() {
+        let mut lobby = seated_lobby();
+        assert_eq!(
+            lobby.set_ready("g7", true),
+            Some(LobbyRequest::SetReady {
+                game_id: "g7".to_string(),
+                ready: true,
+            })
+        );
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
+        assert_eq!(
+            lobby.set_ready("g7", false),
+            Some(LobbyRequest::SetReady {
+                game_id: "g7".to_string(),
+                ready: false,
+            })
+        );
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
+        assert_eq!(
+            lobby.start_room("g7"),
+            Some(LobbyRequest::StartGame {
+                game_id: "g7".to_string(),
+            })
+        );
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
+        assert_eq!(
+            lobby.hand_over("g7", 2),
+            Some(LobbyRequest::HandOver {
+                game_id: "g7".to_string(),
+                seat: 2,
+            })
+        );
+        // And all three obey the one-request-in-flight rule, so a double tap
+        // on "start" cannot order two engines.
+        assert_eq!(lobby.start_room("g7"), None);
+    }
+
+    /// A full table is not a ready one, and the line under a room's name has
+    /// to say which it is. It counted ready chairs back when having a deck
+    /// *was* being ready, and would have read "0/4 seated" at a full table
+    /// the moment that stopped being true.
+    #[test]
+    fn a_rooms_headline_counts_who_is_sitting_down_not_who_is_ready() {
+        let room = GameSummary {
+            id: "g".to_string(),
+            name: "Kitchen".to_string(),
+            state: "waiting".to_string(),
+            seats: vec![
+                GameSeat {
+                    seat: 0,
+                    taken: true,
+                    ready: false,
+                    ..GameSeat::default()
+                },
+                GameSeat {
+                    seat: 1,
+                    kind: SeatKind::Ai,
+                    ready: true,
+                    ..GameSeat::default()
+                },
+                GameSeat {
+                    seat: 2,
+                    ..GameSeat::default()
+                },
+            ],
+            ..GameSummary::default()
+        };
+        assert!(room.headline().contains("2/3"), "{}", room.headline());
+        assert!(!room.i_am_ready(), "nobody here is this player");
     }
 
     #[test]
@@ -1194,14 +1764,14 @@ mod tests {
         };
         assert_eq!(
             lobby.apply(LobbyEvent::Seated(handover.clone())),
-            Some(LobbyRequest::ListGames),
+            Some(LobbyRequest::ListGames(lobby.query())),
             "the gateway builds the session on the second seat, not the first"
         );
         assert_eq!(*lobby.screen(), Screen::Table);
         assert_eq!(lobby.awaiting(), Some(&handover));
 
         // Still only us at the table.
-        lobby.apply(LobbyEvent::Games(vec![GameSummary {
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
             id: "g1".to_string(),
             state: "waiting".to_string(),
             seats: vec![
@@ -1217,10 +1787,10 @@ mod tests {
                 },
             ],
             ..GameSummary::default()
-        }]));
+        }])));
         assert_eq!(*lobby.screen(), Screen::Table);
 
-        lobby.apply(LobbyEvent::Games(vec![GameSummary {
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
             id: "g1".to_string(),
             state: "playing".to_string(),
             seats: vec![
@@ -1236,7 +1806,7 @@ mod tests {
                 },
             ],
             ..GameSummary::default()
-        }]));
+        }])));
         assert_eq!(*lobby.screen(), Screen::Seated(handover));
         assert_eq!(lobby.awaiting(), None);
     }
@@ -1490,16 +2060,131 @@ mod tests {
         )
         .expect("deck list");
         assert_eq!(decks[0].name, "Allytifact");
-        let games: Vec<GameSummary> = serde_json::from_str(
-            r#"[{"id":"g1","state":"waiting","seats":[{"seat":0,"taken":true},{"seat":1,"taken":false}]}]"#,
+        let listing: GameListing = serde_json::from_str(
+            r#"{"games":[{"id":"g1","state":"waiting","seats":[{"seat":0,"taken":true},{"seat":1,"taken":false}]}],"total":9,"offset":8,"limit":8}"#,
         )
         .expect("game list");
-        assert!(games[0].joinable());
+        assert!(listing.games[0].joinable());
+        assert_eq!((listing.total, listing.offset), (9, 8));
         let seat: SeatHandover =
             serde_json::from_str(r#"{"game_id":"g1","seat":0,"seat_token":"tok"}"#)
                 .expect("handover");
         assert_eq!(seat.seat_token, "tok");
     }
+    /// A page of `n` nameless tables, enough to page through.
+    fn a_page(n: usize) -> Vec<GameSummary> {
+        (0..n)
+            .map(|i| GameSummary {
+                id: format!("g{i}"),
+                state: "waiting".to_string(),
+                ..GameSummary::default()
+            })
+            .collect()
+    }
+
+    /// The pager asks for what it does not have, and walks off neither end.
+    #[test]
+    fn the_table_list_is_paged_in_both_directions() {
+        let mut lobby = seated_lobby();
+        assert_eq!(lobby.page(true), None, "no second page of an empty lobby");
+        assert_eq!(lobby.page(false), None, "and nothing before the first");
+
+        lobby.apply(LobbyEvent::Games(GameListing {
+            games: a_page(PAGE),
+            total: PAGE + 3,
+            offset: 0,
+            limit: PAGE,
+        }));
+        assert!(lobby.more(), "three tables did not fit");
+        assert_eq!(lobby.page(false), None, "the first page is the first page");
+        assert_eq!(
+            lobby.page(true),
+            Some(LobbyRequest::ListGames(GameQuery {
+                q: String::new(),
+                offset: PAGE,
+                limit: PAGE,
+            }))
+        );
+
+        lobby.apply(LobbyEvent::Games(GameListing {
+            games: a_page(3),
+            total: PAGE + 3,
+            offset: PAGE,
+            limit: PAGE,
+        }));
+        assert!(!lobby.more(), "that was the end of the list");
+        assert_eq!(lobby.page(true), None);
+        assert_eq!(
+            lobby.page(false),
+            Some(LobbyRequest::ListGames(GameQuery {
+                q: String::new(),
+                offset: 0,
+                limit: PAGE,
+            }))
+        );
+    }
+
+    /// A search is a different list, so it is read from the top — the row
+    /// that was ninth in the old one is not the ninth in this one.
+    #[test]
+    fn searching_starts_the_list_again() {
+        let mut lobby = seated_lobby();
+        lobby.apply(LobbyEvent::Games(GameListing {
+            games: a_page(PAGE),
+            total: PAGE + 1,
+            offset: 0,
+            limit: PAGE,
+        }));
+        lobby.page(true);
+        lobby.apply(LobbyEvent::Games(GameListing {
+            games: a_page(1),
+            total: PAGE + 1,
+            offset: PAGE,
+            limit: PAGE,
+        }));
+        assert_eq!(lobby.offset(), PAGE);
+
+        lobby.set_field(Field::Search, "kitchen");
+        assert_eq!(
+            lobby.search_again(),
+            Some(LobbyRequest::ListGames(GameQuery {
+                q: "kitchen".to_string(),
+                offset: 0,
+                limit: PAGE,
+            }))
+        );
+        assert_eq!(lobby.offset(), 0);
+    }
+
+    /// The last table on page two closing must not leave a player looking at
+    /// an empty page two.
+    #[test]
+    fn a_page_that_no_longer_exists_falls_back_to_the_first() {
+        let mut lobby = seated_lobby();
+        lobby.apply(LobbyEvent::Games(GameListing {
+            games: a_page(PAGE),
+            total: PAGE + 1,
+            offset: 0,
+            limit: PAGE,
+        }));
+        lobby.page(true);
+        let next = lobby.apply(LobbyEvent::Games(GameListing {
+            games: Vec::new(),
+            total: 4,
+            offset: PAGE,
+            limit: PAGE,
+        }));
+        assert_eq!(
+            next,
+            Some(LobbyRequest::ListGames(GameQuery {
+                q: String::new(),
+                offset: 0,
+                limit: PAGE,
+            }))
+        );
+        assert_eq!(lobby.offset(), 0);
+    }
+
     /// Opening the builder asks for the pool once. Coming back must not ask
     /// again: it is the same few hundred cards, and the round trip would be
     /// paid on every visit.
@@ -1539,7 +2224,7 @@ mod tests {
             sideboard: 0,
             commander: None,
         }]));
-        lobby.apply(LobbyEvent::Games(vec![]));
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
         assert_eq!(
             lobby.edit_deck(0),
             Some(LobbyRequest::LoadDeck {
@@ -1637,7 +2322,7 @@ mod tests {
         // (Through the list refresh the save kicked off, which is what frees
         // the lobby to send anything at all.)
         lobby.apply(LobbyEvent::Decks(vec![]));
-        lobby.apply(LobbyEvent::Games(vec![]));
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
         lobby.builder_mut().set_name("Trees II");
         assert_eq!(
             lobby.save_deck(),
@@ -1663,7 +2348,7 @@ mod tests {
             sideboard: 0,
             commander: None,
         }]));
-        lobby.apply(LobbyEvent::Games(vec![]));
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
         assert_eq!(
             lobby.delete_deck(0),
             Some(LobbyRequest::DeleteDeck {
@@ -1698,6 +2383,7 @@ mod tests {
                     ..GameSeat::default()
                 },
             ],
+            ..GameSummary::default()
         };
         assert!(room.joinable());
         room.seats[1].kind = SeatKind::Ai;
@@ -1760,7 +2446,7 @@ mod tests {
         let mut lobby = seated_lobby();
         for (asked, expected) in [(1, MIN_CHAIRS), (3, 3), (9, MAX_CHAIRS)] {
             // Each open_room marks the lobby busy; the answer clears it.
-            lobby.apply(LobbyEvent::Games(vec![]));
+            lobby.apply(LobbyEvent::Games(GameListing::default()));
             let Some(LobbyRequest::CreateGame { chairs, .. }) =
                 lobby.open_room(GameMode::Open, asked, "Kitchen".to_string())
             else {

@@ -65,25 +65,29 @@ pub(super) fn poll(
         }
         Err(reason) => state
             .lobby
-            .unseat(format!("could not reach the table: {reason}")),
+            .unseat_because(Phrase::CouldNotReachTable, &[&reason]),
     }
 }
 
 /// How often a table of ours that is open is checked for an opponent.
 const WATCH_SECS: f32 = 2.0;
 
-/// Re-reads the table list while we are holding a seat nobody can use yet.
+/// Re-reads the table list while we are holding a seat nobody can use yet
+/// **and** nothing is pushing the list.
 ///
-/// The gateway has nothing to push here — the seat exists but the game does
-/// not, so there is no socket to be told on. Two seconds is well under the
-/// time it takes a person to notice, and it stops the moment the wait ends.
+/// The lobby feed covers this now: an open table turns `"playing"` the moment
+/// somebody joins it, and that is a lobby change like any other. What is left
+/// here is the fallback for a gateway too old to have `/lobby/ws`, or a socket
+/// that could not be opened — the wait is for another person, so ending it
+/// two seconds late is far better than not ending it.
 pub(super) fn watch(
     time: Res<Time>,
     mut since: Local<f32>,
     mut state: ResMut<LobbyState>,
+    feed: Res<super::feed::Feed>,
     mailbox: Res<Mailbox>,
 ) {
-    if state.lobby.awaiting().is_none() {
+    if feed.live() || state.lobby.awaiting().is_none() {
         *since = 0.0;
         return;
     }
@@ -141,7 +145,10 @@ pub(super) fn softkeys(
         return;
     }
     *build_epoch = state.lobby.builder().focus_epoch();
-    if !matches!(state.lobby.screen(), Screen::SignIn { .. }) {
+    // The table screen has two fields of its own — the search box and the
+    // room password — so it types like the form does. Everything else has
+    // none, and holding a keyboard open over it covers half a phone.
+    if !matches!(state.lobby.screen(), Screen::SignIn { .. } | Screen::Table) {
         keys.close();
         *epoch = state.lobby.focus_epoch();
         return;
@@ -151,8 +158,16 @@ pub(super) fn softkeys(
     // watching which field is focused.
     if *epoch != state.lobby.focus_epoch() {
         *epoch = state.lobby.focus_epoch();
-        let field = state.lobby.focus();
-        keys.open(field.kind(), state.lobby.field(field));
+        if state.lobby.typing_here() {
+            let field = state.lobby.focus();
+            keys.open(field.kind(), state.lobby.field(field));
+        } else {
+            keys.close();
+        }
+        return;
+    }
+    if !state.lobby.typing_here() {
+        keys.drain();
         return;
     }
     for key in keys.drain() {
@@ -162,7 +177,13 @@ pub(super) fn softkeys(
                 state.lobby.set_field(field, &value);
             }
             SoftKey::Submit => {
-                let request = state.lobby.submit();
+                let request = if matches!(state.lobby.screen(), Screen::Table) {
+                    // "Done" on the table screen means the search that was
+                    // just typed; there is no form here to send.
+                    state.lobby.search_again()
+                } else {
+                    state.lobby.submit()
+                };
                 dispatch(&state, &mailbox, request);
             }
         }
@@ -251,7 +272,10 @@ pub(super) fn keyboard(
         }
         return;
     }
-    if !matches!(state.lobby.screen(), Screen::SignIn { .. }) {
+    // The table screen has two fields of its own — the search box and the
+    // room password — and before this it had no way to type into either.
+    let table = matches!(state.lobby.screen(), Screen::Table);
+    if !matches!(state.lobby.screen(), Screen::SignIn { .. }) && !table {
         keys.clear();
         return;
     }
@@ -259,11 +283,20 @@ pub(super) fn keyboard(
         if !key.state.is_pressed() {
             continue;
         }
+        // Tab always moves the caret; everything else needs it to be in a
+        // field this screen is drawing.
+        if !matches!(key.logical_key, Key::Tab) && !state.lobby.typing_here() {
+            continue;
+        }
         match &key.logical_key {
             Key::Backspace => state.lobby.backspace(),
             Key::Tab => state.lobby.cycle_focus(),
             Key::Enter => {
-                let request = state.lobby.submit();
+                let request = if table {
+                    state.lobby.search_again()
+                } else {
+                    state.lobby.submit()
+                };
                 dispatch(&state, &mailbox, request);
             }
             // Everything else is text or nothing. `type_char` drops the
@@ -293,6 +326,8 @@ pub(super) fn clicks(
     mailbox: Res<Mailbox>,
     mut commands: Commands,
     mut opens: MessageWriter<DuelCommand>,
+    // Absent in a headless test, which has no settings file to write to.
+    mut settings: Option<ResMut<crate::settings::ClientSettings>>,
 ) {
     // A release always fires a click, drag or no drag, so a swipe down the
     // card list would add whichever card it started on. The scroll it already
@@ -354,6 +389,19 @@ pub(super) fn clicks(
                 let mut edit = prefs.edit();
                 edit.reduce_motion = !edit.reduce_motion;
             }
+            Press::PickLang(lang) => {
+                state.lobby.set_lang(lang);
+                // One setting, two readers: the interface draws itself in
+                // this language and the catalog is asked for card text in
+                // it. Remembered at once, because the settings screen has
+                // no way out but a click and a language that reverted on
+                // the next launch would read as a button that did nothing.
+                state.lang = lang.code().to_string();
+                if let Some(settings) = settings.as_mut() {
+                    settings.lang = lang.code().to_string();
+                    settings.save();
+                }
+            }
             Press::ToggleRail(side, row) => prefs.edit().orders.toggle(side, row),
             Press::Focus(field) => state.lobby.focus_on(field),
             Press::ToggleRegistering => state.lobby.toggle_registering(),
@@ -364,6 +412,14 @@ pub(super) fn clicks(
             Press::SignOut => state.lobby.sign_out(),
             Press::Refresh => {
                 let request = state.lobby.refresh();
+                dispatch(&state, &mailbox, request);
+            }
+            Press::Search => {
+                let request = state.lobby.search_again();
+                dispatch(&state, &mailbox, request);
+            }
+            Press::Page(forwards) => {
+                let request = state.lobby.page(forwards);
                 dispatch(&state, &mailbox, request);
             }
             Press::StarterDeck => {
@@ -401,6 +457,27 @@ pub(super) fn clicks(
                     dispatch(&state, &mailbox, request);
                 }
             }
+            Press::Ready(index, ready) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.set_ready(&game, ready);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
+            Press::StartRoom(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.start_room(&game);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
+            Press::HandOver(index, seat) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.hand_over(&game, seat);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
             Press::SeatKind(index, seat, kind) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
@@ -418,6 +495,13 @@ pub(super) fn clicks(
                     dispatch(&state, &mailbox, request);
                 }
             }
+            Press::SeatTeam(index, seat, team) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.seat_team(&game, seat, team);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
             Press::SeatDeck(index, seat) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
@@ -431,7 +515,7 @@ pub(super) fn clicks(
                     commands.insert_resource(InstalledHost(Box::new(host)));
                     opens.write(DuelCommand::Open);
                 }
-                None => state.lobby.say("could not start the offline duel"),
+                None => state.lobby.tell(Phrase::NoOfflineDuel, &[]),
             },
             // `Leave` is only ever spawned on the finished screen, and
             // `PickerNothing` exists to stop a tap inside the picker
@@ -453,7 +537,7 @@ pub(super) fn clicks(
             Press::CloseBuilder => {
                 if state.lobby.builder().dirty() && !state.confirm_leave {
                     state.confirm_leave = true;
-                    state.lobby.say("unsaved changes — press again to leave");
+                    state.lobby.tell(Phrase::UnsavedChanges, &[]);
                 } else {
                     state.confirm_leave = false;
                     let request = state.lobby.close_builder();
@@ -468,7 +552,7 @@ pub(super) fn clicks(
             Press::AddCard(slot) => {
                 let zone = state.lobby.builder().zone();
                 if !state.lobby.builder_mut().add(slot, zone) {
-                    state.lobby.say("no room for another copy of that");
+                    state.lobby.tell(Phrase::NoRoomForCopy, &[]);
                 }
             }
             Press::PickPrint(slot) => {
@@ -493,7 +577,7 @@ pub(super) fn clicks(
             Press::PickerFinish(finish) => state.lobby.builder_mut().picker_set_finish(finish),
             Press::PickerConfirm => {
                 if !state.lobby.builder_mut().picker_confirm() {
-                    state.lobby.say("no room for another copy of that");
+                    state.lobby.tell(Phrase::NoRoomForCopy, &[]);
                 }
             }
             Press::PickerClose => state.lobby.builder_mut().close_picker(),
@@ -696,7 +780,7 @@ pub(super) fn came_back(
     if !matches!(state.lobby.screen(), Screen::Seated(_)) {
         return;
     }
-    state.lobby.unseat("the game ended");
+    state.lobby.unseat_because(Phrase::GameEnded, &[]);
     let request = state.lobby.refresh();
     dispatch(&state, &mailbox, request);
 }
@@ -716,6 +800,10 @@ pub(crate) enum Press {
     SignOut,
     /// Re-read decks and tables.
     Refresh,
+    /// Read the table list again for whatever the search box says.
+    Search,
+    /// Step one page through the table list. `true` is forwards.
+    Page(bool),
     /// Save the starter deck.
     StarterDeck,
     /// Pick a deck by its index in the list.
@@ -728,14 +816,22 @@ pub(crate) enum Press {
     Join(usize),
     /// Sit down in a named chair of a listed table.
     JoinSeat(usize, u32),
-    /// Give up a chair, or close the room when hosting it.
+    /// Give up a chair. The room outlives it.
     LeaveTable(usize),
+    /// Say whether this player is ready at a listed table.
+    Ready(usize, bool),
+    /// Start a room this account hosts.
+    StartRoom(usize),
+    /// Hand the room to the player in a chair.
+    HandOver(usize, u32),
     /// Make a chair a person's or the AI's.
     SeatKind(usize, u32, SeatKind),
     /// Set an AI chair's difficulty.
     SeatAi(usize, u32, &'static str),
     /// Put the selected deck in a chair.
     SeatDeck(usize, u32),
+    /// Move a chair onto a side. `0` puts it back on its own.
+    SeatTeam(usize, u32, u8),
     /// Leave a finished game.
     Leave,
     /// Open the settings screen.
@@ -752,6 +848,8 @@ pub(crate) enum Press {
     ToggleAuto(baylee_client_core::prefs::AutoRule),
     /// Stop the table moving, or let it move again.
     ToggleMotion,
+    /// Speak this language from now on.
+    PickLang(Lang),
     /// Turn one step of the phase rail red or green.
     ToggleRail(
         baylee_client_core::automation::RailSide,
@@ -844,4 +942,20 @@ fn in_lineage<'a>(
         current = parents.get(e).ok().map(ChildOf::parent);
     }
     None
+}
+
+/// Raises the loading veil while the lobby is waiting on the network.
+///
+/// Two waits, and the second is the one that needs saying. A request in
+/// flight is usually a blink. Taking a seat is not: the gateway orders an
+/// engine and the socket may wait up to thirty seconds for it to attach, and
+/// a screen that says nothing for thirty seconds is a screen a player will
+/// click again.
+pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading::Loading>) {
+    let lang = state.lobby.lang();
+    match state.lobby.screen() {
+        Screen::Seated(_) => loading.show(Phrase::VeilTakingSeat.text(lang)),
+        _ if state.lobby.busy() => loading.show(Phrase::VeilTalking.text(lang)),
+        _ => loading.clear(),
+    }
 }

@@ -45,6 +45,27 @@ pub struct Player {
     /// Whether this player has lost (stays seated in multiplayer until
     /// CR 800.4 cleanup runs).
     pub has_lost: bool,
+    /// Which team this seat plays for, or `None` for a seat that plays for
+    /// itself. It comes from the preset and never changes during a game,
+    /// which is why it is deliberately absent from
+    /// [`GameState::snapshot_hash`]: it cannot tell two states of one game
+    /// apart, and hashing it would only churn every recorded hash.
+    pub team: Option<u8>,
+}
+
+/// The side a seat plays for.
+///
+/// A seat with no team is a side of one, and that is the whole of the rule
+/// this type exists to state: "opponent" (CR 102.3) is *different side*, not
+/// *different seat*, and once teams exist the two stop being the same
+/// question. Written as an enum rather than an `Option<u8>` so a solo seat
+/// cannot silently compare equal to another solo seat.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum Side {
+    /// Everyone carrying this team index.
+    Team(u8),
+    /// One seat, playing for nobody else.
+    Solo(PlayerId),
 }
 
 /// Deterministic name interner (rules identity, not display).
@@ -338,6 +359,26 @@ pub struct GameState {
 }
 
 impl GameState {
+    /// The side a seat plays for (CR 102.3).
+    #[must_use]
+    pub fn side_of(&self, player: PlayerId) -> Side {
+        self.players
+            .get(player.get() as usize)
+            .and_then(|p| p.team)
+            .map_or(Side::Solo(player), Side::Team)
+    }
+
+    /// Whether `other` is an opponent of `player` — a different side, which
+    /// in a game with no teams is simply a different seat.
+    ///
+    /// Every rule that says "opponent" goes through here. The ones that say
+    /// "each other player" (a draw offer, a symmetrical effect) deliberately
+    /// do not: a teammate is not an opponent, but they are another player.
+    #[must_use]
+    pub fn is_opponent(&self, other: PlayerId, player: PlayerId) -> bool {
+        other != player && self.side_of(other) != self.side_of(player)
+    }
+
     /// Builds a game from a preset: seats, decks, shuffles, opening hands,
     /// starting battlefield, emblems.
     ///
@@ -372,6 +413,7 @@ impl GameState {
                     lands_played_this_turn: 0,
                     tried_empty_draw: false,
                     has_lost: false,
+                    team: s.team,
                 })
                 .collect(),
             turn: TurnInfo::new(PlayerId::new(0)),

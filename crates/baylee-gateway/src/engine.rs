@@ -337,6 +337,7 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
     if finished {
         tracing::warn!(game_id, "engine link lost; game closed");
     }
+    state.lobby_moved();
     stop_engine(&state, &game_id);
 }
 
@@ -387,6 +388,7 @@ fn end_game(state: &Shared, game_id: &str) {
             game.finish(auth::now_secs());
         }
     }
+    state.lobby_moved();
     stop_engine(state, game_id);
 }
 

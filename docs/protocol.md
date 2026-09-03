@@ -250,6 +250,36 @@ agent runs somewhere else. With no agent connected, `POST /lobby/games` answers
 `503`: there is nothing to run the game, and handing out a seat token for a
 table that will never start would be worse.
 
+## Confirming an address, and why it is optional
+
+`BAYLEE_SMTP_URL` decides the whole feature. Without it the gateway has no
+mailer, `POST /auth/register` marks the account confirmed on creation, and
+everything behaves exactly as it did before confirmation existed — which is
+the development default and what every other test in the suite assumes. With
+it, a fresh account gets a link by mail and `POST /auth/login` answers `403`
+`confirm your e-mail address first` until the link is followed.
+
+Three details are load-bearing:
+
+- **The confirmation check runs after the password check.** Answering "confirm
+  your e-mail" to a *wrong* password would tell a stranger that the address
+  exists, which is the one thing every other answer on that route is careful
+  not to say. `POST /auth/confirm/resend` answers `{"ok":true}` for the same
+  reason, whether or not there was anything to send.
+- **Only the hash of the link's token is stored**, like a session token's:
+  the store is a file on disk, and a live link in it would be a live login.
+  A link lasts 24 hours, a new one invalidates the last, and following one
+  spends it.
+- **`BAYLEE_PUBLIC_URL` is where the link points.** The gateway cannot work
+  out its own public address, and taking it from a request header is how a
+  confirmation link ends up pointing at whatever `Host:` an attacker sent.
+
+`GET /auth/config` reports `confirmation_required` beside
+`registration_enabled`, so a client can say "check your e-mail" instead of
+trying a log-in that is going to be refused. The mail itself is written in
+the `lang` the account registered with — kept on the account, so a resend
+months later still lands in the language the player signed up in.
+
 ## From an account to a seat
 
 The websocket below is opened with a *seat token*, and there is exactly one
@@ -258,7 +288,9 @@ which is what turned this from a curl recipe into a contract:
 
 | step | call | answer |
 | --- | --- | --- |
-| sign up | `POST /auth/register` `{email, display_name, password}` | `{"ok":true}` |
+| sign up | `POST /auth/register` `{email, display_name, password, lang}` | `{"ok":true, "confirmation_required":bool}` |
+| confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
+| send it again | `POST /auth/confirm/resend` `{email}` | `{"ok":true}`, always |
 | sign in | `POST /auth/login` `{email, password}` | `{token, expires_at}` |
 | decks | `GET /decks` | `[{id, name, cards, sideboard, commander}]` |
 | one deck | `GET /decks/{id}` | `{id, name, cards:[…], sideboard:[…], commander}` |
@@ -267,10 +299,11 @@ which is what turned this from a curl recipe into a contract:
 | throw one away | `DELETE /decks/{id}` | `204` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
 | a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |
-| tables | `GET /lobby/games` | `[{id, name, host, yours, state, seats:[…]}]` |
+| tables | `GET /lobby/games?q=&offset=&limit=` | `{games:[{id, name, host, yours, state, seats:[…]}], total, offset, limit}` |
+| the same, pushed | `GET /lobby/ws?token=…&q=&offset=&limit=` (websocket) | that page again, on every lobby change |
 | open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open", seats, name}` | `{game_id, seat, seat_token}` |
 | sit down | `POST /lobby/games/{id}/join` `{deck_id, seat?}` | `{game_id, seat, seat_token}` |
-| arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?}` | the seat |
+| arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?, team?}` | the seat |
 | stand up | `POST /lobby/games/{id}/leave` | `204` |
 
 Everything but the two auth calls, `/auth/config`, `/pool` and `/printings`
@@ -329,22 +362,50 @@ opening payload below, and the client believes the table.
 ### Rooms
 
 A table with more than two chairs is a **room**, and the whole of it is
-arranged before anyone plays. `POST /lobby/games` with `seats: 2..=4` opens
+arranged before anyone plays. `POST /lobby/games` with `seats: 2..=8` opens
 one; the host takes the first chair and every other chair starts open. `name`
 is what the table is called in the list, and may be empty — the listing then
-falls back to the host's display name.
+falls back to the host's display name. Eight is `GamePreset::validate`'s own
+bound, so a room the gateway opens is never one the engine would then refuse
+to build.
+
+`password` locks the room: a non-empty one is stored as a SHA-256 hash and
+every `POST …/join` has to carry it or get a `403` — checked before anything
+else about the room, so a stranger with the wrong password cannot learn how
+full it is. Argon2 guards an account; this guards a table for an evening and
+is checked on every join, which is a different trade. The listing says only
+`"locked": true`.
 
 `GET /lobby/games` describes a room completely, because deciding whether to sit
-down means seeing what is already at the table:
+down means seeing what is already at the table. It answers **one page**:
+
+```json
+{ "games": [ … ], "total": 31, "offset": 8, "limit": 8 }
+```
+
+`q` matches a table's name and its host's display name, case-insensitively and
+anywhere in either; `waiting_only` drops the games already being played;
+`offset` and `limit` (25 by default, 100 at most) cut the page out. `total` is
+what the search matched, not what the page holds — a pager with no idea how
+many there are is a Next button that has to be pressed to find out it does
+nothing.
+
+The **order is fixed and total**: waiting rooms first, then newest first, then
+by id. Games live in a `HashMap`, and paging an unordered collection hands out
+some rows twice and never shows others — which no single page ever looks wrong
+enough to reveal.
+
+One game in that page reads:
 
 ```json
 { "id": "…", "name": "Kitchen table", "host": "viktor", "yours": false,
-  "state": "waiting",
+  "state": "waiting", "locked": false, "startable": true,
   "seats": [ { "seat": 0, "kind": "human", "ai": null, "taken": true,
-               "player": "viktor", "you": false, "deck": "Mono-Green",
-               "ready": true },
+               "player": "viktor", "you": false, "host": true,
+               "deck": "Mono-Green", "ready": true },
              { "seat": 1, "kind": "ai", "ai": "sharp", "taken": false,
-               "player": null, "you": false, "deck": "", "ready": true } ] }
+               "player": null, "you": false, "host": false,
+               "deck": "", "ready": true } ] }
 ```
 
 Never an account id — a `player` is a display name, and `you` / `yours` answer
@@ -355,22 +416,54 @@ quiet default, because a table that plays at another level than it advertises
 is worse than one that says no.
 
 Two authorities, and they do not overlap. The **host** arranges the table —
-`POST …/seats/{seat}` with `kind` and `ai` — but not a chair someone is sitting
-in (`409`). Every **player** sets exactly one thing, the deck they themselves
-will play, through the same route with `deck_id`; a deck that is not theirs is
-a `403`, and so is any attempt to arrange a seat that is not their own.
+`POST …/seats/{seat}` with `kind`, `ai` and `team` — but not a chair someone is
+sitting in (`409`). Every **player** sets exactly one thing, the deck they
+themselves will play, through the same route with `deck_id`; a deck that is not
+theirs is a `403`, and so is any attempt to arrange a seat that is not their
+own.
 
-**There is no start button.** A room starts the moment every chair is ready: a
-human chair with an account and a deck in it, or an AI chair, which is ready as
-soon as it is configured (an AI the host gave no deck plays the house deck). It
-is the same rule the two-seat open table has always followed when its second
-player sat down, so a host who has given up waiting simply hands the last chair
-to the AI, and that is the start.
+**Sides are the host's**, and that is why `team` sits with `kind` rather than
+with `deck_id`: a side is the format, and a format the people at the table can
+change between them is not one — a player who could pick their own would pick
+the winning one. Teams are numbered from 1, `0` puts a chair back on its own
+side, and the listing carries `"team"` per seat (`null` for a chair playing for
+itself, which is every chair at a table with no teams on it). Moving a chair to
+another side clears that chair's `ready`, exactly as swapping its deck does:
+it is not the game they said yes to. A team need not be balanced — 3v2 is a
+table — and the one arrangement refused is everyone on the same team, which
+`POST …/start` answers with a `409` because `GamePreset::validate` refuses it
+and the lobby refuses exactly what the engine would.
 
-`POST …/leave` frees a chair. A guest leaving leaves the chair open and the
-room standing; the **host** leaving closes the room, because without them
-nobody can arrange it, and a table that can never start should not be
-advertised as one that might.
+The rules half is in `docs/engine-internals.md`: an opponent is a *side*, not a
+seat, so teammates cannot be attacked, are not "each opponent", and are not
+stopped by hexproof; and the game ends when one side is left standing, with
+`GameEnded.winners` carrying the whole winning team rather than the one seat
+that survived.
+
+**Starting takes two statements by two people.** `POST …/ready {ready}` is a
+player saying they are ready, and only ever about their own chair — a `409` if
+they have no deck yet, and reset by the host putting a different deck in that
+chair, because a deck they have not seen is not one they said yes to. An AI
+chair needs none of this: it is ready as soon as it is configured, and one the
+host gave no deck plays the house deck. `POST …/start` is the host's go, a
+`403` for anyone else and a `409` while any chair is not ready; `startable` on
+the listing is that same condition, published so a player can see who
+everyone is waiting for.
+
+A room used to start itself the moment the last chair had a deck in it. That
+read well until "ready" and "has a deck" stopped being the same sentence:
+picking a deck to look at it put you in a game.
+
+`POST …/host {seat}` hands the room to whoever is sitting in that chair — by
+seat rather than by name, which is the one handle that stays unambiguous when
+two players share a display name. `403` for anyone but the host, `409` for an
+empty chair.
+
+`POST …/leave` frees a chair, and a room outlives its host: it passes to the
+player who **joined earliest** — arrival order, not seat order, because chairs
+are taken in whatever order people pick them — and only a room with nobody
+left in it is closed. Closing it the moment the host stood up, which is what
+happened before, threw everyone else out of a table they were sitting at.
 
 **A seat token is not always usable yet.** `mode:"ai"` and a join both order an
 engine before answering, so the socket can be opened at once — it simply waits
@@ -383,8 +476,30 @@ already arrived. An
 `"open"` table orders nothing: it holds the seat and waits for a second player,
 and a socket opened against it is accepted and then closed with nothing on it,
 because there is no game yet to describe. The host of an open table has to wait
-for its `state` to turn `"playing"` — there is nothing to push the news on, so
-the lobby re-reads `GET /lobby/games` every two seconds until it does.
+for its `state` to turn `"playing"`, which is what the lobby feed below is for.
+
+### The lobby feed
+
+`GET /lobby/ws?token=<account token>&q=&offset=&limit=&waiting_only=` is a
+websocket carrying **the page that socket asked for**, sent once on connect and
+again on every change to the lobby: a table opened or closed, a chair taken,
+freed, arranged or readied, a room started, a game ended. The token is the
+account bearer token in the query string, because a browser cannot put a header
+on a websocket; an unknown one is a `401` on the upgrade itself.
+
+The payload is the same object `GET /lobby/games` answers, rendered for *this*
+reader — `yours`, `you` and `player` are per-account, so the fan-out is a
+notification, and each socket then renders its own page. A subscriber that
+falls behind is not replayed: every frame is the whole page, so the newest one
+is the only one worth having.
+
+Nothing is sent up the socket. A change of search or page is a **different
+subscription**, so the client closes it and dials again with the new query;
+that keeps the socket's answer and the HTTP route's answer the same question,
+asked over two transports.
+
+`GET /lobby/games` remains, and remains the fallback: a client with no socket
+polls it, which is what the two-second re-read used to be for everybody.
 
 ## The opening payload, and a client that is not the server
 

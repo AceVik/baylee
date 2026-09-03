@@ -303,17 +303,13 @@ impl<L: CardLookup> Engine<L> {
                     .count();
                 count >= min as usize
             }
-            baylee_cards_dsl::ActivationCondition::OpponentGraveyardCountAtLeast(min) => {
-                (0..self.state.players.len())
-                    .filter(|i| *i != player.get() as usize)
-                    .any(|i| {
-                        self.state
-                            .zones
-                            .list(ZoneLocation::Graveyard(PlayerId::new(i as u8)))
-                            .len()
-                            >= min as usize
-                    })
-            }
+            baylee_cards_dsl::ActivationCondition::OpponentGraveyardCountAtLeast(min) => (0..self
+                .state
+                .players
+                .len())
+                .map(|i| PlayerId::new(i as u8))
+                .filter(|id| self.state.is_opponent(*id, player))
+                .any(|id| self.state.zones.list(ZoneLocation::Graveyard(id)).len() >= min as usize),
             baylee_cards_dsl::ActivationCondition::CountersOnSelf(kind, min) => self
                 .state
                 .object(source)

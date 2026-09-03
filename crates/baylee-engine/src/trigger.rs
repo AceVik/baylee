@@ -487,7 +487,7 @@ fn matches(
         ) => *object == source && state.object(*object).is_some_and(|o| o.alt_cast),
         (Trigger::Draws(rel), GameEvent::CardsDrawn { player, .. }) => match rel {
             PlayerRel::You => *player == you,
-            PlayerRel::Opponent => *player != you,
+            PlayerRel::Opponent => state.is_opponent(*player, you),
             _ => true,
         },
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
@@ -502,7 +502,7 @@ fn matches(
                 .unwrap_or(0);
             let player_matches = match rel {
                 PlayerRel::You => *player == you,
-                PlayerRel::Opponent => *player != you,
+                PlayerRel::Opponent => state.is_opponent(*player, you),
                 _ => true,
             };
             // The event fires from the SECOND card drawn onward.
@@ -511,7 +511,7 @@ fn matches(
         (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player }) => {
             let player_matches = match rel {
                 PlayerRel::You => *player == you,
-                PlayerRel::Opponent => *player != you,
+                PlayerRel::Opponent => state.is_opponent(*player, you),
                 _ => true,
             };
             if !player_matches {
@@ -564,7 +564,7 @@ fn matches(
             }
             match whose {
                 PlayerRel::You => state.turn.active == you,
-                PlayerRel::Opponent => state.turn.active != you,
+                PlayerRel::Opponent => state.is_opponent(state.turn.active, you),
                 _ => true,
             }
         }

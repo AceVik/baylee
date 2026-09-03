@@ -17,7 +17,13 @@ pub(super) fn dispatch(state: &LobbyState, mailbox: &Mailbox, request: Option<Lo
     };
     let token = state.lobby.token();
     let (request, expect) = build(&state.gateway, token, &state.lang, request);
-    fetch(request, expect, token.is_some(), mailbox);
+    fetch(
+        request,
+        expect,
+        state.lobby.lang(),
+        token.is_some(),
+        mailbox,
+    );
 }
 
 /// The HTTP call one lobby request becomes, and what to make of its answer.
@@ -46,6 +52,10 @@ pub(super) fn build(
                     "email": email,
                     "display_name": display_name,
                     "password": password,
+                    // What the confirmation mail is written in. The gateway
+                    // keeps it on the account, so a later resend still lands
+                    // in the language the player signed up in.
+                    "lang": lang,
                 }),
             ),
             Expect::Registered,
@@ -109,8 +119,8 @@ pub(super) fn build(
             },
             Expect::DeckDeleted,
         ),
-        LobbyRequest::ListGames => (
-            ehttp::Request::get(format!("{base}/lobby/games")),
+        LobbyRequest::ListGames(query) => (
+            ehttp::Request::get(format!("{base}/lobby/games?{}", params(&query))),
             Expect::Games,
         ),
         LobbyRequest::CreateGame {
@@ -118,6 +128,7 @@ pub(super) fn build(
             mode,
             chairs,
             name,
+            password,
         } => (
             json_post(
                 &format!("{base}/lobby/games"),
@@ -126,6 +137,7 @@ pub(super) fn build(
                     "mode": mode.wire(),
                     "seats": chairs,
                     "name": name,
+                    "password": password,
                 }),
             ),
             Expect::Seat,
@@ -134,10 +146,15 @@ pub(super) fn build(
             game_id,
             deck_id,
             seat,
+            password,
         } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/join"),
-                &serde_json::json!({ "deck_id": deck_id, "seat": seat }),
+                &serde_json::json!({
+                    "deck_id": deck_id,
+                    "seat": seat,
+                    "password": password,
+                }),
             ),
             Expect::Seat,
         ),
@@ -147,6 +164,7 @@ pub(super) fn build(
             kind,
             ai,
             deck_id,
+            team,
         } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/seats/{seat}"),
@@ -157,11 +175,35 @@ pub(super) fn build(
                     }),
                     "ai": ai,
                     "deck_id": deck_id,
+                    "team": team,
                 }),
             ),
-            // Arranging a chair answers with the listing, so the room the
-            // player is looking at redraws without a second round trip.
-            Expect::Games,
+            // The answer says what the whole lobby looks like; this client
+            // is reading one page of it, so what it takes from the reply is
+            // that something moved.
+            Expect::Moved,
+        ),
+        // All three answer the same way, and for the same reason.
+        LobbyRequest::SetReady { game_id, ready } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/ready"),
+                &serde_json::json!({ "ready": ready }),
+            ),
+            Expect::Moved,
+        ),
+        LobbyRequest::StartGame { game_id } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/start"),
+                &serde_json::json!({}),
+            ),
+            Expect::Moved,
+        ),
+        LobbyRequest::HandOver { game_id, seat } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/host"),
+                &serde_json::json!({ "seat": seat }),
+            ),
+            Expect::Moved,
         ),
         LobbyRequest::LeaveGame { game_id } => (
             json_post(
@@ -207,18 +249,18 @@ fn bearer(mut request: ehttp::Request, token: Option<&str>) -> ehttp::Request {
 }
 
 /// Sends a request and posts its outcome to the mailbox.
-fn fetch(request: ehttp::Request, expect: Expect, signed: bool, mailbox: &Mailbox) {
+fn fetch(request: ehttp::Request, expect: Expect, lang: Lang, signed: bool, mailbox: &Mailbox) {
     let box_ = Arc::clone(&mailbox.0);
     ehttp::fetch(request, move |result| {
         let reply = match result {
-            Ok(response) if response.ok => Reply::Event(decode(expect, &response)),
+            Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
             // Only a *signed* 401 means the token is spent; on the sign-in
             // form it means the password was wrong.
             Ok(response) if signed && response.status == 401 => Reply::Expired,
-            Ok(response) => Reply::Event(LobbyEvent::Failed(gateway_error(&response))),
-            Err(err) => Reply::Event(LobbyEvent::Failed(format!(
-                "the gateway did not answer: {err}"
-            ))),
+            Ok(response) => Reply::Event(LobbyEvent::Failed(gateway_error(lang, &response))),
+            Err(err) => Reply::Event(LobbyEvent::Failed(
+                Phrase::GatewayNoAnswer.fill(lang, &[&err]),
+            )),
         };
         if let Ok(mut box_) = box_.lock() {
             box_.push(reply);
@@ -227,7 +269,7 @@ fn fetch(request: ehttp::Request, expect: Expect, signed: bool, mailbox: &Mailbo
 }
 
 /// Turns a successful response into the event the lobby is waiting for.
-pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
+pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> LobbyEvent {
     /// `POST /auth/login`.
     #[derive(serde::Deserialize)]
     struct TokenBody {
@@ -271,7 +313,14 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
 
     let body = response.text().unwrap_or_default();
     match expect {
-        Expect::Registered => LobbyEvent::Registered,
+        // A gateway written before confirmation existed sends no such
+        // field, and `false` is what it meant: it never asked.
+        Expect::Registered => LobbyEvent::Registered {
+            confirmation_required: serde_json::from_str::<serde_json::Value>(body)
+                .ok()
+                .and_then(|v| v.get("confirmation_required")?.as_bool())
+                .unwrap_or(false),
+        },
         // An edit answers `204` with no body and needs no id: the builder
         // already holds the one it is editing.
         Expect::DeckSaved => LobbyEvent::DeckSaved {
@@ -281,14 +330,14 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
         },
         Expect::DeckDeleted => LobbyEvent::DeckDeleted,
         Expect::Pool => serde_json::from_str::<PoolBody>(body).map_or_else(
-            |_| unreadable("the card pool"),
+            |_| unreadable(lang, Phrase::ThePool),
             |b| LobbyEvent::Pool {
                 cards: b.cards,
                 has_text: b.has_text,
             },
         ),
         Expect::Printings => serde_json::from_str::<PrintingsBody>(body).map_or_else(
-            |_| unreadable("the printings"),
+            |_| unreadable(lang, Phrase::ThePrintings),
             |b| LobbyEvent::Printings {
                 card: b.card,
                 printings: b.printings,
@@ -296,7 +345,7 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
             },
         ),
         Expect::DeckLoaded => serde_json::from_str::<StoredDeck>(body).map_or_else(
-            |_| unreadable("the deck"),
+            |_| unreadable(lang, Phrase::TheDeck),
             |d| LobbyEvent::DeckLoaded {
                 id: d.id,
                 name: d.name,
@@ -306,29 +355,67 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
             },
         ),
         Expect::LoggedIn => serde_json::from_str::<TokenBody>(body).map_or_else(
-            |_| unreadable("the sign-in"),
+            |_| unreadable(lang, Phrase::TheSignIn),
             |b| LobbyEvent::LoggedIn { token: b.token },
         ),
         Expect::Decks => serde_json::from_str(body)
-            .map_or_else(|_| unreadable("the deck list"), LobbyEvent::Decks),
+            .map_or_else(|_| unreadable(lang, Phrase::TheDeckList), LobbyEvent::Decks),
         Expect::Games => serde_json::from_str(body)
-            .map_or_else(|_| unreadable("the game list"), LobbyEvent::Games),
-        Expect::Seat => {
-            serde_json::from_str(body).map_or_else(|_| unreadable("the seat"), LobbyEvent::Seated)
-        }
+            .map_or_else(|_| unreadable(lang, Phrase::TheGameList), LobbyEvent::Games),
+        // The body is the whole lobby, which is not what is being read.
+        Expect::Moved => LobbyEvent::Moved,
+        Expect::Seat => serde_json::from_str(body)
+            .map_or_else(|_| unreadable(lang, Phrase::TheSeat), LobbyEvent::Seated),
         // Nothing comes back, so the lobby re-reads the list to find out what
         // the table looks like without us.
         Expect::Left => LobbyEvent::Left,
     }
 }
 
+/// A table query as a query string, ready to append to a URL.
+///
+/// Shared with the push socket, which asks for the same page over a different
+/// transport — the search a player typed has to reach both or the socket
+/// starts answering a different question than the button did.
+pub(super) fn params(query: &GameQuery) -> String {
+    format!(
+        "q={}&offset={}&limit={}",
+        escape(&query.q),
+        query.offset,
+        query.limit
+    )
+}
+
+/// Percent-encodes one query-string value.
+///
+/// Small on purpose: a table search is a person's typing, so the set that has
+/// to survive is "anything at all", and the set that must not pass through is
+/// everything with a meaning in a URL.
+pub(super) fn escape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(char::from(*byte));
+            }
+            _ => {
+                const HEX: &[u8; 16] = b"0123456789ABCDEF";
+                out.push('%');
+                out.push(char::from(HEX[usize::from(byte >> 4)]));
+                out.push(char::from(HEX[usize::from(byte & 0x0f)]));
+            }
+        }
+    }
+    out
+}
+
 /// The message for a body that arrived but made no sense.
-fn unreadable(what: &str) -> LobbyEvent {
-    LobbyEvent::Failed(format!("could not read {what} the gateway sent"))
+fn unreadable(lang: Lang, what: Phrase) -> LobbyEvent {
+    LobbyEvent::Failed(Phrase::Unreadable.fill(lang, &[what.text(lang)]))
 }
 
 /// The gateway's own `{"error":…}`, or the bare status if it sent none.
-pub(super) fn gateway_error(response: &ehttp::Response) -> String {
+pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
     /// Every refusal the gateway sends has this shape.
     #[derive(serde::Deserialize)]
     struct Body {
@@ -339,7 +426,7 @@ pub(super) fn gateway_error(response: &ehttp::Response) -> String {
         .text()
         .and_then(|body| serde_json::from_str::<Body>(body).ok())
         .map_or_else(
-            || format!("the gateway answered {}", response.status),
+            || Phrase::GatewayAnswered.fill(lang, &[&response.status.to_string()]),
             |b| b.error,
         )
 }

@@ -19,6 +19,7 @@ baylee-protocol.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 getrandom.workspace = true
+lettre.workspace = true
 parking_lot.workspace = true
 prost.workspace = true
 serde.workspace = true

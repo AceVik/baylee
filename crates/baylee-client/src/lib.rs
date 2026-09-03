@@ -36,14 +36,21 @@
 #![allow(clippy::needless_pass_by_value)]
 
 pub mod abilities;
+pub mod ambience;
 pub mod buildui;
 pub mod cardmat;
 pub mod cardtext;
+/// The dev-control harness. Native dev builds only; see the module docs for
+/// why it is a compile-time feature rather than a runtime switch.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+pub mod devctl;
 pub mod face;
+pub mod flip;
 pub mod host;
 pub mod hud;
 pub mod input;
 pub mod keys;
+pub mod loading;
 pub mod lobby;
 pub mod manasources;
 pub mod manaui;
@@ -248,6 +255,9 @@ impl Plugin for DuelPlugin {
         // Shared with the lobby, which is a separate plugin and may already
         // have installed it.
         prefs::install(app);
+        ambience::install(app);
+        loading::install(app);
+        flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .init_state::<DuelPhase>()
             .insert_resource(self.config.clone())
@@ -301,6 +311,7 @@ impl Plugin for DuelPlugin {
                 (
                     table::sync_scene,
                     table::sync_zones,
+                    table::sync_phase,
                     table::glide,
                     table::apply_camera_rig,
                     hud::sync_overlay,

@@ -260,8 +260,8 @@ pub enum GameEvent {
     },
     /// The game ended with a winner.
     GameWon {
-        /// The winner (`None` = draw).
-        player: Option<PlayerId>,
+        /// Who won (`None` = draw) — a seat, or a whole team.
+        winner: Option<crate::win::Victor>,
     },
     /// A developer command was applied (dev games only).
     DevCommandApplied {

@@ -24,10 +24,11 @@ use std::sync::{Arc, Mutex};
 
 use crate::cardmat::{CardUiMaterial, UiCardMaterials, UiCards};
 use baylee_client_core::deckbuilder::{BuildField, Zone};
+use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
 use baylee_client_core::lobby::{
-    Field, GameMode, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS, MIN_CHAIRS, Screen,
-    SeatKind,
+    Field, GameMode, GameQuery, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS,
+    MIN_CHAIRS, Screen, SeatKind,
 };
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::Finish;
@@ -61,7 +62,11 @@ impl Plugin for LobbyPlugin {
         // The keymap is the account's, and the account is signed into here —
         // shared with the duel, whichever of the two got there first.
         crate::prefs::install(app);
+        crate::ambience::install(app);
+        crate::loading::install(app);
+        crate::flip::install(app);
         app.init_resource::<Mailbox>()
+            .init_resource::<feed::Feed>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
             .insert_resource(LobbyState::new())
@@ -69,7 +74,17 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
-                    poll, watch, softkeys, keyboard, clicks, scrolls, hovers, ui, preview,
+                    feed::feed,
+                    poll,
+                    watch,
+                    softkeys,
+                    keyboard,
+                    clicks,
+                    scrolls,
+                    hovers,
+                    ui,
+                    preview,
+                    waiting,
                 )
                     .chain()
                     .run_if(in_state(DuelPhase::Closed)),
@@ -170,10 +185,15 @@ impl LobbyState {
     /// A signed-out lobby pointed at the configured gateway.
     #[must_use]
     pub fn new() -> Self {
+        let lang = crate::settings::ClientSettings::load().lang;
+        let mut lobby = Lobby::new();
+        // The lobby draws itself in this language; `lang` below is the code
+        // the *catalog* is asked for. One setting, two readers.
+        lobby.set_lang(Lang::of(&lang));
         Self {
-            lobby: Lobby::new(),
+            lobby,
             gateway: crate::settings::gateway_url(),
-            lang: crate::settings::ClientSettings::load().lang,
+            lang,
             connected: false,
             confirm_leave: false,
             filters_open: false,
@@ -227,12 +247,17 @@ enum Expect {
     DeckDeleted,
     /// A game list.
     Games,
+    /// Something at a table changed. The body says what the whole lobby
+    /// looks like, which is not the page this client is reading — so it is
+    /// the fact that is taken, and the page is asked for again.
+    Moved,
     /// A seat handover.
     Seat,
     /// A chair given up; the gateway answers `204` with no body.
     Left,
 }
 
+mod feed;
 mod http;
 mod preview;
 mod systems;
@@ -243,7 +268,7 @@ mod tests;
 
 use http::{ask_about_registration, dispatch};
 use preview::{Hovered, despawn_preview, hovers, preview};
-use systems::{came_back, clicks, keyboard, leave_clicks, poll, scrolls, softkeys, watch};
+use systems::{came_back, clicks, keyboard, leave_clicks, poll, scrolls, softkeys, waiting, watch};
 use ui::{despawn_leave_button, spawn_camera, spawn_leave_button, teardown, ui};
 
 // The vocabulary the lobby's own halves share, and that `buildui` and

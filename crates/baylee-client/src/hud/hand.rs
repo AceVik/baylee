@@ -11,6 +11,7 @@ use super::*;
 #[allow(clippy::too_many_lines)] // strip + commander zone are one flat build
 pub(super) fn spawn_hand_bar(
     commands: &mut Commands,
+    lang: Lang,
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
     statics: &GameStatic,
@@ -101,6 +102,7 @@ pub(super) fn spawn_hand_bar(
         let image = textures.get(card.art, statics, assets);
         let visual = spawn_card_art(
             commands,
+            lang,
             image,
             built.as_ref(),
             HAND_CARD_W,
@@ -176,6 +178,7 @@ pub(super) fn spawn_hand_bar(
             };
             let visual = spawn_card_art(
                 commands,
+                lang,
                 image,
                 built.as_ref(),
                 OVERLAY_CARD_W * 0.75,

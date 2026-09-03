@@ -309,6 +309,10 @@ pub enum PresetError {
     /// More than eight seats.
     #[error("preset supports at most 8 seats")]
     TooManySeats,
+    /// Every seat plays for the same team, so the game would be over before
+    /// it began.
+    #[error("every seat is on team {0}; a game needs at least two sides")]
+    OneSideOnly(u8),
     /// A deck entry references a print outside the print table.
     #[error("seat {seat} {list} entry {entry} references print {print}, out of range")]
     PrintOutOfRange {
@@ -392,6 +396,16 @@ impl GamePreset {
         }
         if self.prints.len() > MAX_PRINTS {
             return Err(PresetError::PrintTableTooLarge(self.prints.len()));
+        }
+        // A game is decided between sides, and a seat with no team is a side
+        // of one — so the only arrangement that has no second side is one
+        // team everybody is on. The engine would call that game over at the
+        // first state-based-action pass; refusing it here is what lets the
+        // lobby refuse exactly what the engine would.
+        if let Some(team) = self.seats[0].team
+            && self.seats.iter().all(|s| s.team == Some(team))
+        {
+            return Err(PresetError::OneSideOnly(team));
         }
         for (seat, spec) in self.seats.iter().enumerate() {
             if !matches!(spec.controller, SeatController::Open) && spec.deck.is_empty() {
@@ -481,6 +495,19 @@ mod tests {
         assert!(preset(2, 1, 0).validate().is_ok());
         assert_eq!(preset(1, 1, 0).validate(), Err(PresetError::TooFewSeats));
         assert_eq!(preset(9, 1, 0).validate(), Err(PresetError::TooManySeats));
+
+        // Teams: two sides is a game, one side is not. An unteamed seat is
+        // its own side, so a table where only some seats carry a team is
+        // fine — that is a 2v1, not a broken preset.
+        let mut all_one = preset(4, 1, 0);
+        for seat in &mut all_one.seats {
+            seat.team = Some(1);
+        }
+        assert_eq!(all_one.validate(), Err(PresetError::OneSideOnly(1)));
+        let mut two_v_one = preset(3, 1, 0);
+        two_v_one.seats[0].team = Some(1);
+        two_v_one.seats[1].team = Some(1);
+        assert!(two_v_one.validate().is_ok());
         assert!(matches!(
             preset(2, 1, 5).validate(),
             Err(PresetError::PrintOutOfRange { .. })

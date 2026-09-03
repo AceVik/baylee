@@ -78,7 +78,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .iter()
                 .filter(|id| {
                     state.object(**id).is_some_and(|o| {
-                        (!opponents_only || o.controller != you)
+                        (!opponents_only || state.is_opponent(o.controller, you))
                             && eval::matches(filter, state, o, you, res.source)
                     })
                 })

@@ -29,11 +29,13 @@
 //! is a rules question and re-deriving it client-side would be a second,
 //! divergent implementation of it.
 
+use crate::i18n::{Lang, Phrase};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
     BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, YesNoPrompt,
 };
+use baylee_engine::win::{GameResult, Victor};
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -159,55 +161,94 @@ pub enum Prompt {
 impl Prompt {
     /// A short line for the prompt bar.
     #[must_use]
-    pub fn headline(&self) -> String {
+    pub fn headline(&self, lang: Lang) -> String {
         match self {
-            Self::Waiting { on: Some(p) } => format!("Waiting for seat {p}"),
-            Self::Waiting { on: None } => "Waiting".to_string(),
+            Self::Waiting { on: Some(p) } => Phrase::WaitingForSeat.fill(lang, &[&p.to_string()]),
+            Self::Waiting { on: None } => Phrase::JustWaiting.text(lang).to_string(),
             Self::Mulligan { taken, free } => {
                 if *free {
-                    "Keep this hand? (the next mulligan is free)".to_string()
+                    Phrase::MulliganFree.text(lang).to_string()
                 } else {
-                    format!("Keep this hand? ({taken} taken)")
+                    Phrase::MulliganTaken.fill(lang, &[&taken.to_string()])
                 }
             }
-            Self::BottomCards { count } => format!("Put {count} card(s) on the bottom"),
-            Self::Priority { .. } => "You have priority".to_string(),
-            Self::DeclareAttackers => "Declare attackers".to_string(),
-            Self::DeclareBlockers { .. } => "Declare blockers".to_string(),
-            Self::Discard { count } => format!("Discard {count} card(s)"),
-            Self::LegendRule => "Legend rule: keep one".to_string(),
-            Self::ChooseCards { min, max, .. } => choose_line("card", *min, *max),
-            Self::ChooseTargets { min, max } => choose_line("target", *min, *max),
-            Self::ChooseSubtype => "Choose a creature type".to_string(),
-            Self::ChooseColor { .. } => "Choose a colour".to_string(),
-            Self::ChooseNumber { min, max } => format!("Choose a number ({min}–{max})"),
-            Self::ChoosePlayer { .. } => "Choose a player".to_string(),
-            Self::CastMode { .. } => "Choose how to cast".to_string(),
-            Self::OrderObjects => "Put these in order".to_string(),
-            Self::YesNo { question } => yes_no_line(*question),
-            Self::GameOver => "The game is over".to_string(),
+            Self::BottomCards { count } => Phrase::PutOnBottom.fill(lang, &[&count.to_string()]),
+            Self::Priority { .. } => Phrase::YouHavePriority.text(lang).to_string(),
+            Self::DeclareAttackers => Phrase::DeclareAttackers.text(lang).to_string(),
+            Self::DeclareBlockers { .. } => Phrase::DeclareBlockers.text(lang).to_string(),
+            Self::Discard { count } => Phrase::DiscardCards.fill(lang, &[&count.to_string()]),
+            Self::LegendRule => Phrase::LegendRule.text(lang).to_string(),
+            Self::ChooseCards { min, max, .. } => choose_line(lang, Phrase::NounCards, *min, *max),
+            Self::ChooseTargets { min, max } => choose_line(lang, Phrase::NounTargets, *min, *max),
+            Self::ChooseSubtype => Phrase::ChooseCreatureType.text(lang).to_string(),
+            Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
+            Self::ChooseNumber { min, max } => {
+                Phrase::ChooseNumberIn.fill(lang, &[&min.to_string(), &max.to_string()])
+            }
+            Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
+            Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
+            Self::OrderObjects => Phrase::PutInOrder.text(lang).to_string(),
+            Self::YesNo { question } => yes_no_line(lang, *question),
+            Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
         }
     }
 }
 
-fn choose_line(noun: &str, min: u8, max: u8) -> String {
-    match (min, max) {
-        (0, m) => format!("Choose up to {m} {noun}(s)"),
-        (a, b) if a == b => format!("Choose {a} {noun}(s)"),
-        (a, b) => format!("Choose {a}–{b} {noun}(s)"),
+/// The line a finished game gets, as this seat reads it.
+///
+/// It takes the seat's own team rather than the whole roster because that is
+/// the only thing about the table it needs: a `Victor::Team` is answered by
+/// one comparison, whether the winning team is yours. A seat with no team can
+/// only be its own winner, which is every seat in a game with no teams in it.
+///
+/// It sits here rather than in the renderer for the reason every other line
+/// does — who won is a decision about the game, and the shell only draws it.
+#[must_use]
+pub fn verdict(lang: Lang, result: &GameResult, seat: PlayerId, team: Option<u8>) -> String {
+    match result.winner {
+        None => Phrase::TheGameIsADraw.text(lang).to_string(),
+        Some(Victor::Player(winner)) => if winner == seat {
+            Phrase::YouWon
+        } else {
+            Phrase::YouLost
+        }
+        .text(lang)
+        .to_string(),
+        Some(Victor::Team(won)) => {
+            let number = won.to_string();
+            if team == Some(won) {
+                Phrase::YourTeamWon.fill(lang, &[&number])
+            } else {
+                Phrase::TheirTeamWon.fill(lang, &[&number])
+            }
+        }
     }
 }
 
-fn yes_no_line(question: YesNoPrompt) -> String {
+/// "Choose two cards", with the noun as an argument rather than glued on.
+///
+/// A count and a noun agree differently in different languages, so the whole
+/// sentence has to be one phrase — pasting a translated noun onto a
+/// translated "choose up to" is how a translation ends up ungrammatical.
+fn choose_line(lang: Lang, noun: Phrase, min: u8, max: u8) -> String {
+    let noun = noun.text(lang);
+    match (min, max) {
+        (0, m) => Phrase::ChooseUpTo.fill(lang, &[&m.to_string(), noun]),
+        (a, b) if a == b => Phrase::ChooseExactly.fill(lang, &[&a.to_string(), noun]),
+        (a, b) => Phrase::ChooseBetween.fill(lang, &[&a.to_string(), &b.to_string(), noun]),
+    }
+}
+
+fn yes_no_line(lang: Lang, question: YesNoPrompt) -> String {
     match question {
         YesNoPrompt::PayLifeOrEnterTapped { amount } => {
-            format!("Pay {amount} life? Otherwise it enters tapped")
+            Phrase::PayLifeOrTapped.fill(lang, &[&amount.to_string()])
         }
-        YesNoPrompt::Kicker => "Pay the additional cost?".to_string(),
-        YesNoPrompt::PayTax { mana } => format!("Pay {{{mana}}}?"),
-        YesNoPrompt::Miracle { .. } => "Cast it for its miracle cost?".to_string(),
-        YesNoPrompt::DrawOffer { .. } => "A draw was offered. Accept?".to_string(),
-        YesNoPrompt::Generic => "Yes or no?".to_string(),
+        YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
+        YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
+        YesNoPrompt::Miracle { .. } => Phrase::CastForMiracle.text(lang).to_string(),
+        YesNoPrompt::DrawOffer { .. } => Phrase::DrawWasOffered.text(lang).to_string(),
+        YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }
 
@@ -1620,14 +1661,14 @@ mod tests {
             min: 0,
             max: 2,
         });
-        assert_eq!(i.prompt().headline(), "Choose up to 2 target(s)");
+        assert_eq!(i.prompt().headline(Lang::En), "Choose up to 2 target(s)");
 
         let i = interaction(Pending::ChooseNumber {
             player: me(),
             min: 0,
             max: 50,
         });
-        assert_eq!(i.prompt().headline(), "Choose a number (0–50)");
+        assert_eq!(i.prompt().headline(Lang::En), "Choose a number (0–50)");
 
         let i = interaction(Pending::YesNo {
             player: me(),
@@ -1635,7 +1676,7 @@ mod tests {
             source: None,
         });
         assert_eq!(
-            i.prompt().headline(),
+            i.prompt().headline(Lang::En),
             "Pay 2 life? Otherwise it enters tapped"
         );
     }
@@ -1726,7 +1767,7 @@ mod tests {
         ];
         for pending in all {
             let i = interaction(pending);
-            assert!(!i.prompt().headline().is_empty());
+            assert!(!i.prompt().headline(Lang::En).is_empty());
         }
     }
 }

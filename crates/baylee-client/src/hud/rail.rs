@@ -32,8 +32,10 @@ pub const RAIL_W: f32 = 56.0;
 /// to the hand bar's top. Row size and font scale with the available
 /// height — they only shrink when the space runs out.
 #[allow(clippy::too_many_lines)] // two sections + foot, one flat build
+#[allow(clippy::too_many_arguments)] // one rail, drawn from everything it shows
 pub(super) fn spawn_phase_rail(
     commands: &mut Commands,
+    lang: Lang,
     view: &PlayerView,
     orders: &baylee_client_core::automation::PhaseOrders,
     autopilot: Option<AutoPilot>,
@@ -164,7 +166,7 @@ pub(super) fn spawn_phase_rail(
     };
 
     // Top: the opponents' phases.
-    let theirs = spawn_section(commands, RailSide::Theirs, "OPPONENT");
+    let theirs = spawn_section(commands, RailSide::Theirs, Phrase::RailOpponent.text(lang));
     commands.entity(rail).add_child(theirs);
 
     // Middle: the turn number between the two sections.
@@ -186,7 +188,7 @@ pub(super) fn spawn_phase_rail(
     commands.entity(rail).add_child(turn);
 
     // Bottom: your own (and teammates') phases.
-    let mine = spawn_section(commands, RailSide::Mine, "YOU");
+    let mine = spawn_section(commands, RailSide::Mine, Phrase::RailYou.text(lang));
     commands.entity(rail).add_child(mine);
 
     // Foot: separator, then the autopilot buttons with even padding.
@@ -273,6 +275,7 @@ pub(super) fn combat_line(
     interaction: &baylee_client_core::Interaction,
     view: &PlayerView,
     statics: Option<&GameStatic>,
+    lang: Lang,
 ) -> Option<String> {
     let (position, count) = interaction.focus_position()?;
     let declared = interaction.declared();
@@ -282,17 +285,25 @@ pub(super) fn combat_line(
     }
     let aim = aiming.then(|| {
         let target = match interaction.combat_focus() {
-            CombatFocus::Defender(Defender::Player(p)) => {
-                statics.map_or_else(|| "a seat".to_string(), |s| s.seat_name(p).to_string())
+            CombatFocus::Defender(Defender::Player(p)) => statics.map_or_else(
+                || Phrase::ASeat.text(lang).to_string(),
+                |s| s.seat_name(p).to_string(),
+            ),
+            CombatFocus::Defender(Defender::Planeswalker(o)) | CombatFocus::Attacker(o) => {
+                view.object(o).map_or_else(
+                    || Phrase::APermanent.text(lang).to_string(),
+                    |o| o.name.clone(),
+                )
             }
-            CombatFocus::Defender(Defender::Planeswalker(o)) | CombatFocus::Attacker(o) => view
-                .object(o)
-                .map_or_else(|| "a permanent".to_string(), |o| o.name.clone()),
-            CombatFocus::None => "nothing".to_string(),
+            CombatFocus::None => Phrase::AimingAtNothing.text(lang).to_string(),
         };
-        format!("Aimed at {target} ({} of {count})", position + 1)
+        Phrase::AimedAt.fill(
+            lang,
+            &[&target, &(position + 1).to_string(), &count.to_string()],
+        )
     });
-    let standing = (declared > 0).then(|| format!("{declared} declared"));
+    let standing =
+        (declared > 0).then(|| Phrase::DeclaredCount.fill(lang, &[&declared.to_string()]));
     Some(
         [aim, standing]
             .into_iter()

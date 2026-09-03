@@ -67,11 +67,28 @@ pub fn sync_overlay(
         mode: &mode,
         settings: &settings,
     };
+    let lang = Lang::of(&settings.lang);
     let seq = duel.board.as_ref().map(|b| b.seq);
-    let prompt = duel
-        .interaction
-        .as_ref()
-        .map(|i| i.prompt().headline())
+    // A finished game says who won, not merely that it is finished — and a
+    // team game says which team, which is why this is answered here and not
+    // in the prompt: the seat's own team lives in the roster.
+    let ending = duel.interaction.as_ref().and_then(|i| {
+        let baylee_engine::choice::Pending::GameOver(result) = i.pending() else {
+            return None;
+        };
+        let statics = duel.statics.as_ref()?;
+        let seat = statics.your_seat;
+        let team = statics
+            .seats
+            .iter()
+            .find(|s| s.player == seat)
+            .and_then(|s| s.team);
+        Some(baylee_client_core::interaction::verdict(
+            lang, result, seat, team,
+        ))
+    });
+    let prompt = ending
+        .or_else(|| duel.interaction.as_ref().map(|i| i.prompt().headline(lang)))
         .or_else(|| duel.last_error.clone());
     let hovered = duel.hovered;
     let selected: Vec<ObjectId> = duel
@@ -172,6 +189,7 @@ pub fn sync_overlay(
     for seat in &view.seats {
         let tab = spawn_player_tab(
             &mut commands,
+            lang,
             view,
             duel.statics.as_ref(),
             seat,
@@ -193,8 +211,8 @@ pub fn sync_overlay(
         ))
         .id();
     for (action, label, enabled) in [
-        (MenuAction::OfferDraw, "Remis", true),
-        (MenuAction::Concede, "Aufgeben", true),
+        (MenuAction::OfferDraw, Phrase::OfferADraw.text(lang), true),
+        (MenuAction::Concede, Phrase::Concede.text(lang), true),
     ] {
         let button = commands
             .spawn((
@@ -226,6 +244,7 @@ pub fn sync_overlay(
     let window_h = windows.single().map_or(800.0, Window::height);
     let rail = spawn_phase_rail(
         &mut commands,
+        lang,
         view,
         &orders,
         autopilot,
@@ -278,7 +297,7 @@ pub fn sync_overlay(
             .interaction
             .as_ref()
             .filter(|i| i.is_combat() && !waiting)
-            .and_then(|i| combat_line(i, view, duel.statics.as_ref()))
+            .and_then(|i| combat_line(i, view, duel.statics.as_ref(), lang))
         {
             let aim = commands
                 .spawn((Text::new(line), tf(&fonts, 13.0), TextColor(palette::MUTED)))
@@ -288,15 +307,24 @@ pub fn sync_overlay(
 
         // Answer buttons, matching the pending choice.
         let combat_answers = [
-            (PromptAction::AimNext, "Aim next"),
-            (PromptAction::Confirm, "Attack"),
-            (PromptAction::DeclareNothing, "None"),
+            (PromptAction::AimNext, Phrase::AimNext.text(lang)),
+            (PromptAction::Confirm, Phrase::Attack.text(lang)),
+            (PromptAction::DeclareNothing, Phrase::DeclareNone.text(lang)),
         ];
         let block_answers = [
-            (PromptAction::AimNext, "Aim next"),
-            (PromptAction::Confirm, "Block"),
-            (PromptAction::DeclareNothing, "None"),
+            (PromptAction::AimNext, Phrase::AimNext.text(lang)),
+            (PromptAction::Confirm, Phrase::Block.text(lang)),
+            (PromptAction::DeclareNothing, Phrase::DeclareNone.text(lang)),
         ];
+        let mulligan_answers = [
+            (PromptAction::Keep, Phrase::KeepHand.text(lang)),
+            (PromptAction::Mulligan, Phrase::TakeMulligan.text(lang)),
+        ];
+        let yes_no_answers = [
+            (PromptAction::Yes, Phrase::ActAnswerYes.text(lang)),
+            (PromptAction::No, Phrase::ActAnswerNo.text(lang)),
+        ];
+        let ok_answer = [(PromptAction::Confirm, Phrase::ConfirmOk.text(lang))];
         let answers: &[(PromptAction, &str)] = if waiting {
             &[]
         } else {
@@ -305,13 +333,8 @@ pub fn sync_overlay(
                 .as_ref()
                 .map(baylee_client_core::Interaction::pending)
             {
-                Some(baylee_engine::choice::Pending::Mulligan { .. }) => &[
-                    (PromptAction::Keep, "Keep"),
-                    (PromptAction::Mulligan, "Mulligan"),
-                ],
-                Some(baylee_engine::choice::Pending::YesNo { .. }) => {
-                    &[(PromptAction::Yes, "Yes"), (PromptAction::No, "No")]
-                }
+                Some(baylee_engine::choice::Pending::Mulligan { .. }) => &mulligan_answers,
+                Some(baylee_engine::choice::Pending::YesNo { .. }) => &yes_no_answers,
                 // Combat always offers all three, including with nothing
                 // declared: "none" is a real answer, and the step does not
                 // end until somebody gives one.
@@ -323,7 +346,7 @@ pub fn sync_overlay(
                         .as_ref()
                         .is_some_and(baylee_client_core::Interaction::can_confirm) =>
                 {
-                    &[(PromptAction::Confirm, "OK")]
+                    &ok_answer
                 }
                 _ => &[],
             }
@@ -369,7 +392,7 @@ pub fn sync_overlay(
         // would put a mana ability next to the button that ends the turn.
         if let Some(options) = duel
             .ability_menu
-            .and_then(|object| ability_options(&duel, object))
+            .and_then(|object| ability_options(&duel, lang, object))
             .filter(|options| options.len() > 1)
         {
             let row = commands
@@ -421,6 +444,7 @@ pub fn sync_overlay(
         let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
         let hand_bar = spawn_hand_bar(
             &mut commands,
+            lang,
             board,
             view,
             statics,
@@ -462,6 +486,7 @@ pub fn sync_overlay(
             };
             let visual = spawn_card_art(
                 &mut commands,
+                lang,
                 image,
                 built.as_ref(),
                 img_w,
@@ -515,7 +540,54 @@ pub fn sync_overlay(
                     ),],
                 ))
                 .id();
-            commands.entity(tooltip).add_child(visual);
+            // A card printed on both sides can be turned over with shift.
+            // The frame holds both faces and the turn; a single-faced card
+            // gets the frame too, and simply has nothing on its far side, so
+            // the shape of the tree does not depend on the card.
+            let frame = commands
+                .spawn((
+                    crate::flip::Flip::default(),
+                    Node {
+                        width: px(img_w),
+                        height: px(img_h),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands
+                .entity(visual)
+                .insert((crate::flip::Side::Front, Visibility::Inherited));
+            commands.entity(frame).add_child(visual);
+            if let Some(back) = key
+                .filter(|_| two_faced(view, hovered))
+                .map(|key| ImageKey {
+                    face: baylee_client_core::images::Face::Back,
+                    ..key
+                })
+            {
+                let art = textures.get(back, statics, &assets);
+                let far = spawn_card_art(
+                    &mut commands,
+                    lang,
+                    art,
+                    None,
+                    img_w,
+                    img_h,
+                    crate::face::Detail::Full,
+                    &fonts,
+                    CardLook::art(back, finish_of(statics, Some(back)), 0),
+                    cards.as_mut(),
+                );
+                commands.entity(far).insert((
+                    crate::flip::Side::Back,
+                    // Hidden until the turn passes the quarter, where the
+                    // card is edge-on and the swap cannot be seen.
+                    Visibility::Hidden,
+                ));
+                commands.entity(frame).add_child(far);
+            }
+            commands.entity(tooltip).add_child(frame);
             commands.entity(root).add_child(tooltip);
 
             // The speech-bubble tail, pointing at the hovered card.
@@ -543,6 +615,7 @@ pub fn sync_overlay(
     if let Some(statics) = duel.statics.as_ref() {
         let overlay = spawn_own_board_overlay(
             &mut commands,
+            lang,
             board,
             view,
             statics,
@@ -564,6 +637,7 @@ pub fn sync_overlay(
     if let (false, Some(statics)) = (board.stack.is_empty(), duel.statics.as_ref()) {
         let stack = spawn_stack_panel(
             &mut commands,
+            lang,
             board,
             view,
             statics,
@@ -582,6 +656,7 @@ pub fn sync_overlay(
 #[allow(clippy::too_many_lines)] // the icon+number spans are naturally flat
 pub(super) fn spawn_player_tab(
     commands: &mut Commands,
+    lang: Lang,
     view: &PlayerView,
     statics: Option<&GameStatic>,
     seat: &baylee_view::SeatView,
@@ -590,7 +665,7 @@ pub(super) fn spawn_player_tab(
 ) -> Entity {
     let player = seat.player;
     let name = statics.map_or_else(
-        || format!("Seat {player}"),
+        || Phrase::SeatNumbered.fill(lang, &[&player.to_string()]),
         |s| s.seat_name(player).to_string(),
     );
     let team = statics.and_then(|s| s.seats.iter().find(|i| i.player == player)?.team);
@@ -611,7 +686,7 @@ pub(super) fn spawn_player_tab(
 
     let marker = if has_priority { "▶ " } else { "" };
     let display = if is_local {
-        format!("You ({name})")
+        Phrase::YouNamed.fill(lang, &[&name])
     } else {
         name.clone()
     };
@@ -715,6 +790,7 @@ pub(super) fn spawn_player_tab(
 #[allow(clippy::too_many_lines)] // panel + knob + lanes are one flat build
 pub(super) fn spawn_own_board_overlay(
     commands: &mut Commands,
+    lang: Lang,
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
     statics: &GameStatic,
@@ -838,6 +914,7 @@ pub(super) fn spawn_own_board_overlay(
             }
             let visual = spawn_card_art(
                 commands,
+                lang,
                 image,
                 built.as_ref(),
                 OVERLAY_CARD_W,
@@ -934,4 +1011,18 @@ pub fn animate_overlay(
     for mut node in &mut panels {
         node.top = px(top);
     }
+}
+
+/// Whether the hovered object is a card printed on both sides.
+///
+/// The view says which face is up, not how many there are, so the answer
+/// comes from the registry the client already links for ability labels and
+/// mana sources. A token or a face-down permanent has no card and therefore
+/// no back.
+fn two_faced(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
+    hovered
+        .and_then(|id| view.object(id))
+        .and_then(|object| object.card.as_ref())
+        .and_then(|card| baylee_cards::by_index(card.index))
+        .is_some_and(|def| def.faces.len() > 1)
 }

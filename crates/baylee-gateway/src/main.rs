@@ -9,6 +9,7 @@
 mod auth;
 mod engine;
 mod lobby;
+mod mail;
 mod pool;
 mod store;
 
@@ -25,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use store::{Account, Deck, Store, StoredToken};
+use store::{Account, Confirmation, Deck, Store, StoredToken};
 use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
@@ -40,6 +41,9 @@ struct AppState {
     save_tx: tokio::sync::mpsc::UnboundedSender<()>,
     /// Registration toggle (`BAYLEE_REGISTRATION=off` to disable).
     registration_enabled: bool,
+    /// Where confirmation mail goes, and — because it is the same
+    /// question — whether an address has to be confirmed at all.
+    mail: mail::Mailer,
     /// Proxies whose `X-Forwarded-For` header may be trusted for rate
     /// limiting (`BAYLEE_TRUSTED_PROXIES`, comma-separated IPs). Empty =
     /// the header is never trusted; anyone can set it, so trusting it
@@ -51,6 +55,14 @@ struct AppState {
     /// a game whose agent went away is a game whose engine either reports its
     /// own end or stops existing.
     agents: Mutex<engine::Agents>,
+    /// Fires whenever anything in the lobby changed, so `/lobby/ws` can push
+    /// instead of every client asking every two seconds.
+    ///
+    /// It carries no payload on purpose. What a change *means* differs per
+    /// account — whose room it is, which chair is theirs, what they searched
+    /// for — so the socket re-renders the listing for its own reader rather
+    /// than trying to broadcast one answer to everybody.
+    lobby_changed: tokio::sync::broadcast::Sender<()>,
     /// The shared secret an agent proves itself with (`BAYLEE_AGENT_TOKEN`).
     ///
     /// Without one no agent may connect, and therefore no game can start: an
@@ -74,6 +86,16 @@ impl AppState {
     /// Ask the background writer to persist the store (cheap, debounced).
     fn request_save(&self) {
         let _ = self.save_tx.send(());
+    }
+
+    /// Tell every open `/lobby/ws` that the lobby moved.
+    ///
+    /// Deliberately fire-and-forget and deliberately not inside the lobby
+    /// lock: a send that nobody is listening to is an error this does not
+    /// care about, and holding a mutex while waking sockets is how a lobby
+    /// route ends up waiting on a slow client.
+    pub(crate) fn lobby_moved(&self) {
+        let _ = self.lobby_changed.send(());
     }
 }
 
@@ -102,6 +124,10 @@ async fn main() {
         store: Mutex::new(Store::load(&store_path)),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         lobby: Mutex::new(Lobby::default()),
+        // Small: a receiver that falls this far behind is one whose socket is
+        // not draining, and the lag is handled by sending it the current
+        // listing rather than by replaying what it missed.
+        lobby_changed: tokio::sync::broadcast::channel(16).0,
         agents: Mutex::new(engine::Agents::default()),
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
@@ -110,6 +136,7 @@ async fn main() {
         save_tx,
         registration_enabled: std::env::var("BAYLEE_REGISTRATION")
             .map_or(true, |v| !matches!(v.as_str(), "off" | "0" | "false")),
+        mail: mail::Mailer::from_env(),
         trusted_proxies: std::env::var("BAYLEE_TRUSTED_PROXIES")
             .unwrap_or_default()
             .split(',')
@@ -124,6 +151,8 @@ async fn main() {
         .route("/auth/config", get(auth_config))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
+        .route("/auth/confirm", get(confirm))
+        .route("/auth/confirm/resend", post(resend_confirmation))
         .route("/auth/logout", post(logout))
         .route("/me", get(me))
         .route("/decks", get(list_decks).post(create_deck))
@@ -136,7 +165,11 @@ async fn main() {
         .route("/settings", get(get_settings).put(put_settings))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/seats/{seat}", post(set_seat))
+        .route("/lobby/games/{id}/ready", post(set_ready))
+        .route("/lobby/games/{id}/start", post(start_room))
+        .route("/lobby/games/{id}/host", post(hand_over))
         .route("/lobby/games/{id}/leave", post(leave_game))
+        .route("/lobby/ws", get(lobby_ws))
         .route("/games/{id}/ws", get(game_ws))
         // The control and engine planes. Neither carries a player's traffic
         // and neither accepts a player's token; see `engine.rs`.
@@ -223,6 +256,22 @@ struct RegisterBody {
     email: String,
     display_name: String,
     password: String,
+    /// The language to write to this account in. Defaulted, because a client
+    /// written before this field existed still registers.
+    #[serde(default)]
+    lang: String,
+}
+
+/// What `POST /auth/confirm/resend` takes.
+#[derive(Deserialize)]
+struct ResendBody {
+    email: String,
+}
+
+/// What `GET /auth/confirm` takes.
+#[derive(Deserialize)]
+struct ConfirmQuery {
+    token: String,
 }
 
 #[derive(Deserialize)]
@@ -261,7 +310,108 @@ fn rate_limit_ip(state: &AppState, peer: IpAddr, headers: &HeaderMap) -> String 
 async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "registration_enabled": state.registration_enabled,
+        "confirmation_required": state.mail.required(),
     }))
+}
+
+/// How long a confirmation link is good for.
+const CONFIRM_TTL_SECS: u64 = 24 * 3600;
+
+/// Mints a confirmation link for an account and mails it.
+///
+/// Returns without sending on a gateway with no mailer, which is the whole
+/// reason the account was already marked confirmed by then: an unconfigured
+/// gateway must behave exactly as it did before any of this existed.
+async fn mail_confirmation(state: &Shared, account_id: &str) {
+    if !state.mail.required() {
+        return;
+    }
+    let issued = auth::IssuedToken::new();
+    let (email, display_name, lang) = {
+        let mut store = state.store.lock();
+        let now = auth::now_secs();
+        store.clear_confirmations(account_id, now);
+        let Some(account) = store.accounts.get(account_id) else {
+            return;
+        };
+        let who = (
+            account.email.clone(),
+            account.display_name.clone(),
+            account.lang.clone(),
+        );
+        let token_hash = auth::token_hash(&issued.token);
+        store.confirmations.insert(
+            token_hash.clone(),
+            Confirmation {
+                token_hash,
+                account_id: account_id.to_string(),
+                expires_at: now + CONFIRM_TTL_SECS,
+            },
+        );
+        who
+    };
+    state.request_save();
+    state
+        .mail
+        .send_confirmation(&email, &display_name, &lang, &issued.token)
+        .await;
+}
+
+/// The link in the mail.
+///
+/// Plain text rather than a redirect into the client: the gateway does not
+/// know where a client is served from — a native build is not served at all —
+/// and a redirect target read off a header is how an open redirect happens.
+async fn confirm(
+    State(state): State<Shared>,
+    Query(query): Query<ConfirmQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let now = auth::now_secs();
+    let mut store = state.store.lock();
+    let Some(found) = store.confirmations.remove(&auth::token_hash(&query.token)) else {
+        return Err(err(StatusCode::BAD_REQUEST, "that link is not valid"));
+    };
+    if found.expires_at <= now {
+        drop(store);
+        state.request_save();
+        return Err(err(StatusCode::BAD_REQUEST, "that link has expired"));
+    }
+    if let Some(account) = store.accounts.get_mut(&found.account_id) {
+        account.confirmed_at = Some(now);
+    }
+    drop(store);
+    state.request_save();
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// Sends the link again.
+///
+/// Answers `{"ok":true}` whatever happened, for the same reason registration
+/// does: a route that said "no such account" would be an address oracle, and
+/// this one needs no password to call.
+async fn resend_confirmation(
+    State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Json(body): Json<ResendBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    if !state
+        .limiter
+        .allow(&rate_limit_ip(&state, addr.ip(), &headers))
+    {
+        return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
+    }
+    let account_id = {
+        let store = state.store.lock();
+        store
+            .account_by_email(&body.email)
+            .filter(|a| a.confirmed_at.is_none())
+            .map(|a| a.id.clone())
+    };
+    if let Some(account_id) = account_id {
+        mail_confirmation(&state, &account_id).await;
+    }
+    Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 async fn register(
@@ -296,23 +446,41 @@ async fn register(
     let password_hash = tokio::task::spawn_blocking(move || auth::hash_password(&password))
         .await
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
-    let mut store = state.store.lock();
-    let email_taken = store.account_by_email(&body.email).is_some();
-    let name_taken = store.account_by_display_name(&body.display_name).is_some();
-    if !email_taken && !name_taken {
-        let email = body.email.to_lowercase();
-        let account = Account {
-            id: auth::new_id(),
-            email,
-            display_name: body.display_name,
-            password_hash,
-            created_at: auth::now_secs(),
-        };
-        let id = account.id.clone();
-        store.accounts.insert(id, account);
+    let created = {
+        let mut store = state.store.lock();
+        let email_taken = store.account_by_email(&body.email).is_some();
+        let name_taken = store.account_by_display_name(&body.display_name).is_some();
+        if email_taken || name_taken {
+            None
+        } else {
+            let now = auth::now_secs();
+            let account = Account {
+                id: auth::new_id(),
+                email: body.email.to_lowercase(),
+                display_name: body.display_name,
+                password_hash,
+                created_at: now,
+                // A gateway that sends no mail confirms on the spot. That is
+                // not a weaker rule than it looks: it is the same rule, asked
+                // of a gateway that never asked the question.
+                confirmed_at: (!state.mail.required()).then_some(now),
+                lang: body.lang,
+            };
+            let id = account.id.clone();
+            store.accounts.insert(id.clone(), account);
+            Some(id)
+        }
+    };
+    if let Some(id) = created {
         state.request_save();
+        mail_confirmation(&state, &id).await;
     }
-    Ok(Json(serde_json::json!({ "ok": true })))
+    // Anti-enumeration again, and the reason the mail is sent before the
+    // answer rather than after it: the answer is the same either way, so it
+    // must not be *timed* differently either.
+    Ok(Json(
+        serde_json::json!({ "ok": true, "confirmation_required": state.mail.required() }),
+    ))
 }
 
 async fn login(
@@ -333,9 +501,13 @@ async fn login(
         let store = state.store.lock();
         store
             .account_by_email(&creds.email)
-            .map(|a| (a.id.clone(), a.password_hash.clone()))
+            .map(|a| ((a.id.clone(), a.confirmed_at), a.password_hash.clone()))
     };
-    let (account_id, stored_hash) = account.unzip();
+    let (account, stored_hash) = account.unzip();
+    let (account_id, confirmed_at) = match account {
+        Some((id, confirmed)) => (Some(id), confirmed),
+        None => (None, None),
+    };
     let password = creds.password.clone();
     let ok = tokio::task::spawn_blocking(move || {
         auth::verify_password(stored_hash.as_deref(), &password)
@@ -347,6 +519,16 @@ async fn login(
     };
     if !ok {
         return Err(err(StatusCode::UNAUTHORIZED, "invalid credentials"));
+    }
+    // Checked *after* the password, deliberately: answering "confirm your
+    // e-mail first" to a wrong password would tell a stranger the address
+    // exists, which is the one thing every other answer on this route is
+    // careful not to say.
+    if state.mail.required() && confirmed_at.is_none() {
+        return Err(err(
+            StatusCode::FORBIDDEN,
+            "confirm your e-mail address first",
+        ));
     }
     let issued = auth::IssuedToken::new();
     let mut store = state.store.lock();
@@ -806,11 +988,38 @@ async fn delete_deck(
 
 // ------------------------------------------------------------------ lobby
 
-/// The lobby listing as one account sees it.
+/// The lobby listing as one account sees it, whole.
+///
+/// What the mutating routes answer with: a player who just arranged a chair
+/// is looking at one room, not at a page of the lobby, and handing them back
+/// a page would make the room they are in vanish from their own screen if it
+/// happened to fall off the end of it.
+fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
+    let names = seated_names(state);
+    let lobby = state.lobby.lock();
+    serde_json::json!({
+        "games": lobby.list_for(account_id, &names),
+    })
+}
+
+/// One page of the listing, searched and counted.
+fn listing_page(state: &Shared, account_id: &str, query: &lobby::LobbyQuery) -> serde_json::Value {
+    let names = seated_names(state);
+    let lobby = state.lobby.lock();
+    let (games, total) = lobby.page_for(account_id, &names, query);
+    serde_json::json!({
+        "games": games,
+        "total": total,
+        "offset": query.offset,
+        "limit": query.page(),
+    })
+}
+
+/// Display names for every account sitting at a visible table.
 ///
 /// Two locks, always in this order — store first, then lobby. Every other
 /// path that needs both takes them the same way round.
-fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
+fn seated_names(state: &Shared) -> std::collections::HashMap<String, String> {
     let wanted = state.lobby.lock().seated_accounts();
     let names: std::collections::HashMap<String, String> = {
         let store = state.store.lock();
@@ -824,16 +1033,17 @@ fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
             })
             .collect()
     };
-    let lobby = state.lobby.lock();
-    serde_json::json!(lobby.list_for(account_id, &names))
+    names
 }
 
+/// The lobby, searched and paged.
 async fn list_games(
     State(state): State<Shared>,
     headers: HeaderMap,
+    Query(query): Query<lobby::LobbyQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
-    Ok(Json(listing(&state, &account_id)))
+    Ok(Json(listing_page(&state, &account_id, &query)))
 }
 #[derive(Deserialize)]
 struct CreateGameBody {
@@ -848,15 +1058,16 @@ struct CreateGameBody {
     /// What the table is called in the list.
     #[serde(default)]
     name: String,
+    /// A password for the room. Empty or absent leaves it open.
+    #[serde(default)]
+    password: String,
 }
 
 /// The most seats a room may have.
 ///
-/// The rules kernel is written for any number of players and the preset
-/// carries a `Vec` of seats, but three- and four-player games have had far
-/// less play than duels. Four is where that gets uncomfortable rather than
-/// where the engine stops.
-const MAX_SEATS: usize = 4;
+/// The most seats a room may have — the same eight `GamePreset::validate`
+/// allows, so the gateway refuses exactly what the engine would.
+const MAX_SEATS: usize = 8;
 
 /// Builds a `LoadedDeck` from a stored deck.
 /// Uses the same parser as validation, so counts are already bounded.
@@ -940,16 +1151,27 @@ fn room_preset(
                     .unwrap_or_default(),
             ),
         };
+        spec.team = seat.team;
+    }
+    // The engine refuses a table with only one side on it, and so does the
+    // lobby — here rather than at the first state-based action, so the room
+    // says why instead of starting a game that is already over.
+    if preset.validate().is_err() {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "every seat is on the same team; a game needs at least two sides",
+        ));
     }
     Ok(preset)
 }
 
-/// Starts a room whose seats are all settled, if they are.
+/// Starts a room whose seats are all settled.
 ///
-/// There is no "start" button on the wire on purpose: a room starts when
-/// every chair is ready, which is the same rule the two-seat open table has
-/// always followed when its second player sat down. A host who has given up
-/// waiting for a friend hands that chair to the AI, and that is the start.
+/// A room used to start itself the moment the last chair became ready, which
+/// read well until "ready" stopped meaning "has a deck": a player who picked
+/// a deck to look at it was already in a game. Now every chair says it is
+/// ready and the host says go, which is two different statements by two
+/// different people and needs both.
 ///
 /// Returns whether the game was started. The engine is ordered *outside* the
 /// lobby lock, and a failure to order one puts the room back the way it was
@@ -1010,6 +1232,7 @@ async fn create_game(
             tracing::error!(game_id, reason, "could not start a game");
             return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
         }
+        state.lobby_moved();
         return Ok(Json(serde_json::json!({
             "game_id": game_id,
             "seat": 0,
@@ -1021,7 +1244,7 @@ async fn create_game(
     if !(2..=MAX_SEATS).contains(&chairs) {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            "a table seats between two and four",
+            "a table seats between two and eight",
         ));
     }
     {
@@ -1036,11 +1259,12 @@ async fn create_game(
             auth::now_secs(),
         );
         game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
+        if !body.password.is_empty() {
+            game.password_hash = Some(auth::token_hash(&body.password));
+        }
         lobby.games.insert(game_id.clone(), game);
     }
-    // A two-seat room with the host in it is never ready yet, but a host who
-    // asked for something else might be — and the rule is one rule.
-    try_start(&state, &game_id)?;
+    state.lobby_moved();
     Ok(Json(serde_json::json!({
         "game_id": game_id,
         "seat": 0,
@@ -1054,6 +1278,9 @@ struct JoinGameBody {
     /// Which chair to take. The first free one when the body does not say.
     #[serde(default)]
     seat: Option<usize>,
+    /// The room's password, for a room that has one.
+    #[serde(default)]
+    password: Option<String>,
 }
 
 async fn join_game(
@@ -1074,6 +1301,15 @@ async fn join_game(
         if game.state != LobbyState::Waiting {
             return Err(err(StatusCode::CONFLICT, "game already started"));
         }
+        // Before anything else is checked, and answered the same way whether
+        // the password was wrong or missing: a locked room should not tell a
+        // stranger how full it is.
+        if let Some(want) = &game.password_hash {
+            let given = body.password.as_deref().unwrap_or_default();
+            if &auth::token_hash(given) != want {
+                return Err(err(StatusCode::FORBIDDEN, "wrong password"));
+            }
+        }
         if game
             .seats
             .iter()
@@ -1081,6 +1317,7 @@ async fn join_game(
         {
             return Err(err(StatusCode::CONFLICT, "you are already at this table"));
         }
+        let seq = game.claim_seq();
         let free =
             |s: &&mut lobby::LobbySeat| s.kind == lobby::SeatKind::Human && s.account_id.is_none();
         let chair = match body.seat {
@@ -1100,9 +1337,10 @@ async fn join_game(
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
         chair.deck_name = deck_name;
         chair.deck = Some(deck);
+        chair.joined_seq = Some(seq);
         chair.seat
     };
-    try_start(&state, &id)?;
+    state.lobby_moved();
     Ok(Json(serde_json::json!({
         "game_id": id,
         "seat": seat,
@@ -1121,15 +1359,26 @@ struct SeatBody {
     /// The deck this chair plays.
     #[serde(default)]
     deck_id: Option<String>,
+    /// Which team this chair plays for. Teams are numbered from 1, and `0`
+    /// puts the chair back on its own side — a sentinel rather than a
+    /// `null`, so "leave the team alone" stays the absent field it is for
+    /// every other setting here.
+    #[serde(default)]
+    team: Option<u8>,
 }
 
 /// Configures one seat of a room.
 ///
 /// Two authorities, deliberately narrow. The **host** arranges the table:
-/// which chairs are people and which are the AI, how hard the AI plays, and
-/// what an AI chair brings. A **player** changes exactly one thing, their own
-/// deck — including the host, whose own chair is theirs as a player and not
-/// as the host.
+/// which chairs are people and which are the AI, how hard the AI plays, what
+/// an AI chair brings, and which side each chair plays for. A **player**
+/// changes exactly one thing, their own deck — including the host, whose own
+/// chair is theirs as a player and not as the host.
+///
+/// Teams are the host's because they are the format, not a preference: a
+/// player who could pick their own would pick the winning one, and a table
+/// whose sides can change under the people at it is not the table they
+/// agreed to sit at.
 async fn set_seat(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -1172,22 +1421,27 @@ async fn set_seat(
             }
             match kind.as_str() {
                 "ai" => {
+                    let deck = chair.deck.take();
+                    let deck_name = std::mem::take(&mut chair.deck_name);
+                    let profile = chair.ai.take();
+                    chair.vacate();
                     chair.kind = lobby::SeatKind::Ai;
-                    chair.ai.get_or_insert_with(|| "steady".to_string());
-                    chair.account_id = None;
-                    chair.seat_token_hash = None;
-                    if chair.deck.is_none() {
-                        chair.deck_name = "house AI".to_string();
-                    }
+                    chair.ai = Some(profile.unwrap_or_else(|| "steady".to_string()));
+                    chair.deck = deck;
+                    chair.deck_name = if chair.deck.is_some() {
+                        deck_name
+                    } else {
+                        "house AI".to_string()
+                    };
                 }
                 "human" => {
-                    chair.kind = lobby::SeatKind::Human;
-                    chair.ai = None;
                     // An AI's deck was the host's choice for a chair that is
                     // now waiting for a person, who brings their own.
                     if chair.account_id.is_none() {
-                        chair.deck = None;
-                        chair.deck_name = String::new();
+                        chair.vacate();
+                    } else {
+                        chair.kind = lobby::SeatKind::Human;
+                        chair.ai = None;
                     }
                 }
                 _ => return Err(err(StatusCode::BAD_REQUEST, "kind must be human or ai")),
@@ -1205,6 +1459,21 @@ async fn set_seat(
             }
             chair.ai = Some(profile.clone());
         }
+        if let Some(team) = body.team {
+            if !is_host {
+                return Err(err(StatusCode::FORBIDDEN, "only the host arranges seats"));
+            }
+            if team > MAX_SEATS as u8 {
+                return Err(err(StatusCode::BAD_REQUEST, "no such team"));
+            }
+            let moved = chair.team != (team > 0).then_some(team);
+            chair.team = (team > 0).then_some(team);
+            // Being moved to another side changes the game they said yes to,
+            // exactly as a swapped deck does.
+            if moved {
+                chair.said_ready = false;
+            }
+        }
         if let Some((deck_name, deck)) = chosen {
             // A player sets their own deck; the host sets an AI's. Nobody
             // sets a deck for another person.
@@ -1214,13 +1483,138 @@ async fn set_seat(
             }
             chair.deck_name = deck_name;
             chair.deck = Some(deck);
+            // A deck they have not seen yet is not a deck they said yes to.
+            // Without this the host could swap an opponent into a game they
+            // had already declared themselves ready for.
+            chair.said_ready = false;
         }
     }
-    try_start(&state, &id)?;
+    state.lobby_moved();
     Ok(Json(listing(&state, &account_id)))
 }
 
-/// Gives up a seat, and closes the room if the host is the one leaving.
+#[derive(Deserialize)]
+struct ReadyBody {
+    /// Absent means ready; a client withdraws by sending `false`.
+    #[serde(default = "yes")]
+    ready: bool,
+}
+
+/// `serde` default for [`ReadyBody::ready`].
+const fn yes() -> bool {
+    true
+}
+
+/// Says whether the caller is ready to play.
+///
+/// Only ever about the caller's own chair — the host arranges the table, but
+/// nobody declares anyone else ready.
+async fn set_ready(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<ReadyBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    {
+        let mut lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get_mut(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if game.state != LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        let chair = game
+            .seats
+            .iter_mut()
+            .find(|s| s.account_id.as_ref() == Some(&account_id))
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "you are not at this table"))?;
+        if body.ready && chair.deck.is_none() {
+            return Err(err(StatusCode::CONFLICT, "pick a deck first"));
+        }
+        chair.said_ready = body.ready;
+    }
+    state.lobby_moved();
+    Ok(Json(listing(&state, &account_id)))
+}
+
+/// Starts the room. The host's call, and only once every chair is ready.
+async fn start_room(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    {
+        let lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if !game.hosted_by(&account_id) {
+            return Err(err(StatusCode::FORBIDDEN, "only the host starts the game"));
+        }
+        if game.state != LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        if !game.seats.iter().all(lobby::LobbySeat::ready) {
+            return Err(err(StatusCode::CONFLICT, "not everyone is ready"));
+        }
+    }
+    // Outside the lock it took to check: `try_start` takes it again, and
+    // ordering the engine must not happen underneath it.
+    if !try_start(&state, &id)? {
+        return Err(err(StatusCode::CONFLICT, "the room is no longer ready"));
+    }
+    state.lobby_moved();
+    Ok(Json(listing(&state, &account_id)))
+}
+
+#[derive(Deserialize)]
+struct HostBody {
+    /// The chair to hand the room to.
+    seat: usize,
+}
+
+/// Hands the room to another player.
+///
+/// By seat rather than by name or account: the caller is looking at a
+/// listing of chairs, and a seat index is the one handle in it that cannot
+/// be ambiguous when two people share a display name.
+async fn hand_over(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<HostBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    {
+        let mut lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get_mut(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if !game.hosted_by(&account_id) {
+            return Err(err(StatusCode::FORBIDDEN, "not your room"));
+        }
+        if game.state != LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        let chair = game
+            .seats
+            .get(body.seat)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such seat"))?;
+        let Some(new_host) = chair.account_id.clone() else {
+            return Err(err(StatusCode::CONFLICT, "nobody is sitting there"));
+        };
+        game.host = Some(new_host);
+    }
+    state.lobby_moved();
+    Ok(Json(listing(&state, &account_id)))
+}
+
+/// Gives up a seat, handing the room on if the host is the one leaving.
 async fn leave_game(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -1235,12 +1629,6 @@ async fn leave_game(
     if game.state != LobbyState::Waiting {
         return Err(err(StatusCode::CONFLICT, "game already started"));
     }
-    // The room is the host's; without them there is nobody to arrange it, and
-    // leaving it listed would advertise a table that can never start.
-    if game.host.as_ref() == Some(&account_id) {
-        game.finish(auth::now_secs());
-        return Ok(StatusCode::NO_CONTENT);
-    }
     let Some(chair) = game
         .seats
         .iter_mut()
@@ -1248,7 +1636,16 @@ async fn leave_game(
     else {
         return Err(err(StatusCode::NOT_FOUND, "you are not at this table"));
     };
-    *chair = lobby::LobbySeat::open(chair.seat);
+    chair.vacate();
+    // A room outlives its host: it passes to whoever has been here longest,
+    // and only a room with nobody left in it is closed. The earlier version
+    // closed it the moment the host stood up, which threw everyone else out
+    // of a table they were sitting at.
+    if game.hosted_by(&account_id) && !game.hand_over_host() {
+        game.finish(auth::now_secs());
+    }
+    drop(lobby);
+    state.lobby_moved();
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1408,6 +1805,68 @@ fn standing_for_seat(state: &Shared, game_id: &str, seat: usize) -> Vec<u8> {
 #[derive(Deserialize)]
 struct WsParams {
     token: String,
+}
+
+/// What `/lobby/ws` is opened with: an account token, and the same search a
+/// `GET /lobby/games` would carry.
+#[derive(Deserialize)]
+struct LobbyWsParams {
+    /// The account bearer token.
+    ///
+    /// In the query string rather than a header because a browser's
+    /// `WebSocket` cannot set one — the same reason the seat socket does it,
+    /// and the same trade: a URL is likelier to be logged, which is why this
+    /// is the account token and not something longer-lived.
+    token: String,
+    /// The page and search this reader wants, flattened so the socket URL and
+    /// the HTTP route take the identical parameters.
+    #[serde(flatten)]
+    query: lobby::LobbyQuery,
+}
+
+/// The lobby's push channel.
+///
+/// The listing used to be re-read every two seconds by every client sitting
+/// in the lobby, because nothing could tell them a chair had moved. This can:
+/// it sends the listing on connect and again whenever anything in the lobby
+/// changes, rendered for *this* reader with *their* search.
+async fn lobby_ws(
+    State(state): State<Shared>,
+    Query(params): Query<LobbyWsParams>,
+    ws: WebSocketUpgrade,
+) -> Result<axum::response::Response, (StatusCode, Json<ErrorBody>)> {
+    let account_id = {
+        let mut store = state.store.lock();
+        store
+            .resolve_token(&params.token, auth::now_secs())
+            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?
+    };
+    Ok(ws.on_upgrade(move |socket| run_lobby_socket(state, account_id, params.query, socket)))
+}
+
+/// Pushes the listing to one reader until they go away.
+async fn run_lobby_socket(
+    state: Shared,
+    account_id: String,
+    query: lobby::LobbyQuery,
+    mut socket: WebSocket,
+) {
+    // Subscribed before the first send, so a change that lands while the
+    // opening listing is being rendered is not lost between the two.
+    let mut changed = state.lobby_changed.subscribe();
+    loop {
+        let payload = listing_page(&state, &account_id, &query).to_string();
+        if socket.send(Message::Text(payload.into())).await.is_err() {
+            return;
+        }
+        // A reader that fell behind is sent the state of the world, not the
+        // history it missed: the payload is the whole listing every time, so
+        // one late send says everything the skipped ones would have.
+        match changed.recv().await {
+            Ok(()) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+        }
+    }
 }
 
 async fn game_ws(

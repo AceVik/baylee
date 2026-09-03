@@ -94,10 +94,18 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
 }
 
 /// What `object` is offering, if anything.
+/// English deliberately: only the `action` on each option is read here —
+/// what is drawn is [`crate::hud`]'s business, and this path picks an ability
+/// by position or takes the only one there is.
 fn abilities_of(duel: &Duel, object: ObjectId) -> Option<Vec<crate::abilities::AbilityOption>> {
     let view = duel.view.as_ref()?;
     let interaction = duel.interaction.as_ref()?;
-    Some(crate::abilities::options(view, interaction, object))
+    Some(crate::abilities::options(
+        baylee_client_core::Lang::En,
+        view,
+        interaction,
+        object,
+    ))
 }
 
 /// Keyboard handling: every key comes from the account's keymap.

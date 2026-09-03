@@ -28,13 +28,47 @@ pub struct HeuristicAgent {
     /// evaluation knobs (lookahead, temperature, mulligan skill, hold-up)
     /// are still read by nobody and wait on the evaluator.
     profile: AIProfile,
+    /// Which side each seat plays for, in seat order. Empty means a table
+    /// with no teams on it, where every seat is a side of its own.
+    teams: Vec<Option<u8>>,
 }
 
 impl HeuristicAgent {
-    /// A default-profile agent.
+    /// A default-profile agent at a table with no teams.
     #[must_use]
     pub fn new(profile: AIProfile) -> Self {
-        Self { profile }
+        Self {
+            profile,
+            teams: Vec::new(),
+        }
+    }
+
+    /// Tells the agent which side each seat plays for, in seat order.
+    ///
+    /// Teams are part of the *setup*, not of the state, which is why they
+    /// arrive here rather than in a [`PlayerView`]: they are as public as the
+    /// format itself, so this hands the agent nothing a networked seat lacks.
+    #[must_use]
+    pub fn with_teams(mut self, teams: Vec<Option<u8>>) -> Self {
+        self.teams = teams;
+        self
+    }
+
+    /// Whether `seat` is an *opponent* of `me` â a different side, not merely
+    /// a different seat (CR 102.3).
+    ///
+    /// The engine offers a teammate's creatures as legal targets, because
+    /// they are (CR 115.4); which of the legal ones to take is the agent's
+    /// own judgement, and shooting your partner is never it.
+    fn hostile(&self, seat: PlayerId, me: PlayerId) -> bool {
+        if seat == me {
+            return false;
+        }
+        let side = |p: PlayerId| self.teams.get(p.get() as usize).copied().flatten();
+        match (side(seat), side(me)) {
+            (Some(a), Some(b)) => a != b,
+            _ => true,
+        }
     }
 
     /// Who this seat swings at, per its politics profile.
@@ -163,7 +197,24 @@ impl HeuristicAgent {
                 ..
             } => {
                 let n = (if max <= 2 { max } else { min }) as usize;
-                let objects = options[..n.min(options.len())].to_vec();
+                // An opponent's permanents first, everything else after: the
+                // count may force a teammate's creature (a spell with two
+                // required targets and one enemy on the board is still cast),
+                // but nothing else may.
+                let mut ordered: Vec<ObjectId> = options
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        view.object(*id)
+                            .is_none_or(|o| self.hostile(o.controller, player))
+                    })
+                    .collect();
+                for id in &options {
+                    if !ordered.contains(id) {
+                        ordered.push(*id);
+                    }
+                }
+                let objects = ordered[..n.min(ordered.len())].to_vec();
                 // "Any target" with nothing on the battlefield worth hitting
                 // is still a legal spell: the rest of the count comes off the
                 // face. Aiming at an opponent rather than the first player in
@@ -174,7 +225,8 @@ impl HeuristicAgent {
                 let mut players: Vec<_> = Vec::new();
                 for seat in player_options
                     .iter()
-                    .filter(|p| **p != player)
+                    .filter(|p| self.hostile(**p, player))
+                    .chain(player_options.iter().filter(|p| **p != player))
                     .chain(player_options.iter())
                 {
                     // Targets are distinct (CR 601.2c), so naming a seat
@@ -204,7 +256,8 @@ impl HeuristicAgent {
                 options
                     .iter()
                     .copied()
-                    .find(|p| *p != player)
+                    .find(|p| self.hostile(*p, player))
+                    .or_else(|| options.iter().copied().find(|p| *p != player))
                     .unwrap_or(options[0]),
             ),
             Pending::ChooseCastMode { options, .. } => PlayerAction::ChooseMode(
@@ -520,6 +573,89 @@ mod tests {
             aim_at(&v, victim, &squad, &defenders),
             Defender::Player(victim),
             "the squad chipped a walker it could not kill"
+        );
+    }
+
+    /// A teammate's creature is a legal target and the wrong one. The engine
+    /// offers both (CR 115.4); picking is the agent's job.
+    #[test]
+    fn removal_goes_past_a_teammate_to_an_opponent() {
+        let mine = permanent(obj(1), PlayerId::new(0), 2);
+        let partner = permanent(obj(2), PlayerId::new(1), 2);
+        let enemy = permanent(obj(3), PlayerId::new(2), 2);
+        let v = view(0, &[20, 20, 20], vec![mine, partner, enemy]);
+        let agent =
+            HeuristicAgent::new(AIProfile::default()).with_teams(vec![Some(1), Some(1), Some(2)]);
+        let pending = Pending::ChooseTargets {
+            player: PlayerId::new(0),
+            options: vec![obj(1), obj(2), obj(3)],
+            player_options: vec![PlayerId::new(0), PlayerId::new(1), PlayerId::new(2)],
+            min: 1,
+            max: 1,
+        };
+
+        let PlayerAction::ChooseTargets { objects, .. } = agent.act(&v, &pending) else {
+            panic!("the agent answered a target choice with something else");
+        };
+        assert_eq!(objects, vec![obj(3)], "the agent shot its own side");
+    }
+
+    /// The same rule for the face: a burn spell goes at an opponent, never at
+    /// the partner whose life total is half the team's problem.
+    #[test]
+    fn burn_goes_at_an_opponent_and_not_at_a_teammate() {
+        let v = view(0, &[20, 20, 20], vec![]);
+        let agent =
+            HeuristicAgent::new(AIProfile::default()).with_teams(vec![Some(1), Some(1), Some(2)]);
+        let pending = Pending::ChooseTargets {
+            player: PlayerId::new(0),
+            options: vec![],
+            player_options: vec![PlayerId::new(0), PlayerId::new(1), PlayerId::new(2)],
+            min: 1,
+            max: 1,
+        };
+
+        let PlayerAction::ChooseTargets { players, .. } = agent.act(&v, &pending) else {
+            panic!("the agent answered a target choice with something else");
+        };
+        assert_eq!(
+            players,
+            vec![PlayerId::new(2)],
+            "the agent burned its partner"
+        );
+    }
+
+    /// And "choose a player" is the same question asked without a target.
+    #[test]
+    fn choosing_a_player_skips_the_teammate() {
+        let v = view(0, &[20, 20, 20], vec![]);
+        let agent =
+            HeuristicAgent::new(AIProfile::default()).with_teams(vec![Some(1), Some(1), Some(2)]);
+        let pending = Pending::ChoosePlayer {
+            player: PlayerId::new(0),
+            options: vec![PlayerId::new(0), PlayerId::new(1), PlayerId::new(2)],
+        };
+
+        assert_eq!(
+            agent.act(&v, &pending),
+            PlayerAction::ChoosePlayer(PlayerId::new(2))
+        );
+    }
+
+    /// With no teams at the table nothing changes: every other seat is an
+    /// opponent and the first one still gets it.
+    #[test]
+    fn a_table_with_no_teams_chooses_as_it_did_before() {
+        let v = view(0, &[20, 20, 20], vec![]);
+        let agent = HeuristicAgent::new(AIProfile::default());
+        let pending = Pending::ChoosePlayer {
+            player: PlayerId::new(0),
+            options: vec![PlayerId::new(0), PlayerId::new(1), PlayerId::new(2)],
+        };
+
+        assert_eq!(
+            agent.act(&v, &pending),
+            PlayerAction::ChoosePlayer(PlayerId::new(1))
         );
     }
 }

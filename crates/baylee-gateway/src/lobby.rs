@@ -57,6 +57,28 @@ pub struct LobbySeat {
     /// choice, or the deck the host gave an AI — and what the preset is built
     /// from when the game starts.
     pub deck: Option<crate::store::Deck>,
+    /// Whether the person in this chair has said they are ready.
+    ///
+    /// Separate from having a deck, because they answer different questions:
+    /// a chair with a deck in it is *able* to play, and this is the player
+    /// saying they want to. Before it existed a room started the instant the
+    /// last deck was chosen, which meant a player who picked a deck to look
+    /// at it was already in a game.
+    pub said_ready: bool,
+    /// Which team this chair plays for, or `None` for a chair that plays for
+    /// itself.
+    ///
+    /// A property of the *chair*, not of whoever is sitting in it: it is the
+    /// host's arrangement of the table, and it survives a player leaving so
+    /// that a 2v2 stays a 2v2 while it waits for someone to take the empty
+    /// seat back.
+    pub team: Option<u8>,
+    /// Where in the arrival order this player sits, for handing the room on.
+    ///
+    /// Not the seat index: chairs may be taken in any order, and "the next
+    /// player who joined" is a question about time. `None` for an empty or
+    /// AI chair.
+    pub joined_seq: Option<u64>,
 }
 
 impl LobbySeat {
@@ -71,19 +93,34 @@ impl LobbySeat {
             seat_token_hash: None,
             deck_name: String::new(),
             deck: None,
+            said_ready: false,
+            team: None,
+            joined_seq: None,
         }
     }
 
     /// Whether the seat is settled enough for the game to start: somebody is
-    /// in it, and they have something to play.
+    /// in it, they have something to play, and they have said so.
     #[must_use]
     pub fn ready(&self) -> bool {
         match self.kind {
-            SeatKind::Human => self.account_id.is_some() && self.deck.is_some(),
+            SeatKind::Human => self.account_id.is_some() && self.deck.is_some() && self.said_ready,
             // An AI the host gave no deck plays the house deck, so there is
             // nothing left to wait for.
             SeatKind::Ai => true,
         }
+    }
+
+    /// Empties the chair, keeping only which chair it is.
+    ///
+    /// A seat is reset in three places — a player leaving, the host turning a
+    /// chair over to the AI, and a chair turned back to a human — and each
+    /// one that forgot a field left something of the last occupant behind.
+    pub fn vacate(&mut self) {
+        let team = self.team;
+        *self = Self::open(self.seat);
+        // The team is the table's shape, which nobody changed by standing up.
+        self.team = team;
     }
 }
 
@@ -138,6 +175,16 @@ pub struct LobbyGame {
     pub created_at: u64,
     /// When the game ended (unix seconds), for the cleanup grace period.
     pub finished_at: Option<u64>,
+    /// SHA-256 of the room's password, if the host set one.
+    ///
+    /// Hashed rather than kept, because it is a password and people reuse
+    /// them — but SHA-256 rather than Argon2 like an account's, because this
+    /// one guards a table for an evening and is checked on every join. The
+    /// listing says only whether a room *has* one.
+    pub password_hash: Option<String>,
+    /// Hands out [`LobbySeat::joined_seq`]. Monotonic for the room's life, so
+    /// a player who leaves and comes back is at the back of the queue.
+    pub next_seq: u64,
 }
 
 impl LobbyGame {
@@ -161,13 +208,53 @@ impl LobbyGame {
             first.account_id = Some(account_id.clone());
             first.deck_name = deck_name;
             first.deck = Some(deck);
+            first.joined_seq = Some(0);
         }
         Self {
             state: LobbyState::Waiting,
             seats,
             host: Some(account_id),
             name,
+            next_seq: 1,
             ..Self::blank(id, created_at)
+        }
+    }
+
+    /// The next arrival number, for a player sitting down.
+    pub fn claim_seq(&mut self) -> u64 {
+        let seq = self.next_seq;
+        self.next_seq += 1;
+        seq
+    }
+
+    /// Whether `account_id` may arrange this room.
+    #[must_use]
+    pub fn hosted_by(&self, account_id: &str) -> bool {
+        self.host.as_deref() == Some(account_id)
+    }
+
+    /// Hands the room to the player who joined next, and says whether it
+    /// found one.
+    ///
+    /// The rule is arrival order, not seat order: the chairs of a room are
+    /// taken in whatever order people pick them, and "who has been here
+    /// longest" is the only answer that does not depend on where they chose
+    /// to sit. A room this leaves with no host at all has nobody to arrange
+    /// it and is the caller's to close.
+    pub fn hand_over_host(&mut self) -> bool {
+        let host = self.host.clone();
+        let next = self
+            .seats
+            .iter()
+            .filter(|s| s.kind == SeatKind::Human && s.account_id.is_some())
+            .filter(|s| s.account_id != host)
+            .min_by_key(|s| s.joined_seq.unwrap_or(u64::MAX));
+        match next.and_then(|s| s.account_id.clone()) {
+            Some(account_id) => {
+                self.host = Some(account_id);
+                true
+            }
+            None => false,
         }
     }
 
@@ -198,6 +285,8 @@ impl LobbyGame {
             updates: broadcast::channel(256).0,
             created_at,
             finished_at: None,
+            password_hash: None,
+            next_seq: 0,
         }
     }
 
@@ -212,6 +301,107 @@ impl LobbyGame {
         // `send_replace` for the same reason as the attach path: a game that
         // ends while nobody is watching must still read "not ready".
         self.ready.send_replace(false);
+    }
+}
+
+/// What a caller wants out of the listing.
+///
+/// Every field has a sane absence, so a client that asks for nothing gets the
+/// first page of everything — which is what `GET /lobby/games` did before any
+/// of this existed.
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+pub struct LobbyQuery {
+    /// Free text matched against the table's name and its host's name.
+    #[serde(default)]
+    pub q: String,
+    /// How many rows to skip.
+    #[serde(default, deserialize_with = "loose_usize")]
+    pub offset: usize,
+    /// How many rows to return. Clamped to [`LobbyQuery::MAX_LIMIT`].
+    #[serde(default, deserialize_with = "loose_opt_usize")]
+    pub limit: Option<usize>,
+    /// Whether to leave out rooms that are already playing.
+    #[serde(default, deserialize_with = "loose_bool")]
+    pub waiting_only: bool,
+}
+
+/// A query-string value that may arrive typed or as the text it was written
+/// as.
+///
+/// The lobby socket takes its token *and* this query out of one query string,
+/// which serde flattens — and a flattened struct is deserialized from a map of
+/// **strings**, so `offset=8` reaches a `usize` field as `"8"` and is refused.
+/// The HTTP route, which parses the same struct without a flatten, never saw
+/// it. Rather than keep two shapes of the one query in step, both read either.
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum Loose<T> {
+    /// What `GET /lobby/games` sends it as.
+    Typed(T),
+    /// What the flattened socket query sends it as.
+    Text(String),
+}
+
+/// A `usize` written either way.
+fn loose_usize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<usize, D::Error> {
+    Ok(loose_opt_usize(d)?.unwrap_or_default())
+}
+
+/// An optional `usize` written either way. An unreadable number is `None`
+/// rather than a `400`: a listing is not worth refusing over a typo in a page
+/// number, and the default page is a perfectly good answer.
+fn loose_opt_usize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<usize>, D::Error> {
+    use serde::Deserialize as _;
+    Ok(match Option::<Loose<usize>>::deserialize(d)? {
+        Some(Loose::Typed(n)) => Some(n),
+        Some(Loose::Text(text)) => text.trim().parse().ok(),
+        None => None,
+    })
+}
+
+/// A flag written either way. Absent, empty and unreadable all mean `false`.
+fn loose_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    use serde::Deserialize as _;
+    Ok(match Option::<Loose<bool>>::deserialize(d)? {
+        Some(Loose::Typed(flag)) => flag,
+        Some(Loose::Text(text)) => matches!(text.trim(), "true" | "1" | "yes"),
+        None => false,
+    })
+}
+
+impl LobbyQuery {
+    /// How many rows one page may hold, whatever a caller asks for.
+    ///
+    /// A cap rather than a suggestion: the listing is built by rendering every
+    /// row, and an unbounded `limit` makes one request as expensive as the
+    /// whole lobby is large.
+    pub const MAX_LIMIT: usize = 100;
+    /// How many rows a caller that did not say gets.
+    pub const DEFAULT_LIMIT: usize = 25;
+
+    /// The page size this query actually gets.
+    #[must_use]
+    pub fn page(&self) -> usize {
+        self.limit
+            .unwrap_or(Self::DEFAULT_LIMIT)
+            .clamp(1, Self::MAX_LIMIT)
+    }
+
+    /// Whether a game matches the text being searched for.
+    ///
+    /// Name *and* host, because a player looking for a table knows one or the
+    /// other and rarely both. Case-insensitive on the plain lowercase mapping
+    /// — this is a search box, not a collation.
+    fn matches(&self, game: &LobbyGame, host_name: Option<&str>) -> bool {
+        if self.waiting_only && game.state != LobbyState::Waiting {
+            return false;
+        }
+        if self.q.trim().is_empty() {
+            return true;
+        }
+        let needle = self.q.trim().to_lowercase();
+        game.name.to_lowercase().contains(&needle)
+            || host_name.is_some_and(|h| h.to_lowercase().contains(&needle))
     }
 }
 
@@ -240,23 +430,93 @@ impl Lobby {
         out
     }
 
-    /// Games visible in the lobby (waiting or playing).
+    /// Games visible in the lobby (waiting or playing), searched and paged.
     ///
     /// `me` is the account asking, so a seat can say whether it is theirs
     /// without the answer having to carry anyone's account id. `names` maps
     /// the ids from [`Lobby::seated_accounts`] to display names: a room is
     /// arranged in the open, and "who is that" is answered with a name.
+    ///
+    /// Returns the page and how many rows matched in total, so a client can
+    /// say "25 of 140" without asking twice.
+    ///
+    /// **The order is fixed and it has to be.** Games live in a `HashMap`, so
+    /// before there were pages the listing came out in whatever order the map
+    /// felt like — which nobody could see, because there was only ever one
+    /// page. Paging that would hand out rows twice and drop others. Rooms
+    /// still waiting come first (they are the ones a player can do something
+    /// about), then the newest, and the id breaks a tie so two rooms opened
+    /// in the same second never swap places between requests.
+    #[must_use]
+    pub fn page_for(
+        &self,
+        me: &str,
+        names: &HashMap<String, String>,
+        query: &LobbyQuery,
+    ) -> (Vec<serde_json::Value>, usize) {
+        let mut matched: Vec<&LobbyGame> = self
+            .games
+            .values()
+            .filter(|g| g.state != LobbyState::Over)
+            .filter(|g| {
+                query.matches(
+                    g,
+                    g.host
+                        .as_ref()
+                        .and_then(|h| names.get(h))
+                        .map(String::as_str),
+                )
+            })
+            .collect();
+        matched.sort_by(|a, b| {
+            let waiting = |g: &LobbyGame| u8::from(g.state != LobbyState::Waiting);
+            waiting(a)
+                .cmp(&waiting(b))
+                .then(b.created_at.cmp(&a.created_at))
+                .then(a.id.cmp(&b.id))
+        });
+        let total = matched.len();
+        let rows = matched
+            .into_iter()
+            .skip(query.offset)
+            .take(query.page())
+            .map(|g| self.row(g, me, names))
+            .collect();
+        (rows, total)
+    }
+
+    /// Every visible game, for a caller that wants no paging at all.
     #[must_use]
     pub fn list_for(&self, me: &str, names: &HashMap<String, String>) -> Vec<serde_json::Value> {
         self.games
             .values()
             .filter(|g| g.state != LobbyState::Over)
-            .map(|g| {
-                serde_json::json!({
+            .map(|g| self.row(g, me, names))
+            .collect()
+    }
+
+    /// One row of the listing.
+    #[expect(
+        clippy::unused_self,
+        reason = "a method so the row shape stays beside the two callers that \
+                  render it, rather than a free function reachable from \
+                  anywhere in the crate"
+    )]
+    fn row(&self, g: &LobbyGame, me: &str, names: &HashMap<String, String>) -> serde_json::Value {
+        serde_json::json!({
                     "id": g.id,
                     "name": g.name,
                     "host": g.host.as_ref().and_then(|h| names.get(h)),
                     "yours": g.host.as_deref() == Some(me),
+                    // Whether, never what: a client needs to know to ask for
+                    // a password, and nothing else about it belongs on a
+                    // listing every signed-in player can read.
+                    "locked": g.password_hash.is_some(),
+                    // Whether the room could start if the host said so. It is
+                    // the host's button, but every player can see why it is
+                    // not lit yet.
+                    "startable": g.state == LobbyState::Waiting
+                        && g.seats.iter().all(LobbySeat::ready),
                     "state": match g.state {
                         LobbyState::Waiting => "waiting",
                         LobbyState::Playing => "playing",
@@ -279,12 +539,14 @@ impl Lobby {
                             // their account.
                             "player": s.account_id.as_ref().and_then(|a| names.get(a)),
                             "you": s.account_id.as_deref() == Some(me),
+                            "host": s.account_id.is_some() && s.account_id == g.host,
                             "deck": s.deck_name,
                             "ready": s.ready(),
+                            // `null` for a chair that plays for itself, which
+                            // is every chair at a table with no teams on it.
+                            "team": s.team,
                         })
                     }).collect::<Vec<_>>(),
-                })
-            })
-            .collect()
+        })
     }
 }

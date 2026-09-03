@@ -6,10 +6,10 @@
 //! everyone brings. Every other player at the table sees all of it and sets
 //! exactly one thing, the deck they themselves will play.
 //!
-//! There is no start button on the wire. A room starts the moment every chair
-//! is ready, which is the same rule the two-seat open table has always
-//! followed when its second player sat down; a host who has given up waiting
-//! hands the empty chair to the AI, and that is the start.
+//! Starting takes two different statements by two different people: every
+//! player says they are ready, and the host says go. A room used to start
+//! itself the moment the last chair had a deck, which meant picking a deck to
+//! look at it put you in a game.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
@@ -33,8 +33,20 @@ fn seat_counts(body: &str) -> (usize, usize) {
     )
 }
 
+/// Says this player is ready, and asserts the gateway took it.
+fn say_ready(port: u16, token: &str, game_id: &str) {
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/ready"),
+        Some(token),
+        "{}",
+    );
+    assert_eq!(status, 200, "ready: {body}");
+}
+
 #[tokio::test]
-async fn a_room_is_arranged_in_the_open_and_starts_when_every_chair_is_ready() {
+async fn a_room_is_arranged_in_the_open_and_starts_when_the_host_says_so() {
     let gw = spawn_gateway("rooms");
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
@@ -56,7 +68,10 @@ async fn a_room_is_arranged_in_the_open_and_starts_when_every_chair_is_ready() {
     assert!(listing.contains("Kitchen table"), "{listing}");
     let (seats, ready) = seat_counts(&listing);
     assert_eq!(seats, 3, "three chairs: {listing}");
-    assert_eq!(ready, 1, "only the host has a deck yet: {listing}");
+    assert_eq!(
+        ready, 0,
+        "the host has a deck but has not said they are ready: {listing}"
+    );
 
     // The host hands the third chair to the AI. Two chairs are ready now, and
     // the table still waits — seat 1 is a person who has not arrived.
@@ -73,8 +88,8 @@ async fn a_room_is_arranged_in_the_open_and_starts_when_every_chair_is_ready() {
     assert_eq!(status, 200);
     assert!(listing.contains("\"state\":\"waiting\""), "{listing}");
 
-    // The guest takes the free chair, which is the last one open — and that
-    // is the start.
+    // The guest takes the free chair. The table is full, and still waiting:
+    // sitting down is not the same statement as being ready to play.
     let join = format!("{{\"deck_id\":\"{guest_deck}\"}}");
     let (status, body) = http(
         port,
@@ -86,13 +101,184 @@ async fn a_room_is_arranged_in_the_open_and_starts_when_every_chair_is_ready() {
     assert_eq!(status, 200, "join: {body}");
     assert!(body.contains("\"seat\":1"), "the open chair: {body}");
     assert!(!json_field(&body, "seat_token").is_empty());
+    let (_, listing) = http(port, "GET", "/lobby/games", Some(&guest), "");
+    assert!(listing.contains("\"state\":\"waiting\""), "{listing}");
 
-    let (status, listing) = http(port, "GET", "/lobby/games", Some(&guest), "");
-    assert_eq!(status, 200);
-    assert!(
-        listing.contains("\"state\":\"playing\""),
-        "every chair ready starts the game: {listing}"
+    // The host cannot start a room that is not ready, however much they own
+    // it.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&host),
+        "",
     );
+    assert_eq!(status, 409, "nobody has said ready: {body}");
+
+    // Both players say so. The AI chair needed nothing — it is ready as soon
+    // as it is configured.
+    say_ready(port, &host, &game_id);
+    say_ready(port, &guest, &game_id);
+    let (_, listing) = http(port, "GET", "/lobby/games", Some(&guest), "");
+    assert!(listing.contains("\"startable\":true"), "{listing}");
+    assert!(
+        listing.contains("\"state\":\"waiting\""),
+        "ready is not the same as started: {listing}"
+    );
+
+    // A guest cannot start someone else's room.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&guest),
+        "",
+    );
+    assert_eq!(status, 403, "{body}");
+
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&host),
+        "",
+    );
+    assert_eq!(status, 200, "start: {body}");
+    let (_, listing) = http(port, "GET", "/lobby/games", Some(&guest), "");
+    assert!(listing.contains("\"state\":\"playing\""), "{listing}");
+}
+
+#[tokio::test]
+async fn a_locked_room_takes_a_password_and_the_listing_never_carries_it() {
+    let gw = spawn_gateway("rooms-locked");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+
+    let host = login(port, "h5@example.com", "hostfive");
+    let guest = login(port, "g5@example.com", "guestfive");
+    let host_deck = make_deck(port, &host, "hd");
+    let guest_deck = make_deck(port, &guest, "gd");
+
+    let create =
+        format!("{{\"deck_id\":\"{host_deck}\",\"seats\":2,\"password\":\"kitchen-only\"}}");
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&host), &create);
+    assert_eq!(status, 200, "{body}");
+    let game_id = json_field(&body, "game_id").to_string();
+
+    // The room says it is locked and nothing more than that.
+    let (_, listing) = http(port, "GET", "/lobby/games", Some(&guest), "");
+    assert!(listing.contains("\"locked\":true"), "{listing}");
+    assert!(
+        !listing.contains("kitchen-only"),
+        "the password is on the listing: {listing}"
+    );
+
+    for (password, expected) in [
+        (None, 403),
+        (Some("kitchen-onl"), 403),
+        (Some("kitchen-only"), 200),
+    ] {
+        let join = match password {
+            Some(p) => format!("{{\"deck_id\":\"{guest_deck}\",\"password\":\"{p}\"}}"),
+            None => format!("{{\"deck_id\":\"{guest_deck}\"}}"),
+        };
+        let (status, body) = http(
+            port,
+            "POST",
+            &format!("/lobby/games/{game_id}/join"),
+            Some(&guest),
+            &join,
+        );
+        assert_eq!(status, expected, "password {password:?}: {body}");
+    }
+}
+
+#[tokio::test]
+async fn the_room_passes_to_whoever_has_been_there_longest() {
+    let gw = spawn_gateway("rooms-host");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+
+    let host = login(port, "h6@example.com", "hostsix");
+    let early = login(port, "e6@example.com", "earlysix");
+    let late = login(port, "l6@example.com", "latesix");
+    let decks = [
+        make_deck(port, &host, "hd"),
+        make_deck(port, &early, "ed"),
+        make_deck(port, &late, "ld"),
+    ];
+
+    let create = format!("{{\"deck_id\":\"{}\",\"seats\":4}}", decks[0]);
+    let (_, body) = http(port, "POST", "/lobby/games", Some(&host), &create);
+    let game_id = json_field(&body, "game_id").to_string();
+
+    // The one who arrives first takes the *last* chair, so seat order and
+    // arrival order disagree — which is the whole point of the rule.
+    let join = format!("{{\"deck_id\":\"{}\",\"seat\":3}}", decks[1]);
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/join"),
+        Some(&early),
+        &join,
+    );
+    assert_eq!(status, 200, "{body}");
+    let join = format!("{{\"deck_id\":\"{}\",\"seat\":1}}", decks[2]);
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/join"),
+        Some(&late),
+        &join,
+    );
+    assert_eq!(status, 200, "{body}");
+
+    // A player cannot take the room, and a chair nobody is in cannot be
+    // handed it.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/host"),
+        Some(&late),
+        "{\"seat\":1}",
+    );
+    assert_eq!(status, 403, "{body}");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/host"),
+        Some(&host),
+        "{\"seat\":2}",
+    );
+    assert_eq!(status, 409, "an empty chair: {body}");
+
+    // The host stands up. The room goes to the player who joined first, not
+    // to the one in the next chair.
+    let (status, _) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/leave"),
+        Some(&host),
+        "",
+    );
+    assert_eq!(status, 204);
+    let (_, listing) = http(port, "GET", "/lobby/games", Some(&early), "");
+    assert!(listing.contains(&game_id), "the room outlives its host");
+    assert!(
+        listing.contains("\"host\":\"earlysix\""),
+        "arrival order, not seat order: {listing}"
+    );
+
+    // And the new host can hand it on deliberately.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/host"),
+        Some(&early),
+        "{\"seat\":1}",
+    );
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains("\"host\":\"latesix\""), "{body}");
 }
 
 #[tokio::test]
@@ -174,7 +360,7 @@ async fn only_the_host_arranges_the_table_and_only_a_player_brings_their_own_dec
 }
 
 #[tokio::test]
-async fn a_guest_leaving_frees_the_chair_and_a_host_leaving_closes_the_room() {
+async fn a_guest_leaving_frees_the_chair_and_the_last_player_out_closes_the_room() {
     let gw = spawn_gateway("rooms-leaving");
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
@@ -209,10 +395,15 @@ async fn a_guest_leaving_frees_the_chair_and_a_host_leaving_closes_the_room() {
     let (_, listing) = http(port, "GET", "/lobby/games", Some(&host), "");
     let (seats, ready) = seat_counts(&listing);
     assert_eq!(seats, 3, "the chair is still there: {listing}");
-    assert_eq!(ready, 1, "and it is empty again: {listing}");
+    assert_eq!(ready, 0, "and it is empty again: {listing}");
+    assert!(
+        listing.contains("\"player\":null"),
+        "nothing of the guest is left in it: {listing}"
+    );
 
-    // The room is the host's; without them nobody can arrange it, and a table
-    // that can never start should not be advertised as one that might.
+    // The guest was the only other player, so with them gone the host's own
+    // exit leaves nobody to arrange the table — and a room nobody is in is
+    // closed rather than advertised.
     let (status, _) = http(
         port,
         "POST",
@@ -226,16 +417,136 @@ async fn a_guest_leaving_frees_the_chair_and_a_host_leaving_closes_the_room() {
 }
 
 #[tokio::test]
-async fn a_table_seats_between_two_and_four() {
+async fn a_table_seats_between_two_and_eight() {
     let gw = spawn_gateway("rooms-size");
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
     let host = login(port, "h4@example.com", "hostfour");
     let deck = make_deck(port, &host, "d");
 
-    for (chairs, expected) in [(1, 400), (2, 200), (4, 200), (5, 400)] {
+    // The gateway's bound is the engine's: `GamePreset::validate` takes two
+    // to eight seats, so a room that the gateway opened must never be one the
+    // engine would then refuse to build.
+    for (chairs, expected) in [(1, 400), (2, 200), (4, 200), (8, 200), (9, 400)] {
         let create = format!("{{\"deck_id\":\"{deck}\",\"seats\":{chairs}}}");
         let (status, body) = http(port, "POST", "/lobby/games", Some(&host), &create);
         assert_eq!(status, expected, "{chairs} chairs: {body}");
     }
+}
+
+#[tokio::test]
+async fn sides_are_the_hosts_to_arrange_and_a_table_needs_two_of_them() {
+    let gw = spawn_gateway("rooms-teams");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let host = login(port, "cap@example.com", "captain");
+    let guest = login(port, "mate@example.com", "shipmate");
+    let host_deck = make_deck(port, &host, "host-deck");
+    let guest_deck = make_deck(port, &guest, "guest-deck");
+
+    // Three chairs: the host, a guest, and one for the AI. 2v1 — teams do
+    // not have to be balanced.
+    let create = format!("{{\"deck_id\":\"{host_deck}\",\"seats\":3,\"name\":\"Teams\"}}");
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&host), &create);
+    assert_eq!(status, 200, "create room: {body}");
+    let game_id = json_field(&body, "game_id").to_string();
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/2"),
+        Some(&host),
+        "{\"kind\":\"ai\",\"team\":2}",
+    );
+    assert_eq!(status, 200, "the AI chair takes a side: {body}");
+    assert!(
+        body.contains("\"team\":2"),
+        "the listing carries it: {body}"
+    );
+
+    let join = format!("{{\"deck_id\":\"{guest_deck}\"}}");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/join"),
+        Some(&guest),
+        &join,
+    );
+    assert_eq!(status, 200, "join: {body}");
+
+    // A player cannot pick their own side: it is the format, and one that
+    // could be changed by the people at the table is not a format.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/1"),
+        Some(&guest),
+        "{\"team\":2}",
+    );
+    assert_eq!(status, 403, "only the host arranges sides: {body}");
+
+    for seat in [0, 1] {
+        let (status, body) = http(
+            port,
+            "POST",
+            &format!("/lobby/games/{game_id}/seats/{seat}"),
+            Some(&host),
+            "{\"team\":1}",
+        );
+        assert_eq!(status, 200, "seat {seat} onto team 1: {body}");
+    }
+
+    // Being moved to another side is a change to the game you said yes to,
+    // so it takes the ready flag with it — the same rule a swapped deck has.
+    say_ready(port, &host, &game_id);
+    say_ready(port, &guest, &game_id);
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/1"),
+        Some(&host),
+        "{\"team\":1}",
+    );
+    assert_eq!(status, 200, "the same side again: {body}");
+    let (_, listing) = http(port, "GET", "/lobby/games", Some(&host), "");
+    assert!(
+        listing.contains("\"startable\":true"),
+        "putting a chair back where it already was changes nothing: {listing}"
+    );
+
+    // Everyone on one team is not a game. The lobby refuses it here rather
+    // than starting a table the engine would call over at once.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/2"),
+        Some(&host),
+        "{\"team\":1}",
+    );
+    assert_eq!(status, 200, "put the AI on team 1 too: {body}");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&host),
+        "{}",
+    );
+    assert_eq!(status, 409, "one side is not a game: {body}");
+
+    // Put it back on the other side and the same room starts.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/2"),
+        Some(&host),
+        "{\"team\":2}",
+    );
+    assert_eq!(status, 200, "back to team 2: {body}");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&host),
+        "{}",
+    );
+    assert_eq!(status, 200, "start: {body}");
 }

@@ -7,6 +7,8 @@ use super::{
 use crate::choice::{
     CastModeDesc, CastModeKind, PlayerAction, PriorityHold, SeatAutomation, YesNoPrompt,
 };
+use crate::state::Side;
+use crate::win::Victor;
 use baylee_core::ids::AbilityRef;
 use baylee_core::preset::LoopPolicy;
 
@@ -162,7 +164,7 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::GameOver(result);
                 self.awaiting_answer = true;
                 self.state.journal.record(GameEvent::GameWon {
-                    player: result.winner,
+                    winner: result.winner,
                 });
                 return;
             }
@@ -250,7 +252,7 @@ impl<L: CardLookup> Engine<L> {
         self.awaiting_answer = true;
         self.state
             .journal
-            .record(GameEvent::GameWon { player: None });
+            .record(GameEvent::GameWon { winner: None });
         true
     }
 
@@ -900,15 +902,30 @@ impl<L: CardLookup> Engine<L> {
                 reason: EndReason::Draw,
             });
         }
-        let alive = self.alive_players();
-        match alive.len() {
-            0 => Some(GameResult {
+        // The game is decided by *sides*, not by heads: a seat with no team
+        // is a side of one, so a game with no teams in it counts exactly the
+        // players it counted before. A team wins the moment nobody from
+        // another side is left standing, however many of its own members
+        // died getting there (CR 104.2b).
+        let mut sides: Vec<Side> = Vec::new();
+        for player in self.alive_players() {
+            let side = self.state.side_of(player);
+            if !sides.contains(&side) {
+                sides.push(side);
+            }
+        }
+        match sides.as_slice() {
+            [] => Some(GameResult {
                 winner: None,
                 reason: EndReason::Draw,
             }),
-            1 => Some(GameResult {
-                winner: Some(alive[0]),
+            [Side::Solo(player)] => Some(GameResult {
+                winner: Some(Victor::Player(*player)),
                 reason: EndReason::LastPlayerStanding,
+            }),
+            [Side::Team(team)] => Some(GameResult {
+                winner: Some(Victor::Team(*team)),
+                reason: EndReason::LastTeamStanding,
             }),
             _ => None,
         }

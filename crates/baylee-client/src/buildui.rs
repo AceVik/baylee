@@ -16,6 +16,7 @@ use crate::lobby::{
 use baylee_client_core::deckbuilder::{
     BuildField, CURVE_BUCKETS, Coverage, DeckBuilder, Group, Picker, Zone,
 };
+use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
 use baylee_core::preset::Finish;
 use bevy::prelude::*;
@@ -34,25 +35,27 @@ const SHOWN_RESULTS: usize = 60;
 const CURVE_HEIGHT: f32 = 54.0;
 
 /// The colours the identity filter offers, and the pips it counts.
-const COLORS: [(char, &str); 6] = [
-    ('W', "White"),
-    ('U', "Blue"),
-    ('B', "Black"),
-    ('R', "Red"),
-    ('G', "Green"),
-    ('C', "Colourless"),
+const COLORS: [(char, Phrase); 6] = [
+    ('W', Phrase::ColorWhite),
+    ('U', Phrase::ColorBlue),
+    ('B', Phrase::ColorBlack),
+    ('R', Phrase::ColorRed),
+    ('G', Phrase::ColorGreen),
+    ('C', Phrase::ColorColourless),
 ];
 
-/// The card types worth a chip of their own. Anything else is reached
-/// through the search box.
-const KINDS: [&str; 7] = [
-    "Creature",
-    "Instant",
-    "Sorcery",
-    "Artifact",
-    "Enchantment",
-    "Planeswalker",
-    "Land",
+/// The card types worth a chip of their own, each with the word it is drawn
+/// as. The key stays English: it is matched against a printed type line and
+/// is what `Press::SetKind` carries, so translating it would filter for a
+/// word no card is printed with.
+const KINDS: [(&str, Phrase); 7] = [
+    ("Creature", Phrase::KindCreature),
+    ("Instant", Phrase::KindInstant),
+    ("Sorcery", Phrase::KindSorcery),
+    ("Artifact", Phrase::KindArtifact),
+    ("Enchantment", Phrase::KindEnchantment),
+    ("Planeswalker", Phrase::KindPlaneswalker),
+    ("Land", Phrase::KindLand),
 ];
 
 /// The deck builder: the pool on one side, the deck on the other.
@@ -68,6 +71,7 @@ pub(crate) fn builder(
     cards: Option<&mut UiCards<'_>>,
 ) {
     let deck = state.lobby.builder();
+    let lang = state.lobby.lang();
     let phone = metrics.frame == Frame::Phone;
     let counts = deck.counts();
 
@@ -79,10 +83,13 @@ pub(crate) fn builder(
     if phone {
         let switch = row(commands, metrics, true);
         for (pane, label) in [
-            (Pane::Cards, format!("Cards ({})", deck.results().len())),
+            (
+                Pane::Cards,
+                Phrase::PaneCards.fill(lang, &[&deck.results().len().to_string()]),
+            ),
             (
                 Pane::Deck,
-                format!("Deck ({} / {})", counts.main, counts.side),
+                Phrase::PaneDeck.fill(lang, &[&counts.main.to_string(), &counts.side.to_string()]),
             ),
         ] {
             let chosen = state.pane == pane;
@@ -140,7 +147,7 @@ pub(crate) fn builder(
 
     // Last, so it sits over both halves whatever the frame is.
     if let Some(picker) = deck.picker() {
-        let dialog = printing_picker(commands, fonts, metrics, deck, picker, assets, cards);
+        let dialog = printing_picker(commands, fonts, metrics, lang, deck, picker, assets, cards);
         commands.entity(root).add_child(dialog);
     }
 }
@@ -153,6 +160,7 @@ fn build_bar(
     metrics: Metrics,
 ) -> Entity {
     let deck = state.lobby.builder();
+    let lang = state.lobby.lang();
     let bar = commands
         .spawn((
             Node {
@@ -173,9 +181,9 @@ fn build_bar(
         fonts,
         metrics,
         if state.confirm_leave {
-            "Leave without saving"
+            Phrase::LeaveWithoutSaving.text(lang)
         } else {
-            "‹ Decks"
+            Phrase::BackToDecks.text(lang)
         },
         Press::CloseBuilder,
         if state.confirm_leave {
@@ -190,9 +198,9 @@ fn build_bar(
         let title = commands
             .spawn((
                 Text::new(if deck.editing().is_some() {
-                    "Editing a deck"
+                    Phrase::EditingADeck.text(lang)
                 } else {
-                    "A new deck"
+                    Phrase::ANewDeck.text(lang)
                 }),
                 tf(fonts, metrics.head),
                 TextColor(palette::INK),
@@ -218,15 +226,15 @@ fn build_bar(
     // that would do nothing; a deck the gateway would refuse offers none
     // either, and the reason is standing in the problems list.
     let (label, live) = match (deck.saveable(), deck.dirty()) {
-        (false, _) => ("Save deck", false),
-        (true, false) => ("Saved", false),
-        (true, true) => ("Save deck", !state.lobby.busy()),
+        (false, _) => (Phrase::SaveDeck, false),
+        (true, false) => (Phrase::DeckIsSaved, false),
+        (true, true) => (Phrase::SaveDeck, !state.lobby.busy()),
     };
     let save = button(
         commands,
         fonts,
         metrics,
-        label,
+        label.text(lang),
         Press::SaveDeck,
         palette::ACCENT,
         live,
@@ -245,13 +253,14 @@ fn pool_panel(
     scrolled_to: &Scrolled,
 ) -> Entity {
     let deck = state.lobby.builder();
+    let lang = state.lobby.lang();
     let panel = build_panel(commands, metrics, percent(100), 1.0);
 
     let search = text_box(
         commands,
         fonts,
         metrics,
-        "SEARCH",
+        Phrase::Search.text(lang),
         deck.text(),
         deck.focus() == BuildField::Search,
         Press::FocusBuild(BuildField::Search),
@@ -269,9 +278,9 @@ fn pool_panel(
             fonts,
             metrics,
             if state.filters_open {
-                "Hide filters"
+                Phrase::HideFilters.text(lang)
             } else {
-                "Filters"
+                Phrase::ShowFilters.text(lang)
             },
             Press::ToggleFilters,
             state.filters_open,
@@ -282,14 +291,21 @@ fn pool_panel(
         // to clear, because folded away is not the same as off.
         if !state.filters_open {
             if deck.filtered() {
-                let clear = chip(commands, fonts, metrics, "Clear", Press::ClearFilters, true);
+                let clear = chip(
+                    commands,
+                    fonts,
+                    metrics,
+                    Phrase::ClearFilters.text(lang),
+                    Press::ClearFilters,
+                    true,
+                );
                 commands.entity(bar).add_child(clear);
             }
             let sort = chip(
                 commands,
                 fonts,
                 metrics,
-                &format!("Sort: {}", deck.sort().label()),
+                &Phrase::SortBy.fill(lang, &[deck.sort().label().text(lang)]),
                 Press::CycleSort,
                 false,
             );
@@ -305,7 +321,7 @@ fn pool_panel(
         for (letter, name) in COLORS {
             let on = deck.colors().contains(&letter);
             let label = if metrics.frame == Frame::Desktop {
-                name.to_string()
+                name.text(lang).to_string()
             } else {
                 letter.to_string()
             };
@@ -328,13 +344,13 @@ fn pool_panel(
 
         // ---- types
         let kinds = row(commands, metrics, true);
-        for kind in KINDS {
+        for (kind, name) in KINDS {
             let on = deck.kind() == Some(kind);
             let c = chip(
                 commands,
                 fonts,
                 metrics,
-                kind,
+                name.text(lang),
                 Press::SetKind(Some(kind)),
                 on,
             );
@@ -368,7 +384,7 @@ fn pool_panel(
             commands,
             fonts,
             metrics,
-            &format!("Sort: {}", deck.sort().label()),
+            &Phrase::SortBy.fill(lang, &[deck.sort().label().text(lang)]),
             Press::CycleSort,
             false,
         );
@@ -378,7 +394,7 @@ fn pool_panel(
             commands,
             fonts,
             metrics,
-            "Playable only",
+            Phrase::PlayableOnly.text(lang),
             Press::TogglePlayable,
             deck.playable_only(),
         );
@@ -389,7 +405,7 @@ fn pool_panel(
                 commands,
                 fonts,
                 metrics,
-                "Clear",
+                Phrase::ClearFilters.text(lang),
                 Press::ClearFilters,
                 false,
             );
@@ -405,18 +421,20 @@ fn pool_panel(
         fonts,
         metrics,
         &if deck.loaded() {
-            format!(
-                "{} of {} cards{}",
-                deck.results().len(),
-                deck.pool().len(),
-                if shown < deck.results().len() {
-                    format!(" — showing {shown}, keep typing to narrow it")
-                } else {
-                    String::new()
-                }
+            Phrase::PoolTally.fill(
+                lang,
+                &[
+                    &deck.results().len().to_string(),
+                    &deck.pool().len().to_string(),
+                    &if shown < deck.results().len() {
+                        Phrase::PoolNarrow.fill(lang, &[&shown.to_string()])
+                    } else {
+                        String::new()
+                    },
+                ],
             )
         } else {
-            "loading the card pool…".to_string()
+            Phrase::LoadingPool.text(lang).to_string()
         },
     );
     commands.entity(panel).add_child(tally);
@@ -488,7 +506,7 @@ fn pool_panel(
         if let Some(mark) = coverage_mark(card.coverage) {
             let flag = commands
                 .spawn((
-                    Text::new(mark.0),
+                    Text::new(mark.0.text(lang)),
                     tf(fonts, metrics.small * 0.85),
                     TextColor(mark.1),
                     Pickable::IGNORE,
@@ -537,16 +555,11 @@ fn pool_panel(
         commands.entity(list).add_child(entry);
     }
     if deck.loaded() && deck.results().is_empty() {
-        let empty = note(
-            commands,
-            fonts,
-            metrics,
-            "nothing matches — try fewer filters",
-        );
+        let empty = note(commands, fonts, metrics, Phrase::NothingMatches.text(lang));
         commands.entity(list).add_child(empty);
     }
     if let Some(slot) = deck.inspecting() {
-        let card = card_detail(commands, fonts, metrics, deck, slot);
+        let card = card_detail(commands, fonts, metrics, lang, deck, slot);
         commands.entity(panel).add_child(card);
     }
     panel
@@ -559,10 +572,12 @@ fn pool_panel(
 /// panel wedged next to a card list would be the narrowest place to look at
 /// art on a phone, which is the one thing this dialog exists to show.
 #[allow(clippy::too_many_lines)] // one dialog, six rows, each trivial
+#[allow(clippy::too_many_arguments)] // one dialog: the tree, the state, the stores
 fn printing_picker(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
+    lang: Lang,
     deck: &DeckBuilder,
     picker: &Picker,
     assets: Option<&AssetServer>,
@@ -655,7 +670,7 @@ fn printing_picker(
         Press::PickerStep(-1),
         false,
     );
-    let art = picker_art(commands, fonts, metrics, picker, assets, cards);
+    let art = picker_art(commands, fonts, metrics, lang, picker, assets, cards);
     let forward = chip(
         commands,
         fonts,
@@ -682,7 +697,7 @@ fn printing_picker(
             }
             line
         }
-        None => "no printings".to_string(),
+        None => Phrase::NoPrintings.text(lang).to_string(),
     };
     let label = commands
         .spawn((
@@ -699,12 +714,15 @@ fn printing_picker(
         fonts,
         metrics,
         &if picker.loading() {
-            "looking for other printings\u{2026}".to_string()
+            Phrase::LookingForPrintings.text(lang).to_string()
         } else if picker.from_catalog() {
-            format!("{} of {}", picker.at() + 1, picker.len())
+            Phrase::PrintingAt.fill(
+                lang,
+                &[&(picker.at() + 1).to_string(), &picker.len().to_string()],
+            )
         } else {
             // Saying so beats implying the card was printed exactly once.
-            "this gateway has no card catalog \u{2014} only this build's printing".to_string()
+            Phrase::NoCatalogOnlyThis.text(lang).to_string()
         },
     );
     commands.entity(panel).add_child(count);
@@ -740,7 +758,7 @@ fn printing_picker(
             commands,
             fonts,
             metrics,
-            "All",
+            Phrase::AllSets.text(lang),
             Press::PickerLang(None),
             picker.lang().is_none(),
         );
@@ -764,16 +782,16 @@ fn printing_picker(
     let finishes = row(commands, metrics, true);
     let offered = picker.finishes();
     for (finish, label) in [
-        (Finish::Normal, "Plain"),
-        (Finish::Foil, "Foil"),
-        (Finish::Etched, "Etched"),
+        (Finish::Normal, Phrase::FinishPlain),
+        (Finish::Foil, Phrase::FinishFoil),
+        (Finish::Etched, Phrase::FinishEtched),
     ] {
         let sold = offered.contains(&finish);
         let c = chip(
             commands,
             fonts,
             metrics,
-            label,
+            label.text(lang),
             Press::PickerFinish(finish),
             sold && picker.finish() == finish,
         );
@@ -795,17 +813,27 @@ fn printing_picker(
         commands,
         fonts,
         metrics,
-        &format!(
-            "{} in the {}",
-            deck.count_of(picker.slot(), picker.zone()),
-            match picker.zone() {
-                Zone::Main => "deck",
-                Zone::Side => "sideboard",
-            }
+        &Phrase::CountInZone.fill(
+            lang,
+            &[
+                &deck.count_of(picker.slot(), picker.zone()).to_string(),
+                match picker.zone() {
+                    Zone::Main => Phrase::ZoneDeck,
+                    Zone::Side => Phrase::ZoneSideboard,
+                }
+                .text(lang),
+            ],
         ),
     );
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-    let add = chip(commands, fonts, metrics, "Add", Press::PickerConfirm, true);
+    let add = chip(
+        commands,
+        fonts,
+        metrics,
+        Phrase::AddPrinting.text(lang),
+        Press::PickerConfirm,
+        true,
+    );
     commands.entity(add).insert(Node {
         min_height: px(metrics.tap),
         align_items: AlignItems::Center,
@@ -832,6 +860,7 @@ fn picker_art(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
+    lang: Lang,
     picker: &Picker,
     assets: Option<&AssetServer>,
     cards: Option<&mut UiCards<'_>>,
@@ -891,7 +920,12 @@ fn picker_art(
             .id();
         commands.entity(holder).add_child(art);
     } else {
-        let empty = note(commands, fonts, metrics, "no art for this printing");
+        let empty = note(
+            commands,
+            fonts,
+            metrics,
+            Phrase::NoArtForPrinting.text(lang),
+        );
         commands.entity(holder).add_child(empty);
     }
     holder
@@ -912,6 +946,7 @@ fn card_detail(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
+    lang: Lang,
     deck: &DeckBuilder,
     slot: usize,
 ) -> Entity {
@@ -972,7 +1007,7 @@ fn card_detail(
         if deck.has_text() {
             String::new()
         } else {
-            "no rules text \u{2014} this gateway has no card catalog".to_string()
+            Phrase::NoRulesText.text(lang).to_string()
         }
     } else {
         card.oracle_text.clone()
@@ -989,9 +1024,10 @@ fn card_detail(
         commands.entity(holder).add_child(text);
     }
     if let Some(mark) = coverage_mark(card.coverage) {
+        let mark_text = mark.0.text(lang);
         let why = match &card.note {
-            Some(note) => format!("{}: {note}", mark.0),
-            None => format!("{} \u{2014} this card will not play as printed", mark.0),
+            Some(note) => format!("{mark_text}: {note}"),
+            None => Phrase::NotAsPrinted.fill(lang, &[mark_text]),
         };
         let line = commands
             .spawn((
@@ -1004,7 +1040,7 @@ fn card_detail(
         commands.entity(holder).add_child(line);
     }
 
-    let menu = card_menu(commands, fonts, metrics, deck, slot);
+    let menu = card_menu(commands, fonts, metrics, lang, deck, slot);
     commands.entity(holder).add_child(menu);
     holder
 }
@@ -1019,6 +1055,7 @@ fn card_menu(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
+    lang: Lang,
     deck: &DeckBuilder,
     slot: usize,
 ) -> Entity {
@@ -1027,10 +1064,14 @@ fn card_menu(
     let in_side = deck.count_of(slot, Zone::Side);
 
     for (label, press, lit) in [
-        ("+ deck", Press::AddCardTo(slot, Zone::Main), false),
-        ("+ sideboard", Press::AddCardTo(slot, Zone::Side), false),
+        (Phrase::AddToDeck, Press::AddCardTo(slot, Zone::Main), false),
+        (
+            Phrase::AddToSideboard,
+            Press::AddCardTo(slot, Zone::Side),
+            false,
+        ),
     ] {
-        let button = chip(commands, fonts, metrics, label, press, lit);
+        let button = chip(commands, fonts, metrics, label.text(lang), press, lit);
         commands.entity(holder).add_child(button);
     }
 
@@ -1046,16 +1087,23 @@ fn card_menu(
         && let Some(at) = deck.row_of(slot, open)
     {
         let label = match open {
-            Zone::Main => "\u{2192} sideboard",
-            Zone::Side => "\u{2192} deck",
+            Zone::Main => Phrase::MoveToSideboard,
+            Zone::Side => Phrase::MoveToDeck,
         };
-        let button = chip(commands, fonts, metrics, label, Press::MoveRow(at), false);
+        let button = chip(
+            commands,
+            fonts,
+            metrics,
+            label.text(lang),
+            Press::MoveRow(at),
+            false,
+        );
         commands.entity(holder).add_child(button);
         let out = chip(
             commands,
             fonts,
             metrics,
-            "remove",
+            Phrase::RemoveCard.text(lang),
             Press::RemoveRow(at),
             false,
         );
@@ -1071,9 +1119,9 @@ fn card_menu(
             fonts,
             metrics,
             if leading {
-                "commander \u{2713}"
+                Phrase::IsCommander.text(lang)
             } else {
-                "set as commander"
+                Phrase::SetCommander.text(lang)
             },
             if leading {
                 Press::ClearCommander
@@ -1087,9 +1135,9 @@ fn card_menu(
 
     let where_it_is = match (in_main, in_side) {
         (0, 0) => String::new(),
-        (m, 0) => format!("{m} in the deck"),
-        (0, s) => format!("{s} in the sideboard"),
-        (m, s) => format!("{m} in the deck, {s} in the sideboard"),
+        (m, 0) => Phrase::HeldInDeck.fill(lang, &[&m.to_string()]),
+        (0, s) => Phrase::HeldInSideboard.fill(lang, &[&s.to_string()]),
+        (m, s) => Phrase::HeldInBoth.fill(lang, &[&m.to_string(), &s.to_string()]),
     };
     if !where_it_is.is_empty() {
         let line = note(commands, fonts, metrics, &where_it_is);
@@ -1108,6 +1156,7 @@ fn deck_panel(
     scrolled_to: &Scrolled,
 ) -> Entity {
     let deck = state.lobby.builder();
+    let lang = state.lobby.lang();
     let counts = deck.counts();
     let width = match metrics.frame {
         Frame::Phone => percent(100),
@@ -1121,7 +1170,7 @@ fn deck_panel(
         commands,
         fonts,
         metrics,
-        "DECK NAME",
+        Phrase::DeckNameLabel.text(lang),
         deck.name(),
         deck.focus() == BuildField::Name,
         Press::FocusBuild(BuildField::Name),
@@ -1131,8 +1180,14 @@ fn deck_panel(
     // ---- which list is being filled
     let zones = row(commands, metrics, false);
     for (zone, label) in [
-        (Zone::Main, format!("Main {}", counts.main)),
-        (Zone::Side, format!("Sideboard {}", counts.side)),
+        (
+            Zone::Main,
+            Phrase::TabMain.fill(lang, &[&counts.main.to_string()]),
+        ),
+        (
+            Zone::Side,
+            Phrase::TabSide.fill(lang, &[&counts.side.to_string()]),
+        ),
     ] {
         let tab = chip(
             commands,
@@ -1163,9 +1218,13 @@ fn deck_panel(
         commands,
         fonts,
         metrics,
-        &format!(
-            "{} lands · {} creatures · {} other spells",
-            counts.lands, counts.creatures, counts.spells
+        &Phrase::DeckMakeup.fill(
+            lang,
+            &[
+                &counts.lands.to_string(),
+                &counts.creatures.to_string(),
+                &counts.spells.to_string(),
+            ],
         ),
     );
     commands.entity(panel).add_child(summary);
@@ -1176,7 +1235,7 @@ fn deck_panel(
     let pips = pip_row(commands, fonts, metrics, deck);
     commands.entity(panel).add_child(pips);
 
-    for problem in deck.problems() {
+    for problem in deck.problems(lang) {
         let line = commands
             .spawn((
                 Text::new(problem.message.clone()),
@@ -1197,12 +1256,7 @@ fn deck_panel(
     commands.entity(panel).add_child(list);
     let entries = deck.entries(deck.zone());
     if entries.is_empty() {
-        let empty = note(
-            commands,
-            fonts,
-            metrics,
-            "empty — tap a card on the left to add it",
-        );
+        let empty = note(commands, fonts, metrics, Phrase::DeckEmptyHint.text(lang));
         commands.entity(list).add_child(empty);
     }
     let mut group: Option<Group> = None;
@@ -1214,7 +1268,7 @@ fn deck_panel(
             group = Some(card.group());
             let heading = commands
                 .spawn((
-                    Text::new(card.group().label()),
+                    Text::new(card.group().label().text(lang)),
                     tf(fonts, metrics.small * 0.85),
                     TextColor(palette::MUTED),
                     Node {
@@ -1312,14 +1366,19 @@ fn deck_panel(
             commands,
             fonts,
             metrics,
-            "Empty the deck",
+            Phrase::EmptyTheDeck.text(lang),
             Press::ClearDeck,
             false,
         );
         commands.entity(panel).add_child(clear);
     }
     for missing in deck.missing() {
-        let line = note(commands, fonts, metrics, &format!("dropped: {missing}"));
+        let line = note(
+            commands,
+            fonts,
+            metrics,
+            &Phrase::DroppedCards.fill(lang, &[missing]),
+        );
         commands.entity(panel).add_child(line);
     }
     panel
@@ -1482,11 +1541,11 @@ fn mana_tone(letter: char) -> Color {
 }
 
 /// What a list says about a card the engine does not play as printed.
-fn coverage_mark(coverage: Coverage) -> Option<(&'static str, Color)> {
+fn coverage_mark(coverage: Coverage) -> Option<(Phrase, Color)> {
     match coverage {
         Coverage::Implemented => None,
-        Coverage::Partial => Some(("partial", palette::ACTIVE)),
-        Coverage::Unimplemented => Some(("stub", palette::DANGER)),
+        Coverage::Partial => Some((Phrase::CoveragePartial, palette::ACTIVE)),
+        Coverage::Unimplemented => Some((Phrase::CoverageStub, palette::DANGER)),
     }
 }
 

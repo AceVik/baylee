@@ -59,6 +59,13 @@ fn main() {
     .add_plugins(DuelPlugin {
         config: DuelConfig::default(),
     });
+    // The dev-control harness, when this build has it and the environment
+    // asks for it. Added before the front door so a lobby session can be
+    // driven too, not only a seated duel.
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    if let Some(control) = baylee_client::devctl::DevControlPlugin::from_env() {
+        app.add_plugins(control);
+    }
     match seated {
         Some(host) => {
             app.insert_resource(InstalledHost(host))

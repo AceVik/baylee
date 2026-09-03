@@ -791,77 +791,72 @@ impl DeckBuilder {
     /// two in step is what lets the save button be trusted: if it is live, the
     /// deck saves.
     #[must_use]
-    pub fn problems(&self) -> Vec<Problem> {
+    pub fn problems(&self, lang: Lang) -> Vec<Problem> {
         let mut out = Vec::new();
         let counts = self.counts();
         let name = self.name.trim();
         if name.is_empty() {
             out.push(Problem {
                 blocking: true,
-                message: "The deck needs a name.".to_string(),
+                message: Phrase::DeckNeedsName.text(lang).to_string(),
             });
         } else if name.len() > 64 {
             out.push(Problem {
                 blocking: true,
-                message: "That name is too long (64 characters at most).".to_string(),
+                message: Phrase::DeckNameTooLong.text(lang).to_string(),
             });
         }
         if self.main.is_empty() {
             out.push(Problem {
                 blocking: true,
-                message: "The deck is empty.".to_string(),
+                message: Phrase::DeckIsEmpty.text(lang).to_string(),
             });
         }
         if self.main.len() > MAX_DECK_LINES || self.side.len() > MAX_DECK_LINES {
             out.push(Problem {
                 blocking: true,
-                message: format!("At most {MAX_DECK_LINES} different cards per list."),
+                message: Phrase::TooManyLines.fill(lang, &[&MAX_DECK_LINES.to_string()]),
             });
         }
         if counts.main > MAX_DECK_CARDS || counts.side > MAX_DECK_CARDS {
             out.push(Problem {
                 blocking: true,
-                message: format!("At most {MAX_DECK_CARDS} cards in each list."),
+                message: Phrase::TooManyCards.fill(lang, &[&MAX_DECK_CARDS.to_string()]),
             });
         }
         for name in &self.missing {
             out.push(Problem {
                 blocking: true,
-                message: format!("{name} is no longer in the card pool."),
+                message: Phrase::CardGoneFromPool.fill(lang, &[name]),
             });
         }
         // Advice from here down. None of it stops a save.
         if counts.main > 0 && counts.main < MIN_CONSTRUCTED {
             out.push(Problem {
                 blocking: false,
-                message: format!(
-                    "{} cards — a constructed deck wants at least {MIN_CONSTRUCTED}.",
-                    counts.main
+                message: Phrase::DeckTooSmall.fill(
+                    lang,
+                    &[&counts.main.to_string(), &MIN_CONSTRUCTED.to_string()],
                 ),
             });
         }
         if counts.side > MAX_SIDEBOARD {
             out.push(Problem {
                 blocking: false,
-                message: format!("A sideboard is usually at most {MAX_SIDEBOARD} cards."),
+                message: Phrase::SideboardTooBig.fill(lang, &[&MAX_SIDEBOARD.to_string()]),
             });
         }
         if counts.main >= MIN_CONSTRUCTED && counts.lands * 3 < counts.main {
             out.push(Problem {
                 blocking: false,
-                message: format!(
-                    "{} lands in {} cards is thin for this curve.",
-                    counts.lands, counts.main
-                ),
+                message: Phrase::ThinOnLands
+                    .fill(lang, &[&counts.lands.to_string(), &counts.main.to_string()]),
             });
         }
         if counts.shaky > 0 {
             out.push(Problem {
                 blocking: false,
-                message: format!(
-                    "{} card(s) are not fully implemented yet and will not play as printed.",
-                    counts.shaky
-                ),
+                message: Phrase::ShakyCards.fill(lang, &[&counts.shaky.to_string()]),
             });
         }
         out
@@ -870,7 +865,9 @@ impl DeckBuilder {
     /// Whether the deck would save.
     #[must_use]
     pub fn saveable(&self) -> bool {
-        !self.problems().iter().any(|p| p.blocking)
+        // English, because nothing is shown: only whether the list is empty
+        // is being asked, and that answer is the same in every language.
+        !self.problems(Lang::En).iter().any(|p| p.blocking)
     }
 
     // ------------------------------------------------------- the commander

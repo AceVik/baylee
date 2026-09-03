@@ -5,7 +5,9 @@
 use super::*;
 #[allow(clippy::wildcard_imports)]
 use super::{http::*, preview::*, systems::*, ui::*};
-use baylee_client_core::lobby::{DeckSummary, GameSeat, GameSummary, SeatHandover};
+use baylee_client_core::lobby::{
+    DeckSummary, GameListing, GameQuery, GameSeat, GameSummary, SeatHandover,
+};
 
 fn body(request: &ehttp::Request) -> serde_json::Value {
     serde_json::from_slice(&request.body).expect("a JSON body")
@@ -80,13 +82,22 @@ fn every_request_hits_the_route_the_gateway_serves() {
             "DELETE",
             "http://gw/decks/d1",
         ),
-        (LobbyRequest::ListGames, "GET", "http://gw/lobby/games"),
+        (
+            LobbyRequest::ListGames(GameQuery {
+                q: "a room".to_string(),
+                offset: 8,
+                limit: 8,
+            }),
+            "GET",
+            "http://gw/lobby/games?q=a%20room&offset=8&limit=8",
+        ),
         (
             LobbyRequest::CreateGame {
                 deck_id: "d1".to_string(),
                 mode: GameMode::Ai,
                 chairs: 2,
                 name: String::new(),
+                password: String::new(),
             },
             "POST",
             "http://gw/lobby/games",
@@ -96,6 +107,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 game_id: "g1".to_string(),
                 deck_id: "d1".to_string(),
                 seat: None,
+                password: String::new(),
             },
             "POST",
             "http://gw/lobby/games/g1/join",
@@ -109,6 +121,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // one assertion per body the gateway reads
 fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
     let (login, _) = build(
         "http://gw",
@@ -135,7 +148,12 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
     );
     assert_eq!(
         body(&register),
-        serde_json::json!({ "email": "a@b.c", "display_name": "V", "password": "pw" })
+        serde_json::json!({
+            "email": "a@b.c",
+            "display_name": "V",
+            "password": "pw",
+            "lang": "en"
+        })
     );
     let (deck, _) = build(
         "http://gw",
@@ -167,11 +185,12 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             mode: GameMode::Open,
             chairs: 2,
             name: String::new(),
+            password: String::new(),
         },
     );
     assert_eq!(
         body(&game),
-        serde_json::json!({ "deck_id": "d1", "mode": "open", "seats": 2, "name": "" })
+        serde_json::json!({ "deck_id": "d1", "mode": "open", "seats": 2, "name": "", "password": "" })
     );
     let (join, _) = build(
         "http://gw",
@@ -181,11 +200,12 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             game_id: "g1".to_string(),
             deck_id: "d1".to_string(),
             seat: None,
+            password: String::new(),
         },
     );
     assert_eq!(
         body(&join),
-        serde_json::json!({ "deck_id": "d1", "seat": null })
+        serde_json::json!({ "deck_id": "d1", "seat": null, "password": "" })
     );
 
     // Arranging a chair, which is the room's own verb.
@@ -199,16 +219,17 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             kind: Some(SeatKind::Ai),
             ai: Some("sharp".to_string()),
             deck_id: None,
+            team: Some(2),
         },
     );
     assert_eq!(chair.url, "http://gw/lobby/games/g1/seats/2");
     assert_eq!(
         body(&chair),
-        serde_json::json!({ "kind": "ai", "ai": "sharp", "deck_id": null })
+        serde_json::json!({ "kind": "ai", "ai": "sharp", "deck_id": null, "team": 2 })
     );
     assert!(
-        matches!(expect, Expect::Games),
-        "the answer redraws the room"
+        matches!(expect, Expect::Moved),
+        "the room moved, so the page being read is asked for again"
     );
 }
 
@@ -218,6 +239,32 @@ fn a_trailing_slash_on_the_gateway_does_not_double_up() {
     // in and a `//decks` is a 404 with no explanation.
     let (built, _) = build("http://gw/", None, "en", LobbyRequest::ListDecks);
     assert!(!built.url.contains("//decks"), "{}", built.url);
+}
+
+/// A search is a person's typing, and a person types `&`, `#` and spaces.
+/// Any of them straight into a URL is a query the gateway reads as something
+/// else — or, with a token, as somebody else's parameters.
+#[test]
+fn a_typed_search_survives_the_query_string() {
+    let query = GameQuery {
+        q: "tom & jerry #2".to_string(),
+        offset: 16,
+        limit: 8,
+    };
+    assert_eq!(
+        super::http::params(&query),
+        "q=tom%20%26%20jerry%20%232&offset=16&limit=8"
+    );
+    // The socket and the button ask the same question, in the same words:
+    // the feed builds its URL out of this too.
+    let (built, _) = build("http://gw", None, "en", LobbyRequest::ListGames(query));
+    assert!(
+        built
+            .url
+            .ends_with("q=tom%20%26%20jerry%20%232&offset=16&limit=8"),
+        "{}",
+        built.url
+    );
 }
 
 #[test]
@@ -230,7 +277,12 @@ fn only_a_signed_in_lobby_sends_a_token() {
 
 #[test]
 fn a_json_body_says_so() {
-    let (built, _) = build("http://gw", None, "en", LobbyRequest::ListGames);
+    let (built, _) = build(
+        "http://gw",
+        None,
+        "en",
+        LobbyRequest::ListGames(GameQuery::default()),
+    );
     assert!(built.body.is_empty(), "a GET carries none");
     let (built, _) = build(
         "http://gw",
@@ -251,6 +303,7 @@ fn a_json_body_says_so() {
 fn the_gateways_own_answers_decode() {
     assert_eq!(
         decode(
+            Lang::En,
             Expect::LoggedIn,
             &answer(200, r#"{"token":"tok","expires_at":123}"#)
         ),
@@ -260,6 +313,7 @@ fn the_gateways_own_answers_decode() {
     );
     assert_eq!(
         decode(
+            Lang::En,
             Expect::Decks,
             &answer(
                 200,
@@ -276,6 +330,7 @@ fn the_gateways_own_answers_decode() {
     );
     assert_eq!(
         decode(
+            Lang::En,
             Expect::Seat,
             &answer(200, r#"{"game_id":"g1","seat":1,"seat_token":"st"}"#)
         ),
@@ -286,11 +341,17 @@ fn the_gateways_own_answers_decode() {
         })
     );
     assert_eq!(
-        decode(Expect::Registered, &answer(200, r#"{"ok":true}"#)),
-        LobbyEvent::Registered
+        decode(Lang::En, Expect::Registered, &answer(200, r#"{"ok":true}"#)),
+        LobbyEvent::Registered {
+            confirmation_required: false,
+        }
     );
     assert_eq!(
-        decode(Expect::DeckSaved, &answer(200, r#"{"deck_id":"d1"}"#)),
+        decode(
+            Lang::En,
+            Expect::DeckSaved,
+            &answer(200, r#"{"deck_id":"d1"}"#)
+        ),
         LobbyEvent::DeckSaved {
             deck_id: Some("d1".to_string())
         }
@@ -300,7 +361,11 @@ fn the_gateways_own_answers_decode() {
 #[test]
 fn a_body_that_makes_no_sense_is_a_failure_not_a_panic() {
     assert!(matches!(
-        decode(Expect::LoggedIn, &answer(200, "<html>proxy</html>")),
+        decode(
+            Lang::En,
+            Expect::LoggedIn,
+            &answer(200, "<html>proxy</html>")
+        ),
         LobbyEvent::Failed(_)
     ));
 }
@@ -308,11 +373,11 @@ fn a_body_that_makes_no_sense_is_a_failure_not_a_panic() {
 #[test]
 fn a_refusal_is_shown_in_the_gateways_own_words() {
     assert_eq!(
-        gateway_error(&answer(401, r#"{"error":"invalid credentials"}"#)),
+        gateway_error(Lang::En, &answer(401, r#"{"error":"invalid credentials"}"#)),
         "invalid credentials"
     );
     assert_eq!(
-        gateway_error(&answer(502, "<html>bad gateway</html>")),
+        gateway_error(Lang::En, &answer(502, "<html>bad gateway</html>")),
         "the gateway answered 502"
     );
 }
@@ -442,23 +507,25 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             sideboard: 0,
             commander: None,
         }]));
-        state.lobby.apply(LobbyEvent::Games(vec![GameSummary {
-            id: "0123456789abcdef".to_string(),
-            state: "waiting".to_string(),
-            seats: vec![
-                GameSeat {
-                    seat: 0,
-                    taken: true,
-                    ..GameSeat::default()
-                },
-                GameSeat {
-                    seat: 1,
-                    taken: false,
-                    ..GameSeat::default()
-                },
-            ],
-            ..GameSummary::default()
-        }]));
+        state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "0123456789abcdef".to_string(),
+                state: "waiting".to_string(),
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        ..GameSeat::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: false,
+                        ..GameSeat::default()
+                    },
+                ],
+                ..GameSummary::default()
+            }])));
     }
     app.update();
     let found = presses(&mut app);
@@ -500,7 +567,7 @@ fn a_table_we_are_waiting_at_is_announced_and_not_sat_at() {
             sideboard: 0,
             commander: None,
         }]));
-        state.lobby.apply(LobbyEvent::Games(vec![]));
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
         state.lobby.host(GameMode::Open);
         state.lobby.apply(LobbyEvent::Seated(SeatHandover {
             game_id: "0123456789".to_string(),
@@ -541,7 +608,7 @@ fn a_reply_that_lands_after_the_seat_was_taken_does_not_dial_again() {
         .0
         .lock()
         .expect("mailbox")
-        .push(Reply::Event(LobbyEvent::Games(vec![])));
+        .push(Reply::Event(LobbyEvent::Games(GameListing::default())));
     app.update();
     assert!(
         matches!(
@@ -600,12 +667,16 @@ fn a_finger_gets_a_target_it_can_hit() {
 #[test]
 fn a_phone_drops_what_it_has_no_room_for() {
     let mut app = headless();
-    app.world_mut()
-        .resource_mut::<LobbyState>()
-        .lobby
-        .apply(LobbyEvent::LoggedIn {
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
         });
+        // A real address: `headless` empties it so the startup probe reaches
+        // nothing, and an empty one would make the assertions below match any
+        // empty label on the screen rather than this one.
+        state.gateway = "http://gw.example:28766".to_string();
+    }
     sized(&mut app, 1400.0);
     app.update();
     let wide = labels(&mut app);
@@ -651,23 +722,25 @@ fn a_table_that_is_full_offers_no_join() {
         state.lobby.apply(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
         });
-        state.lobby.apply(LobbyEvent::Games(vec![GameSummary {
-            id: "g".to_string(),
-            state: "playing".to_string(),
-            seats: vec![
-                GameSeat {
-                    seat: 0,
-                    taken: true,
-                    ..GameSeat::default()
-                },
-                GameSeat {
-                    seat: 1,
-                    taken: true,
-                    ..GameSeat::default()
-                },
-            ],
-            ..GameSummary::default()
-        }]));
+        state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "g".to_string(),
+                state: "playing".to_string(),
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        ..GameSeat::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: true,
+                        ..GameSeat::default()
+                    },
+                ],
+                ..GameSummary::default()
+            }])));
     }
     app.update();
     assert!(!presses(&mut app).contains(&Press::Join(0)));
@@ -1336,7 +1409,7 @@ fn an_edit_answers_with_no_body_and_that_is_not_a_failure() {
     // `PUT /decks/{id}` is a 204. Reading an id out of nothing is not an
     // error here — the builder already holds the one it is editing.
     assert_eq!(
-        decode(Expect::DeckSaved, &answer(204, "")),
+        decode(Lang::En, Expect::DeckSaved, &answer(204, "")),
         LobbyEvent::DeckSaved { deck_id: None }
     );
 }
@@ -1395,7 +1468,7 @@ fn the_pool_and_a_saved_deck_decode() {
     }))
     .expect("a body");
     assert_eq!(
-        decode(Expect::Pool, &answer(200, &cards)),
+        decode(Lang::En, Expect::Pool, &answer(200, &cards)),
         LobbyEvent::Pool {
             cards: Vec::new(),
             has_text: true
@@ -1403,6 +1476,7 @@ fn the_pool_and_a_saved_deck_decode() {
     );
     assert_eq!(
         decode(
+            Lang::En,
             Expect::DeckLoaded,
             &answer(
                 200,
@@ -1419,7 +1493,7 @@ fn the_pool_and_a_saved_deck_decode() {
         }
     );
     assert_eq!(
-        decode(Expect::DeckDeleted, &answer(204, "")),
+        decode(Lang::En, Expect::DeckDeleted, &answer(204, "")),
         LobbyEvent::DeckDeleted
     );
 }

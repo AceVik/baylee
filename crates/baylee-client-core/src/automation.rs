@@ -4,6 +4,7 @@
 //! Everything here is a pure decision over the pending choice and the
 //! view's phase — the renderer only has to draw the answers.
 
+use crate::i18n::Phrase;
 use baylee_engine::choice::{LegalActions, Pending};
 use baylee_view::{Phase, Step};
 
@@ -60,20 +61,20 @@ pub const RAIL_ROWS: [RailRow; 12] = [
 impl RailRow {
     /// The rail label.
     #[must_use]
-    pub const fn name(self) -> &'static str {
+    pub const fn name(self) -> Phrase {
         match self {
-            Self::Untap => "Untap",
-            Self::Upkeep => "Upkeep",
-            Self::Draw => "Draw",
-            Self::Main1 => "Main 1",
-            Self::CombatBegin => "Begin Combat",
-            Self::Attackers => "Attackers",
-            Self::Blockers => "Blockers",
-            Self::Damage => "Damage",
-            Self::CombatEnd => "End of Combat",
-            Self::Main2 => "Main 2",
-            Self::EndStep => "End Step",
-            Self::Cleanup => "Cleanup",
+            Self::Untap => Phrase::RailUntap,
+            Self::Upkeep => Phrase::RailUpkeep,
+            Self::Draw => Phrase::RailDraw,
+            Self::Main1 => Phrase::RailMain1,
+            Self::CombatBegin => Phrase::RailCombatBegin,
+            Self::Attackers => Phrase::RailAttackers,
+            Self::Blockers => Phrase::RailBlockers,
+            Self::Damage => Phrase::RailDamage,
+            Self::CombatEnd => Phrase::RailCombatEnd,
+            Self::Main2 => Phrase::RailMain2,
+            Self::EndStep => Phrase::RailEndStep,
+            Self::Cleanup => Phrase::RailCleanup,
         }
     }
 

@@ -153,6 +153,11 @@ enum Cmd {
         /// Which acceptance deck to bring.
         #[arg(long, default_value = "Allytifact")]
         deck: String,
+        /// Which side each chair plays for, in seat order — `1,1,2` is a
+        /// 2v1. `0` leaves a chair on its own side. Needs three chairs or
+        /// more, a duel already having exactly two sides.
+        #[arg(long, value_delimiter = ',')]
+        teams: Vec<u8>,
         /// Launch the client on the seat instead of printing its ticket.
         #[arg(long)]
         play: bool,
@@ -196,8 +201,9 @@ fn main() -> anyhow::Result<()> {
             seats,
             ai,
             deck,
+            teams,
             play,
-        } => dev_table(&root, &gateway, seats, &ai, &deck, play),
+        } => dev_table(&root, &gateway, seats, &ai, &deck, &teams, play),
     }
 }
 
@@ -780,6 +786,76 @@ fn acceptance_deck(root: &Path, name: &str) -> anyhow::Result<serde_json::Value>
     Ok(serde_json::json!({ "name": name, "cards": main, "sideboard": side }))
 }
 
+/// Arranges a room's chairs and starts it.
+///
+/// Split out of [`dev_table`] because it is the half that talks to the lobby
+/// as a *host*: the AI chairs, the sides and the two statements a start takes.
+fn arrange_room(
+    agent: &ureq::Agent,
+    gateway: &str,
+    token: &str,
+    game_id: &str,
+    seats: usize,
+    ai: &str,
+    teams: &[u8],
+) -> anyhow::Result<()> {
+    // A room's other chairs still have to be handed over; the two-seat path
+    // already came back with its house AI seated, and reaching into that
+    // chair would be a `409`.
+    if seats > 2 {
+        for seat in 1..seats {
+            let url = format!("{gateway}/lobby/games/{game_id}/seats/{seat}");
+            let (status, body) = post(
+                agent,
+                &url,
+                Some(token),
+                &serde_json::json!({ "kind": "ai", "ai": ai }),
+            )?;
+            anyhow::ensure!(
+                status == 200,
+                "seat the AI in chair {seat}: {status} {body}"
+            );
+        }
+    }
+
+    // Sides, once every chair is arranged: the host says who plays with whom,
+    // a side being the format rather than a preference.
+    for (seat, team) in teams.iter().enumerate() {
+        let url = format!("{gateway}/lobby/games/{game_id}/seats/{seat}");
+        let (status, body) = post(
+            agent,
+            &url,
+            Some(token),
+            &serde_json::json!({ "team": team }),
+        )?;
+        anyhow::ensure!(
+            status == 200,
+            "put chair {seat} on team {team}: {status} {body}"
+        );
+    }
+
+    // A room does not start itself — that takes two statements by two people
+    // (`ready` is the player's, `start` is the host's), and here the dev
+    // account is both. An AI chair is ready as soon as it is configured.
+    if seats > 2 {
+        let (status, body) = post(
+            agent,
+            &format!("{gateway}/lobby/games/{game_id}/ready"),
+            Some(token),
+            &serde_json::json!({ "ready": true }),
+        )?;
+        anyhow::ensure!(status == 200, "say ready: {status} {body}");
+        let (status, body) = post(
+            agent,
+            &format!("{gateway}/lobby/games/{game_id}/start"),
+            Some(token),
+            &serde_json::json!({}),
+        )?;
+        anyhow::ensure!(status == 200, "start the table: {status} {body}");
+    }
+    Ok(())
+}
+
 /// Seats the dev account at a table and prints or plays its ticket.
 ///
 /// Every step is a real request to a real gateway: the only thing skipped is
@@ -790,11 +866,25 @@ fn dev_table(
     seats: usize,
     ai: &str,
     deck_name: &str,
+    teams: &[u8],
     play: bool,
 ) -> anyhow::Result<()> {
     anyhow::ensure!(
-        (2..=4).contains(&seats),
-        "a table seats between two and four"
+        (2..=8).contains(&seats),
+        "a table seats between two and eight"
+    );
+    anyhow::ensure!(
+        teams.is_empty() || seats > 2,
+        "--teams needs three chairs or more; a duel is already two sides"
+    );
+    anyhow::ensure!(
+        teams.is_empty() || teams.len() == seats,
+        "--teams needs one side per chair ({seats} of them)"
+    );
+    anyhow::ensure!(
+        teams.is_empty() || teams.iter().any(|t| *t != teams[0]),
+        "a table needs two sides; every chair is on team {}",
+        teams.first().copied().unwrap_or(0)
     );
     let agent = ureq::Agent::new_with_defaults();
 
@@ -856,27 +946,14 @@ fn dev_table(
     let game_id = field(&body, "game_id")?;
     let seat_token = field(&body, "seat_token")?;
 
-    // A room's other chairs still have to be handed over; the two-seat path
-    // already came back with its house AI seated, and reaching into that
-    // chair would be a `409`.
-    if seats > 2 {
-        for seat in 1..seats {
-            let url = format!("{gateway}/lobby/games/{game_id}/seats/{seat}");
-            let (status, body) = post(
-                &agent,
-                &url,
-                Some(&token),
-                &serde_json::json!({ "kind": "ai", "ai": ai }),
-            )?;
-            anyhow::ensure!(
-                status == 200,
-                "seat the AI in chair {seat}: {status} {body}"
-            );
-        }
-    }
+    arrange_room(&agent, gateway, &token, &game_id, seats, ai, teams)?;
 
     let opponents = seats - 1;
     println!("table ready: {seats} chairs, {opponents} × {ai} AI, playing {deck_name}");
+    if !teams.is_empty() {
+        let sides: Vec<String> = teams.iter().map(ToString::to_string).collect();
+        println!("sides, in seat order: {}", sides.join(", "));
+    }
     if !play {
         println!(
             "\nBAYLEE_GATEWAY={gateway} \\\n  BAYLEE_GAME={game_id} \\\n  BAYLEE_SEAT_TOKEN={seat_token} \\\n  cargo run -p baylee-client"

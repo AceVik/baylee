@@ -90,6 +90,10 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
 /// surviving opponent, and every planeswalker those opponents control
 /// (CR 508.1a).
 ///
+/// An opponent, not another player: a teammate cannot be attacked, and
+/// neither can a planeswalker they control, because the walker filter reads
+/// the same opponent list.
+///
 /// One list rather than "pick a player, then pick one of their walkers":
 /// the choice is a single one in the rules, and a flat list is also what
 /// a client needs to render the choice.
@@ -98,7 +102,7 @@ pub fn defender_options(state: &GameState, player: PlayerId) -> Vec<Defender> {
     let opponents: Vec<PlayerId> = state
         .players
         .iter()
-        .filter(|p| p.id != player && !p.has_lost)
+        .filter(|p| state.is_opponent(p.id, player) && !p.has_lost)
         .map(|p| p.id)
         .collect();
     let mut options: Vec<Defender> = opponents.iter().copied().map(Defender::Player).collect();

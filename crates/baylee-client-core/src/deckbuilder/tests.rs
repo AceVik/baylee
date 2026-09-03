@@ -222,7 +222,7 @@ fn a_deck_that_cannot_save_says_why() {
     let mut b = DeckBuilder::new();
     b.set_pool(pool(), true);
     assert!(!b.saveable(), "no name, no cards");
-    let problems = b.problems();
+    let problems = b.problems(Lang::En);
     let blocking: Vec<&str> = problems
         .iter()
         .filter(|p| p.blocking)
@@ -244,7 +244,7 @@ fn advice_never_blocks_a_save() {
     let forest = b.slot_of("Forest").unwrap();
     b.add(forest, Zone::Main);
     assert!(b.saveable(), "one card is savable");
-    let problems = b.problems();
+    let problems = b.problems(Lang::En);
     let advice: Vec<&Problem> = problems.iter().filter(|p| !p.blocking).collect();
     assert!(
         advice.iter().any(|p| p.message.contains("at least 60")),
@@ -303,7 +303,7 @@ fn a_card_the_pool_lost_is_reported_not_dropped() {
     assert_eq!(b.missing(), ["Black Lotus"]);
     assert!(!b.saveable(), "and it refuses to save over the loss");
     assert!(
-        b.problems()
+        b.problems(Lang::En)
             .iter()
             .any(|p| p.blocking && p.message.contains("Black Lotus"))
     );

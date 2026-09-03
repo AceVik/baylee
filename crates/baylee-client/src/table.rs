@@ -58,6 +58,27 @@ const HEARTH_LIFT: f32 = 0.0008;
 const HEARTH_SIZE: f32 = 34.0;
 /// How wide the medallion is inlaid, in table units.
 const MEDALLION_SIZE: f32 = 9.5;
+/// Where the phase wash lies: over the lamplight pool it colours, under the
+/// medallion, which it must never touch.
+const WASH_LIFT: f32 = 0.0011;
+/// How far the phase wash reaches.
+///
+/// Sized against the *ring*, not against the pool quad it shares a texture
+/// with: [`tabletop::hearth`] puts its band at 0.46–0.60 of the quad's half
+/// width, so the ring a player actually sees is a circle of about ten units'
+/// radius. A wash wider than that stops reading as a lamp over the middle of
+/// the table and starts reading as the table being that colour, which is the
+/// version this shipped as first and the reason the number is argued for
+/// here.
+const WASH_SIZE: f32 = 24.0;
+/// How strong the wash is at [`tabletop::PhaseLight::energy`] 1.0.
+const WASH_ALPHA: f32 = 0.24;
+/// How fast the wash follows a phase change, per second.
+///
+/// Slower than a card moves. A step boundary is not an event a player has to
+/// catch — it is a condition they should notice having changed — and a wash
+/// that snapped would flicker through the four steps of combat.
+const WASH_RATE: f32 = 3.0;
 /// Margin around a seat's pod, so its mat is a table the cards sit on rather
 /// than a box drawn tight around them.
 const ZONE_MARGIN: f32 = 0.55;
@@ -81,6 +102,19 @@ const SELECTED_SCALE: f32 = 1.07;
 /// Marks everything spawned for the duel, so closing it is one despawn.
 #[derive(Component)]
 pub struct DuelStage;
+
+/// The wash of colour over the middle of the table that says which step of
+/// the turn this is, and the colour it is currently showing.
+///
+/// The colour is carried on the component rather than read back out of the
+/// material because it is the *eased* value: a material's `base_color` is
+/// where it ends up, and easing towards a target needs somewhere to keep
+/// where it started.
+#[derive(Component)]
+pub struct PhaseWash {
+    /// The wash's current colour and strength, linear RGBA.
+    shown: LinearRgba,
+}
 
 /// The table camera.
 #[derive(Component)]
@@ -622,6 +656,28 @@ pub fn spawn_stage(
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
+    // The phase wash: the same pool of light, coloured by where in the turn
+    // we are. It is laid *over* the hearth rather than multiplied into it,
+    // because multiplying candlelight by a cold colour gives grey — the
+    // usual way a tint like this fails. It starts at nothing and eases to
+    // whatever the first view says the step is.
+    commands.spawn((
+        DuelStage,
+        PhaseWash {
+            shown: LinearRgba::NONE,
+        },
+        Mesh3d(meshes.add(Rectangle::new(WASH_SIZE, WASH_SIZE))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::LinearRgba(LinearRgba::NONE),
+            base_color_texture: Some(images.add(image_of(&tabletop::glow(256)))),
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            ..default()
+        })),
+        Transform::from_xyz(0.0, TABLE_Y + WASH_LIFT, 0.0)
+            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
+
     // The medallion inlaid at the centre — the colour wheel every player
     // already has in their head, which is what makes it orientation rather
     // than decoration. It sits in the middle of the table, which is the one
@@ -688,6 +744,69 @@ fn zone_brightness(mood: Mood) -> f32 {
         Standing::Priority => (base * 1.38).min(1.6),
         Standing::Active => base * 1.15,
         Standing::Waiting => base,
+    }
+}
+
+/// Eases the middle of the table towards the colour of the current step.
+///
+/// The step is on the board model, so this needs no engine and no view of its
+/// own; the arithmetic — which colour a step is worth — lives in
+/// [`tabletop::phase_light`], where it can be argued with in a test rather
+/// than looked at in a screenshot.
+///
+/// It writes only when the colour actually moves. A wash that reached its
+/// target and kept writing would touch a material every frame for the rest of
+/// the game, which is exactly the garbage [`sync_zones`] exists to avoid.
+pub fn sync_phase(
+    time: Res<Time>,
+    duel: Res<Duel>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut washes: Query<(&mut PhaseWash, &MeshMaterial3d<StandardMaterial>)>,
+) {
+    let Some(board) = duel.board.as_ref() else {
+        return;
+    };
+    let light = tabletop::phase_light(board.step);
+    // sRGB in, because the generator and the palette both write what the
+    // table should *look* like; the alpha is where the strength lives, so
+    // the wash fades out rather than to black.
+    let want = Color::srgba(
+        light.rgb[0],
+        light.rgb[1],
+        light.rgb[2],
+        light.energy * WASH_ALPHA,
+    )
+    .to_linear();
+    let t = if prefs.all().reduce_motion {
+        1.0
+    } else {
+        1.0 - (-WASH_RATE * time.delta_secs()).exp()
+    };
+    for (mut wash, handle) in &mut washes {
+        let next = LinearRgba {
+            red: wash.shown.red + (want.red - wash.shown.red) * t,
+            green: wash.shown.green + (want.green - wash.shown.green) * t,
+            blue: wash.shown.blue + (want.blue - wash.shown.blue) * t,
+            alpha: wash.shown.alpha + (want.alpha - wash.shown.alpha) * t,
+        };
+        // Below a step this small nothing on screen changes, so stop —
+        // otherwise the wash writes a material every frame forever.
+        let moved = [
+            next.red - wash.shown.red,
+            next.green - wash.shown.green,
+            next.blue - wash.shown.blue,
+            next.alpha - wash.shown.alpha,
+        ]
+        .iter()
+        .any(|d| d.abs() > 1e-4);
+        if !moved {
+            continue;
+        }
+        wash.shown = next;
+        if let Some(mut material) = materials.get_mut(&handle.0) {
+            material.base_color = Color::LinearRgba(next);
+        }
     }
 }
 

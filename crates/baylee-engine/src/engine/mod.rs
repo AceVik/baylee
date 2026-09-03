@@ -483,6 +483,8 @@ mod saga_tests;
 #[cfg(test)]
 mod search_tests;
 #[cfg(test)]
+mod team_tests;
+#[cfg(test)]
 pub(crate) mod testkit;
 #[cfg(test)]
 mod tests;

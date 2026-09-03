@@ -41,9 +41,24 @@ tokio = { workspace = true }
 tokio-tungstenite.workspace = true
 futures-util.workspace = true
 
+[features]
+# The dev-control harness: a loopback HTTP server that presses keys, moves
+# the pointer, dumps the client's own state and takes screenshots, so the
+# client can be driven and read while its window is not in the foreground.
+#
+# A compile-time feature and not a runtime switch on purpose. A remote
+# control socket inside a game binary is a cheat vector, and the only
+# guarantee worth having is that the code is not in the shipped build at
+# all; the loopback bind is the second lock, not the first.
+dev-control = ["dep:image"]
+
 [[bin]]
 name = "baylee-client"
 path = "src/main.rs"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Only reached through the `dev-control` feature; see its comment above.
+image = { workspace = true, optional = true }
 
 # Browser builds: entropy comes from Web Crypto (see .cargo/config.toml), and
 # settings persist in localStorage (see src/settings.rs).
