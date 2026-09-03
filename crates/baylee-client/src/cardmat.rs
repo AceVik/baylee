@@ -54,6 +54,14 @@ pub mod glow {
     /// `LegalActions`, changes with priority, and would be a rules lie if it
     /// were ever mistaken for a printed ability.
     pub const ACTIVATABLE: u32 = 8;
+    /// This creature came under its controller's command too recently to
+    /// attack or to tap (CR 302.6).
+    ///
+    /// Also not a keyword: it is a fact about *this turn*, not about the
+    /// card, which is why the shader draws it over the card's face rather
+    /// than on its border. The border says what a card is; the face says
+    /// what it can do.
+    pub const SUMMONING_SICK: u32 = 16;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -68,6 +76,13 @@ const KEYWORD_BITS: [(u32, u32); 3] = [
 ];
 
 /// Translates the view's keyword bitset into the shader's three bits.
+///
+/// Shroud swallows hexproof on the way through, because that is what the two
+/// keywords do to each other: a permanent with both may be targeted by
+/// nobody, including its controller, which is precisely shroud. Drawing them
+/// as two sheaths would say the card is protected in two ways when it is
+/// protected in one, and would cost a second material for a border no player
+/// could tell from the first.
 #[must_use]
 pub fn glow_bits(keywords: u128) -> u32 {
     let mut bits = 0;
@@ -76,7 +91,34 @@ pub fn glow_bits(keywords: u128) -> u32 {
             bits |= flag;
         }
     }
+    if bits & glow::SHROUD != 0 {
+        bits &= !glow::HEXPROOF;
+    }
     bits
+}
+
+/// Everything a permanent's surface is saying about it, in one word.
+///
+/// Three different kinds of claim ride here and the shader draws each in its
+/// own place: the keywords are what the rules have *made* the card (the
+/// border), summoning sickness is what it cannot do *this turn* (a veil over
+/// the face), and `activatable` is what this client is *offering* (a light
+/// running round the edge). They are gathered in one function so that no
+/// caller can assemble a different subset than another — a card in hand, in
+/// the overlay and on the table must agree about what it is.
+///
+/// Sickness is asked of creatures only. The view reports it for every
+/// permanent that entered this turn, but only a creature is stopped by it
+/// (CR 302.6); a land played this turn taps perfectly well, and a board where
+/// every fresh permanent breathed would be teaching the player something
+/// false.
+#[must_use]
+pub fn glow_of(object: Option<&baylee_view::PublicObject>, activatable: bool) -> u32 {
+    let from_card = object.map_or(0, |o| {
+        let sick = o.summoning_sick && o.types.contains(baylee_core::types::TypeSet::CREATURE);
+        glow_bits(o.keywords) | if sick { glow::SUMMONING_SICK } else { 0 }
+    });
+    from_card | if activatable { glow::ACTIVATABLE } else { 0 }
 }
 
 /// What the shader needs to know about one card.
@@ -391,6 +433,41 @@ impl Plugin for CardMaterialPlugin {
 pub(crate) mod tests {
     use super::*;
 
+    /// A permanent of a given type, with nothing else on it.
+    ///
+    /// Spelled out here rather than borrowed from `client-core`'s builders,
+    /// which are `pub(crate)` there: what these tests need is three fields,
+    /// and a view is not what they are about.
+    fn permanent(types: baylee_core::types::TypeSet) -> baylee_view::PublicObject {
+        use baylee_core::color::ColorSet;
+        use baylee_core::ids::{ObjectId, PlayerId};
+        use baylee_core::types::{SubtypeSet, SupertypeSet};
+        baylee_view::PublicObject {
+            mana_value: 0,
+            id: ObjectId::new(1, 0),
+            card: None,
+            name: "Test".to_string(),
+            controller: PlayerId::new(0),
+            owner: PlayerId::new(0),
+            status: baylee_view::ObjectStatus::NONE,
+            types,
+            supertypes: SupertypeSet::EMPTY,
+            subtypes: SubtypeSet::EMPTY,
+            token: None,
+            colors: ColorSet::default(),
+            keywords: 0,
+            power: Some(2),
+            toughness: Some(2),
+            loyalty: None,
+            damage: 0,
+            counters: Vec::new(),
+            attached_to: None,
+            targets: Vec::new(),
+            stack_item: None,
+            summoning_sick: false,
+        }
+    }
+
     /// The shader reads three bits; the engine numbers more than a hundred
     /// keywords and generates that numbering. A card glowing for the wrong
     /// keyword would be a rules lie a player would believe.
@@ -419,6 +496,63 @@ pub(crate) mod tests {
             glow_bits(both),
             glow::INDESTRUCTIBLE | glow::HEXPROOF,
             "an indestructible hexproof creature wears both"
+        );
+    }
+
+    /// Shroud and hexproof on one card is shroud: nobody may target it, its
+    /// controller included, which is exactly what shroud says. Two sheaths
+    /// would claim two protections where there is one — and would cost a
+    /// second material for a border no player could tell from the first.
+    #[test]
+    fn shroud_swallows_hexproof() {
+        use baylee_cards_dsl::KeywordSet;
+        let both = KeywordSet::SHROUD.union(KeywordSet::HEXPROOF).bits();
+        assert_eq!(glow_bits(both), glow::SHROUD);
+        // And it takes nothing else with it: an indestructible shrouded
+        // creature is still made of metal.
+        let all = KeywordSet::SHROUD
+            .union(KeywordSet::HEXPROOF)
+            .union(KeywordSet::INDESTRUCTIBLE)
+            .bits();
+        assert_eq!(glow_bits(all), glow::SHROUD | glow::INDESTRUCTIBLE);
+    }
+
+    /// Sickness is drawn for creatures and nothing else. The view reports it
+    /// for every permanent that entered this turn, but only a creature is
+    /// stopped by it (CR 302.6) — a land played this turn taps perfectly
+    /// well, and a board where every fresh permanent breathed would be
+    /// teaching a player something false.
+    #[test]
+    fn only_a_creature_is_drawn_asleep() {
+        use baylee_core::types::TypeSet;
+        let mut creature = permanent(TypeSet::CREATURE);
+        creature.summoning_sick = true;
+        assert_eq!(glow_of(Some(&creature), false), glow::SUMMONING_SICK);
+
+        let mut land = permanent(TypeSet::LAND);
+        land.summoning_sick = true;
+        assert_eq!(glow_of(Some(&land), false), 0);
+        assert_eq!(
+            glow_of(Some(&land), true),
+            glow::ACTIVATABLE,
+            "a land that entered this turn still offers its mana ability"
+        );
+    }
+
+    /// The three claims are three bits, and a card that is all three wears
+    /// all three: they are drawn in three different places on purpose.
+    #[test]
+    fn a_card_can_be_protected_asleep_and_useful_at_once() {
+        use baylee_cards_dsl::KeywordSet;
+        use baylee_core::types::TypeSet;
+        let mut obj = permanent(TypeSet::CREATURE);
+        obj.summoning_sick = true;
+        obj.keywords = KeywordSet::HEXPROOF
+            .union(KeywordSet::INDESTRUCTIBLE)
+            .bits();
+        assert_eq!(
+            glow_of(Some(&obj), true),
+            glow::HEXPROOF | glow::INDESTRUCTIBLE | glow::SUMMONING_SICK | glow::ACTIVATABLE
         );
     }
 

@@ -21,7 +21,7 @@
 //! table at frame rate on a phone.
 
 use crate::Duel;
-use crate::cardmat::{CardLook, CardMaterial, glow_bits, material};
+use crate::cardmat::{CardLook, CardMaterial, material};
 use crate::face;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
@@ -436,10 +436,17 @@ impl Mood {
     }
 }
 
-/// A card's corner radius (~10% of the width — clearly rounded, matching
-/// the UI cards; the white corners of the printed image are never
-/// visible because the mesh itself is rounded).
-pub const CARD_CORNER: f32 = CARD_WIDTH * 0.10;
+/// A card's corner radius.
+///
+/// A real card is 63 mm wide with a 3 mm corner, and this is exactly that —
+/// 4.76%, the same `PRINTED_CORNER` the two card shaders cut at. The geometry
+/// takes the scanner's white corner away and the shader inks the sliver of
+/// pixels the mesh edge antialiases through, which only works while both
+/// agree: a mesh cut wider than the print leaves the ink nothing to do, and a
+/// mesh cut narrower shows white outside it. It used to be 10%, which removed
+/// the white by removing a tenth of the card with it and made every permanent
+/// read as a token.
+pub const CARD_CORNER: f32 = CARD_WIDTH * 0.0476;
 
 /// How thick a card is, in table units.
 ///
@@ -495,7 +502,18 @@ fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
     }
 
     // Same mapping as Rectangle: [hw,hh]→[1,0], [-hw,-hh]→[0,1].
-    let uv_of = |x: f32, y: f32| [f32::midpoint(x / hw, 1.0), (1.0 - y / hh) * 0.5];
+    //
+    // Clamped, because the outline is built as `centre + r·cos θ`, and at
+    // θ = 0 that is `hw - r + r`, which in binary is not always `hw`. A UV a
+    // ten-millionth outside the texture samples the wrap or the clamp
+    // depending on the backend, so the card would grow a bright thread down
+    // one edge on exactly one machine.
+    let uv_of = |x: f32, y: f32| {
+        [
+            f32::midpoint(x / hw, 1.0).clamp(0.0, 1.0),
+            ((1.0 - y / hh) * 0.5).clamp(0.0, 1.0),
+        ]
+    };
 
     // The face: a centre vertex and the outline, all facing straight up.
     let mut positions: Vec<[f32; 3]> = vec![[0.0, 0.0, top]];
@@ -1072,16 +1090,12 @@ pub fn sync_scene(
         // print table — which is per seat, and a printing this seat has not
         // earned reads as plain rather than as a leak.
         let finish = crate::cardmat::finish_of(statics, placement.art);
-        // Keywords are what the card is; `activatable` is what the player
-        // could do with it. Both ride on the material, so a Forest that
-        // becomes tappable becomes a different material and needs no second
-        // pass — and stops being one the moment priority moves on.
-        let glow = object.map_or(0, |o| glow_bits(o.keywords))
-            | if placement.activatable {
-                crate::cardmat::glow::ACTIVATABLE
-            } else {
-                0
-            };
+        // Keywords are what the card is, sickness is what it cannot do this
+        // turn, `activatable` is what the player could do with it. All three
+        // ride on the material, so a Forest that becomes tappable becomes a
+        // different material and needs no second pass — and stops being one
+        // the moment priority moves on.
+        let glow = crate::cardmat::glow_of(object, placement.activatable);
 
         let material = if show_face {
             // One material per colour identity, so a mono-green board is one
@@ -1473,6 +1487,41 @@ mod tests {
             assert!((uv[0] - want_u).abs() < 1e-5 && (uv[1] - want_v).abs() < 1e-5);
             assert!((0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]));
         }
+    }
+
+    /// The geometry and the two shaders have to round the card at the same
+    /// radius, and nothing in the compiler can notice that they do: one is a
+    /// Rust constant and the others are text in a `.wgsl` file. So the text
+    /// is read.
+    ///
+    /// Cut the mesh wider than the print and the shader's ink has nothing
+    /// left to reach; cut it narrower and a white sliver of the scanner bed
+    /// survives outside it. Either way the card stops looking like a card,
+    /// which is the entire point of cutting the corner at all.
+    #[test]
+    fn the_mesh_and_the_shaders_round_the_card_alike() {
+        fn printed_corner(shader: &str, file: &str) -> f32 {
+            let line = shader
+                .lines()
+                .find(|l| l.trim_start().starts_with("const PRINTED_CORNER"))
+                .unwrap_or_else(|| panic!("{file} declares no PRINTED_CORNER"));
+            let value = line
+                .rsplit_once('=')
+                .and_then(|(_, rhs)| rhs.trim().strip_suffix(';'))
+                .unwrap_or_else(|| panic!("{file}: cannot read {line}"));
+            value.parse().expect("a float")
+        }
+        let table = printed_corner(include_str!("shaders/card.wgsl"), "card.wgsl");
+        let ui = printed_corner(include_str!("shaders/card_ui.wgsl"), "card_ui.wgsl");
+        assert!(
+            (table - ui).abs() < 1e-6,
+            "the two card shaders disagree: {table} and {ui}"
+        );
+        assert!(
+            (CARD_CORNER / CARD_WIDTH - table).abs() < 1e-6,
+            "the mesh rounds at {} of its width, the shaders at {table}",
+            CARD_CORNER / CARD_WIDTH
+        );
     }
 
     #[test]

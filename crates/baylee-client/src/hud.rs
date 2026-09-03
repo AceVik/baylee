@@ -355,10 +355,16 @@ pub(crate) fn btn_radius() -> BorderRadius {
     BorderRadius::all(px(6))
 }
 
-/// A card's corner radius for a given rendered width (~10%: clearly
-/// rounded, reads as a card, not a tile).
+/// A card's corner radius for a given rendered width.
+///
+/// The number is the printed one — 3 mm on a 63 mm card, 4.76% — and it has
+/// to be, because the card material cuts its own corners at exactly that
+/// radius (`PRINTED_CORNER` in `shaders/card_ui.wgsl`). This node clips its
+/// child and carries the drop shadow, so a rounder radius here would slice
+/// into the printed border and leave the shadow hanging off the corners. It
+/// used to be 10%, from before the shader cut anything at all.
 fn card_radius(width: f32) -> BorderRadius {
-    BorderRadius::all(px(width * 0.10))
+    BorderRadius::all(px(width * 0.0476))
 }
 
 /// The preview's corner radius — a touch rounder than a physical card

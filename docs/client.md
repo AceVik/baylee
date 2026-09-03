@@ -272,22 +272,58 @@ hide behind.
 
 **The glows come from `PublicObject.keywords`**, which is already projected —
 the layer system has run, so a creature that gained indestructible this turn
-glows this turn. `cardmat::glow_bits` narrows the engine's `u128` to the three
-bits the shader reads; a test pins each one against `KeywordSet`, because that
-numbering is generated and a card glowing for the wrong keyword would be a
-rules lie a player would believe. A fourth bit, `glow::ACTIVATABLE`, rides
-in the same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
-`LegalActions` rather than from the card, and is drawn as a travelling light
-rather than as a material for exactly that reason (see "Tapping lands for a
-spell"). Indestructible is darksteel — a hard dark
-blue-grey with a specular line, the card made of something rather than lit by
-something; hexproof is a steady green sheath; shroud is the same idea taken
-further, colder and hazier, since not even its controller may target it. Two
-keywords share the border rather than stacking to white.
+glows this turn. `cardmat::glow_of` is the one gatherer every battlefield
+surface goes through; inside it `glow_bits` narrows the engine's `u128` to
+the bits the shader reads, and a test pins each one against `KeywordSet`,
+because that numbering is generated and a card glowing for the wrong keyword
+would be a rules lie a player would believe.
+
+What a card *is* and what it can *do* are drawn in different places, and that
+separation is the whole grammar:
+
+- **The border says what the card is.** Indestructible is the *base*:
+  darksteel, a hard blue-grey with a specular line, the card made of something
+  rather than lit by something. Hexproof and shroud are *films* over that base
+  — a steady green sheath, or the same idea taken further, colder and hazier,
+  since not even its controller may target it. Base × film composes, so an
+  indestructible hexproof creature is steel under green and neither claim is
+  lost. Two films would not compose, and never have to: `glow_bits` drops
+  hexproof whenever shroud is present, because shroud already forbids every
+  target hexproof forbids (CR 702.18a against 702.11b) and the green film
+  would be advertising a permission the card does not grant. That
+  normalisation lives in Rust rather than in WGSL so that it is unit-tested
+  once and both shaders inherit it.
+- **The face says what the card can do.** A creature with summoning sickness
+  (`glow::SUMMONING_SICK`) is drawn asleep: desaturated, dimmed, breathing
+  slowly, over the art and never on the border. It is not a keyword — it is a
+  fact about *this turn* — and putting it on the border would make it read as
+  one. The bit is set only for creatures, because summoning sickness is
+  visible on nothing else.
+- **The perimeter says what is on offer.** `glow::ACTIVATABLE` rides in the
+  same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
+  `LegalActions` rather than from the card, and is drawn as a warm light
+  travelling round the border rather than as a material for exactly that
+  reason (see "Tapping lands for a spell"). It is added on top of any sheath
+  instead of averaged into it, because the two are answering different
+  questions and both have to stay legible.
 
 The border is drawn *inside* the card, over its printed frame. The mesh is
 exactly the card, and a glow that needed room around it would need every
 layout in the client to leave room for it.
+
+**The corners are cut twice, at the printed radius, in two different ways.** A
+Scryfall scan is a rectangle: the card's rounded corner is in the file as
+white paper, and drawn untouched it is the single most obvious way for a card
+to look like a photograph of a card. On the table the mesh is already rounded
+(`table::CARD_CORNER`), so the shader only inks the sliver the mesh edge
+antialiases through; in the overlay a UI node has no mesh, so `card_ui.wgsl`
+cuts the corner in alpha — and that is the one the player was actually looking
+at, since hand, preview, own-board overlay and printing picker all drew the
+scan square. Both cut with the same `corner_sdf` at the same `PRINTED_CORNER`
+(4.76%, which is 3 mm on a 63 mm card), and `hud::card_radius` is the same
+number again, because that wrapper node clips the card and carries its shadow.
+All of them used to be 10%, which took the white away by taking a tenth of the
+card with it, and made every permanent read as a token.
 
 The whole thing is WebGL2-safe: uniforms only, no storage buffers, no texture
 arrays. Animation reads `globals.time` from the view bind group, so nothing is

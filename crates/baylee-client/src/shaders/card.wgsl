@@ -42,9 +42,38 @@ const GLOW_INDESTRUCTIBLE: u32 = 1u;
 const GLOW_HEXPROOF: u32 = 2u;
 const GLOW_SHROUD: u32 = 4u;
 const GLOW_ACTIVATABLE: u32 = 8u;
+const GLOW_SUMMONING_SICK: u32 = 16u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
+
+/// The printed corner radius, as a fraction of the card's width.
+///
+/// A Magic card is 63 × 88 mm with a 3 mm corner — 4.76% — and a Scryfall
+/// scan is the whole rectangle, so everything outside that rounded rectangle
+/// is the white of the scanner bed and never the card. Cutting it is not a
+/// stylistic choice; it is the difference between a card and a photograph of
+/// one.
+const PRINTED_CORNER: f32 = 0.0476;
+
+/// The card's aspect, so a radius measured in widths means the same thing on
+/// both axes of a UV that is not square.
+const CARD_ASPECT: f32 = 63.0 / 88.0;
+
+/// What a card's corner is inked with once the scan's white is cut away: the
+/// same near-black as the slab's edge wall, so the corner reads as the card
+/// turning away rather than as a mark printed on it.
+const EDGE_INK: vec3<f32> = vec3<f32>(0.035, 0.038, 0.045);
+
+/// Signed distance to the printed card's rounded rectangle, in card widths.
+/// Negative inside the card, positive out in the scan's white corner.
+fn corner_sdf(uv: vec2<f32>) -> f32 {
+    // Width-units: x spans 1.0, y spans 1/aspect.
+    let half = vec2<f32>(0.5, 0.5 / CARD_ASPECT);
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT) - half;
+    let q = abs(p) - (half - vec2<f32>(PRINTED_CORNER));
+    return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - PRINTED_CORNER;
+}
 
 /// A cheap value-noise hash. Deterministic, and the same on every backend —
 /// two clients looking at the same foil see the same foil.
@@ -143,17 +172,39 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         color = vec4<f32>(color.rgb + metal * etch * 0.22 * params.strength, color.a);
     }
 
+    // ---- the face, when the card cannot do anything yet
+    //
+    // Summoning sickness is drawn *over the art* and never on the border,
+    // and that separation is the whole grammar: the border says what the card
+    // is, the face says what it can do, and a player can read both at once
+    // only while they stay in different places. A slow breath, desaturated
+    // and dimmed — the card is asleep, not disabled.
+    if (params.glow & GLOW_SUMMONING_SICK) != 0u {
+        let breath = 0.5 + 0.5 * sin(t * 2.618);
+        let luma = dot(color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+        let asleep = mix(color.rgb, vec3<f32>(luma), 0.34) * (0.76 - 0.06 * breath);
+        color = vec4<f32>(asleep, color.a);
+    }
+
     // ---- the border, when the rules have made the card something
     //
     // Drawn inside the card's own printed border rather than outside the
     // quad: the mesh is exactly the card, and a glow that needed room around
     // it would need every layout in the client to leave room for it.
+    //
+    // The band is a *material*, composed as base × film rather than as an
+    // average. Indestructible is what the card is made of; hexproof and
+    // shroud are what lies over it. Averaging them turned an indestructible
+    // hexproof creature into a third colour that said neither thing — this
+    // way it is a green sheath on metal, and both are still legible.
     if params.glow != 0u {
         let d = edge_distance(uv);
         let band = 1.0 - smoothstep(0.0, BORDER, d);
         if band > 0.0 {
-            var glow = vec3<f32>(0.0);
-            var weight = 0.0;
+            var base = vec3<f32>(0.0);
+            var has_base = 0.0;
+            var film = vec3<f32>(0.0);
+            var film_amount = 0.0;
 
             // Indestructible is darksteel: a hard, dark blue-grey metal with
             // a bright specular line, not a coloured light. It is the card
@@ -165,28 +216,31 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
                 // Slow, so it reads as metal catching the light rather than
                 // as something switched on.
                 let turn = 0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0);
-                glow += steel * turn;
-                weight += 1.0;
+                base = steel * turn;
+                has_base = 1.0;
             }
             // Hexproof: a protective sheath, green and steady.
             if (params.glow & GLOW_HEXPROOF) != 0u {
                 let pulse = 0.70 + 0.30 * sin(t * 1.6);
-                glow += vec3<f32>(0.28, 0.86, 0.48) * pulse;
-                weight += 1.0;
+                film = vec3<f32>(0.28, 0.86, 0.48) * pulse;
+                film_amount = 0.78;
             }
             // Shroud: the same idea taken further — nothing may target it,
-            // including its controller — so it is colder and hazier.
+            // including its controller — so it is colder and hazier. It
+            // *replaces* the hexproof film rather than mixing with it, which
+            // is also what the rules do to a card carrying both. `glow_bits`
+            // already drops hexproof in that case; this ordering is the
+            // second lock.
             if (params.glow & GLOW_SHROUD) != 0u {
                 let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
-                glow += vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
-                weight += 1.0;
+                film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
+                film_amount = 0.88;
             }
-            // Two keywords on one card share the border rather than stacking
-            // to white; the point is to be readable at a glance across a
-            // board, not to be bright.
-            if weight > 0.0 {
-                glow /= weight;
-                color = vec4<f32>(mix(color.rgb, glow, band * 0.85), color.a);
+            let painted = max(has_base, film_amount);
+            if painted > 0.0 {
+                var mark = mix(color.rgb, base, has_base);
+                mark = mix(mark, film, film_amount);
+                color = vec4<f32>(mix(color.rgb, mark, band * 0.85), color.a);
             }
             // Activatable is not a property of the card, so it must not read
             // like one: a warm light running round the border, which the eye
@@ -202,6 +256,17 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
             }
         }
     }
+
+    // ---- the corners the scanner saw and the card does not have
+    //
+    // The mesh is rounded at exactly this radius, so the geometry has already
+    // taken the white away; what is left is the sliver of pixels the mesh
+    // edge antialiases through. Those are inked to the same colour as the
+    // card's edge wall rather than cut, because the mesh is opaque and a hole
+    // in it would show the felt through the card. The same ink lands as a
+    // hairline along the straight edges, which is what a printed card has.
+    let outside = smoothstep(-0.004, 0.004, corner_sdf(uv));
+    color = vec4<f32>(mix(color.rgb, EDGE_INK, outside), color.a);
 
     return color;
 }

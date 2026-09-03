@@ -513,9 +513,7 @@ pub fn sync_overlay(
                     Some(key) => CardLook::art(
                         key,
                         finish_of(statics, Some(key)),
-                        hovered
-                            .and_then(|id| view.object(id))
-                            .map_or(0, |o| glow_bits(o.keywords)),
+                        crate::cardmat::glow_of(hovered.and_then(|id| view.object(id)), false),
                     ),
                     None => CardLook::back(FinishTreatment::Plain, 0),
                 },
@@ -943,14 +941,10 @@ pub(super) fn spawn_own_board_overlay(
                     // could do with it. The overlay is where a seat looks at
                     // its own board, so it is the last place that cue should
                     // be missing.
-                    let glow = view
-                        .object(group.representative)
-                        .map_or(0, |o| glow_bits(o.keywords))
-                        | if group.activatable {
-                            crate::cardmat::glow::ACTIVATABLE
-                        } else {
-                            0
-                        };
+                    let glow = crate::cardmat::glow_of(
+                        view.object(group.representative),
+                        group.activatable,
+                    );
                     match group.art {
                         Some(art) => CardLook::art(art, finish_of(statics, Some(art)), glow),
                         None => CardLook::back(FinishTreatment::Plain, glow),

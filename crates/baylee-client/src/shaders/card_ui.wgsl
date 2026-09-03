@@ -17,7 +17,9 @@
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
     finish: u32,
-    /// Keyword bits: 1 indestructible, 2 hexproof, 4 shroud.
+    /// What the rules have made this card, plus what this client is
+    /// offering to do with it. The bits are `cardmat::glow`, never the
+    /// engine's keyword numbering.
     glow: u32,
     /// 1.0 when `art` holds real artwork.
     has_art: f32,
@@ -40,9 +42,29 @@ const GLOW_INDESTRUCTIBLE: u32 = 1u;
 const GLOW_HEXPROOF: u32 = 2u;
 const GLOW_SHROUD: u32 = 4u;
 const GLOW_ACTIVATABLE: u32 = 8u;
+const GLOW_SUMMONING_SICK: u32 = 16u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
+
+/// The printed corner radius, as a fraction of the card's width: 3 mm on a
+/// 63 mm card. Identical to the table shader, and load-bearing here in a way
+/// it is not there — a UI node is a rectangle, so this is the *only* thing
+/// standing between the player and the white corners of the scan.
+const PRINTED_CORNER: f32 = 0.0476;
+
+/// The card's aspect, so a radius measured in widths means the same thing on
+/// both axes of a UV that is not square.
+const CARD_ASPECT: f32 = 63.0 / 88.0;
+
+/// Signed distance to the printed card's rounded rectangle, in card widths.
+/// Negative inside the card, positive out in the scan's white corner.
+fn corner_sdf(uv: vec2<f32>) -> f32 {
+    let half = vec2<f32>(0.5, 0.5 / CARD_ASPECT);
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT) - half;
+    let q = abs(p) - (half - vec2<f32>(PRINTED_CORNER));
+    return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - PRINTED_CORNER;
+}
 
 fn hash21(p: vec2<f32>) -> f32 {
     var q = fract(p * vec2<f32>(123.34, 456.21));
@@ -124,30 +146,47 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         color = vec4<f32>(color.rgb + metal * etch * 0.22 * params.strength, color.a);
     }
 
+    // Asleep: the same breath the table draws, over the face and never on the
+    // border. A card in hand is never summoning sick, but the preview of one
+    // on the battlefield is, and it must not disagree with the table.
+    if (params.glow & GLOW_SUMMONING_SICK) != 0u {
+        let breath = 0.5 + 0.5 * sin(t * 2.618);
+        let luma = dot(color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+        let asleep = mix(color.rgb, vec3<f32>(luma), 0.34) * (0.76 - 0.06 * breath);
+        color = vec4<f32>(asleep, color.a);
+    }
+
     if params.glow != 0u {
         let band = 1.0 - smoothstep(0.0, BORDER, edge_distance(uv));
         if band > 0.0 {
-            var glow = vec3<f32>(0.0);
-            var weight = 0.0;
+            // Base × film, exactly as the table composes it: the metal is
+            // what the card is made of, the sheath is what lies over it, and
+            // shroud replaces the hexproof film rather than mixing with it.
+            var base = vec3<f32>(0.0);
+            var has_base = 0.0;
+            var film = vec3<f32>(0.0);
+            var film_amount = 0.0;
             if (params.glow & GLOW_INDESTRUCTIBLE) != 0u {
                 let brush = noise(vec2<f32>(uv.x * 120.0, uv.y * 8.0));
                 let spec = pow(smoothstep(0.35, 1.0, brush), 3.0);
                 let steel = vec3<f32>(0.36, 0.42, 0.50) + vec3<f32>(0.55) * spec;
-                glow += steel * (0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0));
-                weight += 1.0;
+                base = steel * (0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0));
+                has_base = 1.0;
             }
             if (params.glow & GLOW_HEXPROOF) != 0u {
-                glow += vec3<f32>(0.28, 0.86, 0.48) * (0.70 + 0.30 * sin(t * 1.6));
-                weight += 1.0;
+                film = vec3<f32>(0.28, 0.86, 0.48) * (0.70 + 0.30 * sin(t * 1.6));
+                film_amount = 0.78;
             }
             if (params.glow & GLOW_SHROUD) != 0u {
                 let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
-                glow += vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
-                weight += 1.0;
+                film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
+                film_amount = 0.88;
             }
-            if weight > 0.0 {
-                glow /= weight;
-                color = vec4<f32>(mix(color.rgb, glow, band * 0.85), color.a);
+            let painted = max(has_base, film_amount);
+            if painted > 0.0 {
+                var mark = mix(color.rgb, base, has_base);
+                mark = mix(mark, film, film_amount);
+                color = vec4<f32>(mix(color.rgb, mark, band * 0.85), color.a);
             }
             // Activatable is not a property of the card, so it must not read
             // like one: a warm light running round the border, which the eye
@@ -163,6 +202,15 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             }
         }
     }
+
+    // ---- the corners the scanner saw and the card does not have
+    //
+    // A UI node has no mesh to round, so the corner is cut here, in alpha.
+    // This is the one the player was actually looking at: the hand, the
+    // preview and the printing picker all drew a Scryfall scan as a square,
+    // white corners included, which is the single most obvious way for a card
+    // to look like a photograph of a card.
+    color.a *= 1.0 - smoothstep(-0.003, 0.003, corner_sdf(uv));
 
     return color;
 }
