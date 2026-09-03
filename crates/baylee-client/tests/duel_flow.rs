@@ -12,6 +12,7 @@
 
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
 use baylee_client_core::board::{BoardModel, Openings, SeatPod};
+use baylee_client_core::browser::Browser;
 use baylee_client_core::interaction::{CombatFocus, Interaction};
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
@@ -132,28 +133,51 @@ impl Client {
         match &pending {
             Pending::Mulligan { .. } => interaction.answer_mulligan(true),
             Pending::YesNo { .. } => interaction.answer_yes_no(false),
+            // Bottoming and discarding name no options: the engine means
+            // "your hand", so the answer comes off the hand bar's own model.
             Pending::MulliganBottom { count, .. } | Pending::DiscardChoice { count, .. } => {
-                // Bottom or discard from the top of the hand.
-                let hand = self.view.as_ref()?;
-                let objects = hand
-                    .hand
-                    .iter()
-                    .take(*count as usize)
-                    .map(|c| c.id)
-                    .collect();
-                Some(PlayerAction::ChooseObjects { objects })
+                let board = self.board.as_ref()?;
+                for card in board.hand.iter().take(*count as usize) {
+                    interaction.toggle(card.id);
+                }
+                interaction.confirm()
             }
-            Pending::LegendChoice { options, .. } => Some(PlayerAction::ChooseObjects {
-                objects: vec![*options.first()?],
-            }),
-            // Both take the smallest legal selection from the offered set.
-            Pending::ChooseCards { options, min, .. }
-            | Pending::ChooseTargets { options, min, .. } => Some(PlayerAction::ChooseObjects {
-                objects: options.iter().take(*min as usize).copied().collect(),
-            }),
-            Pending::OrderObjects { objects, .. } => Some(PlayerAction::OrderObjects {
-                objects: objects.clone(),
-            }),
+            // Every choice among *objects*, answered by clicking them where
+            // a player would find them: on the table, or in the zone browser
+            // for the zones the table cannot draw. Building `ChooseObjects`
+            // by hand passed just as green while the client had no way to
+            // show a library search at all — the same shortcut that hid the
+            // colour bug, one prompt along.
+            Pending::LegendChoice { .. }
+            | Pending::ChooseCards { .. }
+            | Pending::ChooseTargets { .. } => {
+                let view = self.view.as_ref()?;
+                let wanted = smallest_legal_pick(&pending);
+                for id in interaction.selectable().to_vec() {
+                    if interaction.selected().len() >= wanted {
+                        break;
+                    }
+                    assert!(
+                        can_reach(view, &interaction, id),
+                        "{pending:?} offers {id:?} and nothing on screen draws it"
+                    );
+                    interaction.toggle(id);
+                }
+                interaction.confirm()
+            }
+            // An ordering is every offered card, clicked in turn — which is
+            // exactly what the tray asks a player to do.
+            Pending::OrderObjects { .. } => {
+                let view = self.view.as_ref()?;
+                for id in interaction.selectable().to_vec() {
+                    assert!(
+                        can_reach(view, &interaction, id),
+                        "an ordering offers {id:?} and nothing on screen draws it"
+                    );
+                    interaction.toggle(id);
+                }
+                interaction.confirm()
+            }
             // The choices answered by *position*, taken the way the prompt
             // bar takes them: the rows out of `choices::options`, then
             // `choose_index` and `confirm`. This used to build the action
@@ -606,4 +630,35 @@ fn declaring_no_attackers_is_the_same_answer_as_declaring_none() {
     for seat in [PlayerId::new(0), PlayerId::new(1)] {
         assert!(view.seat(seat).expect("seat line").life > 0);
     }
+}
+
+/// How few objects a choice will accept — the answer a pass-key player gives.
+fn smallest_legal_pick(pending: &Pending) -> usize {
+    match pending {
+        Pending::ChooseCards { min, .. } | Pending::ChooseTargets { min, .. } => *min as usize,
+        // The legend rule keeps exactly one.
+        Pending::LegendChoice { .. } => 1,
+        _ => 0,
+    }
+}
+
+/// Whether `id` is drawn somewhere the player could click it: on the table
+/// (the board model) or in the zone browser (every zone the table cannot
+/// show). The client's one real claim about answering a choice about objects.
+fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids::ObjectId) -> bool {
+    let board = BoardModel::from_view(view, Openings::none(), 12.0);
+    let on_table = board
+        .pods
+        .iter()
+        .flat_map(|p| p.lanes.iter())
+        .flat_map(|l| l.groups.iter())
+        .any(|g| g.members.contains(&id))
+        || board.hand.iter().any(|c| c.id == id);
+    let mut browser = Browser::new();
+    browser.follow(view, Some(interaction));
+    on_table
+        || browser
+            .rows(view, Some(interaction))
+            .iter()
+            .any(|r| r.id == id && r.selectable)
 }
