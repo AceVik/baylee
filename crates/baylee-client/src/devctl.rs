@@ -706,13 +706,23 @@ fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>) -> String 
     format!(
         "{{\"view\":{view},\"interaction\":{interaction},\"hovered\":{hovered},\
          \"overlay_open\":{overlay},\"last_error\":{error},\"lang\":{lang},\
-         \"reachable\":{reachable},\"activatable\":{activatable}}}",
+         \"reachable\":{reachable},\"activatable\":{activatable},\
+         \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu}}}",
         hovered = duel
             .hovered
             .map_or_else(|| "null".to_string(), |h| format!("\"{h:?}\"")),
         overlay = duel.overlay_open,
         reachable = duel.reachable.len(),
         activatable = duel.activatable.len(),
+        // Three states that answer silently and are invisible in a
+        // screenshot: an action queued but never sent, a mana run that owns
+        // the next few keys, and an ability menu that swallows the keyboard
+        // whole. Every one of them looks exactly like "the key did nothing".
+        outbox = duel.outbox().len(),
+        mana_run = duel.mana_run.is_some(),
+        menu = duel
+            .ability_menu
+            .map_or_else(|| "null".to_string(), |m| format!("\"{m:?}\"")),
     )
 }
 

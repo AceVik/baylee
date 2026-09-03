@@ -1046,4 +1046,70 @@ mod tests {
         assert!(i.selected().is_empty());
         assert!(!i.can_confirm());
     }
+
+    /// The whole keyboard path, and not just the decision underneath it.
+    ///
+    /// `confirming_a_priority_choice_passes` asks the `Interaction` directly,
+    /// which a live game showed is not enough: a land the engine had offered,
+    /// sitting under the cursor, was played by no key and no click, and every
+    /// unit test kept passing. So this one presses a `KeyCode` at the real
+    /// system and reads the outbox — nothing hand-built in between.
+    #[test]
+    fn the_primary_key_plays_the_land_under_the_cursor() {
+        use baylee_client_core::prefs::Action;
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::KeyboardInput;
+        use bevy::prelude::*;
+
+        let duel = crate::Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                Pending::Priority {
+                    player: PlayerId::new(0),
+                    legal: Box::new(LegalActions {
+                        can_pass: true,
+                        lands: vec![obj(3)],
+                        castable: vec![],
+                        mana_abilities: vec![],
+                        abilities: vec![],
+                        suspendable: vec![],
+                    }),
+                },
+                PlayerId::new(0),
+            )),
+            hovered: Some(obj(3)),
+            ..Default::default()
+        };
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .insert_resource(duel)
+            .add_systems(Update, super::keyboard);
+
+        // A precondition, so that a keymap this test cannot see is never the
+        // reason it passes: it would pass by pressing nothing at all.
+        {
+            let prefs = app.world().resource::<crate::prefs::Prefs>();
+            let mut probe = ButtonInput::<KeyCode>::default();
+            probe.press(KeyCode::Space);
+            assert!(
+                crate::keys::Fired::of(&probe, prefs.keymap()).has(Action::Primary),
+                "space is the primary key in the standard map"
+            );
+        }
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Space);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox(),
+            [PlayerAction::PlayLand { card: obj(3) }],
+            "the land under the cursor is what the primary key plays"
+        );
+    }
 }
