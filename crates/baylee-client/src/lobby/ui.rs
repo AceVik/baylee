@@ -1504,6 +1504,13 @@ pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow:
                 // that visible; two never had.
                 flex_shrink: if grow > 0.0 { 1.0 } else { 0.0 },
                 min_width: px(0),
+                // Height comes from the content, with the screen as a floor.
+                // Stretched to the row instead — which is what a flex item
+                // does unasked — a panel is exactly one screen tall while its
+                // rows carry on past the bottom of it, so a scrolled list
+                // leaves the panel behind and is drawn on the backdrop.
+                align_self: AlignSelf::Start,
+                min_height: percent(100),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap * 0.8),
                 padding: UiRect::all(px(metrics.pad * 0.8)),

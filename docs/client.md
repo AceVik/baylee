@@ -408,6 +408,13 @@ same `GameQuery` the HTTP route uses. A socket that could not be opened is
 retried every four seconds, and `Feed::live()` is what the old two-second poll
 now waits on: it runs only while nothing is pushing.
 
+A panel takes its height from its content with the screen as a floor
+(`align_self: Start` plus `min_height: 100%`). Stretched to the row instead —
+what a flex item does unasked — it is exactly one screen tall while its rows
+carry on past the bottom, so a scrolled list leaves its own panel behind and is
+drawn straight onto the backdrop. Nine tables was the first time anything was
+long enough to show it.
+
 **SEARCH** matches a table's name and its host's, and **‹ Back / More ›**
 appear only when there is more than one page — a lobby with four tables in it
 should not have to explain what page it is on. Both are sent to the gateway
@@ -796,10 +803,11 @@ curl -s localhost:28770/health        # {"ok":true,"frame":1183,"width":1728,"he
 curl -s localhost:28770/state         # the view, the pending choice, the interaction
 curl -s -XPOST localhost:28770/pointer   -d '{"x":864,"y":655,"press":true}'
 curl -s -XPOST localhost:28770/key       -d '{"name":"Space","shift":false}'
+curl -s -XPOST localhost:28770/scroll    -d '{"y":-6}'
 curl -s -XPOST localhost:28770/screenshot -d '{"path":"/tmp/table.png"}'
 ```
 
-Four things about it are load-bearing.
+Five things about it are load-bearing.
 
 **It is a compile-time feature, not a runtime switch.** A remote-control socket
 inside a game binary is a cheat vector, and the only guarantee worth having is
@@ -823,6 +831,15 @@ press on the next and the release on the one after, mirrored into `WindowEvent`
 exactly as `bevy_winit` does, and answers the caller only once the release is
 out. `devctl::tests::a_click_is_a_move_then_a_press_then_a_release` is that
 sequence as a test.
+
+**A wheel is written twice, for the same reason a click is.** `/scroll` sends a
+`MouseWheel` *and* the `WindowEvent::MouseWheel` beside it, because it is
+picking that turns a wheel into the `Pointer<Scroll>` a list listens for, and
+picking reads the window event. Written only as the plain message, the wheel
+reached everything except the lists. It lands wherever `/pointer` last put the
+cursor, the way a real wheel picks the list under it — and without it the
+harness cannot reach a control below the fold, which is how a lobby pager stays
+untested.
 
 **Coordinates are logical pixels, screenshots are physical.** `/health` reports
 `width`, `height` and `scale` so the ratio between the two is read rather than

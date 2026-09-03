@@ -34,6 +34,7 @@
 //! POST /key      {"name":"Space","shift":false,"hold":false,"release":false}
 //! POST /text     {"text":"dev@baylee.local"}
 //! POST /pointer  {"x":100,"y":200,"button":"left","press":true}
+//! POST /scroll   {"y":-3}   (wheel lines, over wherever the pointer is)
 //! POST /screenshot {"path":"/tmp/table.png"}   (replies once written)
 //! ```
 //!
@@ -276,6 +277,7 @@ fn pump(
     mut window_events: MessageWriter<WindowEvent>,
     mut moves: MessageWriter<CursorMoved>,
     mut typing: MessageWriter<KeyboardInput>,
+    mut wheels: MessageWriter<bevy::input::mouse::MouseWheel>,
     mut windows: Query<(Entity, &mut Window), With<PrimaryWindow>>,
     duel: Option<Res<Duel>>,
     settings: Option<Res<ClientSettings>>,
@@ -355,6 +357,35 @@ fn pump(
                     }
                 }
             }
+            // Anything below the fold is otherwise unreachable: a control the
+            // harness cannot scroll to is a control it cannot press. The
+            // wheel lands wherever the pointer was last put, which is how a
+            // real one picks the list it scrolls.
+            "/scroll" => match window {
+                Some(entity) => {
+                    let lines: f32 = field(&job.body, "y")
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(-3.0);
+                    let wheel = bevy::input::mouse::MouseWheel {
+                        unit: bevy::input::mouse::MouseScrollUnit::Line,
+                        x: 0.0,
+                        y: lines,
+                        window: entity,
+                        // What a mouse always sends; a finger is the other
+                        // gesture entirely and the lobby reads it as a drag.
+                        phase: bevy::input::touch::TouchPhase::Moved,
+                    };
+                    // Both, and for the same reason a click writes both: the
+                    // picking backend reads `WindowEvent`, and it is picking
+                    // that turns a wheel into the `Pointer<Scroll>` a list
+                    // listens for. The plain message is what everything else
+                    // reads.
+                    wheels.write(wheel);
+                    window_events.write(WindowEvent::MouseWheel(wheel));
+                    format!("{{\"ok\":true,\"lines\":{lines}}}")
+                }
+                None => "{\"error\":\"no primary window\"}".to_string(),
+            },
             "/screenshot" => {
                 let Some(path) = field(&job.body, "path").map(str::to_string) else {
                     let _ = job.reply.send("{\"error\":\"no path\"}".to_string());
@@ -712,6 +743,7 @@ mod tests {
             .add_message::<KeyboardInput>()
             .add_message::<WindowEvent>()
             .add_message::<CursorMoved>()
+            .add_message::<bevy::input::mouse::MouseWheel>()
             .insert_resource(DevControl {
                 jobs: Mutex::new(rx),
                 held: Vec::new(),
@@ -779,6 +811,35 @@ mod tests {
                 .pressed(MouseButton::Left)
         );
         assert!(answers.try_recv().unwrap().contains("\"clicked\":true"));
+    }
+
+    /// The same regression one gesture along: a wheel written only as a
+    /// `MouseWheel` message scrolled nothing at all, because it is picking
+    /// that turns a wheel into the `Pointer<Scroll>` a list listens for, and
+    /// picking reads `WindowEvent`. Both, or neither is any use.
+    #[test]
+    fn a_wheel_is_written_where_picking_reads_it() {
+        let (mut app, tx) = harness();
+        let (reply, answers) = channel();
+        tx.send(Job {
+            path: "/scroll".to_string(),
+            body: r#"{"y":-6}"#.to_string(),
+            reply,
+        })
+        .unwrap();
+        app.update();
+        assert!(answers.try_recv().unwrap().contains("\"lines\":-6"));
+
+        let plain: Vec<f32> = app
+            .world()
+            .resource::<Messages<bevy::input::mouse::MouseWheel>>()
+            .iter_current_update_messages()
+            .map(|wheel| wheel.y)
+            .collect();
+        assert_eq!(plain, [-6.0], "nothing else reads the window event");
+        let mirrored = window_events(&app);
+        assert_eq!(mirrored.len(), 1, "{mirrored:?}");
+        assert!(mirrored[0].contains("MouseWheel"), "{mirrored:?}");
     }
 
     /// A move without `press` is answered at once and presses nothing — the

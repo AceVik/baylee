@@ -154,6 +154,38 @@ async fn the_lobby_socket_pushes_a_change_nobody_asked_about() {
     assert!(second.contains("\"yours\":false"), "{second}");
 }
 
+/// The socket takes its token and its query out of **one** query string, which
+/// serde flattens — and a flattened struct is deserialized from a map of
+/// strings, so `offset=8` reached a `usize` field as `"8"` and the upgrade was
+/// refused with a `400`. The HTTP route parses the same struct without a
+/// flatten and never saw it, so nothing but a real client noticed.
+#[tokio::test]
+async fn the_lobby_socket_takes_a_page_and_not_only_a_token() {
+    let gw = spawn_gateway("lobby-feed-query");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+
+    let watcher = login(port, "q@example.com", "Querier");
+    let deck = make_deck(port, &watcher, "d");
+    for name in ["One", "Two", "Three"] {
+        let create = format!("{{\"deck_id\":\"{deck}\",\"seats\":2,\"name\":\"{name}\"}}");
+        let (status, body) = http(port, "POST", "/lobby/games", Some(&watcher), &create);
+        assert_eq!(status, 200, "{body}");
+    }
+
+    let url = format!(
+        "ws://127.0.0.1:{port}/lobby/ws?token={watcher}&q=&offset=2&limit=2&waiting_only=true"
+    );
+    let (mut socket, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .expect("the socket refused a page");
+    let first = next_text(&mut socket).await;
+    assert!(first.contains("\"offset\":2"), "{first}");
+    assert!(first.contains("\"limit\":2"), "{first}");
+    assert!(first.contains("\"total\":3"), "{first}");
+    assert_eq!(names(&first).len(), 1, "the third table, alone: {first}");
+}
+
 #[tokio::test]
 async fn the_lobby_socket_refuses_a_token_it_does_not_know() {
     let gw = spawn_gateway("lobby-feed-auth");

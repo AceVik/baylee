@@ -303,14 +303,58 @@ pub struct LobbyQuery {
     #[serde(default)]
     pub q: String,
     /// How many rows to skip.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "loose_usize")]
     pub offset: usize,
     /// How many rows to return. Clamped to [`LobbyQuery::MAX_LIMIT`].
-    #[serde(default)]
+    #[serde(default, deserialize_with = "loose_opt_usize")]
     pub limit: Option<usize>,
     /// Whether to leave out rooms that are already playing.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "loose_bool")]
     pub waiting_only: bool,
+}
+
+/// A query-string value that may arrive typed or as the text it was written
+/// as.
+///
+/// The lobby socket takes its token *and* this query out of one query string,
+/// which serde flattens — and a flattened struct is deserialized from a map of
+/// **strings**, so `offset=8` reaches a `usize` field as `"8"` and is refused.
+/// The HTTP route, which parses the same struct without a flatten, never saw
+/// it. Rather than keep two shapes of the one query in step, both read either.
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum Loose<T> {
+    /// What `GET /lobby/games` sends it as.
+    Typed(T),
+    /// What the flattened socket query sends it as.
+    Text(String),
+}
+
+/// A `usize` written either way.
+fn loose_usize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<usize, D::Error> {
+    Ok(loose_opt_usize(d)?.unwrap_or_default())
+}
+
+/// An optional `usize` written either way. An unreadable number is `None`
+/// rather than a `400`: a listing is not worth refusing over a typo in a page
+/// number, and the default page is a perfectly good answer.
+fn loose_opt_usize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<usize>, D::Error> {
+    use serde::Deserialize as _;
+    Ok(match Option::<Loose<usize>>::deserialize(d)? {
+        Some(Loose::Typed(n)) => Some(n),
+        Some(Loose::Text(text)) => text.trim().parse().ok(),
+        None => None,
+    })
+}
+
+/// A flag written either way. Absent, empty and unreadable all mean `false`.
+fn loose_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    use serde::Deserialize as _;
+    Ok(match Option::<Loose<bool>>::deserialize(d)? {
+        Some(Loose::Typed(flag)) => flag,
+        Some(Loose::Text(text)) => matches!(text.trim(), "true" | "1" | "yes"),
+        None => false,
+    })
 }
 
 impl LobbyQuery {

@@ -61,10 +61,11 @@ cargo bench -p baylee-engine -- --quick                  # numbers to compare ag
 ```
 
 `dev-control` opens a loopback HTTP harness (`/health`, `/state`, `/key`,
-`/pointer`, `/screenshot`) that drives and photographs the client while its
-window is in the background — a compile-time feature, because a remote-control
-socket in a shipped game binary is a cheat vector. `docs/client.md` §"Driving
-the client without its window" has the protocol and the reason a click takes
+`/text`, `/pointer`, `/scroll`, `/screenshot`) that drives and photographs the
+client while its window is in the background — a compile-time feature, because
+a remote-control socket in a shipped game binary is a cheat vector.
+`docs/client.md` §"Driving the client without its window" has the protocol,
+why a wheel is written twice, and the reason a click takes
 three frames.
 
 Always build the browser client `--release` (a dev-profile wasm is ~350 MB vs
