@@ -18,6 +18,7 @@
 //! which is what lets the whole thing be tested without a window.
 
 use crate::automation::{PhaseOrders, RAIL_ROWS, RailRow, RailSide};
+use crate::i18n::Phrase;
 use std::collections::BTreeMap;
 
 /// Everything a player can ask the client to do with one keystroke.
@@ -114,57 +115,67 @@ impl Action {
     ];
 
     /// How the action is named to a player.
+    ///
+    /// A [`Phrase`] rather than a string, because the settings screen is
+    /// drawn in whichever language the player picked and a `&'static str`
+    /// here would be English wherever it landed.
     #[must_use]
-    pub const fn label(self) -> &'static str {
+    pub const fn label(self) -> Phrase {
         match self {
-            Self::Primary => "Do the obvious thing",
-            Self::Confirm => "Confirm / pass priority",
-            Self::Cancel => "Cancel",
-            Self::ActivateCard => "Play or choose the card",
-            Self::CursorLeft => "Cursor left",
-            Self::CursorRight => "Cursor right",
-            Self::CursorUp => "Cursor up",
-            Self::CursorDown => "Cursor down",
-            Self::CombatFocusNext => "Aim at the next defender",
-            Self::CombatFocusPrev => "Aim at the previous defender",
-            Self::CombatNone => "Declare nothing",
-            Self::NextPhase => "Skip to the next phase",
-            Self::NextTurn => "Skip to the next turn",
-            Self::ToggleOverlay => "Hide the board overlay",
-            Self::ToggleTextView => "Read card text instead of art",
-            Self::MulliganKeep => "Keep this hand",
-            Self::MulliganTake => "Mulligan",
-            Self::AnswerYes => "Yes",
-            Self::AnswerNo => "No",
-            Self::NumberUp => "Number up",
-            Self::NumberDown => "Number down",
-            Self::RailUp => "Rail selection up",
-            Self::RailDown => "Rail selection down",
-            Self::FocusNextSeat => "Look at the next opponent",
-            Self::FocusHome => "Look at your own board",
+            Self::Primary => Phrase::ActPrimary,
+            Self::Confirm => Phrase::ActConfirm,
+            Self::Cancel => Phrase::ActCancel,
+            Self::ActivateCard => Phrase::ActActivateCard,
+            Self::CursorLeft => Phrase::ActCursorLeft,
+            Self::CursorRight => Phrase::ActCursorRight,
+            Self::CursorUp => Phrase::ActCursorUp,
+            Self::CursorDown => Phrase::ActCursorDown,
+            Self::CombatFocusNext => Phrase::ActCombatFocusNext,
+            Self::CombatFocusPrev => Phrase::ActCombatFocusPrev,
+            Self::CombatNone => Phrase::ActCombatNone,
+            Self::NextPhase => Phrase::ActNextPhase,
+            Self::NextTurn => Phrase::ActNextTurn,
+            Self::ToggleOverlay => Phrase::ActToggleOverlay,
+            Self::ToggleTextView => Phrase::ActToggleTextView,
+            Self::MulliganKeep => Phrase::ActMulliganKeep,
+            Self::MulliganTake => Phrase::ActMulliganTake,
+            Self::AnswerYes => Phrase::ActAnswerYes,
+            Self::AnswerNo => Phrase::ActAnswerNo,
+            Self::NumberUp => Phrase::ActNumberUp,
+            Self::NumberDown => Phrase::ActNumberDown,
+            Self::RailUp => Phrase::ActRailUp,
+            Self::RailDown => Phrase::ActRailDown,
+            Self::FocusNextSeat => Phrase::ActFocusNextSeat,
+            Self::FocusHome => Phrase::ActFocusHome,
         }
     }
 
     /// Which group a settings screen files it under.
+    ///
+    /// Also the key the screen groups *by*, which is why it is a `Phrase` and
+    /// not its text: two actions are in the same group when they name the same
+    /// phrase, whatever language it is being read in.
     #[must_use]
-    pub const fn group(self) -> &'static str {
+    pub const fn group(self) -> Phrase {
         match self {
-            Self::Primary | Self::Confirm | Self::Cancel | Self::ActivateCard => "Answering",
+            Self::Primary | Self::Confirm | Self::Cancel | Self::ActivateCard => {
+                Phrase::GroupAnswering
+            }
             Self::CursorLeft
             | Self::CursorRight
             | Self::CursorUp
             | Self::CursorDown
             | Self::FocusNextSeat
-            | Self::FocusHome => "Moving around",
-            Self::CombatFocusNext | Self::CombatFocusPrev | Self::CombatNone => "Combat",
-            Self::NextPhase | Self::NextTurn | Self::RailUp | Self::RailDown => "Phases",
+            | Self::FocusHome => Phrase::GroupMovingAround,
+            Self::CombatFocusNext | Self::CombatFocusPrev | Self::CombatNone => Phrase::GroupCombat,
+            Self::NextPhase | Self::NextTurn | Self::RailUp | Self::RailDown => Phrase::GroupPhases,
             Self::MulliganKeep
             | Self::MulliganTake
             | Self::AnswerYes
             | Self::AnswerNo
             | Self::NumberUp
-            | Self::NumberDown => "Questions",
-            Self::ToggleOverlay | Self::ToggleTextView => "Display",
+            | Self::NumberDown => Phrase::GroupQuestions,
+            Self::ToggleOverlay | Self::ToggleTextView => Phrase::GroupDisplay,
         }
     }
 }
@@ -453,25 +464,23 @@ impl AutoRule {
 
     /// The switch's name.
     #[must_use]
-    pub const fn label(self) -> &'static str {
+    pub const fn label(self) -> Phrase {
         match self {
-            Self::PassWhenNothingToDo => "Pass when there is nothing to do",
-            Self::SkipOpponentTurns => "Pass through opponents' turns",
-            Self::SkipEmptyAttacks => "Skip an empty attack step",
-            Self::SkipEmptyBlocks => "Skip an empty block step",
+            Self::PassWhenNothingToDo => Phrase::AutoPassLabel,
+            Self::SkipOpponentTurns => Phrase::AutoSkipTurnsLabel,
+            Self::SkipEmptyAttacks => Phrase::AutoSkipAttacksLabel,
+            Self::SkipEmptyBlocks => Phrase::AutoSkipBlocksLabel,
         }
     }
 
     /// The sentence under it, saying exactly what it will and will not do.
     #[must_use]
-    pub const fn detail(self) -> &'static str {
+    pub const fn detail(self) -> Phrase {
         match self {
-            Self::PassWhenNothingToDo => {
-                "No land, no spell, no ability, nothing to suspend: pass without asking."
-            }
-            Self::SkipOpponentTurns => "Priority only. It never declines a block for you.",
-            Self::SkipEmptyAttacks => "Only when nothing you control can attack.",
-            Self::SkipEmptyBlocks => "Only when nothing you control can block.",
+            Self::PassWhenNothingToDo => Phrase::AutoPassDetail,
+            Self::SkipOpponentTurns => Phrase::AutoSkipTurnsDetail,
+            Self::SkipEmptyAttacks => Phrase::AutoSkipAttacksDetail,
+            Self::SkipEmptyBlocks => Phrase::AutoSkipBlocksDetail,
         }
     }
 

@@ -340,6 +340,186 @@ messages! {
     ThePrintings { en: "the printings", de: "die Drucke" },
     /// …one deck.
     TheDeck { en: "the deck", de: "das Deck" },
+
+    // ---- the settings screen
+    /// Settings
+    SettingsTitle { en: "Settings", de: "Einstellungen" },
+    /// Back
+    Back { en: "Back", de: "Zurück" },
+    /// Saved to your account — these travel with you to any table.
+    SettingsOnAccount {
+        en: "Saved to your account — these travel with you to any table.",
+        de: "In deinem Konto gespeichert — sie begleiten dich an jeden Tisch.",
+    },
+    /// Saved on this computer. Sign in and they follow your account.
+    SettingsOnDevice {
+        en: "Saved on this computer. Sign in and they follow your account.",
+        de: "Auf diesem Rechner gespeichert. Melde dich an, und sie folgen deinem Konto.",
+    },
+    /// Keys
+    Keys { en: "Keys", de: "Tasten" },
+    /// Automation
+    Automation { en: "Automation", de: "Automatik" },
+    /// Where to stop
+    WhereToStop { en: "Where to stop", de: "Wo angehalten wird" },
+    /// press a key…
+    PressAKey { en: "press a key…", de: "drücke eine Taste…" },
+    /// unbound
+    Unbound { en: "unbound", de: "nicht belegt" },
+    /// Reset all
+    ResetAll { en: "Reset all", de: "Alles zurücksetzen" },
+    /// reset
+    Reset { en: "reset", de: "zurücksetzen" },
+    /// on
+    SwitchOn { en: "on", de: "an" },
+    /// off
+    SwitchOff { en: "off", de: "aus" },
+    /// A red step is one the client passes for you.
+    RailExplain {
+        en: "A red step is one the client passes for you. Nothing is red until you make it red.",
+        de: "Ein roter Schritt ist einer, den der Client für dich abgibt. Nichts ist rot, bis du es rot machst.",
+    },
+    /// The half of the rail that is your own turns.
+    YourTurns { en: "Your turns", de: "Deine Züge" },
+    /// The other half.
+    TheirTurns { en: "Opponents' turns", de: "Gegnerische Züge" },
+    /// Hold the table still
+    HoldTheTableStill { en: "Hold the table still", de: "Tisch ruhig halten" },
+    /// Cards and the camera go straight there instead of moving.
+    HoldTheTableStillWhy {
+        en: "Cards and the camera go straight there instead of moving.",
+        de: "Karten und Kamera springen hin, statt sich zu bewegen.",
+    },
+    /// Do the obvious thing
+    ActPrimary { en: "Do the obvious thing", de: "Das Naheliegende tun" },
+    /// Confirm / pass priority
+    ActConfirm { en: "Confirm / pass priority", de: "Bestätigen / Priorität abgeben" },
+    /// Cancel
+    ActCancel { en: "Cancel", de: "Abbrechen" },
+    /// Play or choose the card
+    ActActivateCard { en: "Play or choose the card", de: "Karte spielen oder wählen" },
+    /// Cursor left
+    ActCursorLeft { en: "Cursor left", de: "Cursor nach links" },
+    /// Cursor right
+    ActCursorRight { en: "Cursor right", de: "Cursor nach rechts" },
+    /// Cursor up
+    ActCursorUp { en: "Cursor up", de: "Cursor nach oben" },
+    /// Cursor down
+    ActCursorDown { en: "Cursor down", de: "Cursor nach unten" },
+    /// Aim at the next defender
+    ActCombatFocusNext {
+        en: "Aim at the next defender",
+        de: "Auf den nächsten Verteidiger zielen",
+    },
+    /// Aim at the previous defender
+    ActCombatFocusPrev {
+        en: "Aim at the previous defender",
+        de: "Auf den vorigen Verteidiger zielen",
+    },
+    /// Declare nothing
+    ActCombatNone { en: "Declare nothing", de: "Nichts deklarieren" },
+    /// Skip to the next phase
+    ActNextPhase { en: "Skip to the next phase", de: "Zur nächsten Phase springen" },
+    /// Skip to the next turn
+    ActNextTurn { en: "Skip to the next turn", de: "Zum nächsten Zug springen" },
+    /// Hide the board overlay
+    ActToggleOverlay { en: "Hide the board overlay", de: "Brett-Overlay ausblenden" },
+    /// Read card text instead of art
+    ActToggleTextView { en: "Read card text instead of art", de: "Kartentext statt Bild lesen" },
+    /// Keep this hand
+    ActMulliganKeep { en: "Keep this hand", de: "Diese Hand behalten" },
+    /// Mulligan
+    ActMulliganTake { en: "Mulligan", de: "Mulligan" },
+    /// Yes
+    ActAnswerYes { en: "Yes", de: "Ja" },
+    /// No
+    ActAnswerNo { en: "No", de: "Nein" },
+    /// Number up
+    ActNumberUp { en: "Number up", de: "Zahl hoch" },
+    /// Number down
+    ActNumberDown { en: "Number down", de: "Zahl runter" },
+    /// Rail selection up
+    ActRailUp { en: "Rail selection up", de: "Phasenleiste hoch" },
+    /// Rail selection down
+    ActRailDown { en: "Rail selection down", de: "Phasenleiste runter" },
+    /// Look at the next opponent
+    ActFocusNextSeat { en: "Look at the next opponent", de: "Zum nächsten Gegner sehen" },
+    /// Look at your own board
+    ActFocusHome { en: "Look at your own board", de: "Auf das eigene Brett sehen" },
+    /// Answering
+    GroupAnswering { en: "Answering", de: "Antworten" },
+    /// Moving around
+    GroupMovingAround { en: "Moving around", de: "Bewegen" },
+    /// Combat
+    GroupCombat { en: "Combat", de: "Kampf" },
+    /// Phases
+    GroupPhases { en: "Phases", de: "Phasen" },
+    /// Questions
+    GroupQuestions { en: "Questions", de: "Fragen" },
+    /// Display
+    GroupDisplay { en: "Display", de: "Darstellung" },
+    /// Pass when there is nothing to do
+    AutoPassLabel {
+        en: "Pass when there is nothing to do",
+        de: "Abgeben, wenn nichts zu tun ist",
+    },
+    /// No land, no spell, no ability, nothing to suspend: pass without asking.
+    AutoPassDetail {
+        en: "No land, no spell, no ability, nothing to suspend: pass without asking.",
+        de: "Kein Land, kein Zauber, keine Fähigkeit, nichts zu suspendieren: ohne Nachfrage abgeben.",
+    },
+    /// Pass through opponents' turns
+    AutoSkipTurnsLabel {
+        en: "Pass through opponents' turns",
+        de: "Durch gegnerische Züge abgeben",
+    },
+    /// Priority only. It never declines a block for you.
+    AutoSkipTurnsDetail {
+        en: "Priority only. It never declines a block for you.",
+        de: "Nur Priorität. Ein Blocken lehnt es nie für dich ab.",
+    },
+    /// Skip an empty attack step
+    AutoSkipAttacksLabel {
+        en: "Skip an empty attack step",
+        de: "Leeren Angriffsschritt überspringen",
+    },
+    /// Only when nothing you control can attack.
+    AutoSkipAttacksDetail {
+        en: "Only when nothing you control can attack.",
+        de: "Nur wenn nichts, das du kontrollierst, angreifen kann.",
+    },
+    /// Skip an empty block step
+    AutoSkipBlocksLabel { en: "Skip an empty block step", de: "Leeren Blockschritt überspringen" },
+    /// Only when nothing you control can block.
+    AutoSkipBlocksDetail {
+        en: "Only when nothing you control can block.",
+        de: "Nur wenn nichts, das du kontrollierst, blocken kann.",
+    },
+    /// Untap
+    RailUntap { en: "Untap", de: "Enttappen" },
+    /// Upkeep
+    RailUpkeep { en: "Upkeep", de: "Versorgung" },
+    /// Draw
+    RailDraw { en: "Draw", de: "Ziehen" },
+    /// Main 1
+    RailMain1 { en: "Main 1", de: "Haupt 1" },
+    /// Begin Combat
+    RailCombatBegin { en: "Begin Combat", de: "Kampfbeginn" },
+    /// Attackers
+    RailAttackers { en: "Attackers", de: "Angreifer" },
+    /// Blockers
+    RailBlockers { en: "Blockers", de: "Blocker" },
+    /// Damage
+    RailDamage { en: "Damage", de: "Schaden" },
+    /// End of Combat
+    RailCombatEnd { en: "End of Combat", de: "Kampfende" },
+    /// Main 2
+    RailMain2 { en: "Main 2", de: "Haupt 2" },
+    /// End Step
+    RailEndStep { en: "End Step", de: "Endschritt" },
+    /// Cleanup
+    RailCleanup { en: "Cleanup", de: "Aufräumen" },
+
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {
         en: "the gateway did not answer: {0}",
