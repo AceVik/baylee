@@ -229,6 +229,16 @@ fn look_around(
             duel.browser.open();
         }
     }
+    // Here rather than beside the other answers, because a hold is the one
+    // thing a seat says while it is *not* being asked: the engine takes a
+    // `SetPriorityHold` from any seated player at any time, which is what
+    // makes cancelling one possible at all. Both keys cancel a running hold
+    // and only set one when none is; `Duel::hold_action` owns that rule.
+    if (fired.has(Action::HoldForStack) || fired.has(Action::HoldForTurn))
+        && let Some(action) = duel.hold_action(fired.has(Action::HoldForTurn))
+    {
+        duel.submit(action);
+    }
 }
 
 /// Typing a number rather than stepping to it.
@@ -801,6 +811,18 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         MenuAction::OfferDraw => {
             if duel.can_offer_draw() {
                 duel.submit(PlayerAction::OfferDraw);
+            }
+        }
+        // Through the same door as the keys, and re-checked for the same
+        // reason: the button is only drawn while a hold is running, and
+        // `hold_action` reads the *current* view rather than the one that was
+        // drawn — so a hold the engine has already expired cannot be
+        // "cancelled" into a new one by a stale button.
+        MenuAction::ReleaseHold => {
+            if duel.priority_held()
+                && let Some(action) = duel.hold_action(false)
+            {
+                duel.submit(action);
             }
         }
     }
@@ -1591,5 +1613,138 @@ mod tests {
             !app.world().resource::<crate::Duel>().browser.is_open(),
             "it is a latch, so the same key shuts it"
         );
+    }
+
+    /// A hold is the one statement a seat makes while it is *not* being asked,
+    /// which is also what makes it dangerous: the prompt bar is empty because
+    /// the seat is not being asked, and an empty prompt bar is what an idle
+    /// turn looks like too. So the key that sets a hold has to be the key that
+    /// takes it back, and it has to work from a view alone.
+    #[test]
+    fn the_hold_keys_stop_the_questions_and_take_it_back() {
+        use baylee_engine::choice::PriorityHold;
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::KeyboardInput;
+        use bevy::prelude::*;
+
+        use crate::host::{DuelHost, HostMessage, LocalHost};
+        let mut host = LocalHost::new(
+            &crate::host::tests::duel_preset(),
+            PlayerId::new(0),
+            &["You", "AI"],
+        )
+        .expect("host");
+        // A real view rather than a hand-built one: `hold_action` reads the
+        // turn number and the stack depth off it, and a view assembled by the
+        // test would only ever agree with the test.
+        let view = host
+            .poll()
+            .into_iter()
+            .find_map(|m| match m {
+                HostMessage::View(v) => Some(*v),
+                _ => None,
+            })
+            .expect("a view");
+        let turn = view.turn;
+        let depth = u16::try_from(view.stack.len()).expect("an opening stack fits");
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .insert_resource(crate::Duel {
+                view: Some(view),
+                ..Default::default()
+            })
+            .add_systems(Update, super::keyboard);
+
+        // `reset_all` and not `clear`: a key still held is not pressed again.
+        let press = |app: &mut App, key: KeyCode| {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.reset_all();
+            keys.press(key);
+            app.update();
+        };
+        let held = |app: &mut App, held: bool| {
+            app.world_mut()
+                .resource_mut::<crate::Duel>()
+                .view
+                .as_mut()
+                .expect("the view is still there")
+                .priority_held = held;
+        };
+
+        press(&mut app, KeyCode::F6);
+        press(&mut app, KeyCode::F7);
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox(),
+            [
+                PlayerAction::SetPriorityHold(PriorityHold::UntilStackEmpty { depth }),
+                PlayerAction::SetPriorityHold(PriorityHold::UntilEndOfTurn { turn }),
+            ],
+            "the two hold keys must say two different things"
+        );
+
+        // The engine took it; the view says so. Now either key is the way out,
+        // because a player who has stopped being asked should not have to
+        // remember which one they pressed.
+        held(&mut app, true);
+        press(&mut app, KeyCode::F7);
+        held(&mut app, true);
+        press(&mut app, KeyCode::F6);
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox()[2..],
+            [
+                PlayerAction::SetPriorityHold(PriorityHold::Always),
+                PlayerAction::SetPriorityHold(PriorityHold::Always),
+            ],
+            "a running hold must be cancelled by either key, never replaced"
+        );
+    }
+
+    /// The same way out, for a player who never finds a function key.
+    #[test]
+    fn the_prompt_bar_can_take_a_hold_back_too() {
+        use baylee_engine::choice::PriorityHold;
+
+        use crate::host::{DuelHost, HostMessage, LocalHost};
+        use crate::hud::MenuAction;
+        let mut host = LocalHost::new(
+            &crate::host::tests::duel_preset(),
+            PlayerId::new(0),
+            &["You", "AI"],
+        )
+        .expect("host");
+        let mut view = host
+            .poll()
+            .into_iter()
+            .find_map(|m| match m {
+                HostMessage::View(v) => Some(*v),
+                _ => None,
+            })
+            .expect("a view");
+        view.priority_held = true;
+        let mut duel = crate::Duel {
+            view: Some(view),
+            ..Default::default()
+        };
+
+        super::menu_click(&mut duel, MenuAction::ReleaseHold, false);
+        assert_eq!(
+            duel.outbox(),
+            [PlayerAction::SetPriorityHold(PriorityHold::Always)]
+        );
+
+        // And with nothing to release it sends nothing, rather than setting a
+        // hold from the button that exists to cancel one.
+        duel.view.as_mut().expect("the view").priority_held = false;
+        let mut fresh = crate::Duel {
+            view: duel.view.clone(),
+            ..Default::default()
+        };
+        super::menu_click(&mut fresh, MenuAction::ReleaseHold, false);
+        assert!(fresh.outbox().is_empty());
     }
 }

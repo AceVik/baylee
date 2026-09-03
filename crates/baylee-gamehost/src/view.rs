@@ -278,6 +278,12 @@ fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> V
 /// seat about objects that are in no zone the view carries, so the choice
 /// itself is what decides which hidden objects this seat may see. Pass `None`
 /// and the view is exactly what it was before — nothing else reads it.
+///
+/// `held` is whether this seat's own standing order is currently withholding
+/// its priority, and it is a parameter for the same reason `priority` is: a
+/// hold lives in the engine's `SeatAutomation`, not in the `GameState` this
+/// function is handed, so only the caller can read it. Pass
+/// `engine.automation(seat).hold.suppresses()`.
 #[must_use]
 pub fn player_view(
     state: &GameState,
@@ -285,6 +291,7 @@ pub fn player_view(
     priority: Option<PlayerId>,
     seq: u64,
     pending: Option<&Pending>,
+    held: bool,
 ) -> PlayerView {
     let hand = state
         .zones
@@ -317,6 +324,7 @@ pub fn player_view(
         step: step(state.turn.step),
         active: state.turn.active,
         priority,
+        priority_held: held,
         monarch: state.monarch,
         seats: state
             .players
@@ -509,7 +517,7 @@ mod tests {
         let preset = mixed_print_preset();
         let engine = Engine::new(&preset, Registry).expect("game starts");
         let seat = PlayerId::new(0);
-        let view = player_view(engine.state(), seat, None, 0, None);
+        let view = player_view(engine.state(), seat, None, 0, None, false);
 
         let battlefield: Vec<u16> = view
             .battlefield
@@ -595,7 +603,7 @@ mod tests {
 
         // Every object the view can project; a card-backed one carries a
         // printing and no token id, and the two are mutually exclusive.
-        let view = player_view(engine.state(), PlayerId::new(0), None, 1, None);
+        let view = player_view(engine.state(), PlayerId::new(0), None, 1, None, false);
         for object in &view.battlefield {
             assert!(
                 object.card.is_none() || object.token.is_none(),
@@ -657,7 +665,7 @@ mod tests {
             .apply(seat, PlayerAction::PlayLand { card })
             .expect("playing a land from hand is legal");
 
-        let view = player_view(engine.state(), seat, None, 1, None);
+        let view = player_view(engine.state(), seat, None, 1, None, false);
         let played = view
             .battlefield
             .iter()
@@ -698,7 +706,7 @@ mod tests {
         let engine = Engine::new(&preset, Registry).expect("game starts");
         let me = PlayerId::new(0);
         let them = PlayerId::new(1);
-        let view = player_view(engine.state(), me, None, 1, None);
+        let view = player_view(engine.state(), me, None, 1, None, false);
 
         let their_hand = engine.state().zones.list(ZoneLocation::Hand(them));
         assert!(!their_hand.is_empty(), "the opponent holds cards");
@@ -724,7 +732,7 @@ mod tests {
         let preset = mixed_print_preset();
         let engine = Engine::new(&preset, Registry).expect("game starts");
         for seat in [PlayerId::new(0), PlayerId::new(1)] {
-            let view = player_view(engine.state(), seat, None, 1, None);
+            let view = player_view(engine.state(), seat, None, 1, None, false);
             let visible = ids_in(&view);
             for owner in [PlayerId::new(0), PlayerId::new(1)] {
                 let library = engine.state().zones.list(ZoneLocation::Library(owner));
@@ -766,8 +774,8 @@ mod tests {
             .status
             .insert(baylee_engine::object::Status::FACE_DOWN);
 
-        let mine = player_view(engine.state(), me, None, 1, None);
-        let theirs = player_view(engine.state(), them, None, 1, None);
+        let mine = player_view(engine.state(), me, None, 1, None, false);
+        let theirs = player_view(engine.state(), them, None, 1, None, false);
         let of = |v: &baylee_view::PlayerView| {
             v.battlefield
                 .iter()
@@ -821,7 +829,7 @@ mod tests {
         let offered = library(&engine, seat, 3);
         let pending = search(seat, offered.clone());
 
-        let view = player_view(engine.state(), seat, None, 0, Some(&pending));
+        let view = player_view(engine.state(), seat, None, 0, Some(&pending), false);
         let shown: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
         assert_eq!(
             shown, offered,
@@ -843,7 +851,14 @@ mod tests {
         let searcher = PlayerId::new(0);
         let pending = search(searcher, library(&engine, searcher, 3));
 
-        let theirs = player_view(engine.state(), PlayerId::new(1), None, 0, Some(&pending));
+        let theirs = player_view(
+            engine.state(),
+            PlayerId::new(1),
+            None,
+            0,
+            Some(&pending),
+            false,
+        );
         assert!(
             theirs.looking_at.is_empty(),
             "an opponent was shown the cards a searching seat is looking through"
@@ -859,7 +874,7 @@ mod tests {
         let engine = Engine::new(&preset, Registry).expect("game starts");
         let seat = PlayerId::new(0);
 
-        let view = player_view(engine.state(), seat, None, 0, None);
+        let view = player_view(engine.state(), seat, None, 0, None, false);
         assert!(
             view.looking_at.is_empty(),
             "a view with no pending choice was still showing cards"
@@ -885,7 +900,7 @@ mod tests {
             max: 1,
         };
 
-        let view = player_view(engine.state(), seat, None, 0, Some(&pending));
+        let view = player_view(engine.state(), seat, None, 0, Some(&pending), false);
         assert!(
             view.looking_at.is_empty(),
             "objects the view already carries were repeated as things being shown"
@@ -902,7 +917,7 @@ mod tests {
         let seat = PlayerId::new(0);
         let pending = search(seat, library(&engine, seat, 3));
 
-        let view = player_view(engine.state(), seat, None, 0, Some(&pending));
+        let view = player_view(engine.state(), seat, None, 0, Some(&pending), false);
         for object in &view.looking_at {
             let print = object
                 .card
@@ -933,7 +948,7 @@ mod tests {
             prompt: baylee_engine::choice::ChoicePrompt::PutBackOnTop,
         };
 
-        let view = player_view(engine.state(), seat, None, 0, Some(&pending));
+        let view = player_view(engine.state(), seat, None, 0, Some(&pending), false);
         assert!(
             view.looking_at.is_empty(),
             "a seat's own hand was repeated as something it is being shown"
@@ -960,7 +975,7 @@ mod tests {
             prompt: baylee_engine::choice::ChoicePrompt::Generic,
         };
 
-        let view = player_view(engine.state(), me, None, 0, Some(&pending));
+        let view = player_view(engine.state(), me, None, 0, Some(&pending), false);
         let shown: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
         assert_eq!(
             shown, hand,
@@ -972,7 +987,7 @@ mod tests {
         );
 
         // The owner of that hand is being asked nothing, and is shown nothing.
-        let theirs = player_view(engine.state(), them, None, 0, Some(&pending));
+        let theirs = player_view(engine.state(), them, None, 0, Some(&pending), false);
         assert!(
             theirs.looking_at.is_empty(),
             "a seat not being asked was handed a list anyway"

@@ -82,14 +82,15 @@ impl<L: CardLookup> Engine<L> {
             Pending::Priority { player, legal } => {
                 let hold = self.automation(*player).hold;
                 let pass = match hold {
-                    PriorityHold::Always => false,
                     PriorityHold::PassWhenNothingToDo => legal.nothing_but_passing(),
-                    // The expiry pass above already cleared any hold whose
+                    // Every other variant either withholds the decision or
+                    // does not, and `suppresses` is the one place that says
+                    // which — the same answer the view hands the client, so
+                    // an indicator cannot disagree with the engine. The
+                    // expiry pass above already cleared any hold whose
                     // condition is met, so an active one still means "keep
                     // going".
-                    PriorityHold::UntilStackEmpty { .. }
-                    | PriorityHold::UntilTopOfStack { .. }
-                    | PriorityHold::UntilEndOfTurn { .. } => true,
+                    other => other.suppresses(),
                 };
                 pass.then_some((*player, PlayerAction::PassPriority))
             }

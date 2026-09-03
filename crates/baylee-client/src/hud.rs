@@ -150,6 +150,13 @@ pub enum MenuAction {
     /// Offer a draw: every other player still in the game has to accept
     /// (CR 104.4a).
     OfferDraw,
+    /// Cancel a running priority hold, so the seat is asked again.
+    ///
+    /// Only ever drawn while one is running, which is why there is no
+    /// matching "set a hold" button: choosing between "until the stack is
+    /// empty" and "the rest of this turn" is a two-key decision, and the way
+    /// out of either is one.
+    ReleaseHold,
 }
 
 /// The sliding own-board overlay (the panel, positioned by animation).

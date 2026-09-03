@@ -141,8 +141,8 @@ fails on both locks and on every future one of the same shape.
 
 ### Two corrections to `CLAUDE.md`
 
-- `VIEW_VERSION` is **8** (`crates/baylee-view/src/lib.rs:41`); the file said 7.
-  Fixed. The next breaking view change is a bump to 9. One audit worked from
+- `VIEW_VERSION` is **9** (`crates/baylee-view/src/lib.rs:41`); the file said 7,
+  then 8. Bumped to 9 by `PlayerView::priority_held`. One audit worked from
   the stale number, which is what a stale contract file costs.
 - The copy limit was enforced **per row** in the gateway (`main.rs`) and **per
   card** in the client (`deckbuilder/builder.rs`). Two printings of one card
@@ -498,11 +498,34 @@ UntilStackEmpty, UntilTopOfStack, UntilEndOfTurn}`, and `SetPriorityHold` is
 journaled and legal at any time. The only sender today is the gateway replaying
 standing answers. That is the whole F6 apparatus, unused.
 
-Three layers: **engine holds from the client** (a key that sends
+Three layers: ~~**engine holds from the client**~~ (a key that sends
 `UntilStackEmpty{depth}` — cancelled the moment anyone responds, which is
 exactly F6 semantics), **the rail as the stop table** with an opt-in
-"competitive stops" preset, and **hold-this-turn** as a toggle rather than a
-held key, because a held key cannot be a touch gesture.
+"competitive stops" preset, and ~~**hold-this-turn** as a toggle rather than a
+held key, because a held key cannot be a touch gesture~~.
+
+**Done — the first and third, as `F6` and `F7`.** Two actions rather than one,
+because "let this stack resolve" and "nothing more this turn" are genuinely
+different orders and the engine has both. Three things the implementation
+settled that the sketch above did not:
+
+- *Both keys cancel.* Either key, pressed while any hold is running, sends
+  `Always` rather than replacing the hold. A player who has stopped being
+  asked should not have to remember which key did it.
+- *A hold has no other symptom.* The prompt bar is empty because the seat is
+  not being asked — which is exactly what an idle turn looks like. So the
+  state is drawn (an accent chip beside the concede button) with the way out
+  next to it. Without that, a hold set two turns ago and forgotten is a game
+  playing itself with nothing on screen to blame.
+- *The view carries it, as a bool.* `PlayerView::priority_held`,
+  `VIEW_VERSION` 8 → 9, the viewing seat's own hold only — a hold is a
+  statement about what its owner will respond to, and the whole table knowing
+  it is a read a player is entitled to keep. `PassWhenNothingToDo` reports
+  false through `PriorityHold::suppresses`, which `auto_answer` now shares, so
+  the indicator cannot disagree with the engine.
+
+Left: the rail's "competitive stops" preset, which is `PhaseOrders` plus a
+settings button and touches no protocol.
 
 One bug in that area, found in the audit: `Situation` carries no stack depth,
 so a red rail row passes priority *with a spell on the stack*. Red should mean
@@ -588,7 +611,8 @@ which a slow multiplayer game needs more than it needs shaders.
 ## 4. The protocol batch
 
 Everything here is outside the client and costs more. Grouped so it can land in
-one `VIEW_VERSION` bump (8 → 9) where possible.
+one `VIEW_VERSION` bump where possible — 9 has since been spent on
+`priority_held` (§2.4), so this batch is a bump to **10**.
 
 - **A refused action answered on the wire** — the other half of Lock A, and the
   only item here that blocks something in §0.
@@ -638,10 +662,10 @@ the pile chips or by `G`. The chips sit in the HUD rather than at the mat
 corners as planned above, because the zone counts they replace are `TextSpan`s
 inside one text entity, and a span has no layout node to click.
 
-**Second, the common turn made fast and safe.** The keymap swap; the
-`ChooseNumber` stepper and digit picks; arm-then-act with mana abilities
-exempt; concede confirmation; engine holds and the stop preset; the stack panel
-with runs.
+**Second, the common turn made fast and safe.** ~~The keymap swap~~; ~~the
+`ChooseNumber` stepper and digit picks~~; arm-then-act with mana abilities
+exempt; ~~concede confirmation~~; ~~engine holds~~ and the stop preset; the
+stack panel with runs.
 
 **Third, the board made legible.** The hearth shrunk and the own battlefield
 out from under the hand bar; P/T, damage and counter chips on art faces; combat

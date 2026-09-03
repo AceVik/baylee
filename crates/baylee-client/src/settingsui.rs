@@ -425,7 +425,7 @@ mod tests {
     /// player goes looking for it.
     #[test]
     fn every_action_and_every_rule_has_a_row() {
-        assert_eq!(Action::ALL.len(), 26);
+        assert_eq!(Action::ALL.len(), 28);
         assert_eq!(AutoRule::ALL.len(), 4);
         for action in Action::ALL {
             assert!(!action.label().text(Lang::En).is_empty());

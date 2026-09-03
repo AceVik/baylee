@@ -86,6 +86,7 @@ pub fn play_game<L: CardLookup>(
             priority_holder(&pending),
             i as u64,
             Some(&pending),
+            engine.automation(player).hold.suppresses(),
         );
         let action = agents[player.get() as usize].act(&view, &pending);
         if let Err(err) = engine.apply(player, action) {

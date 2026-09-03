@@ -34,6 +34,9 @@ pub struct Session {
     engine: Engine<RegistryLookup>,
     seats: Vec<SeatKind>,
     seq: u64,
+    /// How many times the *question* has changed — see
+    /// [`Session::decision_seq`].
+    decisions: u64,
     /// Kept for the decision clock; the engine has its own copy for rules.
     house_rules: HouseRules,
     /// The print table the game was built from.
@@ -83,6 +86,7 @@ impl Session {
             engine,
             seats,
             seq: 0,
+            decisions: 0,
             house_rules: preset.house_rules.clone(),
             prints: preset.prints.clone(),
             revealed: preset
@@ -213,6 +217,7 @@ impl Session {
             priority,
             self.seq,
             Some(self.engine.pending()),
+            self.engine.automation(seat).hold.suppresses(),
         );
         let mut out = Vec::new();
         if self.reveal(seat, &view) {
@@ -273,20 +278,26 @@ impl Session {
                         priority_holder(&pending),
                         self.seq,
                         Some(&pending),
+                        self.engine.automation(player).hold.suppresses(),
                     );
                     agent.act(&view, &pending)
                 }
                 SeatKind::Human => unreachable!(),
             };
+            let mut moves_the_game = !action.is_automation_setting();
             if self.engine.apply(player, action).is_err() {
                 // AI mis-evaluation: pass when possible, else give up.
                 if matches!(pending, Pending::Priority { .. }) {
                     let _ = self.engine.apply(player, PlayerAction::PassPriority);
+                    moves_the_game = true;
                 } else {
                     return out;
                 }
             }
             self.seq += 1;
+            if moves_the_game {
+                self.decisions += 1;
+            }
         }
         out
     }
@@ -326,6 +337,7 @@ impl Session {
             priority_holder(pending),
             self.seq,
             Some(pending),
+            self.engine.automation(player).hold.suppresses(),
         );
         Some((player, agent.act(&view, pending)))
     }
@@ -334,6 +346,22 @@ impl Session {
     #[must_use]
     pub const fn seq(&self) -> u64 {
         self.seq
+    }
+
+    /// How many times the question has changed — the anchor for a decision
+    /// clock, and deliberately *not* [`Session::seq`].
+    ///
+    /// `seq` counts frames, and a frame is produced by anything a seat says,
+    /// including the two things a seat may say while it is not the one being
+    /// asked: a priority hold and a standing answer. A clock anchored to `seq`
+    /// therefore restarts when the *opponent* presses `F6`, or reconnects
+    /// (an attach replays every remembered answer), which hands out unlimited
+    /// thinking time to whoever spams either. This counts only actions that
+    /// moved the game, so an automation setting leaves the clock exactly where
+    /// it was.
+    #[must_use]
+    pub const fn decision_seq(&self) -> u64 {
+        self.decisions
     }
 
     /// Everything a seat needs to render the game from scratch: its own
@@ -354,6 +382,7 @@ impl Session {
             priority_holder(&pending),
             self.seq,
             Some(&pending),
+            self.engine.automation(seat).hold.suppresses(),
         );
         let mut out = vec![view_envelope(self.seq, &view)];
         if pending_player(&pending) == Some(seat) || matches!(pending, Pending::GameOver(_)) {
@@ -387,10 +416,17 @@ impl Session {
         if !matches!(self.seats.get(player.get() as usize), Some(SeatKind::Human)) {
             return Err("not a human seat".to_string());
         }
+        // Read before the action is spent: an automation setting is the one
+        // thing the engine takes from a seat that is not being asked, and it
+        // leaves the question standing. See [`Session::decision_seq`].
+        let moves_the_game = !action.is_automation_setting();
         if self.engine.apply(player, action).is_err() {
             return Err("illegal action for your seat".to_string());
         }
         self.seq += 1;
+        if moves_the_game {
+            self.decisions += 1;
+        }
         Ok(self.pump())
     }
 }
@@ -648,6 +684,102 @@ mod tests {
             }
         }
         assert!(human_choices > 0, "the human received choices");
+    }
+
+    /// The view a seat is sent, decoded back out of its envelope.
+    fn seat_view(session: &Session, seat: PlayerId) -> baylee_view::PlayerView {
+        session
+            .snapshot(seat)
+            .into_iter()
+            .find_map(|e| match e.msg {
+                Some(v1::envelope::Msg::StateDelta(delta)) => {
+                    Some(serde_json::from_slice(&delta.view_json).expect("the view decodes"))
+                }
+                _ => None,
+            })
+            .expect("every snapshot carries a view")
+    }
+
+    /// The same, out of what an action actually *sent* the seat.
+    ///
+    /// The difference matters for anything a client has to be told: `snapshot`
+    /// is read-only and builds a fresh view every time it is asked, so it
+    /// would report a field as delivered even if the live path — `act`, then
+    /// `pump` — never produced a frame at all.
+    fn routed_view(routed: &[(PlayerId, Envelope)], seat: PlayerId) -> baylee_view::PlayerView {
+        routed
+            .iter()
+            .filter(|(s, _)| *s == seat)
+            .find_map(|(_, e)| match &e.msg {
+                Some(v1::envelope::Msg::StateDelta(delta)) => {
+                    Some(serde_json::from_slice(&delta.view_json).expect("the view decodes"))
+                }
+                _ => None,
+            })
+            .expect("a pump sends every human seat its own view")
+    }
+
+    /// A priority hold is a statement about what its owner intends to respond
+    /// to, which makes it exactly the kind of read a player is entitled to
+    /// keep. It reaches that seat's own view and nobody else's.
+    ///
+    /// It also has to reach the view *at all*: the hold lives in the engine's
+    /// `SeatAutomation` and not in the `GameState` the view is built from, so
+    /// there is a parameter carrying it across and nothing but a test says it
+    /// was filled in.
+    #[test]
+    fn a_seat_sees_its_own_hold_and_not_the_other_seats() {
+        // Both seats human, so both are sent a view and the second half of
+        // this test has something to read.
+        let mut preset = test_preset();
+        preset.seats[1].controller = SeatController::Open;
+        let mut session = Session::new(&preset).expect("session builds");
+        let seat = PlayerId::new(0);
+        let turn = seat_view(&session, seat).turn;
+        assert!(!seat_view(&session, seat).priority_held, "nothing held yet");
+
+        // Set while the opening mulligan is pending, which is the point: the
+        // engine takes an automation setting from any seated player whether or
+        // not it is that player's decision, and without that a hold could
+        // never be cancelled.
+        let routed = session
+            .act(
+                seat,
+                PlayerAction::SetPriorityHold(
+                    baylee_engine::choice::PriorityHold::UntilEndOfTurn { turn },
+                ),
+            )
+            .expect("a seat may state a standing order at any time");
+
+        assert!(
+            routed_view(&routed, seat).priority_held,
+            "the seat that set the hold was never sent a view saying so"
+        );
+        assert!(
+            !routed_view(&routed, PlayerId::new(1)).priority_held,
+            "one seat's standing order is not the other's to read"
+        );
+    }
+
+    /// The one hold that answers rather than withholds does not light the
+    /// indicator, because it never keeps a decision from being offered.
+    #[test]
+    fn passing_when_there_is_nothing_to_do_is_not_a_hold() {
+        let mut session = Session::new(&test_preset()).expect("session builds");
+        let seat = PlayerId::new(0);
+        session
+            .act(
+                seat,
+                PlayerAction::SetPriorityHold(
+                    baylee_engine::choice::PriorityHold::PassWhenNothingToDo,
+                ),
+            )
+            .expect("a seat may state a standing order at any time");
+        assert!(
+            !seat_view(&session, seat).priority_held,
+            "it fires only where passing was the sole legal action, so a seat \
+             running it is never actually being kept from a decision"
+        );
     }
 
     /// Plays a couple of steps so the session has a sequence number to be

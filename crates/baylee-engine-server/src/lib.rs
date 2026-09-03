@@ -31,9 +31,12 @@ use baylee_protocol::v1::{self, Envelope};
 pub struct Clock {
     /// The seat being asked.
     pub seat: PlayerId,
-    /// The sequence number it is being asked at. The deadline is anchored to
-    /// it, so it restarts when the game actually moves rather than every time
-    /// something else happens.
+    /// The number of *questions* the game has asked so far
+    /// ([`Session::decision_seq`], not `Session::seq`). The deadline is
+    /// anchored to it, so it restarts when the game actually moves rather than
+    /// every time something else happens — and an opponent's priority hold or
+    /// reconnect, which produce frames without moving the game, cannot restart
+    /// it at all.
     pub seq: u64,
     /// How long the seat has, in seconds.
     pub secs: u32,
@@ -96,7 +99,7 @@ impl EngineRunner {
         }
         Some(Clock {
             seat,
-            seq: session.seq(),
+            seq: session.decision_seq(),
             secs,
         })
     }
@@ -109,7 +112,7 @@ impl EngineRunner {
         let Some(session) = self.session.as_mut() else {
             return Vec::new();
         };
-        if session.seq() != clock.seq {
+        if session.decision_seq() != clock.seq {
             return Vec::new();
         }
         let Some((seat, action)) = session.timeout_action() else {
@@ -552,6 +555,55 @@ mod tests {
             runner.clock(),
             Some(before),
             "a refused action re-armed the clock"
+        );
+    }
+
+    /// The acceptance duel with nobody automated, so the seat that is *not*
+    /// being asked is still able to say something.
+    fn two_humans(timeout_secs: u32) -> GamePreset {
+        let mut preset = duel(timeout_secs);
+        preset.seats[1].controller = baylee_core::preset::SeatController::Open;
+        preset
+    }
+
+    /// The clock belongs to the seat being asked, and nobody else may wind it.
+    ///
+    /// A priority hold is one of the two things the engine takes from a seat
+    /// that is not on the clock — a standing answer is the other, and an
+    /// attach replays every one of them. Both produce frames without moving
+    /// the game, so a clock anchored to the frame counter restarts on every
+    /// press of `F6` at the other end of the table: unlimited thinking time
+    /// for whoever spams it, which is a cheat rather than a bug.
+    #[test]
+    fn the_other_seats_hold_does_not_wind_the_clock() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(30));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        let before = runner.clock().expect("a seat is on the clock");
+        let frames_before = runner.session().expect("a game").seq();
+        let idle = u32::from(before.seat.get() == 0);
+        for _ in 0..3 {
+            act(
+                &mut runner,
+                idle,
+                &PlayerAction::SetPriorityHold(
+                    baylee_engine::choice::PriorityHold::UntilEndOfTurn { turn: 1 },
+                ),
+            );
+        }
+        // Both halves, or the test proves nothing: an unchanged clock is also
+        // what a *refused* hold would look like, and a hold that never reached
+        // the engine could not be taken back either.
+        assert_eq!(
+            runner.session().expect("a game").seq(),
+            frames_before + 3,
+            "the seat that was not being asked could not state a hold at all"
+        );
+        assert_eq!(
+            runner.clock(),
+            Some(before),
+            "the seat not being asked wound the other seat's clock"
         );
     }
 

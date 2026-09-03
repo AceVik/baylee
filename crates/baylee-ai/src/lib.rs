@@ -470,6 +470,7 @@ mod tests {
             step: baylee_view::Step::DeclareAttackers,
             active: PlayerId::new(seat),
             priority: None,
+            priority_held: false,
             monarch: None,
             seats,
             hand: vec![],

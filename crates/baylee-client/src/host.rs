@@ -242,7 +242,7 @@ pub fn house_duel() -> Option<LocalHost> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use baylee_core::ids::{CardIndex, PrintRef};
     use baylee_core::preset::{
@@ -255,7 +255,12 @@ mod tests {
             .index
     }
 
-    fn duel_preset() -> GamePreset {
+    /// Two seats of sixty Islands, one open and one AI.
+    ///
+    /// `pub(crate)` so other modules' tests can start a real game rather than
+    /// hand-building a `PlayerView`: a view assembled by a test is a view
+    /// that agrees with whatever the test expected of it.
+    pub(crate) fn duel_preset() -> GamePreset {
         let deck: Vec<DeckEntry> = (0..60)
             .map(|_| DeckEntry {
                 card: island(),

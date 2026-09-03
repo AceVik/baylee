@@ -58,6 +58,44 @@ Storing a handle the registry does not know is refused rather than kept: it
 could never fire, and it would fail silently — the seat would just be asked a
 question it believed it had answered for good.
 
+## Priority holds (view version 9)
+
+The other half of `SetStandingAnswer` is `PlayerAction::SetPriorityHold`, and
+it is deliberately **not** stored per account: a hold names a condition inside
+one game ("until this stack empties", "for the rest of this turn"), so there is
+nothing about it to carry to the next table. It is a game action in the same
+sense a standing answer is — it changes no pending question — and like one it
+is accepted from **any seated player at any time**, not only from the seat
+being asked. `Engine::apply` handles `action.is_automation_setting()` before
+the "who is being asked" gate, and `Session::act` checks only that the seat is
+human. Without both of those a hold could be set and never taken back, because
+a held seat is by definition not the one being asked.
+
+Every `PriorityHold` cancels itself. `UntilStackEmpty { depth }` ends when the
+stack empties **or** when anything is added above `depth`, which is what makes
+a stale client safe: a view is a snapshot, so a client that sends the depth it
+last saw is sending a number the engine may already have passed — and the
+engine reading a larger depth cancels the hold, which is exactly the right
+answer, because somebody just responded to what was being let through.
+
+What the client is told is one bool, `PlayerView::priority_held` — **the
+viewing seat's own hold and no other seat's**, because a hold is a statement
+about what its owner intends to respond to and telling the table would hand
+out precisely the read a player is entitled to keep. A bool rather than the
+enum for two reasons: `baylee-view` does not depend on the rules kernel, and
+the client has only two questions (light the indicator; does the key set or
+cancel), neither of which the flavour changes. `PassWhenNothingToDo` reports
+as **not** held — it answers only where passing was the seat's sole legal
+action, so it never withholds a decision; `PriorityHold::suppresses` is the
+one place that partition is written, and `auto_answer` reads the same function
+so an indicator cannot disagree with the engine. That is
+**`VIEW_VERSION` 8 → 9**.
+
+`crates/baylee-gamehost/src/view.rs`'s `player_view` therefore takes the hold
+as a parameter, the way it already takes `priority`: both live in the engine
+rather than in the `GameState` the view is built from, so only the caller can
+read them.
+
 ## Client preferences (`/settings`)
 
 Keys and standing orders follow the **account**, not the machine: a player who
@@ -205,11 +243,17 @@ exactly the shape it had; a client cannot tell it is being proxied.
 
 Two things moved out of the gateway with the rules:
 
-- **The decision clock.** It has to sit where `awaiting_seat()` and `seq()` can
-  be read, which is now the engine process. It is anchored to the sequence
-  number it was armed at, so one seat's expired clock can never take another
-  seat's decision, and it does not run for a seat with no socket — a player who
-  walked away is not on a clock they cannot see.
+- **The decision clock.** It has to sit where `awaiting_seat()` and the
+  session's counters can be read, which is now the engine process. It is
+  anchored to `Session::decision_seq` — how many *questions* the game has
+  asked, not how many frames it has sent — so one seat's expired clock can
+  never take another seat's decision, and it does not run for a seat with no
+  socket, because a player who walked away is not on a clock they cannot see.
+  The distinction between the two counters is not cosmetic: a priority hold and
+  a standing answer are the only things the engine takes from a seat that is
+  *not* being asked, and an attach replays every remembered answer, so a clock
+  anchored to `seq` would restart every time the opponent pressed `F6` or
+  reconnected. That is unlimited thinking time for whoever spams either.
 - **The panic boundary.** One process per game *is* the boundary, so the
   `catch_unwind` the gateway used to wrap every rules call around is gone. A
   rules path that panics takes down exactly one game, and the agent reports the
@@ -608,11 +652,12 @@ broadcast, instead of dropping the player.
 
 `HouseRules::decision_timeout_secs` is enforced as of 2026-08-31. It was
 carried from the preset through `baylee-gamehost` into the proto and read by
-nobody. The clock lives in the **gateway**, never in the engine or the
-session: the rules kernel is deterministic, and a session that timed itself
-would replay differently on every machine. `Session` only answers two
-clock-free questions — who owes an answer, and what a legal answer would be —
-and the gateway anchors a deadline to the session's sequence number so it
+nobody. The clock lives in the **engine process** (it started in the gateway;
+it moved with the rules), never in the rules kernel or the session: the kernel
+is deterministic, and a session that timed itself would replay differently on
+every machine. `Session` only answers three clock-free questions — who owes an
+answer, what a legal answer would be, and how many questions have been asked
+(`decision_seq`) — and the process anchors a deadline to that last one so it
 restarts when the game moves rather than whenever the task wakes up. On
 expiry the house agent answers for the seat, because it is legal for every
 `Pending`; a timeout that produced an illegal action would leave the same

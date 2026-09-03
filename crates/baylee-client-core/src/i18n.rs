@@ -428,6 +428,10 @@ messages! {
     ActToggleTextView { en: "Read card text instead of art", de: "Kartentext statt Bild lesen" },
     /// Open the zone browser
     ActToggleBrowser { en: "Open the zone browser", de: "Zonenbrowser öffnen" },
+    /// Let the stack resolve
+    ActHoldForStack { en: "Let the stack resolve", de: "Stack auflösen lassen" },
+    /// Nothing more this turn
+    ActHoldForTurn { en: "Nothing more this turn", de: "Nichts mehr in diesem Zug" },
     /// Keep this hand
     ActMulliganKeep { en: "Keep this hand", de: "Diese Hand behalten" },
     /// Mulligan
@@ -835,6 +839,10 @@ messages! {
     Concede { en: "Concede", de: "Aufgeben" },
     /// Concede, armed and waiting for the second press.
     ConcedeConfirm { en: "Concede? Press again", de: "Aufgeben? Nochmal drücken" },
+    /// The indicator that says this seat is not being asked right now.
+    HoldingPriority { en: "Not asking you", de: "Du wirst nicht gefragt" },
+    /// The button that cancels a running hold.
+    HoldRelease { en: "Ask me again", de: "Wieder fragen" },
     /// Aim next
     AimNext { en: "Aim next", de: "Nächstes Ziel" },
     /// Attack

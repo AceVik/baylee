@@ -312,6 +312,26 @@ pub enum PriorityHold {
     },
 }
 
+impl PriorityHold {
+    /// Whether this hold can keep a decision from being offered at all.
+    ///
+    /// [`Self::PassWhenNothingToDo`] cannot: it answers only where passing
+    /// was the seat's sole legal action, so nothing is ever withheld. That is
+    /// the same reason it is the one variant with nothing to expire from, and
+    /// the reason an indicator built on this reports it as no hold — a player
+    /// told "you are holding priority" by a setting that never withholds
+    /// anything would learn to ignore the light.
+    #[must_use]
+    pub const fn suppresses(self) -> bool {
+        match self {
+            Self::Always | Self::PassWhenNothingToDo => false,
+            Self::UntilStackEmpty { .. }
+            | Self::UntilTopOfStack { .. }
+            | Self::UntilEndOfTurn { .. } => true,
+        }
+    }
+}
+
 /// A remembered answer to a yes/no question a particular ability asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum StandingAnswer {

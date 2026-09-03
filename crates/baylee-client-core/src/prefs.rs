@@ -64,6 +64,11 @@ pub enum Action {
     ToggleTextView,
     /// Open the zone browser, or shut it again.
     ToggleBrowser,
+    /// Stop being asked until the stack has resolved — or, if a hold is
+    /// already running, start being asked again.
+    HoldForStack,
+    /// Stop being asked for the rest of this turn — or cancel a running hold.
+    HoldForTurn,
     /// Keep the opening hand.
     MulliganKeep,
     /// Take another one.
@@ -88,7 +93,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 26] = [
+    pub const ALL: [Self; 28] = [
         Self::Primary,
         Self::Confirm,
         Self::Cancel,
@@ -106,6 +111,8 @@ impl Action {
         Self::NextTurn,
         Self::RailUp,
         Self::RailDown,
+        Self::HoldForStack,
+        Self::HoldForTurn,
         Self::MulliganKeep,
         Self::MulliganTake,
         Self::AnswerYes,
@@ -141,6 +148,8 @@ impl Action {
             Self::ToggleOverlay => Phrase::ActToggleOverlay,
             Self::ToggleTextView => Phrase::ActToggleTextView,
             Self::ToggleBrowser => Phrase::ActToggleBrowser,
+            Self::HoldForStack => Phrase::ActHoldForStack,
+            Self::HoldForTurn => Phrase::ActHoldForTurn,
             Self::MulliganKeep => Phrase::ActMulliganKeep,
             Self::MulliganTake => Phrase::ActMulliganTake,
             Self::AnswerYes => Phrase::ActAnswerYes,
@@ -172,7 +181,12 @@ impl Action {
             | Self::FocusNextSeat
             | Self::FocusHome => Phrase::GroupMovingAround,
             Self::CombatFocusNext | Self::CombatFocusPrev | Self::CombatNone => Phrase::GroupCombat,
-            Self::NextPhase | Self::NextTurn | Self::RailUp | Self::RailDown => Phrase::GroupPhases,
+            Self::NextPhase
+            | Self::NextTurn
+            | Self::RailUp
+            | Self::RailDown
+            | Self::HoldForStack
+            | Self::HoldForTurn => Phrase::GroupPhases,
             Self::MulliganKeep
             | Self::MulliganTake
             | Self::AnswerYes
@@ -337,6 +351,8 @@ impl Keymap {
         bind(Action::ToggleOverlay, vec![Chord::key("KeyX")]);
         bind(Action::ToggleTextView, vec![Chord::key("KeyT")]);
         bind(Action::ToggleBrowser, vec![Chord::key("KeyG")]);
+        bind(Action::HoldForStack, vec![Chord::key("F6")]);
+        bind(Action::HoldForTurn, vec![Chord::key("F7")]);
         bind(Action::MulliganKeep, vec![Chord::key("KeyK")]);
         bind(Action::MulliganTake, vec![Chord::key("KeyB")]);
         bind(Action::AnswerYes, vec![Chord::key("KeyY")]);
@@ -360,6 +376,14 @@ impl Keymap {
     ///
     /// Kept only so [`Keymap::migrated`] can recognise a player who never
     /// touched their keys. It is not offered anywhere and nothing binds to it.
+    ///
+    /// Written as the current standard *minus* everything added since, which
+    /// carries one hazard worth naming: every new action has to be removed
+    /// here too, or this stops being the map that actually shipped and the
+    /// migration quietly matches nobody. A test builds the old blob out of
+    /// literal JSON and puts it through [`Preferences::from_json`], so the
+    /// day that is forgotten is the day the suite goes red rather than the
+    /// day a player's keys stop being upgraded.
     fn legacy() -> Self {
         let mut map = Self::standard();
         map.bindings
@@ -367,6 +391,8 @@ impl Keymap {
         map.bindings
             .insert(Action::Confirm, vec![Chord::key("Enter")]);
         map.bindings.remove(&Action::ToggleBrowser);
+        map.bindings.remove(&Action::HoldForStack);
+        map.bindings.remove(&Action::HoldForTurn);
         map
     }
 
@@ -709,6 +735,59 @@ mod tests {
     }
 
     /// A player who never opened the settings screen gets the swap.
+    /// The blob a client actually wrote before any of the migrations below
+    /// existed, spelled out rather than derived.
+    ///
+    /// [`Keymap::legacy`] is built as the current standard minus what has
+    /// been added since, which is only the real thing for as long as every
+    /// addition remembers to subtract itself there. This constant does not
+    /// move, so the day one forgets, `the_shipped_keymap_is_still_recognised`
+    /// fails instead of the migration silently matching nobody.
+    const SHIPPED_KEYMAP: &str = r#"{"keymap":{
+        "primary":[{"key":"Space"}],
+        "confirm":[{"key":"Enter"}],
+        "cancel":[{"key":"Escape"}],
+        "activate-card":[{"key":"KeyE"}],
+        "cursor-left":[{"key":"KeyA"}],
+        "cursor-right":[{"key":"KeyD"}],
+        "cursor-up":[{"key":"KeyW"}],
+        "cursor-down":[{"key":"KeyS"}],
+        "combat-focus-next":[{"key":"KeyC"}],
+        "combat-focus-prev":[{"key":"KeyC","shift":true}],
+        "combat-none":[{"key":"KeyO"}],
+        "next-phase":[{"key":"Tab"}],
+        "next-turn":[{"key":"Tab","shift":true}],
+        "toggle-overlay":[{"key":"KeyX"}],
+        "toggle-text-view":[{"key":"KeyT"}],
+        "mulligan-keep":[{"key":"KeyK"}],
+        "mulligan-take":[{"key":"KeyB"}],
+        "answer-yes":[{"key":"KeyY"}],
+        "answer-no":[{"key":"KeyN"}],
+        "number-up":[{"key":"ArrowUp"},{"key":"ArrowRight"}],
+        "number-down":[{"key":"ArrowDown"},{"key":"ArrowLeft"}],
+        "rail-up":[{"key":"KeyW","shift":true}],
+        "rail-down":[{"key":"KeyS","shift":true}],
+        "focus-next-seat":[{"key":"KeyF"}],
+        "focus-home":[{"key":"KeyH"}]
+    }}"#;
+
+    #[test]
+    fn the_shipped_keymap_is_still_recognised() {
+        assert_eq!(
+            serde_json::from_str::<Preferences>(SHIPPED_KEYMAP)
+                .expect("the literal blob parses")
+                .keymap,
+            Keymap::legacy(),
+            "`Keymap::legacy` has drifted from the map this client shipped: \
+             an action was added to `standard()` without being removed there, \
+             so no real player's keymap will be migrated any more"
+        );
+        assert_eq!(
+            Preferences::from_json(SHIPPED_KEYMAP).keymap,
+            Keymap::standard()
+        );
+    }
+
     #[test]
     fn an_untouched_keymap_is_brought_up_to_the_current_standard() {
         let stored = Preferences {

@@ -252,6 +252,9 @@ pub fn sync_overlay(
     // button whose usual answer is an error in the prompt bar. Concede is
     // always legal and is greyed by nothing — what it has instead is a second
     // press, because there is no undo behind it.
+    if duel.priority_held() {
+        spawn_hold(&mut commands, &fonts, lang, menu_row);
+    }
     let armed = duel.concede_armed;
     for (action, label, enabled) in [
         (
@@ -910,6 +913,54 @@ pub fn sync_overlay(
         );
         commands.entity(root).add_child(tray);
     }
+}
+
+/// The chip that says this seat is not being asked, and the button out of it.
+///
+/// It exists because a hold is the one game state with no other symptom: the
+/// prompt bar is empty precisely *because* the seat is not being asked, which
+/// is exactly what an idle bar looks like. A player who set a hold two turns
+/// ago and forgot would watch the game play itself and have nothing on screen
+/// to blame. So the state is drawn, and the way out of it sits beside the
+/// drawing rather than only on a function key nobody can see.
+fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity) {
+    let chip = commands
+        .spawn((
+            Node {
+                padding: UiRect::axes(px(12), px(6)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::ACCENT),
+            Pickable::IGNORE,
+            children![(
+                Text::new(Phrase::HoldingPriority.text(lang)),
+                tf(fonts, 13.0),
+                TextColor(palette::PANEL),
+            )],
+        ))
+        .id();
+    let release = commands
+        .spawn((
+            MenuButton {
+                action: MenuAction::ReleaseHold,
+            },
+            Node {
+                padding: UiRect::axes(px(12), px(6)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            soft_shadow(),
+            children![(
+                Text::new(Phrase::HoldRelease.text(lang)),
+                tf(fonts, 13.0),
+                TextColor(palette::INK),
+            )],
+        ))
+        .id();
+    commands.entity(row).add_child(chip);
+    commands.entity(row).add_child(release);
 }
 
 /// One arm of the number stepper.

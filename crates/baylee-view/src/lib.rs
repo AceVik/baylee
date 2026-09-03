@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 8;
+pub const VIEW_VERSION: u32 = 9;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -739,6 +739,19 @@ pub struct PlayerView {
     pub active: PlayerId,
     /// Who currently holds priority, when anyone does.
     pub priority: Option<PlayerId>,
+    /// Whether *this* seat has a standing order that is withholding its own
+    /// priority — "let the stack resolve", "not this turn", and so on.
+    ///
+    /// A bool rather than the engine's `PriorityHold`, for two reasons. This
+    /// crate must not depend on the rules kernel, and the client has only two
+    /// questions: whether to light the indicator, and whether the toggle key
+    /// sets a hold or cancels one. Which flavour of hold is running changes
+    /// neither answer.
+    ///
+    /// One seat's own, never another's: a hold is a statement about what its
+    /// owner intends to respond to, and telling the table would hand out
+    /// exactly the read a player is entitled to keep.
+    pub priority_held: bool,
     /// The monarch, if the game has one.
     pub monarch: Option<PlayerId>,
     /// Per-seat public lines, in seat order.
@@ -898,6 +911,7 @@ mod tests {
             step: Step::Main,
             active: PlayerId::new(0),
             priority: Some(PlayerId::new(0)),
+            priority_held: false,
             monarch: None,
             seats: (0..seats)
                 .map(|i| SeatView {

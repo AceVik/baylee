@@ -72,6 +72,7 @@ impl ViewBuilder {
                 step: Step::Main,
                 active: PlayerId::new(0),
                 priority: Some(PlayerId::new(0)),
+                priority_held: false,
                 monarch: None,
                 seats: (0..seats)
                     .map(|i| SeatView {

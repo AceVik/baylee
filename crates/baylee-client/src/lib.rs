@@ -248,6 +248,48 @@ impl Duel {
         self.interaction.as_ref().is_some_and(Interaction::is_mine)
     }
 
+    /// Whether this seat's own standing order is currently withholding its
+    /// priority.
+    ///
+    /// Read off the view rather than remembered here on purpose: the engine
+    /// drops a hold the moment its condition is met, and a client keeping its
+    /// own copy would light an indicator for a hold that expired two
+    /// resolutions ago.
+    #[must_use]
+    pub fn priority_held(&self) -> bool {
+        self.view.as_ref().is_some_and(|v| v.priority_held)
+    }
+
+    /// What the two hold keys send, given which of them was pressed.
+    ///
+    /// One door for both keys and for the prompt bar's button, because the
+    /// toggle rule is the part worth having in one place: a hold that is
+    /// already running is **cancelled** by either key rather than replaced.
+    /// A player who has stopped being asked and cannot remember which key did
+    /// it should not have to guess to get the game back.
+    ///
+    /// `UntilStackEmpty` carries the stack depth this seat can see, and a
+    /// stale view is safe by construction: if something was added since, the
+    /// engine reads a depth above the one sent and cancels the hold on the
+    /// spot — which is exactly right, because somebody just responded to what
+    /// was being let through.
+    ///
+    /// `None` before the first view arrives: there is no game to hold yet.
+    #[must_use]
+    pub fn hold_action(&self, until_turn_ends: bool) -> Option<PlayerAction> {
+        let view = self.view.as_ref()?;
+        let hold = if view.priority_held {
+            baylee_engine::choice::PriorityHold::Always
+        } else if until_turn_ends {
+            baylee_engine::choice::PriorityHold::UntilEndOfTurn { turn: view.turn }
+        } else {
+            baylee_engine::choice::PriorityHold::UntilStackEmpty {
+                depth: u16::try_from(view.stack.len()).unwrap_or(u16::MAX),
+            }
+        };
+        Some(PlayerAction::SetPriorityHold(hold))
+    }
+
     /// Whether the engine would take a draw offer right now.
     ///
     /// `Engine::offer_draw` refuses anything but the offerer's own priority,

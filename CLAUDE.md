@@ -308,7 +308,7 @@ system. Hidden information has no field to leak through: libraries are counts,
 another seat's hand is a count, a face-down permanent's `card` is `None` for
 anyone not entitled to look, and `crates/baylee-gamehost/src/view.rs` has a
 test per sentence of that. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`,
-currently 8) is asserted in gamehost and client tests — bump it on any breaking
+currently 9) is asserted in gamehost and client tests — bump it on any breaking
 view change so a client refuses a host it cannot render.
 
 The print table is the one place that rule was broken, and not through a view:
@@ -353,9 +353,11 @@ interchangeable: `BAYLEE_AGENT_TOKEN` on `/agent/ws`, a per-game engine token
 on `/engine/ws`, a seat token on `/games/{id}/ws`.
 
 Two things moved out of the gateway with the rules. The **decision clock** now
-lives in the engine process, because that is where `awaiting_seat()` and
-`seq()` can be read; it is anchored to the sequence number it was armed at, and
-does not run for a seat with no socket. And one process per game *is* the
+lives in the engine process, because that is where `awaiting_seat()` and the
+session's counters can be read; it is anchored to `decision_seq` — questions
+asked, not frames sent, so an opponent's priority hold or reconnect cannot wind
+it — and does not run for a seat with no socket. And one process per game *is*
+the
 **panic boundary**, so the `catch_unwind` around every rules call is gone.
 
 `docs/protocol.md` ("The gateway runs no rules") is normative, including why a
