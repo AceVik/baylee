@@ -292,6 +292,63 @@ impl LobbyGame {
     }
 }
 
+/// What a caller wants out of the listing.
+///
+/// Every field has a sane absence, so a client that asks for nothing gets the
+/// first page of everything — which is what `GET /lobby/games` did before any
+/// of this existed.
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+pub struct LobbyQuery {
+    /// Free text matched against the table's name and its host's name.
+    #[serde(default)]
+    pub q: String,
+    /// How many rows to skip.
+    #[serde(default)]
+    pub offset: usize,
+    /// How many rows to return. Clamped to [`LobbyQuery::MAX_LIMIT`].
+    #[serde(default)]
+    pub limit: Option<usize>,
+    /// Whether to leave out rooms that are already playing.
+    #[serde(default)]
+    pub waiting_only: bool,
+}
+
+impl LobbyQuery {
+    /// How many rows one page may hold, whatever a caller asks for.
+    ///
+    /// A cap rather than a suggestion: the listing is built by rendering every
+    /// row, and an unbounded `limit` makes one request as expensive as the
+    /// whole lobby is large.
+    pub const MAX_LIMIT: usize = 100;
+    /// How many rows a caller that did not say gets.
+    pub const DEFAULT_LIMIT: usize = 25;
+
+    /// The page size this query actually gets.
+    #[must_use]
+    pub fn page(&self) -> usize {
+        self.limit
+            .unwrap_or(Self::DEFAULT_LIMIT)
+            .clamp(1, Self::MAX_LIMIT)
+    }
+
+    /// Whether a game matches the text being searched for.
+    ///
+    /// Name *and* host, because a player looking for a table knows one or the
+    /// other and rarely both. Case-insensitive on the plain lowercase mapping
+    /// — this is a search box, not a collation.
+    fn matches(&self, game: &LobbyGame, host_name: Option<&str>) -> bool {
+        if self.waiting_only && game.state != LobbyState::Waiting {
+            return false;
+        }
+        if self.q.trim().is_empty() {
+            return true;
+        }
+        let needle = self.q.trim().to_lowercase();
+        game.name.to_lowercase().contains(&needle)
+            || host_name.is_some_and(|h| h.to_lowercase().contains(&needle))
+    }
+}
+
 /// The lobby registry.
 #[derive(Default)]
 pub struct Lobby {
@@ -317,19 +374,80 @@ impl Lobby {
         out
     }
 
-    /// Games visible in the lobby (waiting or playing).
+    /// Games visible in the lobby (waiting or playing), searched and paged.
     ///
     /// `me` is the account asking, so a seat can say whether it is theirs
     /// without the answer having to carry anyone's account id. `names` maps
     /// the ids from [`Lobby::seated_accounts`] to display names: a room is
     /// arranged in the open, and "who is that" is answered with a name.
+    ///
+    /// Returns the page and how many rows matched in total, so a client can
+    /// say "25 of 140" without asking twice.
+    ///
+    /// **The order is fixed and it has to be.** Games live in a `HashMap`, so
+    /// before there were pages the listing came out in whatever order the map
+    /// felt like — which nobody could see, because there was only ever one
+    /// page. Paging that would hand out rows twice and drop others. Rooms
+    /// still waiting come first (they are the ones a player can do something
+    /// about), then the newest, and the id breaks a tie so two rooms opened
+    /// in the same second never swap places between requests.
+    #[must_use]
+    pub fn page_for(
+        &self,
+        me: &str,
+        names: &HashMap<String, String>,
+        query: &LobbyQuery,
+    ) -> (Vec<serde_json::Value>, usize) {
+        let mut matched: Vec<&LobbyGame> = self
+            .games
+            .values()
+            .filter(|g| g.state != LobbyState::Over)
+            .filter(|g| {
+                query.matches(
+                    g,
+                    g.host
+                        .as_ref()
+                        .and_then(|h| names.get(h))
+                        .map(String::as_str),
+                )
+            })
+            .collect();
+        matched.sort_by(|a, b| {
+            let waiting = |g: &LobbyGame| u8::from(g.state != LobbyState::Waiting);
+            waiting(a)
+                .cmp(&waiting(b))
+                .then(b.created_at.cmp(&a.created_at))
+                .then(a.id.cmp(&b.id))
+        });
+        let total = matched.len();
+        let rows = matched
+            .into_iter()
+            .skip(query.offset)
+            .take(query.page())
+            .map(|g| self.row(g, me, names))
+            .collect();
+        (rows, total)
+    }
+
+    /// Every visible game, for a caller that wants no paging at all.
     #[must_use]
     pub fn list_for(&self, me: &str, names: &HashMap<String, String>) -> Vec<serde_json::Value> {
         self.games
             .values()
             .filter(|g| g.state != LobbyState::Over)
-            .map(|g| {
-                serde_json::json!({
+            .map(|g| self.row(g, me, names))
+            .collect()
+    }
+
+    /// One row of the listing.
+    #[expect(
+        clippy::unused_self,
+        reason = "a method so the row shape stays beside the two callers that \
+                  render it, rather than a free function reachable from \
+                  anywhere in the crate"
+    )]
+    fn row(&self, g: &LobbyGame, me: &str, names: &HashMap<String, String>) -> serde_json::Value {
+        serde_json::json!({
                     "id": g.id,
                     "name": g.name,
                     "host": g.host.as_ref().and_then(|h| names.get(h)),
@@ -370,8 +488,6 @@ impl Lobby {
                             "ready": s.ready(),
                         })
                     }).collect::<Vec<_>>(),
-                })
-            })
-            .collect()
+        })
     }
 }

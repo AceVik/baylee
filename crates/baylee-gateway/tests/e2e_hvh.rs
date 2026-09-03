@@ -251,7 +251,10 @@ async fn a_game_without_an_agent_is_refused() {
     // And the table did not survive the failure as a ghost in the lobby.
     let (status, body) = http(gw.port, "GET", "/lobby/games", Some(&token), "");
     assert_eq!(status, 200);
-    assert_eq!(body.trim(), "[]", "a failed game was left in the lobby");
+    assert!(
+        body.contains("\"games\":[]"),
+        "a failed game was left in the lobby: {body}"
+    );
 }
 
 /// An agent is not a player. The control socket takes a shared secret from the

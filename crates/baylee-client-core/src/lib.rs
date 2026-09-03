@@ -62,8 +62,8 @@ pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
 pub use interaction::{CombatFocus, Interaction, Prompt, SelectionOutcome};
 pub use layout::{LaneKind, SeatSlot, TableLayout};
 pub use lobby::{
-    DeckSummary, Field, FieldKind, GameMode, GameSeat, GameSummary, Lobby, LobbyEvent,
-    LobbyRequest, Screen, SeatHandover,
+    DeckSummary, Field, FieldKind, GameListing, GameMode, GameQuery, GameSeat, GameSummary, Lobby,
+    LobbyEvent, LobbyRequest, Screen, SeatHandover,
 };
 pub use prefs::{Action, AutoRule, AutoRules, Chord, Keymap, Preferences};
 

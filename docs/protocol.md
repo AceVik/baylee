@@ -267,7 +267,8 @@ which is what turned this from a curl recipe into a contract:
 | throw one away | `DELETE /decks/{id}` | `204` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
 | a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |
-| tables | `GET /lobby/games` | `[{id, name, host, yours, state, seats:[…]}]` |
+| tables | `GET /lobby/games?q=&offset=&limit=` | `{games:[{id, name, host, yours, state, seats:[…]}], total, offset, limit}` |
+| the same, pushed | `GET /lobby/ws?token=…&q=&offset=&limit=` (websocket) | that page again, on every lobby change |
 | open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open", seats, name}` | `{game_id, seat, seat_token}` |
 | sit down | `POST /lobby/games/{id}/join` `{deck_id, seat?}` | `{game_id, seat, seat_token}` |
 | arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?}` | the seat |
@@ -344,7 +345,25 @@ is checked on every join, which is a different trade. The listing says only
 `"locked": true`.
 
 `GET /lobby/games` describes a room completely, because deciding whether to sit
-down means seeing what is already at the table:
+down means seeing what is already at the table. It answers **one page**:
+
+```json
+{ "games": [ … ], "total": 31, "offset": 8, "limit": 8 }
+```
+
+`q` matches a table's name and its host's display name, case-insensitively and
+anywhere in either; `waiting_only` drops the games already being played;
+`offset` and `limit` (25 by default, 100 at most) cut the page out. `total` is
+what the search matched, not what the page holds — a pager with no idea how
+many there are is a Next button that has to be pressed to find out it does
+nothing.
+
+The **order is fixed and total**: waiting rooms first, then newest first, then
+by id. Games live in a `HashMap`, and paging an unordered collection hands out
+some rows twice and never shows others — which no single page ever looks wrong
+enough to reveal.
+
+One game in that page reads:
 
 ```json
 { "id": "…", "name": "Kitchen table", "host": "viktor", "yours": false,
@@ -406,8 +425,30 @@ already arrived. An
 `"open"` table orders nothing: it holds the seat and waits for a second player,
 and a socket opened against it is accepted and then closed with nothing on it,
 because there is no game yet to describe. The host of an open table has to wait
-for its `state` to turn `"playing"` — there is nothing to push the news on, so
-the lobby re-reads `GET /lobby/games` every two seconds until it does.
+for its `state` to turn `"playing"`, which is what the lobby feed below is for.
+
+### The lobby feed
+
+`GET /lobby/ws?token=<account token>&q=&offset=&limit=&waiting_only=` is a
+websocket carrying **the page that socket asked for**, sent once on connect and
+again on every change to the lobby: a table opened or closed, a chair taken,
+freed, arranged or readied, a room started, a game ended. The token is the
+account bearer token in the query string, because a browser cannot put a header
+on a websocket; an unknown one is a `401` on the upgrade itself.
+
+The payload is the same object `GET /lobby/games` answers, rendered for *this*
+reader — `yours`, `you` and `player` are per-account, so the fan-out is a
+notification, and each socket then renders its own page. A subscriber that
+falls behind is not replayed: every frame is the whole page, so the newest one
+is the only one worth having.
+
+Nothing is sent up the socket. A change of search or page is a **different
+subscription**, so the client closes it and dials again with the new query;
+that keeps the socket's answer and the HTTP route's answer the same question,
+asked over two transports.
+
+`GET /lobby/games` remains, and remains the fallback: a client with no socket
+polls it, which is what the two-second re-read used to be for everybody.
 
 ## The opening payload, and a client that is not the server
 

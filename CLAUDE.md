@@ -405,8 +405,18 @@ room; the listing carries `"locked"` and never the password.
 
 `GET /lobby/games` describes the whole arrangement in display names, never
 account ids, with `you`/`yours` answering "is that me" and `startable` saying
-whether the host's button would do anything. `docs/protocol.md` §Rooms is
-normative.
+whether the host's button would do anything. It answers **one page** —
+`{games, total, offset, limit}`, searched with `q` over a table's name and its
+host's — in a **fixed total order** (waiting first, then newest, then id),
+because games live in a `HashMap` and paging an unordered collection hands out
+some rows twice and never shows others.
+
+`GET /lobby/ws?token=…&q=…&offset=…&limit=…` is the same page, pushed: sent on
+connect and again on every lobby change, rendered per socket because
+`yours`/`you` are per account. The client's search box and pager are part of
+the subscription, so changing either re-dials; a client with no socket falls
+back to polling the HTTP route. `docs/protocol.md` §Rooms and §"The lobby
+feed" are normative.
 
 The deck builder is `Screen::Build`, and the same split once more: all of it
 decides in `crates/baylee-client-core/src/deckbuilder.rs`. Two things fix its
@@ -465,8 +475,11 @@ join both order an engine before answering, so the socket can be opened at once
 and simply waits (up to 30 s) for that engine to attach. An **open** table
 orders nothing — it holds a seat whose game does not exist, so a socket opened
 against it is accepted and closed again with nothing on it. The lobby stays put
-and re-reads `GET /lobby/games` until that table's state turns `"playing"`.
-Nothing pushes that news; there is no socket to push it on.
+until that table's state turns `"playing"` — which the lobby feed pushes, the
+table's state being a lobby change like any other. `lobby/feed.rs` holds that
+socket; the two-second re-read that used to be the only way to learn it is
+still there behind `Feed::live()`, for a gateway that has no `/lobby/ws` or a
+socket that could not be opened.
 
 A card is a **slab**, not a decal: a rounded face with a thin wall around its
 edge (whose UVs borrow the face's, so the edge is the card's own border

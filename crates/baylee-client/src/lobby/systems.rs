@@ -72,18 +72,22 @@ pub(super) fn poll(
 /// How often a table of ours that is open is checked for an opponent.
 const WATCH_SECS: f32 = 2.0;
 
-/// Re-reads the table list while we are holding a seat nobody can use yet.
+/// Re-reads the table list while we are holding a seat nobody can use yet
+/// **and** nothing is pushing the list.
 ///
-/// The gateway has nothing to push here — the seat exists but the game does
-/// not, so there is no socket to be told on. Two seconds is well under the
-/// time it takes a person to notice, and it stops the moment the wait ends.
+/// The lobby feed covers this now: an open table turns `"playing"` the moment
+/// somebody joins it, and that is a lobby change like any other. What is left
+/// here is the fallback for a gateway too old to have `/lobby/ws`, or a socket
+/// that could not be opened — the wait is for another person, so ending it
+/// two seconds late is far better than not ending it.
 pub(super) fn watch(
     time: Res<Time>,
     mut since: Local<f32>,
     mut state: ResMut<LobbyState>,
+    feed: Res<super::feed::Feed>,
     mailbox: Res<Mailbox>,
 ) {
-    if state.lobby.awaiting().is_none() {
+    if feed.live() || state.lobby.awaiting().is_none() {
         *since = 0.0;
         return;
     }
@@ -141,7 +145,10 @@ pub(super) fn softkeys(
         return;
     }
     *build_epoch = state.lobby.builder().focus_epoch();
-    if !matches!(state.lobby.screen(), Screen::SignIn { .. }) {
+    // The table screen has two fields of its own — the search box and the
+    // room password — so it types like the form does. Everything else has
+    // none, and holding a keyboard open over it covers half a phone.
+    if !matches!(state.lobby.screen(), Screen::SignIn { .. } | Screen::Table) {
         keys.close();
         *epoch = state.lobby.focus_epoch();
         return;
@@ -151,8 +158,16 @@ pub(super) fn softkeys(
     // watching which field is focused.
     if *epoch != state.lobby.focus_epoch() {
         *epoch = state.lobby.focus_epoch();
-        let field = state.lobby.focus();
-        keys.open(field.kind(), state.lobby.field(field));
+        if state.lobby.typing_here() {
+            let field = state.lobby.focus();
+            keys.open(field.kind(), state.lobby.field(field));
+        } else {
+            keys.close();
+        }
+        return;
+    }
+    if !state.lobby.typing_here() {
+        keys.drain();
         return;
     }
     for key in keys.drain() {
@@ -162,7 +177,13 @@ pub(super) fn softkeys(
                 state.lobby.set_field(field, &value);
             }
             SoftKey::Submit => {
-                let request = state.lobby.submit();
+                let request = if matches!(state.lobby.screen(), Screen::Table) {
+                    // "Done" on the table screen means the search that was
+                    // just typed; there is no form here to send.
+                    state.lobby.search_again()
+                } else {
+                    state.lobby.submit()
+                };
                 dispatch(&state, &mailbox, request);
             }
         }
@@ -251,7 +272,10 @@ pub(super) fn keyboard(
         }
         return;
     }
-    if !matches!(state.lobby.screen(), Screen::SignIn { .. }) {
+    // The table screen has two fields of its own — the search box and the
+    // room password — and before this it had no way to type into either.
+    let table = matches!(state.lobby.screen(), Screen::Table);
+    if !matches!(state.lobby.screen(), Screen::SignIn { .. }) && !table {
         keys.clear();
         return;
     }
@@ -259,11 +283,20 @@ pub(super) fn keyboard(
         if !key.state.is_pressed() {
             continue;
         }
+        // Tab always moves the caret; everything else needs it to be in a
+        // field this screen is drawing.
+        if !matches!(key.logical_key, Key::Tab) && !state.lobby.typing_here() {
+            continue;
+        }
         match &key.logical_key {
             Key::Backspace => state.lobby.backspace(),
             Key::Tab => state.lobby.cycle_focus(),
             Key::Enter => {
-                let request = state.lobby.submit();
+                let request = if table {
+                    state.lobby.search_again()
+                } else {
+                    state.lobby.submit()
+                };
                 dispatch(&state, &mailbox, request);
             }
             // Everything else is text or nothing. `type_char` drops the
@@ -364,6 +397,14 @@ pub(super) fn clicks(
             Press::SignOut => state.lobby.sign_out(),
             Press::Refresh => {
                 let request = state.lobby.refresh();
+                dispatch(&state, &mailbox, request);
+            }
+            Press::Search => {
+                let request = state.lobby.search_again();
+                dispatch(&state, &mailbox, request);
+            }
+            Press::Page(forwards) => {
+                let request = state.lobby.page(forwards);
                 dispatch(&state, &mailbox, request);
             }
             Press::StarterDeck => {
@@ -737,6 +778,10 @@ pub(crate) enum Press {
     SignOut,
     /// Re-read decks and tables.
     Refresh,
+    /// Read the table list again for whatever the search box says.
+    Search,
+    /// Step one page through the table list. `true` is forwards.
+    Page(bool),
     /// Save the starter deck.
     StarterDeck,
     /// Pick a deck by its index in the list.

@@ -109,8 +109,8 @@ pub(super) fn build(
             },
             Expect::DeckDeleted,
         ),
-        LobbyRequest::ListGames => (
-            ehttp::Request::get(format!("{base}/lobby/games")),
+        LobbyRequest::ListGames(query) => (
+            ehttp::Request::get(format!("{base}/lobby/games?{}", params(&query))),
             Expect::Games,
         ),
         LobbyRequest::CreateGame {
@@ -166,32 +166,32 @@ pub(super) fn build(
                     "deck_id": deck_id,
                 }),
             ),
-            // Arranging a chair answers with the listing, so the room the
-            // player is looking at redraws without a second round trip.
-            Expect::Games,
+            // The answer says what the whole lobby looks like; this client
+            // is reading one page of it, so what it takes from the reply is
+            // that something moved.
+            Expect::Moved,
         ),
-        // All three answer with the listing, so the room the player is
-        // looking at redraws without a second round trip.
+        // All three answer the same way, and for the same reason.
         LobbyRequest::SetReady { game_id, ready } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/ready"),
                 &serde_json::json!({ "ready": ready }),
             ),
-            Expect::Games,
+            Expect::Moved,
         ),
         LobbyRequest::StartGame { game_id } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/start"),
                 &serde_json::json!({}),
             ),
-            Expect::Games,
+            Expect::Moved,
         ),
         LobbyRequest::HandOver { game_id, seat } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/host"),
                 &serde_json::json!({ "seat": seat }),
             ),
-            Expect::Games,
+            Expect::Moved,
         ),
         LobbyRequest::LeaveGame { game_id } => (
             json_post(
@@ -343,6 +343,8 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
             .map_or_else(|_| unreadable("the deck list"), LobbyEvent::Decks),
         Expect::Games => serde_json::from_str(body)
             .map_or_else(|_| unreadable("the game list"), LobbyEvent::Games),
+        // The body is the whole lobby, which is not what is being read.
+        Expect::Moved => LobbyEvent::Moved,
         Expect::Seat => {
             serde_json::from_str(body).map_or_else(|_| unreadable("the seat"), LobbyEvent::Seated)
         }
@@ -350,6 +352,43 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
         // the table looks like without us.
         Expect::Left => LobbyEvent::Left,
     }
+}
+
+/// A table query as a query string, ready to append to a URL.
+///
+/// Shared with the push socket, which asks for the same page over a different
+/// transport — the search a player typed has to reach both or the socket
+/// starts answering a different question than the button did.
+pub(super) fn params(query: &GameQuery) -> String {
+    format!(
+        "q={}&offset={}&limit={}",
+        escape(&query.q),
+        query.offset,
+        query.limit
+    )
+}
+
+/// Percent-encodes one query-string value.
+///
+/// Small on purpose: a table search is a person's typing, so the set that has
+/// to survive is "anything at all", and the set that must not pass through is
+/// everything with a meaning in a URL.
+pub(super) fn escape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(char::from(*byte));
+            }
+            _ => {
+                const HEX: &[u8; 16] = b"0123456789ABCDEF";
+                out.push('%');
+                out.push(char::from(HEX[usize::from(byte >> 4)]));
+                out.push(char::from(HEX[usize::from(byte & 0x0f)]));
+            }
+        }
+    }
+    out
 }
 
 /// The message for a body that arrived but made no sense.

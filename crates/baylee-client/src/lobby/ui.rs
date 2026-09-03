@@ -737,7 +737,31 @@ fn table(
         let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
         commands.entity(head_row).add_child(gap);
     }
+    // The search box sits with the buttons rather than over the list,
+    // because on a phone the list is the screen and a bar above it is the
+    // only place a control can be without pushing a table off the bottom.
+    let hunt = commands
+        .spawn((
+            Node {
+                width: px(metrics.tap * 4.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let box_ = text_field(
+        commands,
+        fonts,
+        metrics,
+        "SEARCH",
+        lobby.field(Field::Search),
+        lobby.focus() == Field::Search,
+        Field::Search,
+    );
+    commands.entity(hunt).add_child(box_);
+    commands.entity(head_row).add_child(hunt);
     for (label, press, tone) in [
+        ("Search", Press::Search, palette::PANEL_LIT),
         ("Refresh", Press::Refresh, palette::PANEL_LIT),
         ("Play the house", Press::Host(GameMode::Ai), palette::ACCENT),
     ] {
@@ -791,7 +815,15 @@ fn table(
     commands.entity(games).add_child(head_row);
 
     if lobby.games().is_empty() {
-        let empty = note(commands, fonts, metrics, "no tables are open — start one");
+        // An empty lobby and an empty search are different news: one says
+        // open a table, the other says the tables are elsewhere.
+        let hunt = lobby.field(Field::Search).trim();
+        let said = if hunt.is_empty() {
+            "no tables are open — start one".to_string()
+        } else {
+            format!("no table matches \u{201c}{hunt}\u{201d}")
+        };
+        let empty = note(commands, fonts, metrics, &said);
         commands.entity(games).add_child(empty);
     }
     for (index, game) in lobby.games().iter().enumerate() {
@@ -907,6 +939,47 @@ fn table(
             let chairs = seat_rows(commands, fonts, metrics, game, index, lobby.busy());
             commands.entity(games).add_child(chairs);
         }
+    }
+    // The pager, and only when there is more than one page. A lobby with
+    // four tables in it should not be asked to explain what page it is on.
+    if lobby.total() > lobby.games().len() {
+        let bar = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    align_items: AlignItems::Center,
+                    column_gap: px(metrics.gap),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let first = lobby.offset() + 1;
+        let last = lobby.offset() + lobby.games().len();
+        let count = note(
+            commands,
+            fonts,
+            metrics,
+            &format!("{first}–{last} of {}", lobby.total()),
+        );
+        commands.entity(bar).add_child(count);
+        for (label, forwards, live) in [
+            ("\u{2039} Back", false, lobby.offset() > 0),
+            ("More \u{203a}", true, lobby.more()),
+        ] {
+            let b = button(
+                commands,
+                fonts,
+                metrics,
+                label,
+                Press::Page(forwards),
+                palette::PANEL_LIT,
+                live && !lobby.busy(),
+            );
+            commands.entity(bar).add_child(b);
+        }
+        commands.entity(games).add_child(bar);
     }
     commands.entity(body).add_child(games);
 }

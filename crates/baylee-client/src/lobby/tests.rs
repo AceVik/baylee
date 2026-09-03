@@ -5,7 +5,9 @@
 use super::*;
 #[allow(clippy::wildcard_imports)]
 use super::{http::*, preview::*, systems::*, ui::*};
-use baylee_client_core::lobby::{DeckSummary, GameSeat, GameSummary, SeatHandover};
+use baylee_client_core::lobby::{
+    DeckSummary, GameListing, GameQuery, GameSeat, GameSummary, SeatHandover,
+};
 
 fn body(request: &ehttp::Request) -> serde_json::Value {
     serde_json::from_slice(&request.body).expect("a JSON body")
@@ -80,7 +82,15 @@ fn every_request_hits_the_route_the_gateway_serves() {
             "DELETE",
             "http://gw/decks/d1",
         ),
-        (LobbyRequest::ListGames, "GET", "http://gw/lobby/games"),
+        (
+            LobbyRequest::ListGames(GameQuery {
+                q: "a room".to_string(),
+                offset: 8,
+                limit: 8,
+            }),
+            "GET",
+            "http://gw/lobby/games?q=a%20room&offset=8&limit=8",
+        ),
         (
             LobbyRequest::CreateGame {
                 deck_id: "d1".to_string(),
@@ -211,8 +221,8 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
         serde_json::json!({ "kind": "ai", "ai": "sharp", "deck_id": null })
     );
     assert!(
-        matches!(expect, Expect::Games),
-        "the answer redraws the room"
+        matches!(expect, Expect::Moved),
+        "the room moved, so the page being read is asked for again"
     );
 }
 
@@ -222,6 +232,32 @@ fn a_trailing_slash_on_the_gateway_does_not_double_up() {
     // in and a `//decks` is a 404 with no explanation.
     let (built, _) = build("http://gw/", None, "en", LobbyRequest::ListDecks);
     assert!(!built.url.contains("//decks"), "{}", built.url);
+}
+
+/// A search is a person's typing, and a person types `&`, `#` and spaces.
+/// Any of them straight into a URL is a query the gateway reads as something
+/// else — or, with a token, as somebody else's parameters.
+#[test]
+fn a_typed_search_survives_the_query_string() {
+    let query = GameQuery {
+        q: "tom & jerry #2".to_string(),
+        offset: 16,
+        limit: 8,
+    };
+    assert_eq!(
+        super::http::params(&query),
+        "q=tom%20%26%20jerry%20%232&offset=16&limit=8"
+    );
+    // The socket and the button ask the same question, in the same words:
+    // the feed builds its URL out of this too.
+    let (built, _) = build("http://gw", None, "en", LobbyRequest::ListGames(query));
+    assert!(
+        built
+            .url
+            .ends_with("q=tom%20%26%20jerry%20%232&offset=16&limit=8"),
+        "{}",
+        built.url
+    );
 }
 
 #[test]
@@ -234,7 +270,12 @@ fn only_a_signed_in_lobby_sends_a_token() {
 
 #[test]
 fn a_json_body_says_so() {
-    let (built, _) = build("http://gw", None, "en", LobbyRequest::ListGames);
+    let (built, _) = build(
+        "http://gw",
+        None,
+        "en",
+        LobbyRequest::ListGames(GameQuery::default()),
+    );
     assert!(built.body.is_empty(), "a GET carries none");
     let (built, _) = build(
         "http://gw",
@@ -446,23 +487,25 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             sideboard: 0,
             commander: None,
         }]));
-        state.lobby.apply(LobbyEvent::Games(vec![GameSummary {
-            id: "0123456789abcdef".to_string(),
-            state: "waiting".to_string(),
-            seats: vec![
-                GameSeat {
-                    seat: 0,
-                    taken: true,
-                    ..GameSeat::default()
-                },
-                GameSeat {
-                    seat: 1,
-                    taken: false,
-                    ..GameSeat::default()
-                },
-            ],
-            ..GameSummary::default()
-        }]));
+        state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "0123456789abcdef".to_string(),
+                state: "waiting".to_string(),
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        ..GameSeat::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: false,
+                        ..GameSeat::default()
+                    },
+                ],
+                ..GameSummary::default()
+            }])));
     }
     app.update();
     let found = presses(&mut app);
@@ -504,7 +547,7 @@ fn a_table_we_are_waiting_at_is_announced_and_not_sat_at() {
             sideboard: 0,
             commander: None,
         }]));
-        state.lobby.apply(LobbyEvent::Games(vec![]));
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
         state.lobby.host(GameMode::Open);
         state.lobby.apply(LobbyEvent::Seated(SeatHandover {
             game_id: "0123456789".to_string(),
@@ -545,7 +588,7 @@ fn a_reply_that_lands_after_the_seat_was_taken_does_not_dial_again() {
         .0
         .lock()
         .expect("mailbox")
-        .push(Reply::Event(LobbyEvent::Games(vec![])));
+        .push(Reply::Event(LobbyEvent::Games(GameListing::default())));
     app.update();
     assert!(
         matches!(
@@ -659,23 +702,25 @@ fn a_table_that_is_full_offers_no_join() {
         state.lobby.apply(LobbyEvent::LoggedIn {
             token: "tok".to_string(),
         });
-        state.lobby.apply(LobbyEvent::Games(vec![GameSummary {
-            id: "g".to_string(),
-            state: "playing".to_string(),
-            seats: vec![
-                GameSeat {
-                    seat: 0,
-                    taken: true,
-                    ..GameSeat::default()
-                },
-                GameSeat {
-                    seat: 1,
-                    taken: true,
-                    ..GameSeat::default()
-                },
-            ],
-            ..GameSummary::default()
-        }]));
+        state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "g".to_string(),
+                state: "playing".to_string(),
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        ..GameSeat::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: true,
+                        ..GameSeat::default()
+                    },
+                ],
+                ..GameSummary::default()
+            }])));
     }
     app.update();
     assert!(!presses(&mut app).contains(&Press::Join(0)));

@@ -51,6 +51,14 @@ struct AppState {
     /// a game whose agent went away is a game whose engine either reports its
     /// own end or stops existing.
     agents: Mutex<engine::Agents>,
+    /// Fires whenever anything in the lobby changed, so `/lobby/ws` can push
+    /// instead of every client asking every two seconds.
+    ///
+    /// It carries no payload on purpose. What a change *means* differs per
+    /// account — whose room it is, which chair is theirs, what they searched
+    /// for — so the socket re-renders the listing for its own reader rather
+    /// than trying to broadcast one answer to everybody.
+    lobby_changed: tokio::sync::broadcast::Sender<()>,
     /// The shared secret an agent proves itself with (`BAYLEE_AGENT_TOKEN`).
     ///
     /// Without one no agent may connect, and therefore no game can start: an
@@ -74,6 +82,16 @@ impl AppState {
     /// Ask the background writer to persist the store (cheap, debounced).
     fn request_save(&self) {
         let _ = self.save_tx.send(());
+    }
+
+    /// Tell every open `/lobby/ws` that the lobby moved.
+    ///
+    /// Deliberately fire-and-forget and deliberately not inside the lobby
+    /// lock: a send that nobody is listening to is an error this does not
+    /// care about, and holding a mutex while waking sockets is how a lobby
+    /// route ends up waiting on a slow client.
+    pub(crate) fn lobby_moved(&self) {
+        let _ = self.lobby_changed.send(());
     }
 }
 
@@ -102,6 +120,10 @@ async fn main() {
         store: Mutex::new(Store::load(&store_path)),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         lobby: Mutex::new(Lobby::default()),
+        // Small: a receiver that falls this far behind is one whose socket is
+        // not draining, and the lag is handled by sending it the current
+        // listing rather than by replaying what it missed.
+        lobby_changed: tokio::sync::broadcast::channel(16).0,
         agents: Mutex::new(engine::Agents::default()),
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
@@ -140,6 +162,7 @@ async fn main() {
         .route("/lobby/games/{id}/start", post(start_room))
         .route("/lobby/games/{id}/host", post(hand_over))
         .route("/lobby/games/{id}/leave", post(leave_game))
+        .route("/lobby/ws", get(lobby_ws))
         .route("/games/{id}/ws", get(game_ws))
         // The control and engine planes. Neither carries a player's traffic
         // and neither accepts a player's token; see `engine.rs`.
@@ -809,11 +832,38 @@ async fn delete_deck(
 
 // ------------------------------------------------------------------ lobby
 
-/// The lobby listing as one account sees it.
+/// The lobby listing as one account sees it, whole.
+///
+/// What the mutating routes answer with: a player who just arranged a chair
+/// is looking at one room, not at a page of the lobby, and handing them back
+/// a page would make the room they are in vanish from their own screen if it
+/// happened to fall off the end of it.
+fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
+    let names = seated_names(state);
+    let lobby = state.lobby.lock();
+    serde_json::json!({
+        "games": lobby.list_for(account_id, &names),
+    })
+}
+
+/// One page of the listing, searched and counted.
+fn listing_page(state: &Shared, account_id: &str, query: &lobby::LobbyQuery) -> serde_json::Value {
+    let names = seated_names(state);
+    let lobby = state.lobby.lock();
+    let (games, total) = lobby.page_for(account_id, &names, query);
+    serde_json::json!({
+        "games": games,
+        "total": total,
+        "offset": query.offset,
+        "limit": query.page(),
+    })
+}
+
+/// Display names for every account sitting at a visible table.
 ///
 /// Two locks, always in this order — store first, then lobby. Every other
 /// path that needs both takes them the same way round.
-fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
+fn seated_names(state: &Shared) -> std::collections::HashMap<String, String> {
     let wanted = state.lobby.lock().seated_accounts();
     let names: std::collections::HashMap<String, String> = {
         let store = state.store.lock();
@@ -827,16 +877,17 @@ fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
             })
             .collect()
     };
-    let lobby = state.lobby.lock();
-    serde_json::json!(lobby.list_for(account_id, &names))
+    names
 }
 
+/// The lobby, searched and paged.
 async fn list_games(
     State(state): State<Shared>,
     headers: HeaderMap,
+    Query(query): Query<lobby::LobbyQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers)?;
-    Ok(Json(listing(&state, &account_id)))
+    Ok(Json(listing_page(&state, &account_id, &query)))
 }
 #[derive(Deserialize)]
 struct CreateGameBody {
@@ -1015,6 +1066,7 @@ async fn create_game(
             tracing::error!(game_id, reason, "could not start a game");
             return Err(err(StatusCode::SERVICE_UNAVAILABLE, "no engine available"));
         }
+        state.lobby_moved();
         return Ok(Json(serde_json::json!({
             "game_id": game_id,
             "seat": 0,
@@ -1046,6 +1098,7 @@ async fn create_game(
         }
         lobby.games.insert(game_id.clone(), game);
     }
+    state.lobby_moved();
     Ok(Json(serde_json::json!({
         "game_id": game_id,
         "seat": 0,
@@ -1121,6 +1174,7 @@ async fn join_game(
         chair.joined_seq = Some(seq);
         chair.seat
     };
+    state.lobby_moved();
     Ok(Json(serde_json::json!({
         "game_id": id,
         "seat": seat,
@@ -1243,6 +1297,7 @@ async fn set_seat(
             chair.said_ready = false;
         }
     }
+    state.lobby_moved();
     Ok(Json(listing(&state, &account_id)))
 }
 
@@ -1288,6 +1343,7 @@ async fn set_ready(
         }
         chair.said_ready = body.ready;
     }
+    state.lobby_moved();
     Ok(Json(listing(&state, &account_id)))
 }
 
@@ -1319,6 +1375,7 @@ async fn start_room(
     if !try_start(&state, &id)? {
         return Err(err(StatusCode::CONFLICT, "the room is no longer ready"));
     }
+    state.lobby_moved();
     Ok(Json(listing(&state, &account_id)))
 }
 
@@ -1361,6 +1418,7 @@ async fn hand_over(
         };
         game.host = Some(new_host);
     }
+    state.lobby_moved();
     Ok(Json(listing(&state, &account_id)))
 }
 
@@ -1394,6 +1452,8 @@ async fn leave_game(
     if game.hosted_by(&account_id) && !game.hand_over_host() {
         game.finish(auth::now_secs());
     }
+    drop(lobby);
+    state.lobby_moved();
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1553,6 +1613,68 @@ fn standing_for_seat(state: &Shared, game_id: &str, seat: usize) -> Vec<u8> {
 #[derive(Deserialize)]
 struct WsParams {
     token: String,
+}
+
+/// What `/lobby/ws` is opened with: an account token, and the same search a
+/// `GET /lobby/games` would carry.
+#[derive(Deserialize)]
+struct LobbyWsParams {
+    /// The account bearer token.
+    ///
+    /// In the query string rather than a header because a browser's
+    /// `WebSocket` cannot set one — the same reason the seat socket does it,
+    /// and the same trade: a URL is likelier to be logged, which is why this
+    /// is the account token and not something longer-lived.
+    token: String,
+    /// The page and search this reader wants, flattened so the socket URL and
+    /// the HTTP route take the identical parameters.
+    #[serde(flatten)]
+    query: lobby::LobbyQuery,
+}
+
+/// The lobby's push channel.
+///
+/// The listing used to be re-read every two seconds by every client sitting
+/// in the lobby, because nothing could tell them a chair had moved. This can:
+/// it sends the listing on connect and again whenever anything in the lobby
+/// changes, rendered for *this* reader with *their* search.
+async fn lobby_ws(
+    State(state): State<Shared>,
+    Query(params): Query<LobbyWsParams>,
+    ws: WebSocketUpgrade,
+) -> Result<axum::response::Response, (StatusCode, Json<ErrorBody>)> {
+    let account_id = {
+        let mut store = state.store.lock();
+        store
+            .resolve_token(&params.token, auth::now_secs())
+            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?
+    };
+    Ok(ws.on_upgrade(move |socket| run_lobby_socket(state, account_id, params.query, socket)))
+}
+
+/// Pushes the listing to one reader until they go away.
+async fn run_lobby_socket(
+    state: Shared,
+    account_id: String,
+    query: lobby::LobbyQuery,
+    mut socket: WebSocket,
+) {
+    // Subscribed before the first send, so a change that lands while the
+    // opening listing is being rendered is not lost between the two.
+    let mut changed = state.lobby_changed.subscribe();
+    loop {
+        let payload = listing_page(&state, &account_id, &query).to_string();
+        if socket.send(Message::Text(payload.into())).await.is_err() {
+            return;
+        }
+        // A reader that fell behind is sent the state of the world, not the
+        // history it missed: the payload is the whole listing every time, so
+        // one late send says everything the skipped ones would have.
+        match changed.recv().await {
+            Ok(()) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+        }
+    }
 }
 
 async fn game_ws(

@@ -397,13 +397,33 @@ it no longer takes the table with it when the person standing up is the host.
 
 Two buttons on the table's own row, because they are two different claims:
 **Ready** is this player saying so and every player has one, **Start** is the
-host's and is greyed until the listing says `startable`. The lobby finds out
-that a room has started the way it always has, by re-reading the list.
+host's and is greyed until the listing says `startable`.
+
+**The list arrives by itself.** `lobby/feed.rs` holds a websocket to
+`/lobby/ws` carrying the page this client is reading, re-sent whenever anything
+in the lobby moves — a chair taken, a room started, a game over. It is opened
+for the *query*, not just the account, so typing in the search box or stepping
+a page closes it and dials again; that is also why the URL is built from the
+same `GameQuery` the HTTP route uses. A socket that could not be opened is
+retried every four seconds, and `Feed::live()` is what the old two-second poll
+now waits on: it runs only while nothing is pushing.
+
+**SEARCH** matches a table's name and its host's, and **‹ Back / More ›**
+appear only when there is more than one page — a lobby with four tables in it
+should not have to explain what page it is on. Both are sent to the gateway
+rather than filtered here: the client holds one page, not the lobby.
 
 One box, two uses: **ROOM PASSWORD** locks a room as it is opened and is what
 a locked one is joined with. Never two boxes — they are never both wanted at
 once — and it is spent on the next open or join and then cleared, because a
 password left lying in a text box is the next room's password by accident.
+
+Both boxes on this screen are typed into for the first time: text entry used to
+be the sign-in form's alone, so the room password box could be focused and not
+filled. Tab rings between the two, Enter runs the search, and `typing_here()`
+is what stops a keystroke landing in a field the screen on show does not draw —
+the caret survives a change of screen, and without that guard a password ends
+up half-typed into a search box.
 
 The seat rows are drawn from the listing verbatim, which is why they carry no
 account ids — the client is shown display names and a `you` flag, and has
@@ -412,8 +432,9 @@ nothing else to leak.
 Hosting an open table is the one asymmetric case. A game against the house and
 a join are both playable the moment the gateway answers; an open table holds a
 seat whose game does not exist yet, so the lobby keeps the table screen up with
-a banner and re-reads the game list until somebody sits down opposite. Opening
-the socket earlier would connect and close again with nothing on it.
+a banner until somebody sits down opposite — which reaches it on the feed, the
+table turning `"playing"` being a lobby change like any other. Opening the seat
+socket earlier would connect and close again with nothing on it.
 
 The deck list offers *new*, *edit* and *delete*, all of which open or act on
 the builder below. Two buttons stay because nothing else does their job: "add

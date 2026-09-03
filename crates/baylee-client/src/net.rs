@@ -60,18 +60,27 @@ pub struct SeatTicket {
     pub seat_token: String,
 }
 
+/// A gateway base URL as a websocket URL of the same host.
+///
+/// Every socket this client opens against the gateway goes through here, so a
+/// lobby feed and a seat cannot disagree about what `https` means.
+#[must_use]
+pub(crate) fn ws_base(gateway: &str) -> String {
+    let base = gateway.trim_end_matches('/');
+    match base.split_once("://") {
+        Some(("https", rest)) => format!("wss://{rest}"),
+        Some(("http", rest)) => format!("ws://{rest}"),
+        // Already a websocket URL, or something the socket will refuse on
+        // its own. Passing it through beats guessing at it.
+        _ => base.to_string(),
+    }
+}
+
 impl SeatTicket {
     /// The websocket URL this ticket opens.
     #[must_use]
     pub fn socket_url(&self) -> String {
-        let base = self.gateway.trim_end_matches('/');
-        let base = match base.split_once("://") {
-            Some(("https", rest)) => format!("wss://{rest}"),
-            Some(("http", rest)) => format!("ws://{rest}"),
-            // Already a websocket URL, or something the socket will refuse on
-            // its own. Passing it through beats guessing at it.
-            _ => base.to_string(),
-        };
+        let base = ws_base(&self.gateway);
         format!("{base}/games/{}/ws?token={}", self.game_id, self.seat_token)
     }
 
@@ -153,20 +162,20 @@ pub(crate) fn query_value(query: &str, key: &str) -> Option<String> {
 /// than corrupting anything, and on wasm there is no other thread to touch it
 /// from. Natively the sender is already a channel, so nothing is wrapped.
 #[cfg(not(target_arch = "wasm32"))]
-type SocketSender = ewebsock::WsSender;
+pub(crate) type SocketSender = ewebsock::WsSender;
 /// See the native definition above.
 #[cfg(target_arch = "wasm32")]
-type SocketSender = send_wrapper::SendWrapper<ewebsock::WsSender>;
+pub(crate) type SocketSender = send_wrapper::SendWrapper<ewebsock::WsSender>;
 
 /// Wraps a fresh sender for this platform.
 #[cfg(not(target_arch = "wasm32"))]
-fn wrap_sender(sender: ewebsock::WsSender) -> SocketSender {
+pub(crate) fn wrap_sender(sender: ewebsock::WsSender) -> SocketSender {
     sender
 }
 
 /// See the native definition above.
 #[cfg(target_arch = "wasm32")]
-fn wrap_sender(sender: ewebsock::WsSender) -> SocketSender {
+pub(crate) fn wrap_sender(sender: ewebsock::WsSender) -> SocketSender {
     send_wrapper::SendWrapper::new(sender)
 }
 
