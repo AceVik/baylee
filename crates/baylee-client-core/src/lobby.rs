@@ -12,6 +12,7 @@
 //! request is not it.
 
 use crate::deckbuilder::DeckBuilder;
+use crate::i18n::{Lang, Phrase};
 use serde::{Deserialize, Serialize};
 
 /// Which screen the lobby is showing.
@@ -546,6 +547,15 @@ pub struct Lobby {
     /// already in. A shell that has to *do* something when a field is picked —
     /// raise a keyboard, say — cannot tell that from the field alone.
     focus_epoch: u64,
+    /// The language everything this lobby says is said in.
+    ///
+    /// Held here rather than passed to each method because the status line is
+    /// written *at* the moment something happens, and the shell that renders
+    /// it a frame later has no idea what was meant. A line already on screen
+    /// is not re-translated when the language changes: it is one transient
+    /// sentence about something that has already finished, and the next one
+    /// arrives in the new language.
+    lang: crate::i18n::Lang,
     /// A table of ours that is open and has nobody in the other chair yet.
     awaiting: Option<SeatHandover>,
     /// What the seat now being granted was asked for.
@@ -670,8 +680,35 @@ impl Lobby {
     }
 
     /// Says something to the player without touching anything else.
+    ///
+    /// Words the *gateway* chose come through here: it is the gateway that
+    /// knows why it said no, and translating its refusals means sending a
+    /// code beside the prose, which is a protocol change and not this.
     pub fn say(&mut self, message: impl Into<String>) {
         self.status = message.into();
+    }
+
+    /// Says one of the client's own sentences, in the language it is set to.
+    pub(crate) fn note(&mut self, phrase: Phrase) {
+        self.status = phrase.text(self.lang).to_string();
+    }
+
+    /// The same, for the shell — which has its own sentences to say and no
+    /// business knowing which language this lobby is in.
+    pub fn tell(&mut self, phrase: Phrase, args: &[&str]) {
+        self.status = phrase.fill(self.lang, args);
+    }
+
+    /// The language this lobby speaks.
+    #[must_use]
+    pub fn lang(&self) -> Lang {
+        self.lang
+    }
+
+    /// Changes it. The shell does this when the setting is read at startup
+    /// and whenever the player picks another language.
+    pub fn set_lang(&mut self, lang: Lang) {
+        self.lang = lang;
     }
 
     /// Puts the caret in a field.
@@ -773,7 +810,7 @@ impl Lobby {
                 self.focus_epoch += 1;
             }
         } else {
-            self.status = "this gateway is not taking new accounts".to_string();
+            self.note(Phrase::NoSignUps);
         }
     }
 
@@ -786,23 +823,23 @@ impl Lobby {
             return None;
         }
         if self.email.trim().is_empty() || self.password.is_empty() {
-            self.status = "an e-mail and a password, please".to_string();
+            self.note(Phrase::NeedEmailAndPassword);
             return None;
         }
         if registering && self.display_name.trim().is_empty() {
-            self.status = "a display name, please".to_string();
+            self.note(Phrase::NeedDisplayName);
             return None;
         }
         self.busy = true;
         if registering {
-            self.status = "creating the account…".to_string();
+            self.note(Phrase::CreatingAccount);
             Some(LobbyRequest::Register {
                 email: self.email.trim().to_string(),
                 display_name: self.display_name.trim().to_string(),
                 password: self.password.clone(),
             })
         } else {
-            self.status = "signing in…".to_string();
+            self.note(Phrase::SigningIn);
             Some(LobbyRequest::LogIn {
                 email: self.email.trim().to_string(),
                 password: self.password.clone(),
@@ -826,7 +863,7 @@ impl Lobby {
             return None;
         }
         self.busy = true;
-        self.status = "saving the deck…".to_string();
+        self.note(Phrase::SavingDeck);
         Some(LobbyRequest::SaveDeck {
             deck_id: None,
             name: name.to_string(),
@@ -867,7 +904,7 @@ impl Lobby {
         let deck_id = self.decks.get(index)?.id.clone();
         self.screen = Screen::Build;
         self.busy = true;
-        self.status = "opening the deck…".to_string();
+        self.note(Phrase::OpeningDeck);
         Some(LobbyRequest::LoadDeck { deck_id })
     }
 
@@ -878,7 +915,7 @@ impl Lobby {
         }
         let deck_id = self.decks.get(index)?.id.clone();
         self.busy = true;
-        self.status = "deleting the deck…".to_string();
+        self.note(Phrase::DeletingDeck);
         Some(LobbyRequest::DeleteDeck { deck_id })
     }
 
@@ -895,7 +932,7 @@ impl Lobby {
         }
         let request = self.builder.save()?;
         self.busy = true;
-        self.status = "saving the deck…".to_string();
+        self.note(Phrase::SavingDeck);
         Some(request)
     }
 
@@ -911,7 +948,7 @@ impl Lobby {
             return None;
         }
         self.pool_requested = true;
-        self.status = "loading the card pool…".to_string();
+        self.note(Phrase::LoadingPool);
         Some(LobbyRequest::LoadPool)
     }
 
@@ -1023,7 +1060,7 @@ impl Lobby {
         self.busy = true;
         self.room_password.clear();
         self.asked_for = Some(mode);
-        self.status = "opening a table…".to_string();
+        self.note(Phrase::OpeningTable);
         Some(LobbyRequest::CreateGame {
             deck_id,
             mode,
@@ -1048,7 +1085,7 @@ impl Lobby {
         // so sitting down does not begin the game — the seat screen waits
         // either way.
         self.asked_for = None;
-        self.status = "sitting down…".to_string();
+        self.note(Phrase::SittingDown);
         Some(LobbyRequest::JoinGame {
             game_id: game_id.to_string(),
             deck_id,
@@ -1063,11 +1100,11 @@ impl Lobby {
             return None;
         }
         self.busy = true;
-        self.status = if ready {
-            "ready…".to_string()
+        self.note(if ready {
+            Phrase::SayingReady
         } else {
-            "not ready…".to_string()
-        };
+            Phrase::SayingNotReady
+        });
         Some(LobbyRequest::SetReady {
             game_id: game_id.to_string(),
             ready,
@@ -1085,7 +1122,7 @@ impl Lobby {
             return None;
         }
         self.busy = true;
-        self.status = "starting…".to_string();
+        self.note(Phrase::Starting);
         Some(LobbyRequest::StartGame {
             game_id: game_id.to_string(),
         })
@@ -1097,7 +1134,7 @@ impl Lobby {
             return None;
         }
         self.busy = true;
-        self.status = "handing the room over…".to_string();
+        self.note(Phrase::HandingOver);
         Some(LobbyRequest::HandOver {
             game_id: game_id.to_string(),
             seat,
@@ -1120,7 +1157,7 @@ impl Lobby {
             return None;
         }
         self.busy = true;
-        self.status = "arranging the table…".to_string();
+        self.note(Phrase::ArrangingTable);
         Some(LobbyRequest::SetSeat {
             game_id: game_id.to_string(),
             seat,
@@ -1134,7 +1171,7 @@ impl Lobby {
     pub fn seat_deck(&mut self, game_id: &str, seat: u32) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
         self.busy = true;
-        self.status = "arranging the table…".to_string();
+        self.note(Phrase::ArrangingTable);
         Some(LobbyRequest::SetSeat {
             game_id: game_id.to_string(),
             seat,
@@ -1151,7 +1188,7 @@ impl Lobby {
         }
         self.busy = true;
         self.asked_for = None;
-        self.status = "leaving the table…".to_string();
+        self.note(Phrase::LeavingTable);
         Some(LobbyRequest::LeaveGame {
             game_id: game_id.to_string(),
         })
@@ -1160,6 +1197,12 @@ impl Lobby {
     /// Leaves the seat screen without a seat, because the shell could not
     /// connect to the table it was handed — or because the game it opened has
     /// ended and the player is back.
+    pub fn unseat_because(&mut self, phrase: Phrase, args: &[&str]) {
+        let why = phrase.fill(self.lang, args);
+        self.unseat(why);
+    }
+
+    /// The same, in words somebody else chose — the gateway's, usually.
     pub fn unseat(&mut self, why: impl Into<String>) {
         if matches!(self.screen, Screen::Seated(_)) {
             self.screen = Screen::Table;
@@ -1183,7 +1226,7 @@ impl Lobby {
         self.password.clear();
         self.focus = Field::Email;
         self.screen = Screen::SignIn { registering: false };
-        self.status = "signed out".to_string();
+        self.note(Phrase::SignedOut);
     }
 
     /// Feeds back the outcome of a request, and returns the next one the
@@ -1200,7 +1243,7 @@ impl Lobby {
             // Sign-up hands back no token, so the credentials that are still
             // in the form go straight into a log-in.
             LobbyEvent::Registered => {
-                self.status = "account created — signing in…".to_string();
+                self.note(Phrase::AccountCreated);
                 self.busy = true;
                 Some(LobbyRequest::LogIn {
                     email: self.email.trim().to_string(),
@@ -1211,7 +1254,7 @@ impl Lobby {
                 self.token = Some(token);
                 self.password.clear();
                 self.screen = Screen::Table;
-                self.status = "signed in".to_string();
+                self.note(Phrase::SignedIn);
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
@@ -1252,13 +1295,13 @@ impl Lobby {
                 self.needs_pool()
             }
             LobbyEvent::DeckSaved { deck_id } => {
-                self.status = "deck saved".to_string();
+                self.note(Phrase::DeckSaved);
                 self.builder.saved(deck_id.as_deref());
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
             LobbyEvent::DeckDeleted => {
-                self.status = "deck deleted".to_string();
+                self.note(Phrase::DeckDeleted);
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
@@ -1282,7 +1325,7 @@ impl Lobby {
                         .any(|g| g.id == h.game_id && g.state == "playing")
                 });
                 if started && let Some(handover) = self.awaiting.take() {
-                    self.status = "an opponent sat down".to_string();
+                    self.note(Phrase::OpponentSatDown);
                     self.screen = Screen::Seated(handover);
                 }
                 // Tables close while somebody is reading page three of them.
@@ -1298,11 +1341,11 @@ impl Lobby {
                 if self.asked_for.take() == Some(GameMode::Open) {
                     // Ours, but not playable yet: the gateway builds the
                     // session when the second seat is filled.
-                    self.status = "table open — waiting for an opponent".to_string();
+                    self.note(Phrase::TableOpen);
                     self.awaiting = Some(handover);
                     return self.list();
                 }
-                self.status = "taking the seat…".to_string();
+                self.note(Phrase::TakingTheSeat);
                 self.screen = Screen::Seated(handover);
                 None
             }
@@ -1337,7 +1380,7 @@ impl Lobby {
             return None;
         }
         let Some(deck) = self.deck.and_then(|i| self.decks.get(i)) else {
-            self.status = "pick a deck first".to_string();
+            self.note(Phrase::PickADeckFirst);
             return None;
         };
         Some(deck.id.clone())
@@ -1438,6 +1481,33 @@ mod tests {
     fn the_password_is_dropped_once_it_has_been_spent() {
         let lobby = seated_lobby();
         assert_eq!(lobby.field(Field::Password), "");
+    }
+
+    /// The lobby's own sentences are drawn from the phrase table, so setting
+    /// the language changes what the *next* one says. Nothing re-translates a
+    /// line already on screen, which is the point: a status line is a record
+    /// of what just happened, not a label that keeps re-rendering.
+    #[test]
+    fn a_status_line_is_said_in_the_lobbys_language() {
+        let mut lobby = seated_lobby();
+        lobby.apply(LobbyEvent::Decks(vec![]));
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
+        assert_eq!(lobby.host(GameMode::Ai), None);
+        assert_eq!(lobby.status(), "pick a deck first");
+
+        lobby.set_lang(Lang::De);
+        assert_eq!(lobby.lang(), Lang::De);
+        assert_eq!(lobby.host(GameMode::Ai), None);
+        assert_eq!(lobby.status(), "wähle zuerst ein Deck");
+    }
+
+    /// The shell says things too, and has no business knowing the language.
+    #[test]
+    fn the_shell_says_its_own_sentences_in_that_language_too() {
+        let mut lobby = seated_lobby();
+        lobby.set_lang(Lang::De);
+        lobby.tell(Phrase::CouldNotReachTable, &["Zeitüberschreitung"]);
+        assert_eq!(lobby.status(), "Tisch nicht erreichbar: Zeitüberschreitung");
     }
 
     #[test]

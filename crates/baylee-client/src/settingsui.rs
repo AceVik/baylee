@@ -14,6 +14,7 @@
 use crate::hud::{UiFonts, palette, tf};
 use crate::lobby::{Metrics, Press, button, chip, heading, panel, row};
 use baylee_client_core::automation::{RAIL_ROWS, RailSide};
+use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::prefs::{Action, AutoRule, Chord, Keymap, Preferences};
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
@@ -22,12 +23,14 @@ use bevy::ui::{percent, px};
 ///
 /// `capturing` is the action waiting for a key, if any: its row reads
 /// "press a key…" and the next keystroke binds it.
+#[allow(clippy::too_many_arguments)] // one screen, drawn from everything it shows
 pub(crate) fn screen(
     commands: &mut Commands,
     root: Entity,
     prefs: &Preferences,
     capturing: Option<Action>,
     signed_in: bool,
+    lang: Lang,
     fonts: &UiFonts,
     metrics: Metrics,
 ) {
@@ -60,6 +63,10 @@ pub(crate) fn screen(
         .id();
     commands.entity(header).add_child(note);
     commands.entity(root).add_child(header);
+    // The language sits above the two columns, because it is the one
+    // setting on this screen that decides how the rest of it reads.
+    let tongue = language_row(commands, lang, fonts, metrics);
+    commands.entity(root).add_child(tongue);
 
     let columns = commands
         .spawn((
@@ -301,6 +308,40 @@ fn automation_panel(
     column
 }
 
+/// Which language the interface speaks, offered as one chip per language.
+///
+/// Every language names itself in its own words — a player looking for
+/// German is looking for "Deutsch", not for the English word for it — which
+/// is also why this row is legible whatever language it is currently in.
+fn language_row(commands: &mut Commands, lang: Lang, fonts: &UiFonts, metrics: Metrics) -> Entity {
+    let line = row(commands, metrics, true);
+    let label = commands
+        .spawn((
+            Text::new(Phrase::Language.text(lang)),
+            tf(fonts, metrics.text),
+            TextColor(palette::INK),
+            Node {
+                flex_grow: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(line).add_child(label);
+    for offered in Lang::ALL {
+        let pick = chip(
+            commands,
+            fonts,
+            metrics,
+            offered.name(),
+            Press::PickLang(offered),
+            offered == lang,
+        );
+        commands.entity(line).add_child(pick);
+    }
+    line
+}
+
 /// The one switch on this screen that is about the table rather than about
 /// the game.
 ///
@@ -351,6 +392,20 @@ fn motion_row(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One chip per language, each naming itself. A language with no chip is
+    /// a language nobody can pick, and the enum is the only list there is.
+    #[test]
+    fn every_language_names_itself_and_is_offered() {
+        let mut codes: Vec<&str> = Lang::ALL.iter().map(|l| l.code()).collect();
+        codes.sort_unstable();
+        codes.dedup();
+        assert_eq!(codes.len(), Lang::ALL.len(), "two languages share a code");
+        for lang in Lang::ALL {
+            assert!(!lang.name().is_empty());
+            assert!(!Phrase::Language.text(lang).is_empty());
+        }
+    }
 
     /// The screen lists one row per action and one switch per rule. Both
     /// lists come from the `ALL` constants, so a new action that nobody added

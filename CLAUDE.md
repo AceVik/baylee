@@ -599,3 +599,18 @@ keys; `W` and `⇧W` are two chords and telling them apart is the keymap's job.
 The keymap, the phase rail and the automation switches travel with the account
 over `GET`/`PUT /settings`, and `crates/baylee-client/src/settingsui.rs` is
 where a player changes them.
+
+The interface speaks the player's language, and `Phrase` is an enum rather
+than a key into a file: `baylee-client-core/src/i18n.rs` writes one arm per
+language with a macro, so **a phrase with no German is a compilation error**
+and there is no fallback that renders half a screen in English. Two tests hold
+it — every phrase answers in every language, and a phrase's `{0}`/`{1}` set is
+the same in all of them. The lobby's own lines go through `Lobby::note`, the
+shell's through `Lobby::tell`/`unseat_because`; the gateway's `{"error":…}`
+stays in the gateway's words, because translating those means a code beside
+the prose and that is a protocol change. Values that are also identifiers
+(`"sharp"` for a house AI) keep their wire spelling and translate only the
+label. `ClientSettings.lang` feeds both readers — the catalog's `lang=` and,
+through `Lang::of`, the interface itself — and the picker in `settingsui.rs`
+writes it on the click. `docs/client.md` §"The interface's own words" is
+normative.

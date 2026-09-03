@@ -24,6 +24,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::cardmat::{CardUiMaterial, UiCardMaterials, UiCards};
 use baylee_client_core::deckbuilder::{BuildField, Zone};
+use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
 use baylee_client_core::lobby::{
     Field, GameMode, GameQuery, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS,
@@ -184,10 +185,15 @@ impl LobbyState {
     /// A signed-out lobby pointed at the configured gateway.
     #[must_use]
     pub fn new() -> Self {
+        let lang = crate::settings::ClientSettings::load().lang;
+        let mut lobby = Lobby::new();
+        // The lobby draws itself in this language; `lang` below is the code
+        // the *catalog* is asked for. One setting, two readers.
+        lobby.set_lang(Lang::of(&lang));
         Self {
-            lobby: Lobby::new(),
+            lobby,
             gateway: crate::settings::gateway_url(),
-            lang: crate::settings::ClientSettings::load().lang,
+            lang,
             connected: false,
             confirm_leave: false,
             filters_open: false,

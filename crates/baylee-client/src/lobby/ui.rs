@@ -187,6 +187,7 @@ pub(super) fn teardown(
 /// for a revision struct. Resizing *within* a frame is left to flexbox — the
 /// layout is written in percentages and gaps for exactly that reason.
 #[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
+#[allow(clippy::too_many_lines)] // one screen per arm, and nothing else
 pub(super) fn ui(
     mut commands: Commands,
     state: Res<LobbyState>,
@@ -284,6 +285,7 @@ pub(super) fn ui(
             prefs.all(),
             state.settings.capturing(),
             state.lobby.token().is_some(),
+            state.lobby.lang(),
             &fonts,
             metrics,
         );
@@ -309,7 +311,7 @@ pub(super) fn ui(
         Screen::Seated(_) => {
             let note = commands
                 .spawn((
-                    Text::new("taking your seat…"),
+                    Text::new(Phrase::TakingYourSeat.text(state.lobby.lang())),
                     tf(&fonts, metrics.head),
                     TextColor(palette::MUTED),
                 ))
@@ -329,6 +331,7 @@ fn sign_in(
     registering: bool,
 ) -> Entity {
     let lobby = &state.lobby;
+    let lang = lobby.lang();
     let panel = commands
         .spawn((
             Node {
@@ -353,7 +356,7 @@ fn sign_in(
 
     let title = commands
         .spawn((
-            Text::new("baylee"),
+            Text::new(Phrase::AppName.text(lang)),
             tf(fonts, metrics.head * 1.8),
             TextColor(palette::INK),
             Pickable::IGNORE,
@@ -374,7 +377,7 @@ fn sign_in(
         commands,
         fonts,
         metrics,
-        "E-MAIL",
+        Phrase::Email.text(lang),
         lobby.field(Field::Email),
         lobby.focus() == Field::Email,
         Field::Email,
@@ -385,7 +388,7 @@ fn sign_in(
             commands,
             fonts,
             metrics,
-            "DISPLAY NAME",
+            Phrase::DisplayName.text(lang),
             lobby.field(Field::DisplayName),
             lobby.focus() == Field::DisplayName,
             Field::DisplayName,
@@ -397,7 +400,7 @@ fn sign_in(
         commands,
         fonts,
         metrics,
-        "PASSWORD",
+        Phrase::Password.text(lang),
         &secret,
         lobby.focus() == Field::Password,
         Field::Password,
@@ -409,9 +412,9 @@ fn sign_in(
         fonts,
         metrics,
         if registering {
-            "Create account"
+            Phrase::CreateAccount.text(lang)
         } else {
-            "Sign in"
+            Phrase::SignIn.text(lang)
         },
         Press::Submit,
         palette::ACCENT,
@@ -425,9 +428,9 @@ fn sign_in(
             fonts,
             metrics,
             if registering {
-                "I already have an account"
+                Phrase::HaveAnAccount.text(lang)
             } else {
-                "Create an account"
+                Phrase::WantAnAccount.text(lang)
             },
             Press::ToggleRegistering,
             palette::PANEL,
@@ -462,7 +465,7 @@ fn sign_in(
         commands,
         fonts,
         metrics,
-        "Play the house AI offline",
+        Phrase::PlayOffline.text(lang),
         Press::PlayOffline,
         palette::PANEL,
         true,
@@ -474,7 +477,7 @@ fn sign_in(
         commands,
         fonts,
         metrics,
-        "Settings",
+        Phrase::Settings.text(lang),
         Press::OpenSettings,
         palette::PANEL,
         true,
@@ -496,6 +499,7 @@ fn table(
     scrolled_to: &Scrolled,
 ) {
     let lobby = &state.lobby;
+    let lang = lobby.lang();
     let phone = metrics.frame == Frame::Phone;
 
     // ---- top bar
@@ -516,7 +520,7 @@ fn table(
         .id();
     let brand = commands
         .spawn((
-            Text::new("baylee"),
+            Text::new(Phrase::AppName.text(lang)),
             tf(fonts, metrics.head * 1.2),
             TextColor(palette::INK),
             Pickable::IGNORE,
@@ -549,7 +553,7 @@ fn table(
         commands,
         fonts,
         metrics,
-        "Settings",
+        Phrase::Settings.text(lang),
         Press::OpenSettings,
         palette::PANEL_LIT,
         true,
@@ -558,7 +562,7 @@ fn table(
         commands,
         fonts,
         metrics,
-        "Sign out",
+        Phrase::SignOut.text(lang),
         Press::SignOut,
         palette::PANEL_LIT,
         true,
@@ -624,14 +628,14 @@ fn table(
 
     // ---- decks
     let decks = panel(commands, metrics, metrics.decks_width(), 0.0);
-    let decks_head = heading(commands, fonts, metrics, "Your decks");
+    let decks_head = heading(commands, fonts, metrics, Phrase::YourDecks.text(lang));
     commands.entity(decks).add_child(decks_head);
     let deck_tools = row(commands, metrics, true);
     let new_deck = button(
         commands,
         fonts,
         metrics,
-        "New deck",
+        Phrase::NewDeck.text(lang),
         Press::NewDeck,
         palette::ACCENT,
         true,
@@ -640,7 +644,7 @@ fn table(
         commands,
         fonts,
         metrics,
-        "Add the starter deck",
+        Phrase::AddStarterDeck.text(lang),
         Press::StarterDeck,
         palette::PANEL_LIT,
         !lobby.busy(),
@@ -649,12 +653,7 @@ fn table(
     commands.entity(deck_tools).add_child(starter);
     commands.entity(decks).add_child(deck_tools);
     if lobby.decks().is_empty() {
-        let empty = note(
-            commands,
-            fonts,
-            metrics,
-            "no decks yet — add the starter deck",
-        );
+        let empty = note(commands, fonts, metrics, Phrase::NoDecksYet.text(lang));
         commands.entity(decks).add_child(empty);
     }
     for (index, deck) in lobby.decks().iter().enumerate() {
@@ -706,8 +705,8 @@ fn table(
         // Nested inside a row that is itself a `Press`: `in_lineage` takes the
         // nearest one, so these win over selecting the deck.
         for (label, press) in [
-            ("Edit", Press::EditDeck(index)),
-            ("Delete", Press::DeleteDeck(index)),
+            (Phrase::Edit.text(lang), Press::EditDeck(index)),
+            (Phrase::Delete.text(lang), Press::DeleteDeck(index)),
         ] {
             let tool = chip(commands, fonts, metrics, label, press, false);
             commands.entity(row).add_child(tool);
@@ -731,7 +730,7 @@ fn table(
             Pickable::IGNORE,
         ))
         .id();
-    let head = heading(commands, fonts, metrics, "Tables");
+    let head = heading(commands, fonts, metrics, Phrase::Tables.text(lang));
     commands.entity(head_row).add_child(head);
     if !phone {
         let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
@@ -753,7 +752,7 @@ fn table(
         commands,
         fonts,
         metrics,
-        "SEARCH",
+        Phrase::Search.text(lang),
         lobby.field(Field::Search),
         lobby.focus() == Field::Search,
         Field::Search,
@@ -761,9 +760,21 @@ fn table(
     commands.entity(hunt).add_child(box_);
     commands.entity(head_row).add_child(hunt);
     for (label, press, tone) in [
-        ("Search", Press::Search, palette::PANEL_LIT),
-        ("Refresh", Press::Refresh, palette::PANEL_LIT),
-        ("Play the house", Press::Host(GameMode::Ai), palette::ACCENT),
+        (
+            Phrase::DoSearch.text(lang),
+            Press::Search,
+            palette::PANEL_LIT,
+        ),
+        (
+            Phrase::Refresh.text(lang),
+            Press::Refresh,
+            palette::PANEL_LIT,
+        ),
+        (
+            Phrase::PlayTheHouse.text(lang),
+            Press::Host(GameMode::Ai),
+            palette::ACCENT,
+        ),
     ] {
         let b = button(commands, fonts, metrics, label, press, tone, !lobby.busy());
         commands.entity(head_row).add_child(b);
@@ -786,7 +797,7 @@ fn table(
         commands,
         fonts,
         metrics,
-        "ROOM PASSWORD",
+        Phrase::RoomPassword.text(lang),
         &secret,
         lobby.focus() == Field::RoomPassword,
         Field::RoomPassword,
@@ -798,7 +809,7 @@ fn table(
     // numbers rather than a button per size: at two to eight, seven buttons
     // each spelling out "Open a table for N" is most of a screen's width
     // saying almost nothing, and it ran off the edge of a 1728-wide window.
-    let caption = note(commands, fonts, metrics, "Open a table for");
+    let caption = note(commands, fonts, metrics, Phrase::OpenATableFor.text(lang));
     commands.entity(head_row).add_child(caption);
     for chairs in MIN_CHAIRS..=MAX_CHAIRS {
         let b = button(
@@ -819,9 +830,9 @@ fn table(
         // open a table, the other says the tables are elsewhere.
         let hunt = lobby.field(Field::Search).trim();
         let said = if hunt.is_empty() {
-            "no tables are open — start one".to_string()
+            Phrase::NoTablesOpen.text(lang).to_string()
         } else {
-            format!("no table matches \u{201c}{hunt}\u{201d}")
+            Phrase::NoTableMatches.fill(lang, &[hunt])
         };
         let empty = note(commands, fonts, metrics, &said);
         commands.entity(games).add_child(empty);
@@ -858,9 +869,15 @@ fn table(
                 Pickable::IGNORE,
             ))
             .id();
+        let state = match game.state.as_str() {
+            "waiting" => Phrase::StateWaiting,
+            "playing" => Phrase::StatePlaying,
+            _ => Phrase::StateOver,
+        }
+        .text(lang);
         let by = match &game.host {
-            Some(host) => format!("{}  ·  {host}  ·  {}", game.state, host_note(game)),
-            None => format!("{}  ·  {}", game.state, host_note(game)),
+            Some(host) => format!("{state}  ·  {host}  ·  {}", host_note(lang, game)),
+            None => format!("{state}  ·  {}", host_note(lang, game)),
         };
         let seats = commands
             .spawn((
@@ -879,7 +896,7 @@ fn table(
                 commands,
                 fonts,
                 metrics,
-                "Join",
+                Phrase::Join.text(lang),
                 Press::Join(index),
                 palette::ACCENT,
                 !lobby.busy(),
@@ -895,7 +912,11 @@ fn table(
                 commands,
                 fonts,
                 metrics,
-                if ready { "Not ready" } else { "Ready" },
+                if ready {
+                    Phrase::NotReady.text(lang)
+                } else {
+                    Phrase::Ready.text(lang)
+                },
                 Press::Ready(index, !ready),
                 if ready {
                     palette::PANEL
@@ -910,7 +931,7 @@ fn table(
                     commands,
                     fonts,
                     metrics,
-                    "Start",
+                    Phrase::Start.text(lang),
                     Press::StartRoom(index),
                     palette::ACCENT,
                     !lobby.busy() && game.startable,
@@ -924,7 +945,7 @@ fn table(
                 // A host who leaves no longer closes the room — it passes to
                 // whoever has been there longest — so the button says the
                 // same thing for everyone.
-                "Leave",
+                Phrase::Leave.text(lang),
                 Press::LeaveTable(index),
                 palette::PANEL,
                 !lobby.busy(),
@@ -936,7 +957,7 @@ fn table(
         // Its chairs, one row each. A room is arranged in the open, so this
         // is drawn for every table and not only for the one you are at.
         if game.state == "waiting" {
-            let chairs = seat_rows(commands, fonts, metrics, game, index, lobby.busy());
+            let chairs = seat_rows(commands, fonts, metrics, lang, game, index, lobby.busy());
             commands.entity(games).add_child(chairs);
         }
     }
@@ -961,12 +982,19 @@ fn table(
             commands,
             fonts,
             metrics,
-            &format!("{first}–{last} of {}", lobby.total()),
+            &Phrase::PageOf.fill(
+                lang,
+                &[
+                    &first.to_string(),
+                    &last.to_string(),
+                    &lobby.total().to_string(),
+                ],
+            ),
         );
         commands.entity(bar).add_child(count);
         for (label, forwards, live) in [
-            ("\u{2039} Back", false, lobby.offset() > 0),
-            ("More \u{203a}", true, lobby.more()),
+            (Phrase::PageBack.text(lang), false, lobby.offset() > 0),
+            (Phrase::PageMore.text(lang), true, lobby.more()),
         ] {
             let b = button(
                 commands,
@@ -989,10 +1017,10 @@ fn table(
 /// Seated and ready are counted separately, because since a player has to say
 /// they are ready the two answer different questions — a full table can still
 /// be waiting for everyone in it.
-fn host_note(game: &GameSummary) -> String {
+fn host_note(lang: Lang, game: &GameSummary) -> String {
     let total = game.seats.len();
     if game.state != "waiting" {
-        return format!("{total} seats");
+        return Phrase::SeatCount.fill(lang, &[&total.to_string()]);
     }
     let seated = game
         .seats
@@ -1000,12 +1028,31 @@ fn host_note(game: &GameSummary) -> String {
         .filter(|s| s.taken || s.kind == SeatKind::Ai)
         .count();
     let waiting = game.seats.iter().filter(|s| !s.ready).count();
-    let lock = if game.locked { " · locked" } else { "" };
+    let mut note = Phrase::Seated.fill(lang, &[&seated.to_string(), &total.to_string()]);
+    note.push_str(" · ");
     if waiting == 0 {
-        format!("{seated}/{total} seated · ready{lock}")
+        note.push_str(Phrase::AllReady.text(lang));
     } else {
-        format!("{seated}/{total} seated · waiting for {waiting}{lock}")
+        note.push_str(&Phrase::WaitingFor.fill(lang, &[&waiting.to_string()]));
     }
+    if game.locked {
+        note.push_str(" · ");
+        note.push_str(Phrase::Locked.text(lang));
+    }
+    note
+}
+
+/// A house AI's difficulty, in the player's own language.
+///
+/// The name itself stays the gateway's word — it is what `Press::SeatAi`
+/// sends and what `SeatSpec` stores; only the label is translated.
+fn ai_name(lang: Lang, name: &str) -> &'static str {
+    match name {
+        "novice" => Phrase::AiNovice,
+        "sharp" => Phrase::AiSharp,
+        _ => Phrase::AiSteady,
+    }
+    .text(lang)
 }
 
 /// One row per chair: who is in it, what they brought, and — for the host —
@@ -1015,6 +1062,7 @@ fn seat_rows(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
+    lang: Lang,
     game: &GameSummary,
     index: usize,
     busy: bool,
@@ -1038,17 +1086,20 @@ fn seat_rows(
         .id();
     for seat in &game.seats {
         let line = row(commands, metrics, true);
+        let chair = seat.seat.to_string();
         let who = match (seat.kind, seat.player.as_deref()) {
-            (SeatKind::Ai, _) => format!(
-                "seat {} · AI ({})",
-                seat.seat,
-                seat.ai.as_deref().unwrap_or("steady")
+            (SeatKind::Ai, _) => Phrase::SeatAi.fill(
+                lang,
+                &[
+                    &chair,
+                    ai_name(lang, seat.ai.as_deref().unwrap_or("steady")),
+                ],
             ),
             (SeatKind::Human, Some(name)) if seat.you => {
-                format!("seat {} · {name} (you)", seat.seat)
+                Phrase::SeatYours.fill(lang, &[&chair, name])
             }
-            (SeatKind::Human, Some(name)) => format!("seat {} · {name}", seat.seat),
-            (SeatKind::Human, None) => format!("seat {} · open", seat.seat),
+            (SeatKind::Human, Some(name)) => Phrase::SeatTaken.fill(lang, &[&chair, name]),
+            (SeatKind::Human, None) => Phrase::SeatOpen.fill(lang, &[&chair]),
         };
         let label = commands
             .spawn((
@@ -1079,7 +1130,7 @@ fn seat_rows(
                 commands,
                 fonts,
                 metrics,
-                "use my deck",
+                Phrase::UseMyDeck.text(lang),
                 Press::SeatDeck(index, seat.seat),
                 false,
             );
@@ -1089,12 +1140,12 @@ fn seat_rows(
         if game.yours && (mine || !seat.taken) {
             let (label, press) = if ai_chair {
                 (
-                    "\u{2192} open",
+                    Phrase::SeatToOpen.text(lang),
                     Press::SeatKind(index, seat.seat, SeatKind::Human),
                 )
             } else {
                 (
-                    "\u{2192} AI",
+                    Phrase::SeatToAi.text(lang),
                     Press::SeatKind(index, seat.seat, SeatKind::Ai),
                 )
             };
@@ -1111,7 +1162,7 @@ fn seat_rows(
                         commands,
                         fonts,
                         metrics,
-                        name,
+                        ai_name(lang, name),
                         Press::SeatAi(index, seat.seat, name),
                         lit,
                     );
@@ -1126,7 +1177,7 @@ fn seat_rows(
                 commands,
                 fonts,
                 metrics,
-                "make host",
+                Phrase::MakeHost.text(lang),
                 Press::HandOver(index, seat.seat),
                 false,
             );
@@ -1139,7 +1190,7 @@ fn seat_rows(
                 commands,
                 fonts,
                 metrics,
-                "sit here",
+                Phrase::SitHere.text(lang),
                 Press::JoinSeat(index, seat.seat),
                 false,
             );
@@ -1327,12 +1378,14 @@ fn short_id(id: &str) -> String {
 /// The "leave table" button, over a game that has ended.
 pub(super) fn spawn_leave_button(
     mut commands: Commands,
+    state: Res<LobbyState>,
     fonts: Option<Res<UiFonts>>,
     windows: Query<&Window>,
 ) {
     let Some(fonts) = fonts else {
         return;
     };
+    let lang = state.lobby.lang();
     let width = windows
         .iter()
         .next()
@@ -1355,7 +1408,7 @@ pub(super) fn spawn_leave_button(
         &mut commands,
         &fonts,
         metrics,
-        "Back to the lobby",
+        Phrase::BackToLobby.text(lang),
         Press::Leave,
         palette::ACCENT,
         true,

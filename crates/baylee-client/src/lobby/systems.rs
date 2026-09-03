@@ -65,7 +65,7 @@ pub(super) fn poll(
         }
         Err(reason) => state
             .lobby
-            .unseat(format!("could not reach the table: {reason}")),
+            .unseat_because(Phrase::CouldNotReachTable, &[&reason]),
     }
 }
 
@@ -326,6 +326,8 @@ pub(super) fn clicks(
     mailbox: Res<Mailbox>,
     mut commands: Commands,
     mut opens: MessageWriter<DuelCommand>,
+    // Absent in a headless test, which has no settings file to write to.
+    mut settings: Option<ResMut<crate::settings::ClientSettings>>,
 ) {
     // A release always fires a click, drag or no drag, so a swipe down the
     // card list would add whichever card it started on. The scroll it already
@@ -386,6 +388,19 @@ pub(super) fn clicks(
             Press::ToggleMotion => {
                 let mut edit = prefs.edit();
                 edit.reduce_motion = !edit.reduce_motion;
+            }
+            Press::PickLang(lang) => {
+                state.lobby.set_lang(lang);
+                // One setting, two readers: the interface draws itself in
+                // this language and the catalog is asked for card text in
+                // it. Remembered at once, because the settings screen has
+                // no way out but a click and a language that reverted on
+                // the next launch would read as a button that did nothing.
+                state.lang = lang.code().to_string();
+                if let Some(settings) = settings.as_mut() {
+                    settings.lang = lang.code().to_string();
+                    settings.save();
+                }
             }
             Press::ToggleRail(side, row) => prefs.edit().orders.toggle(side, row),
             Press::Focus(field) => state.lobby.focus_on(field),
@@ -493,7 +508,7 @@ pub(super) fn clicks(
                     commands.insert_resource(InstalledHost(Box::new(host)));
                     opens.write(DuelCommand::Open);
                 }
-                None => state.lobby.say("could not start the offline duel"),
+                None => state.lobby.tell(Phrase::NoOfflineDuel, &[]),
             },
             // `Leave` is only ever spawned on the finished screen, and
             // `PickerNothing` exists to stop a tap inside the picker
@@ -515,7 +530,7 @@ pub(super) fn clicks(
             Press::CloseBuilder => {
                 if state.lobby.builder().dirty() && !state.confirm_leave {
                     state.confirm_leave = true;
-                    state.lobby.say("unsaved changes — press again to leave");
+                    state.lobby.tell(Phrase::UnsavedChanges, &[]);
                 } else {
                     state.confirm_leave = false;
                     let request = state.lobby.close_builder();
@@ -530,7 +545,7 @@ pub(super) fn clicks(
             Press::AddCard(slot) => {
                 let zone = state.lobby.builder().zone();
                 if !state.lobby.builder_mut().add(slot, zone) {
-                    state.lobby.say("no room for another copy of that");
+                    state.lobby.tell(Phrase::NoRoomForCopy, &[]);
                 }
             }
             Press::PickPrint(slot) => {
@@ -555,7 +570,7 @@ pub(super) fn clicks(
             Press::PickerFinish(finish) => state.lobby.builder_mut().picker_set_finish(finish),
             Press::PickerConfirm => {
                 if !state.lobby.builder_mut().picker_confirm() {
-                    state.lobby.say("no room for another copy of that");
+                    state.lobby.tell(Phrase::NoRoomForCopy, &[]);
                 }
             }
             Press::PickerClose => state.lobby.builder_mut().close_picker(),
@@ -758,7 +773,7 @@ pub(super) fn came_back(
     if !matches!(state.lobby.screen(), Screen::Seated(_)) {
         return;
     }
-    state.lobby.unseat("the game ended");
+    state.lobby.unseat_because(Phrase::GameEnded, &[]);
     let request = state.lobby.refresh();
     dispatch(&state, &mailbox, request);
 }
@@ -824,6 +839,8 @@ pub(crate) enum Press {
     ToggleAuto(baylee_client_core::prefs::AutoRule),
     /// Stop the table moving, or let it move again.
     ToggleMotion,
+    /// Speak this language from now on.
+    PickLang(Lang),
     /// Turn one step of the phase rail red or green.
     ToggleRail(
         baylee_client_core::automation::RailSide,

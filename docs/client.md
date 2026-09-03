@@ -700,6 +700,53 @@ something everywhere else: a player who wants `Esc` on some other action has
 to be able to press it. Escape backs out, backspace unbinds, and unbinding is
 a real answer because a pointer still reaches everything.
 
+## The interface's own words
+
+Card text has been translated for as long as `/pool?lang=` existed — the
+gateway reads it out of the catalog, field by field, and falls back to English
+per field rather than per card. The *interface* was English and only English,
+every button and status line a literal at the point it was drawn.
+`baylee-client-core/src/i18n.rs` is the other half.
+
+A `Phrase` is an enum variant, not a key into a table read at runtime, and the
+`messages!` macro writes one arm per language for each: **a phrase with no
+German fails the build**. A file of strings — RON, JSON, Fluent — answers a
+missing key with a fallback, and a fallback is a screen that is half English.
+The cost is that a third language is a sweep through one file rather than a new
+file beside it, which is the right way round: the sweep *is* the work, and a
+build that ships half of it is what makes it never get finished. `Phrase::fill`
+substitutes `{0}`, `{1}` … left to right and leaves an unfilled placeholder
+standing, because a visible `{2}` is a bug report and a silently dropped one is
+a sentence that means something else.
+
+Two rules are tests rather than conventions: every phrase answers in every
+language, and a phrase's placeholder *set* is the same in all of them — `{0}`
+moving is what translation is, `{0}` vanishing is a bug.
+
+Who says what:
+
+- The lobby's own status lines go through `Lobby::note`, which reads the
+  language off the lobby. The shell has sentences too (`could not reach the
+  table: …`), and says them with `Lobby::tell` / `unseat_because` so it never
+  has to know which language it is in.
+- The gateway's refusals (`{"error":"…"}`) are shown in the words the gateway
+  sent. It is the gateway that knows why it said no, and translating those
+  means a code beside the prose — a protocol change, and deliberately separate
+  work.
+- Values that are also identifiers stay identifiers. A house AI's difficulty is
+  `"sharp"` on the wire and in `SeatSpec`; only its label is translated, by
+  `lobby::ui::ai_name`.
+
+One setting feeds two readers. `ClientSettings.lang` is both the code the
+catalog is asked for and, through `Lang::of`, the language the interface draws
+itself in — `Lang::of` reads `de-DE` and `en_GB` by their first part and
+answers English for anything it does not know, because a client that refused
+to start over a settings file would be worse than one that speaks English. The
+picker is a chip per language at the top of the settings screen, each naming
+itself in its own words, and it is written to the store on the click: the
+settings screen has no way out but a click, and a language that reverted on
+the next launch would read as a button that did nothing.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds

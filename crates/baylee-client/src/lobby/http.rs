@@ -17,7 +17,13 @@ pub(super) fn dispatch(state: &LobbyState, mailbox: &Mailbox, request: Option<Lo
     };
     let token = state.lobby.token();
     let (request, expect) = build(&state.gateway, token, &state.lang, request);
-    fetch(request, expect, token.is_some(), mailbox);
+    fetch(
+        request,
+        expect,
+        state.lobby.lang(),
+        token.is_some(),
+        mailbox,
+    );
 }
 
 /// The HTTP call one lobby request becomes, and what to make of its answer.
@@ -237,18 +243,18 @@ fn bearer(mut request: ehttp::Request, token: Option<&str>) -> ehttp::Request {
 }
 
 /// Sends a request and posts its outcome to the mailbox.
-fn fetch(request: ehttp::Request, expect: Expect, signed: bool, mailbox: &Mailbox) {
+fn fetch(request: ehttp::Request, expect: Expect, lang: Lang, signed: bool, mailbox: &Mailbox) {
     let box_ = Arc::clone(&mailbox.0);
     ehttp::fetch(request, move |result| {
         let reply = match result {
-            Ok(response) if response.ok => Reply::Event(decode(expect, &response)),
+            Ok(response) if response.ok => Reply::Event(decode(lang, expect, &response)),
             // Only a *signed* 401 means the token is spent; on the sign-in
             // form it means the password was wrong.
             Ok(response) if signed && response.status == 401 => Reply::Expired,
-            Ok(response) => Reply::Event(LobbyEvent::Failed(gateway_error(&response))),
-            Err(err) => Reply::Event(LobbyEvent::Failed(format!(
-                "the gateway did not answer: {err}"
-            ))),
+            Ok(response) => Reply::Event(LobbyEvent::Failed(gateway_error(lang, &response))),
+            Err(err) => Reply::Event(LobbyEvent::Failed(
+                Phrase::GatewayNoAnswer.fill(lang, &[&err]),
+            )),
         };
         if let Ok(mut box_) = box_.lock() {
             box_.push(reply);
@@ -257,7 +263,7 @@ fn fetch(request: ehttp::Request, expect: Expect, signed: bool, mailbox: &Mailbo
 }
 
 /// Turns a successful response into the event the lobby is waiting for.
-pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
+pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> LobbyEvent {
     /// `POST /auth/login`.
     #[derive(serde::Deserialize)]
     struct TokenBody {
@@ -311,14 +317,14 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
         },
         Expect::DeckDeleted => LobbyEvent::DeckDeleted,
         Expect::Pool => serde_json::from_str::<PoolBody>(body).map_or_else(
-            |_| unreadable("the card pool"),
+            |_| unreadable(lang, Phrase::ThePool),
             |b| LobbyEvent::Pool {
                 cards: b.cards,
                 has_text: b.has_text,
             },
         ),
         Expect::Printings => serde_json::from_str::<PrintingsBody>(body).map_or_else(
-            |_| unreadable("the printings"),
+            |_| unreadable(lang, Phrase::ThePrintings),
             |b| LobbyEvent::Printings {
                 card: b.card,
                 printings: b.printings,
@@ -326,7 +332,7 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
             },
         ),
         Expect::DeckLoaded => serde_json::from_str::<StoredDeck>(body).map_or_else(
-            |_| unreadable("the deck"),
+            |_| unreadable(lang, Phrase::TheDeck),
             |d| LobbyEvent::DeckLoaded {
                 id: d.id,
                 name: d.name,
@@ -336,18 +342,17 @@ pub(super) fn decode(expect: Expect, response: &ehttp::Response) -> LobbyEvent {
             },
         ),
         Expect::LoggedIn => serde_json::from_str::<TokenBody>(body).map_or_else(
-            |_| unreadable("the sign-in"),
+            |_| unreadable(lang, Phrase::TheSignIn),
             |b| LobbyEvent::LoggedIn { token: b.token },
         ),
         Expect::Decks => serde_json::from_str(body)
-            .map_or_else(|_| unreadable("the deck list"), LobbyEvent::Decks),
+            .map_or_else(|_| unreadable(lang, Phrase::TheDeckList), LobbyEvent::Decks),
         Expect::Games => serde_json::from_str(body)
-            .map_or_else(|_| unreadable("the game list"), LobbyEvent::Games),
+            .map_or_else(|_| unreadable(lang, Phrase::TheGameList), LobbyEvent::Games),
         // The body is the whole lobby, which is not what is being read.
         Expect::Moved => LobbyEvent::Moved,
-        Expect::Seat => {
-            serde_json::from_str(body).map_or_else(|_| unreadable("the seat"), LobbyEvent::Seated)
-        }
+        Expect::Seat => serde_json::from_str(body)
+            .map_or_else(|_| unreadable(lang, Phrase::TheSeat), LobbyEvent::Seated),
         // Nothing comes back, so the lobby re-reads the list to find out what
         // the table looks like without us.
         Expect::Left => LobbyEvent::Left,
@@ -392,12 +397,12 @@ pub(super) fn escape(value: &str) -> String {
 }
 
 /// The message for a body that arrived but made no sense.
-fn unreadable(what: &str) -> LobbyEvent {
-    LobbyEvent::Failed(format!("could not read {what} the gateway sent"))
+fn unreadable(lang: Lang, what: Phrase) -> LobbyEvent {
+    LobbyEvent::Failed(Phrase::Unreadable.fill(lang, &[what.text(lang)]))
 }
 
 /// The gateway's own `{"error":…}`, or the bare status if it sent none.
-pub(super) fn gateway_error(response: &ehttp::Response) -> String {
+pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
     /// Every refusal the gateway sends has this shape.
     #[derive(serde::Deserialize)]
     struct Body {
@@ -408,7 +413,7 @@ pub(super) fn gateway_error(response: &ehttp::Response) -> String {
         .text()
         .and_then(|body| serde_json::from_str::<Body>(body).ok())
         .map_or_else(
-            || format!("the gateway answered {}", response.status),
+            || Phrase::GatewayAnswered.fill(lang, &[&response.status.to_string()]),
             |b| b.error,
         )
 }

@@ -296,6 +296,7 @@ fn a_json_body_says_so() {
 fn the_gateways_own_answers_decode() {
     assert_eq!(
         decode(
+            Lang::En,
             Expect::LoggedIn,
             &answer(200, r#"{"token":"tok","expires_at":123}"#)
         ),
@@ -305,6 +306,7 @@ fn the_gateways_own_answers_decode() {
     );
     assert_eq!(
         decode(
+            Lang::En,
             Expect::Decks,
             &answer(
                 200,
@@ -321,6 +323,7 @@ fn the_gateways_own_answers_decode() {
     );
     assert_eq!(
         decode(
+            Lang::En,
             Expect::Seat,
             &answer(200, r#"{"game_id":"g1","seat":1,"seat_token":"st"}"#)
         ),
@@ -331,11 +334,15 @@ fn the_gateways_own_answers_decode() {
         })
     );
     assert_eq!(
-        decode(Expect::Registered, &answer(200, r#"{"ok":true}"#)),
+        decode(Lang::En, Expect::Registered, &answer(200, r#"{"ok":true}"#)),
         LobbyEvent::Registered
     );
     assert_eq!(
-        decode(Expect::DeckSaved, &answer(200, r#"{"deck_id":"d1"}"#)),
+        decode(
+            Lang::En,
+            Expect::DeckSaved,
+            &answer(200, r#"{"deck_id":"d1"}"#)
+        ),
         LobbyEvent::DeckSaved {
             deck_id: Some("d1".to_string())
         }
@@ -345,7 +352,11 @@ fn the_gateways_own_answers_decode() {
 #[test]
 fn a_body_that_makes_no_sense_is_a_failure_not_a_panic() {
     assert!(matches!(
-        decode(Expect::LoggedIn, &answer(200, "<html>proxy</html>")),
+        decode(
+            Lang::En,
+            Expect::LoggedIn,
+            &answer(200, "<html>proxy</html>")
+        ),
         LobbyEvent::Failed(_)
     ));
 }
@@ -353,11 +364,11 @@ fn a_body_that_makes_no_sense_is_a_failure_not_a_panic() {
 #[test]
 fn a_refusal_is_shown_in_the_gateways_own_words() {
     assert_eq!(
-        gateway_error(&answer(401, r#"{"error":"invalid credentials"}"#)),
+        gateway_error(Lang::En, &answer(401, r#"{"error":"invalid credentials"}"#)),
         "invalid credentials"
     );
     assert_eq!(
-        gateway_error(&answer(502, "<html>bad gateway</html>")),
+        gateway_error(Lang::En, &answer(502, "<html>bad gateway</html>")),
         "the gateway answered 502"
     );
 }
@@ -1389,7 +1400,7 @@ fn an_edit_answers_with_no_body_and_that_is_not_a_failure() {
     // `PUT /decks/{id}` is a 204. Reading an id out of nothing is not an
     // error here — the builder already holds the one it is editing.
     assert_eq!(
-        decode(Expect::DeckSaved, &answer(204, "")),
+        decode(Lang::En, Expect::DeckSaved, &answer(204, "")),
         LobbyEvent::DeckSaved { deck_id: None }
     );
 }
@@ -1448,7 +1459,7 @@ fn the_pool_and_a_saved_deck_decode() {
     }))
     .expect("a body");
     assert_eq!(
-        decode(Expect::Pool, &answer(200, &cards)),
+        decode(Lang::En, Expect::Pool, &answer(200, &cards)),
         LobbyEvent::Pool {
             cards: Vec::new(),
             has_text: true
@@ -1456,6 +1467,7 @@ fn the_pool_and_a_saved_deck_decode() {
     );
     assert_eq!(
         decode(
+            Lang::En,
             Expect::DeckLoaded,
             &answer(
                 200,
@@ -1472,7 +1484,7 @@ fn the_pool_and_a_saved_deck_decode() {
         }
     );
     assert_eq!(
-        decode(Expect::DeckDeleted, &answer(204, "")),
+        decode(Lang::En, Expect::DeckDeleted, &answer(204, "")),
         LobbyEvent::DeckDeleted
     );
 }
