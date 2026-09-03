@@ -19,6 +19,7 @@
 //! and what is merely worth saying. Saving must never surprise: if the button
 //! is live, the deck saves.
 
+use crate::i18n::{Lang, Phrase};
 use crate::lobby::{FieldKind, LobbyRequest};
 use baylee_core::deckrow::{PrintChoice, Row};
 use baylee_core::preset::Finish;
@@ -315,17 +316,17 @@ pub enum Group {
 impl Group {
     /// The heading this group is drawn under.
     #[must_use]
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> Phrase {
         match self {
-            Self::Creature => "Creatures",
-            Self::Planeswalker => "Planeswalkers",
-            Self::Instant => "Instants",
-            Self::Sorcery => "Sorceries",
-            Self::Artifact => "Artifacts",
-            Self::Enchantment => "Enchantments",
-            Self::Battle => "Battles",
-            Self::Land => "Lands",
-            Self::Other => "Other",
+            Self::Creature => Phrase::GroupCreatures,
+            Self::Planeswalker => Phrase::GroupPlaneswalkers,
+            Self::Instant => Phrase::GroupInstants,
+            Self::Sorcery => Phrase::GroupSorceries,
+            Self::Artifact => Phrase::GroupArtifacts,
+            Self::Enchantment => Phrase::GroupEnchantments,
+            Self::Battle => Phrase::GroupBattles,
+            Self::Land => Phrase::GroupLands,
+            Self::Other => Phrase::GroupOther,
         }
     }
 }
@@ -355,11 +356,11 @@ pub enum Sort {
 impl Sort {
     /// The label on the control that cycles the order.
     #[must_use]
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> Phrase {
         match self {
-            Self::Name => "A–Z",
-            Self::Cost => "Cost",
-            Self::Type => "Type",
+            Self::Name => Phrase::SortName,
+            Self::Cost => Phrase::SortCost,
+            Self::Type => Phrase::SortType,
         }
     }
 

@@ -520,6 +520,228 @@ messages! {
     /// Cleanup
     RailCleanup { en: "Cleanup", de: "Aufräumen" },
 
+
+    // ---- the deck builder
+    /// White
+    ColorWhite { en: "White", de: "Weiß" },
+    /// Blue
+    ColorBlue { en: "Blue", de: "Blau" },
+    /// Black
+    ColorBlack { en: "Black", de: "Schwarz" },
+    /// Red
+    ColorRed { en: "Red", de: "Rot" },
+    /// Green
+    ColorGreen { en: "Green", de: "Grün" },
+    /// Colourless
+    ColorColourless { en: "Colourless", de: "Farblos" },
+    /// Creature
+    KindCreature { en: "Creature", de: "Kreatur" },
+    /// Instant
+    KindInstant { en: "Instant", de: "Spontanzauber" },
+    /// Sorcery
+    KindSorcery { en: "Sorcery", de: "Hexerei" },
+    /// Artifact
+    KindArtifact { en: "Artifact", de: "Artefakt" },
+    /// Enchantment
+    KindEnchantment { en: "Enchantment", de: "Verzauberung" },
+    /// Planeswalker
+    KindPlaneswalker { en: "Planeswalker", de: "Planeswalker" },
+    /// Battle
+    KindBattle { en: "Battle", de: "Schlacht" },
+    /// Land
+    KindLand { en: "Land", de: "Land" },
+    /// Other
+    KindOther { en: "Other", de: "Sonstiges" },
+    /// Creatures
+    GroupCreatures { en: "Creatures", de: "Kreaturen" },
+    /// Planeswalkers
+    GroupPlaneswalkers { en: "Planeswalkers", de: "Planeswalker" },
+    /// Instants
+    GroupInstants { en: "Instants", de: "Spontanzauber" },
+    /// Sorceries
+    GroupSorceries { en: "Sorceries", de: "Hexereien" },
+    /// Artifacts
+    GroupArtifacts { en: "Artifacts", de: "Artefakte" },
+    /// Enchantments
+    GroupEnchantments { en: "Enchantments", de: "Verzauberungen" },
+    /// Battles
+    GroupBattles { en: "Battles", de: "Schlachten" },
+    /// Lands
+    GroupLands { en: "Lands", de: "Länder" },
+    /// Other
+    GroupOther { en: "Other", de: "Sonstiges" },
+    /// A–Z
+    SortName { en: "A–Z", de: "A–Z" },
+    /// Cost
+    SortCost { en: "Cost", de: "Kosten" },
+    /// Type
+    SortType { en: "Type", de: "Typ" },
+    /// Sort: {0}
+    SortBy { en: "Sort: {0}", de: "Sortierung: {0}" },
+    /// Cards ({0})
+    PaneCards { en: "Cards ({0})", de: "Karten ({0})" },
+    /// Deck ({0} / {1})
+    PaneDeck { en: "Deck ({0} / {1})", de: "Deck ({0} / {1})" },
+    /// Leave without saving
+    LeaveWithoutSaving { en: "Leave without saving", de: "Ohne Speichern verlassen" },
+    /// ‹ Decks
+    BackToDecks { en: "‹ Decks", de: "‹ Decks" },
+    /// Editing a deck
+    EditingADeck { en: "Editing a deck", de: "Deck bearbeiten" },
+    /// A new deck
+    ANewDeck { en: "A new deck", de: "Ein neues Deck" },
+    /// Save deck
+    SaveDeck { en: "Save deck", de: "Deck speichern" },
+    /// Saved
+    DeckIsSaved { en: "Saved", de: "Gespeichert" },
+    /// Hide filters
+    HideFilters { en: "Hide filters", de: "Filter ausblenden" },
+    /// Filters
+    ShowFilters { en: "Filters", de: "Filter" },
+    /// Clear
+    ClearFilters { en: "Clear", de: "Zurücksetzen" },
+    /// Playable only
+    PlayableOnly { en: "Playable only", de: "Nur spielbare" },
+    /// {0} of {1} cards{2}
+    PoolTally { en: "{0} of {1} cards{2}", de: "{0} von {1} Karten{2}" },
+    ///  — showing {0}, keep typing to narrow it
+    PoolNarrow {
+        en: " — showing {0}, keep typing to narrow it",
+        de: " — {0} gezeigt, tippe weiter zum Eingrenzen",
+    },
+    /// nothing matches — try fewer filters
+    NothingMatches {
+        en: "nothing matches — try fewer filters",
+        de: "nichts gefunden — versuche weniger Filter",
+    },
+    /// no printings
+    NoPrintings { en: "no printings", de: "keine Drucke" },
+    /// looking for other printings…
+    LookingForPrintings { en: "looking for other printings…", de: "suche weitere Drucke…" },
+    /// {0} of {1}
+    PrintingAt { en: "{0} of {1}", de: "{0} von {1}" },
+    /// this gateway has no card catalog — only this build's printing
+    NoCatalogOnlyThis {
+        en: "this gateway has no card catalog — only this build's printing",
+        de: "dieses Gateway hat keinen Kartenkatalog — nur den Druck dieses Builds",
+    },
+    /// All
+    AllSets { en: "All", de: "Alle" },
+    /// Plain
+    FinishPlain { en: "Plain", de: "Normal" },
+    /// Foil
+    FinishFoil { en: "Foil", de: "Folie" },
+    /// Etched
+    FinishEtched { en: "Etched", de: "Geätzt" },
+    /// Add
+    AddPrinting { en: "Add", de: "Hinzufügen" },
+    /// {0} in the {1}
+    CountInZone { en: "{0} in the {1}", de: "{0} {1}" },
+    /// deck
+    ZoneDeck { en: "deck", de: "im Deck" },
+    /// sideboard
+    ZoneSideboard { en: "sideboard", de: "im Sideboard" },
+    /// no art for this printing
+    NoArtForPrinting { en: "no art for this printing", de: "kein Bild für diesen Druck" },
+    /// no rules text — this gateway has no card catalog
+    NoRulesText {
+        en: "no rules text — this gateway has no card catalog",
+        de: "kein Regeltext — dieses Gateway hat keinen Kartenkatalog",
+    },
+    /// {0} — this card will not play as printed
+    NotAsPrinted {
+        en: "{0} — this card will not play as printed",
+        de: "{0} — diese Karte spielt nicht wie gedruckt",
+    },
+    /// + deck
+    AddToDeck { en: "+ deck", de: "+ Deck" },
+    /// + sideboard
+    AddToSideboard { en: "+ sideboard", de: "+ Sideboard" },
+    /// → sideboard
+    MoveToSideboard { en: "→ sideboard", de: "→ Sideboard" },
+    /// → deck
+    MoveToDeck { en: "→ deck", de: "→ Deck" },
+    /// remove
+    RemoveCard { en: "remove", de: "entfernen" },
+    /// commander ✓
+    IsCommander { en: "commander ✓", de: "Kommandeur ✓" },
+    /// set as commander
+    SetCommander { en: "set as commander", de: "als Kommandeur" },
+    /// {0} in the deck
+    HeldInDeck { en: "{0} in the deck", de: "{0} im Deck" },
+    /// {0} in the sideboard
+    HeldInSideboard { en: "{0} in the sideboard", de: "{0} im Sideboard" },
+    /// {0} in the deck, {1} in the sideboard
+    HeldInBoth {
+        en: "{0} in the deck, {1} in the sideboard",
+        de: "{0} im Deck, {1} im Sideboard",
+    },
+    /// partial
+    CoveragePartial { en: "partial", de: "teilweise" },
+    /// stub
+    CoverageStub { en: "stub", de: "Rumpf" },
+    /// DECK NAME
+    DeckNameLabel { en: "DECK NAME", de: "DECKNAME" },
+    /// Main {0}
+    TabMain { en: "Main {0}", de: "Deck {0}" },
+    /// Sideboard {0}
+    TabSide { en: "Sideboard {0}", de: "Sideboard {0}" },
+    /// {0} lands · {1} creatures · {2} other spells
+    DeckMakeup {
+        en: "{0} lands · {1} creatures · {2} other spells",
+        de: "{0} Länder · {1} Kreaturen · {2} andere Zauber",
+    },
+    /// empty — tap a card on the left to add it
+    DeckEmptyHint {
+        en: "empty — tap a card on the left to add it",
+        de: "leer — tippe links auf eine Karte, um sie hinzuzufügen",
+    },
+    /// Empty the deck
+    EmptyTheDeck { en: "Empty the deck", de: "Deck leeren" },
+    /// dropped: {0}
+    DroppedCards { en: "dropped: {0}", de: "entfallen: {0}" },
+    /// The deck needs a name.
+    DeckNeedsName { en: "The deck needs a name.", de: "Das Deck braucht einen Namen." },
+    /// That name is too long (64 characters at most).
+    DeckNameTooLong {
+        en: "That name is too long (64 characters at most).",
+        de: "Der Name ist zu lang (höchstens 64 Zeichen).",
+    },
+    /// The deck is empty.
+    DeckIsEmpty { en: "The deck is empty.", de: "Das Deck ist leer." },
+    /// At most {0} different cards per list.
+    TooManyLines {
+        en: "At most {0} different cards per list.",
+        de: "Höchstens {0} verschiedene Karten je Liste.",
+    },
+    /// At most {0} cards in each list.
+    TooManyCards { en: "At most {0} cards in each list.", de: "Höchstens {0} Karten je Liste." },
+    /// {0} is no longer in the card pool.
+    CardGoneFromPool {
+        en: "{0} is no longer in the card pool.",
+        de: "{0} ist nicht mehr im Kartenpool.",
+    },
+    /// {0} cards — a constructed deck wants at least {1}.
+    DeckTooSmall {
+        en: "{0} cards — a constructed deck wants at least {1}.",
+        de: "{0} Karten — ein Constructed-Deck will mindestens {1}.",
+    },
+    /// A sideboard is usually at most {0} cards.
+    SideboardTooBig {
+        en: "A sideboard is usually at most {0} cards.",
+        de: "Ein Sideboard hat üblicherweise höchstens {0} Karten.",
+    },
+    /// {0} lands in {1} cards is thin for this curve.
+    ThinOnLands {
+        en: "{0} lands in {1} cards is thin for this curve.",
+        de: "{0} Länder auf {1} Karten sind dünn für diese Kurve.",
+    },
+    /// {0} card(s) are not fully implemented yet and will not play as printed.
+    ShakyCards {
+        en: "{0} card(s) are not fully implemented yet and will not play as printed.",
+        de: "{0} Karte(n) sind noch nicht vollständig umgesetzt und spielen nicht wie gedruckt.",
+    },
+
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {
         en: "the gateway did not answer: {0}",
