@@ -36,6 +36,7 @@
 
 pub mod automation;
 pub mod board;
+pub mod browser;
 pub mod card_face;
 pub mod cardrail;
 pub mod deckbuilder;
@@ -54,6 +55,7 @@ pub(crate) mod test_support;
 
 pub use automation::{AutoAnswer, AutoPilot, PhaseOrders};
 pub use board::{BoardModel, CardGroup, Lane, SeatPod, StackItem, ThreatSummary, TokenChip};
+pub use browser::{BrowseRow, BrowseZone, Browser};
 pub use card_face::{
     CardFace, CardText, CardTextEntry, Characteristics, FaceText, Stats, TextBlock,
 };

@@ -99,6 +99,37 @@ impl ViewBuilder {
         }
     }
 
+    /// Puts cards in a seat's graveyard.
+    #[must_use]
+    pub fn with_graveyard(mut self, seat: u8, objects: Vec<PublicObject>) -> Self {
+        self.view.seats[seat as usize].graveyard_count =
+            u32::try_from(objects.len()).unwrap_or(u32::MAX);
+        self.view.graveyards[seat as usize] = objects;
+        self
+    }
+
+    /// Puts cards in a seat's public exile.
+    #[must_use]
+    pub fn with_exile(mut self, seat: u8, objects: Vec<PublicObject>) -> Self {
+        self.view.exile[seat as usize] = objects;
+        self
+    }
+
+    /// Puts cards in a seat's command zone.
+    #[must_use]
+    pub fn with_command(mut self, seat: u8, objects: Vec<PublicObject>) -> Self {
+        self.view.command[seat as usize] = objects;
+        self
+    }
+
+    /// Shows the viewing seat cards that live in no zone it can see — a
+    /// library search, a scry, a revealed hand.
+    #[must_use]
+    pub fn with_looking_at(mut self, objects: Vec<PublicObject>) -> Self {
+        self.view.looking_at = objects;
+        self
+    }
+
     /// Adds permanents controlled by `controller`.
     #[must_use]
     pub fn with_battlefield(

@@ -976,6 +976,31 @@ messages! {
         en: "could not reach the table: {0}",
         de: "Tisch nicht erreichbar: {0}",
     },
+
+    // ---- the zone browser
+    /// The panel that shows every zone a choice can reach.
+    BrowseTitle { en: "Zones", de: "Zonen" },
+    /// Cards the engine is showing this seat — a search, a scry, a reveal.
+    BrowseLooking { en: "Revealed", de: "Aufgedeckt" },
+    /// A graveyard.
+    BrowseGraveyard { en: "Graveyard", de: "Friedhof" },
+    /// A public exile pile.
+    BrowseExile { en: "Exile", de: "Exil" },
+    /// A command zone.
+    BrowseCommand { en: "Command", de: "Kommandozone" },
+    /// The tab that shows every zone at once.
+    BrowseAll { en: "All", de: "Alle" },
+    /// A zone with nothing in it, or a filter that matched nothing.
+    BrowseEmpty { en: "nothing here", de: "nichts hier" },
+    /// The filter box above the list.
+    BrowseFilter { en: "Filter by name", de: "Nach Namen filtern" },
+    /// How an ordering is answered.
+    BrowseOrderHint {
+        en: "click them in the order they should go",
+        de: "in der gewünschten Reihenfolge anklicken",
+    },
+    /// A zone belonging to a seat. `{0}` is the zone, `{1}` the seat.
+    BrowseZoneOf { en: "{0} · {1}", de: "{0} · {1}" },
 }
 
 impl Phrase {

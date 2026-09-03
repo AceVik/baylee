@@ -556,6 +556,17 @@ impl Interaction {
         }
     }
 
+    /// Whether the answer is an ordering rather than a set.
+    ///
+    /// The one thing outside this module that has to know: an ordering is
+    /// answered by clicking every offered card in the order it should go,
+    /// so a renderer draws a place number beside each pick, and the zone
+    /// browser opens for it even when every card is already on the table.
+    #[must_use]
+    pub fn is_ordering(&self) -> bool {
+        matches!(self.mode, Mode::Order { .. })
+    }
+
     /// Whether an object may be selected.
     ///
     /// Choices whose options the engine leaves implicit (the seat's own hand)
