@@ -69,10 +69,26 @@ pub fn sync_overlay(
     };
     let lang = Lang::of(&settings.lang);
     let seq = duel.board.as_ref().map(|b| b.seq);
-    let prompt = duel
-        .interaction
-        .as_ref()
-        .map(|i| i.prompt().headline(lang))
+    // A finished game says who won, not merely that it is finished — and a
+    // team game says which team, which is why this is answered here and not
+    // in the prompt: the seat's own team lives in the roster.
+    let ending = duel.interaction.as_ref().and_then(|i| {
+        let baylee_engine::choice::Pending::GameOver(result) = i.pending() else {
+            return None;
+        };
+        let statics = duel.statics.as_ref()?;
+        let seat = statics.your_seat;
+        let team = statics
+            .seats
+            .iter()
+            .find(|s| s.player == seat)
+            .and_then(|s| s.team);
+        Some(baylee_client_core::interaction::verdict(
+            lang, result, seat, team,
+        ))
+    });
+    let prompt = ending
+        .or_else(|| duel.interaction.as_ref().map(|i| i.prompt().headline(lang)))
         .or_else(|| duel.last_error.clone());
     let hovered = duel.hovered;
     let selected: Vec<ObjectId> = duel

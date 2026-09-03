@@ -433,3 +433,120 @@ async fn a_table_seats_between_two_and_eight() {
         assert_eq!(status, expected, "{chairs} chairs: {body}");
     }
 }
+
+#[tokio::test]
+async fn sides_are_the_hosts_to_arrange_and_a_table_needs_two_of_them() {
+    let gw = spawn_gateway("rooms-teams");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let host = login(port, "cap@example.com", "captain");
+    let guest = login(port, "mate@example.com", "shipmate");
+    let host_deck = make_deck(port, &host, "host-deck");
+    let guest_deck = make_deck(port, &guest, "guest-deck");
+
+    // Three chairs: the host, a guest, and one for the AI. 2v1 — teams do
+    // not have to be balanced.
+    let create = format!("{{\"deck_id\":\"{host_deck}\",\"seats\":3,\"name\":\"Teams\"}}");
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&host), &create);
+    assert_eq!(status, 200, "create room: {body}");
+    let game_id = json_field(&body, "game_id").to_string();
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/2"),
+        Some(&host),
+        "{\"kind\":\"ai\",\"team\":2}",
+    );
+    assert_eq!(status, 200, "the AI chair takes a side: {body}");
+    assert!(
+        body.contains("\"team\":2"),
+        "the listing carries it: {body}"
+    );
+
+    let join = format!("{{\"deck_id\":\"{guest_deck}\"}}");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/join"),
+        Some(&guest),
+        &join,
+    );
+    assert_eq!(status, 200, "join: {body}");
+
+    // A player cannot pick their own side: it is the format, and one that
+    // could be changed by the people at the table is not a format.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/1"),
+        Some(&guest),
+        "{\"team\":2}",
+    );
+    assert_eq!(status, 403, "only the host arranges sides: {body}");
+
+    for seat in [0, 1] {
+        let (status, body) = http(
+            port,
+            "POST",
+            &format!("/lobby/games/{game_id}/seats/{seat}"),
+            Some(&host),
+            "{\"team\":1}",
+        );
+        assert_eq!(status, 200, "seat {seat} onto team 1: {body}");
+    }
+
+    // Being moved to another side is a change to the game you said yes to,
+    // so it takes the ready flag with it — the same rule a swapped deck has.
+    say_ready(port, &host, &game_id);
+    say_ready(port, &guest, &game_id);
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/1"),
+        Some(&host),
+        "{\"team\":1}",
+    );
+    assert_eq!(status, 200, "the same side again: {body}");
+    let (_, listing) = http(port, "GET", "/lobby/games", Some(&host), "");
+    assert!(
+        listing.contains("\"startable\":true"),
+        "putting a chair back where it already was changes nothing: {listing}"
+    );
+
+    // Everyone on one team is not a game. The lobby refuses it here rather
+    // than starting a table the engine would call over at once.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/2"),
+        Some(&host),
+        "{\"team\":1}",
+    );
+    assert_eq!(status, 200, "put the AI on team 1 too: {body}");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&host),
+        "{}",
+    );
+    assert_eq!(status, 409, "one side is not a game: {body}");
+
+    // Put it back on the other side and the same room starts.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seats/2"),
+        Some(&host),
+        "{\"team\":2}",
+    );
+    assert_eq!(status, 200, "back to team 2: {body}");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&host),
+        "{}",
+    );
+    assert_eq!(status, 200, "start: {body}");
+}

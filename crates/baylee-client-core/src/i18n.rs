@@ -893,6 +893,41 @@ messages! {
         en: "account created — check your e-mail for the confirmation link",
         de: "Konto erstellt — prüfe deine E-Mail auf den Bestätigungslink",
     },
+    /// A chair that plays for nobody but itself.
+    SeatSideNone {
+        en: "no team",
+        de: "kein Team",
+    },
+    /// A chair's team, by number.
+    SeatSide {
+        en: "team {0}",
+        de: "Team {0}",
+    },
+    /// The game is over and this seat won it.
+    YouWon {
+        en: "you won",
+        de: "du hast gewonnen",
+    },
+    /// The game is over and this seat did not.
+    YouLost {
+        en: "you lost",
+        de: "du hast verloren",
+    },
+    /// The game is over and this seat's team won it.
+    YourTeamWon {
+        en: "team {0} wins — yours",
+        de: "Team {0} gewinnt — deins",
+    },
+    /// The game is over and another team won it.
+    TheirTeamWon {
+        en: "team {0} wins",
+        de: "Team {0} gewinnt",
+    },
+    /// Nobody won.
+    TheGameIsADraw {
+        en: "the game is a draw",
+        de: "das Spiel endet unentschieden",
+    },
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {
         en: "the gateway did not answer: {0}",

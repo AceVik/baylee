@@ -65,6 +65,14 @@ pub struct LobbySeat {
     /// last deck was chosen, which meant a player who picked a deck to look
     /// at it was already in a game.
     pub said_ready: bool,
+    /// Which team this chair plays for, or `None` for a chair that plays for
+    /// itself.
+    ///
+    /// A property of the *chair*, not of whoever is sitting in it: it is the
+    /// host's arrangement of the table, and it survives a player leaving so
+    /// that a 2v2 stays a 2v2 while it waits for someone to take the empty
+    /// seat back.
+    pub team: Option<u8>,
     /// Where in the arrival order this player sits, for handing the room on.
     ///
     /// Not the seat index: chairs may be taken in any order, and "the next
@@ -86,6 +94,7 @@ impl LobbySeat {
             deck_name: String::new(),
             deck: None,
             said_ready: false,
+            team: None,
             joined_seq: None,
         }
     }
@@ -108,7 +117,10 @@ impl LobbySeat {
     /// chair over to the AI, and a chair turned back to a human — and each
     /// one that forgot a field left something of the last occupant behind.
     pub fn vacate(&mut self) {
+        let team = self.team;
         *self = Self::open(self.seat);
+        // The team is the table's shape, which nobody changed by standing up.
+        self.team = team;
     }
 }
 
@@ -530,6 +542,9 @@ impl Lobby {
                             "host": s.account_id.is_some() && s.account_id == g.host,
                             "deck": s.deck_name,
                             "ready": s.ready(),
+                            // `null` for a chair that plays for itself, which
+                            // is every chair at a table with no teams on it.
+                            "team": s.team,
                         })
                     }).collect::<Vec<_>>(),
         })

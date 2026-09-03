@@ -219,12 +219,13 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             kind: Some(SeatKind::Ai),
             ai: Some("sharp".to_string()),
             deck_id: None,
+            team: Some(2),
         },
     );
     assert_eq!(chair.url, "http://gw/lobby/games/g1/seats/2");
     assert_eq!(
         body(&chair),
-        serde_json::json!({ "kind": "ai", "ai": "sharp", "deck_id": null })
+        serde_json::json!({ "kind": "ai", "ai": "sharp", "deck_id": null, "team": 2 })
     );
     assert!(
         matches!(expect, Expect::Moved),

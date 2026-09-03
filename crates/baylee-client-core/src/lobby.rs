@@ -154,6 +154,10 @@ pub struct GameSeat {
     /// Whether the chair is settled enough for the game to start.
     #[serde(default)]
     pub ready: bool,
+    /// Which team the chair plays for. `None` is a chair on its own side,
+    /// which is every chair at a table with no teams on it.
+    #[serde(default)]
+    pub team: Option<u8>,
 }
 
 impl GameSeat {
@@ -424,6 +428,10 @@ pub enum LobbyRequest {
         ai: Option<String>,
         /// The deck the chair plays.
         deck_id: Option<String>,
+        /// Which team the chair plays for. Teams are numbered from 1 and
+        /// `0` puts the chair back on its own side, so that "leave it alone"
+        /// stays the absent field it is for everything else here.
+        team: Option<u8>,
     },
     /// `POST /lobby/games/{id}/ready` — say whether this player is ready.
     SetReady {
@@ -1170,6 +1178,27 @@ impl Lobby {
             kind,
             ai,
             deck_id: None,
+            team: None,
+        })
+    }
+
+    /// Moves a chair onto a side. `0` puts it back on its own.
+    ///
+    /// The host's, not the player's: a side is the format, and one the people
+    /// at the table can change is not a format. The gateway says so again.
+    pub fn seat_team(&mut self, game_id: &str, seat: u32, team: u8) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.note(Phrase::ArrangingTable);
+        Some(LobbyRequest::SetSeat {
+            game_id: game_id.to_string(),
+            seat,
+            kind: None,
+            ai: None,
+            deck_id: None,
+            team: Some(team),
         })
     }
 
@@ -1184,6 +1213,7 @@ impl Lobby {
             kind: None,
             ai: None,
             deck_id: Some(deck_id),
+            team: None,
         })
     }
 

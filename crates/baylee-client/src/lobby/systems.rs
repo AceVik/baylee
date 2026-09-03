@@ -495,6 +495,13 @@ pub(super) fn clicks(
                     dispatch(&state, &mailbox, request);
                 }
             }
+            Press::SeatTeam(index, seat, team) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.seat_team(&game, seat, team);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
             Press::SeatDeck(index, seat) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
@@ -823,6 +830,8 @@ pub(crate) enum Press {
     SeatAi(usize, u32, &'static str),
     /// Put the selected deck in a chair.
     SeatDeck(usize, u32),
+    /// Move a chair onto a side. `0` puts it back on its own.
+    SeatTeam(usize, u32, u8),
     /// Leave a finished game.
     Leave,
     /// Open the settings screen.

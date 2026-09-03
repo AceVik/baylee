@@ -1170,6 +1170,27 @@ fn seat_rows(
                 }
             }
         }
+        // Which side the chair plays for, cycled by the host: nothing, then
+        // team 1, 2, … and back. One chip rather than one per team, because
+        // a table of eight would otherwise carry nine buttons per row for a
+        // setting most tables never touch.
+        if game.yours {
+            let seats = game.seats.len() as u8;
+            let next = seat.team.map_or(1, |t| if t >= seats { 0 } else { t + 1 });
+            let label = match seat.team {
+                None => Phrase::SeatSideNone.text(lang).to_string(),
+                Some(team) => Phrase::SeatSide.fill(lang, &[&team.to_string()]),
+            };
+            let side = chip(
+                commands,
+                fonts,
+                metrics,
+                &label,
+                Press::SeatTeam(index, seat.seat, next),
+                seat.team.is_some(),
+            );
+            commands.entity(line).add_child(side);
+        }
         // The room can be handed to anyone else who is sitting at it, which
         // is also how a host leaves without taking the table with them.
         if game.yours && !mine && seat.taken && seat.kind == SeatKind::Human {

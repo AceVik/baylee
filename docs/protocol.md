@@ -303,7 +303,7 @@ which is what turned this from a curl recipe into a contract:
 | the same, pushed | `GET /lobby/ws?token=…&q=&offset=&limit=` (websocket) | that page again, on every lobby change |
 | open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open", seats, name}` | `{game_id, seat, seat_token}` |
 | sit down | `POST /lobby/games/{id}/join` `{deck_id, seat?}` | `{game_id, seat, seat_token}` |
-| arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?}` | the seat |
+| arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?, team?}` | the seat |
 | stand up | `POST /lobby/games/{id}/leave` | `204` |
 
 Everything but the two auth calls, `/auth/config`, `/pool` and `/printings`
@@ -416,10 +416,29 @@ quiet default, because a table that plays at another level than it advertises
 is worse than one that says no.
 
 Two authorities, and they do not overlap. The **host** arranges the table —
-`POST …/seats/{seat}` with `kind` and `ai` — but not a chair someone is sitting
-in (`409`). Every **player** sets exactly one thing, the deck they themselves
-will play, through the same route with `deck_id`; a deck that is not theirs is
-a `403`, and so is any attempt to arrange a seat that is not their own.
+`POST …/seats/{seat}` with `kind`, `ai` and `team` — but not a chair someone is
+sitting in (`409`). Every **player** sets exactly one thing, the deck they
+themselves will play, through the same route with `deck_id`; a deck that is not
+theirs is a `403`, and so is any attempt to arrange a seat that is not their
+own.
+
+**Sides are the host's**, and that is why `team` sits with `kind` rather than
+with `deck_id`: a side is the format, and a format the people at the table can
+change between them is not one — a player who could pick their own would pick
+the winning one. Teams are numbered from 1, `0` puts a chair back on its own
+side, and the listing carries `"team"` per seat (`null` for a chair playing for
+itself, which is every chair at a table with no teams on it). Moving a chair to
+another side clears that chair's `ready`, exactly as swapping its deck does:
+it is not the game they said yes to. A team need not be balanced — 3v2 is a
+table — and the one arrangement refused is everyone on the same team, which
+`POST …/start` answers with a `409` because `GamePreset::validate` refuses it
+and the lobby refuses exactly what the engine would.
+
+The rules half is in `docs/engine-internals.md`: an opponent is a *side*, not a
+seat, so teammates cannot be attacked, are not "each opponent", and are not
+stopped by hexproof; and the game ends when one side is left standing, with
+`GameEnded.winners` carrying the whole winning team rather than the one seat
+that survived.
 
 **Starting takes two statements by two people.** `POST …/ready {ready}` is a
 player saying they are ready, and only ever about their own chair — a `409` if

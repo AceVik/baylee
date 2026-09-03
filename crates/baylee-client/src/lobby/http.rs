@@ -164,6 +164,7 @@ pub(super) fn build(
             kind,
             ai,
             deck_id,
+            team,
         } => (
             json_post(
                 &format!("{base}/lobby/games/{game_id}/seats/{seat}"),
@@ -174,6 +175,7 @@ pub(super) fn build(
                     }),
                     "ai": ai,
                     "deck_id": deck_id,
+                    "team": team,
                 }),
             ),
             // The answer says what the whole lobby looks like; this client

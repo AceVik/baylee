@@ -1151,6 +1151,16 @@ fn room_preset(
                     .unwrap_or_default(),
             ),
         };
+        spec.team = seat.team;
+    }
+    // The engine refuses a table with only one side on it, and so does the
+    // lobby — here rather than at the first state-based action, so the room
+    // says why instead of starting a game that is already over.
+    if preset.validate().is_err() {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "every seat is on the same team; a game needs at least two sides",
+        ));
     }
     Ok(preset)
 }
@@ -1349,15 +1359,26 @@ struct SeatBody {
     /// The deck this chair plays.
     #[serde(default)]
     deck_id: Option<String>,
+    /// Which team this chair plays for. Teams are numbered from 1, and `0`
+    /// puts the chair back on its own side — a sentinel rather than a
+    /// `null`, so "leave the team alone" stays the absent field it is for
+    /// every other setting here.
+    #[serde(default)]
+    team: Option<u8>,
 }
 
 /// Configures one seat of a room.
 ///
 /// Two authorities, deliberately narrow. The **host** arranges the table:
-/// which chairs are people and which are the AI, how hard the AI plays, and
-/// what an AI chair brings. A **player** changes exactly one thing, their own
-/// deck — including the host, whose own chair is theirs as a player and not
-/// as the host.
+/// which chairs are people and which are the AI, how hard the AI plays, what
+/// an AI chair brings, and which side each chair plays for. A **player**
+/// changes exactly one thing, their own deck — including the host, whose own
+/// chair is theirs as a player and not as the host.
+///
+/// Teams are the host's because they are the format, not a preference: a
+/// player who could pick their own would pick the winning one, and a table
+/// whose sides can change under the people at it is not the table they
+/// agreed to sit at.
 async fn set_seat(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -1437,6 +1458,21 @@ async fn set_seat(
                 return Err(err(StatusCode::CONFLICT, "that seat is not an AI"));
             }
             chair.ai = Some(profile.clone());
+        }
+        if let Some(team) = body.team {
+            if !is_host {
+                return Err(err(StatusCode::FORBIDDEN, "only the host arranges seats"));
+            }
+            if team > MAX_SEATS as u8 {
+                return Err(err(StatusCode::BAD_REQUEST, "no such team"));
+            }
+            let moved = chair.team != (team > 0).then_some(team);
+            chair.team = (team > 0).then_some(team);
+            // Being moved to another side changes the game they said yes to,
+            // exactly as a swapped deck does.
+            if moved {
+                chair.said_ready = false;
+            }
         }
         if let Some((deck_name, deck)) = chosen {
             // A player sets their own deck; the host sets an AI's. Nobody

@@ -35,6 +35,7 @@ use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
     BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, YesNoPrompt,
 };
+use baylee_engine::win::{GameResult, Victor};
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -189,6 +190,37 @@ impl Prompt {
             Self::OrderObjects => Phrase::PutInOrder.text(lang).to_string(),
             Self::YesNo { question } => yes_no_line(lang, *question),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
+        }
+    }
+}
+
+/// The line a finished game gets, as this seat reads it.
+///
+/// It takes the seat's own team rather than the whole roster because that is
+/// the only thing about the table it needs: a `Victor::Team` is answered by
+/// one comparison, whether the winning team is yours. A seat with no team can
+/// only be its own winner, which is every seat in a game with no teams in it.
+///
+/// It sits here rather than in the renderer for the reason every other line
+/// does — who won is a decision about the game, and the shell only draws it.
+#[must_use]
+pub fn verdict(lang: Lang, result: &GameResult, seat: PlayerId, team: Option<u8>) -> String {
+    match result.winner {
+        None => Phrase::TheGameIsADraw.text(lang).to_string(),
+        Some(Victor::Player(winner)) => if winner == seat {
+            Phrase::YouWon
+        } else {
+            Phrase::YouLost
+        }
+        .text(lang)
+        .to_string(),
+        Some(Victor::Team(won)) => {
+            let number = won.to_string();
+            if team == Some(won) {
+                Phrase::YourTeamWon.fill(lang, &[&number])
+            } else {
+                Phrase::TheirTeamWon.fill(lang, &[&number])
+            }
         }
     }
 }
