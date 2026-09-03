@@ -35,6 +35,7 @@ cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages fo
 cargo run -p xtask -- forge-report                        # how far the card transcoder reaches, and what it needs next
 cargo run -p xtask -- pool-dump --out /tmp/pool.txt       # every CardDef, for refactor equivalence diffs
 cargo run -p xtask -- dev-table --seats 4 --ai sharp      # a seated dev ticket (add --play to launch the client)
+cargo run -p xtask -- dev-table --seats 3 --teams 1,1,2   # the same, as a 2v1
 ```
 
 `dev-table` skips the lobby's sign-in and deck-picking *screens* and nothing
@@ -42,7 +43,12 @@ else: the account (`dev@baylee.local`, reused across runs), the deck, the room
 and every AI chair are made through the gateway's own HTTP routes, and what it
 prints is an ordinary `SeatTicket`. The game therefore runs over the same
 engine ⇄ gateway ⇄ client sockets as any other — it is not a `LocalHost`
-shortcut, which is the whole point of having it.
+shortcut, which is the whole point of having it. It also says `ready` and
+`start` for the dev account, because a room does not start itself: a table of
+more than two chairs used to be arranged and then left sitting there.
+`--teams` puts the chairs on sides in seat order (`1,1,2` is a 2v1, `0` leaves
+a chair on its own side), which needs three chairs or more — a duel already
+has exactly two sides.
 
 `codegen`, `explain`, and `card-batch` default `--forge` to
 `../mtg/forge-reference/forge-gui/res/cardsfolder` (read-only GPL reference,
