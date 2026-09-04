@@ -38,7 +38,10 @@
 # The narrow gate is deliberate. `cargo test --workspace` takes minutes and
 # the client alone links half a gigabyte; per card that is the difference
 # between a batch overnight and a batch over a week. The full gate runs once,
-# on the branch, before anything is merged.
+# on the branch, before anything is merged. Narrow was still not cheap enough
+# to run between every pair of cards — see `GATE_EVERY` — so it now gates a
+# chunk at a time and falls back to one card at a time only when a chunk
+# fails.
 set -u
 PKGS=${1:?usage: run.sh <packages-dir> [count] [model]}
 COUNT=${2:-10}
@@ -107,11 +110,18 @@ fi
 # status` plus `rev-parse HEAD` makes every ordinary commit and every edited
 # file over there look like an escape — the first probe stopped on exactly that,
 # a commit of mine to `xtask/`. What the model can write is a card, so the watch
-# is the three card directories: an escape lands there, and the upstream's own
-# work does not. `rev-parse` is gone entirely; the model has no shell and cannot
-# commit.
+# is where a card has to land: `crates/baylee-cards/src/cards`. An escape puts a
+# card there by construction, and the upstream's own work — client, codegen,
+# tooling — does not. `rev-parse` is gone entirely; the model has no shell and
+# cannot commit.
+#
+# The first narrowing still watched `baylee-cards-codegen` as well, and that was
+# one directory too many: a `cargo fmt --all` upstream reformatted `landgen.rs`,
+# and the batch stopped on card 7 believing the model had escaped. A guard that
+# cries wolf at ordinary work next door gets switched off, which is worse than a
+# guard that watches only the one place a card can appear.
 UPSTREAM=$(git -C "$ROOT" remote get-url origin 2>/dev/null)
-WATCHED=(crates/baylee-cards crates/baylee-cards-codegen crates/baylee-cards-dsl)
+WATCHED=(crates/baylee-cards/src/cards)
 upstream_state() {
   if [ -n "$UPSTREAM" ] && [ -d "$UPSTREAM/.git" ]; then
     git -C "$UPSTREAM" status --porcelain -- $WATCHED
@@ -120,11 +130,93 @@ upstream_state() {
 
 done_n=0
 # A run that keeps reporting cards it never wrote is a broken prompt, not a
-# difficult pool, and it costs about six minutes of model time per card to keep
-# finding that out. Three in a row and the batch stops rather than spending the
-# other four hundred slots on the same mistake.
+# difficult pool, and it costs a card's worth of model time to keep finding
+# that out. Three in a row and the batch stops rather than spending the other
+# four hundred slots on the same mistake.
 NO_EDIT_STREAK=0
 NO_EDIT_LIMIT=3
+
+# How many accepted cards may wait for one gate run.
+#
+# Measured on the first live batch: a *refused* card costs about 85 seconds,
+# all of it model time, and an accepted one 2:39 to 3:46 — so `cargo check`
+# plus `cargo test -p baylee-cards` plus `xtask validate` was costing roughly
+# as much as writing the card did. Over 459 cards that is most of a working day
+# spent recompiling one crate a card at a time.
+#
+# Cards are independent files, so the gate does not have to run between them.
+# What it does have to preserve is what the per-card gate bought: one commit
+# per card, and a bad card revertible on its own. `flush_gate` keeps both.
+GATE_EVERY=${GATE_EVERY:-25}
+# Accepted cards, and a copy of each. The copies are what make the failure path
+# cheap: reverting a card is a `git checkout`, but *restoring* one is only
+# possible if its text was kept somewhere first.
+HOLD=$LOG/pending
+rm -rf "$HOLD"
+mkdir -p "$HOLD"
+typeset -a PENDING PENDING_NAMES
+
+# The gate itself. Narrow on purpose: it says the pool still compiles and its
+# data tests still hold, which is not the same as a card being right.
+gate_runs() {
+  ( cd "$ROOT" \
+      && cargo check -p baylee-cards --quiet \
+      && cargo test -p baylee-cards --quiet \
+      && cargo run -q -p xtask -- validate ) >> "$1" 2>&1
+}
+
+commit_card() {
+  git -C "$ROOT" add "$1"
+  git -C "$ROOT" commit -q -m "feat(cards): $2
+
+Implemented by $MODEL through tools/cardbatch. Unreviewed: the narrow gate
+says it compiles and the data tests pass, which is not the same as the card
+being right.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+}
+
+# Gates everything accepted since the last flush, then commits it one card per
+# commit.
+#
+# The happy path is a single gate run for up to $GATE_EVERY cards. When it
+# fails, the chunk cannot say which card broke it — so it replays: every
+# pending card is reverted, then restored one at a time from $HOLD with a gate
+# after each. That is the old per-card cost, but only for a chunk that really
+# does contain a bad card, and no good card is lost to its neighbour.
+flush_gate() {
+  [ ${#PENDING} -eq 0 ] && return
+  local log=$LOG/gate-$(date +%H%M%S).log
+  local i card name slug
+  if gate_runs "$log"; then
+    for (( i = 1; i <= ${#PENDING}; i++ )); do
+      commit_card "${PENDING[$i]}" "${PENDING_NAMES[$i]}"
+    done
+    echo "  gate ok — ${#PENDING} card(s) committed"
+    push_home
+  else
+    echo "  gate failed for the chunk — replaying ${#PENDING} card(s) one at a time"
+    git -C "$ROOT" checkout -- "${PENDING[@]}"
+    for (( i = 1; i <= ${#PENDING}; i++ )); do
+      card=${PENDING[$i]}
+      name=${PENDING_NAMES[$i]}
+      slug=${${card:t}:r}
+      cp "$HOLD/$slug.rs" "$ROOT/$card"
+      if gate_runs "$LOG/$slug.gate"; then
+        commit_card "$card" "$name"
+        echo "    $slug kept"
+      else
+        git -C "$ROOT" checkout -- "$card"
+        python3 "$HERE/verdict.py" "$LOG/$slug.json" row "$slug" "$name" gate-failed \
+          >> "$REFUSALS"
+        echo "    $slug reverted — see $LOG/$slug.gate"
+      fi
+    done
+    push_home
+  fi
+  PENDING=()
+  PENDING_NAMES=()
+}
 for dir in "$PKGS"/*(/); do
   [ $done_n -ge $COUNT ] && break
   slug=${dir:t}
@@ -168,56 +260,53 @@ for dir in "$PKGS"/*(/); do
     outcome=agy-failed
   fi
 
-  # The gate. Narrow, but it runs before anything is kept, and a card that
-  # only compiles is not a card that passed.
+  # What the model actually left behind. The pending cards are legitimately
+  # dirty now, so "it touched only its own file" is a set difference rather
+  # than the string compare it used to be.
+  typeset -a changed stray
+  changed=(${(f)"$(git -C "$ROOT" status --porcelain | awk '{print $2}')"})
   if [ "$verdict_status" = "implemented" ] || [ "$verdict_status" = "partial" ]; then
-    if ( cd "$ROOT" \
-          && cargo check -p baylee-cards --quiet \
-          && cargo test -p baylee-cards --quiet \
-          && cargo run -q -p xtask -- validate ) >> "$LOG/$slug.gate" 2>&1; then
-      # And the card the model was asked about is the only file it touched.
-      changed=$(git -C "$ROOT" status --porcelain | awk '{print $2}')
-      if [ -z "$changed" ]; then
-        # Nothing to revert and nothing to keep: the model reported a card it
-        # never wrote. The first batch hit this after its own `cargo check`
-        # deadlocked, and the message read "touched more than its own file:"
-        # with an empty list, which is the opposite of what happened.
-        echo "  reported a card it never wrote — recording"
-        verdict_status=refused
-        outcome=no-edit
-        NO_EDIT_STREAK=$((NO_EDIT_STREAK+1))
-      elif [ "$changed" != "$card" ]; then
-        echo "  touched more than its own file: $changed — reverting"
-        git -C "$ROOT" checkout -- . && git -C "$ROOT" clean -fd -q
-        verdict_status=refused
-        outcome=stray-edits
-      else
-        git -C "$ROOT" add "$card"
-        git -C "$ROOT" commit -q -m "feat(cards): $name
-
-Implemented by $MODEL through tools/cardbatch. Unreviewed: the narrow gate
-says it compiles and the data tests pass, which is not the same as the card
-being right.
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-        echo "  committed"
-        NO_EDIT_STREAK=0
-        push_home
-      fi
-    else
-      echo "  gate failed — reverting, see $LOG/$slug.gate"
-      git -C "$ROOT" checkout -- . && git -C "$ROOT" clean -fd -q
+    stray=()
+    for f in $changed; do
+      [ "$f" = "$card" ] && continue
+      (( ${PENDING[(Ie)$f]} )) && continue
+      stray+=$f
+    done
+    if [ ${#stray} -gt 0 ]; then
+      echo "  touched more than its own file: $stray — reverting those"
+      git -C "$ROOT" checkout -- $stray 2>/dev/null
+      git -C "$ROOT" clean -fd -q -- $stray 2>/dev/null
       verdict_status=refused
-      outcome=gate-failed
+      outcome=stray-edits
+    elif (( ! ${changed[(Ie)$card]} )); then
+      # Nothing to keep: the model reported a card it never wrote. Its own
+      # reason, and not the same thing as declining one.
+      echo "  reported a card it never wrote — recording"
+      verdict_status=refused
+      outcome=no-edit
+      NO_EDIT_STREAK=$((NO_EDIT_STREAK+1))
+    else
+      cp "$ROOT/$card" "$HOLD/$slug.rs"
+      PENDING+=$card
+      PENDING_NAMES+=$name
+      NO_EDIT_STREAK=0
+      echo "  accepted — ${#PENDING}/$GATE_EVERY waiting for the gate"
     fi
   fi
 
   if [ "$verdict_status" = "refused" ]; then
-    git -C "$ROOT" checkout -- . 2>/dev/null
-    git -C "$ROOT" clean -fd -q 2>/dev/null
+    # Revert everything except what is waiting for the gate. A declined card
+    # may still have left a half-written file behind, and that must go; the
+    # chunk's accepted cards must not.
+    for f in $changed; do
+      (( ${PENDING[(Ie)$f]} )) && continue
+      git -C "$ROOT" checkout -- "$f" 2>/dev/null || rm -f "$ROOT/$f"
+    done
     python3 "$HERE/verdict.py" "$verdict" row "$slug" "$name" "$outcome" >> "$REFUSALS"
     echo "  $outcome — recorded"
   fi
+
+  [ ${#PENDING} -ge $GATE_EVERY ] && flush_gate
 
   if [ $NO_EDIT_STREAK -ge $NO_EDIT_LIMIT ]; then
     echo "$NO_EDIT_STREAK cards in a row reported without an edit — stopping."
@@ -225,6 +314,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     break
   fi
 done
+
+flush_gate
 
 # Now that no revert can follow, the run's refusals join the tracked ledger as
 # one commit. Its two load-bearing columns are `cannot_say` and
