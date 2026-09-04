@@ -199,7 +199,8 @@ seat's battlefield is underneath the hand bar.
   0.55–0.72). `WASH_SIZE` is derived from the ring instead of written down,
   because a wash wider than the ring it washes reads as the table being that
   colour. The bound is a test:
-  `table.rs::camera_tests::the_hearth_ring_is_smaller_than_the_nearest_seats_mat`.
+  `table.rs::camera_tests::the_hearth_ring_is_no_bigger_than_a_seats_ground`
+  (renamed, and corrected — see below: it was measuring the wrong edge).
 - The hand bar was not a *rendering* problem. `CameraRig::default` was
   `distance: 20, target: (0,0)` — a hard-coded shot of the middle of the felt,
   taken against the **window**, while the tab strip, the hand bar and the phase
@@ -307,6 +308,65 @@ corner, settled three things at once:
   content, so the first attempt grew the box to hold a full card row and then
   clipped nothing — it moved the picture by a few pixels and was photographed
   again before it was believed.
+
+**And the felt itself, read once more with the numbers rather than the eye.**
+Four photographs in, the hearth was still the loudest thing on the table and
+its test still passed. Both are explained by one line: the bound compared the
+ring against `SeatSlot::lane_width`, which is the mat's **long** edge. A
+two-seat table at aspect 1.78 gives every seat `half_extent` `(9.40, 2.21)`,
+so the mat is 18.8 across and **4.42 deep**, and `HEARTH_SIZE` 18 put a
+10.8-unit ring on the felt — two and a half times the depth of a player's
+whole board, filling 86% of the 12.58-unit gap between the two of them, and
+comfortably under 18.8. The bound was wrong, not the picture.
+
+`SeatSlot::mat_depth` exists now for exactly this: the dimension a mat is
+smallest in, and therefore the one anything claiming to be smaller than a
+seat's ground must be measured against. `HEARTH_SIZE` is 4.5, so the ring is
+2.7, and the bound goes both ways — `lane_height < ring < mat_depth`, wider
+than one row of cards and narrower than a mat. One-sided is how the felt's own
+brightness shipped four times too dark (`docs/client.md`), and it is how this
+shipped two and a half times too big.
+
+The same photographs showed the local mat reading as **brass rather than
+gilt-rimmed felt**, and that had a cause worth writing down because the code
+denied it in a comment. `tabletop::seat_mat` wrote every pixel `[1, 1, 1]`
+with the shape in the alpha channel — field at 0.095–0.150, rim at ~0.77 —
+and the seat's colour arrived as the material's `base_color`, which multiplies
+the *whole* texture. So the rim was never the part carrying the seat's colour;
+the entire mat was that colour, and the rim merely more opaque. `seat_mat`
+takes the accent now and crossfades toward it on `border` (the same number
+that sets the opacity, so the colour arrives exactly where the edge does), the
+material's tint is neutral brightness, and the glow underneath keeps the
+accent because spilling it onto the felt is the glow's whole job. The cost is
+one 512×256 texture per seat instead of one for the table, which is what
+sharing an image was buying and what made the bug unavoidable.
+
+Not a cause, though it looked like one: `zone_brightness` returned up to
+`0.95 × 1.38 = 1.311` for the local seat, and an unlit material under
+`Tonemapping::None` clips each channel independently, which would turn gold to
+yellow. It did not happen — `to_linear()` runs before the multiply, and gilt
+`srgb(0.78, 0.63, 0.33)` is linear `(0.571, 0.355, 0.089)`, so the brightest
+channel reached 0.749. Worth stating because the srgb arithmetic is the
+obvious arithmetic and it gives the wrong answer.
+
+It became a cause the moment the fix above landed, which is the part worth
+keeping. Taking the accent out of the tint makes that number a multiplier on
+**white**, where 1.311 and `0.95 × 1.15 = 1.0925` both clip to 1.0 — a local
+seat holding priority and a local seat merely taking its turn drawn as the
+same flat white, which is the one distinction the mat exists to draw. So the
+scale is bounded at 1.0 and `local` became a small lift rather than a
+separate base, since which mat is mine is now genuinely answered by the rim.
+Three tests state it. The general shape: **a value that was safe because of
+what it was multiplied by is not safe once you change the multiplicand**, and
+the two edits sat in different files with nothing connecting them.
+
+Two more literals fell out of the same change. `MEDALLION_SIZE` was a bare
+9.5, inside a ring of `18 × 0.46 = 8.28` only by coincidence of the number
+above it; at `HEARTH_SIZE` 4.5 it would have drawn a 9.5-unit colour wheel
+around a 2.7-unit ring, the ornament swallowing what it is inlaid in. It is
+derived from the ring now at the proportion the table already had, as
+`WASH_SIZE` already was — the rule being that anything positioned *inside*
+the lamp is measured from the lamp.
 
 **One clause the same probe settled about the chips.** The overflow chip drew
 nothing when the probe asked for `more: 1` beside a single chip, which looked

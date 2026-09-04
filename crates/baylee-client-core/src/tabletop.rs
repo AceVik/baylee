@@ -286,9 +286,22 @@ pub fn medallion(size: u32) -> Texture {
 /// the front where creatures stand — a player reading an opponent's board
 /// should be able to see where the rows are without counting cards.
 ///
-/// `radius` and `rim` are fractions of the shorter side.
+/// `radius` and `rim` are fractions of the shorter side. `accent` is the
+/// seat's colour in **linear** RGB, and only the rim receives it.
+///
+/// That last parameter is the whole point of this signature. The mat used to
+/// be written white-with-alpha — every pixel `[1, 1, 1]`, the rim told from
+/// the field only by being more opaque — and the seat's colour was applied
+/// as the material's `base_color`, which multiplies the *entire* texture. So
+/// a mat did not have a coloured rim around neutral felt; it was one solid
+/// sheet of the seat's colour, brighter at its edge. The local seat's gilt
+/// turned its whole ground to brass, and the doc comment on the rim below
+/// claimed a separation the code never made. Baking it here is what makes
+/// that comment true: the field stays white and picks up only the neutral
+/// brightness the material now carries, and the accent reaches no further
+/// than `border`.
 #[must_use]
-pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32) -> Texture {
+pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]) -> Texture {
     let mut texture = Texture::blank(width, height);
     let (w, h) = (width as f32, height as f32);
     let short = w.min(h);
@@ -316,7 +329,16 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32) -> Texture {
             // ground ends: everything on it — cards, rims, the glow — has to
             // stay louder, and a mat nobody can see is not quiet, it is
             // missing.
-            let base = [0.150, 0.120, 0.095][lane];
+            //
+            // These were three times higher, and were tuned while the whole
+            // texture was tinted by the seat's accent — a dark, saturated
+            // multiplier that held the field down. Against the neutral
+            // brightness the material carries now the same numbers rendered
+            // a mat at three times the felt's luminance: a pale concrete
+            // slab that the cards on it had to compete with, which is the
+            // rule above backwards. Measured against felt at `(23, 38, 28)`,
+            // these put the field at about `(52, 60, 54)`.
+            let base = [0.050, 0.040, 0.031][lane];
             // A hairline *between* lanes, so the rows separate without a
             // border drawn around each one. Measured in pixels from the two
             // boundaries: expressed as a fraction of a lane it comes out
@@ -326,16 +348,38 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32) -> Texture {
                 .iter()
                 .map(|edge| (py - edge).abs())
                 .fold(f32::MAX, f32::min);
-            let seam = (1.0 - seam / seam_width).clamp(0.0, 1.0) * 0.08;
+            let seam = (1.0 - seam / seam_width).clamp(0.0, 1.0) * 0.036;
 
             // The rim: the one part that is meant to be seen from across the
             // table, since it is what carries the seat's colour.
-            let border = (1.0 - inset / edge).clamp(0.0, 1.0).powf(1.3);
+            let falloff = (1.0 - inset / edge).clamp(0.0, 1.0);
+            let border = falloff.powf(1.3);
             // And a soft feather so the mat has no jaggies.
             let coverage = (0.5 - outside).clamp(0.0, 1.0);
 
             let value = base + seam + border * 0.62;
-            texture.put(x, y, [1.0, 1.0, 1.0, (value * coverage).clamp(0.0, 1.0)]);
+            // White where the mat is felt, the seat's colour where it is rim.
+            //
+            // The crossfade is deliberately *not* `border`. Reusing the
+            // opacity's curve is the tidy version and it renders a washed-out
+            // rim: 1.3 is a steep falloff, so the accent only approaches full
+            // strength in the last texel or two, where coverage is feathering
+            // it away as well. Composited over the felt that gave a pale
+            // beige for gilt and a near-white line for the green seat — four
+            // distinguishable places reduced back to one. A shallower
+            // exponent spreads the hue across the whole rim while the
+            // opacity keeps its own edge, and the seat colours separate.
+            let hue = falloff.powf(0.55);
+            let rgb = [
+                (1.0 - hue).mul_add(1.0, hue * accent[0]),
+                (1.0 - hue).mul_add(1.0, hue * accent[1]),
+                (1.0 - hue).mul_add(1.0, hue * accent[2]),
+            ];
+            texture.put(
+                x,
+                y,
+                [rgb[0], rgb[1], rgb[2], (value * coverage).clamp(0.0, 1.0)],
+            );
         }
     }
     texture
@@ -713,9 +757,51 @@ mod tests {
         }
     }
 
+    /// A seat colour with all three channels far apart, so a test can tell
+    /// which of them a pixel actually got.
+    const ACCENT: [f32; 3] = [0.90, 0.20, 0.05];
+
+    #[test]
+    fn only_the_rim_of_a_mat_carries_the_seats_colour() {
+        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT);
+        // The field is the seat's *ground*, not the seat's colour: it stays
+        // white so the material's neutral brightness leaves it felt, and a
+        // player reads a coloured border around their board rather than a
+        // solid sheet of gold with their cards lying on it.
+        let field = mat.pixel(64, 32);
+        for (channel, got) in field.iter().take(3).enumerate() {
+            assert!(
+                (got - 1.0).abs() < 1e-3,
+                "channel {channel} of the field is {got}, not white"
+            );
+        }
+        // And the rim is the accent — stated as "nearer the accent than the
+        // white it is mixed with" rather than as an equality, because the
+        // rim is a gradient and no single pixel of it is the pure colour.
+        // The property that matters is that a seat is *nameable* from across
+        // the table, and a mix that landed on white's side of halfway would
+        // not be.
+        let rim = mat.pixel(64, 0);
+        for (channel, want) in ACCENT.iter().enumerate() {
+            let got = rim[channel];
+            let halfway = f32::midpoint(1.0, *want);
+            assert!(
+                got < halfway,
+                "channel {channel} of the rim is {got}, nearer white than \
+                 the accent's {want}"
+            );
+        }
+        // The accent's own shape survives the mix: this seat's colour is
+        // red-dominant and must not come back grey.
+        assert!(
+            rim[0] > rim[1] && rim[1] > rim[2],
+            "the rim lost the accent's ordering: {rim:?}"
+        );
+    }
+
     #[test]
     fn a_seat_mat_is_a_rounded_rectangle_with_a_rim() {
-        let mat = seat_mat(128, 64, 0.18, 0.05);
+        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT);
         // Corners are cut away, so a mat never reads as a plain box.
         assert!(mat.pixel(0, 0)[3] < 1e-6, "the corner is rounded off");
         assert!(mat.pixel(127, 63)[3] < 1e-6, "and so is the opposite one");
@@ -731,7 +817,7 @@ mod tests {
 
     #[test]
     fn a_seat_mat_shows_where_its_lanes_are() {
-        let mat = seat_mat(256, 96, 0.1, 0.03);
+        let mat = seat_mat(256, 96, 0.1, 0.03, ACCENT);
         // The seam belongs *on* the boundary between two lanes (a third of
         // the way down), not in the middle of one. Drawn mid-lane it splits
         // every row down its own centre and tells a player the opposite of

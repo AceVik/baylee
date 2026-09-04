@@ -96,6 +96,18 @@ rather than three booleans on purpose: holding priority and being the active
 seat are true together nine times out of ten, and drawing both would mean
 adding two brightnesses and hoping.
 
+Being the local seat is a *lift* on that scale and never a rank, which is a
+change the rim fix forced. While the tint was the accent scaled by the mood,
+the scale could run past 1.0 harmlessly — an accent's linear channels are all
+well under 1, so a local seat holding priority multiplied out to 0.749. With
+the accent in the texture the tint is neutral, the number multiplies white,
+and 1.0 is a ceiling: the old 1.311 and 1.0925 would have clipped to the same
+flat white and drawn "holding everyone up" exactly like "taking my turn".
+`zone_brightness` is bounded at 1.0 now, and three tests hold the shape — no
+mood asks for more light than white, a dimmer standing is drawn dimmer, and a
+standing always outranks being the local seat, so my own idle mat can never
+outshine the opponent everyone is waiting for.
+
 The medallion inlaid at the centre is the colour wheel, in the arrangement
 every player already has in their head — so it is orientation as much as
 ornament, and it sits on the one patch of felt no seat ever plays on. Around
@@ -106,14 +118,34 @@ infinite green plane however good the grain is. The pool is candlelight and
 the inlay is gilt; a test asserts neither ever goes cold, since a blue light
 over a green table makes colour identity a guess.
 
-**The lamp is atmosphere, and it took two goes to make it behave like one.**
+That the rim carries the colour is true as of the fix below, and was not
+before it. `tabletop::seat_mat` used to write every pixel white with the mat's
+shape in the alpha channel alone, and the seat colour arrived as the
+material's `base_color` — which multiplies the whole texture, so the field got
+the same hue as the rim and differed only in opacity. A gilt-rimmed board was
+in fact a sheet of brass. `seat_mat` takes the accent now and crossfades to it
+on the rim's own falloff, the material carries neutral brightness, and the
+glow beneath keeps the accent because putting the seat's colour on the felt is
+what a glow is for. It costs a texture per seat rather than one per table;
+sharing that image is precisely what made the separation impossible.
+
+**The lamp is atmosphere, and it took three goes to make it behave like one.**
 It shipped as a twenty-unit ring with twenty-four ticks on it — the largest,
 brightest, most detailed object on screen, and what the eye read was a
-roulette wheel. `HEARTH_SIZE` is 18 now, `HEARTH_TICKS` is eight (a compass,
-not a clock), there is one hairline rather than two, the pool is half as
-strong and the medallion's glows are dimmer. The bound is measurable and is
-measured: in a full-table shot the ring must come out smaller than the nearest
-seat's mat.
+roulette wheel. `HEARTH_TICKS` is eight (a compass, not a clock), there is one
+hairline rather than two, the pool is half as strong and the medallion's glows
+are dimmer.
+
+The third go was the size, and it is the clearer lesson: `HEARTH_SIZE` went
+34 → 18 and the ring still dominated four straight photographs while its test
+went on passing, because the test compared the ring against the mat's **long**
+edge. A seat's mat is 18.8 units across and 4.42 deep, so an 18-unit quad's
+10.8-unit ring was two and a half times the depth of a player's whole board
+and passed a bound of 18.8 without trouble. `SeatSlot::mat_depth` is the edge
+that matters and the bound now names it, in both directions —
+`lane_height < ring < mat_depth`, wider than a row of cards and narrower than
+a mat — for the same reason the felt's brightness assertion goes both ways.
+`HEARTH_SIZE` is 4.5.
 
 **The camera frames the table against the window it is seen through, not
 against the window.** The HUD is not beside the battlefield, it is on top of

@@ -59,11 +59,29 @@ const HEARTH_LIFT: f32 = 0.0008;
 /// it across the middle of the felt: the largest, brightest, most detailed
 /// thing on screen, and what the eye read was a roulette wheel. The bound is
 /// in `docs/design.md` §1.1 and is measured by
-/// `camera_tests::the_hearth_ring_is_smaller_than_the_nearest_seats_mat` —
-/// the lamp is atmosphere, the mats are where the game is.
-const HEARTH_SIZE: f32 = 18.0;
+/// `camera_tests::the_hearth_ring_is_no_bigger_than_a_seats_ground` — the
+/// lamp is atmosphere, the mats are where the game is.
+///
+/// Halving it to 18 did not fix that, and the test went on passing, because
+/// the test compared the ring against the mat's *long* edge. Measured
+/// against the edge that matters — a two-seat table gives each mat a depth
+/// of 4.42 units — an 18-unit quad puts a 10.8-unit ring on the felt: two
+/// and a half times as deep as a player's whole board, filling 86% of the
+/// gap between the two of them. At 4.5 the ring is 2.7, which is wider than
+/// one lane and narrower than a mat, and that is the bound the test states
+/// now.
+const HEARTH_SIZE: f32 = 4.5;
 /// How wide the medallion is inlaid, in table units.
-const MEDALLION_SIZE: f32 = 9.5;
+///
+/// Derived from the ring for the same reason [`WASH_SIZE`] is, and it is the
+/// case that proves the reason: the medallion belongs *inside* the ring, and
+/// while it was the literal 9.5 it was inside a ring of 8.28 only because
+/// `HEARTH_SIZE` happened to be 18. Shrinking the lamp to 4.5 with the
+/// literal still in place would have put a 9.5-unit colour wheel around a
+/// 2.7-unit ring — the ornament swallowing the thing it is inlaid in. The
+/// factor is the proportion the table already had (`9.5 / (18 × 0.46)`), so
+/// this changes the size and nothing about the look.
+const MEDALLION_SIZE: f32 = HEARTH_SIZE * tabletop::HEARTH_INNER * 1.147;
 /// Where the phase wash lies: over the lamplight pool it colours, under the
 /// medallion, which it must never touch.
 const WASH_LIFT: f32 = 0.0011;
@@ -561,10 +579,15 @@ pub struct SceneIndex {
     /// last drawn in. Held here for the same reason the cards are — so a
     /// frame in which nothing changed costs a lookup and no allocation.
     zones: HashMap<PlayerId, Zone>,
-    /// The two generated images every zone shares: the rounded mat with its
-    /// lane bands, and the soft glow. One each for the whole table; the seat
-    /// colour is the material's tint, not a second texture.
-    mat_image: Option<Handle<Image>>,
+    /// The soft glow every zone shares. It is white with the falloff in its
+    /// alpha, so one image serves the whole table and the seat's colour is
+    /// the material's tint.
+    ///
+    /// The mat is *not* here, and used to be. Sharing one image meant the
+    /// seat's colour could only be applied as a tint over the whole of it,
+    /// which is how a gilt-rimmed board became a sheet of brass; the rim
+    /// carries the colour now, so the image is per seat and lives on the
+    /// [`Zone`].
     glow_image: Option<Handle<Image>>,
     /// The contact shadow every card sits in: one quad, one material, shared
     /// by the whole table. It is a child of the card, so it follows the tap
@@ -581,6 +604,15 @@ struct Zone {
     glow: Entity,
     /// What the mat was last tinted for.
     mood: Mood,
+    /// The seat colour baked into the mat's rim.
+    ///
+    /// Kept so a seat whose accent changes gets a new texture rather than
+    /// keeping the one it was born with. [`seat_accent`] reads `is_local`
+    /// and `ring_index`, both of which are stable while a seat is at the
+    /// table — but "stable in practice" is exactly the assumption that put
+    /// a stale hover and an over-tall panel on screen this week, and a
+    /// comparison is cheaper than being right about it.
+    accent: Color,
 }
 
 /// What a zone's colour is saying.
@@ -601,7 +633,7 @@ struct Mood {
 /// Ordered rather than flagged because these do not stack: a seat holding
 /// priority is *also* the active seat nine times out of ten, and drawing both
 /// would only mean adding two brightnesses together and hoping.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Standing {
     /// Out of the game.
     Lost,
@@ -836,7 +868,6 @@ pub fn spawn_stage(
     // read a card's colour identity at a glance. The table gets its depth
     // from painted-in shading instead — which is what `tabletop` generates,
     // and why this stage has no light in it at all.
-    index.mat_image = Some(images.add(image_of(&tabletop::seat_mat(512, 256, 0.06, 0.018))));
     index.glow_image = Some(images.add(image_of(&tabletop::glow(128))));
 
     // The felt.
@@ -948,6 +979,65 @@ fn seat_accent(slot: &SeatSlot) -> Color {
     Color::srgb(hue[0], hue[1], hue[2])
 }
 
+/// One flat thing lying on the table: what tells the mat from the glow.
+///
+/// A struct rather than four more parameters, because the pair already needs
+/// a seat and three asset stores and clippy's argument budget is seven.
+struct TableQuad {
+    /// Extent on the felt, in table units.
+    size: Vec2,
+    /// How far above [`TABLE_Y`] it lies. The order of these decides what
+    /// draws over what; nothing here is depth-sorted.
+    lift: f32,
+    /// Multiplied into the texture, so a white texel comes out this colour.
+    tint: LinearRgba,
+    /// The image, whose alpha is the shape.
+    texture: Handle<Image>,
+}
+
+/// Spawns one of them, lying flat and facing its seat.
+///
+/// Both halves of a zone go through here. They differ in size, height, tint
+/// and texture and in nothing else, and writing the pair out separately is
+/// what pushed `sync_zones` past its line budget once the two tints stopped
+/// being the same colour.
+fn spawn_table_quad(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    slot: &SeatSlot,
+    quad: TableQuad,
+) -> Entity {
+    commands
+        .spawn((
+            DuelStage,
+            Mesh3d(meshes.add(Rectangle::new(quad.size.x, quad.size.y))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::LinearRgba(quad.tint),
+                base_color_texture: Some(quad.texture),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            })),
+            Transform {
+                translation: to_world(slot.center, TABLE_Y + quad.lift),
+                rotation: Quat::from_rotation_y(-slot.facing)
+                    * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+                scale: Vec3::ONE,
+            },
+        ))
+        .id()
+}
+
+/// One seat's mat, with that seat's colour baked into its rim.
+///
+/// The size is the texture's, not the mat's: every seat's quad is scaled from
+/// its own `half_extent`, and the image is stretched over it.
+fn mat_of(accent: Color) -> tabletop::Texture {
+    let rgb = accent.to_linear();
+    tabletop::seat_mat(512, 256, 0.06, 0.018, [rgb.red, rgb.green, rgb.blue])
+}
+
 /// How bright a zone's mat is drawn, given what it is saying.
 ///
 /// A seat that has lost fades most of the way out — its permanents are gone
@@ -955,14 +1045,37 @@ fn seat_accent(slot: &SeatSlot) -> Color {
 /// priority is the brightest thing on the felt, because that is the seat
 /// everyone else is waiting for.
 fn zone_brightness(mood: Mood) -> f32 {
-    let base: f32 = if mood.local { 0.95 } else { 0.72 };
-    match mood.standing {
+    // Every value here is a multiplier on **white**, so 1.0 is the ceiling
+    // and anything past it is not brighter, it is clipped. That is new: the
+    // tint used to be the seat's accent scaled by this number, and an
+    // accent's linear channels are all well under 1, so the old 1.311 for a
+    // local seat holding priority was safe. With the accent moved into the
+    // rim's texture and the tint gone neutral, 1.311 and 1.0925 would both
+    // land on flat white — a local seat holding priority and a local seat
+    // merely taking its turn would be drawn identically, which is precisely
+    // the distinction the mat exists to draw.
+    let standing = match mood.standing {
         Standing::Lost => 0.22,
-        Standing::Priority => (base * 1.38).min(1.6),
-        Standing::Active => base * 1.15,
-        Standing::Waiting => base,
+        Standing::Waiting => 0.62,
+        Standing::Active => 0.78,
+        Standing::Priority => 1.0,
+    };
+    // Being the viewing seat is a lift, never a rank. Which mat is mine is
+    // answered by the gilt rim and does not need brightness spent on it, and
+    // a `local` term big enough to outrank a standing would let my own idle
+    // mat outshine the opponent everybody is actually waiting for.
+    if mood.local {
+        (standing * LOCAL_LIFT).min(1.0)
+    } else {
+        standing
     }
 }
+
+/// How much brighter the viewing seat's own mat is drawn at equal standing.
+///
+/// Small on purpose: see [`zone_brightness`]. The bound that keeps it honest
+/// is `zone_tests::a_standing_always_outranks_being_the_local_seat`.
+const LOCAL_LIFT: f32 = 1.10;
 
 /// Eases the middle of the table towards the colour of the current step.
 ///
@@ -1039,13 +1152,13 @@ pub fn sync_zones(
     mut index: ResMut<SceneIndex>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     mats: Query<&MeshMaterial3d<StandardMaterial>>,
 ) {
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return;
     };
-    let (Some(mat_image), Some(glow_image)) = (index.mat_image.clone(), index.glow_image.clone())
-    else {
+    let Some(glow_image) = index.glow_image.clone() else {
         return;
     };
 
@@ -1057,72 +1170,79 @@ pub fn sync_zones(
         seen.insert(pod.player);
         let mood = Mood::of(pod);
         let accent = seat_accent(slot);
-        let tint = accent.to_linear() * zone_brightness(mood);
+        let brightness = zone_brightness(mood);
+        // Two different colours, not one with a dimmer on it. The mat's rim
+        // is already the seat's colour in its own texture, so tinting the
+        // material would apply it twice and put it on the felt as well; what
+        // the mat wants from the mood is brightness alone. The glow beneath
+        // is the opposite case — it is a white falloff whose entire job is
+        // to spill the seat's colour onto the felt, so it takes the accent.
+        let mat_tint = LinearRgba::rgb(brightness, brightness, brightness);
+        let glow_tint = accent.to_linear() * brightness * 0.30;
 
         if let Some(zone) = index.zones.get(&pod.player) {
-            if zone.mood == mood {
+            if zone.mood == mood && zone.accent == accent {
                 continue;
             }
             // Only the colour changes, so only the colour is written: the
-            // mesh, the transform and the texture all still hold.
-            for entity in [zone.mat, zone.glow] {
+            // mesh, the transform and the texture all still hold — unless
+            // the accent itself moved, which the rim is baked with and so
+            // needs a new one.
+            for (entity, tint) in [(zone.mat, mat_tint), (zone.glow, glow_tint)] {
                 if let Ok(handle) = mats.get(entity)
                     && let Some(mut material) = materials.get_mut(&handle.0)
                 {
-                    let dim = if entity == zone.glow { 0.30 } else { 1.0 };
-                    material.base_color = Color::LinearRgba(tint * dim);
+                    material.base_color = Color::LinearRgba(tint);
                 }
             }
-            index
-                .zones
-                .entry(pod.player)
-                .and_modify(|zone| zone.mood = mood);
+            if zone.accent != accent {
+                let image = images.add(image_of(&mat_of(accent)));
+                if let Ok(handle) = mats.get(zone.mat)
+                    && let Some(mut material) = materials.get_mut(&handle.0)
+                {
+                    material.base_color_texture = Some(image);
+                }
+            }
+            index.zones.entry(pod.player).and_modify(|zone| {
+                zone.mood = mood;
+                zone.accent = accent;
+            });
             continue;
         }
-
         let size = slot.half_extent * 2.0 + Vec2::splat(ZONE_MARGIN * 2.0);
-        let flat = Quat::from_rotation_y(-slot.facing)
-            * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
-        let mat = commands
-            .spawn((
-                DuelStage,
-                Mesh3d(meshes.add(Rectangle::new(size.x, size.y))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::LinearRgba(tint),
-                    base_color_texture: Some(mat_image.clone()),
-                    alpha_mode: AlphaMode::Blend,
-                    unlit: true,
-                    ..default()
-                })),
-                Transform {
-                    translation: to_world(slot.center, TABLE_Y + ZONE_LIFT),
-                    rotation: flat,
-                    scale: Vec3::ONE,
-                },
-            ))
-            .id();
-        let glow = commands
-            .spawn((
-                DuelStage,
-                Mesh3d(meshes.add(Rectangle::new(
-                    size.x + GLOW_SPREAD * 2.0,
-                    size.y + GLOW_SPREAD * 2.0,
-                ))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::LinearRgba(tint * 0.30),
-                    base_color_texture: Some(glow_image.clone()),
-                    alpha_mode: AlphaMode::Blend,
-                    unlit: true,
-                    ..default()
-                })),
-                Transform {
-                    translation: to_world(slot.center, TABLE_Y + GLOW_LIFT),
-                    rotation: flat,
-                    scale: Vec3::ONE,
-                },
-            ))
-            .id();
-        index.zones.insert(pod.player, Zone { mat, glow, mood });
+        let mat = spawn_table_quad(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            slot,
+            TableQuad {
+                size,
+                lift: ZONE_LIFT,
+                tint: mat_tint,
+                texture: images.add(image_of(&mat_of(accent))),
+            },
+        );
+        let glow = spawn_table_quad(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            slot,
+            TableQuad {
+                size: size + Vec2::splat(GLOW_SPREAD * 2.0),
+                lift: GLOW_LIFT,
+                tint: glow_tint,
+                texture: glow_image.clone(),
+            },
+        );
+        index.zones.insert(
+            pod.player,
+            Zone {
+                mat,
+                glow,
+                mood,
+                accent,
+            },
+        );
     }
 
     // A seat that left the table takes its zone with it.
@@ -1627,19 +1747,114 @@ mod camera_tests {
     }
 
     /// `docs/design.md` §1.1: the ring is atmosphere, the mats are the game.
-    /// The bound is measurable, so it is measured.
+    /// The bound is measurable, so it is measured — and it goes both ways.
+    ///
+    /// It used to compare the ring against [`SeatSlot::lane_width`], the
+    /// mat's *long* edge, which a ring two and a half times the mat's depth
+    /// passes comfortably; the hearth dominated four straight screenshots
+    /// while this test agreed it was small. Measuring against
+    /// [`SeatSlot::mat_depth`] is the whole fix, and the lower bound is
+    /// here for the reason `docs/client.md` gives about the felt's own
+    /// brightness: a one-sided assertion only stops the mistake it was
+    /// written after, and the opposite mistake ships next.
     #[test]
-    fn the_hearth_ring_is_smaller_than_the_nearest_seats_mat() {
-        let layout = TableLayout::new(&seats(2), 1.78, None);
-        let local = layout.local().copied().expect("a local seat");
-        // `HEARTH_OUTER` is a fraction of the quad's *half* width, so the
-        // ring a player sees is that fraction of the quad across.
-        let ring = HEARTH_SIZE * tabletop::HEARTH_OUTER;
-        assert!(
-            ring < local.lane_width(),
-            "the eye lands on the ring, not on the board: {ring} vs {}",
-            local.lane_width()
-        );
+    fn the_hearth_ring_is_no_bigger_than_a_seats_ground() {
+        for n in [2, 4, 6] {
+            let layout = TableLayout::new(&seats(n), 1.78, None);
+            let local = layout.local().copied().expect("a local seat");
+            // `HEARTH_OUTER` is a fraction of the quad's *half* width, so the
+            // ring a player sees is that fraction of the quad across.
+            let ring = HEARTH_SIZE * tabletop::HEARTH_OUTER;
+            assert!(
+                ring < local.mat_depth(),
+                "at {n} seats the eye lands on the ring, not on the board: \
+                 {ring} vs a mat {} deep",
+                local.mat_depth()
+            );
+            assert!(
+                ring > local.lane_height(),
+                "at {n} seats the lamp has shrunk to nothing: {ring} vs a \
+                 lane {} tall",
+                local.lane_height()
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod zone_tests {
+    use super::*;
+
+    /// Dimmest first. `Standing`'s own declaration order is not this one —
+    /// it is written in the order the *reading* code asks its questions —
+    /// so the ranking a mat draws is stated here rather than assumed from
+    /// the enum.
+    const RANKED: [Standing; 4] = [
+        Standing::Lost,
+        Standing::Waiting,
+        Standing::Active,
+        Standing::Priority,
+    ];
+
+    fn mood(local: bool, standing: Standing) -> Mood {
+        Mood { local, standing }
+    }
+
+    /// The mat's tint is neutral, so this multiplies white and 1.0 is the
+    /// ceiling: two moods above it are one mood as far as a player can see.
+    ///
+    /// The old scale ran to 1.311 and was safe only because it was applied to
+    /// an accent colour first. Moving the accent into the rim's texture — the
+    /// fix for a local mat that read as brass — is what made this a bound,
+    /// and it is asserted rather than remembered because the two changes are
+    /// in different files and nothing else connects them.
+    #[test]
+    fn no_mood_asks_for_more_light_than_white() {
+        for local in [false, true] {
+            for standing in RANKED {
+                let value = zone_brightness(mood(local, standing));
+                assert!(
+                    value > 0.0 && value <= 1.0,
+                    "a mat drawn at {value} is clipped, not bright"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_dimmer_standing_is_always_drawn_dimmer() {
+        for local in [false, true] {
+            for pair in RANKED.windows(2) {
+                let (dim, bright) = (
+                    zone_brightness(mood(local, pair[0])),
+                    zone_brightness(mood(local, pair[1])),
+                );
+                assert!(
+                    dim < bright,
+                    "{:?} and {:?} are drawn {dim} and {bright}",
+                    pair[0],
+                    pair[1]
+                );
+            }
+        }
+    }
+
+    /// Whose mat is mine is answered by the gilt rim. Brightness answers who
+    /// everyone is waiting for, and the two must not compete: a local seat
+    /// idling has to stay dimmer than an opponent one rank above it, or the
+    /// felt points at the wrong player on every priority pass.
+    #[test]
+    fn a_standing_always_outranks_being_the_local_seat() {
+        for pair in RANKED.windows(2) {
+            let mine = zone_brightness(mood(true, pair[0]));
+            let theirs = zone_brightness(mood(false, pair[1]));
+            assert!(
+                mine < theirs,
+                "my {:?} mat at {mine} outshines their {:?} at {theirs}",
+                pair[0],
+                pair[1]
+            );
+        }
     }
 }
 

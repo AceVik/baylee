@@ -101,10 +101,23 @@ impl SeatSlot {
         self.half_extent.x * 2.0
     }
 
+    /// The mat's short edge: how deep a seat's ground is, front to back.
+    ///
+    /// This is the dimension a mat is *smallest* in, and so the one anything
+    /// claiming to be smaller than a seat's ground has to be measured
+    /// against. [`lane_width`](Self::lane_width) is the long edge, and a
+    /// bound written against it passes for an object twice the mat's depth —
+    /// which is how the hearth came to fill the gap between two players
+    /// while its test went on saying it was smaller than a mat.
+    #[must_use]
+    pub fn mat_depth(&self) -> f32 {
+        self.half_extent.y * 2.0
+    }
+
     /// Height available to a single lane.
     #[must_use]
     pub fn lane_height(&self) -> f32 {
-        (self.half_extent.y * 2.0) / LaneKind::ALL.len() as f32
+        self.mat_depth() / LaneKind::ALL.len() as f32
     }
 
     /// Centre of a lane in table space.
