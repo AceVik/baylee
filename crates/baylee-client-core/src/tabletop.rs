@@ -641,6 +641,462 @@ pub fn phase_light(step: baylee_view::Step) -> PhaseLight {
     }
 }
 
+// ------------------------------------------------------------------ the slab
+
+/// The slab the game is played on: dark granite, polished to a glass sheen.
+///
+/// Opaque, and the only thing under the table that is. Everything else here
+/// paints *onto* it.
+///
+/// Three grains and no image. The stone between them is near black and
+/// cooled slightly blue, because a neutral dark grey photographs as brown
+/// beside warm card art and a warm one competes with it. Through that run
+/// pale feldspar, rarer warm orthoclase — the grain that stops polished
+/// granite reading as poured concrete — and a few quartz veins. The polish
+/// is a single broad highlight raked across the surface: a real specular
+/// sweep needs a light and a normal, and this stage has neither on purpose
+/// (`docs/client.md` §"The table itself"), so the sheen is painted where a
+/// light would have put it.
+///
+/// Low contrast, for the reason the felt it replaces was: the cards have to
+/// stay the thing the eye lands on.
+#[must_use]
+pub fn granite(width: u32, height: u32) -> Texture {
+    /// The stone between the grains.
+    const STONE: [f32; 3] = [0.078, 0.083, 0.098];
+    /// Its darkest patches, and the edge it falls off to.
+    const DEEP: [f32; 3] = [0.034, 0.037, 0.047];
+    /// Feldspar: the pale grains scattered through it.
+    const FELDSPAR: [f32; 3] = [0.29, 0.29, 0.32];
+    /// The warm grains, sparser than the pale ones.
+    const ORTHOCLASE: [f32; 3] = [0.30, 0.23, 0.22];
+    /// Quartz, in the veins.
+    const QUARTZ: [f32; 3] = [0.38, 0.42, 0.49];
+
+    let mut texture = Texture::blank(width, height);
+    let (w, h) = (width as f32, height as f32);
+    // Noise is sampled in a square frame so the grain does not stretch with
+    // the slab: a 60×44 table wearing a square texture would have grains
+    // half again as wide as they are tall.
+    let aspect = h / w;
+    for y in 0..height {
+        for x in 0..width {
+            let (u, v) = (x as f32 / w, y as f32 / h);
+            let (su, sv) = (u, v * aspect);
+
+            // Big slow patches, so the slab is not uniform at arm's length.
+            let patch = fbm(su * 2.6, sv * 2.6, 0x3f11, 4);
+            let mut colour = mix(STONE, DEEP, (patch - 0.5).mul_add(0.9, 0.45));
+
+            // The grains. A high-frequency field pushed through a hard knee
+            // rather than added: granite's speckle is *discrete*, and noise
+            // added smoothly gives fog. The knee is what makes a grain a
+            // grain.
+            // Frequency and texture size move together: a grain whose period
+            // is under about four pixels stops being a grain and becomes
+            // aliasing, which reads as a shimmer rather than as stone.
+            let pale = grain_at(su, sv, 300.0, 0x7c05, 0.63, 0.20);
+            let warm = grain_at(su, sv, 215.0, 0x21bd, 0.74, 0.16);
+            colour = mix(colour, FELDSPAR, pale * 0.62);
+            colour = mix(colour, ORTHOCLASE, warm * 0.55);
+
+            // Veins: ridged noise on a stretched frame, so they run long and
+            // thin rather than blotch. Raised to a high power because a vein
+            // is a thin
+            // bright line and everything short of its crest is stone.
+            let field = fbm(sv.mul_add(0.8, su * 2.0), sv * 7.5, 0x58ea, 4);
+            let ridge = 1.0 - (2.0f32.mul_add(field, -1.0)).abs();
+            colour = mix(colour, QUARTZ, ridge.powf(15.0) * 0.34);
+
+            // The polish: one broad rake of light across the slab.
+            let along = 0.62f32.mul_add(u, 0.38 * v);
+            let sheen = (-((along - 0.46) * (along - 0.46)) / 0.052).exp();
+            for channel in &mut colour {
+                *channel += sheen * 0.016;
+            }
+
+            // A gentle fall-off to the rim, so the slab has a body rather
+            // than being a flat sheet. Gentler than the felt's vignette was:
+            // this table is meant to read as lit from above, not as sitting
+            // in a dark room.
+            let radius = ((u - 0.5).powi(2) + (v - 0.5).powi(2)).sqrt() * 1.9;
+            colour = mix(colour, DEEP, radius.clamp(0.0, 1.0).powf(2.4) * 0.40);
+
+            texture.put(x, y, [colour[0], colour[1], colour[2], 1.0]);
+        }
+    }
+    texture
+}
+
+/// One grain field: high-frequency noise through a hard knee.
+///
+/// `floor` is where a grain starts and `width` how quickly it reaches full
+/// strength; the square at the end is what keeps them sparse, since most of
+/// the field sits just over the floor and would otherwise haze the whole
+/// slab.
+fn grain_at(u: f32, v: f32, frequency: f32, seed: u32, floor: f32, width: f32) -> f32 {
+    let n = fbm(u * frequency, v * frequency, seed, 2);
+    let t = ((n - floor) / width).clamp(0.0, 1.0);
+    t * t
+}
+
+// ----------------------------------------------------------------- the runes
+
+/// Distance from `p` to the segment `a`–`b`.
+fn seg_dist(p: [f32; 2], a: [f32; 2], b: [f32; 2]) -> f32 {
+    let (px, py) = (p[0] - a[0], p[1] - a[1]);
+    let (bx, by) = (b[0] - a[0], b[1] - a[1]);
+    let len2 = bx.mul_add(bx, by * by);
+    let t = if len2 <= f32::EPSILON {
+        0.0
+    } else {
+        (px.mul_add(bx, py * by) / len2).clamp(0.0, 1.0)
+    };
+    (px - bx * t).hypot(py - by * t)
+}
+
+/// Distance from `p` to the arc of radius `r` about the origin, running from
+/// `from` to `to` radians counter-clockwise.
+///
+/// Outside the sweep it is the distance to the nearer end *cap*, not to the
+/// whole circle — an arc has ends, and rounding them is what stops a broken
+/// ring from looking like a ring with a bite taken out of it.
+fn arc_dist(p: [f32; 2], r: f32, from: f32, to: f32) -> f32 {
+    let len = p[0].hypot(p[1]);
+    let mut angle = p[1].atan2(p[0]);
+    while angle < from {
+        angle += TAU;
+    }
+    if angle <= to {
+        return (len - r).abs();
+    }
+    let cap = |a: f32| (p[0] - r * a.cos()).hypot(p[1] - r * a.sin());
+    cap(from).min(cap(to))
+}
+
+/// How many sigils the alphabet has.
+const SIGILS: u32 = 6;
+
+/// The distance from a point in a sigil's own square — `-1.0..1.0` on both
+/// axes — to the strokes of sigil `which`.
+///
+/// Six shapes built from arcs and line segments, and *geometric on purpose*.
+/// `docs/legal.md` §2 rules out borrowed ornament, and a fantasy rune is
+/// exactly the thing that gets borrowed by accident: anything that reads as
+/// Elder Futhark, as a Tolkien alphabet, or as a real sigil from a real
+/// grimoire is out, however arcane it looks. A ring with a bar through it is
+/// a ring with a bar through it.
+fn sigil_dist(which: u32, p: [f32; 2]) -> f32 {
+    match which % SIGILS {
+        // A ring with a bar across it.
+        0 => arc_dist(p, 0.62, 0.0, TAU).min(seg_dist(p, [-0.62, 0.0], [0.62, 0.0])),
+        // A stem with two branches, one either side.
+        1 => seg_dist(p, [0.0, -0.78], [0.0, 0.78])
+            .min(seg_dist(p, [0.0, 0.16], [0.54, 0.62]))
+            .min(seg_dist(p, [0.0, -0.16], [-0.54, -0.62])),
+        // A triangle.
+        2 => seg_dist(p, [0.0, 0.72], [0.64, -0.44])
+            .min(seg_dist(p, [0.64, -0.44], [-0.64, -0.44]))
+            .min(seg_dist(p, [-0.64, -0.44], [0.0, 0.72])),
+        // A broken ring with a filled dot standing in its gap.
+        3 => arc_dist(p, 0.60, 0.60, TAU - 0.60)
+            .min(p[0].hypot(p[1] - 0.60) - 0.13),
+        // A diamond on a stem.
+        4 => seg_dist(p, [0.0, 0.70], [0.50, 0.10])
+            .min(seg_dist(p, [0.50, 0.10], [0.0, -0.50]))
+            .min(seg_dist(p, [0.0, -0.50], [-0.50, 0.10]))
+            .min(seg_dist(p, [-0.50, 0.10], [0.0, 0.70]))
+            .min(seg_dist(p, [0.0, -0.50], [0.0, -0.82])),
+        // Three prongs off one stem.
+        _ => seg_dist(p, [0.0, -0.78], [0.0, 0.78])
+            .min(seg_dist(p, [-0.52, 0.30], [-0.52, 0.78]))
+            .min(seg_dist(p, [0.52, 0.30], [0.52, 0.78]))
+            .min(seg_dist(p, [-0.52, 0.30], [0.52, 0.30])),
+    }
+}
+
+/// How wide a stroke is, as a fraction of a sigil's half-width.
+const RUNE_STROKE: f32 = 0.095;
+
+/// Nothing is drawn inside this radius of the middle, measured the way the
+/// vignettes are. The medallion and the hearth own the centre of the table.
+const RUNE_CLEAR: f32 = 0.13;
+
+/// Sigils across the slab's long axis.
+const RUNE_COLUMNS: u32 = 16;
+
+/// The runes cut into the slab, in the five colours of the pie.
+///
+/// **The channels are not what they usually are here**, and this is the one
+/// function in the module that departs from [`Texture`]'s straight-RGBA
+/// contract. `rgb` is the rune's colour already multiplied by its coverage,
+/// so it is black wherever there is no rune; `a` is that rune's **phase**,
+/// `0.0..1.0`. The shader animates the glow as `sin(t + a·τ)`, which is how
+/// two runes side by side breathe out of step without a second texture, a
+/// second draw, or per-rune uniforms — of which `WebGL2` has very few to
+/// spare. Alpha is the only channel a sampler never gamma-decodes, which is
+/// why the phase rides there and not in a colour channel.
+///
+/// The layout is a jittered grid that thins towards the middle: the centre of
+/// the table is the medallion's and the edges are the part no seat ever plays
+/// on, so that is where ornament can be bright without ever sitting under a
+/// card.
+#[must_use]
+pub fn runes(width: u32, height: u32) -> Texture {
+    let mut texture = Texture::blank(width, height);
+    let (w, h) = (width as f32, height as f32);
+    // Square cells, counted along the long axis, so a sigil is round on a
+    // slab that is not.
+    let cell = w / RUNE_COLUMNS as f32;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a row count derived from two positive sizes"
+    )]
+    let rows = (h / cell).ceil() as u32;
+
+    // Coverage already written at each pixel, so two sigils whose jitter
+    // brought them together keep the nearer one's stroke instead of the
+    // later one's.
+    let mut covered = vec![0.0f32; (width as usize) * (height as usize)];
+
+    for row in 0..rows {
+        for column in 0..RUNE_COLUMNS {
+            let (cx, cy) = (column, row);
+            // Where the cell's sigil sits, jittered off the lattice so the
+            // grid never reads as a grid.
+            let jx = hash(cx as i32, cy as i32, 0x1a2b).mul_add(0.44, -0.22);
+            let jy = hash(cx as i32, cy as i32, 0x77c3).mul_add(0.44, -0.22);
+            let px = (column as f32 + 0.5 + jx) * cell;
+            let py = (row as f32 + 0.5 + jy) * cell;
+            let (u, v) = (px / w, py / h);
+
+            // Thinner towards the middle, and nothing at all in the medallion's
+            // patch.
+            let radius = ((u - 0.5).powi(2) + (v - 0.5).powi(2)).sqrt();
+            if radius < RUNE_CLEAR {
+                continue;
+            }
+            // `keep` is uniform, so the bound *is* the chance of a rune
+            // landing in this cell. It wants to be small: runes are what a
+            // slab has a few of, and at anything like a half the stone reads
+            // as patterned paper rather than as stone. Denser towards the
+            // edges, where no seat ever plays.
+            let keep = hash(cx as i32, cy as i32, 0x5e09);
+            if keep > (radius * 0.72).clamp(0.05, 0.30) {
+                continue;
+            }
+
+            let which = (hash(cx as i32, cy as i32, 0x9d41) * 97.0) as u32;
+            let colour = PIE[(hash(cx as i32, cy as i32, 0x3b70) * 4.999) as usize % 5];
+            let phase = hash(cx as i32, cy as i32, 0xc417);
+            let turn = hash(cx as i32, cy as i32, 0x0f52) * TAU;
+            let scale = hash(cx as i32, cy as i32, 0x6ba8).mul_add(0.26, 0.30) * cell;
+            let (sin, cos) = turn.sin_cos();
+
+            // Only the pixels the sigil can reach. `1.15` is the sigil's own
+            // reach (0.82 at the furthest stroke) plus its stroke and a
+            // pixel of anti-aliasing.
+            let reach = scale * 1.15;
+            let (lo_x, hi_x) = span(px - reach, px + reach, width);
+            let (lo_y, hi_y) = span(py - reach, py + reach, height);
+            for y in lo_y..hi_y {
+                for x in lo_x..hi_x {
+                    let dx = (x as f32 + 0.5 - px) / scale;
+                    let dy = (y as f32 + 0.5 - py) / scale;
+                    // Into the sigil's own frame.
+                    let local = [cos.mul_add(dx, sin * dy), (-sin).mul_add(dx, cos * dy)];
+                    let d = sigil_dist(which, local);
+                    // One pixel of anti-aliasing, in the sigil's units.
+                    let aa = 1.0 / scale;
+                    let m = 1.0 - smooth(((d - RUNE_STROKE) / aa).clamp(0.0, 1.0));
+                    if m <= 0.0 {
+                        continue;
+                    }
+                    let at = (y as usize) * (width as usize) + x as usize;
+                    if m <= covered[at] {
+                        continue;
+                    }
+                    covered[at] = m;
+                    texture.put(
+                        x,
+                        y,
+                        [colour[0] * m, colour[1] * m, colour[2] * m, phase],
+                    );
+                }
+            }
+        }
+    }
+    texture
+}
+
+/// A pixel range clamped to `0..limit`, as a half-open span.
+fn span(from: f32, to: f32, limit: u32) -> (u32, u32) {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "clamped to the texture before the cast"
+    )]
+    let lo = from.floor().clamp(0.0, limit as f32) as u32;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "clamped to the texture before the cast"
+    )]
+    let hi = to.ceil().clamp(0.0, limit as f32) as u32;
+    (lo, hi)
+}
+
+// ------------------------------------------------------------- the world under
+
+/// The land the table floats over: forest seen from high above, in sunlight.
+///
+/// Opaque, and drawn on a plane well below the slab so it parallaxes when the
+/// camera moves — which is the whole reason it is a separate surface and not
+/// painted into a backdrop.
+///
+/// The hard part of this texture is not making it look like a forest, it is
+/// making it *stay out of the way*. It is the brightest thing on screen and
+/// it surrounds every card, so two rules hold it back: everything is lifted
+/// towards a pale warm haze, the way distance actually behaves, and the whole
+/// image is low-frequency. A crisp, saturated landscape would win every
+/// staring contest with a card, and the card has to win.
+#[must_use]
+pub fn vista(width: u32, height: u32) -> Texture {
+    /// The forest floor, in shadow between the crowns.
+    const UNDER: [f32; 3] = [0.10, 0.17, 0.12];
+    /// A canopy in shade.
+    const CANOPY: [f32; 3] = [0.22, 0.36, 0.21];
+    /// A crown with the sun on it.
+    const SUNLIT: [f32; 3] = [0.53, 0.63, 0.33];
+    /// Open ground: dry grass in a clearing.
+    const MEADOW: [f32; 3] = [0.62, 0.60, 0.36];
+    /// Water.
+    const WATER: [f32; 3] = [0.34, 0.47, 0.56];
+    /// The haze everything fades into with distance.
+    const HAZE: [f32; 3] = [0.78, 0.82, 0.86];
+
+    let mut texture = Texture::blank(width, height);
+    let (w, h) = (width as f32, height as f32);
+    let aspect = h / w;
+    for y in 0..height {
+        for x in 0..width {
+            let (u, v) = (x as f32 / w, y as f32 / h);
+            let (su, sv) = (u, v * aspect);
+
+            // Where the land is open and where it is wooded.
+            let cover = fbm(su * 3.4, sv * 3.4, 0x2c8f, 4);
+            let mut colour = mix(MEADOW, CANOPY, ((cover - 0.34) * 3.2).clamp(0.0, 1.0));
+
+            // Individual crowns, and the shadow between them. Two fields at
+            // different scales, because a forest from above is big masses
+            // with smaller ones inside them, not one grain size.
+            let crowns = fbm(su * 26.0, sv * 26.0, 0x84b1, 3);
+            let inner = fbm(su * 64.0, sv * 64.0, 0x1d47, 2);
+            let relief = crowns.mul_add(0.72, inner * 0.28);
+            colour = mix(colour, UNDER, ((0.46 - relief) * 2.6).clamp(0.0, 1.0) * 0.85);
+
+            // The sun comes from the near-left, so crowns facing it catch it.
+            // A directional term over a height field, which is the cheapest
+            // honest imitation of a light there is — and it is *painted*, so
+            // it lights nothing else in the scene.
+            let dx = fbm(su.mul_add(26.0, 0.6), sv * 26.0, 0x84b1, 3) - crowns;
+            let dy = fbm(su * 26.0, sv.mul_add(26.0, 0.6), 0x84b1, 3) - crowns;
+            let facing = (-(dx + dy) * 7.0).clamp(0.0, 1.0);
+            colour = mix(colour, SUNLIT, facing * 0.75);
+
+            // A river, from the same ridged trick the granite's veins use.
+            let field = fbm(su * 1.7, sv.mul_add(2.4, su * 1.1), 0x6f30, 4);
+            let ridge = 1.0 - (2.0f32.mul_add(field, -1.0)).abs();
+            colour = mix(colour, WATER, ridge.powf(22.0));
+
+            // Broad daylight across the whole thing, brightest towards the
+            // sun.
+            let day = 0.22f32.mul_add(-(u + v), 1.06);
+            for channel in &mut colour {
+                *channel *= day;
+            }
+
+            // Aerial perspective. Strong: this is a long way down, and the
+            // haze is what keeps a forest from out-shouting a card.
+            colour = mix(colour, HAZE, 0.26);
+
+            texture.put(x, y, [colour[0], colour[1], colour[2], 1.0]);
+        }
+    }
+    texture
+}
+
+/// The cloud deck between the table and the land below it.
+///
+/// Transparent where there is no cloud, so the vista shows through the gaps
+/// and the two planes read as two heights rather than one picture. Seen from
+/// above, which is why the tops are bright and the shading is a thin cool
+/// edge rather than the dark underside a cloud shows from a lawn.
+///
+/// The sun itself is here rather than in the sky, because there is no sky:
+/// the camera looks down. It is a warm patch of glare in one corner with the
+/// cloud around it burnt out — which is what a sun looks like when you are
+/// above the weather and cannot see the disc.
+#[must_use]
+pub fn clouds(width: u32, height: u32) -> Texture {
+    /// A cloud top in full sun.
+    const TOP: [f32; 3] = [0.98, 0.97, 0.95];
+    /// The cool edge where a cloud thins out.
+    const EDGE: [f32; 3] = [0.72, 0.78, 0.87];
+    /// The glare where the sun is.
+    const GLARE: [f32; 3] = [1.0, 0.96, 0.84];
+    /// Where the sun sits, in texture coordinates.
+    const SUN: [f32; 2] = [0.22, 0.24];
+
+    let mut texture = Texture::blank(width, height);
+    let (w, h) = (width as f32, height as f32);
+    let aspect = h / w;
+    for y in 0..height {
+        for x in 0..width {
+            let (u, v) = (x as f32 / w, y as f32 / h);
+            let (su, sv) = (u, v * aspect);
+
+            // Masses first, then the billows inside them: the same two-scale
+            // rule the forest follows, because a cloud field has the same
+            // shape of structure.
+            let mass = fbm(su * 2.3, sv * 2.3, 0x4a19, 4);
+            let billow = fbm(su * 7.0, sv * 7.0, 0xb2e6, 3);
+            let density = mass.mul_add(0.74, billow * 0.26);
+
+            // A soft threshold, so a cloud has an edge and the gaps are
+            // genuinely open. `0.52` leaves rather more sky than cloud.
+            let alpha = ((density - 0.44) * 3.0).clamp(0.0, 1.0);
+            if alpha <= 0.0 {
+                texture.put(x, y, [0.0, 0.0, 0.0, 0.0]);
+                continue;
+            }
+
+            // Thin cloud is the cool colour, thick cloud the sunlit top.
+            let mut colour = mix(EDGE, TOP, alpha.powf(0.7));
+
+            // The glare, which reaches beyond the cloud it sits on.
+            let sun = (u - SUN[0]).hypot((v - SUN[1]) * aspect);
+            let bloom = (-(sun * sun) / 0.085).exp();
+            colour = mix(colour, GLARE, bloom.clamp(0.0, 1.0));
+
+            texture.put(
+                x,
+                y,
+                [
+                    colour[0],
+                    colour[1],
+                    colour[2],
+                    // The glare burns its own cloud opaque, so the sun does
+                    // not show the forest through it.
+                    (alpha + bloom * 0.85).clamp(0.0, 1.0),
+                ],
+            );
+        }
+    }
+    texture
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

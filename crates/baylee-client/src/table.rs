@@ -49,8 +49,31 @@ const ZONE_LIFT: f32 = 0.002;
 const GLOW_LIFT: f32 = 0.001;
 /// Where the centre medallion is inlaid.
 const MEDALLION_LIFT: f32 = 0.0015;
-/// The felt's extent. Big enough that no seat sees its edge.
-const FELT: Vec2 = Vec2::new(60.0, 44.0);
+/// How much bare stone is left around the seats when the slab is cut.
+///
+/// The slab used to be a fixed 60 × 44 — about three times what a duel
+/// occupies, so it filled the screen and the world around it had nowhere to
+/// be. It is cut from `TableLayout::extent` plus this, which is a little more
+/// than a card's width of stone at each edge.
+const SLAB_MARGIN: f32 = 1.6;
+
+/// How far below the table the cloud deck lies, and how far the forest lies
+/// below that.
+///
+/// The gap between them is the point: two planes at two heights part as the
+/// camera moves, and that parallax is the only cue that says the table is
+/// *over* something. Painted at one height they would read as wallpaper.
+const CLOUD_Y: f32 = -14.0;
+/// How far below the table the land lies.
+const WORLD_Y: f32 = -46.0;
+
+/// How wide the cloud deck is. Large enough that its edge never comes into
+/// frame at any camera the player can reach.
+const CLOUD_SIZE: f32 = 72.0;
+/// How wide the land is. Larger again, because it is further away and a
+/// plane at three times the depth needs three times the width to cover the
+/// same angle.
+const WORLD_SIZE: f32 = 170.0;
 /// Where the lamplight pool lies: on the felt, under everything else.
 const HEARTH_LIFT: f32 = 0.0008;
 /// How far the lamplight and its inlaid ring reach, in table units.
@@ -270,8 +293,14 @@ impl CameraRig {
     }
 }
 
-/// How much bare felt is left around the table when it is framed.
-const AIR: f32 = 0.6;
+/// How much room is left around the table when the camera frames it.
+///
+/// Bigger than it was. While the slab was a fixed sheet three times the size
+/// of the game, framing tight against the seats was the right thing to do —
+/// there was nothing but more felt outside the frame. Now the slab ends
+/// where the game does, so this is the band of sky the player sees around
+/// the table, and at 0.6 there was none.
+const AIR: f32 = 2.6;
 
 /// Half the camera's vertical field of view.
 fn half_fov() -> f32 {
@@ -329,6 +358,41 @@ impl Canvas {
             bottom: crate::hud::HAND_BAR_H,
             right: crate::hud::rail::RAIL_W,
         }
+    }
+
+    /// The shape of what is left once the HUD has taken its share.
+    ///
+    /// This is what [`TableLayout::new`] is built against, so the table comes
+    /// out the shape of the space it has to fit in. On a 1728×1052 window
+    /// with this HUD it is about 2.0 — nothing like the window's 1.64, and
+    /// nothing like the `16.0 / 9.0` the layout used to assume.
+    #[must_use]
+    pub fn aspect(&self) -> f32 {
+        let width = (self.window.x - self.right).max(1.0);
+        let height = (self.window.y - self.top - self.bottom).max(1.0);
+        width / height
+    }
+}
+
+/// Tells the board model the shape of the space it is drawn in.
+///
+/// A system of its own because [`crate::rebuild_board`] is called from four
+/// places, none of which has a window — it answers a view arriving, a
+/// preference changing, a focus moving. The window changes on its own
+/// schedule, and this is the one place that notices.
+pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let aspect = Canvas::hud(Vec2::new(window.width(), window.height())).aspect();
+    // A resize is a rebuild of the whole layout, so the comparison has to be
+    // loose enough that a window nudged by a pixel does not do one per frame.
+    if duel
+        .canvas_aspect
+        .is_none_or(|shown| (shown - aspect).abs() > 0.01)
+    {
+        duel.canvas_aspect = Some(aspect);
+        crate::rebuild_board(&mut duel);
     }
 }
 
@@ -609,6 +673,15 @@ pub struct SceneIndex {
     /// rotation and the hover lift with nothing to keep in step.
     shadow_quad: Option<Handle<Mesh>>,
     shadow_material: Option<Handle<StandardMaterial>>,
+    /// The granite slab, and the size it was last cut to.
+    ///
+    /// The table is no longer a fixed quad. It used to be 60 × 44 units
+    /// whoever was sitting at it, which is about three times what a duel
+    /// occupies — so the stone filled the screen edge to edge and there was
+    /// nowhere for the world around it to be. It is cut from the layout now,
+    /// a margin of stone around whatever the seats actually take up, and a
+    /// table that gains a seat gets a bigger slab.
+    slab: Option<(Entity, Vec2)>,
 }
 
 /// One seat's zone on the table.
@@ -889,18 +962,47 @@ pub fn spawn_stage(
     // and why this stage has no light in it at all.
     index.glow_image = Some(images.add(image_of(&tabletop::glow(128))));
 
-    // The felt.
-    commands.spawn((
-        DuelStage,
-        Mesh3d(meshes.add(Rectangle::new(FELT.x, FELT.y))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(images.add(image_of(&tabletop::felt(1024)))),
-            unlit: true,
-            ..default()
-        })),
-        Transform::from_xyz(0.0, TABLE_Y, 0.0)
-            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
+    // The world the table stands over: a sunlit forest a long way down, with
+    // a deck of cloud between it and the slab. Two planes rather than one
+    // picture, and at two different heights, so they part when the camera
+    // moves — which is the only thing that makes the table read as *above*
+    // something rather than as pasted onto a backdrop.
+    //
+    // Both unlit, like everything else here. The scene has no light in it and
+    // must not gain one: a sun that reached the cards would tint them, and a
+    // player has to be able to read a card's colour identity at a glance.
+    // The sunlight below is painted where a sun would have put it.
+    for (size, height, texture, blend) in [
+        (
+            WORLD_SIZE,
+            WORLD_Y,
+            image_of(&tabletop::vista(1024, 1024)),
+            AlphaMode::Opaque,
+        ),
+        (
+            CLOUD_SIZE,
+            CLOUD_Y,
+            image_of(&tabletop::clouds(1024, 1024)),
+            AlphaMode::Blend,
+        ),
+    ] {
+        commands.spawn((
+            DuelStage,
+            Mesh3d(meshes.add(Rectangle::new(size, size))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color_texture: Some(images.add(texture)),
+                alpha_mode: blend,
+                unlit: true,
+                ..default()
+            })),
+            Transform::from_xyz(0.0, height, 0.0)
+                .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        ));
+    }
+
+    // The slab is not spawned here: it is cut to the table's own extent, and
+    // at this point there is no table. `sync_slab` makes it on the first
+    // frame that has a layout, and recuts it when the seat count changes.
 
     // The pool of lamplight over the middle of the table, with the arcane
     // ring inlaid in it. It sits under the seat mats — the mats draw over it
@@ -1276,6 +1378,103 @@ pub fn sync_zones(
     });
 }
 
+/// Cuts the granite slab to the table that is actually being played on.
+///
+/// The stone is the one surface whose size is a *consequence* rather than a
+/// constant: it has to cover the seats and reach a little past them, and no
+/// further, because everything past it is sky and the sky is the point. A
+/// duel gets a small slab with a lot of world around it; an eight-player pod
+/// gets a big one.
+///
+/// Its texture does not change with its size — the granite is stretched. That
+/// is deliberate and not a shortcut: regenerating a 1024² stone every time a
+/// seat joins would cost more than the whole table does, and a grain
+/// stretched by a third on a table nobody has seen the other version of is
+/// not a difference anyone can name.
+pub fn sync_slab(
+    mut commands: Commands,
+    duel: Res<Duel>,
+    mut index: ResMut<SceneIndex>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<crate::tablemat::TableMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut slabs: Query<(&mut Mesh3d, &mut Transform)>,
+) {
+    let Some(layout) = duel.layout.as_ref() else {
+        return;
+    };
+    let Some((min, max)) = layout.extent() else {
+        return;
+    };
+    let margin = Vec2::splat(SLAB_MARGIN);
+    let (lo, hi) = (min - margin, max + margin);
+    let size = hi - lo;
+    let centre = (lo + hi) * 0.5;
+
+    if let Some((entity, cut)) = index.slab {
+        // A size comparison rather than a layout one: the layout changes on
+        // every focus and every resize, and almost none of those move the
+        // stone's edge.
+        if (cut - size).abs().max_element() < 0.01 {
+            return;
+        }
+        if let Ok((mut mesh, mut transform)) = slabs.get_mut(entity) {
+            *mesh = Mesh3d(meshes.add(Rectangle::new(size.x, size.y)));
+            transform.translation = to_world(centre, TABLE_Y);
+            index.slab = Some((entity, size));
+            return;
+        }
+    }
+
+    let entity = commands
+        .spawn((
+            DuelStage,
+            Mesh3d(meshes.add(Rectangle::new(size.x, size.y))),
+            MeshMaterial3d(materials.add(crate::tablemat::TableMaterial {
+                // 1536 rather than 2048, and the size is a real trade rather
+                // than a round number. The slab covers about 2400 physical
+                // pixels, so more texels are genuinely visible — but every
+                // one of them costs ten octaves of noise on the main thread
+                // at the start of a duel, and 2048 × 1200 froze a debug
+                // build for over ten seconds before the table appeared.
+                stone: images.add(image_of(&tabletop::granite(1536, 900))),
+                runes: images.add(image_of(&tabletop::runes(1536, 900))),
+                params: crate::tablemat::TableParams {
+                    motion: crate::cardmat::motion_of(prefs.all().reduce_motion),
+                    gain: crate::tablemat::RUNE_GAIN,
+                },
+            })),
+            Transform::from_translation(to_world(centre, TABLE_Y))
+                .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        ))
+        .id();
+    index.slab = Some((entity, size));
+}
+
+/// Carries `reduce_motion` to the runes.
+///
+/// Their own system rather than a branch inside [`sync_slab`], because that
+/// one returns early on the frames where nothing moved — which is almost all
+/// of them, and would be exactly the frame the preference changed on.
+pub fn track_slab_motion(
+    prefs: Res<crate::prefs::Prefs>,
+    index: Res<SceneIndex>,
+    handles: Query<&MeshMaterial3d<crate::tablemat::TableMaterial>>,
+    mut materials: ResMut<Assets<crate::tablemat::TableMaterial>>,
+) {
+    let Some((entity, _)) = index.slab else {
+        return;
+    };
+    let motion = crate::cardmat::motion_of(prefs.all().reduce_motion);
+    if let Ok(handle) = handles.get(entity)
+        && let Some(mut material) = materials.get_mut(&handle.0)
+        && (material.params.motion - motion).abs() > f32::EPSILON
+    {
+        material.params.motion = motion;
+    }
+}
+
 /// Tears the stage down.
 pub fn despawn_stage(
     mut commands: Commands,
@@ -1288,6 +1487,10 @@ pub fn despawn_stage(
     }
     index.cards.clear();
     index.faces.clear();
+    // Spawned with `DuelStage` like the rest of the scene, so it has just
+    // gone; what is left is the handle that would otherwise name a dead
+    // entity on the next duel's first frame.
+    index.slab = None;
     // The zones were spawned with `DuelStage`, so they have just gone with
     // it; what is left is the bookkeeping that would otherwise point at
     // entities that no longer exist.
