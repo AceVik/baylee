@@ -21,17 +21,19 @@
 # card is reverted unless the gate passes AND the only file it touched was its
 # own, so a shell used for anything else leaves nothing behind.
 #
-# A clone and not a git worktree, which is what this was first, and the
-# difference is the whole safety argument. A worktree's `.git` is a *file*
-# pointing back at the real repository, so `git rev-parse --git-common-dir`
-# answers with the main checkout's `.git` — and `agy` resolves the project it
-# is working on that way. The first trial run therefore edited
-# /Users/viktor/Projects/baylee while believing it was sandboxed: the guard
-# below saw a clean tree (a worktree's `git status` cannot see another
-# worktree's files), reverted nothing, and would have kept doing that for 792
-# cards. A clone's `.git` is a directory, so the common dir is its own, and
-# the guard is a guard. `refuse_shared_checkout` below makes the failure loud
-# rather than silent if this is ever pointed at a worktree again.
+# A clone and not a git worktree, and neither of those is the isolation. This
+# was a worktree first, and the first trial run edited
+# /Users/viktor/Projects/baylee while every check here inspected the worktree
+# and found it clean. Replacing it with a clone did not fix that: the second
+# trial run escaped again, from a checkout whose `.git` is its own directory.
+# So the mechanism is not the git common dir — `agy` does not resolve the
+# project from the working directory at all. It carries its own project
+# registry (`--project` / `--new-project`), and given neither it reuses the
+# most recent one, which on this machine is the real checkout. `--new-project
+# --add-dir "$ROOT"` below is what binds a session to this tree;
+# `upstream_state` is what proves it, per card, rather than trusting it.
+# `refuse_shared_checkout` stays because the per-card revert still needs a
+# `git status` that can see every file the model may have written.
 #
 # The narrow gate is deliberate. `cargo test --workspace` takes minutes and
 # the client alone links half a gigabyte; per card that is the difference
@@ -99,11 +101,20 @@ fi
 # turns that from a hope into a fact: the upstream checkout is photographed
 # before each card and compared after, and any difference stops the run, because
 # nothing here can safely revert a tree it does not own.
+#
+# Photographed *narrowly*, though, and that is not laziness. This batch runs for
+# hours while somebody works in the upstream checkout, so a whole-tree `git
+# status` plus `rev-parse HEAD` makes every ordinary commit and every edited
+# file over there look like an escape — the first probe stopped on exactly that,
+# a commit of mine to `xtask/`. What the model can write is a card, so the watch
+# is the three card directories: an escape lands there, and the upstream's own
+# work does not. `rev-parse` is gone entirely; the model has no shell and cannot
+# commit.
 UPSTREAM=$(git -C "$ROOT" remote get-url origin 2>/dev/null)
+WATCHED=(crates/baylee-cards crates/baylee-cards-codegen crates/baylee-cards-dsl)
 upstream_state() {
   if [ -n "$UPSTREAM" ] && [ -d "$UPSTREAM/.git" ]; then
-    git -C "$UPSTREAM" status --porcelain
-    git -C "$UPSTREAM" rev-parse HEAD
+    git -C "$UPSTREAM" status --porcelain -- $WATCHED
   fi
 }
 
@@ -139,9 +150,9 @@ for dir in "$PKGS"/*(/); do
   rc=$?
 
   if [ "$(upstream_state)" != "$upstream_before" ]; then
-    print -u2 "escaped_the_clone: the model changed $UPSTREAM, not this clone."
+    print -u2 "escaped_the_clone: the model wrote cards into $UPSTREAM, not this clone."
     print -u2 "  Nothing here may revert a tree it does not own. Go and look at it:"
-    print -u2 "    git -C $UPSTREAM status"
+    print -u2 "    git -C $UPSTREAM status -- $WATCHED"
     exit 3
   fi
 

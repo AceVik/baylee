@@ -585,18 +585,18 @@ fn card_batch(
                 any of that fails — so a card that does not compile costs\n\
                 nothing, while a card you stop to compile costs a whole card.\n\
                 (This is not a style preference: a `cargo check` in this slot\n\
-                deadlocked against its own retry on the build lock, waited 543\n\
-                seconds, and then reported a card that had never been\n\
-                written.)\n\
+                spent 543 seconds waiting on a build lock another process held,\n\
+                and 955 seconds and 1.2 million tokens went to one land that\n\
+                way. The build is not yours to run and not yours to wait for.)\n\
              6. **Write the file.** Use your file-editing tool on\n\
                 `crates/baylee-cards/src/cards/{slug}.rs`. That edit is the\n\
                 deliverable; the JSON you report at the end only *describes*\n\
                 it. Reading, reasoning and reporting `implemented` without an\n\
                 edit is the one outcome worth nothing at all — the harness\n\
                 records it as `no-edit`, the card stays a stub, and the whole\n\
-                run is spent. A previous run did exactly this: it thought for\n\
-                six minutes, produced a verdict of `implemented`, and never\n\
-                opened the file. Edit first, report second.\n\n\
+                run is spent. Write the file you were given the path to, in\n\
+                the directory you were started in — an edit somewhere else is\n\
+                the same as no edit. Edit first, report second.\n\n\
              Refusing is a correct outcome, not a failure. If any clause is\n\
              inexpressible, revert your edits to `{slug}.rs` so it stays the\n\
              generated stub, and report `status: \"refused\"`.\n\n\
