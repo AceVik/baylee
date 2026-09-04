@@ -550,15 +550,16 @@ fn card_batch(
                 while a stub is merely a card nobody can pick yet. (Reminder\n\
                 text in parentheses restates a keyword and needs no rule of its\n\
                 own.)\n\
-             5. The only command you may run is\n\
-                `cargo check --all-targets -p baylee-cards` (`--all-targets` so\n\
-                a test you wrote is compiled too), and only to find out whether\n\
-                your own edit compiles. Do not run\n\
-                `cargo test`, `cargo clippy`, `cargo fmt`, `cargo run` or any\n\
-                `xtask` command. The harness around you runs the full gate on\n\
-                this card the moment you finish and reverts the file if it\n\
-                fails, so running any of that here buys nothing and costs more\n\
-                time than writing the card does.\n\n\
+             5. Run no commands at all. Not `cargo check`, not `cargo test`,\n\
+                not `cargo clippy`, not `xtask`, not a build of any kind.\n\
+                Write the card, report, and stop. The harness around you\n\
+                compiles it, runs the data tests and `xtask validate` the\n\
+                moment you finish, and reverts the file if any of that fails —\n\
+                so a card that does not compile costs nothing, while a card\n\
+                you stop to compile costs a whole card. (This is not a style\n\
+                preference: a `cargo check` in this slot deadlocked against\n\
+                its own retry on the build lock, waited 543 seconds, and then\n\
+                reported a card that had never been written.)\n\n\
              Refusing is a correct outcome, not a failure. If any clause is\n\
              inexpressible, revert your edits to `{slug}.rs` so it stays the\n\
              generated stub, and report `status: \"refused\"`.\n\n\

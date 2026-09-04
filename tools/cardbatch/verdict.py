@@ -64,13 +64,19 @@ def main():
         return
     if question == "row":
         slug, name = sys.argv[3], sys.argv[4]
+        # The harness's own conclusion, when it has one. It is not always the
+        # model's: a card reported as implemented and never written, one whose
+        # edit did not compile, and one the model declined all end up here, and
+        # only the last of them is a statement about the card. Reading them as
+        # one number is how a batch reports a DSL gap it does not have.
+        outcome = sys.argv[5] if len(sys.argv) > 5 else ""
         print(
             "\t".join(
                 cell(v)
                 for v in (
                     slug,
                     name,
-                    data.get("status", "unreadable"),
+                    outcome or data.get("status", "unreadable"),
                     data.get("oracle_sentence"),
                     data.get("cannot_say"),
                     data.get("nearest_existing"),

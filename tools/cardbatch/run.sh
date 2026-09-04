@@ -59,9 +59,17 @@ fi
 HERE=$ROOT/tools/cardbatch
 LOG=$ROOT/target/cardbatch
 mkdir -p "$LOG"
-REFUSALS=$ROOT/data/card-refusals.tsv
-if [ ! -f "$REFUSALS" ]; then
-  printf 'slug\tname\tstatus\toracle_sentence\tcannot_say\tnearest_existing\n' > "$REFUSALS"
+# The ledger is written into `target/`, not into `data/`, and only lands in the
+# repository when the run ends. `data/card-refusals.tsv` is a *tracked* file in
+# the working tree, so the `git checkout -- .` that reverts a failed card
+# reverts the ledger with it: every refusal was faithfully recorded and then
+# erased by the next card's revert, leaving one row out of however many. Under
+# `target/` nothing in this script can reach it.
+LEDGER=$ROOT/data/card-refusals.tsv
+REFUSALS=$LOG/refusals.tsv
+: > "$REFUSALS"
+if [ ! -f "$LEDGER" ]; then
+  printf 'slug\tname\tstatus\toracle_sentence\tcannot_say\tnearest_existing\n' > "$LEDGER"
 fi
 
 # A dirty tree would make "did the model change anything" unanswerable.
@@ -93,9 +101,15 @@ for dir in "$PKGS"/*(/); do
   rc=$?
 
   verdict_status=$(python3 "$HERE/verdict.py" "$verdict" status 2>/dev/null)
+  # What *this* script concluded, which is not always what the model claimed.
+  # The ledger records this one: a card the model called implemented and never
+  # wrote is a different thing from a card it declined, and reading the first
+  # as the second is how a batch quietly loses work.
+  outcome=$verdict_status
   if [ $rc -ne 0 ]; then
     echo "  agy failed (rc=$rc) — see $LOG/$slug.err"
     verdict_status=refused
+    outcome=agy-failed
   fi
 
   # The gate. Narrow, but it runs before anything is kept, and a card that
@@ -107,10 +121,19 @@ for dir in "$PKGS"/*(/); do
           && cargo run -q -p xtask -- validate ) >> "$LOG/$slug.gate" 2>&1; then
       # And the card the model was asked about is the only file it touched.
       changed=$(git -C "$ROOT" status --porcelain | awk '{print $2}')
-      if [ "$changed" != "$card" ]; then
+      if [ -z "$changed" ]; then
+        # Nothing to revert and nothing to keep: the model reported a card it
+        # never wrote. The first batch hit this after its own `cargo check`
+        # deadlocked, and the message read "touched more than its own file:"
+        # with an empty list, which is the opposite of what happened.
+        echo "  reported a card it never wrote — recording"
+        verdict_status=refused
+        outcome=no-edit
+      elif [ "$changed" != "$card" ]; then
         echo "  touched more than its own file: $changed — reverting"
         git -C "$ROOT" checkout -- . && git -C "$ROOT" clean -fd -q
         verdict_status=refused
+        outcome=stray-edits
       else
         git -C "$ROOT" add "$card"
         git -C "$ROOT" commit -q -m "feat(cards): $name
@@ -126,14 +149,32 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
       echo "  gate failed — reverting, see $LOG/$slug.gate"
       git -C "$ROOT" checkout -- . && git -C "$ROOT" clean -fd -q
       verdict_status=refused
+      outcome=gate-failed
     fi
   fi
 
   if [ "$verdict_status" = "refused" ]; then
     git -C "$ROOT" checkout -- . 2>/dev/null
     git -C "$ROOT" clean -fd -q 2>/dev/null
-    python3 "$HERE/verdict.py" "$verdict" row "$slug" "$name" >> "$REFUSALS"
-    echo "  refused — recorded"
+    python3 "$HERE/verdict.py" "$verdict" row "$slug" "$name" "$outcome" >> "$REFUSALS"
+    echo "  $outcome — recorded"
   fi
 done
+
+# Now that no revert can follow, the run's refusals join the tracked ledger as
+# one commit. Its two load-bearing columns are `cannot_say` and
+# `nearest_existing`: together they are a work item in the DSL's own words,
+# which is the whole reason a refusal is worth as much as a card.
+if [ -s "$REFUSALS" ]; then
+  cat "$REFUSALS" >> "$LEDGER"
+  git -C "$ROOT" add "${LEDGER#$ROOT/}"
+  git -C "$ROOT" commit -q -m "chore(cards): $(wc -l < "$REFUSALS" | tr -d ' ') refusal(s) from a $MODEL batch
+
+Every one of these was reverted, so the cards are still generated stubs. The
+rows say why: \`cannot_say\` names what the DSL cannot express and
+\`nearest_existing\` the closest variant that does exist.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+  echo "ledger: $(wc -l < "$REFUSALS" | tr -d ' ') row(s) committed"
+fi
 echo "done: $done_n card(s) attempted"
