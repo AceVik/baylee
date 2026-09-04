@@ -1341,12 +1341,23 @@ fn cut(span: Vec2, layout: &TableLayout, images: &mut Assets<Image>) -> Handle<I
         })
         .collect();
 
-    // The water reaches the *table*, not the slab: every unit of overhang
-    // that keeps the slab's edge out of frame has to be dry timber, or the
-    // river is a flood.
-    let pool = layout
-        .extent()
-        .map_or(span * 0.5, |(min, max)| min.abs().max(max.abs()));
+    // The water reaches the *open middle*, not the whole table.
+    //
+    // It used to be the table's whole extent with the mats cut out of it,
+    // which is a faithful reading of "the resin is wherever a card never
+    // lies" and looked nothing like a river: at a duel the leftover is a
+    // band across the middle plus a bulge at each end where the ellipse runs
+    // wider than the mats, and the two bulges read as arrowheads pointing at
+    // the players. What a poured channel actually is, is the hollow the
+    // boards are set around — the ring, less the depth of a seat's ground —
+    // and the mats then cut into it wherever one of them reaches in. At two
+    // seats that is a lens the width of the boards and the height of the gap
+    // between them; at eight it is the middle of the table.
+    let half_depth = baylee_client_core::layout::POD_DEPTH * 0.5;
+    let pool = Vec2::new(
+        layout.radius.x + half_depth,
+        (layout.radius.y - half_depth).max(baylee_client_core::layout::CENTRE_GAP * 0.5),
+    );
 
     images.add(field_of(&tabletop::channel(
         ACROSS,

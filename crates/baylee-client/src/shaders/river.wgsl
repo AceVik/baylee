@@ -118,9 +118,23 @@ const MENISCUS: f32 = 0.035;
 ///
 /// So the resin keeps a floor: enough that it always reads as lit glass rather
 /// than as a darker board, and low enough that combat still arrives as a
-/// change. At 0.055 the quiet channel measures about (58, 48, 34) at the far
-/// shore and (84, 72, 50) at the near one — an amber inlay in dark wood.
-const RESTING: f32 = 0.055;
+/// change.
+const RESTING: f32 = 0.009;
+
+/// What colour the resting light is — and it is *not* the step's.
+///
+/// The floor above was first written to carry the phase lamp at whatever
+/// saturation the step was graded at, and the result was a sheet of cyan
+/// lying on the table through every untap step of every turn: measured
+/// (23, 56, 63) against timber at (37, 26, 18). The lamp is what says which
+/// step it is, and at rest there is barely a lamp — so at rest the resin is
+/// lit by little more than the room, and the step's colour arrives with the
+/// step's energy. That is also what the design says the resin is: a dark,
+/// nearly colourless glass that goes molten at combat, not a coloured tube.
+///
+/// Warm, like everything else on this table, so it never eats the identity of
+/// the black and blue cards lying beside it.
+const RESIN_LIGHT: vec3<f32> = vec3<f32>(0.85, 0.80, 0.72);
 
 /// sRGB to linear, componentwise.
 ///
@@ -233,14 +247,38 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // main phase (0.16) to combat damage (1.0) is a factor of six in a
     // display-referred number and nearer forty in light. Squaring is that
     // transfer, near enough, and it is what makes one gain serve both ends.
-    let energy = max(params.wash.a * params.wash.a, RESTING);
-    let lamp = to_linear(params.wash.rgb);
+    // A fourth power, not a square. Squaring was chosen so combat could bloom
+    // while a main phase stayed quiet, and it does the first job; it does not
+    // do the second. `phase_light` grades untap at about 0.45, which squares
+    // to 0.20 — and at 0.20 the channel measured (70, 65, 58) against mats at
+    // (40, 35, 31): the brightest surface on the table, in the step where
+    // nothing whatever is happening. Squaring again costs the loud end
+    // nothing, because one to the fourth is still one, and drops untap to
+    // 0.04 and a main phase clean through the floor below.
+    let e2 = params.wash.a * params.wash.a;
+    let raw = e2 * e2;
+    let energy = max(raw, RESTING);
+    // The step's colour arrives with the step's energy, so a quiet channel is
+    // glass and a loud one is molten. The window is picked off the grades in
+    // `phase_light` put through the curve above: a main phase (0.16 → 0.0007)
+    // and untap (0.30 → 0.008) stay colourless glass, the colour comes up at
+    // declare attackers (0.62 → 0.148) rather than a step later at the
+    // blockers, and it is full by the time damage is dealt.
+    let tint = smoothstep(0.02, 0.30, energy);
+    let lamp = to_linear(mix(RESIN_LIGHT, params.wash.rgb, tint));
     let lit = lamp * energy * params.gain * reach * depth * (0.45 + 0.85 * swirl);
 
     // Painted shimmer, with no direction in it at all — the crests of the
     // swirl and nothing else. A specular lobe would need a light, and the
     // stage deliberately has none.
-    let sheen = pow(smoothstep(0.58, 1.0, swirl), 3.0) * SHEEN;
+    // Scaled by the light there is, and carrying its colour. It used to be a
+    // bare scalar added to all three channels, which made it a neutral grey
+    // wash reaching display 48 in the crests — and since nothing scaled it,
+    // it survived every attempt to make the resting channel darker. Measured:
+    // dropping the resting light by four fifths moved the channel not at all,
+    // because this was most of it. A shimmer is the lamp caught on a crest,
+    // so it belongs to the lamp.
+    let sheen = pow(smoothstep(0.58, 1.0, swirl), 3.0) * SHEEN * lamp * (0.30 + 0.70 * tint);
 
     // The meniscus: resin climbs the timber it was poured against, and that
     // thin bright line is most of what says "poured" rather than "painted".
