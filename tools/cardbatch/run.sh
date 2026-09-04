@@ -327,7 +327,14 @@ for dir in "$PKGS"/*(/); do
   # card the DSL provably cannot express spends one to record a refusal that is
   # already in the ledger. Extend the DSL and clear the rows for what it now
   # covers, or set RETRY_REFUSED=1 to ask them all again.
-  if [ "${RETRY_REFUSED:-0}" != 1 ] && cut -f1 "$LEDGER" | grep -qx -- "$slug"; then
+  #
+  # `refused` and nothing else. The ledger also carries `agy-failed`,
+  # `no-edit` and `gate-failed`, and not one of those is a statement about the
+  # card: a request that timed out after 65 seconds says nothing except that
+  # it timed out, and skipping it forever would quietly retire a perfectly
+  # implementable card on the strength of one bad minute.
+  if [ "${RETRY_REFUSED:-0}" != 1 ] \
+    && awk -F'\t' -v s="$slug" '$1 == s && $3 == "refused" { found = 1 } END { exit !found }' "$LEDGER"; then
     continue
   fi
   done_n=$((done_n+1))
