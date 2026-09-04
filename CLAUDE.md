@@ -526,6 +526,22 @@ assertion let through; that bound goes both ways now. `docs/client.md`
 renders `(234, 51, 35)` in stock Bevy and `(62, 19, 21)` here, and a clear
 colour touches no material, texture or shader.
 
+The **camera frames the table against the part of the window it is seen
+through**, which is not the window: the tab strip, the hand bar and the phase
+rail are overlays on the same full-window camera and cover about a quarter of
+it. A hard-coded 20-unit rig aimed at the middle of the felt put the local
+seat's own mat *underneath the hand bar* on every screen.
+`table::CameraRig::home(layout, canvas)` computes it instead, from
+`TableLayout::extent` (each pod's box rotated by its `facing`, because a seat
+on your left plays across the table) and a `Canvas` naming what the HUD
+covers; `table::frame_table` reapplies it as seats, focus and window change
+and stops as soon as the player has aimed the camera themselves. The
+inversion is exact: the lean's cross terms cancel, so a felt point's screen
+position is *linear* in the eye distance and the fit is one division rather
+than a search. `camera_tests` projects every pod's corners forwards — written
+out a second time, because a test reusing the inverse would agree with it
+however wrong both were.
+
 The card quad has four mesh tests because it shipped once as a bowtie — every
 corner arc swept its neighbour's quarter turn, the outline folded through the
 middle, and each permanent drew as a small bright X.

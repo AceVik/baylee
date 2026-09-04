@@ -105,6 +105,54 @@ at, and because a table with nothing between the seat mats reads as an
 infinite green plane however good the grain is. The pool is candlelight and
 the inlay is gilt; a test asserts neither ever goes cold, since a blue light
 over a green table makes colour identity a guess.
+
+**The lamp is atmosphere, and it took two goes to make it behave like one.**
+It shipped as a twenty-unit ring with twenty-four ticks on it — the largest,
+brightest, most detailed object on screen, and what the eye read was a
+roulette wheel. `HEARTH_SIZE` is 18 now, `HEARTH_TICKS` is eight (a compass,
+not a clock), there is one hairline rather than two, the pool is half as
+strong and the medallion's glows are dimmer. The bound is measurable and is
+measured: in a full-table shot the ring must come out smaller than the nearest
+seat's mat.
+
+**The camera frames the table against the window it is seen through, not
+against the window.** The HUD is not beside the battlefield, it is on top of
+it: the tab strip, the hand bar and the phase rail are overlays on the same
+full-window camera and cover about a quarter of it. The rig used to be a
+hard-coded twenty units aimed at the middle of the felt, and the result was
+that the local seat's own mat projected *below* the hand bar — a player could
+not see their own creatures, which makes every other piece of board legibility
+moot. `CameraRig::home` computes the shot from `TableLayout::extent` and a
+`Canvas` that names what the HUD covers, and `table::frame_table` reapplies it
+when the seats, the focus or the window change — stopping the moment the
+player has aimed the camera themselves.
+
+The inversion is exact rather than tuned, which is why it is arithmetic and
+not a magic number per screen size. With the eye at distance `D`, the lean
+`L` = `CAMERA_LEAN` and `C = 1/√(1+L²)`, a felt point `s` units from the look
+point along the screen-vertical has camera-space `depth = D + L·C·s` and
+`height = C·s` — the cross terms cancel — so `s = D · ground(q)` is linear in
+`D` and the fit is a division. `table.rs::camera_tests` projects the four
+corners of every pod *forwards* (written out a second time on purpose: a test
+that reused the inverse would agree with it however wrong both were), at two
+through eight seats and on a phone-shaped window, and asserts each one lands
+inside the band a player can actually see.
+
+Sideways the measurement is taken at the table's **near** edge, not at the look
+plane. A perspective camera sees less felt where the felt is closer, so the band
+under the front row is narrower than the one through the middle — measuring in
+the middle put a four-seat table's outermost mat past the rail. Once the far
+edge is pinned the near edge's depth is linear in the eye distance as well, so
+this stays one division.
+
+The distance is clamped before the look point is computed from it, not after.
+Aiming for a camera the clamp then moves is the one way this puts the table off
+screen with every formula still right — the far edge gets pinned for an eye
+that is not there. Clamped first, a table too big for `MAX_DISTANCE` keeps its
+far edge under the tab strip and overflows in front of the local seat, which a
+player can pan out of. A four-seat table on an upright phone is that case, and
+no camera fixes it: at the width it needs the felt's own edge comes into frame.
+That one waits on the rail becoming a horizontal strip, which changes `Canvas`.
 **The pool says which step it is.** The rim already answers *whose* turn it
 is; where in the turn we are was only ever readable off the rail, in text, at
 the far edge of the screen. `tabletop::phase_light` gives each of the twelve

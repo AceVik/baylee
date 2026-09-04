@@ -190,6 +190,58 @@ mat.
 And the prerequisite that makes all of it moot until it is done: the local
 seat's battlefield is underneath the hand bar.
 
+**Done — both, and the second one turned out to be the whole of it.**
+
+- Every number above is applied, and `HEARTH_TICKS`, `HEARTH_INNER` and
+  `HEARTH_OUTER` are now constants in `tabletop.rs` rather than literals the
+  renderer and the tests each wrote out separately (they disagreed: the
+  renderer asked for a 0.46–0.60 band and every test asserted against
+  0.55–0.72). `WASH_SIZE` is derived from the ring instead of written down,
+  because a wash wider than the ring it washes reads as the table being that
+  colour. The bound is a test:
+  `table.rs::camera_tests::the_hearth_ring_is_smaller_than_the_nearest_seats_mat`.
+- The hand bar was not a *rendering* problem. `CameraRig::default` was
+  `distance: 20, target: (0,0)` — a hard-coded shot of the middle of the felt,
+  taken against the **window**, while the tab strip, the hand bar and the phase
+  rail are overlays covering about a quarter of it. On a 1728×1052 laptop the
+  local seat's mat projected below the hand bar's top edge; on a phone it was
+  worse. `CameraRig::home(layout, canvas)` computes the shot instead, from
+  `TableLayout::extent` (every pod's box, rotated by its `facing` — a seat on
+  your left plays *across* the table) and a `Canvas` naming what the HUD
+  covers.
+- The arithmetic is worth writing down because it is exact rather than tuned.
+  With the eye at distance `D`, the lean `L`, and `C = 1/√(1+L²)`, a felt point
+  `s` units from the look point along the screen-vertical has camera-space
+  `depth = D + L·C·s` and `height = C·s` — the cross terms cancel. So
+  `s = D·ground(q)` is **linear in `D`**, and the distance at which the far
+  edge lands under the tab strip and the near edge above the hand bar is one
+  division, not a search. `table.rs::camera_tests` projects the four corners of
+  every pod forwards, at two to eight seats and on a phone-shaped window, and
+  asserts each lands inside the visible band. The forward projection is written
+  out again in the test on purpose: reusing the inverse would agree with it
+  however wrong both were.
+- Sideways the fit is measured at the table's **near** edge. A perspective
+  camera sees less felt where the felt is closer, so the band under the front
+  row is narrower than the one through the middle, and measuring in the middle
+  put a four-seat table's outermost mat past the rail — caught by the test, not
+  by a screenshot. With the far edge pinned the near edge's depth is linear in
+  `D` too, so this is still one division.
+- The eye distance is clamped **before** the look point is derived from it,
+  and that ordering is load-bearing. Aiming for a camera the clamp then moves
+  is the one way this arithmetic can put the table off screen while every
+  formula above is still right: the far edge would be pinned for an eye that
+  is not there, and land above the tab strip. Clamped first, a table too big
+  for `MAX_DISTANCE` keeps its far edge pinned and overflows at the *bottom* —
+  the graceful direction, and the one a player can pan out of. A four-seat
+  table on a phone is that case, and it is a `Canvas` problem rather than a
+  camera one: at the width it needs, the felt's own edge comes into frame. The
+  fix is tranche 4 turning the vertical rail into a horizontal strip, and the
+  phone test asserts the overflow as the deliberate gap it is.
+- `frame_table` reapplies it when the seats, the focus or the window change,
+  and stops as soon as the player has aimed the camera themselves — a rig equal
+  to the last framing, or still `default()` (what the resource starts as and
+  what `navigate_home` asks for), is the table's; anything else is theirs.
+
 ### 1.2 Tokens
 
 One palette source. "Blue" is currently defined three times — `tabletop::PIE`,
@@ -808,9 +860,10 @@ exempt~~; ~~concede confirmation~~; ~~engine holds~~ ~~and the stop preset~~.
 Left: the stack panel with runs, which is the one item on this list nothing
 else needs and which is deliberately not being done ahead of tranche 3.
 
-**Third, the board made legible.** The hearth shrunk and the own battlefield
-out from under the hand bar; ~~P/T, damage and counter chips on art faces~~
-(done — §1.4, plate and chips both); combat drawn — `is_selected`, assignment lines, the focus pulse and the per-defender
+**Third, the board made legible.** ~~The hearth shrunk and the own battlefield
+out from under the hand bar~~ (done — §1.1); ~~P/T, damage and counter chips on
+art faces~~ (done — §1.4, plate and chips both); combat drawn — `is_selected`,
+assignment lines, the focus pulse and the per-defender
 summary; `motion` wired to `reduce_motion`; the palette unified; the keyword
 dominance table and the off-pie films; flying as elevation.
 

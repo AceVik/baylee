@@ -191,6 +191,33 @@ impl TableLayout {
         Self { slots, radius }
     }
 
+    /// The rectangle every seat's mat fits inside, in table space, as
+    /// `(min, max)`. `None` for a table with no seats.
+    ///
+    /// A pod's `half_extent` is measured in its *own* frame — a seat on the
+    /// left plays across the table, not along it — so each box is rotated by
+    /// its `facing` before it is taken in. Without that a four-seat table
+    /// reports itself a third narrower than it is, and the camera framed from
+    /// it cuts the side seats' lands off at the screen edge.
+    #[must_use]
+    pub fn extent(&self) -> Option<(Vec2, Vec2)> {
+        let mut bounds: Option<(Vec2, Vec2)> = None;
+        for slot in &self.slots {
+            let (sin, cos) = slot.facing.sin_cos();
+            let (sin, cos) = (sin.abs(), cos.abs());
+            let half = Vec2::new(
+                cos.mul_add(slot.half_extent.x, sin * slot.half_extent.y),
+                sin.mul_add(slot.half_extent.x, cos * slot.half_extent.y),
+            );
+            let (lo, hi) = (slot.center - half, slot.center + half);
+            bounds = Some(match bounds {
+                None => (lo, hi),
+                Some((min, max)) => (min.min(lo), max.max(hi)),
+            });
+        }
+        bounds
+    }
+
     /// The local seat's slot.
     #[must_use]
     pub fn local(&self) -> Option<&SeatSlot> {
@@ -368,6 +395,55 @@ mod tests {
         let layout = TableLayout::new(&[], 1.78, None);
         assert!(layout.slots.is_empty());
         assert!(layout.local().is_none());
+        assert!(layout.extent().is_none());
+    }
+
+    #[test]
+    fn the_tables_extent_holds_every_seats_mat() {
+        for n in 2..=8 {
+            let layout = TableLayout::new(&seats(n), 1.78, None);
+            let (min, max) = layout.extent().expect("a seated table has an extent");
+            for slot in &layout.slots {
+                // Whatever a pod's own frame is, its four corners are inside.
+                let (sin, cos) = slot.facing.sin_cos();
+                for sx in [-1.0_f32, 1.0] {
+                    for sy in [-1.0_f32, 1.0] {
+                        let local = slot.half_extent * Vec2::new(sx, sy);
+                        let corner = slot.center
+                            + Vec2::new(
+                                cos.mul_add(local.x, sin * local.y),
+                                (-sin).mul_add(local.x, cos * local.y),
+                            );
+                        assert!(
+                            corner.x >= min.x - 1e-3
+                                && corner.x <= max.x + 1e-3
+                                && corner.y >= min.y - 1e-3
+                                && corner.y <= max.y + 1e-3,
+                            "{n} seats: {corner} escapes {min}..{max}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_seat_across_the_table_is_measured_across_the_table() {
+        // The bug this is here for: taking `half_extent` unrotated makes a
+        // four-seat table report the side seats as deep and narrow when they
+        // are wide and shallow, and the camera then cuts their lands off.
+        let layout = TableLayout::new(&seats(4), 1.78, None);
+        let side = layout
+            .slots
+            .iter()
+            .find(|s| s.center.x.abs() > s.center.y.abs())
+            .copied()
+            .expect("a four-seat table has a seat on each side");
+        let (min, max) = layout.extent().expect("extent");
+        assert!(
+            max.x - min.x >= 2.0 * (side.center.x.abs() + side.half_extent.y) - 1e-3,
+            "the side seat is laid across the table, not along it"
+        );
     }
 
     #[test]

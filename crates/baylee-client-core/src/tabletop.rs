@@ -240,7 +240,9 @@ pub fn medallion(size: u32) -> Texture {
                 let distance = ((u - cx).powi(2) + (v - cy).powi(2)).sqrt();
                 let glow = (1.0 - (distance / 0.42)).clamp(0.0, 1.0).powf(2.2);
                 colour = mix(colour, *hue, glow.min(1.0));
-                alpha = alpha.max(glow * 0.55);
+                // Dimmed from 0.55: the wheel is orientation, and it was
+                // competing with the cards for the eye.
+                alpha = alpha.max(glow * 0.35);
             }
 
             // Two gilt rings: one around the wheel, one inside it. `ring`
@@ -403,6 +405,20 @@ pub fn card_shadow(width: u32, height: u32, spread: f32, radius: f32) -> Texture
     texture
 }
 
+/// Where the ring band's inner edge sits, as a fraction of the hearth quad's
+/// half-width.
+pub const HEARTH_INNER: f32 = 0.46;
+/// Where the ring band's outer edge sits. A caller sizing its quad wants this
+/// one: the ring a player sees is this fraction of the quad *across*.
+pub const HEARTH_OUTER: f32 = 0.60;
+/// How many ticks the ring carries.
+///
+/// Eight, at 45°, so it reads as a compass. It was twenty-four — one every
+/// fifteen degrees — which is a clock face, and a clock face in the middle of
+/// a card table is the single loudest thing in `docs/design.md` §1.1's
+/// numeric read of the board.
+pub const HEARTH_TICKS: u16 = 8;
+
 /// The pool of lamplight over the middle of the table, with the arcane ring
 /// inlaid in it.
 ///
@@ -417,7 +433,9 @@ pub fn card_shadow(width: u32, height: u32, spread: f32, radius: f32) -> Texture
 /// trade dress as a shape can get.
 ///
 /// `inner` and `outer` are where the ring band sits, as fractions of the
-/// texture's half-width; the light pool fills the whole thing.
+/// texture's half-width; the light pool fills the whole thing. The renderer
+/// passes [`HEARTH_INNER`] and [`HEARTH_OUTER`], which are also what the
+/// caller sizes its quad against.
 #[must_use]
 pub fn hearth(size: u32, inner: f32, outer: f32) -> Texture {
     /// The lamp's colour: candle, not daylight.
@@ -427,9 +445,7 @@ pub fn hearth(size: u32, inner: f32, outer: f32) -> Texture {
 
     let mut texture = Texture::blank(size, size);
     let extent = size as f32;
-    // One tick every 15°, so the ring reads as a dial rather than as a
-    // circle somebody drew twice.
-    let ticks = 24.0;
+    let ticks = f32::from(HEARTH_TICKS);
     for y in 0..size {
         for x in 0..size {
             let u = (x as f32 + 0.5) / extent * 2.0 - 1.0;
@@ -439,16 +455,16 @@ pub fn hearth(size: u32, inner: f32, outer: f32) -> Texture {
                 continue;
             }
             // The pool: brightest at the middle, gone before the edge, so
-            // the quad never shows as a square against the felt.
-            let pool = (1.0 - radius).clamp(0.0, 1.0).powf(2.2) * 0.12;
+            // the quad never shows as a square against the felt. Halved from
+            // what it shipped as — candlelight at 0.12 over `felt`'s green
+            // made the middle of the table read olive and only its corners
+            // read green.
+            let pool = (1.0 - radius).clamp(0.0, 1.0).powf(2.2) * 0.06;
 
-            // Two hairlines bounding the band, and the band itself barely
-            // lifted — an inlay, not a painted circle.
-            let line = [inner, outer]
-                .iter()
-                .map(|edge| (radius - edge).abs())
-                .fold(f32::MAX, f32::min);
-            let hairline = (1.0 - line / 0.006).clamp(0.0, 1.0) * 0.30;
+            // One hairline, on the outer edge, and the band itself barely
+            // lifted — an inlay, not a painted circle. It was two, which with
+            // the ticks between them made three concentric lines and a dial.
+            let hairline = (1.0 - (radius - outer).abs() / 0.006).clamp(0.0, 1.0) * 0.30;
             let inside_band = radius > inner && radius < outer;
             let band = f32::from(u8::from(inside_band)) * 0.045;
 
@@ -458,7 +474,7 @@ pub fn hearth(size: u32, inner: f32, outer: f32) -> Texture {
             let phase = (angle / TAU * ticks).fract().abs();
             let near_tick = phase.min(1.0 - phase);
             let tick = if inside_band {
-                (1.0 - near_tick / 0.06).clamp(0.0, 1.0) * 0.22
+                (1.0 - near_tick / 0.03).clamp(0.0, 1.0) * 0.22
             } else {
                 0.0
             };
@@ -686,7 +702,10 @@ mod tests {
                 .max_by(|a, b| a.1.total_cmp(b.1))
                 .map(|(c, _)| c)
                 .unwrap_or_default();
-            assert!(px[3] > 0.2, "colour {index} is on the wheel");
+            // A low floor: the wheel was dimmed deliberately (see the glow's
+            // 0.35), and what this asserts is that each colour is *drawn* —
+            // how loudly is §1.1's business, not this test's.
+            assert!(px[3] > 0.1, "colour {index} is on the wheel");
             assert_eq!(
                 drawn, brightest,
                 "colour {index} came out with the wrong channel on top"
@@ -776,8 +795,11 @@ mod tests {
 
     #[test]
     fn the_hearth_is_brightest_in_the_middle_and_gone_at_its_edge() {
-        let h = hearth(256, 0.55, 0.72);
-        assert!(h.pixel(128, 128)[3] > 0.1, "no light in the middle");
+        let h = hearth(256, HEARTH_INNER, HEARTH_OUTER);
+        // Faint on purpose: the pool is half what it shipped as, because at
+        // 0.12 the candle warmth over `felt`'s green made the middle of the
+        // table read olive. What is asserted is that the lamp is *there*.
+        assert!(h.pixel(128, 128)[3] > 0.03, "no light in the middle");
         for x in 0..256 {
             assert!(h.pixel(x, 0)[3] < 1e-6, "still lit at the texture's edge");
             assert!(h.pixel(0, x)[3] < 1e-6);
@@ -786,11 +808,11 @@ mod tests {
 
     #[test]
     fn the_arcane_ring_is_where_it_was_asked_for() {
-        let h = hearth(512, 0.55, 0.72);
+        let h = hearth(512, HEARTH_INNER, HEARTH_OUTER);
         // Sampled *between* two ticks: on a tick every radius in the band is
-        // bright, and the hairlines would have nothing to stand out from.
+        // bright, and the hairline would have nothing to stand out from.
         let at = |r: f32| {
-            let angle = (360.0f32 / 24.0 / 2.0).to_radians();
+            let angle = (360.0 / f32::from(HEARTH_TICKS) / 2.0).to_radians();
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let (x, y) = (
                 (256.0 + r * 256.0 * angle.cos()) as u32,
@@ -798,44 +820,45 @@ mod tests {
             );
             h.pixel(x.min(511), y.min(511))[3]
         };
-        // Each hairline is a local maximum, which is what a line *is*.
-        for edge in [0.55_f32, 0.72] {
-            let on = at(edge);
-            assert!(
-                on > at(edge - 0.04) && on > at(edge + 0.04),
-                "no hairline at {edge}: {} / {on} / {}",
-                at(edge - 0.04),
-                at(edge + 0.04)
-            );
-        }
-        // And the band between them is lifted above the felt outside it, at
-        // radii where the pool alone would have it the other way round.
+        // The hairline is a local maximum, which is what a line *is*. There
+        // is one, on the outer edge: two of them with ticks in between drew
+        // three concentric circles and read as a dial.
+        let on = at(HEARTH_OUTER);
         assert!(
-            at(0.66) > at(0.78),
-            "the band is not there: {} vs {}",
-            at(0.66),
-            at(0.78)
+            on > at(HEARTH_OUTER - 0.04) && on > at(HEARTH_OUTER + 0.04),
+            "no hairline at the ring's edge: {} / {on} / {}",
+            at(HEARTH_OUTER - 0.04),
+            at(HEARTH_OUTER + 0.04)
+        );
+        // And the band inside it is lifted above the felt outside it, at
+        // radii where the pool alone would have it the other way round.
+        let (inside, outside) = (at(HEARTH_INNER + 0.04), at(HEARTH_OUTER + 0.1));
+        assert!(
+            inside > outside,
+            "the band is not there: {inside} vs {outside}"
         );
     }
 
     #[test]
     fn the_ring_carries_its_ticks_all_the_way_round() {
-        let h = hearth(512, 0.55, 0.72);
+        let h = hearth(512, HEARTH_INNER, HEARTH_OUTER);
+        let mid = f32::midpoint(HEARTH_INNER, HEARTH_OUTER);
         let at = |degrees: f32| {
             let angle = degrees.to_radians();
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let (x, y) = (
-                (256.0 + 0.635 * 256.0 * angle.cos()) as u32,
-                (256.0 + 0.635 * 256.0 * angle.sin()) as u32,
+                (256.0 + mid * 256.0 * angle.cos()) as u32,
+                (256.0 + mid * 256.0 * angle.sin()) as u32,
             );
             h.pixel(x.min(511), y.min(511))[3]
         };
-        // Twenty-four of them, so every fifteenth degree is a mark and every
-        // seventh-and-a-half is not.
-        for step in 0..24 {
-            let on = at(step as f32 * 15.0);
-            let off = at(step as f32 * 15.0 + 7.5);
-            assert!(on > off, "tick {step} is missing: {on} vs {off}");
+        // Eight of them — a compass, not a clock — so every forty-fifth
+        // degree is a mark and the angle halfway between two is not.
+        let step = 360.0 / f32::from(HEARTH_TICKS);
+        for mark in 0..HEARTH_TICKS {
+            let on = at(f32::from(mark) * step);
+            let off = at(f32::from(mark).mul_add(step, step * 0.5));
+            assert!(on > off, "tick {mark} is missing: {on} vs {off}");
         }
     }
 
@@ -844,7 +867,7 @@ mod tests {
     /// guess, which is the one thing the whole unlit design exists to avoid.
     #[test]
     fn nothing_in_the_hearth_is_a_cold_colour() {
-        for (_, _, px) in pixels(&hearth(64, 0.55, 0.72)) {
+        for (_, _, px) in pixels(&hearth(64, HEARTH_INNER, HEARTH_OUTER)) {
             if px[3] < 1e-6 {
                 continue;
             }

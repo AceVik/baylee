@@ -417,6 +417,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::SceneIndex>()
             .init_resource::<table::CameraRig>()
             .init_resource::<table::ShownRig>()
+            .init_resource::<table::HomeRig>()
             .init_resource::<hud::HudRevision>()
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
@@ -462,6 +463,7 @@ impl Plugin for DuelPlugin {
                     table::sync_zones,
                     table::sync_phase,
                     table::glide,
+                    table::frame_table,
                     table::apply_camera_rig,
                     hud::sync_overlay,
                     hud::apply_hand_scroll,

@@ -494,7 +494,7 @@ fn ability_options(
 mod card;
 mod hand;
 mod overlay;
-mod rail;
+pub(crate) mod rail;
 mod stack;
 mod tray;
 

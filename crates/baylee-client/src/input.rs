@@ -1319,7 +1319,13 @@ pub fn navigate_to_player(
     crate::rebuild_board(duel);
 }
 
-/// Returns the camera to the default view behind the local seat.
+/// Returns the camera to the view behind the local seat that takes in the
+/// whole table.
+///
+/// The rig is set back to its default rather than to that framing, because
+/// the framing depends on the window and on the layout this call is about to
+/// change: `table::frame_table` recognises the default as "nobody aimed this"
+/// and puts the table back in frame on the next tick.
 pub fn navigate_home(duel: &mut Duel, rig: &mut crate::table::CameraRig) {
     *rig = crate::table::CameraRig::default();
     duel.focus = None;

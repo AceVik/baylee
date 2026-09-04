@@ -26,7 +26,7 @@ use crate::face;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
-use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH, SeatSlot, pack_lane};
+use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH, SeatSlot, TableLayout, pack_lane};
 use baylee_client_core::tabletop;
 use baylee_core::color::ColorSet;
 use baylee_core::ids::ObjectId;
@@ -53,9 +53,15 @@ const MEDALLION_LIFT: f32 = 0.0015;
 const FELT: Vec2 = Vec2::new(60.0, 44.0);
 /// Where the lamplight pool lies: on the felt, under everything else.
 const HEARTH_LIFT: f32 = 0.0008;
-/// How far the lamplight and its inlaid ring reach, in table units. Sized to
-/// the deepest zoom-out, so the ring is on screen rather than beyond it.
-const HEARTH_SIZE: f32 = 34.0;
+/// How far the lamplight and its inlaid ring reach, in table units.
+///
+/// It shipped at 34, which put a twenty-unit ring with twenty-four ticks on
+/// it across the middle of the felt: the largest, brightest, most detailed
+/// thing on screen, and what the eye read was a roulette wheel. The bound is
+/// in `docs/design.md` §1.1 and is measured by
+/// `camera_tests::the_hearth_ring_is_smaller_than_the_nearest_seats_mat` —
+/// the lamp is atmosphere, the mats are where the game is.
+const HEARTH_SIZE: f32 = 18.0;
 /// How wide the medallion is inlaid, in table units.
 const MEDALLION_SIZE: f32 = 9.5;
 /// Where the phase wash lies: over the lamplight pool it colours, under the
@@ -64,13 +70,14 @@ const WASH_LIFT: f32 = 0.0011;
 /// How far the phase wash reaches.
 ///
 /// Sized against the *ring*, not against the pool quad it shares a texture
-/// with: [`tabletop::hearth`] puts its band at 0.46–0.60 of the quad's half
-/// width, so the ring a player actually sees is a circle of about ten units'
-/// radius. A wash wider than that stops reading as a lamp over the middle of
-/// the table and starts reading as the table being that colour, which is the
-/// version this shipped as first and the reason the number is argued for
-/// here.
-const WASH_SIZE: f32 = 24.0;
+/// with: [`tabletop::hearth`] puts its band at
+/// [`tabletop::HEARTH_INNER`]–[`tabletop::HEARTH_OUTER`] of the quad's half
+/// width, so the ring a player actually sees is a good deal smaller than
+/// [`HEARTH_SIZE`]. A wash wider than that stops reading as a lamp over the
+/// middle of the table and starts reading as the table being that colour,
+/// which is the version this shipped as first and the reason the number is
+/// tied to the ring rather than written down.
+const WASH_SIZE: f32 = HEARTH_SIZE * tabletop::HEARTH_OUTER * 1.2;
 /// How strong the wash is at [`tabletop::PhaseLight::energy`] 1.0.
 const WASH_ALPHA: f32 = 0.24;
 /// How fast the wash follows a phase change, per second.
@@ -162,6 +169,187 @@ impl CameraRig {
             yaw: world_center.y.atan2(world_center.x) + std::f32::consts::FRAC_PI_2,
         }
     }
+
+    /// The whole table, framed inside the part of the window it is actually
+    /// seen through.
+    ///
+    /// This is the shot a duel opens on and the one `navigate_home` returns
+    /// to, and it is computed rather than written down because the thing it
+    /// has to fit changes: two seats and eight seats are different tables,
+    /// and a phone and a monitor leave different amounts of them uncovered.
+    /// The hard-coded 20 units it replaced put the local seat's own mat under
+    /// the hand bar on every screen — a player could not see their own
+    /// creatures, which made every later piece of board legibility moot.
+    #[must_use]
+    pub fn home(layout: &TableLayout, canvas: Canvas) -> Self {
+        let Some((min, max)) = layout.extent() else {
+            return Self::default();
+        };
+        let (min, max) = (min - Vec2::splat(AIR), max + Vec2::splat(AIR));
+        let span = max - min;
+
+        // The free band, as normalised device coordinates: +1 is the top of
+        // the window, and the tab strip and the hand bar eat inwards.
+        let top = 1.0 - 2.0 * canvas.top / canvas.window.y.max(1.0);
+        let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y.max(1.0);
+        let right = 1.0 - 2.0 * canvas.right / canvas.window.x.max(1.0);
+        let aspect = canvas.window.x / canvas.window.y.max(1.0);
+
+        // Vertically this is exact: `ground` is linear in the eye distance,
+        // so the distance at which the table's far edge lands on `top` and
+        // its near edge on `bottom` is one division.
+        let deep = span.y / (ground(top) - ground(bottom)).max(1e-3);
+        // Horizontally the binding edge is the *near* one. A perspective
+        // camera sees less of the felt where the felt is closer, so the band
+        // measured at the look plane is not the band the front row has to fit
+        // in — measuring there put a four-seat table's outermost mat past the
+        // rail. The near edge sits at `min.y`, whose depth is
+        // `eye·(1 + k·g_top) − k·span.y` once the far edge is pinned, and
+        // that is linear in `eye` too, so requiring the span to fit *there*
+        // is still one division rather than a search.
+        let g_top = ground(top);
+        let k = CAMERA_LEAN / (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+        let wide = k.mul_add(
+            span.y,
+            span.x / (half_fov().tan() * aspect * (1.0 + right)).max(1e-3),
+        ) / k.mul_add(g_top, 1.0);
+        // Clamped *before* the look point is derived from it. Aiming for a
+        // camera the clamp then moves is the one way this can put the table
+        // off screen while every number above is still right: the far edge
+        // would be pinned for an eye that is not there, and land above the
+        // tab strip. Clamped first, a table too big for `MAX_DISTANCE` keeps
+        // its far edge pinned and overflows at the bottom, which is the
+        // graceful direction.
+        let lean = (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+        let eye = deep
+            .max(wide)
+            .clamp(Self::MIN_DISTANCE * lean, Self::MAX_DISTANCE * lean);
+
+        // The far edge is pinned under the tab strip. Any slack a wide table
+        // bought then opens up at the *bottom*, in front of the local seat,
+        // which is where a player would rather have it than behind the
+        // opponent they are looking at.
+        //
+        // Sideways the span is centred in the band as it stands at the near
+        // edge, for the same reason `wide` was measured there: centring on
+        // the look plane's band leaves the front row off-centre, and the rail
+        // makes the band asymmetric, so being off-centre costs a whole mat on
+        // one side.
+        let near = k.mul_add(-span.y, eye * k.mul_add(g_top, 1.0)).max(1e-3);
+        let half_band = near * half_fov().tan() * aspect;
+        let look = Vec2::new(
+            (min.x + max.x).mul_add(0.5, -(half_band * (right - 1.0) * 0.5)),
+            max.y - eye * g_top,
+        );
+        Self {
+            // `ground` works from the eye's true distance; the rig stores the
+            // height it stands at, which the lean makes shorter.
+            distance: eye / lean,
+            // Table space to world: `+y` away from the local seat is `-z`.
+            target: Vec2::new(look.x, -look.y),
+            yaw: 0.0,
+        }
+    }
+}
+
+/// How much bare felt is left around the table when it is framed.
+const AIR: f32 = 0.6;
+
+/// Half the camera's vertical field of view.
+fn half_fov() -> f32 {
+    FOV * 0.5
+}
+
+/// Where a point on the felt lands on screen, in one axis, per unit of eye
+/// distance.
+///
+/// Take `s` to be table-space distance from the look point along the
+/// screen-vertical, positive away from the local seat, and `q` to be
+/// normalised device y. With the eye at distance `D` and the lean written as
+/// `L` = [`CAMERA_LEAN`], `C = 1/√(1+L²)`, the camera-space depth and height
+/// of that point work out to
+///
+/// ```text
+///     depth(s) = D + L·C·s          height(s) = C·s
+/// ```
+///
+/// — the cross terms cancel, which is the whole reason this is arithmetic and
+/// not a projection matrix. So `q = height / (depth · tan(fov/2))`, and solved
+/// the other way `s = D · ground(q)`. Being *linear in `D`* is what lets
+/// [`CameraRig::home`] invert it with a division instead of a search.
+fn ground(q: f32) -> f32 {
+    let t = half_fov().tan();
+    let c = 1.0 / (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+    q * t / (c * q.mul_add(-CAMERA_LEAN * t, 1.0))
+}
+
+/// The part of the window the table is actually seen through.
+///
+/// The HUD is not beside the battlefield, it is on top of it: the tab strip,
+/// the hand bar and the phase rail are overlays on the same full-window
+/// camera. Framing the table against the *window* therefore frames it against
+/// a rectangle whose bottom sixth nobody can see.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Canvas {
+    /// The window, in logical pixels.
+    pub window: Vec2,
+    /// Covered at the top: the tab strip.
+    pub top: f32,
+    /// Covered at the bottom: the hand bar.
+    pub bottom: f32,
+    /// Covered on the right: the phase rail.
+    pub right: f32,
+}
+
+impl Canvas {
+    /// What the duel HUD covers of a window this size.
+    #[must_use]
+    pub fn hud(window: Vec2) -> Self {
+        Self {
+            window,
+            top: crate::hud::TAB_H,
+            bottom: crate::hud::HAND_BAR_H,
+            right: crate::hud::rail::RAIL_W,
+        }
+    }
+}
+
+/// The framing the table currently deserves, and whether the camera is still
+/// following it.
+///
+/// A rig that equals the last framing — or that is still
+/// [`CameraRig::default`], which is what the resource starts as and what
+/// `navigate_home` asks for, neither of them a place anyone aimed at — is the
+/// table's camera and follows the table. One drag, zoom or focus and it is
+/// the player's, and a window resize no longer moves it.
+#[derive(Resource, Clone, Copy, Default)]
+pub struct HomeRig(Option<CameraRig>);
+
+/// Keeps the table framed as seats, focus and window size change.
+pub fn frame_table(
+    duel: Res<Duel>,
+    windows: Query<&Window>,
+    mut home: ResMut<HomeRig>,
+    mut rig: ResMut<CameraRig>,
+) {
+    let Some(layout) = duel.layout.as_ref() else {
+        return;
+    };
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let next = CameraRig::home(
+        layout,
+        Canvas::hud(Vec2::new(window.width(), window.height())),
+    );
+    let current: CameraRig = *rig;
+    let following = home.0.is_none_or(|last| current == last) || current == CameraRig::default();
+    if following && current != next {
+        *rig = next;
+    }
+    if home.0 != Some(next) {
+        home.0 = Some(next);
+    }
 }
 
 /// How far the camera stands off to the side, as a fraction of its height.
@@ -178,6 +366,13 @@ impl CameraRig {
 /// to bring a horizon into frame — which is why there is no sky behind the
 /// table and no point drawing one.
 const CAMERA_LEAN: f32 = 0.40;
+
+/// The camera's vertical field of view, in radians.
+///
+/// Shared with [`CameraRig::home`], which inverts the projection to work out
+/// how far back the table has to stand — a framing computed against a
+/// different angle from the one the camera is set to is a framing that misses.
+const FOV: f32 = 0.7;
 
 /// Where the camera actually is, as against where the rig says it should be.
 ///
@@ -622,7 +817,7 @@ pub fn spawn_stage(
         // rig; apply_camera_rig owns the transform from here on).
         Transform::from_xyz(0.0, 15.0, 13.2).looking_at(Vec3::ZERO, Vec3::Y),
         Projection::Perspective(PerspectiveProjection {
-            fov: 0.7,
+            fov: FOV,
             ..default()
         }),
         // No tone mapping. Bevy attaches none to a camera by default, so
@@ -665,7 +860,11 @@ pub fn spawn_stage(
         DuelStage,
         Mesh3d(meshes.add(Rectangle::new(HEARTH_SIZE, HEARTH_SIZE))),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(images.add(image_of(&tabletop::hearth(1024, 0.46, 0.60)))),
+            base_color_texture: Some(images.add(image_of(&tabletop::hearth(
+                1024,
+                tabletop::HEARTH_INNER,
+                tabletop::HEARTH_OUTER,
+            )))),
             alpha_mode: AlphaMode::Blend,
             unlit: true,
             ..default()
@@ -1276,6 +1475,172 @@ pub fn sync_scene(
 #[must_use]
 pub fn stack_badge(group: &CardGroup) -> Option<String> {
     group.is_stack().then(|| format!("×{}", group.count()))
+}
+
+#[cfg(test)]
+mod camera_tests {
+    use super::*;
+    use baylee_core::ids::PlayerId;
+
+    /// A laptop's window, in logical pixels.
+    const WINDOW: Vec2 = Vec2::new(1728.0, 1052.0);
+
+    fn seats(n: u8) -> Vec<PlayerId> {
+        (0..n).map(PlayerId::new).collect()
+    }
+
+    /// Where a point on the felt lands, in normalised device coordinates.
+    ///
+    /// Written out forwards on purpose: [`CameraRig::home`] inverts the same
+    /// projection, and a test that reused the inverse would agree with it
+    /// however wrong both were.
+    fn project(rig: CameraRig, canvas: Canvas, table: Vec2) -> Vec2 {
+        let lean = CAMERA_LEAN;
+        let eye = rig.distance * (1.0 + lean * lean).sqrt();
+        let cos = 1.0 / (1.0 + lean * lean).sqrt();
+        let t = (FOV * 0.5).tan();
+        let aspect = canvas.window.x / canvas.window.y;
+        // The rig stores world x/z; `+y` away from the local seat is `-z`.
+        let s = table.y - -rig.target.y;
+        let depth = lean.mul_add(cos * s, eye);
+        Vec2::new(
+            (table.x - rig.target.x) / (depth * t * aspect),
+            cos * s / (depth * t),
+        )
+    }
+
+    /// Every corner of every seat's mat, in table space.
+    fn corners(layout: &TableLayout) -> Vec<Vec2> {
+        let mut out = Vec::new();
+        for slot in &layout.slots {
+            let (sin, cos) = slot.facing.sin_cos();
+            for sx in [-1.0_f32, 1.0] {
+                for sy in [-1.0_f32, 1.0] {
+                    let local = slot.half_extent * Vec2::new(sx, sy);
+                    out.push(
+                        slot.center
+                            + Vec2::new(
+                                cos.mul_add(local.x, sin * local.y),
+                                (-sin).mul_add(local.x, cos * local.y),
+                            ),
+                    );
+                }
+            }
+        }
+        out
+    }
+
+    /// The bug this whole framing exists for: the table shipped with a
+    /// hard-coded 20-unit camera looking at the middle of the felt, and the
+    /// local seat's own mat came out *underneath the hand bar*. A player
+    /// could not see their own creatures.
+    #[test]
+    fn the_local_seats_own_mat_is_not_behind_the_hand_bar() {
+        let canvas = Canvas::hud(WINDOW);
+        let layout = TableLayout::new(&seats(2), 1.78, None);
+        let local = layout.local().copied().expect("a local seat");
+        let near = local.center.y - local.half_extent.y;
+
+        let bad = project(CameraRig::default(), canvas, Vec2::new(0.0, near));
+        let floor = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
+        assert!(
+            bad.y < floor,
+            "the old framing is supposed to be the broken one: {} vs {floor}",
+            bad.y
+        );
+
+        let good = project(
+            CameraRig::home(&layout, canvas),
+            canvas,
+            Vec2::new(0.0, near),
+        );
+        assert!(
+            good.y >= floor,
+            "the near edge of my own mat is still under the hand bar: {} vs {floor}",
+            good.y
+        );
+    }
+
+    #[test]
+    fn every_seats_mat_is_inside_the_part_of_the_window_you_can_see() {
+        let canvas = Canvas::hud(WINDOW);
+        for n in 2..=8 {
+            let layout = TableLayout::new(&seats(n), 1.78, None);
+            let rig = CameraRig::home(&layout, canvas);
+            let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
+            let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
+            let right = 1.0 - 2.0 * canvas.right / canvas.window.x;
+            for corner in corners(&layout) {
+                let at = project(rig, canvas, corner);
+                assert!(
+                    at.y >= bottom - 1e-3 && at.y <= top + 1e-3,
+                    "{n} seats: {corner} lands at y {} , outside {bottom}..{top}",
+                    at.y
+                );
+                assert!(
+                    at.x >= -1.0 - 1e-3 && at.x <= right + 1e-3,
+                    "{n} seats: {corner} lands at x {} , outside -1..{right}",
+                    at.x
+                );
+            }
+        }
+    }
+
+    /// A window is not always a laptop's. The framing has to hold for a phone
+    /// held upright, where the HUD covers proportionally far more of it.
+    #[test]
+    fn the_framing_holds_on_a_tall_narrow_window() {
+        let canvas = Canvas::hud(Vec2::new(430.0, 932.0));
+        let layout = TableLayout::new(&seats(4), 0.46, None);
+        let rig = CameraRig::home(&layout, canvas);
+        let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
+        let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
+        // Both bounds, because only checking the near edge is exactly the
+        // hole that let the hand bar bug through in the first place: a shot
+        // aimed too far off can satisfy one edge by breaking the other.
+        for corner in corners(&layout) {
+            let at = project(rig, canvas, corner);
+            assert!(
+                at.y >= bottom - 1e-3 && at.y <= top + 1e-3,
+                "{corner} lands at y {}, outside {bottom}..{top}",
+                at.y
+            );
+        }
+        // Horizontally a four-seat table does not fit a phone at any honest
+        // distance — at the width this needs, the felt's own edge comes into
+        // frame — and no camera can fix that. What fixes it is tranche 4
+        // turning the vertical rail into a horizontal strip, which changes
+        // `Canvas`. Asserted here as the deliberate gap it is.
+        assert!(
+            corners(&layout)
+                .into_iter()
+                .any(|corner| project(rig, canvas, corner).x < -1.0),
+            "a phone now fits a four-seat table sideways — tighten this test",
+        );
+    }
+
+    #[test]
+    fn a_table_with_nobody_at_it_frames_nothing_rather_than_dividing_by_zero() {
+        let rig = CameraRig::home(&TableLayout::new(&[], 1.78, None), Canvas::hud(WINDOW));
+        assert_eq!(rig, CameraRig::default());
+        assert!(rig.distance.is_finite());
+    }
+
+    /// `docs/design.md` §1.1: the ring is atmosphere, the mats are the game.
+    /// The bound is measurable, so it is measured.
+    #[test]
+    fn the_hearth_ring_is_smaller_than_the_nearest_seats_mat() {
+        let layout = TableLayout::new(&seats(2), 1.78, None);
+        let local = layout.local().copied().expect("a local seat");
+        // `HEARTH_OUTER` is a fraction of the quad's *half* width, so the
+        // ring a player sees is that fraction of the quad across.
+        let ring = HEARTH_SIZE * tabletop::HEARTH_OUTER;
+        assert!(
+            ring < local.lane_width(),
+            "the eye lands on the ring, not on the board: {ring} vs {}",
+            local.lane_width()
+        );
+    }
 }
 
 #[cfg(test)]
