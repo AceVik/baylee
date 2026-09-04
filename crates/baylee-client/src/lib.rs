@@ -420,6 +420,32 @@ impl Plugin for DuelPlugin {
         flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(rivermat::RiverMaterialPlugin)
+            // Without this nothing on the 3D table can be pointed at, ever.
+            //
+            // Bevy's UI picking backend is on by default and its *mesh* one is
+            // not, so the hand bar — which is UI nodes — answered the pointer
+            // while the battlefield, the stack of a hovered permanent and
+            // every pile beside a mat did not: `Pointer<Over>` and
+            // `Pointer<Click>` simply never fired for a `Mesh3d`. That is why
+            // `Interaction::activate` could be written, wired to `input.rs`,
+            // and still leave a Forest inert under the cursor, and why the
+            // preview only ever appeared for cards in hand. Measured rather
+            // than guessed: hovering a hand card reports its object, hovering
+            // an opponent's land at the pixel the card is drawn on reports
+            // nothing at all.
+            //
+            // `require_markers` stays `false` — the default, and the one the
+            // `Pickable::IGNORE` already on the contact shadows was written
+            // against. Everything on the table that is not a card carries
+            // that marker, so the felt itself never answers a click, and a
+            // card needs no marker of its own. Measured that way round too:
+            // with a `Pickable::default()` added to every card the hover was
+            // no different, so it is not there.
+            //
+            // The `mesh_picking` cargo feature this needs cannot be dropped
+            // by a later `default-features = false` audit without the build
+            // saying so — the path below names the module the feature gates.
+            .add_plugins(bevy::picking::mesh_picking::MeshPickingPlugin)
             .init_state::<DuelPhase>()
             .insert_resource(self.config.clone())
             .insert_resource(settings::ClientSettings::load())

@@ -1045,6 +1045,9 @@ fn spawn_table_quad(
                 unlit: true,
                 ..default()
             })),
+            // Ground, glow and medallion are all scenery. Only cards are
+            // pointed at, so only cards are pickable.
+            Pickable::IGNORE,
             Transform {
                 translation: to_world(slot.center, TABLE_Y + quad.lift),
                 rotation: Quat::from_rotation_y(-slot.facing)
@@ -1266,6 +1269,9 @@ pub fn sync_river(
                 source,
                 motion,
             },
+            // The floor of the scene answers no clicks: a pointer on bare
+            // timber means the table, not the thing under it.
+            Pickable::IGNORE,
             Mesh3d(meshes.add(Rectangle::new(span.x, span.y))),
             MeshMaterial3d(materials.add(RiverMaterial {
                 channel,
@@ -1880,6 +1886,9 @@ pub fn sync_scene(
                     Mesh3d(quad.clone()),
                     MeshMaterial3d(blank.clone().unwrap_or_default()),
                     back,
+                    // The stack behind a counted group is depth, not cards:
+                    // the group's own card is what a click has to reach.
+                    Pickable::IGNORE,
                 ));
             }
             entity

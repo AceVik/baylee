@@ -976,6 +976,46 @@ that question is tapping the land by hand. The row is `abilities.rs`'s chooser
 node for node on the same prompt bar, and the test walks the identical path up
 to the spawn — which is the claim, and all of it.
 
+## Before the pointer speaks, the table has to be pickable
+
+Bevy's picking has one pointer and several backends, and only the **UI** one
+is installed by default. The hand bar, the prompt bar and every button are UI
+nodes, so they answered; the felt is `Mesh3d`, and for it `Pointer<Over>` and
+`Pointer<Click>` never fired at all. Not rarely — never. The consequence was
+not a missing feature but three finished ones that nothing could reach:
+`Interaction::activate` was written and wired to `input.rs` and still left a
+Forest inert under the cursor, a permanent had no hover preview, and the piles
+beside a mat could not be opened. All three came back with one line,
+`MeshPickingPlugin`, and the `mesh_picking` feature it needs.
+
+That line is easy to lose again, so it is worth knowing what holds it: the
+path names the module the cargo feature gates, so a later
+`default-features = false` audit that drops the feature breaks the build
+rather than the table.
+
+The diagnosis is the part worth keeping. Reading the HUD for a full-screen
+node that might be swallowing the ray found nothing — `HudRoot` has carried
+`Pickable::IGNORE` since it was written. A temporary probe over `PointerHits`
+answered it in one build instead:
+
+```text
+order=0.5  [772v25/ui3456x2104/d=0.00]   the full-window HUD node — reported, but
+                                         neither hoverable nor blocking
+order=0    [384v8/mesh-card/d=29.85]     the mesh backend, once it exists
+```
+
+Three readings, one build: whether the mesh backend produces hits, whether
+anything above it blocks them, and whether `pointer_hover` consumes what
+arrives. Before the plugin the second line was simply absent.
+
+A card carries no `Pickable` of its own. That was tried and made no
+difference — `MeshPickingSettings::require_markers` is `false` by default, so
+every visible mesh with an `Aabb` is a target already. What the table carries
+is the opposite marker: the felt slab, the generated table quads, the zone
+recesses, the face-down pile backs, the counted-stack backs and every contact
+shadow are `Pickable::IGNORE`, so nothing under a card can answer a click
+meant for the card.
+
 ## The pointer only speaks when it moves
 
 `Pointer<Over>` fires when the *card* moves under the pointer exactly as

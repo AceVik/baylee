@@ -100,7 +100,7 @@ bevy = { version = "0.19", default-features = false, features = [
     "bevy_winit", "default_font", "custom_cursor",
     "ui_bevy_render", "bevy_ui_widgets",
     "bevy_pbr", "bevy_light", "bevy_anti_alias", "tonemapping_luts", "zstd_rust",
-    "picking",
+    "picking", "mesh_picking",
     "png", "jpeg", "webp",
     "https", "web_asset_cache",
     "keyboard", "mouse", "touch", "gestures",
