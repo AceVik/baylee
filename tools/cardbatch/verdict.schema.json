@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["slug", "status"],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "The card file stem this verdict is about."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["implemented", "partial", "refused"],
+      "description": "implemented: every oracle sentence is expressed. partial: the card plays, with a named gap, and coverage says so. refused: the file was left as the generated stub."
+    },
+    "coverage_note": {
+      "type": "string",
+      "description": "For partial only: the exact string passed to Coverage::Partial."
+    },
+    "oracle_sentence": {
+      "type": "string",
+      "description": "For partial or refused: the printed sentence that could not be expressed, quoted."
+    },
+    "cannot_say": {
+      "type": "string",
+      "description": "For partial or refused: what the DSL cannot SAY, in terms of its own vocabulary. Not which mechanic seems missing. 'No Effect variant names the target of the ability being resolved' is an answer; 'pump is not supported' is not."
+    },
+    "nearest_existing": {
+      "type": "string",
+      "description": "For partial or refused: the closest Effect/Filter/Modifier variant that does exist, and what it falls short of. Required so a blocker cannot be reported as an absent subsystem when the subsystem is present."
+    },
+    "new_mechanics": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "DSL constructs used here that are rare or subtle — layers, replacement, copy, multi-choice, targeting restrictions. Each entry is a card that needs a played engine test before it is trusted."
+    }
+  }
+}
