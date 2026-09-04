@@ -61,15 +61,15 @@ for dir in "$PKGS"/*(/); do
       > "$verdict" 2> "$LOG/$slug.err" )
   rc=$?
 
-  status=$(python3 "$HERE/verdict.py" "$verdict" status 2>/dev/null)
+  verdict_status=$(python3 "$HERE/verdict.py" "$verdict" status 2>/dev/null)
   if [ $rc -ne 0 ]; then
     echo "  agy failed (rc=$rc) — see $LOG/$slug.err"
-    status=refused
+    verdict_status=refused
   fi
 
   # The gate. Narrow, but it runs before anything is kept, and a card that
   # only compiles is not a card that passed.
-  if [ "$status" = "implemented" ] || [ "$status" = "partial" ]; then
+  if [ "$verdict_status" = "implemented" ] || [ "$verdict_status" = "partial" ]; then
     if ( cd "$ROOT" \
           && cargo check -p baylee-cards --quiet \
           && cargo test -p baylee-cards --quiet \
@@ -79,7 +79,7 @@ for dir in "$PKGS"/*(/); do
       if [ "$changed" != "$card" ]; then
         echo "  touched more than its own file: $changed — reverting"
         git -C "$ROOT" checkout -- . && git -C "$ROOT" clean -fd -q
-        status=refused
+        verdict_status=refused
       else
         git -C "$ROOT" add "$card"
         git -C "$ROOT" commit -q -m "feat(cards): $name
@@ -94,11 +94,11 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     else
       echo "  gate failed — reverting, see $LOG/$slug.gate"
       git -C "$ROOT" checkout -- . && git -C "$ROOT" clean -fd -q
-      status=refused
+      verdict_status=refused
     fi
   fi
 
-  if [ "$status" = "refused" ]; then
+  if [ "$verdict_status" = "refused" ]; then
     git -C "$ROOT" checkout -- . 2>/dev/null
     git -C "$ROOT" clean -fd -q 2>/dev/null
     python3 "$HERE/verdict.py" "$verdict" row "$slug" "$name" >> "$REFUSALS"
