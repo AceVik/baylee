@@ -357,17 +357,53 @@ impl Recognizer<'_> {
     }
 }
 
+/// Why a land's printed text could not be read.
+///
+/// A reader that answers `None` is a reader whose limits can only be guessed
+/// at, and guessing is exactly what made `forge-report`'s ranking wrong: it
+/// re-read the script and named the first thing it did not recognise, which
+/// is not the same as the thing that actually stopped it. So this says what
+/// stopped it, and `land-report` groups by that rather than by a theory.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum LandRefusal {
+    /// Two faces, or a type line with a word other than `Land` and its
+    /// permitted modifiers. Their text lives on faces this module does not
+    /// model.
+    NotAPlainLand,
+    /// Read through without a word left over, and with nothing to show for
+    /// it. A land whose whole text is reminder text is not a land this
+    /// reader can claim to have implemented.
+    NothingToSay,
+    /// The first printed line that stopped it, reminder text already
+    /// stripped. This is the one worth counting: each distinct shape here is
+    /// a sentence form the reader cannot parse, and one of them unlocked is
+    /// every land that prints it.
+    UnreadLine(String),
+}
+
 /// Reads a land's printed text into a [`CardBody`], or `None` when any part
 /// of it is not understood.
 ///
-/// Multi-face cards, and lands that are also creatures or enchantments, are
-/// refused outright — their text lives on faces this module does not model.
+/// The thin wrapper over [`read`], for callers that only need to know whether
+/// a card was claimed. `codegen` is one: a refusal is a stub either way.
 #[must_use]
 pub fn recognize(card: &ScryfallCard, cats: &SubtypeCatalogs) -> Option<CardBody> {
+    read(card, cats).ok()
+}
+
+/// Reads a land's printed text, and says why when it cannot.
+///
+/// Multi-face cards, and lands that are also creatures or enchantments, are
+/// refused outright — their text lives on faces this module does not model.
+///
+/// # Errors
+///
+/// [`LandRefusal`], naming what stopped the read.
+pub fn read(card: &ScryfallCard, cats: &SubtypeCatalogs) -> Result<CardBody, LandRefusal> {
     if card.card_faces.as_ref().is_some_and(|f| f.len() >= 2) {
-        return None;
+        return Err(LandRefusal::NotAPlainLand);
     }
-    let type_line = card.type_line.as_deref()?;
+    let type_line = card.type_line.as_deref().ok_or(LandRefusal::NotAPlainLand)?;
     let (left, right) = match type_line.split_once('\u{2014}') {
         Some((l, r)) => (l, r),
         None => (type_line, ""),
@@ -377,11 +413,11 @@ pub fn recognize(card: &ScryfallCard, cats: &SubtypeCatalogs) -> Option<CardBody
         match word {
             "Land" => is_land = true,
             "Artifact" | "Basic" | "Legendary" | "Snow" | "World" => {}
-            _ => return None,
+            _ => return Err(LandRefusal::NotAPlainLand),
         }
     }
     if !is_land {
-        return None;
+        return Err(LandRefusal::NotAPlainLand);
     }
 
     let mut rec = Recognizer {
@@ -422,7 +458,8 @@ pub fn recognize(card: &ScryfallCard, cats: &SubtypeCatalogs) -> Option<CardBody
         if line.is_empty() {
             continue;
         }
-        rec.line(line)?;
+        rec.line(line)
+            .ok_or_else(|| LandRefusal::UnreadLine(line.to_string()))?;
     }
 
     rec.body
@@ -432,9 +469,9 @@ pub fn recognize(card: &ScryfallCard, cats: &SubtypeCatalogs) -> Option<CardBody
         && rec.body.enter_modifiers.is_empty()
         && rec.body.keywords.is_empty()
     {
-        return None;
+        return Err(LandRefusal::NothingToSay);
     }
-    Some(rec.body)
+    Ok(rec.body)
 }
 
 #[cfg(test)]
