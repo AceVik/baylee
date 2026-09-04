@@ -196,9 +196,12 @@ quota_seconds() {
 }
 
 # Takes the first model whose quota has reset, and says whether there was one.
-# The order is the list's, not round-robin: a batch should come back to the
-# cheap model as soon as it may, rather than drifting onto the expensive one
-# and staying there.
+#
+# Called only when a quota is met, so a batch that has moved on to the second
+# model stays there until *its* quota goes — it does not drift back to the
+# first the moment that one resets. That is deliberate: the reset is hours
+# away, checking for it per card costs a `date` and buys nothing, and every
+# model in the list is one the run is willing to use.
 pick_model() {
   local now=$(date +%s) i
   for (( i = 1; i <= ${#MODELS}; i++ )); do
@@ -444,7 +447,13 @@ for dir in "$PKGS"/*(/); do
     echo "  $outcome — recorded"
   fi
 
-  [ ${#PENDING} -ge $GATE_EVERY ] && flush_gate
+  # Cards *and* refusals, because a chunk is a chunk of work and not a chunk
+  # of acceptances. Counting only `PENDING` meant a stretch of nothing but
+  # refusals — which is exactly what a batch of lands produces — banked
+  # nothing at all until the run's last line, which is the loss that moving
+  # the banking here was supposed to stop.
+  refused_n=$(wc -l < "$REFUSALS" | tr -d ' ')
+  [ $(( ${#PENDING} + refused_n )) -ge $GATE_EVERY ] && flush_gate
 
   if [ $NO_EDIT_STREAK -ge $NO_EDIT_LIMIT ]; then
     echo "$NO_EDIT_STREAK cards in a row reported without an edit — stopping."
