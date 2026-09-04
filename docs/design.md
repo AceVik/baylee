@@ -242,6 +242,31 @@ seat's battlefield is underneath the hand bar.
   to the last framing, or still `default()` (what the resource starts as and
   what `navigate_home` asks for), is the table's; anything else is theirs.
 
+**Photographed, because a test proves the arithmetic and not the picture.** A
+live duel driven through `dev-control`, with a temporary probe stamping a
+`Plate::Fight { 2, 4, 1 }` and two chips onto every placement so lands carry a
+corner, settled three things at once:
+
+- The framing holds on a real table. Both mats sit whole inside the visible
+  band, the local mat clears the hand bar with felt to spare, and the hearth
+  ring is visibly smaller than the nearest mat.
+- **The plate and the chips had never been rendered on a 3D card before**, only
+  through `card_ui.wgsl` on a hand card five times the size. They draw
+  correctly at table distance: `2/4` with the damage fill rising a quarter of
+  the way, a blue `8` chip and a green three-pip chip stacked above it. At
+  device pixels they are sharp — `number_cover`'s antialiasing needs no
+  distance term. At 1× DPI the whole card is 64×90 logical pixels and the
+  plate is a smear; nothing an `aa` term fixes, because the plate cannot grow
+  without covering the art. That is what the hover preview and the detail
+  panel are for, and it is the argument for finishing them.
+- Two defects the camera work did not cause and the test suite cannot see,
+  both plausibly one cause — **a hand card's node is not despawned when the
+  card leaves the hand**. Cards played from hand leave a ghost above the hand
+  bar that does not move with the camera (so it is HUD, not table), and
+  `duel.hovered` keeps pointing at the departed card because no `Out` ever
+  fires for it — which pins the hover preview open over the middle of the
+  table indefinitely. Related to the unwritten "departures" work in §5.
+
 ### 1.2 Tokens
 
 One palette source. "Blue" is currently defined three times — `tabletop::PIE`,
