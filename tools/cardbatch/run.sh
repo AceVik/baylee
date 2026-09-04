@@ -15,9 +15,9 @@
 #
 # Permissions are skipped, and that is only defensible because of where this
 # runs: a *clone* of its own, on a branch of its own, with its own target
-# directory. The model needs a shell — the prompt asks it to compile what it
-# wrote, which is most of what makes the output worth having — and 792
-# permission prompts is not a batch. What keeps it honest is downstream: every
+# directory. The model edits files unattended — 459 permission prompts is not a
+# batch — and it is told to run no shell commands at all, so the only thing it
+# may do here is write one card. What keeps it honest is downstream: every
 # card is reverted unless the gate passes AND the only file it touched was its
 # own, so a shell used for anything else leaves nothing behind.
 #
@@ -89,6 +89,12 @@ if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
 fi
 
 done_n=0
+# A run that keeps reporting cards it never wrote is a broken prompt, not a
+# difficult pool, and it costs about six minutes of model time per card to keep
+# finding that out. Three in a row and the batch stops rather than spending the
+# other four hundred slots on the same mistake.
+NO_EDIT_STREAK=0
+NO_EDIT_LIMIT=3
 for dir in "$PKGS"/*(/); do
   [ $done_n -ge $COUNT ] && break
   slug=${dir:t}
@@ -139,6 +145,7 @@ for dir in "$PKGS"/*(/); do
         echo "  reported a card it never wrote — recording"
         verdict_status=refused
         outcome=no-edit
+        NO_EDIT_STREAK=$((NO_EDIT_STREAK+1))
       elif [ "$changed" != "$card" ]; then
         echo "  touched more than its own file: $changed — reverting"
         git -C "$ROOT" checkout -- . && git -C "$ROOT" clean -fd -q
@@ -154,6 +161,7 @@ being right.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
         echo "  committed"
+        NO_EDIT_STREAK=0
         push_home
       fi
     else
@@ -169,6 +177,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     git -C "$ROOT" clean -fd -q 2>/dev/null
     python3 "$HERE/verdict.py" "$verdict" row "$slug" "$name" "$outcome" >> "$REFUSALS"
     echo "  $outcome — recorded"
+  fi
+
+  if [ $NO_EDIT_STREAK -ge $NO_EDIT_LIMIT ]; then
+    echo "$NO_EDIT_STREAK cards in a row reported without an edit — stopping."
+    echo "That is the prompt, not the pool. Fix it before spending the rest."
+    break
   fi
 done
 

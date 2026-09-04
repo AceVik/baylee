@@ -578,16 +578,25 @@ fn card_batch(
                 while a stub is merely a card nobody can pick yet. (Reminder\n\
                 text in parentheses restates a keyword and needs no rule of its\n\
                 own.)\n\
-             5. Run no commands at all. Not `cargo check`, not `cargo test`,\n\
-                not `cargo clippy`, not `xtask`, not a build of any kind.\n\
-                Write the card, report, and stop. The harness around you\n\
-                compiles it, runs the data tests and `xtask validate` the\n\
-                moment you finish, and reverts the file if any of that fails —\n\
-                so a card that does not compile costs nothing, while a card\n\
-                you stop to compile costs a whole card. (This is not a style\n\
-                preference: a `cargo check` in this slot deadlocked against\n\
-                its own retry on the build lock, waited 543 seconds, and then\n\
-                reported a card that had never been written.)\n\n\
+             5. Run no *shell* commands. Not `cargo check`, not `cargo test`,\n\
+                not `cargo clippy`, not `xtask`, not a build of any kind. The\n\
+                harness around you compiles the card, runs the data tests and\n\
+                `xtask validate` the moment you finish, and reverts the file if\n\
+                any of that fails — so a card that does not compile costs\n\
+                nothing, while a card you stop to compile costs a whole card.\n\
+                (This is not a style preference: a `cargo check` in this slot\n\
+                deadlocked against its own retry on the build lock, waited 543\n\
+                seconds, and then reported a card that had never been\n\
+                written.)\n\
+             6. **Write the file.** Use your file-editing tool on\n\
+                `crates/baylee-cards/src/cards/{slug}.rs`. That edit is the\n\
+                deliverable; the JSON you report at the end only *describes*\n\
+                it. Reading, reasoning and reporting `implemented` without an\n\
+                edit is the one outcome worth nothing at all — the harness\n\
+                records it as `no-edit`, the card stays a stub, and the whole\n\
+                run is spent. A previous run did exactly this: it thought for\n\
+                six minutes, produced a verdict of `implemented`, and never\n\
+                opened the file. Edit first, report second.\n\n\
              Refusing is a correct outcome, not a failure. If any clause is\n\
              inexpressible, revert your edits to `{slug}.rs` so it stays the\n\
              generated stub, and report `status: \"refused\"`.\n\n\
