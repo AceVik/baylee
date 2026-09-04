@@ -11,7 +11,7 @@ built around that: a model produces volume, and nothing it produces reaches
 ```bash
 cargo run -p xtask -- card-batch --out target/card-batch   # every stub, one package each
 tools/cardbatch/run.sh target/card-batch 20                # twenty of them
-tools/cardbatch/run.sh target/card-batch 20 gemini-3.8-flash-high
+tools/cardbatch/run.sh target/card-batch 20 gemini-3.1-pro-high   # a harder batch
 ```
 
 `agy models` lists what the account can reach. The suffix is reasoning effort,

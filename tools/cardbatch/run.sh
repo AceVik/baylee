@@ -8,6 +8,11 @@
 #
 # Usage:  tools/cardbatch/run.sh <packages-dir> [count] [model]
 #
+# The default model is gemini-3.8-flash-high. The suffix is reasoning effort,
+# not a different model: a card is a small amount of code that has to be right
+# in a way a compiler cannot check, which is the shape of task that repays
+# thinking rather than throughput.
+#
 # Permissions are skipped, and that is only defensible because of where this
 # runs: a worktree of its own, on a branch of its own, with its own target
 # directory. The model needs a shell — the prompt asks it to compile and test
@@ -23,7 +28,7 @@
 set -u
 PKGS=${1:?usage: run.sh <packages-dir> [count] [model]}
 COUNT=${2:-10}
-MODEL=${3:-gemini-3.8-flash-medium}
+MODEL=${3:-gemini-3.8-flash-high}
 ROOT=$(git rev-parse --show-toplevel)
 HERE=$ROOT/tools/cardbatch
 LOG=$ROOT/target/cardbatch
