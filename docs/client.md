@@ -552,6 +552,34 @@ writes it wants to be able to say "there".
 account for the same reason the keys do: a player who cannot read a moving
 board cannot read one on any machine.
 
+It reaches the *shaders* through the material, as `CardParams::motion` — the
+clock every animated term on a card is multiplied by, zero when the player
+has asked for stillness. One number rather than a second pipeline, because a
+board of three hundred permanents cannot afford a variant and because two
+drawings of the same card drift apart the first time either is edited. The
+discipline that makes one number enough is that **zero has to leave each term
+somewhere it could have been**: a still card is the moving card held still,
+not a different picture. A pure `a + b·sin(t·ω)` gives the strongest version
+of that for free — phase zero *is* the mean — which is the breath of summoning
+sickness, the hexproof sheath and the armed ring. Where the term also carries
+a *spatial* phase the freeze is a real frame rather than the average, and that
+is still what is wanted: an indestructible border rests with its catch-light
+at a fixed height (`sin(t·0.8 + uv.y·3.0)`), and a rail mark rests at whatever
+its own slot offset gives it (`t·BEAT + k·0.22`). Both are the moving picture
+stopped, which is the whole claim. The three that need more are the
+travelling offer light (a stopped chase is a
+parked hot spot, so it degrades to the ring it averages to), the will-tap
+pulse (its phase offset puts zero near the bottom of the swing, so the
+oscillation is scaled rather than the clock) and the hand's foil, whose
+stand-in for the view angle is brightest at zero and would freeze a hand of
+foils at their most garish.
+
+The setting is not part of `CardLook`. That is the cache key, and a key
+carrying a global preference holds both answers at once and evicts neither;
+the caches keep the setting beside themselves and rewrite what they hold
+**in place** when it changes, so the cards on the felt catch up on the frame
+the switch moves rather than whenever something next redraws them.
+
 ## Hosts
 
 The renderer never touches a socket. It talks to a `DuelHost`:

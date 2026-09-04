@@ -277,8 +277,38 @@ pub struct CardParams {
     /// How strongly the finish shows. One material can be dimmed without a
     /// second pipeline.
     pub strength: f32,
+    /// The clock every animated term on this card runs on: [`MOVING`] or
+    /// [`STILL`].
+    ///
+    /// A number rather than a second shader, and on the material rather than
+    /// in [`CardLook`], which is the part worth stating. `CardLook` is the
+    /// *cache key*: putting a global preference in it would make every card
+    /// on the table two entries instead of one, and nothing evicts the half
+    /// that is no longer wanted. So the caches hold the setting once and
+    /// throw their contents away when it changes — a hundred materials
+    /// rebuilt on a click nobody makes twice.
+    pub motion: f32,
     /// The colour a card with no artwork is drawn in.
     pub tint: Vec4,
+}
+
+/// A card whose animations run.
+pub const MOVING: f32 = 1.0;
+
+/// A card holding still, for [`Preferences::reduce_motion`].
+///
+/// Zero, and the shaders are written so that zero is the *average* of every
+/// term it stops rather than an arbitrary frame of it. A still card is the
+/// moving one held still, not a different drawing — the three terms where
+/// phase zero is not the average are handled where they appear.
+///
+/// [`Preferences::reduce_motion`]: baylee_client_core::prefs::Preferences::reduce_motion
+pub const STILL: f32 = 0.0;
+
+/// The clock a card animates on, from the preference.
+#[must_use]
+pub const fn motion_of(reduce_motion: bool) -> f32 {
+    if reduce_motion { STILL } else { MOVING }
 }
 
 /// A card's surface.
@@ -346,9 +376,50 @@ pub struct UiCardMaterials {
     /// keyed by CDN url and finish because it has no `PrintRef` to key on.
     previewed:
         bevy::platform::collections::HashMap<(String, FinishTreatment), Handle<CardUiMaterial>>,
+    /// Whether what is cached was made to hold still.
+    ///
+    /// A `bool` and not the `f32` the shader wants, so that `Default` is the
+    /// right answer: a client that has not read a preference yet animates,
+    /// and `false` says so. Deriving the clock from it ([`motion_of`]) keeps
+    /// the default honest in one place.
+    still: bool,
 }
 
 impl UiCardMaterials {
+    /// The clock the cards in this cache were made on.
+    const fn motion(&self) -> f32 {
+        motion_of(self.still)
+    }
+
+    /// Says whether cards should animate, and tells the ones already made.
+    ///
+    /// Called every frame from the preference, so the comparison is the
+    /// point: only a change costs anything, and what it costs is one pass
+    /// over a cache holding at most a hand's worth of materials.
+    ///
+    /// The clock is rewritten *in place* rather than the cache emptied. A
+    /// cleared cache is only refilled by whatever draws the card next, and a
+    /// hand nobody is touching is drawn once and left alone — the setting
+    /// would appear to do nothing until the game moved. Rewriting keeps
+    /// every handle the nodes are holding, so the cards change where they
+    /// are.
+    ///
+    /// None of this is in [`CardLook`], deliberately: the look is the cache
+    /// *key*, and a key carrying a global preference would keep both answers
+    /// alive at once and evict neither.
+    pub fn set_still(&mut self, still: bool, assets: &mut Assets<CardUiMaterial>) {
+        if self.still == still {
+            return;
+        }
+        self.still = still;
+        let motion = self.motion();
+        for handle in self.made.values().chain(self.previewed.values()) {
+            if let Some(mut material) = assets.get_mut(handle) {
+                material.params.motion = motion;
+            }
+        }
+    }
+
     /// The material for a look, made once.
     pub fn get(
         &mut self,
@@ -360,7 +431,7 @@ impl UiCardMaterials {
         if let Some(handle) = self.made.get(&look) {
             return handle.clone();
         }
-        let made = material(look, art, tint);
+        let made = material(look, art, tint, self.motion());
         let handle = assets.add(CardUiMaterial {
             art: made.art,
             params: made.params,
@@ -397,6 +468,7 @@ impl UiCardMaterials {
         if let Some(handle) = self.previewed.get(&key) {
             return handle.clone();
         }
+        let motion = self.motion();
         let handle = assets.add(CardUiMaterial {
             art: Some(art),
             params: CardParams {
@@ -409,6 +481,10 @@ impl UiCardMaterials {
                 chips_b: 0,
                 has_art: 1.0,
                 strength: 1.0,
+                // A picker card has no border to animate, but it can be a
+                // foil, and a sweeping rainbow is exactly the kind of motion
+                // the preference is about.
+                motion,
                 tint: Vec4::ONE,
             },
         });
@@ -570,7 +646,12 @@ pub fn finish_code(finish: FinishTreatment) -> u32 {
 /// texture the client owns rather than a printing it fetched, so it has no
 /// `ImageKey` and still has to be sampled rather than replaced by a tint.
 #[must_use]
-pub fn material(look: CardLook, art: Option<Handle<Image>>, tint: Color) -> CardMaterial {
+pub fn material(
+    look: CardLook,
+    art: Option<Handle<Image>>,
+    tint: Color,
+    motion: f32,
+) -> CardMaterial {
     let has_art = if art.is_some() { 1.0 } else { 0.0 };
     CardMaterial {
         art,
@@ -582,6 +663,7 @@ pub fn material(look: CardLook, art: Option<Handle<Image>>, tint: Color) -> Card
             chips_b: look.chips[1],
             has_art,
             strength: 1.0,
+            motion,
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
     }
@@ -605,7 +687,32 @@ impl Plugin for CardMaterialPlugin {
         embedded_asset!(app, "shaders/card_common.wgsl");
         app.add_plugins(MaterialPlugin::<CardMaterial>::default())
             .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
-            .init_resource::<UiCardMaterials>();
+            .init_resource::<UiCardMaterials>()
+            .add_systems(Update, track_motion);
+    }
+}
+
+/// Carries [`Preferences::reduce_motion`] to the UI cards.
+///
+/// The table's half of this is in `sync_scene`, which owns the 3D cache and
+/// is already reading the preferences. There is no shared place for both: the
+/// two caches are a `Resource` and a field of another `Resource`, and joining
+/// them would put the deck builder's printing picker behind the duel's scene
+/// index.
+///
+/// `Prefs` is optional because a headless app can install the materials
+/// without installing the account's settings, and an app with no preference
+/// to read has no reason to hold still.
+///
+/// [`Preferences::reduce_motion`]: baylee_client_core::prefs::Preferences::reduce_motion
+fn track_motion(
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut cache: ResMut<UiCardMaterials>,
+    mut assets: ResMut<Assets<CardUiMaterial>>,
+) {
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    if cache.still != still {
+        cache.set_still(still, &mut assets);
     }
 }
 
@@ -881,6 +988,103 @@ pub(crate) mod tests {
                 < f32::EPSILON,
             "the shader reads a different number of mark bits than the mask holds"
         );
+    }
+
+    /// Holding still changes the cards already made, and makes no new ones.
+    ///
+    /// Two claims, and both are the kind that prose cannot hold. The first is
+    /// that the setting is not in [`CardLook`]: if it ever became part of the
+    /// key, the same look would mint a second material and the first would
+    /// live on with nothing to evict it — so the handle has to come back
+    /// *identical*. The second is that the change is written into the
+    /// materials rather than the cache being emptied: a cleared cache is only
+    /// refilled by whatever draws the card next, and a hand nobody is
+    /// touching is drawn once and left alone, so the preference would appear
+    /// to do nothing until the game moved.
+    ///
+    /// `Assets` needs no render plugins, which is why this can be a unit test
+    /// at all.
+    #[test]
+    fn holding_still_rewrites_the_cards_already_made() {
+        let mut cache = UiCardMaterials::default();
+        let mut assets = Assets::<CardUiMaterial>::default();
+        let look = CardLook::flat(Color::WHITE, FinishTreatment::Foil, glow::ACTIVATABLE);
+
+        // The clock is only ever one of two exact values, but `float_cmp` is
+        // right in general and the file already has the idiom.
+        let clock = |assets: &Assets<CardUiMaterial>, handle: &Handle<CardUiMaterial>| {
+            assets.get(handle).expect("the material").params.motion
+        };
+
+        let handle = cache.get(look, None, Color::WHITE, &mut assets);
+        let made = clock(&assets, &handle);
+        assert!(
+            (made - MOVING).abs() < f32::EPSILON,
+            "a card starts out animating, not at {made}"
+        );
+
+        cache.set_still(true, &mut assets);
+        let told = clock(&assets, &handle);
+        assert!(
+            (told - STILL).abs() < f32::EPSILON,
+            "the material already made is still at {told}: it was discarded \
+             rather than told"
+        );
+
+        let again = cache.get(look, None, Color::WHITE, &mut assets);
+        assert_eq!(
+            again, handle,
+            "the same look gave a second material: the setting has leaked \
+             into the cache key"
+        );
+        assert_eq!(assets.len(), 1, "one look, one material");
+    }
+
+    /// The field names of a WGSL struct, in declaration order.
+    fn wgsl_fields(source: &str, name: &str) -> Vec<String> {
+        let head = format!("struct {name} {{");
+        let body = source
+            .split_once(&head)
+            .unwrap_or_else(|| panic!("no `struct {name}` in the shader"))
+            .1
+            .split_once('}')
+            .expect("an unterminated struct")
+            .0;
+        body.lines()
+            .map(str::trim)
+            .filter(|line| !line.starts_with("///") && !line.starts_with("//"))
+            .filter_map(|line| Some(line.split_once(':')?.0.trim().to_string()))
+            .collect()
+    }
+
+    /// `CardParams` is one struct written three times.
+    ///
+    /// A uniform is bytes: nothing checks that the Rust field order and the
+    /// two WGSL declarations agree, and a mismatch has neither an error nor a
+    /// crash. Swapping the last two would feed `tint`'s red channel in as the
+    /// clock and the clock in as a colour — every card on the table drawn in
+    /// a wrong flat colour, animating at a speed that depends on how blue it
+    /// is.
+    ///
+    /// What this pins is the pair of shaders against each other and against
+    /// the order written out below, which is the Rust struct's. Adding a
+    /// field to `CardParams` and forgetting either shader fails here; the one
+    /// hole left is changing all three of these and none of the Rust, which
+    /// no plausible edit does.
+    #[test]
+    fn card_params_is_the_same_struct_in_all_three_files() {
+        // The order `#[derive(ShaderType)]` writes the bytes in.
+        let ours = [
+            "finish", "glow", "plate", "chips_a", "chips_b", "has_art", "strength", "motion",
+            "tint",
+        ];
+        for (which, src) in [
+            ("card.wgsl", include_str!("shaders/card.wgsl")),
+            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+        ] {
+            let theirs = wgsl_fields(src, "CardParams");
+            assert_eq!(theirs, ours, "{which} disagrees about `CardParams`");
+        }
     }
 
     /// Every flag below the rail is the same number on both sides, in *both*

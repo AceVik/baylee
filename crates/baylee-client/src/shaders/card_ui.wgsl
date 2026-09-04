@@ -32,6 +32,9 @@ struct CardParams {
     has_art: f32,
     /// How strongly the finish is applied.
     strength: f32,
+    /// The clock every animated term below runs on: 1 normally, 0 for
+    /// `Preferences::reduce_motion`.
+    motion: f32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -55,6 +58,15 @@ const GLOW_WILL_TAP: u32 = 64u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
+
+/// What the travelling activatable light averages to over its own circuit.
+/// The table shader's twin of this constant; the derivation is at the use
+/// site there.
+const CHASE_STILL: f32 = 0.32;
+
+/// The view angle a still foil is drawn at: the one whose glint equals the
+/// average of the sweep it replaces.
+const STILL_TILT: f32 = 0.524;
 
 fn hash21(p: vec2<f32>) -> f32 {
     var q = fract(p * vec2<f32>(123.34, 456.21));
@@ -114,10 +126,24 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let sampled = textureSample(art, art_sampler, uv);
     var color = mix(params.tint, sampled, params.has_art);
 
+    // Reduce-motion is one multiplier on the clock, exactly as in the table
+    // shader; see the comment there for why one number and what phase zero
+    // has to mean. Every animated term runs on `t`, bar the three marked
+    // below where stopping the clock would not leave an honest frame.
+    let m = params.motion;
+    let t = globals.time * m;
+
     // Stands in for the view angle the table shader has: a slow sweep across
     // the card, which is what a player tilting a foil in their hand sees.
-    let t = globals.time;
-    let tilt = sin(t * 0.55);
+    //
+    // First exception, and the one only this shader has. `tilt` is not a
+    // brightness but an *angle*, and the glint below is brightest where the
+    // angle is zero — edge-on, where a real foil catches the light. Stopping
+    // the clock at zero would therefore freeze a hand of foils at their
+    // most garish, which is the opposite of what was asked for.
+    // `STILL_TILT` is the angle whose glint equals the moving one's mean
+    // (E[(1-|sin|)²] = 1.5 - 4/π ≈ 0.227, so |tilt| = 1 - √0.227).
+    let tilt = mix(STILL_TILT, sin(t * 0.55), m);
 
     if params.finish == FINISH_FOIL {
         let sweep = (uv.x + uv.y) * 1.6 + tilt * 2.4 + t * 0.10;
@@ -188,7 +214,11 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
                 let head = fract(perimeter(uv) - t * 0.22);
                 let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
                 let amber = vec3<f32>(0.99, 0.78, 0.34);
-                color = vec4<f32>(color.rgb + amber * band * (0.22 + 0.60 * chase), color.a);
+                // Second exception: the chase is a position, so a stopped
+                // clock parks it rather than dimming it. A still card gets
+                // the circuit's mean, which is an even ring.
+                let amount = mix(CHASE_STILL, 0.22 + 0.60 * chase, m);
+                color = vec4<f32>(color.rgb + amber * band * amount, color.a);
             }
             // Armed and its price, the same two the table draws and drawn the
             // same way: a steady ring for the deed, a cooler pulse a beat
@@ -202,7 +232,11 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
                 color = vec4<f32>(color.rgb + gold * ring * 0.52 * hold, color.a);
             }
             if (params.glow & GLOW_WILL_TAP) != 0u {
-                let pulse = 0.70 + 0.30 * sin(t * 2.2 - 0.9);
+                // Third exception: the `- 0.9` that puts the price a beat
+                // behind the deed also means phase zero is near the bottom
+                // of the swing, not its middle. Scale the oscillation, not
+                // the clock, so a still card is drawn at the mean.
+                let pulse = 0.70 + 0.30 * sin(globals.time * 2.2 - 0.9) * m;
                 let indigo = vec3<f32>(0.56, 0.60, 0.98);
                 color = vec4<f32>(color.rgb + indigo * band * 0.40 * pulse, color.a);
             }

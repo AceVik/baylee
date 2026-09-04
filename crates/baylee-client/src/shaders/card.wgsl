@@ -36,6 +36,9 @@ struct CardParams {
     /// How strongly the finish is applied. Lets one material be dimmed
     /// without a second pipeline.
     strength: f32,
+    /// The clock every animated term below runs on: 1 normally, 0 for
+    /// `Preferences::reduce_motion`.
+    motion: f32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -57,6 +60,13 @@ const GLOW_WILL_TAP: u32 = 64u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
+
+/// What the travelling activatable light averages to over its own circuit.
+///
+/// Shared with the UI twin by being written out twice — it is one line, and
+/// a fourth import for one constant costs more than it saves. The derivation
+/// is at the use site.
+const CHASE_STILL: f32 = 0.32;
 
 /// What a card's corner is inked with once the scan's white is cut away: the
 /// same near-black as the slab's edge wall, so the corner reads as the card
@@ -133,7 +143,23 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // function of the view and not only of time.
     let to_view = normalize(view.world_position - mesh.world_position.xyz);
     let facing = dot(normalize(mesh.world_normal), to_view);
-    let t = globals.time;
+
+    // Reduce-motion is one multiplier on the clock, not a second pipeline: a
+    // board of three hundred permanents cannot afford a variant, and the two
+    // drawings would drift apart the first time either was edited.
+    //
+    // Every animated term below runs on `t`, so a zero clock stops all of
+    // them at phase zero, and each is written so that phase zero is a place
+    // it could have been — which is what makes a still card the moving one
+    // held still rather than a different picture. For a pure
+    // `a + b*sin(t*w)` that place is the mean. For a term that also carries
+    // a *spatial* phase (indestructible's `uv.y * 3.0`, the rail's per-slot
+    // offset) it is an honest frame of the animation rather than its
+    // average, which is equally what is wanted. The two terms where phase
+    // zero is neither are marked where they appear and reach for
+    // `globals.time` instead.
+    let m = params.motion;
+    let t = globals.time * m;
 
     if params.finish == FINISH_FOIL {
         // A broad diagonal band that sweeps as the angle changes, plus fine
@@ -240,7 +266,15 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
                 let head = fract(perimeter(uv) - t * 0.22);
                 let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
                 let amber = vec3<f32>(0.99, 0.78, 0.34);
-                color = vec4<f32>(color.rgb + amber * band * (0.22 + 0.60 * chase), color.a);
+                // First exception. This one is a *position*, not a
+                // brightness: stopping the clock does not dim the light, it
+                // parks it, leaving one permanent hot spot on the border and
+                // the rest dark. So a still card gets the chase's mean
+                // instead — an even ring, which is the same invitation
+                // without the travel. 0.32 is that mean and not a taste:
+                // ∫₀¹ pow(1 - 2·min(h, 1-h), 5) dh is 1/6, so 0.22 + 0.60/6.
+                let amount = mix(CHASE_STILL, 0.22 + 0.60 * chase, m);
+                color = vec4<f32>(color.rgb + amber * band * amount, color.a);
             }
             // Armed: the tap has been made, and one more sends it. The same
             // register as the offer above and deliberately the opposite
@@ -261,7 +295,14 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
             // Cool against the deed's warm, and a beat behind it, because the
             // two are one sentence and the price follows the verb.
             if (params.glow & GLOW_WILL_TAP) != 0u {
-                let pulse = 0.70 + 0.30 * sin(t * 2.2 - 0.9);
+                // Second exception, and the reason the rule is worth
+                // stating rather than assuming. The `- 0.9` is what puts
+                // this a beat behind the armed card, so phase zero is not
+                // the middle of the swing here: it is sin(-0.9) = -0.78,
+                // near the bottom. Freezing the clock would draw the price
+                // at two thirds of its proper brightness. Scaling the
+                // oscillation instead leaves the mean where it belongs.
+                let pulse = 0.70 + 0.30 * sin(globals.time * 2.2 - 0.9) * m;
                 let indigo = vec3<f32>(0.56, 0.60, 0.98);
                 color = vec4<f32>(color.rgb + indigo * band * 0.40 * pulse, color.a);
             }

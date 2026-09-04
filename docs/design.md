@@ -501,12 +501,53 @@ look rare. And `cardrail::badge_at` — written, and called by nothing — becom
 the hover and long-press tooltip, which is the honest fallback for a pip that
 small: the pip says a keyword is there, the word says which.
 
-**The prerequisite nobody has wired.** `Preferences::reduce_motion` stops
-`glide` and the camera and is ignored by every shader animation. A `motion: f32`
-in `CardParams` multiplied into `t` fixes all of them at once (std140 32 → 48
-bytes). At `motion = 0` the offer light must degrade to a *steady* perimeter at
-mean brightness rather than vanishing. This lands before any new animation in
-this document — it is the price of admission for all of them.
+**The prerequisite nobody had wired — done.** `Preferences::reduce_motion`
+stopped `glide` and the camera and was ignored by every shader animation.
+`motion: f32` in `CardParams`, multiplied into `t`, fixes all of them at once,
+and it is free: the struct was already 48 bytes, because five `u32`s and two
+`f32`s come to 28 and a `vec4` has to start at 32. The new field lands in
+padding that was there all along. (The estimate above said 32 → 48; the struct
+was never 32.)
+
+The rule that made it one number rather than a second pipeline: **at
+`motion = 0` every term must land somewhere it could have been**, so that a
+still card is the moving one held still and not a different drawing. Stopping
+the clock gives the strongest form of that — phase zero *is* the mean —
+wherever the term is a pure `a + b·sin(t·ω)`. Where it also carries a spatial
+phase the freeze is an honest frame instead: an indestructible border keeps
+its catch-light at a fixed height (`sin(t·0.8 + uv.y·3.0)` rests at
+`0.72 + 0.28·sin(3·uv.y)`), and a rail mark rests at its own slot's offset
+(`t·BEAT + k·0.22`). Both are the picture stopped, which is the claim. Three
+terms are neither, and each for a different reason:
+
+- **The offer light** is a *position*, not a brightness. A stopped chase parks
+  the head somewhere on the perimeter and leaves the rest dark, which reads as
+  a defect rather than as a still version of anything. It degrades to the
+  circuit's mean, which is an even ring: ∫₀¹ (1 − 2·min(h, 1−h))⁵ dh = 1/6, so
+  `0.22 + 0.60/6 = 0.32`.
+- **The will-tap pulse** carries a `− 0.9` phase offset, which is what puts the
+  price a beat behind the deed it pays for. Phase zero is therefore two thirds
+  of the way *down* the swing, not in the middle of it. That one scales its
+  oscillation instead of its clock.
+- **The UI foil's `tilt`** stands in for the view angle the table shader gets
+  from geometry, and the glint is brightest where the angle is *zero* — a real
+  foil catches the light edge-on. Freezing at zero would freeze a hand of
+  foils at their most garish. It rests at the angle whose glint equals the
+  moving mean instead (E[(1−|sin|)²] = 1.5 − 4/π).
+
+Two things about the wiring that are not obvious. The clock does **not** go in
+`CardLook`: that is the material cache's *key*, and a global preference in a
+key keeps both answers alive forever and evicts neither. And a change rewrites
+the cached materials **in place** rather than emptying the cache — a cleared
+cache is only refilled by whatever draws the card next, and a table nobody is
+touching draws nothing, so emptying it makes the switch appear to do nothing
+until the game moves.
+
+`CardParams` is now written out in three files with nothing between them, and
+a wrong order there has no error and no crash: swapping the last two fields
+feeds `tint`'s red channel in as the clock and the clock in as a colour.
+`card_params_is_the_same_struct_in_all_three_files` reads both shaders and
+compares them to each other and to the Rust order.
 
 ### 1.4 Counters, and the dice question
 
@@ -1007,7 +1048,8 @@ else needs and which is deliberately not being done ahead of tranche 3.
 out from under the hand bar~~ (done — §1.1); ~~P/T, damage and counter chips on
 art faces~~ (done — §1.4, plate and chips both); combat drawn — `is_selected`,
 assignment lines, the focus pulse and the per-defender
-summary; `motion` wired to `reduce_motion`; the palette unified; the keyword
+summary; ~~`motion` wired to `reduce_motion`~~ (done — §1.3); the palette
+unified; the keyword
 dominance table and the off-pie films; flying as elevation.
 
 **Fourth, the rest of the client.** Text board, detail panel, badge tooltips,

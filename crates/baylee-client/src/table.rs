@@ -21,7 +21,7 @@
 //! table at frame rate on a phone.
 
 use crate::Duel;
-use crate::cardmat::{CardLook, CardMaterial, material};
+use crate::cardmat::{CardLook, CardMaterial, MOVING, material, motion_of};
 use crate::face;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
@@ -575,6 +575,15 @@ pub struct SceneIndex {
     /// One material per colour identity and look, for cards drawing their
     /// own face rather than artwork.
     face_materials: HashMap<CardLook, Handle<CardMaterial>>,
+    /// Whether the two caches above were filled to hold still.
+    ///
+    /// The same trick as [`UiCardMaterials`](crate::cardmat::UiCardMaterials):
+    /// `false` is "animated", so the derived `Default` is the right answer,
+    /// and the setting lives beside the cache instead of inside its key. A
+    /// change empties both maps; `sync_scene` re-assigns every card's
+    /// material from its look on the very next frame, so the table catches up
+    /// immediately and nothing has to be found and patched.
+    still: bool,
     /// A seat's zone: the mat and the glow under it, with the mood they were
     /// last drawn in. Held here for the same reason the cards are — so a
     /// frame in which nothing changed costs a lookup and no allocation.
@@ -839,6 +848,10 @@ pub fn spawn_stage(
         CardLook::flat(BACK_COLOR, FinishTreatment::Plain, 0),
         None,
         BACK_COLOR,
+        // No finish, no glow and no art: there is nothing on this material
+        // for the clock to reach, so it is exempt from the cache the two
+        // below live in and never needs remaking.
+        MOVING,
     )));
 
     commands.spawn((
@@ -1372,6 +1385,7 @@ pub fn sync_scene(
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
     settings: Res<crate::settings::ClientSettings>,
+    prefs: Res<crate::prefs::Prefs>,
     fonts: Option<Res<crate::hud::UiFonts>>,
     mut cards: Query<(
         &mut Motion,
@@ -1387,6 +1401,34 @@ pub fn sync_scene(
     };
     let blank = index.blank.clone();
     let shadow = index.shadow_quad.clone().zip(index.shadow_material.clone());
+
+    // Reduce-motion reaches the cards through their material, so a change to
+    // it has to reach every material already made. Compared rather than
+    // watched: `Prefs` is written every frame by its own debounce, so change
+    // detection on the resource would fire this continuously.
+    //
+    // Rewritten in place rather than thrown away, which is the difference
+    // between the switch taking effect and the switch taking effect *later*:
+    // a cleared cache is only refilled by whatever draws the card next, and
+    // a table nobody is playing at draws nothing. Rewriting keeps every
+    // handle valid, so the cards already on the felt change under the
+    // player's eyes on the frame the setting moves.
+    let still = prefs.all().reduce_motion;
+    let motion = motion_of(still);
+    if index.still != still {
+        index.still = still;
+        let handles: Vec<_> = index
+            .materials
+            .values()
+            .chain(index.face_materials.values())
+            .cloned()
+            .collect();
+        for handle in handles {
+            if let Some(mut material) = card_materials.get_mut(&handle) {
+                material.params.motion = motion;
+            }
+        }
+    }
 
     let wanted = placements(&duel);
     let mut live: HashSet<ObjectId> = HashSet::new();
@@ -1439,7 +1481,7 @@ pub fn sync_scene(
             if let Some(handle) = index.face_materials.get(&look) {
                 handle.clone()
             } else {
-                let handle = card_materials.add(material(look, None, tint));
+                let handle = card_materials.add(material(look, None, tint, motion));
                 index.face_materials.insert(look, handle.clone());
                 handle
             }
@@ -1452,7 +1494,8 @@ pub fn sync_scene(
                         handle.clone()
                     } else {
                         let image = textures.get(key, statics, &assets);
-                        let handle = card_materials.add(material(look, Some(image), BACK_COLOR));
+                        let handle =
+                            card_materials.add(material(look, Some(image), BACK_COLOR, motion));
                         index.materials.insert(look, handle.clone());
                         handle
                     }
