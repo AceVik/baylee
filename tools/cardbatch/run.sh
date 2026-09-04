@@ -6,9 +6,11 @@
 # removable on its own, and a batch that landed as one commit would make that
 # a revert of the whole night's work.
 #
-# Usage:  tools/cardbatch/run.sh <packages-dir> [count] [model]
+# Usage:  tools/cardbatch/run.sh <packages-dir> [count] [model,model,...]
 #
-# The default model is gemini-3.8-flash-high. The suffix is reasoning effort,
+# The models default to gemini-3.8-flash-high,claude-sonnet-4-6,
+# claude-opus-4-6-thinking and are tried in that order, each until its own
+# daily quota is spent. A `-high` or `-thinking` suffix is reasoning effort,
 # not a different model: a card is a small amount of code that has to be right
 # in a way a compiler cannot check, which is the shape of task that repays
 # thinking rather than throughput.
@@ -43,9 +45,21 @@
 # chunk at a time and falls back to one card at a time only when a chunk
 # fails.
 set -u
-PKGS=${1:?usage: run.sh <packages-dir> [count] [model]}
+PKGS=${1:?usage: run.sh <packages-dir> [count] [model,model,...]}
 COUNT=${2:-10}
-MODEL=${3:-gemini-3.8-flash-high}
+# The models to ask, in order of preference, comma-separated.
+#
+# A list rather than one name, because the wall this batch actually hits is a
+# per-model daily quota: the first run met it after roughly fifteen cards and
+# was told to come back in 2h19m. Those quotas are counted per model, so the
+# answer to one being spent is the next one, and only a list with all of them
+# spent is worth sleeping on.
+typeset -a MODELS QUOTA_UNTIL
+MODELS=(${(s:,:)${3:-gemini-3.8-flash-high,claude-sonnet-4-6,claude-opus-4-6-thinking}})
+QUOTA_UNTIL=()
+repeat ${#MODELS} QUOTA_UNTIL+=0
+mi=1
+MODEL=$MODELS[1]
 ROOT=$(git rev-parse --show-toplevel)
 
 # The isolation, asserted rather than assumed. `agy` finds the project it edits
@@ -74,11 +88,11 @@ push_home() {
   git -C "$ROOT" push -q origin "$BRANCH" 2>/dev/null \
     || echo "  push to origin failed — the commit is still here, on $BRANCH"
 }
-# The ledger is written into `target/`, not into `data/`, and only lands in the
-# repository when the run ends. `data/card-refusals.tsv` is a *tracked* file in
-# the working tree, so the `git checkout -- .` that reverts a failed card
-# reverts the ledger with it: every refusal was faithfully recorded and then
-# erased by the next card's revert, leaving one row out of however many. Under
+# The ledger is written into `target/`, not into `data/`, and reaches the
+# repository only as a commit — see `bank_refusals`. `data/card-refusals.tsv`
+# is a *tracked* file in the working tree, so the revert that follows a failed
+# card reverted the ledger with it: every refusal was faithfully recorded and
+# then erased by the next card, leaving one row out of however many. Under
 # `target/` nothing in this script can reach it.
 LEDGER=$ROOT/data/card-refusals.tsv
 REFUSALS=$LOG/refusals.tsv
@@ -160,7 +174,7 @@ GATE_EVERY=${GATE_EVERY:-25}
 HOLD=$LOG/pending
 rm -rf "$HOLD"
 mkdir -p "$HOLD"
-typeset -a PENDING PENDING_NAMES
+typeset -a PENDING PENDING_NAMES PENDING_MODELS
 
 # How long to wait for the quota named in a verdict, in seconds.
 #
@@ -181,6 +195,31 @@ quota_seconds() {
   print $(( h * 3600 + m * 60 + s + 60 ))
 }
 
+# Takes the first model whose quota has reset, and says whether there was one.
+# The order is the list's, not round-robin: a batch should come back to the
+# cheap model as soon as it may, rather than drifting onto the expensive one
+# and staying there.
+pick_model() {
+  local now=$(date +%s) i
+  for (( i = 1; i <= ${#MODELS}; i++ )); do
+    if (( QUOTA_UNTIL[i] <= now )); then
+      mi=$i
+      MODEL=$MODELS[i]
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Seconds until the first of them is available again.
+soonest_reset() {
+  local now=$(date +%s) i soonest=$QUOTA_UNTIL[1]
+  for (( i = 2; i <= ${#MODELS}; i++ )); do
+    (( QUOTA_UNTIL[i] < soonest )) && soonest=$QUOTA_UNTIL[i]
+  done
+  print $(( soonest > now ? soonest - now + 5 : 60 ))
+}
+
 # The gate itself. Narrow on purpose: it says the pool still compiles and its
 # data tests still hold, which is not the same as a card being right.
 gate_runs() {
@@ -190,11 +229,15 @@ gate_runs() {
       && cargo run -q -p xtask -- validate ) >> "$1" 2>&1
 }
 
+# The model is passed in rather than read from $MODEL: a card sits in the
+# pending chunk until the gate runs, and a quota met in between will have
+# moved $MODEL on. The commit has to name whichever model actually wrote it,
+# because that is the one thing a reviewer of an unreviewed card can use.
 commit_card() {
   git -C "$ROOT" add "$1"
   git -C "$ROOT" commit -q -m "feat(cards): $2
 
-Implemented by $MODEL through tools/cardbatch. Unreviewed: the narrow gate
+Implemented by $3 through tools/cardbatch. Unreviewed: the narrow gate
 says it compiles and the data tests pass, which is not the same as the card
 being right.
 
@@ -209,13 +252,39 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 # pending card is reverted, then restored one at a time from $HOLD with a gate
 # after each. That is the old per-card cost, but only for a chunk that really
 # does contain a bad card, and no good card is lost to its neighbour.
+# The refusals collected since the last banking, appended to the tracked
+# ledger and committed.
+#
+# Committed rather than merely written, and at every chunk boundary rather than
+# once at the end. `data/card-refusals.tsv` is tracked, so an uncommitted
+# change to it would show up in the next card's `git status` as a file the
+# model touched, and be reverted as a stray. Once it is a commit, nothing in
+# this script can reach it — and a run killed halfway (which is how the first
+# one ended) no longer takes every refusal it recorded with it.
+bank_refusals() {
+  [ -s "$REFUSALS" ] || return
+  cat "$REFUSALS" >> "$LEDGER"
+  git -C "$ROOT" add "${LEDGER#$ROOT/}"
+  git -C "$ROOT" commit -q -m "chore(cards): $(wc -l < "$REFUSALS" | tr -d ' ') refusal(s) from a card batch
+
+Every one of these was reverted, so the cards are still generated stubs. The
+rows say why: \`cannot_say\` names what the DSL cannot express and
+\`nearest_existing\` the closest variant that does exist.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+  echo "  ledger: $(wc -l < "$REFUSALS" | tr -d ' ') row(s) committed"
+  : > "$REFUSALS"
+  push_home
+}
+
 flush_gate() {
+  bank_refusals
   [ ${#PENDING} -eq 0 ] && return
   local log=$LOG/gate-$(date +%H%M%S).log
   local i card name slug
   if gate_runs "$log"; then
     for (( i = 1; i <= ${#PENDING}; i++ )); do
-      commit_card "${PENDING[$i]}" "${PENDING_NAMES[$i]}"
+      commit_card "${PENDING[$i]}" "${PENDING_NAMES[$i]}" "${PENDING_MODELS[$i]}"
     done
     echo "  gate ok — ${#PENDING} card(s) committed"
     push_home
@@ -225,10 +294,11 @@ flush_gate() {
     for (( i = 1; i <= ${#PENDING}; i++ )); do
       card=${PENDING[$i]}
       name=${PENDING_NAMES[$i]}
+      wrote=${PENDING_MODELS[$i]}
       slug=${${card:t}:r}
       cp "$HOLD/$slug.rs" "$ROOT/$card"
       if gate_runs "$LOG/$slug.gate"; then
-        commit_card "$card" "$name"
+        commit_card "$card" "$name" "$wrote"
         echo "    $slug kept"
       else
         git -C "$ROOT" checkout -- "$card"
@@ -241,6 +311,7 @@ flush_gate() {
   fi
   PENDING=()
   PENDING_NAMES=()
+  PENDING_MODELS=()
 }
 for dir in "$PKGS"/*(/); do
   [ $done_n -ge $COUNT ] && break
@@ -248,6 +319,14 @@ for dir in "$PKGS"/*(/); do
   card=crates/baylee-cards/src/cards/$slug.rs
   # Already finished by an earlier run, or by codegen's own readers.
   grep -q '// GENERATED STUB' "$ROOT/$card" 2>/dev/null || continue
+  # Already declined by an earlier run. A model call is the scarce resource
+  # here — roughly fifteen per model before the daily quota — and re-asking a
+  # card the DSL provably cannot express spends one to record a refusal that is
+  # already in the ledger. Extend the DSL and clear the rows for what it now
+  # covers, or set RETRY_REFUSED=1 to ask them all again.
+  if [ "${RETRY_REFUSED:-0}" != 1 ] && cut -f1 "$LEDGER" | grep -qx -- "$slug"; then
+    continue
+  fi
   done_n=$((done_n+1))
   name=$(sed -n '1s/^\/\/! \([^—]*\).*/\1/p' "$ROOT/$card" | sed 's/ *$//')
   echo "=== [$done_n/$COUNT] $slug — $name"
@@ -283,11 +362,24 @@ for dir in "$PKGS"/*(/); do
 
     grep -q 'quota reached' "$verdict" 2>/dev/null || break
     wait_s=$(quota_seconds "$verdict")
-    # Whatever is already accepted goes in first. A chunk left sitting
-    # uncommitted for two hours is a chunk that anything at all can lose.
+    QUOTA_UNTIL[$mi]=$(( $(date +%s) + wait_s ))
+    echo "  $MODEL: quota reached, back in ${wait_s}s"
+    # The quota is counted per model, so the first answer is another model and
+    # not a nap. Sleeping was the whole strategy while there was one name in
+    # $MODELS, and it meant a batch spent more of the night waiting than
+    # working.
+    if pick_model; then
+      echo "  → $MODEL takes the same card"
+      continue
+    fi
+    # Every one of them is spent. Whatever is already accepted goes in first:
+    # a chunk left sitting uncommitted for two hours is a chunk that anything
+    # at all can lose.
     flush_gate
-    echo "  quota reached — sleeping ${wait_s}s, then this card again"
+    wait_s=$(soonest_reset)
+    echo "  every model is out — sleeping ${wait_s}s"
     sleep "$wait_s"
+    pick_model || true
   done
 
   verdict_status=$(python3 "$HERE/verdict.py" "$verdict" status 2>/dev/null)
@@ -334,6 +426,7 @@ for dir in "$PKGS"/*(/); do
       cp "$ROOT/$card" "$HOLD/$slug.rs"
       PENDING+=$card
       PENDING_NAMES+=$name
+      PENDING_MODELS+=$MODEL
       NO_EDIT_STREAK=0
       echo "  accepted — ${#PENDING}/$GATE_EVERY waiting for the gate"
     fi
@@ -368,21 +461,4 @@ done
 
 flush_gate
 
-# Now that no revert can follow, the run's refusals join the tracked ledger as
-# one commit. Its two load-bearing columns are `cannot_say` and
-# `nearest_existing`: together they are a work item in the DSL's own words,
-# which is the whole reason a refusal is worth as much as a card.
-if [ -s "$REFUSALS" ]; then
-  cat "$REFUSALS" >> "$LEDGER"
-  git -C "$ROOT" add "${LEDGER#$ROOT/}"
-  git -C "$ROOT" commit -q -m "chore(cards): $(wc -l < "$REFUSALS" | tr -d ' ') refusal(s) from a $MODEL batch
-
-Every one of these was reverted, so the cards are still generated stubs. The
-rows say why: \`cannot_say\` names what the DSL cannot express and
-\`nearest_existing\` the closest variant that does exist.
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-  push_home
-  echo "ledger: $(wc -l < "$REFUSALS" | tr -d ' ') row(s) committed"
-fi
 echo "done: $done_n card(s) attempted"
