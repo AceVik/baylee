@@ -118,6 +118,12 @@ enum Cmd {
         /// the pool that is still a generated stub.
         #[arg(long)]
         cards: Option<String>,
+        /// Only these cards, one name per line. Prefer this over `--cards`
+        /// for anything longer than a handful: 47 names in the pool contain
+        /// a comma ("Aclazotz, Deepest Betrayal"), and a comma-separated
+        /// list has no way to carry them.
+        #[arg(long)]
+        cards_file: Option<PathBuf>,
         /// Output directory for task packages.
         #[arg(long, default_value = "target/card-batch")]
         out: PathBuf,
@@ -191,10 +197,18 @@ fn main() -> anyhow::Result<()> {
         Cmd::Explain { name, forge, cache } => explain(&root, &name, &forge, &cache),
         Cmd::CardBatch {
             cards,
+            cards_file,
             out,
             forge,
             cache,
-        } => card_batch(&root, cards.as_deref(), &out, &forge, &cache),
+        } => card_batch(
+            &root,
+            cards.as_deref(),
+            cards_file.as_deref(),
+            &out,
+            &forge,
+            &cache,
+        ),
         Cmd::Validate => validate(&root),
         Cmd::DevTable {
             gateway,
@@ -434,6 +448,7 @@ fn exemplar_for(type_line: &str) -> &'static str {
 fn card_batch(
     root: &Path,
     cards: Option<&str>,
+    cards_file: Option<&Path>,
     out: &Path,
     forge_dir: &Path,
     cache: &Path,
@@ -451,7 +466,14 @@ fn card_batch(
     let forge_index: BTreeMap<String, String> = serde_json::from_str(
         &fs::read_to_string(root.join("data/forge_index.json")).unwrap_or_default(),
     )?;
-    let wanted: Vec<String> = if let Some(list) = cards {
+    let wanted: Vec<String> = if let Some(path) = cards_file {
+        fs::read_to_string(root.join(path))?
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_string)
+            .collect()
+    } else if let Some(list) = cards {
         list.split(',').map(|s| s.trim().to_string()).collect()
     } else {
         names
@@ -479,11 +501,17 @@ fn card_batch(
     );
     for name in &wanted {
         let slug = front_face_slug(name);
+        // 1. Current stub. A name with no file is skipped rather than fatal:
+        // a worklist outlives the pool it was cut from, and one stale line
+        // used to end the whole preparation with `No such file or directory`
+        // and no name to look for.
+        let stub_path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
+        let Ok(stub) = fs::read_to_string(&stub_path) else {
+            eprintln!("  skipping {name}: no card file at {}", stub_path.display());
+            continue;
+        };
         let dir = out.join(&slug);
         fs::create_dir_all(&dir)?;
-        // 1. Current stub.
-        let stub_path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
-        let stub = fs::read_to_string(&stub_path)?;
         fs::write(dir.join("STUB.rs"), &stub)?;
         // 2. Forge script (ground truth).
         let mut has_forge = false;

@@ -59,6 +59,16 @@ fi
 HERE=$ROOT/tools/cardbatch
 LOG=$ROOT/target/cardbatch
 mkdir -p "$LOG"
+# Where the work goes when it is done. This clone lives in a scratchpad under
+# /private/tmp, which macOS cleans and a reboot loses: a night of card commits
+# sitting only in *this* `.git` is a night with no copy of itself. `origin` is
+# the real checkout, and the branch is not the one checked out over there, so
+# a plain push is accepted.
+BRANCH=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)
+push_home() {
+  git -C "$ROOT" push -q origin "$BRANCH" 2>/dev/null \
+    || echo "  push to origin failed — the commit is still here, on $BRANCH"
+}
 # The ledger is written into `target/`, not into `data/`, and only lands in the
 # repository when the run ends. `data/card-refusals.tsv` is a *tracked* file in
 # the working tree, so the `git checkout -- .` that reverts a failed card
@@ -144,6 +154,7 @@ being right.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
         echo "  committed"
+        push_home
       fi
     else
       echo "  gate failed — reverting, see $LOG/$slug.gate"
@@ -175,6 +186,7 @@ rows say why: \`cannot_say\` names what the DSL cannot express and
 \`nearest_existing\` the closest variant that does exist.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+  push_home
   echo "ledger: $(wc -l < "$REFUSALS" | tr -d ' ') row(s) committed"
 fi
 echo "done: $done_n card(s) attempted"
