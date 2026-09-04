@@ -468,6 +468,87 @@ pub fn card_shadow(width: u32, height: u32, spread: f32, radius: f32) -> Texture
     texture
 }
 
+/// The place a pile stands when nothing is standing there.
+///
+/// A card-shaped well cut into the table: a thin bright lip where light would
+/// catch the cut edge, and a shallow darkening inside it. Both are load-
+/// bearing, and the lip is the half that was missing. A darkening alone is
+/// what an empty zone used to be, and on this table it is invisible — the
+/// wood beside a mat measures `(22, 15, 11)` and the darkened patch on it
+/// measured `(15, 9, 6)`, a difference no eye finds at arm's length. Four
+/// zones a player cannot see are four zones a player does not know are
+/// clickable.
+///
+/// The lip's colour stays *under* the seat rim's gilt on purpose. A rim says
+/// whose seat this is and which seat everyone is waiting for; a well says
+/// only that a pile goes here, and a well that outshone the rim would be
+/// answering the louder question with the quieter fact.
+///
+/// `radius` is the card's corner radius as a fraction of the short side, so
+/// the lip follows the same silhouette the card mesh is cut to.
+#[must_use]
+pub fn card_well(width: u32, height: u32, radius: f32) -> Texture {
+    /// The lip, display-referred. Bone rather than gold: see above.
+    const LIP: [f32; 3] = [120.0 / 255.0, 102.0 / 255.0, 78.0 / 255.0];
+    /// How opaque the lip gets where it is brightest.
+    const LIP_ALPHA: f32 = 0.55;
+    /// How far the inside of the well is darkened.
+    ///
+    /// Lighter than the 0.42 this replaces. The lip carries the reading now,
+    /// and a fill dark enough to be seen on its own reads as a hole rather
+    /// than a hollow.
+    const FILL_ALPHA: f32 = 0.22;
+    /// How wide the lip is, as a fraction of the card's short side.
+    const LIP_WIDTH: f32 = 0.075;
+    /// Where across the lip it is brightest, as a fraction of its width.
+    ///
+    /// Not at the edge. The mesh antialiases its own silhouette, so a peak
+    /// sitting exactly on the boundary is spent on pixels that are half
+    /// transparent anyway.
+    const LIP_PEAK: f32 = 0.4;
+
+    let mut texture = Texture::blank(width, height);
+    let (w, h) = (width as f32, height as f32);
+    let short = w.min(h);
+    let corner = (radius * short).max(1.0);
+    let (half_w, half_h) = (w * 0.5, h * 0.5);
+    let lip_px = (LIP_WIDTH * short).max(1.0);
+    for y in 0..height {
+        for x in 0..width {
+            let px = (x as f32 + 0.5) - half_w;
+            let py = (y as f32 + 0.5) - half_h;
+            // Signed distance to the rounded rectangle, negative inside.
+            let qx = px.abs() - (half_w - corner);
+            let qy = py.abs() - (half_h - corner);
+            let outside = qx.max(0.0).hypot(qy.max(0.0));
+            let inside = qx.max(qy).min(0.0);
+            let distance = outside + inside - corner;
+            if distance > 0.0 {
+                continue;
+            }
+            // How far in from the lip's outer edge, 0 at the silhouette and
+            // 1 a lip's width inside it.
+            let across = (-distance / lip_px).clamp(0.0, 1.0);
+            // A band that rises to `LIP_PEAK` and falls away again, squared
+            // so its shoulders are soft rather than creased.
+            let reach = LIP_PEAK.max(1.0 - LIP_PEAK);
+            let lip = (1.0 - (across - LIP_PEAK).abs() / reach).clamp(0.0, 1.0);
+            let lip = lip * lip;
+            texture.put(
+                x,
+                y,
+                [
+                    LIP[0] * lip,
+                    LIP[1] * lip,
+                    LIP[2] * lip,
+                    (LIP_ALPHA - FILL_ALPHA).mul_add(lip, FILL_ALPHA),
+                ],
+            );
+        }
+    }
+    texture
+}
+
 /// Where the ring band's inner edge sits, as a fraction of the hearth quad's
 /// half-width.
 pub const HEARTH_INNER: f32 = 0.46;
@@ -928,6 +1009,137 @@ pub fn channel(
 mod tests {
     use super::*;
     use crate::layout::CARD_WIDTH;
+
+    /// sRGB byte to linear light, and back. The GPU blends in linear and the
+    /// texture is sRGB, so a claim about what a player *sees* has to make the
+    /// same round trip the hardware does — comparing the two byte values
+    /// directly is the mistake that let an invisible well ship.
+    fn to_linear(byte: f32) -> f32 {
+        let c = byte / 255.0;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    }
+
+    fn to_srgb(linear: f32) -> f32 {
+        let c = linear.clamp(0.0, 1.0);
+        let v = if c <= 0.003_130_8 {
+            c * 12.92
+        } else {
+            1.055f32.mul_add(c.powf(1.0 / 2.4), -0.055)
+        };
+        v * 255.0
+    }
+
+    /// One texel composited over a background, the way the blend does it.
+    fn over(texel: [f32; 4], ground: [f32; 3]) -> [f32; 3] {
+        let mut out = [0.0; 3];
+        for channel in 0..3 {
+            let src = to_linear(texel[channel] * 255.0);
+            let dst = to_linear(ground[channel]);
+            out[channel] = to_srgb(texel[3].mul_add(src, (1.0 - texel[3]) * dst));
+        }
+        out
+    }
+
+    /// The timber beside a seat's mat, measured off a screenshot of a live
+    /// table at two points: in shadow, and where the lamp reaches.
+    const TIMBER_DARK: [f32; 3] = [22.0, 15.0, 11.0];
+    const TIMBER_LIT: [f32; 3] = [52.0, 37.0, 26.0];
+
+    /// The brightest texel of a well, and the one in the middle of its fill.
+    fn well_lip_and_fill() -> ([f32; 4], [f32; 4]) {
+        let well = card_well(128, 179, CARD_CORNER_FRACTION);
+        let lip = pixels(&well)
+            .map(|(_, _, rgba)| rgba)
+            .max_by(|a, b| a[0].total_cmp(&b[0]))
+            .expect("a well has pixels");
+        (lip, well.pixel(64, 89))
+    }
+
+    /// A card's corner as a fraction of its short side; the renderer passes
+    /// the same number, from `CARD_CORNER / CARD_WIDTH`.
+    const CARD_CORNER_FRACTION: f32 = 0.0476;
+
+    #[test]
+    fn an_empty_place_can_be_seen_on_the_wood_it_is_cut_into() {
+        let (lip, fill) = well_lip_and_fill();
+        for ground in [TIMBER_DARK, TIMBER_LIT] {
+            let drawn = over(lip, ground);
+            let apart = (0..3)
+                .map(|c| (drawn[c] - ground[c]).abs())
+                .fold(0.0f32, f32::max);
+            assert!(
+                apart > 40.0,
+                "the lip is {apart:.0}/255 from {ground:?}, which is a well nobody can find"
+            );
+        }
+        // And the half that could not do it alone. This is not a weaker
+        // version of the assertion above: it is the measurement that says
+        // *why* there is a lip at all, and it fails if somebody decides the
+        // fill can carry the reading by getting darker.
+        let alone = over(fill, TIMBER_DARK);
+        let apart = (0..3)
+            .map(|c| (alone[c] - TIMBER_DARK[c]).abs())
+            .fold(0.0f32, f32::max);
+        assert!(
+            apart < 12.0,
+            "a fill {apart:.0}/255 from the timber is doing the lip's work"
+        );
+    }
+
+    #[test]
+    fn a_well_stays_quieter_than_the_seat_rim_beside_it() {
+        // The gilt of the local seat's rim, measured at the same table.
+        const RIM: [f32; 3] = [110.0, 79.0, 42.0];
+        let (lip, _) = well_lip_and_fill();
+        let drawn = over(lip, TIMBER_DARK);
+        let brightness = |c: [f32; 3]| 0.2126f32.mul_add(c[0], 0.7152 * c[1] + 0.0722 * c[2]);
+        assert!(
+            brightness(drawn) < brightness(RIM),
+            "the well draws at {drawn:?}, brighter than the rim at {RIM:?} — \
+             a place for a pile must not outshine whose seat it is"
+        );
+    }
+
+    #[test]
+    fn a_well_is_a_rim_and_not_a_disc() {
+        let well = card_well(128, 179, CARD_CORNER_FRACTION);
+        // Across the middle: transparent outside, bright at the lip, and
+        // back down to the fill in the centre. A disc would rise once.
+        let row: Vec<f32> = (0..128).map(|x| well.pixel(x, 89)[0]).collect();
+        let brightest = |slice: &[f32]| {
+            slice
+                .iter()
+                .copied()
+                .enumerate()
+                .max_by(|a, b| a.1.total_cmp(&b.1))
+                .expect("a half-row has pixels")
+        };
+        // Both halves, because the lip runs all the way round and a test that
+        // took the whole row's maximum would only ever find one of them.
+        let left = brightest(&row[..64]);
+        let right = brightest(&row[64..]);
+        assert!(
+            left.0 < 32,
+            "the left lip peaks at {}, not near its edge",
+            left.0
+        );
+        assert!(
+            right.0 + 64 > 95,
+            "the right lip peaks at {}, not near its edge",
+            right.0 + 64
+        );
+        assert!(
+            row[64] < left.1.min(right.1) * 0.5,
+            "the middle is {:.3} against lips of {:.3} and {:.3} — that is a disc",
+            row[64],
+            left.1,
+            right.1
+        );
+    }
 
     /// Every pixel of a texture, as `(x, y, rgba)`.
     fn pixels(t: &Texture) -> impl Iterator<Item = (u32, u32, [f32; 4])> + '_ {

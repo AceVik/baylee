@@ -639,6 +639,9 @@ pub struct SceneIndex {
     /// rotation and the hover lift with nothing to keep in step.
     shadow_quad: Option<Handle<Mesh>>,
     shadow_material: Option<Handle<StandardMaterial>>,
+    /// The empty place a pile stands in: one material for the whole table,
+    /// because a well is table furniture and carries no seat's colour.
+    well: Option<Handle<StandardMaterial>>,
 }
 
 /// One seat's zone on the table.
@@ -882,6 +885,23 @@ pub fn spawn_stage(
         unlit: true,
         ..default()
     }));
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "a texture size derived from two positive constants"
+    )]
+    let well_px = (f32::from(u16::try_from(RECESS_PX).unwrap_or(u16::MAX)) * CARD_HEIGHT
+        / CARD_WIDTH)
+        .round() as u32;
+    index.well = Some(materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(image_of(&tabletop::card_well(
+            RECESS_PX,
+            well_px,
+            CARD_CORNER / CARD_WIDTH,
+        )))),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    }));
     // The card back: no art, no finish, no glow. It is what the stack behind
     // a counted group is made of, and what a card whose art never arrives
     // falls back to.
@@ -1058,14 +1078,11 @@ fn spawn_table_quad(
         .id()
 }
 
-/// How dark a pile's empty place is drawn on the timber.
+/// How wide the texture of a pile's empty place is drawn.
 ///
-/// A hollow rather than a mark: it has to say "a card belongs here" without
-/// competing with the cards that do lie there. Alpha, so it darkens whatever
-/// the resin and the wood are doing underneath rather than painting over
-/// them — and alpha is linear light, which is the trap that made the seat
-/// mats read as pale trays.
-const RECESS_TINT: LinearRgba = LinearRgba::new(0.0, 0.0, 0.0, 0.42);
+/// The height follows from the card's aspect, so the lip's corners stay round
+/// rather than becoming ellipses.
+const RECESS_PX: u32 = 128;
 
 /// How far below a real card a pile's empty place lies.
 const RECESS_LIFT: f32 = -CARD_LIFT * 0.5;
@@ -1079,21 +1096,13 @@ const RECESS_LIFT: f32 = -CARD_LIFT * 0.5;
 /// would make the table rearrange itself in the middle of a game.
 fn spawn_piles(
     commands: &mut Commands,
-    materials: &mut Assets<StandardMaterial>,
     index: &SceneIndex,
     slot: &SeatSlot,
     library: u32,
 ) -> Vec<Entity> {
-    let (Some(glow), Some(quad)) = (index.glow_image.clone(), index.quad.clone()) else {
+    let (Some(recess), Some(quad)) = (index.well.clone(), index.quad.clone()) else {
         return Vec::new();
     };
-    let recess = materials.add(StandardMaterial {
-        base_color: Color::LinearRgba(RECESS_TINT),
-        base_color_texture: Some(glow),
-        alpha_mode: AlphaMode::Blend,
-        unlit: true,
-        ..default()
-    });
 
     let mut out = Vec::new();
     for pile in baylee_client_core::PileKind::ALL {
@@ -1450,13 +1459,7 @@ pub fn sync_zones(
                 for entity in old_piles {
                     commands.entity(entity).despawn();
                 }
-                spawn_piles(
-                    &mut commands,
-                    &mut materials,
-                    &index,
-                    slot,
-                    pod.library_count,
-                )
+                spawn_piles(&mut commands, &index, slot, pod.library_count)
             });
             index.zones.entry(pod.player).and_modify(|zone| {
                 zone.mood = mood;
@@ -1493,13 +1496,7 @@ pub fn sync_zones(
                 texture: glow_image.clone(),
             },
         );
-        let piles = spawn_piles(
-            &mut commands,
-            &mut materials,
-            &index,
-            slot,
-            pod.library_count,
-        );
+        let piles = spawn_piles(&mut commands, &index, slot, pod.library_count);
         index.zones.insert(
             pod.player,
             Zone {
