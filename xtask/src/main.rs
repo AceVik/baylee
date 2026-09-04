@@ -519,11 +519,17 @@ fn card_batch(
              Touch nothing else — not `src/generated.rs`, not `src/cards/mod.rs`,\n\
              not another card, not the DSL.\n\n\
              Read first, in this order:\n\
+             - `{package}/SCRYFALL.json` — this card's Scryfall record, already\n\
+                fetched for you; do not go to the network. It is the ground\n\
+                truth for what the card does. `oracle_text` — on each entry of\n\
+                `card_faces`, or on the card itself when it has one face — is\n\
+                the text you implement, completely and exactly. The `//!` header\n\
+                in the stub is a summary made from this record, so where the two\n\
+                could ever disagree, the record wins.\n\
              - `crates/baylee-cards/AGENTS.md` — the playbook you are bound by.\n\
              - `docs/card-dsl.md` — the authoring contract and the full vocabulary.\n\
              {forge_line}\
-             - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\
-             - `{package}/SCRYFALL.json` — metadata, if you need the printed details.\n\n\
+             - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\n\
              Hard rules:\n\
              1. Every `//!` line at the top of the file, `index`, `oracle_id`,\n\
                 `scryfall_id` and the `faces` literals are generated facts. Do\n\
@@ -535,9 +541,15 @@ fn card_batch(
                 supply them, and the defaults are *rules* defaults.\n\
              3. Do not invent `Effect`, `Modifier` or `Filter` variants. If the\n\
                 DSL cannot say what the card says, STOP and refuse — see below.\n\
-             4. Every oracle sentence is implemented, or the card is refused. A\n\
-                card that is nearly right is worse than a stub: the deckbuilder\n\
-                offers implemented cards as playable.\n\
+             4. Go through `oracle_text` one sentence at a time and account for\n\
+                every single one. Each is implemented exactly — the same\n\
+                condition, the same timing, the same numbers, the same choice of\n\
+                who decides — or the whole card is refused. Half a card is worse\n\
+                than a stub: the deckbuilder offers implemented cards as\n\
+                playable, so a missing clause is a rules bug in a live game,\n\
+                while a stub is merely a card nobody can pick yet. (Reminder\n\
+                text in parentheses restates a keyword and needs no rule of its\n\
+                own.)\n\
              5. The only command you may run is\n\
                 `cargo check --all-targets -p baylee-cards` (`--all-targets` so\n\
                 a test you wrote is compiled too), and only to find out whether\n\
