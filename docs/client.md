@@ -934,6 +934,33 @@ follows it. This is what the keymap's commitment — every choice answerable
 without a pointer — costs in practice: not a key that was missing, but a
 pointer that would not stay quiet.
 
+That silence has a cost of its own, and it took a photograph of a live game to
+see it: a card can *leave* while the pointer rests on it. Playing the card
+under the cursor is the ordinary way — the overlay is rebuilt whole, the node
+the pointer was over is despawned, and Bevy fires no `Out` for an entity that
+no longer exists. Nothing moved, so nothing spoke, and the preview of the card
+you had just played stood over the middle of the table until you happened to
+hover something else.
+
+So the hover is held against the **kind of entity that reported it**
+(`HoverSource::{Hand, Table, Elsewhere}`), re-checked every frame *before* the
+grace window — the pointer's stillness is the problem, not a reason to stay
+quiet. The source is what makes the check possible: a land goes on existing
+under the same `ObjectId` once it is played, so "does this object still
+exist" finds it on the battlefield and keeps the preview open. The true
+sentence is that it is no longer *a hand card*.
+
+The source is only sound because the system also notices when it is **not**
+the author. `Duel::hovered` has four writers — this system, `move_cursor`, the
+click on nothing, and Cancel — so `pointer_hover` remembers the value it left
+behind and reads any difference as somebody else's write, which resets the
+source to `Elsewhere`. Without that, the keyboard cursor walking off a
+permanent and onto a hand card would meet a stale `Table` source, fail to find
+itself on the table and be cleared on the very next frame: the same stall as
+above, through a different door. `Elsewhere` is the permissive answer — it
+clears only when the object has left the hand *and* the table — because
+`move_cursor` already heals a stale cursor by itself.
+
 ## Settings, and what belongs to whom
 
 Two stores, split on one question: is this about the *player* or about *this

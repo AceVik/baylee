@@ -259,13 +259,42 @@ corner, settled three things at once:
   plate is a smear; nothing an `aa` term fixes, because the plate cannot grow
   without covering the art. That is what the hover preview and the detail
   panel are for, and it is the argument for finishing them.
-- Two defects the camera work did not cause and the test suite cannot see,
-  both plausibly one cause — **a hand card's node is not despawned when the
-  card leaves the hand**. Cards played from hand leave a ghost above the hand
-  bar that does not move with the camera (so it is HUD, not table), and
-  `duel.hovered` keeps pointing at the departed card because no `Out` ever
-  fires for it — which pins the hover preview open over the middle of the
-  table indefinitely. Related to the unwritten "departures" work in §5.
+- One defect the camera work did not cause and the test suite could not see:
+  **playing the card under the pointer left its preview standing over the
+  middle of the table.** The first reading of the photograph was that a hand
+  card's node outlives the card, which is wrong — `sync_overlay` despawns the
+  whole overlay and rebuilds it on every revision, so there is no stale node.
+  What outlives the card is `duel.hovered`. `pointer_hover` clears a hover
+  only on an `Out`, and Bevy fires no `Out` for an entity that has been
+  despawned; the pointer has not moved, so nothing else speaks either. The
+  ghost *was* the preview.
+
+  The fix is in `pointer_hover`: the hover is now held against the **kind of
+  entity that reported it** (`HoverSource::{Hand, Table, Elsewhere}`) and
+  re-checked every frame, before the grace window, because the pointer's
+  stillness is the whole problem. The source is what makes it answerable — a
+  land goes on existing under the same `ObjectId` after it is played, so
+  "does this object still exist" would have found it on the battlefield and
+  kept the preview open. It is no longer *a hand card*, and that is the true
+  sentence.
+
+  The first cut of that fix reintroduced the very stall §"The pointer only
+  speaks when it moves" is about, which is worth recording because the shape
+  recurs: **a source is only usable if the code can tell when it is not the
+  author.** `hovered` has four writers; the keyboard cursor walking off a
+  permanent onto a hand card would have met a stale `Table` source and been
+  cleared a frame later. So the system remembers the value it left and treats
+  any difference as somebody else's, resetting to `Elsewhere` — the permissive
+  case, cleared only when the object has left both places, because
+  `move_cursor` heals a stale cursor by itself.
+
+**One clause the same probe settled about the chips.** The overflow chip drew
+nothing when the probe asked for `more: 1` beside a single chip, which looked
+like a lost tail. It is not: `Corner::of_parts` fills all three slots from a
+sorted list before `more` can be anything but zero, so `more > 0` with an
+empty slot is unreachable, and the reachable state draws at slot 3 exactly as
+`packed()` lays it out. The "never hide the tail" rule holds; the probe asked
+for a state the model cannot produce.
 
 ### 1.2 Tokens
 
