@@ -1,6 +1,8 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
-use baylee_cards_codegen::{acceptance, catalog, forge, forgegen, ledger, scryfall, stubgen};
+use baylee_cards_codegen::{
+    acceptance, catalog, forge, forgegen, landgen, ledger, scryfall, stubgen,
+};
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -70,6 +72,33 @@ enum Cmd {
         /// finish, which is the one a player would notice.
         #[arg(long)]
         stubs: bool,
+    },
+    /// Rank the land sentences `landgen` cannot read yet.
+    ///
+    /// The counterpart to `forge-report`, and worth its own command for the
+    /// reason that one exists: every card in the pool that is still a
+    /// generated stub is a land — 792 of them — and land text is formulaic.
+    /// A sentence shape taught to `landgen` is not one card; it is every land
+    /// that prints that shape, generated with nobody reading the result.
+    LandReport {
+        /// Name up to this many example lands per shape.
+        #[arg(long, default_value_t = 3)]
+        samples: usize,
+        /// Write the cards a parser should *not* be taught, one name per line.
+        ///
+        /// The split this command exists to make. A shape printed on eight
+        /// lands repays a rule in `landgen`; a shape printed on one is a rule
+        /// per card, which is what a person or a model does. This writes the
+        /// second half — the tail, plus the lands that are not plain lands at
+        /// all — in the form `card-batch --cards` takes.
+        #[arg(long)]
+        worklist: Option<PathBuf>,
+        /// A shape printed on fewer than this many lands goes to the worklist.
+        #[arg(long, default_value_t = 2)]
+        tail: usize,
+        /// Directory for cached Scryfall responses.
+        #[arg(long, default_value = "data/scryfall-cache")]
+        cache: PathBuf,
     },
     /// Choose the cards that would teach the engine the most, and say what
     /// each one asks for.
@@ -183,6 +212,12 @@ fn main() -> anyhow::Result<()> {
             stubs,
             reason,
         } => forge_report(&root, &forge, samples, stubs, reason.as_deref()),
+        Cmd::LandReport {
+            samples,
+            worklist,
+            tail,
+            cache,
+        } => land_report(&root, &cache, samples, worklist.as_deref(), tail),
         Cmd::CoverageSet {
             count,
             max_new,
@@ -508,75 +543,243 @@ fn card_batch(
             fs::write(dir.join("EXEMPLAR.rs"), fs::read_to_string(exemplar_path)?)?;
         }
         // 5. Prompt.
-        //
-        // Written for an agent working *in the repository* (it has file and
-        // shell tools and reads the package itself), not for one being handed
-        // pasted text: `SCRYFALL.json` alone would dominate the budget, and
-        // most of it is printing metadata the card does not care about.
-        let prompt = format!(
-            "# Implement `{name}` in this repository\n\n\
-             Edit exactly one file: `crates/baylee-cards/src/cards/{slug}.rs`.\n\
-             Touch nothing else — not `src/generated.rs`, not `src/cards/mod.rs`,\n\
-             not another card, not the DSL.\n\n\
-             Read first, in this order:\n\
-             - `crates/baylee-cards/AGENTS.md` — the playbook you are bound by.\n\
-             - `docs/card-dsl.md` — the authoring contract and the full vocabulary.\n\
-             {forge_line}\
-             - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\
-             - `{package}/SCRYFALL.json` — metadata, if you need the printed details.\n\n\
-             Hard rules:\n\
-             1. Every `//!` line at the top of the file, `index`, `oracle_id`,\n\
-                `scryfall_id` and the `faces` literals are generated facts. Do\n\
-                not edit, add or delete a single one of them. That header is\n\
-                the human-verification surface: `xtask validate` compares it\n\
-                against the card you build and fails on any drift. You may edit\n\
-                only `coverage`, `keywords` and `abilities`.\n\
-             2. Never restate a default. The macros in `baylee-cards-dsl/src/build.rs`\n\
-                supply them, and the defaults are *rules* defaults.\n\
-             3. Do not invent `Effect`, `Modifier` or `Filter` variants. If the\n\
-                DSL cannot say what the card says, STOP and refuse — see below.\n\
-             4. Every oracle sentence is implemented, or the card is refused. A\n\
-                card that is nearly right is worse than a stub: the deckbuilder\n\
-                offers implemented cards as playable.\n\
-             5. The only command you may run is\n\
-                `cargo check --all-targets -p baylee-cards` (`--all-targets` so\n\
-                a test you wrote is compiled too), and only to find out whether\n\
-                your own edit compiles. Do not run\n\
-                `cargo test`, `cargo clippy`, `cargo fmt`, `cargo run` or any\n\
-                `xtask` command. The harness around you runs the full gate on\n\
-                this card the moment you finish and reverts the file if it\n\
-                fails, so running any of that here buys nothing and costs more\n\
-                time than writing the card does.\n\n\
-             Refusing is a correct outcome, not a failure. If any clause is\n\
-             inexpressible, revert your edits to `{slug}.rs` so it stays the\n\
-             generated stub, and report `status: \"refused\"`.\n\n\
-             When you report a refusal, `cannot_say` must name **what the DSL\n\
-             cannot express**, not which mechanic you think is missing, and\n\
-             `nearest_existing` must name the closest variant that does exist.\n\
-             Those two together are the whole value of a refusal: the last time\n\
-             a blocker was read as a missing subsystem, the subsystem was\n\
-             already there and one variant that could say \"the target\" was all\n\
-             it needed.\n",
-            package = dir.display(),
-            // Named only when it is there. Roughly one card in eight has no
-            // script under its printed name, and pointing an agent at a file
-            // that does not exist spends a turn and teaches it that the
-            // package's promises are approximate.
-            forge_line = if has_forge {
-                format!(
-                    "- `{}/FORGE.txt` — the forge-reference script; rules ground truth.\n",
-                    dir.display()
-                )
-            } else {
-                "There is no forge-reference script for this card. The oracle text in \
-                 the stub header is all the ground truth there is; if that leaves a \
-                 clause genuinely ambiguous, refuse rather than guess.\n"
-                    .to_string()
-            },
-        );
-        fs::write(dir.join("PROMPT.md"), prompt)?;
+        fs::write(
+            dir.join("PROMPT.md"),
+            card_prompt(name, &slug, &dir, has_forge),
+        )?;
     }
     Ok(())
+}
+
+/// The task text a batched agent is handed for one card.
+///
+/// Written for an agent working *in the repository* (it has file and shell
+/// tools and reads the package itself), not for one being handed pasted
+/// text: `SCRYFALL.json` alone would dominate the budget, and most of it is
+/// printing metadata the card does not care about.
+fn card_prompt(name: &str, slug: &str, package: &Path, has_forge: bool) -> String {
+    let prompt = format!(
+        "# Implement `{name}` in this repository\n\n\
+         Edit exactly one file: `crates/baylee-cards/src/cards/{slug}.rs`.\n\
+         Touch nothing else — not `src/generated.rs`, not `src/cards/mod.rs`,\n\
+         not another card, not the DSL.\n\n\
+         Read first, in this order:\n\
+         - `crates/baylee-cards/AGENTS.md` — the playbook you are bound by.\n\
+         - `docs/card-dsl.md` — the authoring contract and the full vocabulary.\n\
+         {forge_line}\
+         - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\
+         - `{package}/SCRYFALL.json` — metadata, if you need the printed details.\n\n\
+         Hard rules:\n\
+         1. Every `//!` line at the top of the file, `index`, `oracle_id`,\n\
+            `scryfall_id` and the `faces` literals are generated facts. Do\n\
+            not edit, add or delete a single one of them. That header is\n\
+            the human-verification surface: `xtask validate` compares it\n\
+            against the card you build and fails on any drift. You may edit\n\
+            only `coverage`, `keywords` and `abilities`.\n\
+         2. Never restate a default. The macros in `baylee-cards-dsl/src/build.rs`\n\
+            supply them, and the defaults are *rules* defaults.\n\
+         3. Do not invent `Effect`, `Modifier` or `Filter` variants. If the\n\
+            DSL cannot say what the card says, STOP and refuse — see below.\n\
+         4. Every oracle sentence is implemented, or the card is refused. A\n\
+            card that is nearly right is worse than a stub: the deckbuilder\n\
+            offers implemented cards as playable.\n\
+         5. The only command you may run is\n\
+            `cargo check --all-targets -p baylee-cards` (`--all-targets` so\n\
+            a test you wrote is compiled too), and only to find out whether\n\
+            your own edit compiles. Do not run\n\
+            `cargo test`, `cargo clippy`, `cargo fmt`, `cargo run` or any\n\
+            `xtask` command. The harness around you runs the full gate on\n\
+            this card the moment you finish and reverts the file if it\n\
+            fails, so running any of that here buys nothing and costs more\n\
+            time than writing the card does.\n\n\
+         Refusing is a correct outcome, not a failure. If any clause is\n\
+         inexpressible, revert your edits to `{slug}.rs` so it stays the\n\
+         generated stub, and report `status: \"refused\"`.\n\n\
+         When you report a refusal, `cannot_say` must name **what the DSL\n\
+         cannot express**, not which mechanic you think is missing, and\n\
+         `nearest_existing` must name the closest variant that does exist.\n\
+         Those two together are the whole value of a refusal: the last time\n\
+         a blocker was read as a missing subsystem, the subsystem was\n\
+         already there and one variant that could say \"the target\" was all\n\
+         it needed.\n",
+        package = package.display(),
+        // Named only when it is there. Roughly one card in eight has no
+        // script under its printed name, and pointing an agent at a file
+        // that does not exist spends a turn and teaches it that the
+        // package's promises are approximate.
+        forge_line = if has_forge {
+            format!(
+                "- `{}/FORGE.txt` — the forge-reference script; rules ground truth.\n",
+                package.display()
+            )
+        } else {
+            "There is no forge-reference script for this card. The oracle text in \
+             the stub header is all the ground truth there is; if that leaves a \
+             clause genuinely ambiguous, refuse rather than guess.\n"
+                .to_string()
+        },
+    );
+    prompt
+}
+
+/// Ranks the land text `landgen` cannot read, by the line that stopped it.
+///
+/// Every card in the pool that is still a generated stub is a land, so this is
+/// not a corner of the worklist — it *is* the worklist. Land text is
+/// formulaic, which is what makes a ranking worth having: a sentence shape
+/// taught to `landgen` is not one card but every land that prints that shape,
+/// generated with nobody reading the result. That is a different economy from
+/// asking a model to write hundreds of files a person then has to check.
+///
+/// Each line is normalised before it is counted. The numbers, mana symbols and
+/// proper nouns in it are exactly what makes two printings of one shape look
+/// like two problems, and a ranking that counted them apart would put a shape
+/// printed on sixty cards below one printed on three.
+fn land_report(
+    root: &Path,
+    cache: &Path,
+    samples: usize,
+    worklist: Option<&Path>,
+    tail: usize,
+) -> anyhow::Result<()> {
+    let agent = ureq::Agent::new_with_defaults();
+    let cache = root.join(cache);
+    let mut cats = catalog::SubtypeCatalogs {
+        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
+        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
+        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
+        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
+        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
+        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
+    };
+    cats.normalize();
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    let names = acceptance::all_names(&rows, &pool_text);
+
+    let (mut readable, mut nothing) = (0usize, 0usize);
+    // Kept whole rather than counted, because the worklist below is the other
+    // half of the same pass: a shape's cards *are* the answer to "who should
+    // write these", and counting them would throw that away.
+    let mut not_a_land: Vec<String> = Vec::new();
+    let mut shapes: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for name in &names {
+        let path = root.join(format!(
+            "crates/baylee-cards/src/cards/{}.rs",
+            front_face_slug(name)
+        ));
+        // A finished card is nobody's worklist, whoever finished it.
+        if !fs::read_to_string(&path).is_ok_and(|c| c.contains("// GENERATED STUB")) {
+            continue;
+        }
+        let card = scryfall::fetch_named(name, &agent, &cache)?;
+        match landgen::read(&card, &cats) {
+            // A stub `landgen` can read is a codegen run away from being a
+            // card, so it belongs in neither ranking. Seeing one at all would
+            // mean the generated files are stale.
+            Ok(_) => readable += 1,
+            Err(landgen::LandRefusal::NotAPlainLand) => not_a_land.push(name.clone()),
+            Err(landgen::LandRefusal::NothingToSay) => nothing += 1,
+            Err(landgen::LandRefusal::UnreadLine(line)) => {
+                shapes
+                    .entry(shape_of(&line))
+                    .or_default()
+                    .push(name.clone());
+            }
+        }
+    }
+
+    let blocked: usize = shapes.values().map(Vec::len).sum();
+    println!(
+        "land-report: {blocked} land(s) blocked on {} sentence shape(s); {} not plain \
+         lands, {nothing} with nothing to say, {readable} readable already",
+        shapes.len(),
+        not_a_land.len()
+    );
+    let mut ranked: Vec<_> = shapes.into_iter().collect();
+    ranked.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(&b.0)));
+    let mut running = 0usize;
+    for (shape, cards) in &ranked {
+        running += cards.len();
+        // The running total is the point of the ranking: it says how many
+        // shapes have to be read before a given share of the pool is finished.
+        println!("{:5} {running:5}  {shape}", cards.len());
+        if samples > 0 {
+            let examples: Vec<&str> = cards.iter().take(samples).map(String::as_str).collect();
+            println!("             e.g. {}", examples.join(", "));
+        }
+    }
+
+    if let Some(path) = worklist {
+        let mut cards: Vec<&String> = not_a_land.iter().collect();
+        cards.extend(
+            ranked
+                .iter()
+                .filter(|(_, printed)| printed.len() < tail)
+                .flat_map(|(_, printed)| printed.iter()),
+        );
+        cards.sort_unstable();
+        // One name per line, and `card-batch --cards` takes them
+        // comma-separated — `paste -sd,` is the one step in between, which is
+        // better than writing a line this long into a file nobody can read.
+        let mut text = cards.iter().fold(String::new(), |mut acc, name| {
+            acc.push_str(name);
+            acc.push('\n');
+            acc
+        });
+        text.shrink_to_fit();
+        fs::write(path, text)?;
+        println!(
+            "\nworklist: {} card(s) written to {} — every land on a shape printed \
+             fewer than {tail} time(s), plus the ones that are not plain lands",
+            cards.len(),
+            path.display()
+        );
+    }
+    Ok(())
+}
+
+/// Reduces one printed line to the shape it is an instance of.
+///
+/// "{T}: Add {G}" and "{T}: Add {W}" are one problem. What differs between two
+/// instances of a shape is its mana symbols, its numbers and its proper nouns;
+/// what is left after those are struck out is the grammar.
+fn shape_of(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '{' => {
+                // A mana symbol, a tap, a number in braces — all one token.
+                for inner in chars.by_ref() {
+                    if inner == '}' {
+                        break;
+                    }
+                }
+                out.push_str("{_}");
+            }
+            '0'..='9' => {
+                while chars.peek().is_some_and(char::is_ascii_digit) {
+                    chars.next();
+                }
+                out.push('#');
+            }
+            c if c.is_uppercase() => {
+                // A proper noun — a land type, a card name — collapses to one
+                // token, so "Plains or Island" and "Swamp or Mountain" are the
+                // same sentence. A sentence's first word is capitalised too and
+                // collapses with them; that costs nothing, because a shape is
+                // only ever compared with another shape.
+                out.push('_');
+                while chars.peek().is_some_and(|n| n.is_lowercase() || *n == '\'') {
+                    chars.next();
+                }
+            }
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// A card's file stem.
