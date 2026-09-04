@@ -146,26 +146,71 @@ pub struct TableLayout {
 
 impl TableLayout {
     /// Lays out `seats` (in turn order starting with the local seat) on a ring
-    /// sized for a viewport of the given aspect ratio.
+    /// sized for the canvas it will be seen through.
     ///
-    /// The ellipse is divided **evenly** across every seat, local included —
-    /// the local player's own board is presented magnified by the sliding
-    /// own-board overlay, not by a bigger sector. `focus` optionally names
-    /// an opponent whose board is being inspected; that pod is enlarged at
-    /// the expense of the other seats.
+    /// `aspect` is the aspect ratio of the part of the window the table is
+    /// actually visible in — **not** the window's. The HUD is on top of the
+    /// battlefield, not beside it, and it covers about a fifth of the screen;
+    /// a layout built against the window is a layout the camera then has to
+    /// fit into something else. This used to be a hard-coded `16.0 / 9.0`.
+    ///
+    /// The ring is sized to waste nothing. `y` is far enough out that the
+    /// near and far mats clear the middle and not one unit further, and `x`
+    /// is whatever makes the whole table the same shape as the canvas — a
+    /// span taller than the canvas wastes its width, a span wider wastes its
+    /// height, and only a span of the same shape wastes neither. The camera
+    /// fits whatever comes out of here, so a unit of empty table is a unit
+    /// every card is drawn smaller for.
+    ///
+    /// Seats then divide the ring **evenly**, local included. `focus`
+    /// optionally names an opponent whose board is being inspected; that pod
+    /// is enlarged at the expense of the other seats, never of the local one.
     ///
     /// # Panics
     /// Never — an empty seat list produces an empty layout.
     #[must_use]
     pub fn new(seats: &[PlayerId], aspect: f32, focus: Option<PlayerId>) -> Self {
         let n = seats.len();
-        let radius = Vec2::new(11.0 * aspect.clamp(0.6, 2.4), 8.5);
+        let aspect = aspect.clamp(0.6, 2.8);
+        let half_depth = POD_DEPTH * 0.5;
+
+        // How far out the ring has to stand. Two things push it: the mats
+        // have to clear the middle of the table, and — from three seats up —
+        // each seat's share of the ring has to be wide enough to play on.
+        let clear = half_depth + CENTRE_GAP * 0.5;
+        let crowded = if n < 3 {
+            0.0
+        } else {
+            // A seat's ground is a chord of the ring: `2·r·sin(π/n)` of it,
+            // less the gap that keeps neighbours apart. Solved for the ring
+            // that makes that chord `MIN_POD_WIDTH` wide, with `x` written in
+            // terms of `y` by the aspect above — so this is one division and
+            // not a search.
+            let mean = MIN_POD_WIDTH
+                / (2.0 * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE).max(1e-3);
+            (2.0f32.mul_add(mean, -((aspect - 1.0) * half_depth)) / (aspect + 1.0)).max(0.0)
+        };
+        let ry = clear.max(crowded);
+        let rx = aspect.mul_add(ry + half_depth, -half_depth).max(half_depth);
+        let radius = Vec2::new(rx, ry);
         if n == 0 {
             return Self {
                 slots: Vec::new(),
                 radius,
             };
         }
+
+        // How wide a seat's ground may be. Two seats face each other across
+        // the middle and neither has a neighbour to bump into, so each may
+        // have the whole table; three or more share the ring and may have
+        // their arc of it and no more.
+        let across = rx + half_depth;
+        let pod_half_width = if n < 3 {
+            across
+        } else {
+            let mean = (rx + ry) * 0.5;
+            (mean * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE).min(across)
+        };
 
         // Even shares, with a focus bonus borrowed from everyone else.
         let weights: Vec<f32> = seats
@@ -184,9 +229,6 @@ impl TableLayout {
                 let center = Vec2::new(radius.x * sin, -radius.y * cos);
 
                 let share = weights[i] / total * n as f32;
-                let per_seat = (core::f32::consts::TAU / n as f32).min(1.6);
-                let base = Vec2::new(radius.x * 0.30 * per_seat.max(0.55), radius.y * 0.26);
-
                 SeatSlot {
                     player,
                     ring_index: i,
@@ -195,7 +237,13 @@ impl TableLayout {
                     // Cards face their owner: the local seat is upright, the
                     // seat opposite is rotated a half turn.
                     facing: angle,
-                    half_extent: base * share.clamp(0.55, 2.0).sqrt(),
+                    // Width answers to the focus; depth never does. A mat is
+                    // as deep as three lanes of cards and no focus makes a
+                    // card taller.
+                    half_extent: Vec2::new(
+                        pod_half_width * share.clamp(0.55, 2.0).sqrt(),
+                        half_depth,
+                    ),
                     is_local: i == 0,
                 }
             })
@@ -243,6 +291,36 @@ impl TableLayout {
         self.slots.iter().find(|s| s.player == player)
     }
 }
+
+/// How deep one seat's ground is: three lanes with a card standing in each,
+/// and enough air that a lifted card does not overlap the row behind it.
+///
+/// A **constant**, and that is the change that made the board fill the
+/// screen. While the depth came off `radius.y`, it grew with the ring — so a
+/// table laid out for eight seats gave every one of them a deeper mat than a
+/// duel did, and a duel, which is what almost every game actually is, got the
+/// shallowest board of the lot. A card is the same size at every table, so
+/// the ground a card stands on is too.
+pub const POD_DEPTH: f32 = CARD_HEIGHT * 3.0 * 1.18;
+
+/// Clear table kept between the mats, for the medallion and the light pool.
+///
+/// It was seventeen units. The two mats were 4.4 deep and 17 apart, so four
+/// fifths of a duel's screen was empty table — and because the camera fits
+/// whatever span the layout reports, every one of those units was a unit the
+/// cards were drawn smaller for.
+pub const CENTRE_GAP: f32 = 3.4;
+
+/// The narrowest a seat's lane is allowed to get before the ring grows to
+/// make room — about nine cards.
+///
+/// This is what stops a big table from solving itself by squeezing: eight
+/// seats get a bigger ring, not a strip of ground too narrow to read.
+const MIN_POD_WIDTH: f32 = 10.0;
+
+/// How much of the arc between two neighbours a mat may claim. The rest is
+/// the gap that keeps them from touching.
+const ARC_SHARE: f32 = 0.86;
 
 /// A focused opponent counts as this many ordinary seats.
 const FOCUS_WEIGHT: f32 = 2.6;
@@ -523,5 +601,83 @@ mod tests {
             creatures.y > lands.y,
             "creatures {creatures:?} should sit closer to the table centre than lands {lands:?}"
         );
+    }
+
+    #[test]
+    fn a_mat_is_the_same_depth_at_every_table() {
+        // The bug this replaces: depth came off the ring, so a table laid out
+        // for eight seats gave each of them a deeper mat than a duel did — and
+        // a duel, which is what almost every game is, got the shallowest board
+        // of the lot. A card is the same size at every table.
+        for n in 1..=8 {
+            for aspect in [0.6_f32, 1.0, 1.78, 2.0, 2.8] {
+                for slot in &TableLayout::new(&seats(n), aspect, None).slots {
+                    assert!(
+                        (slot.half_extent.y * 2.0 - POD_DEPTH).abs() < 1e-3,
+                        "{n} seats at {aspect}: mat is {} deep, not {POD_DEPTH}",
+                        slot.half_extent.y * 2.0
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_middle_stays_clear_for_the_channel() {
+        // The resin channel is the negative form of this layout: it is
+        // whatever the mats leave. If the mats close in, there is no channel
+        // to draw and the medallion has nowhere to float; if they drift apart,
+        // every card is drawn smaller for the empty table between them. Both
+        // bounds, because the second is the mistake that was actually made.
+        for n in 2..=8 {
+            let layout = TableLayout::new(&seats(n), 2.0, None);
+            let inner = layout
+                .slots
+                .iter()
+                .map(|slot| slot.center.length() - slot.half_extent.y)
+                .fold(f32::INFINITY, f32::min);
+            assert!(
+                inner >= CENTRE_GAP * 0.5 - 1e-3,
+                "{n} seats: a mat reaches to {inner} of the middle, inside the {} channel",
+                CENTRE_GAP * 0.5
+            );
+
+            // And no further out than it has to be. There are exactly two
+            // reasons the ring may stand where it does, so one of them has to
+            // be tight: either the mats are as close to the middle as the
+            // channel allows, or they are as narrow as a board may get and the
+            // ring grew only to stop them touching. A ring that satisfies
+            // neither is empty table, and empty table is what every card is
+            // drawn smaller for.
+            let widest = layout
+                .slots
+                .iter()
+                .map(|slot| slot.half_extent.x * 2.0)
+                .fold(0.0_f32, f32::max);
+            assert!(
+                (inner - CENTRE_GAP * 0.5).abs() < 1e-3 || (widest - MIN_POD_WIDTH).abs() < 1e-2,
+                "{n} seats: mats stop {inner} out and are {widest} wide — \
+                 neither the channel nor the crowding is what put them there"
+            );
+        }
+    }
+
+    #[test]
+    fn a_duel_comes_out_the_shape_of_its_canvas() {
+        // A span taller than the canvas wastes its width, a span wider wastes
+        // its height, and the camera fits whatever this reports — so only a
+        // span of the canvas's own shape wastes neither. Two seats is the case
+        // worth pinning: a ring of six has neighbours to clear and cannot
+        // always have it.
+        for aspect in [1.0_f32, 1.6, 1.78, 2.0, 2.4] {
+            let layout = TableLayout::new(&seats(2), aspect, None);
+            let (min, max) = layout.extent().expect("a seated table has an extent");
+            let span = max - min;
+            let got = span.x / span.y;
+            assert!(
+                (got - aspect).abs() < 0.05,
+                "canvas {aspect}: the table came out {got} ({span:?})"
+            );
+        }
     }
 }

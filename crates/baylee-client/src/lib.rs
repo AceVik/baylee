@@ -178,6 +178,16 @@ pub struct Duel {
     pub focus: Option<PlayerId>,
     /// The card the pointer or keyboard cursor is on.
     pub hovered: Option<ObjectId>,
+    /// The aspect ratio of the part of the window the table is *seen*
+    /// through, once anything has measured it.
+    ///
+    /// Not the window's. The HUD is on top of the battlefield rather than
+    /// beside it and covers about a fifth of it, so a table laid out against
+    /// the window is a table the camera then has to fit into something else.
+    /// `TableLayout` is built from this; until a frame has been drawn there
+    /// is no window to ask, and `None` means "assume a wide screen", which is
+    /// the hard-coded `16.0 / 9.0` this replaces.
+    pub canvas_aspect: Option<f32>,
     /// The engaged autopilot, if any ("next phase" / "end turn").
     pub autopilot: Option<AutoPilot>,
     /// Hand bar scroll offset in pixels.
@@ -459,6 +469,7 @@ impl Plugin for DuelPlugin {
             .add_systems(
                 Update,
                 (
+                    table::track_canvas,
                     table::sync_scene,
                     table::sync_zones,
                     table::sync_phase,
@@ -815,7 +826,7 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
     let seats: Vec<PlayerId> = std::iter::once(view.seat)
         .chain(view.opponents_in_turn_order())
         .collect();
-    let layout = TableLayout::new(&seats, 16.0 / 9.0, duel.focus);
+    let layout = TableLayout::new(&seats, duel.canvas_aspect.unwrap_or(16.0 / 9.0), duel.focus);
     let pod_width = layout
         .slots
         .iter()

@@ -330,6 +330,41 @@ impl Canvas {
             right: crate::hud::rail::RAIL_W,
         }
     }
+
+    /// The shape of what is left once the HUD has taken its share.
+    ///
+    /// This is what [`TableLayout::new`] is built against, so the table comes
+    /// out the shape of the space it has to fit in. On a 1728×1052 window
+    /// with this HUD it is about 2.0 — nothing like the window's 1.64, and
+    /// nothing like the `16.0 / 9.0` the layout used to assume.
+    #[must_use]
+    pub fn aspect(&self) -> f32 {
+        let width = (self.window.x - self.right).max(1.0);
+        let height = (self.window.y - self.top - self.bottom).max(1.0);
+        width / height
+    }
+}
+
+/// Tells the board model the shape of the space it is drawn in.
+///
+/// A system of its own because [`crate::rebuild_board`] is called from four
+/// places, none of which has a window — it answers a view arriving, a
+/// preference changing, a focus moving. The window changes on its own
+/// schedule, and this is the one place that notices.
+pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let aspect = Canvas::hud(Vec2::new(window.width(), window.height())).aspect();
+    // A resize is a rebuild of the whole layout, so the comparison has to be
+    // loose enough that a window nudged by a pixel does not do one per frame.
+    if duel
+        .canvas_aspect
+        .is_none_or(|shown| (shown - aspect).abs() > 0.01)
+    {
+        duel.canvas_aspect = Some(aspect);
+        crate::rebuild_board(&mut duel);
+    }
 }
 
 /// The framing the table currently deserves, and whether the camera is still

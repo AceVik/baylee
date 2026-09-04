@@ -574,6 +574,53 @@ pub struct PhaseLight {
     pub energy: f32,
 }
 
+/// Dawn: cool and low, for the steps nobody acts in.
+///
+/// A **teal**, not the blue it reads as. It used to be `[0.42, 0.58, 0.86]`,
+/// seven degrees of hue from the pie's own blue — near enough that the two
+/// were the same colour with different names. That went unnoticed while the
+/// wash was a small pool in the middle of a dark table, and stops being
+/// survivable the moment it fills the channel and runs up against the mat
+/// rims: a table that turns blue at untap is a table saying "this is the blue
+/// seat's". `the_wash_never_speaks_in_a_colour_of_the_pie` is that rule as a
+/// build failure.
+pub const COOL: [f32; 3] = [0.24, 0.72, 0.80];
+
+/// The lamp the pool is already generated as — a wash of it changes nothing,
+/// which is the point during a main phase.
+///
+/// The one wash that is allowed to share a hue with another ([`EMBER`] is
+/// nine degrees away), because it is not really a signal: it is the absence
+/// of one, at the lowest energy of the four, and it is pale where ember is
+/// saturated.
+pub const CANDLE: [f32; 3] = [1.0, 0.86, 0.62];
+
+/// Combat: iron heating, not a fire alarm.
+///
+/// Moved from `[0.90, 0.34, 0.22]`, which sat **two degrees** of hue from the
+/// pie's red — the same collision [`COOL`] had with blue, and the worse of
+/// the two, because combat is when a player is most likely to be reading whose
+/// creature is whose. The warm corridor is narrow (pie red at 9°, [`CANDLE`]
+/// at 38°), so the distance is spent where it is needed: twenty degrees from
+/// red, and the separation from candlelight is carried by saturation instead.
+/// Hotter and more saturated is also the truer picture — metal at temperature
+/// goes towards yellow, and only a fire alarm is crimson.
+///
+/// It stays inside the chroma cap `every_step_is_lit_and_in_range` enforces —
+/// a wash is a lamp over a table, not a filter over the cards — which is what
+/// picked `0.24` for the blue channel rather than the `0.12` that would have
+/// bought another degree of hue. The rule is older than this colour and it
+/// still holds: the channel is where no card lies, but bloom does not know
+/// that.
+pub const EMBER: [f32; 3] = [1.0, 0.61, 0.24];
+
+/// Dusk, for the end of a turn.
+///
+/// Kept as it was. Violet is the one hue on the table that no card claims —
+/// the pie's black is a near-neutral slate, saturated far too little to be
+/// confused with it.
+pub const DUSK: [f32; 3] = [0.52, 0.40, 0.72];
+
 /// What the light does in a given step.
 ///
 /// The arc over a turn is deliberate rather than twelve unrelated colours: a
@@ -584,15 +631,6 @@ pub struct PhaseLight {
 #[must_use]
 pub fn phase_light(step: baylee_view::Step) -> PhaseLight {
     use baylee_view::Step;
-    /// Dawn: cool and low, for the steps nobody acts in.
-    const COOL: [f32; 3] = [0.42, 0.58, 0.86];
-    /// The lamp the pool is already generated as — a wash of it changes
-    /// nothing, which is the point during a main phase.
-    const CANDLE: [f32; 3] = [1.0, 0.86, 0.62];
-    /// Combat: iron heating, not a fire alarm.
-    const EMBER: [f32; 3] = [0.90, 0.34, 0.22];
-    /// Dusk, for the end of a turn.
-    const DUSK: [f32; 3] = [0.52, 0.40, 0.72];
     match step {
         Step::Untap => PhaseLight {
             rgb: COOL,
@@ -648,6 +686,104 @@ mod tests {
     /// Every pixel of a texture, as `(x, y, rgba)`.
     fn pixels(t: &Texture) -> impl Iterator<Item = (u32, u32, [f32; 4])> + '_ {
         (0..t.height).flat_map(move |y| (0..t.width).map(move |x| (x, y, t.pixel(x, y))))
+    }
+
+    /// Hue in degrees and saturation, the two channels a colour is recognised
+    /// by across a table. Value is left out deliberately: a rim and a wash at
+    /// the same hue read as the same colour whichever is brighter.
+    fn hue_sat(rgb: [f32; 3]) -> (f32, f32) {
+        let [r, g, b] = rgb;
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let chroma = max - min;
+        if chroma < 1e-6 || max < 1e-6 {
+            return (0.0, 0.0);
+        }
+        let hue = 60.0
+            * if (max - r).abs() < 1e-6 {
+                ((g - b) / chroma).rem_euclid(6.0)
+            } else if (max - g).abs() < 1e-6 {
+                (b - r) / chroma + 2.0
+            } else {
+                (r - g) / chroma + 4.0
+            };
+        (hue.rem_euclid(360.0), chroma / max)
+    }
+
+    /// The shorter way round the wheel.
+    fn hue_gap(a: f32, b: f32) -> f32 {
+        let d = (a - b).abs().rem_euclid(360.0);
+        d.min(360.0 - d)
+    }
+
+    /// Every wash, with the name the failure message needs.
+    const WASHES: [(&str, [f32; 3]); 4] = [
+        ("COOL", COOL),
+        ("CANDLE", CANDLE),
+        ("EMBER", EMBER),
+        ("DUSK", DUSK),
+    ];
+
+    /// Below this a colour has no hue worth confusing — the pie's parchment
+    /// white and slate black are both under it, which is why neither appears
+    /// in the failures this test can produce.
+    const HAS_A_HUE: f32 = 0.35;
+
+    #[test]
+    fn the_wash_never_speaks_in_a_colour_of_the_pie() {
+        // The two signals on this table that a player reads without words:
+        // the pie says *whose* and *which colour*, the wash says *where in
+        // the turn*. They may not be the same colour. This was broken from
+        // the day both existed — ember sat 1.9 degrees from the pie's red and
+        // cool 7.1 from its blue — and it went unseen because the wash was a
+        // small pool over a dark middle. It stops being survivable when the
+        // wash fills the channel and runs up against the mat rims.
+        //
+        // Fifteen degrees is not a round number chosen in advance: the
+        // colours were placed first and the worst surviving pair measures
+        // 20.6, so this is the bound with a little air under it.
+        const APART: f32 = 15.0;
+        for (wname, wash) in WASHES {
+            let (wh, ws) = hue_sat(wash);
+            if ws < HAS_A_HUE {
+                continue;
+            }
+            for (i, pie) in PIE.iter().enumerate() {
+                let (ph, ps) = hue_sat(*pie);
+                if ps < HAS_A_HUE {
+                    continue;
+                }
+                let gap = hue_gap(wh, ph);
+                assert!(
+                    gap >= APART,
+                    "{wname} {wash:?} is {gap:.1}° from pie colour {i} {pie:?} — \
+                     the turn and the colour wheel would be saying the same thing"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn no_two_washes_read_as_the_same_light() {
+        // Separating the wash from the pie is only half of it: four washes
+        // that collapsed into two would leave a player unable to tell combat
+        // from a main phase. A pair may share a hue *only* if one of them is
+        // obviously the paler — which is the licence candlelight needs and
+        // the only one it gets, because it is the absence of a wash rather
+        // than a signal of its own.
+        const BY_HUE: f32 = 25.0;
+        const BY_SATURATION: f32 = 0.30;
+        for (i, (aname, a)) in WASHES.iter().enumerate() {
+            for (bname, b) in WASHES.iter().skip(i + 1) {
+                let ((ah, asat), (bh, bsat)) = (hue_sat(*a), hue_sat(*b));
+                let (hue, sat) = (hue_gap(ah, bh), (asat - bsat).abs());
+                assert!(
+                    hue >= BY_HUE || sat >= BY_SATURATION,
+                    "{aname} and {bname} are {hue:.1}° apart at {sat:.2} of saturation — \
+                     two steps of the turn that look alike"
+                );
+            }
+        }
     }
 
     #[test]
