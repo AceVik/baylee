@@ -38,6 +38,40 @@ mod layout {
     }
 }
 
+mod own_board {
+    use super::*;
+
+    /// A closed overlay shows its handle, and nothing else.
+    ///
+    /// The panel's height is `window - top - HAND_BAR_H`, so closing it leaves
+    /// exactly the knob standing above the hand bar — and a card inside it is
+    /// an order of magnitude taller than that. Found in a photograph: the tops
+    /// of two permanents stood above the hand bar, clipped to their title
+    /// bars, and looked exactly like the two cards that had just been played.
+    #[test]
+    fn a_closed_overlay_is_no_taller_than_its_knob() {
+        for window_h in [720.0_f32, 1052.0, 1138.0, 2160.0] {
+            let top = overlay::closed_overlay_top(window_h);
+            let height = window_h - top - HAND_BAR_H;
+            // A tolerance rather than an exact compare: the height is a
+            // round trip through a window height in the hundreds, and
+            // `f32::EPSILON` is the spacing at 1.0, not at 720.
+            assert!(
+                (height - overlay::KNOB_H).abs() < 1e-3,
+                "at {window_h} px the closed panel is {height} px, not the knob's \
+                 {}",
+                overlay::KNOB_H,
+            );
+        }
+        // A compile-time check, because both sides are constants: if a card
+        // ever fits inside the closed panel this test is measuring nothing,
+        // and the clip stops being the thing that matters.
+        const {
+            assert!(OVERLAY_CARD_H > overlay::KNOB_H);
+        }
+    }
+}
+
 mod closing {
     use super::*;
 

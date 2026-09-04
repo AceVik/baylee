@@ -8,6 +8,27 @@
 use super::*;
 use baylee_client_core::interaction::Prompt;
 
+/// How much of the own-board overlay stands above the hand bar when it is
+/// closed — which is the knob, and nothing else.
+///
+/// One constant because it is one fact stated in three places: the knob's own
+/// height, and the closed `top` computed both where the panel is spawned and
+/// where it is animated. Written out three times, it was possible for the
+/// panel to be taller than the handle it is supposed to be showing, and it
+/// was: the tops of your own permanents stood above the hand bar, clipped to
+/// their title bars, looking exactly like cards left behind by the cards you
+/// had played.
+pub(crate) const KNOB_H: f32 = 14.0;
+
+/// The closed panel's `top`, given the window's height.
+///
+/// Paired with `bottom: HAND_BAR_H`, this makes the closed panel exactly
+/// [`KNOB_H`] tall — which is what the lanes container has to clip against.
+#[must_use]
+pub(crate) fn closed_overlay_top(window_h: f32) -> f32 {
+    window_h - HAND_BAR_H - KNOB_H
+}
+
 /// Removes the overlay when the duel hands the screen back.
 ///
 /// The 3D stage has always been torn down on `Close`; the overlay was not,
@@ -1255,7 +1276,7 @@ pub(super) fn spawn_own_board_overlay(
     // Spawn already at the current slide position — spawning open and
     // correcting next frame is the battlefield's flicker.
     let open_top = TAB_H;
-    let closed_top = window_h - HAND_BAR_H - 14.0;
+    let closed_top = closed_overlay_top(window_h);
     let initial_top = closed_top + (open_top - closed_top) * overlay_t;
     let panel = commands
         .spawn((
@@ -1269,9 +1290,12 @@ pub(super) fn spawn_own_board_overlay(
                 flex_direction: FlexDirection::Column,
                 row_gap: px(6),
                 // No knob row: the knob floats on the panel's edge, only
-                // the button itself is visible.
+                // the button itself is visible. The top gutter is the knob's
+                // own height, which is also what makes a *closed* panel show
+                // the knob and nothing else — at `KNOB_H` tall its content
+                // box is then zero, so the lanes below have nothing to clip.
                 padding: UiRect {
-                    top: px(0),
+                    top: px(KNOB_H),
                     bottom: px(8),
                     left: px(12),
                     right: px(12),
@@ -1296,7 +1320,7 @@ pub(super) fn spawn_own_board_overlay(
                 left: percent(50),
                 margin: UiRect::left(px(-36)),
                 width: px(72),
-                height: px(14),
+                height: px(KNOB_H),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border_radius: BorderRadius {
@@ -1319,6 +1343,35 @@ pub(super) fn spawn_own_board_overlay(
     let Some(pod) = board.pods.iter().find(|p| p.is_local) else {
         return panel;
     };
+
+    // The lanes go in their own box, and that box clips vertically.
+    //
+    // A closed panel is exactly `KNOB_H` tall, and a card in it is
+    // `OVERLAY_CARD_H` — so without this the tops of your own permanents
+    // stand above the hand bar whenever the overlay is shut, which reads as
+    // cards left behind by the ones you played. Clipped on `y` only: a row
+    // that outgrows the panel sideways is a different question, and hiding
+    // its tail would be the lie rule 3 is about.
+    let lanes = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                // Without this the clip below is decoration. A flex item's
+                // automatic minimum size is its *content*, so the box grew to
+                // hold a full card row and then clipped nothing — which is
+                // why the first attempt at this fix changed the picture by a
+                // few pixels and nothing else.
+                min_height: px(0),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                overflow: Overflow::clip_y(),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(panel).add_child(lanes);
+
     for lane in &pod.lanes {
         if lane.groups.is_empty() {
             continue;
@@ -1424,7 +1477,7 @@ pub(super) fn spawn_own_board_overlay(
             commands.entity(card).add_child(visual);
             commands.entity(row).add_child(card);
         }
-        commands.entity(panel).add_child(row);
+        commands.entity(lanes).add_child(row);
     }
     panel
 }
@@ -1454,7 +1507,7 @@ pub fn animate_overlay(
         };
     }
     let open_top = TAB_H;
-    let closed_top = window.height() - HAND_BAR_H - 14.0;
+    let closed_top = closed_overlay_top(window.height());
     let top = closed_top + (open_top - closed_top) * duel.overlay_t;
     for mut node in &mut panels {
         node.top = px(top);

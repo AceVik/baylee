@@ -288,6 +288,26 @@ corner, settled three things at once:
   case, cleared only when the object has left both places, because
   `move_cursor` heals a stale cursor by itself.
 
+- And the *second* thing in that photograph, which the hover fix did not
+  touch: **a closed own-board overlay was showing the tops of your own
+  permanents.** One card top per permanent, clipped to its title bar and
+  standing above the hand bar — which is exactly what a card left behind by a
+  card you had just played would look like, and why the two were read as one
+  defect for as long as they were. `animate_overlay` parks the closed panel
+  at `window − HAND_BAR_H − 14`, so it is `KNOB_H` tall and should show its
+  handle and nothing else; the lanes inside it were children of the panel with
+  no clip. The number 14 was written out three times — the knob's height and
+  the closed `top` in two places — which is how a panel could be shorter than
+  the thing inside it without anything saying so.
+
+  Two lines of the fix are worth keeping. The lanes went into their own box
+  that clips on `y` only, because a row outgrowing the panel *sideways* is a
+  different question and hiding its tail would be the lie rule 3 is about. And
+  that box needs `min_height: 0`: a flex item's automatic minimum size is its
+  content, so the first attempt grew the box to hold a full card row and then
+  clipped nothing — it moved the picture by a few pixels and was photographed
+  again before it was believed.
+
 **One clause the same probe settled about the chips.** The overflow chip drew
 nothing when the probe asked for `more: 1` beside a single chip, which looked
 like a lost tail. It is not: `Corner::of_parts` fills all three slots from a
