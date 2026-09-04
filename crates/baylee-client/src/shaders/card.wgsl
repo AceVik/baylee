@@ -16,7 +16,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, plate_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, plate_layer, chip_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -29,6 +29,8 @@ struct CardParams {
     /// `cardplate::Plate::packed`: a creature's power, toughness and marked
     /// damage, or a planeswalker's loyalty.
     plate: u32,
+    chips_a: u32,
+    chips_b: u32,
     /// 1.0 when `art` holds real artwork, 0.0 when the card draws as `tint`.
     has_art: f32,
     /// How strongly the finish is applied. Lets one material be dimmed
@@ -285,6 +287,9 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // what the rail stops short of; before the corner ink, for the same reason
     // the rail is — nothing may survive outside the card.
     color = vec4<f32>(plate_layer(uv, params.plate, color.rgb), color.a);
+    // ---- and the counters standing above it
+    color = vec4<f32>(
+        chip_layer(uv, params.chips_a, params.chips_b, color.rgb), color.a);
 
     // ---- the corners the scanner saw and the card does not have
     //

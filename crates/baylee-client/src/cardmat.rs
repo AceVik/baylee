@@ -264,8 +264,13 @@ pub struct CardParams {
     pub glow: u32,
     /// What the reserved bottom-right corner says, packed by
     /// [`baylee_client_core::cardplate::Plate::packed`]: a creature's power,
-    /// toughness and damage, or a planeswalker's loyalty.
+    /// toughness and damage, a planeswalker's loyalty, or a saga's chapter.
     pub plate: u32,
+    /// The first two counter chips above the plate, packed by
+    /// [`baylee_client_core::cardplate::Corner::packed`].
+    pub chips_a: u32,
+    /// The third chip and the one that counts what did not fit.
+    pub chips_b: u32,
     /// 1.0 when the material carries real artwork, 0.0 when the card is drawn
     /// as a flat `tint` — its constructed face, or its back.
     pub has_art: f32,
@@ -397,7 +402,11 @@ impl UiCardMaterials {
             params: CardParams {
                 finish: finish_code(finish),
                 glow: 0,
+                // A printing in the picker is a piece of cardboard, not a
+                // permanent: it has no body and no counters on it.
                 plate: 0,
+                chips_a: 0,
+                chips_b: 0,
                 has_art: 1.0,
                 strength: 1.0,
                 tint: Vec4::ONE,
@@ -469,6 +478,8 @@ pub struct CardLook {
     /// of the material: two 2/2s share a plate and a material, a 2/2 and a
     /// 3/3 share neither.
     pub plate: u32,
+    /// Its counter chips, packed, for the same reason and with the same cost.
+    pub chips: [u32; 2],
     /// The flat colour, quantised, for a card with no art. `0` when it has
     /// art — a colour is not part of the key then.
     pub tint: u32,
@@ -483,6 +494,7 @@ impl CardLook {
             finish,
             glow,
             plate: 0,
+            chips: [0; 2],
             tint: 0,
         }
     }
@@ -495,18 +507,21 @@ impl CardLook {
             finish,
             glow,
             plate: 0,
+            chips: [0; 2],
             tint: quantise(color),
         }
     }
 
-    /// The same look with a corner plate on it.
+    /// The same look with its reserved corner filled in.
     ///
     /// A builder rather than a sixth argument on all three constructors: a
     /// card in hand, a card in a browser and a card in the printing picker
     /// have no body to show, and only the two board surfaces ever call this.
     #[must_use]
-    pub const fn with_plate(mut self, plate: u32) -> Self {
+    pub fn with_corner(mut self, corner: baylee_client_core::cardplate::Corner) -> Self {
+        let [plate, a, b] = corner.packed();
         self.plate = plate;
+        self.chips = [a, b];
         self
     }
 
@@ -523,6 +538,7 @@ impl CardLook {
             finish,
             glow,
             plate: 0,
+            chips: [0; 2],
             tint: 0,
         }
     }
@@ -562,6 +578,8 @@ pub fn material(look: CardLook, art: Option<Handle<Image>>, tint: Color) -> Card
             finish: finish_code(look.finish),
             glow: look.glow,
             plate: look.plate,
+            chips_a: look.chips[0],
+            chips_b: look.chips[1],
             has_art,
             strength: 1.0,
             tint: LinearRgba::from(tint).to_f32_array().into(),
@@ -1078,8 +1096,15 @@ struct Globals { time: f32 };
             ("PLATE_NONE", plate::KIND_NONE),
             ("PLATE_FIGHT", plate::KIND_FIGHT),
             ("PLATE_LOYALTY", plate::KIND_LOYALTY),
+            ("PLATE_LORE", plate::KIND_LORE),
             ("GLYPH_W", plate::GLYPH_W),
             ("GLYPH_H", plate::GLYPH_H),
+            ("ROMAN_MAX", u32::from(plate::ROMAN_MAX)),
+            ("CHIP_BITS", plate::CHIP_BITS),
+            ("CHIP_TINT_MASK", plate::CHIP_TINT_MASK),
+            ("CHIP_COUNT_SHIFT", plate::CHIP_COUNT_SHIFT),
+            ("CHIP_COUNT_MASK", plate::CHIP_COUNT_MASK),
+            ("PIP_MAX", u32::from(plate::PIP_MAX)),
         ] {
             // Half a unit, not an epsilon: these are whole numbers, so an
             // agreement is exactly zero apart and a disagreement is at least
@@ -1091,8 +1116,8 @@ struct Globals { time: f32 };
             );
         }
 
-        // The twelve stencils. Every word is under 2^24, so an `f32` carries
-        // it exactly and this comparison is not an approximation.
+        // The stencils. Every word is under 2^24, so an `f32` carries it
+        // exactly and this comparison is not an approximation.
         for (i, name) in [
             "GLYPH_0",
             "GLYPH_1",
@@ -1106,6 +1131,9 @@ struct Globals { time: f32 };
             "GLYPH_9",
             "GLYPH_MINUS",
             "GLYPH_SLASH",
+            "GLYPH_PLUS",
+            "GLYPH_I",
+            "GLYPH_V",
         ]
         .into_iter()
         .enumerate()
@@ -1113,6 +1141,29 @@ struct Globals { time: f32 };
             assert!(
                 (wgsl_const(src, name) - plate::GLYPHS[i] as f32).abs() < 0.5,
                 "{name} draws a different picture in the shader"
+            );
+        }
+
+        // The chip column: its geometry, and the six die faces.
+        for (name, ours) in [
+            ("CHIP_D", plate::CHIP_D),
+            ("CHIP_GAP", plate::CHIP_GAP),
+            ("CHIP_X", plate::CHIP_X),
+            ("CHIP_BASE", plate::CHIP_BASE),
+        ] {
+            let theirs = wgsl_const(src, name);
+            assert!(
+                (theirs - ours).abs() < 1e-5,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+        for (i, name) in ["PIP_1", "PIP_2", "PIP_3", "PIP_4", "PIP_5", "PIP_6"]
+            .into_iter()
+            .enumerate()
+        {
+            assert!(
+                (wgsl_const(src, name) - plate::PIPS[i] as f32).abs() < 0.5,
+                "{name} is a different die face in the shader"
             );
         }
 

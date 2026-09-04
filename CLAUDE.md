@@ -609,6 +609,18 @@ numerals are a 4×6 stencil, because there is no text on the 3D table. Adding
 loyalty to the plate meant adding it to `ObjectSummaryKey` too — it is drawn
 now, so two walkers of a name must stop grouping.
 
+Above the plate stand the **counter chips**: three flat discs, pips to six and
+numerals from seven, with a fourth kind collapsing to `+N`. Colour is the only
+channel left to say *which* counter, so `Chip::tint` is in the model where a
+test reaches it and the badge tooltip is what will name them; two more `u32`s
+carry them, because a tint and a count four times over do not fit in one. A
+**saga** takes the plate instead — a square parchment page with a roman
+chapter — and then draws no lore chip, which is why `Corner::of` decides the
+plate and the chips together rather than each on its own. `Corner::of_object`
+is the same answer for the hover preview, which showed the printed body until
+it existed. Lore counters are only ever on sagas (CR 714), so no subtypes are
+needed to recognise one — and a `CardGroup` has none to offer.
+
 The stack is drawn as cards, not as a list of names. Each entry in
 `hud::spawn_stack_panel` is the spell's own picture — or, for an ability,
 the picture of the permanent it came from (`StackKind::Ability { source }`,

@@ -766,16 +766,27 @@ pub fn sync_overlay(
                 img_h,
                 crate::face::Detail::Full,
                 &fonts,
-                match key {
-                    Some(key) => CardLook::art(
-                        key,
-                        finish_of(statics, Some(key)),
-                        crate::cardmat::glow_of(
-                            hovered.and_then(|id| view.object(id)),
-                            crate::cardmat::Offer::NONE,
-                        ),
-                    ),
-                    None => CardLook::back(FinishTreatment::Plain, 0),
+                {
+                    // The preview is the same permanent drawn larger, so it
+                    // says the same numbers: a 2/2 under an anthem is a 3/3
+                    // on the table, and a preview showing the printed 2/2
+                    // would put two answers for one creature on one screen.
+                    // A card in hand has no view object and therefore no
+                    // corner, which is right — its printed body is what it is.
+                    let object = hovered.and_then(|id| view.object(id));
+                    let corner = object.map_or_else(
+                        baylee_client_core::cardplate::Corner::default,
+                        baylee_client_core::cardplate::Corner::of_object,
+                    );
+                    match key {
+                        Some(key) => CardLook::art(
+                            key,
+                            finish_of(statics, Some(key)),
+                            crate::cardmat::glow_of(object, crate::cardmat::Offer::NONE),
+                        )
+                        .with_corner(corner),
+                        None => CardLook::back(FinishTreatment::Plain, 0).with_corner(corner),
+                    }
                 },
                 cards.as_mut(),
             );
@@ -1370,11 +1381,11 @@ pub(super) fn spawn_own_board_overlay(
                     // And its body, for the same reason: the overlay draws the
                     // same permanent through the same shader, so a 2/2 that is
                     // a 4/4 on the table must not be a 2/2 here.
-                    let plate = baylee_client_core::cardplate::Plate::of(group).packed();
+                    let corner = baylee_client_core::cardplate::Corner::of(group);
                     match group.art {
                         Some(art) => CardLook::art(art, finish_of(statics, Some(art)), glow)
-                            .with_plate(plate),
-                        None => CardLook::back(FinishTreatment::Plain, glow).with_plate(plate),
+                            .with_corner(corner),
+                        None => CardLook::back(FinishTreatment::Plain, glow).with_corner(corner),
                     }
                 },
                 cards.as_deref_mut(),

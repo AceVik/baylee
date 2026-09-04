@@ -408,6 +408,7 @@ const PLATE_BIAS: i32 = 128;
 const PLATE_NONE: u32 = 0u;
 const PLATE_FIGHT: u32 = 1u;
 const PLATE_LOYALTY: u32 = 2u;
+const PLATE_LORE: u32 = 3u;
 
 /// The glyph grid, and the twelve stencils drawn on it.
 const GLYPH_W: u32 = 4u;
@@ -424,6 +425,13 @@ const GLYPH_8: u32 = 0x699696u;
 const GLYPH_9: u32 = 0x617996u;
 const GLYPH_MINUS: u32 = 0xe000u;
 const GLYPH_SLASH: u32 = 0x884211u;
+const GLYPH_PLUS: u32 = 0x4e40u;
+const GLYPH_I: u32 = 0xe4444eu;
+const GLYPH_V: u32 = 0x469999u;
+
+/// The largest chapter written in roman numerals; a sixth falls back to
+/// arabic, because `VI` needs a rule this composition does not have.
+const ROMAN_MAX: u32 = 5u;
 
 /// A planeswalker's rim and ink. Gilt, and explicitly not a shield: the
 /// shield-shaped loyalty box is the printed planeswalker frame's own element,
@@ -434,6 +442,12 @@ const GILT: vec3<f32> = vec3<f32>(0.87, 0.73, 0.38);
 /// Marked damage, which is the one thing on this plate that is not printed on
 /// a real card — so it is drawn as a rising fill rather than as a numeral.
 const EMBER: vec3<f32> = vec3<f32>(0.88, 0.27, 0.18);
+
+/// A saga's page. Light where every other plate is dark, because a chapter is
+/// a *page* — and because the one thing that must never happen in this corner
+/// is a chapter read as a power.
+const PARCHMENT: vec3<f32> = vec3<f32>(0.88, 0.83, 0.69);
+const SEPIA: vec3<f32> = vec3<f32>(0.24, 0.17, 0.10);
 
 fn glyph_word(which: u32) -> u32 {
     switch which {
@@ -448,8 +462,25 @@ fn glyph_word(which: u32) -> u32 {
         case 8u: { return GLYPH_8; }
         case 9u: { return GLYPH_9; }
         case 10u: { return GLYPH_MINUS; }
-        default: { return GLYPH_SLASH; }
+        case 11u: { return GLYPH_SLASH; }
+        case 12u: { return GLYPH_PLUS; }
+        case 13u: { return GLYPH_I; }
+        default: { return GLYPH_V; }
     }
+}
+
+/// How many glyph cells a chapter takes in roman numerals, for 1..=5.
+fn roman_len(v: u32) -> u32 {
+    if v == 4u { return 2u; }
+    if v == 5u { return 1u; }
+    return v;
+}
+
+/// The `k`-th roman glyph of a chapter: `I`, `II`, `III`, `IV`, `V`.
+fn roman_at(v: u32, k: u32) -> u32 {
+    if v == 5u { return 14u; }
+    if v == 4u { return select(14u, 13u, k == 0u); }
+    return 13u;
 }
 
 /// One cell of a glyph, and 0 outside it — which is what stops a stencil
@@ -506,19 +537,36 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
     // undefined on half the backends this ships to.
     let aa = max(fwidth(p.x), 0.0015);
 
+    // A chapter is a page: square, barely rounded, and light. Everything else
+    // is the wide dark plate. Same corner and same right edge, so the two can
+    // never be mistaken for each other and never move.
+    var pw = PLATE_W;
+    var radius = PLATE_H * 0.28;
+    var body = PLATE;
+    var accent = INK;
+    if kind == PLATE_LORE {
+        pw = PLATE_H;
+        radius = PLATE_H * 0.10;
+        body = PARCHMENT;
+        accent = SEPIA;
+    } else if kind == PLATE_LOYALTY {
+        // Gilt, and explicitly not a shield — see GILT.
+        accent = GILT;
+    }
+
     let x1 = 1.0 - PLATE_INSET;
-    let x0 = x1 - PLATE_W;
+    let x0 = x1 - pw;
     let y1 = height - PLATE_INSET;
     let y0 = y1 - PLATE_H;
     let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
-    let half = vec2<f32>(PLATE_W * 0.5, PLATE_H * 0.5);
+    let half = vec2<f32>(pw * 0.5, PLATE_H * 0.5);
 
-    let d_plate = sd_round_box(p - mid, half, PLATE_H * 0.28);
+    let d_plate = sd_round_box(p - mid, half, radius);
     let inside = 1.0 - smoothstep(-aa, aa, d_plate);
     if inside <= 0.0 {
         return color;
     }
-    var out = mix(color, PLATE, inside * 0.88);
+    var out = mix(color, body, inside * 0.88);
 
     let a = i32(word & PLATE_SLOT_MASK) - PLATE_BIAS;
     let b = i32((word >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
@@ -534,13 +582,8 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
         out = mix(out, EMBER, fill * 0.58);
     }
 
-    // The rim. Gilt for a planeswalker, which is the whole of how the two
-    // plates are told apart — same corner, same shape, same numeral role.
+    // The rim, in whichever ink this plate writes with.
     let rim = 1.0 - smoothstep(-aa, aa, abs(d_plate) - 0.0045);
-    var accent = INK;
-    if kind == PLATE_LOYALTY {
-        accent = GILT;
-    }
     out = mix(out, accent, rim * 0.55);
 
     // How many glyphs, and therefore how big they are: a lone loyalty numeral
@@ -553,14 +596,17 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
     let da = plate_digits(av);
     let db = plate_digits(bv);
     let lead = select(0u, 1u, neg);
+    let roman = kind == PLATE_LORE && av >= 1u && av <= ROMAN_MAX;
     var n = da;
     if kind == PLATE_FIGHT {
         n = lead + da + 1u + db;
+    } else if roman {
+        n = roman_len(av);
     }
 
     let span = f32(n * GLYPH_W + (n - 1u));
     let unit = min(
-        (PLATE_W - 2.0 * PLATE_PAD) / span,
+        (pw - 2.0 * PLATE_PAD) / span,
         (PLATE_H - 2.0 * PLATE_PAD) / f32(GLYPH_H),
     );
     let text = vec2<f32>(span * unit, f32(GLYPH_H) * unit);
@@ -580,7 +626,9 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
     }
 
     var which = 11u;
-    if kind == PLATE_LOYALTY {
+    if roman {
+        which = roman_at(av, k);
+    } else if kind != PLATE_FIGHT {
         which = plate_digit_at(av, da, k);
     } else if k < lead {
         which = 10u;
@@ -606,4 +654,200 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
     let v = mix(s0, s1, f.y);
     let e = max(aa / unit, 0.06);
     return mix(out, accent, smoothstep(0.5 - e, 0.5 + e, v));
+}
+
+// ------------------------------------------------------------- counter chips
+//
+// The column above the plate: up to three flat stamped discs and, when a
+// fourth kind of counter is on the card, one more that counts the rest. The
+// Rust half is `baylee_client_core::cardplate::ChipRow`, which decides which
+// three and in what order; every constant below is mirrored and tested there.
+
+/// A chip's diameter, the gap between two of them, and the column's centre.
+const CHIP_D: f32 = 0.098;
+const CHIP_GAP: f32 = 0.018;
+const CHIP_X: f32 = 0.85;
+
+/// How far above the card's bottom edge the column starts — the plate's whole
+/// band plus a gap, so the chips do not move when a creature stops being one.
+const CHIP_BASE: f32 = 0.185;
+
+/// How a chip is packed: five bits of tint, ten of count, two to a word.
+const CHIP_BITS: u32 = 16u;
+const CHIP_TINT_MASK: u32 = 0x1fu;
+const CHIP_COUNT_SHIFT: u32 = 5u;
+const CHIP_COUNT_MASK: u32 = 0x3ffu;
+
+/// The largest count drawn as pips, and the six die faces — a bit per cell of
+/// a 3×3 grid, bit `row * 3 + (2 - col)`.
+const PIP_MAX: u32 = 6u;
+const PIP_1: u32 = 0x010u;
+const PIP_2: u32 = 0x101u;
+const PIP_3: u32 = 0x111u;
+const PIP_4: u32 = 0x145u;
+const PIP_5: u32 = 0x155u;
+const PIP_6: u32 = 0x16du;
+
+/// The tints, in `cardplate`'s order. Colour is the only channel a chip has
+/// left once the count has taken the pips, so these are chosen to stay apart
+/// from one another rather than to be pretty: growth green, bruise violet,
+/// charge blue, parchment, pale time, level orange, gilt, rose, stone, slate.
+fn chip_tint(which: u32) -> vec3<f32> {
+    switch which {
+        case 1u: { return vec3<f32>(0.32, 0.74, 0.38); }
+        case 2u: { return vec3<f32>(0.55, 0.33, 0.66); }
+        case 3u: { return vec3<f32>(0.24, 0.56, 0.92); }
+        case 4u: { return vec3<f32>(0.85, 0.72, 0.42); }
+        case 5u: { return vec3<f32>(0.44, 0.81, 0.83); }
+        case 6u: { return vec3<f32>(0.94, 0.56, 0.20); }
+        case 7u: { return GILT; }
+        case 8u: { return vec3<f32>(0.91, 0.45, 0.56); }
+        case 9u: { return vec3<f32>(0.60, 0.62, 0.66); }
+        default: { return vec3<f32>(0.36, 0.39, 0.45); }
+    }
+}
+
+fn pip_mask(n: u32) -> u32 {
+    switch n {
+        case 1u: { return PIP_1; }
+        case 2u: { return PIP_2; }
+        case 3u: { return PIP_3; }
+        case 4u: { return PIP_4; }
+        case 5u: { return PIP_5; }
+        default: { return PIP_6; }
+    }
+}
+
+/// Draws `v` centred in a box, optionally behind one leading glyph, and
+/// returns how much of the point it covers.
+///
+/// `aa` is passed in rather than taken here: every caller is inside a branch
+/// that is not uniform, and a derivative asked for there is undefined on half
+/// the backends this ships to. `lead` is a glyph index, or anything from 15
+/// up for "no leading glyph".
+fn number_cover(p: vec2<f32>, mid: vec2<f32>, area: vec2<f32>, v: u32, lead: u32, aa: f32) -> f32 {
+    let dn = plate_digits(v);
+    var n = dn;
+    if lead < 15u {
+        n = n + 1u;
+    }
+    let span = f32(n * GLYPH_W + (n - 1u));
+    let unit = min(area.x / span, area.y / f32(GLYPH_H));
+    let text = vec2<f32>(span * unit, f32(GLYPH_H) * unit);
+    let local = (p - (mid - text * 0.5)) / unit;
+    if local.x < 0.0 || local.y < 0.0 || local.y >= f32(GLYPH_H) {
+        return 0.0;
+    }
+    let stride = f32(GLYPH_W + 1u);
+    let k = u32(floor(local.x / stride));
+    if k >= n {
+        return 0.0;
+    }
+    let col = local.x - f32(k) * stride;
+    if col >= f32(GLYPH_W) {
+        return 0.0;
+    }
+    var which = lead;
+    if lead >= 15u {
+        which = plate_digit_at(v, dn, k);
+    } else if k > 0u {
+        which = plate_digit_at(v, dn, k - 1u);
+    }
+    let gw = glyph_word(which);
+    let g = vec2<f32>(col, local.y) - vec2<f32>(0.5);
+    let base = floor(g);
+    let f = g - base;
+    let cx = i32(base.x);
+    let cy = i32(base.y);
+    let s0 = mix(glyph_cell(gw, cx, cy), glyph_cell(gw, cx + 1, cy), f.x);
+    let s1 = mix(glyph_cell(gw, cx, cy + 1), glyph_cell(gw, cx + 1, cy + 1), f.x);
+    let value = mix(s0, s1, f.y);
+    let e = max(aa / unit, 0.06);
+    return smoothstep(0.5 - e, 0.5 + e, value);
+}
+
+/// Draws the chip column over `color` and returns what is left.
+///
+/// Two words, four slots: `a` holds the first two chips, `b` the third and the
+/// one that counts whatever did not fit.
+fn chip_layer(uv: vec2<f32>, a: u32, b: u32, color: vec3<f32>) -> vec3<f32> {
+    if a == 0u && b == 0u {
+        return color;
+    }
+
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    let height = 1.0 / CARD_ASPECT;
+    // The one derivative, taken before any branch that is not uniform.
+    let aa = max(fwidth(p.x), 0.0015);
+
+    var out = color;
+    // Bounded at four at compile time, like the rail's eleven: WebGL2 will
+    // not compile a loop whose count it cannot see.
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        var word = a;
+        var half = i;
+        if i >= 2u {
+            word = b;
+            half = i - 2u;
+        }
+        let packed = (word >> (half * CHIP_BITS)) & 0xffffu;
+        let tint_id = packed & CHIP_TINT_MASK;
+        if tint_id == 0u {
+            continue;
+        }
+        let count = (packed >> CHIP_COUNT_SHIFT) & CHIP_COUNT_MASK;
+        let centre = vec2<f32>(
+            CHIP_X,
+            height - CHIP_BASE - CHIP_D * 0.5 - f32(i) * (CHIP_D + CHIP_GAP),
+        );
+        let d = sd_circle(p - centre, CHIP_D * 0.5);
+        let inside = 1.0 - smoothstep(-aa, aa, d);
+        if inside <= 0.0 {
+            continue;
+        }
+
+        let tint = chip_tint(tint_id);
+        let face = mix(PLATE, tint, 0.82);
+        out = mix(out, face, inside);
+        let rim = 1.0 - smoothstep(-aa, aa, abs(d) - 0.006);
+        out = mix(out, mix(tint, INK, 0.45), rim * 0.75);
+
+        // Whichever of the two inks the chip's own colour can carry. A green
+        // chip takes the dark one, a slate chip the light one, and neither is
+        // ever a mark a player has to lean in to find.
+        var mark = INK;
+        if dot(face, vec3<f32>(0.2126, 0.7152, 0.0722)) > 0.42 {
+            mark = PLATE;
+        }
+
+        // The overflow chip is the one that says `+N`; everything else is a
+        // count, in pips while a die could hold it and in numerals after.
+        if tint_id == 10u {
+            let cover = number_cover(
+                p, centre, vec2<f32>(CHIP_D * 0.76, CHIP_D * 0.52), count, 12u, aa);
+            out = mix(out, mark, cover * inside);
+        } else if count >= 1u && count <= PIP_MAX {
+            let mask = pip_mask(count);
+            let cell = CHIP_D * 0.66 / 3.0;
+            var hit = 0.0;
+            for (var k = 0u; k < 9u; k = k + 1u) {
+                let cx = k % 3u;
+                let cy = k / 3u;
+                if ((mask >> (cy * 3u + (2u - cx))) & 1u) == 0u {
+                    continue;
+                }
+                let at = centre + vec2<f32>(
+                    (f32(cx) - 1.0) * cell,
+                    (f32(cy) - 1.0) * cell,
+                );
+                hit = max(hit, 1.0 - smoothstep(-aa, aa, sd_circle(p - at, cell * 0.32)));
+            }
+            out = mix(out, mark, hit * inside);
+        } else {
+            let cover = number_cover(
+                p, centre, vec2<f32>(CHIP_D * 0.76, CHIP_D * 0.56), count, 99u, aa);
+            out = mix(out, mark, cover * inside);
+        }
+    }
+    return out;
 }

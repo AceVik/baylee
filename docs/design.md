@@ -384,7 +384,41 @@ implementation settled that the paragraph above did not.
   now, and two walkers of one name differ by exactly that, so a stack of them
   would have worn one number and lied about the other.
 
-Left in this corner: the counter chips, and the saga's square parchment plate.
+**Done — the chips, and the page.** The column above the plate is
+`cardplate::ChipRow` and `chip_layer`, and the two are decided together as one
+`Corner` because one of them can silence the other. Four things this half
+settled.
+
+- *Colour is the whole of the kind.* A chip has room for a count and nothing
+  else, so which counter it is has one channel left, and it is the disc's own
+  colour — `Chip::tint`, in the model, where a test can reach it. That is
+  deliberately half an answer: it separates the chips on one card from each
+  other, and the badge tooltip is what will name them. Pips to six, numerals
+  from seven, and the count clamps at 999 rather than drawing its low three
+  digits, for the reason the plate clamps.
+- *Two words, not one.* Three chips and an overflow, each a tint and a count,
+  do not fit in thirty-two bits without capping a count so low a proliferate
+  deck would out-count it. The overflow is packed as a fourth chip with a
+  reserved tint, so the shader's loop has one shape.
+- *`+1/+1` and `-1/-1` keep their chips.* `board::badge_counters` used to drop
+  the second on the grounds that the projected numbers already carry it, and
+  nothing ever called it. By the time something did, the rule was wrong in both
+  directions: a 3/3 and a 1/1 wearing two `+1/+1` plate identically, and so do
+  a 3/3 and a 5/5 wearing two `-1/-1`. The chip is the only thing that tells
+  them apart, so it is drawn and the function is gone.
+- *A chapter is a page.* A saga has no body, so the corner is free — and the
+  plate turns square, light and barely rounded, with the chapter in roman
+  numerals in sepia. It is the one counter the chip column drops, because the
+  page says the same number. Lore counters are only ever on sagas (CR 714), so
+  no type line is needed to know one, which is the only reason this is
+  expressible: a `CardGroup` carries counters and does not carry subtypes.
+  Chapters past `V` fall back to arabic, because `VI` needs a composition rule
+  this does not have and an honest number beats a pretty one.
+
+The screenshot found one thing no test could: the roman `V` drawn as
+`1001` five times over `0110` renders as a **U**. It needs the tip —
+`0110` then `0100` — and `IV` reading as `IU` on a real card is exactly the
+class of bug `docs/client.md`'s black-screen entry is about.
 
 ### 1.5 States that are not keywords
 
@@ -775,8 +809,8 @@ Left: the stack panel with runs, which is the one item on this list nothing
 else needs and which is deliberately not being done ahead of tranche 3.
 
 **Third, the board made legible.** The hearth shrunk and the own battlefield
-out from under the hand bar; P/T, damage and counter chips on art faces; combat
-drawn — `is_selected`, assignment lines, the focus pulse and the per-defender
+out from under the hand bar; ~~P/T, damage and counter chips on art faces~~
+(done — §1.4, plate and chips both); combat drawn — `is_selected`, assignment lines, the focus pulse and the per-defender
 summary; `motion` wired to `reduce_motion`; the palette unified; the keyword
 dominance table and the off-pie films; flying as elevation.
 

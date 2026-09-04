@@ -23,7 +23,7 @@ use crate::images::{ArtSize, ImageKey};
 use crate::layout::{LaneKind, pack_lane};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
-use baylee_view::{CounterEntry, CounterKind, ObjectStatus, PlayerView, PublicObject, TargetRef};
+use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, TargetRef};
 use std::collections::{HashMap, HashSet};
 
 /// Keyword bits the client renders as icons.
@@ -884,15 +884,14 @@ fn threat_summary(permanents: &[&PublicObject], cards_in_hand: u32) -> ThreatSum
     summary
 }
 
-/// Counters worth drawing as a badge (everything except the power/toughness
-/// counters, which are already folded into the printed numbers).
-#[must_use]
-pub fn badge_counters(counters: &[CounterEntry]) -> Vec<&CounterEntry> {
-    counters
-        .iter()
-        .filter(|c| !c.kind.is_power_toughness() || c.kind == CounterKind::PlusOnePlusOne)
-        .collect()
-}
+// `badge_counters` used to live here: the counters "worth drawing as a badge",
+// which meant everything except `-1/-1` on the grounds that the projected
+// numbers already carry it. Nothing ever called it, and by the time something
+// did — `cardplate::Corner` — the rule had turned out to be wrong: a 3/3 and a
+// 1/1 wearing two `+1/+1` counters plate identically, and so do a 3/3 and a
+// 5/5 wearing two `-1/-1`. The chip is the only thing that tells them apart,
+// so `Corner::of` reads `counters` whole and silences exactly one counter, the
+// saga's, because its plate says the same number.
 
 #[cfg(test)]
 mod tests {

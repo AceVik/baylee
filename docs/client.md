@@ -350,6 +350,19 @@ separation is the whole grammar:
   in a stack every frame. The plate is drawn whether or not the card has art —
   a card that could not load its scan is the one a player can least afford to
   guess the body of.
+- **And the counters stand above it.** Up to three chips run up the right edge
+  from the plate's band, each a flat stamped disc: die pips to six, numerals
+  from seven, and a fourth kind collapsing to `+N` rather than vanishing. Which
+  counter a chip is has exactly one channel left at that size — its colour —
+  so `Chip::tint` lives in the model where a test can reach it, and naming the
+  counter is the badge tooltip's job. Two more `u32`s on the material key,
+  because a tint and a count four times over do not fit in one. A **saga** is
+  the exception that takes the plate instead: a square parchment page with the
+  chapter in roman numerals, and its lore counter then draws no chip, because
+  the page is already saying that number. `Corner::of` decides plate and chips
+  together for exactly that reason, and `Corner::of_object` does the same for
+  the hover preview — which drew the *printed* numbers until it did, so a 2/2
+  under an anthem was a 3/3 on the table and a 2/2 in its own preview.
 
 The pictograms live in a third shader file, `card_common.wgsl`, together with
 the printed corner both shaders cut at: it is everything the table and the

@@ -990,7 +990,7 @@ struct Placement {
     count: usize,
     art: Option<ImageKey>,
     offer: crate::cardmat::Offer,
-    plate: u32,
+    corner: baylee_client_core::cardplate::Corner,
 }
 
 /// Computes placements for the whole table.
@@ -1028,11 +1028,11 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         &group.members,
                         group.activatable,
                     ),
-                    // Power, toughness and marked damage — three rules facts
-                    // printed on every real card and drawn nowhere in this
-                    // client on a card showing art. Packed here for the same
-                    // reason the offer is resolved here: the group is here.
-                    plate: baylee_client_core::cardplate::Plate::of(group).packed(),
+                    // Power, toughness, marked damage and the counters — the
+                    // rules facts printed on every real card and drawn nowhere
+                    // in this client on a card showing art. Resolved here for
+                    // the same reason the offer is: the group is here.
+                    corner: baylee_client_core::cardplate::Corner::of(group),
                 });
             }
         }
@@ -1116,7 +1116,7 @@ pub fn sync_scene(
             // material however many creatures are on it.
             let colors = object.map_or(ColorSet::EMPTY, |o| o.colors);
             let tint = face::table_color(colors);
-            let look = CardLook::flat(tint, finish, glow).with_plate(placement.plate);
+            let look = CardLook::flat(tint, finish, glow).with_corner(placement.corner);
             if let Some(handle) = index.face_materials.get(&look) {
                 handle.clone()
             } else {
@@ -1128,7 +1128,7 @@ pub fn sync_scene(
             // One material per look, created on first use.
             match placement.art {
                 Some(key) => {
-                    let look = CardLook::art(key, finish, glow).with_plate(placement.plate);
+                    let look = CardLook::art(key, finish, glow).with_corner(placement.corner);
                     if let Some(handle) = index.materials.get(&look) {
                         handle.clone()
                     } else {
