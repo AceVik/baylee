@@ -13,7 +13,7 @@
 
 use crate::hud::{UiFonts, palette, tf};
 use crate::lobby::{Metrics, Press, button, chip, heading, panel, row};
-use baylee_client_core::automation::{RAIL_ROWS, RailSide};
+use baylee_client_core::automation::{RAIL_ROWS, RailPreset, RailSide};
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::prefs::{Action, AutoRule, Chord, Keymap, Preferences};
 use bevy::prelude::*;
@@ -281,6 +281,16 @@ fn automation_panel(
         .id();
     commands.entity(column).add_child(explain);
 
+    // The presets sit above the rail they write, because that is the order
+    // they are used in: pick a starting point, then correct it by hand. A chip
+    // is lit only while the rail still *is* that preset, so the first hand
+    // correction puts both of them out and the rail stops claiming to be
+    // something a player has since edited.
+    for preset in RailPreset::ALL {
+        let line = preset_row(commands, prefs, preset, lang, fonts, metrics);
+        commands.entity(column).add_child(line);
+    }
+
     for side in RailSide::BOTH {
         let label = commands
             .spawn((
@@ -313,6 +323,56 @@ fn automation_panel(
         commands.entity(column).add_child(strip);
     }
     column
+}
+
+/// One rail preset: its name, what it stops at, and the button that writes it.
+///
+/// A button rather than a switch, because a preset is not a state the rail is
+/// *in* — it writes twenty-four buttons and then has nothing more to do with
+/// them. It is nonetheless drawn lit while the rail still matches, which is
+/// the only honest way to answer "am I on competitive stops right now".
+fn preset_row(
+    commands: &mut Commands,
+    prefs: &Preferences,
+    preset: RailPreset,
+    lang: Lang,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) -> Entity {
+    let line = row(commands, metrics, false);
+    let text = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new(preset.label().text(lang)),
+                    tf(fonts, metrics.text),
+                    TextColor(palette::INK),
+                ),
+                (
+                    Text::new(preset.detail().text(lang)),
+                    tf(fonts, metrics.small),
+                    TextColor(palette::MUTED),
+                )
+            ],
+        ))
+        .id();
+    let on = prefs.orders.is(preset);
+    let use_it = chip(
+        commands,
+        fonts,
+        metrics,
+        Phrase::UsePreset.text(lang),
+        Press::SetRail(preset),
+        on,
+    );
+    commands.entity(line).add_children(&[text, use_it]);
+    line
 }
 
 /// Which language the interface speaks, offered as one chip per language.

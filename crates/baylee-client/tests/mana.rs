@@ -658,3 +658,77 @@ fn picking_from_the_chooser_arms_rather_than_sends() {
     );
     assert!(duel.armed.is_none(), "sending disarms");
 }
+
+/// An armed run can come back a different answer, and then it is a cast.
+///
+/// This is the one arming path that re-resolves to something *other* than
+/// itself. Between the two taps this seat holds priority, so the board can
+/// only have been changed by this seat — and the one thing it can have done
+/// is tap a land by hand. Once that pays the cost the engine offers the spell
+/// outright, and a run started anyway would tap two more lands and float mana
+/// nobody asked for.
+///
+/// The ordering is what the test is really about: `play_card` is read
+/// *before* `reachable`, so `duel.reachable` is deliberately left saying yes
+/// here. What the client offered to do a moment ago must not outvote what the
+/// engine is offering now.
+#[test]
+fn an_armed_run_becomes_a_plain_cast_when_the_lands_are_tapped_by_hand() {
+    use baylee_client::input::{activate_card, armed_keys};
+    use baylee_client::keys::Fired;
+    use baylee_client::{Deed, Duel};
+    use baylee_client_core::interaction::Interaction;
+    use baylee_client_core::prefs::Action;
+
+    let mut table = Table::open();
+    table.walk_to_main();
+
+    let spell = table
+        .view()
+        .hand
+        .iter()
+        .find(|c| c.name == "Great Divide Guide")
+        .expect("the creature is in the opening hand")
+        .id;
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+    duel.reachable = std::iter::once(spell).collect();
+
+    activate_card(&mut duel, spell);
+    let Some(Deed::Run(plan)) = duel.armed.as_ref().map(|a| a.deed.clone()) else {
+        panic!("a spell the lands can pay for arms a run: {:?}", duel.armed);
+    };
+    assert!(duel.outbox().is_empty(), "arming puts nothing on the wire");
+
+    // The player pays it themselves instead, which is the thing that was
+    // always allowed and is the only way the board can move here.
+    for step in &plan.steps {
+        table.submit(PlayerAction::ActivateManaAbility {
+            source: step.source,
+        });
+    }
+    assert!(
+        table.legal().castable.contains(&spell),
+        "with the mana floating the engine offers the spell"
+    );
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+
+    // Confirm now casts. No run is started, and no further land is tapped.
+    assert!(armed_keys(Fired::of_actions(&[Action::Confirm]), &mut duel));
+    assert_eq!(
+        duel.outbox().first().cloned().expect("the key sent one"),
+        PlayerAction::CastSpell { card: spell },
+        "the armed run resolved to the cast it was standing in for"
+    );
+    assert!(duel.mana_run.is_none(), "nothing was tapped for it");
+    assert!(duel.armed.is_none(), "sending disarms");
+}

@@ -524,8 +524,25 @@ settled that the sketch above did not:
   false through `PriorityHold::suppresses`, which `auto_answer` now shares, so
   the indicator cannot disagree with the engine.
 
-Left: the rail's "competitive stops" preset, which is `PhaseOrders` plus a
-settings button and touches no protocol.
+**Done — the second, as `RailPreset`.** Two presets rather than one, because a
+preset with no way back is a trap: competitive stops turn seventeen of the
+twenty-four buttons red and clicking them green again one at a time is not an
+undo. `Stop everywhere` is the default said out loud, and `Competitive stops`
+keeps seven windows: both of your own main phases, the whole of combat on both
+turns, and the end step of an opponent's.
+
+The thing that decided which seven is not taste. **A red row is not a pass in a
+declaration step** — `auto_answer` turns it into `DeclareNoAttackers` /
+`DeclareNoBlockers`, which is a decision and not a skipped window. So the row
+on whichever side actually asks this seat to declare has to stay green:
+attackers on its own turn, blockers on an opponent's. A preset that got that
+wrong would not stop asking, it would decline every block for the rest of the
+game — and the test that holds it is written through `auto_answer` rather than
+against the table, because the table is not the claim.
+
+A preset is written as a button, not held as a mode. The chip is nonetheless
+lit while the rail still matches, which is the only honest answer to "am I on
+competitive stops right now"; the first hand correction puts both chips out.
 
 One bug in that area, found in the audit: `Situation` carries no stack depth,
 so a red rail row passes priority *with a spell on the stack*. Red should mean

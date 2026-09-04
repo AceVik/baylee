@@ -89,7 +89,13 @@ Two independent things, both stored per account:
 - **The phase rail** — one button per step of the turn, per side of the table.
   Green means "ask me here", red means "skip". Nothing is red by default: a
   client that auto-passes without being asked loses games its player never
-  agreed to lose.
+  agreed to lose. Two **presets** write the whole rail at once —
+  `Stop everywhere`, which is that default said out loud, and
+  `Competitive stops`, which keeps both of your own main phases, the whole of
+  combat on both turns, and the end step of an opponent's. Neither ever reds a
+  row where *this* seat is the one declaring: red is `DeclareNoAttackers` /
+  `DeclareNoBlockers` there, not a pass, and a preset that skipped a
+  declaration step would be answering it.
 - **`AutoRules`** — four switches, all off by default: pass a window that
   offers nothing at all; pass through opponents' turns (priority only, never a
   block); answer "no attackers" when nothing can attack; the same for blocks.

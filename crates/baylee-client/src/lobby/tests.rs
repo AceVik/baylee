@@ -1142,7 +1142,7 @@ fn arming_a_row_can_be_backed_out_of_or_used_to_unbind() {
 
 #[test]
 fn the_settings_screen_offers_every_switch_and_both_rails() {
-    use baylee_client_core::automation::{RAIL_ROWS, RailSide};
+    use baylee_client_core::automation::{RAIL_ROWS, RailPreset, RailRow, RailSide};
     use baylee_client_core::prefs::{Action, AutoRule};
 
     let mut app = headless();
@@ -1172,7 +1172,34 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
             );
         }
     }
+    for preset in RailPreset::ALL {
+        assert!(
+            found.contains(&Press::SetRail(preset)),
+            "{preset:?} cannot be reached from the screen"
+        );
+    }
     assert!(found.contains(&Press::CloseSettings), "no way back");
+
+    // A preset writes the whole rail, and the rail it writes is one nothing
+    // else on the screen could have produced by accident.
+    press(&mut app, Press::SetRail(RailPreset::Competitive));
+    let orders = app
+        .world()
+        .resource::<crate::prefs::Prefs>()
+        .orders()
+        .clone();
+    assert!(
+        orders.is(RailPreset::Competitive),
+        "the preset did not take"
+    );
+    assert!(
+        orders.is_skipped(RailSide::Mine, RailRow::Upkeep),
+        "a quiet window should be red"
+    );
+    assert!(
+        !orders.is_skipped(RailSide::Theirs, RailRow::Blockers),
+        "the row where this seat declares blocks must stay green"
+    );
 
     // A switch actually flips, and the screen redraws to say so.
     press(&mut app, Press::ToggleAuto(AutoRule::SkipEmptyBlocks));

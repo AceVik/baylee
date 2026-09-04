@@ -229,7 +229,101 @@ impl PhaseOrders {
     pub fn same_as(&self, other: &Self) -> bool {
         self.skip == other.skip && self.selected == other.selected
     }
+
+    /// Puts the whole rail to a preset, leaving the keyboard selection alone.
+    pub fn set_to(&mut self, preset: RailPreset) {
+        self.skip = preset.table();
+    }
+
+    /// Whether the rail is exactly this preset.
+    ///
+    /// Which is how the chips are drawn lit: a preset is a starting point, and
+    /// the moment one button is toggled by hand the rail is the player's own
+    /// again and no chip should go on claiming it.
+    #[must_use]
+    pub fn is(&self, preset: RailPreset) -> bool {
+        self.skip == preset.table()
+    }
 }
+
+/// A ready-made rail.
+///
+/// Two of them, because a preset with no way back is a trap: competitive stops
+/// turn seventeen of the twenty-four buttons red, and clicking them green
+/// again one at a time is not an undo.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RailPreset {
+    /// Green everywhere — the default, and the honest one.
+    EveryStep,
+    /// The windows a player used to a competitive client expects to be asked
+    /// about, and no others.
+    Competitive,
+}
+
+impl RailPreset {
+    /// Both, in the order a settings screen should offer them.
+    pub const ALL: [Self; 2] = [Self::EveryStep, Self::Competitive];
+
+    /// The button's name.
+    #[must_use]
+    pub const fn label(self) -> Phrase {
+        match self {
+            Self::EveryStep => Phrase::RailPresetEveryStep,
+            Self::Competitive => Phrase::RailPresetCompetitive,
+        }
+    }
+
+    /// The sentence under it, naming the stops rather than counting them.
+    #[must_use]
+    pub const fn detail(self) -> Phrase {
+        match self {
+            Self::EveryStep => Phrase::RailPresetEveryStepDetail,
+            Self::Competitive => Phrase::RailPresetCompetitiveDetail,
+        }
+    }
+
+    /// The preset as the `skip` table itself.
+    fn table(self) -> [[bool; 12]; 2] {
+        match self {
+            Self::EveryStep => [[false; 12]; 2],
+            Self::Competitive => {
+                let mut skip = [[true; 12]; 2];
+                for (side, row) in COMPETITIVE_STOPS {
+                    skip[side.index()][row.index()] = false;
+                }
+                skip
+            }
+        }
+    }
+}
+
+/// The seven windows [`RailPreset::Competitive`] keeps green.
+///
+/// Four of them are there because a player wants them: both of their own main
+/// phases, and the end step of an opponent's turn, which is where an instant
+/// goes.
+///
+/// The other three are there because **red is not "pass" in a combat
+/// declaration step**. [`auto_answer`] turns a red row into
+/// `DeclareNoAttackers` / `DeclareNoBlockers`, which is a decision and not a
+/// skipped window, so the row on whichever side actually asks this seat to
+/// declare has to stay green: attackers on its own turn, blockers on an
+/// opponent's. A preset that got this wrong would not merely stop asking — it
+/// would decline every block for the rest of the game.
+///
+/// `Attackers` on an opponent's turn is the one judgement call. It is not a
+/// declaration this seat makes, and it is kept anyway: it is the window
+/// between attackers and blocks, which is where removal goes, and skipping it
+/// would be answering the very question the preset exists to leave open.
+const COMPETITIVE_STOPS: [(RailSide, RailRow); 7] = [
+    (RailSide::Mine, RailRow::Main1),
+    (RailSide::Mine, RailRow::Attackers),
+    (RailSide::Mine, RailRow::Blockers),
+    (RailSide::Mine, RailRow::Main2),
+    (RailSide::Theirs, RailRow::Attackers),
+    (RailSide::Theirs, RailRow::Blockers),
+    (RailSide::Theirs, RailRow::EndStep),
+];
 
 /// The autopilot engaged by the rail buttons: auto-answer until a
 /// boundary, then hand control back.
@@ -420,6 +514,125 @@ mod tests {
             None,
         );
         assert_eq!(answer, AutoAnswer::None);
+    }
+
+    /// The one thing a preset must never do.
+    ///
+    /// A red row is `DeclareNoAttackers` / `DeclareNoBlockers` in a
+    /// declaration step, not a pass — so a preset that reds the row where
+    /// *this* seat is the one declaring would not stop asking, it would
+    /// answer, for the rest of the game. The test is written through
+    /// `auto_answer` rather than against the table, because the table is not
+    /// the claim: what a red row means there is.
+    #[test]
+    fn no_preset_ever_declares_for_its_player() {
+        for preset in RailPreset::ALL {
+            let mut orders = PhaseOrders::default();
+            orders.set_to(preset);
+            assert_eq!(
+                auto_answer(
+                    &Pending::ChooseAttackers {
+                        player: PlayerId::new(0),
+                        attackers: vec![],
+                        defenders: Vec::new(),
+                    },
+                    at(true, true, Phase::Combat, Step::DeclareAttackers),
+                    &orders,
+                    &AutoRules::default(),
+                    None,
+                ),
+                AutoAnswer::None,
+                "{preset:?} declined an attack for its player"
+            );
+            assert_eq!(
+                auto_answer(
+                    &Pending::ChooseBlockers {
+                        player: PlayerId::new(0),
+                        blockers: vec![],
+                        attacker: PlayerId::new(1),
+                    },
+                    at(true, false, Phase::Combat, Step::DeclareBlockers),
+                    &orders,
+                    &AutoRules::default(),
+                    None,
+                ),
+                AutoAnswer::None,
+                "{preset:?} declined a block for its player"
+            );
+        }
+    }
+
+    /// What competitive stops actually buy, and what they leave alone.
+    #[test]
+    fn competitive_stops_pass_the_quiet_windows_and_keep_the_loud_ones() {
+        let mut orders = PhaseOrders::default();
+        orders.set_to(RailPreset::Competitive);
+        let answer = |active_is_mine, phase, step| {
+            auto_answer(
+                &priority_pending(),
+                at(true, active_is_mine, phase, step),
+                &orders,
+                &AutoRules::default(),
+                None,
+            )
+        };
+
+        // Passed: an upkeep, a draw step, the end of your own turn.
+        assert_eq!(
+            answer(true, Phase::Beginning, Step::Upkeep),
+            AutoAnswer::Pass
+        );
+        assert_eq!(answer(true, Phase::Beginning, Step::Draw), AutoAnswer::Pass);
+        assert_eq!(answer(true, Phase::Ending, Step::End), AutoAnswer::Pass);
+        assert_eq!(
+            answer(false, Phase::SecondMain, Step::Main),
+            AutoAnswer::Pass
+        );
+
+        // Kept: both your main phases, and theirs' end step — the two places
+        // a player puts a spell.
+        assert_eq!(answer(true, Phase::FirstMain, Step::Main), AutoAnswer::None);
+        assert_eq!(
+            answer(true, Phase::SecondMain, Step::Main),
+            AutoAnswer::None
+        );
+        assert_eq!(answer(false, Phase::Ending, Step::End), AutoAnswer::None);
+
+        // …and the whole of combat, on both turns: the declarations are
+        // decisions and the windows around them are where a trick goes.
+        for active_is_mine in [true, false] {
+            for step in [Step::DeclareAttackers, Step::DeclareBlockers] {
+                assert_eq!(
+                    answer(active_is_mine, Phase::Combat, step),
+                    AutoAnswer::None,
+                    "{step:?} on {}",
+                    if active_is_mine {
+                        "your turn"
+                    } else {
+                        "theirs"
+                    }
+                );
+            }
+        }
+    }
+
+    /// The other preset is the default, said twice.
+    #[test]
+    fn the_every_step_preset_is_what_a_fresh_account_already_has() {
+        let mut orders = PhaseOrders::default();
+        assert!(orders.is(RailPreset::EveryStep));
+        assert!(!orders.is(RailPreset::Competitive));
+
+        orders.set_to(RailPreset::Competitive);
+        assert!(orders.is(RailPreset::Competitive));
+        // One button by hand and it is nobody's preset any more, which is what
+        // stops a chip claiming a rail the player has since edited.
+        orders.toggle(RailSide::Mine, RailRow::Upkeep);
+        assert!(!orders.is(RailPreset::Competitive));
+        assert!(!orders.is(RailPreset::EveryStep));
+
+        orders.set_to(RailPreset::EveryStep);
+        assert!(orders.same_as(&PhaseOrders::default()));
     }
 
     #[test]

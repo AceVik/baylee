@@ -379,6 +379,22 @@ messages! {
         en: "A red step is one the client passes for you. Nothing is red until you make it red.",
         de: "Ein roter Schritt ist einer, den der Client für dich abgibt. Nichts ist rot, bis du es rot machst.",
     },
+    /// The button that writes a preset into the rail.
+    UsePreset { en: "use", de: "nutzen" },
+    /// Stop everywhere
+    RailPresetEveryStep { en: "Stop everywhere", de: "Überall anhalten" },
+    /// Ask me in every step of both turns.
+    RailPresetEveryStepDetail {
+        en: "Ask me in every step of both turns.",
+        de: "Frag mich in jedem Schritt beider Züge.",
+    },
+    /// Competitive stops
+    RailPresetCompetitive { en: "Competitive stops", de: "Turnier-Stopps" },
+    /// Both your main phases, both combat declarations, and their end step.
+    RailPresetCompetitiveDetail {
+        en: "Both your main phases, both combat declarations, and their end step.",
+        de: "Beide eigenen Hauptphasen, beide Kampfansagen und ihr Endsegment.",
+    },
     /// The half of the rail that is your own turns.
     YourTurns { en: "Your turns", de: "Deine Züge" },
     /// The other half.

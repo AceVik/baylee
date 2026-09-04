@@ -874,6 +874,15 @@ a setting that survives until the next restart and then silently reverts.
 Writes are debounced, so dragging a slider costs one request rather than
 twenty.
 
+The rail on that screen has two **presets** above it (`RailPreset`), and they
+are buttons rather than a mode: a preset writes twenty-four buttons and then
+has nothing more to do with them. Its chip is drawn lit only while the rail
+still matches, so the first correction by hand puts both chips out and neither
+goes on claiming a rail the player has since edited. Which rows
+`Competitive` keeps green is a rules question rather than a taste one — see
+`docs/keyboard-map.md` §Automation for why a declaration step can never be one
+of the red ones.
+
 `settings::ClientSettings` is the screen's: preview size, interface language,
 the text-view latch, and the gateway address. Those are properties of a
 device, and putting them in the account would mean a phone and a desktop

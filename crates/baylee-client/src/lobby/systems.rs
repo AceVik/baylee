@@ -403,6 +403,7 @@ pub(super) fn clicks(
                 }
             }
             Press::ToggleRail(side, row) => prefs.edit().orders.toggle(side, row),
+            Press::SetRail(preset) => prefs.edit().orders.set_to(preset),
             Press::Focus(field) => state.lobby.focus_on(field),
             Press::ToggleRegistering => state.lobby.toggle_registering(),
             Press::Submit => {
@@ -855,6 +856,8 @@ pub(crate) enum Press {
         baylee_client_core::automation::RailSide,
         baylee_client_core::automation::RailRow,
     ),
+    /// Put the whole rail to a preset.
+    SetRail(baylee_client_core::automation::RailPreset),
     /// Open the builder on a new deck.
     NewDeck,
     /// Open the builder on a saved deck, by its index in the list.
