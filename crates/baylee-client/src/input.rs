@@ -1180,7 +1180,19 @@ pub fn pointer_hover(
         let alive = match *source {
             HoverSource::Hand => hand_cards.iter().any(|h| h.object == object),
             HoverSource::Table => cards.iter().any(|v| v.object == object),
-            // Somebody else's write — the keyboard cursor, most often.
+            // Somebody else's write — the keyboard cursor, most often, and
+            // the union is that cursor's own invariant rather than a
+            // weakening of the two above. The two kinds of hover are valid
+            // for different reasons: a *pointer* hover holds while the
+            // pointer is over the entity that reported it, and a *keyboard*
+            // cursor holds while its object is anywhere in `cursor_grid`,
+            // which spans the hand and every pod's lanes. An `ObjectId`
+            // survives a zone change — nothing bumps a generation and
+            // nothing frees an arena slot — so a card played off the cursor
+            // is still in the grid, one row down, and `move_cursor` keeps
+            // navigating from it. Clearing it there would not fix a ghost;
+            // it would drop the player's cursor and send the next arrow key
+            // back to the first card in hand.
             // `move_cursor` heals a stale one on its own, so only a card that
             // has left both places is cleared.
             HoverSource::Elsewhere => {
@@ -1681,6 +1693,55 @@ mod tests {
             app.world().resource::<crate::Duel>().hovered,
             Some(obj(3)),
             "the keyboard cursor survives a pointer that is resting elsewhere"
+        );
+    }
+
+    /// The other half of `a_hand_card_that_is_played_takes_its_hover_with_it`.
+    ///
+    /// The same event — the card under the hover is played, its hand node is
+    /// despawned and a permanent appears under the same `ObjectId` — and the
+    /// answer is the opposite one, because the two hovers are valid for
+    /// different reasons. The pointer's is over an entity that no longer
+    /// exists, so it goes. The keyboard's is a position in `cursor_grid`,
+    /// the card is still in that grid one row down, and taking it away would
+    /// send the player's next arrow key back to the start of their hand.
+    ///
+    /// Written as a test rather than left to the comment because the union in
+    /// the `Elsewhere` arm reads like the permissive fallback of the other
+    /// two, and the next person to tighten it will have this fail.
+    #[test]
+    fn the_keyboard_cursor_follows_a_card_it_played_onto_the_table() {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
+            .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+            .add_message::<bevy::window::CursorMoved>()
+            .insert_resource(crate::Duel::default())
+            .add_systems(Update, super::pointer_hover);
+
+        // A land in hand, with the keyboard cursor on it: written straight to
+        // the resource, which is what `move_cursor` does.
+        let in_hand = app
+            .world_mut()
+            .spawn(crate::hud::HandCardVisual { object: obj(5) })
+            .id();
+        app.world_mut().resource_mut::<crate::Duel>().hovered = Some(obj(5));
+        app.update();
+
+        // It is played. The hand bar is rebuilt without it and the same
+        // object is now a permanent.
+        app.world_mut().entity_mut(in_hand).despawn();
+        app.world_mut().spawn(crate::table::CardVisual {
+            object: obj(5),
+            count: 1,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<crate::Duel>().hovered,
+            Some(obj(5)),
+            "the cursor should follow the card it just played, not reset"
         );
     }
 
