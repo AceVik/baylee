@@ -442,7 +442,12 @@ fn card_batch(
     let cache = root.join(cache);
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
-    let names = acceptance::unique_names(&rows);
+    // The same set `codegen` writes and `validate` checks. Reading only the
+    // acceptance decks here is the bug `validate` already had: every card
+    // added for its own sake was generated and then never offered to a
+    // batch, which is most of the pool.
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    let names = acceptance::all_names(&rows, &pool_text);
     let forge_index: BTreeMap<String, String> = serde_json::from_str(
         &fs::read_to_string(root.join("data/forge_index.json")).unwrap_or_default(),
     )?;
@@ -452,9 +457,17 @@ fn card_batch(
         names
             .iter()
             .filter(|name| {
-                let slug = baylee_cards_codegen::stubgen::slug(name);
-                let path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
-                fs::read_to_string(&path).is_ok_and(|c| c.contains("Coverage::Unimplemented"))
+                let path = root.join(format!(
+                    "crates/baylee-cards/src/cards/{}.rs",
+                    front_face_slug(name)
+                ));
+                // `// GENERATED STUB` and not `Coverage::Unimplemented`. A
+                // stub does not write that line at all — `CardDef::DEFAULT`
+                // is already `Unimplemented`, and restating a default is the
+                // one thing the card DSL forbids outright. Filtering on it
+                // matched nothing in the whole pool, so this command's
+                // default selection silently prepared zero packages.
+                fs::read_to_string(&path).is_ok_and(|c| c.contains("// GENERATED STUB"))
             })
             .cloned()
             .collect()
@@ -465,7 +478,7 @@ fn card_batch(
         out.display()
     );
     for name in &wanted {
-        let slug = baylee_cards_codegen::stubgen::slug(name);
+        let slug = front_face_slug(name);
         let dir = out.join(&slug);
         fs::create_dir_all(&dir)?;
         // 1. Current stub.
@@ -473,10 +486,12 @@ fn card_batch(
         let stub = fs::read_to_string(&stub_path)?;
         fs::write(dir.join("STUB.rs"), &stub)?;
         // 2. Forge script (ground truth).
+        let mut has_forge = false;
         if let Some(rel) = forge_index.get(name) {
             let script = root.join(forge_dir).join(rel);
             if script.exists() {
                 fs::write(dir.join("FORGE.txt"), fs::read_to_string(script)?)?;
+                has_forge = true;
             }
         }
         // 3. Scryfall JSON (metadata).
@@ -493,21 +508,75 @@ fn card_batch(
             fs::write(dir.join("EXEMPLAR.rs"), fs::read_to_string(exemplar_path)?)?;
         }
         // 5. Prompt.
+        //
+        // Written for an agent working *in the repository* (it has file and
+        // shell tools and reads the package itself), not for one being handed
+        // pasted text: `SCRYFALL.json` alone would dominate the budget, and
+        // most of it is printing metadata the card does not care about.
         let prompt = format!(
-            "# Implement `{name}` for baylee\n\n\
-             Follow crates/baylee-cards/AGENTS.md and docs/card-dsl.md exactly.\n\n\
-             - STUB.rs: the generated stub to complete (edit it into the final card).\n\
-             - FORGE.txt: the forge-reference script (rules ground truth).\n\
-             - SCRYFALL.json: card metadata.\n\
-             - EXEMPLAR.rs: an implemented card of the same type — match its style.\n\n\
-             Rules: preserve index/oracle_id/scryfall_id/faces data; implement every\n\
-             oracle sentence or use Coverage::Partial + NOT SUPPORTED comments;\n\
-             write tests; `cargo check -p baylee-cards` and `cargo test -p baylee-cards`\n\
-             must pass. Output: the complete final contents of crates/baylee-cards/src/cards/{slug}.rs\n",
+            "# Implement `{name}` in this repository\n\n\
+             Edit exactly one file: `crates/baylee-cards/src/cards/{slug}.rs`.\n\
+             Touch nothing else — not `src/generated.rs`, not `src/cards/mod.rs`,\n\
+             not another card, not the DSL.\n\n\
+             Read first, in this order:\n\
+             - `crates/baylee-cards/AGENTS.md` — the playbook you are bound by.\n\
+             - `docs/card-dsl.md` — the authoring contract and the full vocabulary.\n\
+             {forge_line}\
+             - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\
+             - `{package}/SCRYFALL.json` — metadata, if you need the printed details.\n\n\
+             Hard rules:\n\
+             1. `index`, `oracle_id`, `scryfall_id` and the `faces` literals are\n\
+                generated facts. Do not edit them. You may edit only `coverage`,\n\
+                `keywords` and `abilities`.\n\
+             2. Never restate a default. The macros in `baylee-cards-dsl/src/build.rs`\n\
+                supply them, and the defaults are *rules* defaults.\n\
+             3. Do not invent `Effect`, `Modifier` or `Filter` variants. If the\n\
+                DSL cannot say what the card says, STOP and refuse — see below.\n\
+             4. Every oracle sentence is implemented, or the card is refused. A\n\
+                card that is nearly right is worse than a stub: the deckbuilder\n\
+                offers implemented cards as playable.\n\
+             5. `cargo check -p baylee-cards` and `cargo test -p baylee-cards`\n\
+                must pass before you finish.\n\n\
+             Refusing is a correct outcome, not a failure. If any clause is\n\
+             inexpressible, revert your edits to `{slug}.rs` so it stays the\n\
+             generated stub, and report `status: \"refused\"`.\n\n\
+             When you report a refusal, `cannot_say` must name **what the DSL\n\
+             cannot express**, not which mechanic you think is missing, and\n\
+             `nearest_existing` must name the closest variant that does exist.\n\
+             Those two together are the whole value of a refusal: the last time\n\
+             a blocker was read as a missing subsystem, the subsystem was\n\
+             already there and one variant that could say \"the target\" was all\n\
+             it needed.\n",
+            package = dir.display(),
+            // Named only when it is there. Roughly one card in eight has no
+            // script under its printed name, and pointing an agent at a file
+            // that does not exist spends a turn and teaches it that the
+            // package's promises are approximate.
+            forge_line = if has_forge {
+                format!(
+                    "- `{}/FORGE.txt` — the forge-reference script; rules ground truth.\n",
+                    dir.display()
+                )
+            } else {
+                "There is no forge-reference script for this card. The oracle text in \
+                 the stub header is all the ground truth there is; if that leaves a \
+                 clause genuinely ambiguous, refuse rather than guess.\n"
+                    .to_string()
+            },
         );
         fs::write(dir.join("PROMPT.md"), prompt)?;
     }
     Ok(())
+}
+
+/// A card's file stem.
+///
+/// Multi-face cards are filed under their front face, the way `codegen` slugs
+/// them: "Zof Consumption // Zof Bloodbog" is one file called
+/// `zof_consumption`. Slugging the whole printed name instead produces a path
+/// that does not exist, so the card is read as implemented and skipped.
+fn front_face_slug(name: &str) -> String {
+    baylee_cards_codegen::stubgen::slug(name.split(" // ").next().unwrap_or(name))
 }
 
 /// Extracts the first `"`-quoted value after `key` (e.g. `name: "…"`).
@@ -623,10 +692,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     let mut problems = 0usize;
     let mut stubs = 0usize;
     for name in &names {
-        // Multi-face cards are filed under their front face, the same way
-        // `codegen` slugs them — "Zof Consumption // Zof Bloodbog" is one
-        // file called `zof_consumption`.
-        let slug = baylee_cards_codegen::stubgen::slug(name.split(" // ").next().unwrap_or(name));
+        let slug = front_face_slug(name);
         let path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
         let Ok(content) = fs::read_to_string(&path) else {
             println!("MISSING FILE: {slug}");
