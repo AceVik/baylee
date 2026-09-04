@@ -262,6 +262,10 @@ pub struct CardParams {
     pub finish: u32,
     /// Keyword glows, from [`glow_bits`].
     pub glow: u32,
+    /// What the reserved bottom-right corner says, packed by
+    /// [`baylee_client_core::cardplate::Plate::packed`]: a creature's power,
+    /// toughness and damage, or a planeswalker's loyalty.
+    pub plate: u32,
     /// 1.0 when the material carries real artwork, 0.0 when the card is drawn
     /// as a flat `tint` — its constructed face, or its back.
     pub has_art: f32,
@@ -393,6 +397,7 @@ impl UiCardMaterials {
             params: CardParams {
                 finish: finish_code(finish),
                 glow: 0,
+                plate: 0,
                 has_art: 1.0,
                 strength: 1.0,
                 tint: Vec4::ONE,
@@ -460,6 +465,10 @@ pub struct CardLook {
     pub finish: FinishTreatment,
     /// Its keyword glows.
     pub glow: u32,
+    /// What its corner plate says, packed. Part of the key because it is part
+    /// of the material: two 2/2s share a plate and a material, a 2/2 and a
+    /// 3/3 share neither.
+    pub plate: u32,
     /// The flat colour, quantised, for a card with no art. `0` when it has
     /// art — a colour is not part of the key then.
     pub tint: u32,
@@ -473,6 +482,7 @@ impl CardLook {
             art: Some(art),
             finish,
             glow,
+            plate: 0,
             tint: 0,
         }
     }
@@ -484,8 +494,20 @@ impl CardLook {
             art: None,
             finish,
             glow,
+            plate: 0,
             tint: quantise(color),
         }
+    }
+
+    /// The same look with a corner plate on it.
+    ///
+    /// A builder rather than a sixth argument on all three constructors: a
+    /// card in hand, a card in a browser and a card in the printing picker
+    /// have no body to show, and only the two board surfaces ever call this.
+    #[must_use]
+    pub const fn with_plate(mut self, plate: u32) -> Self {
+        self.plate = plate;
+        self
     }
 
     /// A card showing the back.
@@ -500,6 +522,7 @@ impl CardLook {
             art: None,
             finish,
             glow,
+            plate: 0,
             tint: 0,
         }
     }
@@ -538,6 +561,7 @@ pub fn material(look: CardLook, art: Option<Handle<Image>>, tint: Color) -> Card
         params: CardParams {
             finish: finish_code(look.finish),
             glow: look.glow,
+            plate: look.plate,
             has_art,
             strength: 1.0,
             tint: LinearRgba::from(tint).to_f32_array().into(),
@@ -1015,6 +1039,91 @@ struct Globals { time: f32 };
         check_wgsl(
             include_str!("shaders/card.wgsl"),
             &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+        );
+    }
+
+    /// The plate is the same plate in Rust and in WGSL.
+    ///
+    /// Thirty numbers with no compiler between them, and every one of them
+    /// fails silently: a slot boundary a bit out draws a 4/4 as a 0/16, a
+    /// glyph word off by a copy-paste draws every 6 as an 8, and a geometry
+    /// constant that drifts puts the plate over the keyword rail. The
+    /// packing is checked from the other side by
+    /// `cardplate::tests::every_number_survives_the_packing`; this is the
+    /// half that checks the shader agrees about where the bits are.
+    #[test]
+    fn the_plate_is_the_same_plate_in_both_languages() {
+        use baylee_client_core::cardplate as plate;
+        let src = include_str!("shaders/card_common.wgsl");
+
+        for (name, ours) in [
+            ("PLATE_INSET", plate::PLATE_INSET),
+            ("PLATE_W", plate::PLATE_W),
+            ("PLATE_H", plate::PLATE_H),
+            ("PLATE_PAD", plate::PLATE_PAD),
+        ] {
+            let theirs = wgsl_const(src, name);
+            assert!(
+                (theirs - ours).abs() < 1e-5,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+
+        for (name, ours) in [
+            ("PLATE_KIND_SHIFT", plate::KIND_SHIFT),
+            ("PLATE_SLOT_BITS", plate::SLOT_BITS),
+            ("PLATE_SLOT_MASK", plate::SLOT_MASK),
+            #[allow(clippy::cast_sign_loss)] // the bias is positive by construction
+            ("PLATE_BIAS", plate::BIAS as u32),
+            ("PLATE_NONE", plate::KIND_NONE),
+            ("PLATE_FIGHT", plate::KIND_FIGHT),
+            ("PLATE_LOYALTY", plate::KIND_LOYALTY),
+            ("GLYPH_W", plate::GLYPH_W),
+            ("GLYPH_H", plate::GLYPH_H),
+        ] {
+            // Half a unit, not an epsilon: these are whole numbers, so an
+            // agreement is exactly zero apart and a disagreement is at least
+            // one — and `f32::EPSILON` next to a seven-digit glyph word would
+            // be asking for a precision no `f32` has up there.
+            assert!(
+                (wgsl_const(src, name) - ours as f32).abs() < 0.5,
+                "{name} differs between the two files"
+            );
+        }
+
+        // The twelve stencils. Every word is under 2^24, so an `f32` carries
+        // it exactly and this comparison is not an approximation.
+        for (i, name) in [
+            "GLYPH_0",
+            "GLYPH_1",
+            "GLYPH_2",
+            "GLYPH_3",
+            "GLYPH_4",
+            "GLYPH_5",
+            "GLYPH_6",
+            "GLYPH_7",
+            "GLYPH_8",
+            "GLYPH_9",
+            "GLYPH_MINUS",
+            "GLYPH_SLASH",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert!(
+                (wgsl_const(src, name) - plate::GLYPHS[i] as f32).abs() < 0.5,
+                "{name} draws a different picture in the shader"
+            );
+        }
+
+        // And the plate starts where the rail stops. Asserted against the
+        // shader's own numbers rather than against Rust's, because these two
+        // constants are what reserved the corner and they live in both files.
+        let rail_end = wgsl_const(src, "RAIL_INSET") + wgsl_const(src, "RAIL_SPAN");
+        let plate_start = 1.0 - wgsl_const(src, "PLATE_INSET") - wgsl_const(src, "PLATE_W");
+        assert!(
+            (rail_end - plate_start).abs() < 1e-5,
+            "the rail ends at {rail_end} and the plate starts at {plate_start}"
         );
     }
 

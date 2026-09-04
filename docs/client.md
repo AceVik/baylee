@@ -335,6 +335,21 @@ separation is the whole grammar:
   keywords are eleven coloured pips where six are six pictograms; that
   degradation is the honest one, since a rail that ran off the card or hid its
   tail would both be lying about the creature.
+- **The corner says what the card *is* in numbers.** The fifth of the bottom
+  edge the rail has been reserving since it was written now carries a plate:
+  a creature's power and toughness, or a planeswalker's loyalty behind a gilt
+  rim. `client-core/src/cardplate.rs` decides what it says and packs it into
+  one `u32` — three ten-bit numbers and two kind bits — that rides the
+  material key beside `glow`, so a creature dealt three damage becomes a
+  different material and the corner redraws with no second pass. Marked
+  damage is the plate **filling from the bottom** to `damage / toughness`
+  rather than a third numeral: what a player needs off a blocked creature is
+  how close to lethal it is. The numerals are a 4×6 stencil sampled
+  bilinearly, because there is no text on the 3D table and projecting a UI
+  numeral onto a card would have to chase its rotation, its lift and its place
+  in a stack every frame. The plate is drawn whether or not the card has art —
+  a card that could not load its scan is the one a player can least afford to
+  guess the body of.
 
 The pictograms live in a third shader file, `card_common.wgsl`, together with
 the printed corner both shaders cut at: it is everything the table and the

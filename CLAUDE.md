@@ -594,6 +594,21 @@ travels (the invitation was accepted), `WILL_TAP` marks the lands the plan
 would spend, and an armed card drops `ACTIVATABLE` so one border never carries
 both. `docs/keyboard-map.md` §Arming is normative.
 
+The card's bottom edge carries two rows that were designed together. The
+**rail** (`client-core/src/cardrail.rs`) is eleven combat keywords as marks,
+`RAIL_SPAN` wide; the fifth it stops short of is the **plate**
+(`client-core/src/cardplate.rs`) — a creature's power and toughness, or a
+planeswalker's loyalty behind a gilt rim. Both follow the same split: the
+shader draws them, a renderer-free module says where and what, and a test
+reads the WGSL and fails when the two drift. The plate is one `u32` (three
+ten-bit numbers, two kind bits) riding the material key beside `glow`, so a
+creature dealt damage becomes a different material and redraws with no second
+pass, and a number too big to pack clamps rather than wrapping. Damage is the
+plate filling from the bottom to `damage / toughness`, not a third numeral;
+numerals are a 4×6 stencil, because there is no text on the 3D table. Adding
+loyalty to the plate meant adding it to `ObjectSummaryKey` too — it is drawn
+now, so two walkers of a name must stop grouping.
+
 The stack is drawn as cards, not as a list of names. Each entry in
 `hud::spawn_stack_panel` is the spell's own picture — or, for an ability,
 the picture of the permanent it came from (`StackKind::Ability { source }`,

@@ -385,3 +385,225 @@ fn mark_layer(uv: vec2<f32>, bits: u32, t: f32, color: vec3<f32>) -> vec3<f32> {
     out = mix(out, ink, 1.0 - smoothstep(-e, e, d));
     return out;
 }
+
+// ------------------------------------------------------------------ the plate
+//
+// The bottom-right corner the rail has been reserving: a creature's power and
+// toughness with the damage marked on it, or a planeswalker's loyalty. The
+// Rust half is `baylee_client_core::cardplate`, which is where the numbers are
+// packed and where every constant below is mirrored and tested.
+
+/// The plate's inset, width, height and inner margin, in card widths.
+const PLATE_INSET: f32 = 0.052;
+const PLATE_W: f32 = 0.196;
+const PLATE_H: f32 = 0.115;
+const PLATE_PAD: f32 = 0.014;
+
+/// How the packed word is read: three ten-bit numbers, two kind bits on top.
+const PLATE_KIND_SHIFT: u32 = 30u;
+const PLATE_SLOT_BITS: u32 = 10u;
+const PLATE_SLOT_MASK: u32 = 0x3ffu;
+const PLATE_BIAS: i32 = 128;
+
+const PLATE_NONE: u32 = 0u;
+const PLATE_FIGHT: u32 = 1u;
+const PLATE_LOYALTY: u32 = 2u;
+
+/// The glyph grid, and the twelve stencils drawn on it.
+const GLYPH_W: u32 = 4u;
+const GLYPH_H: u32 = 6u;
+const GLYPH_0: u32 = 0x699996u;
+const GLYPH_1: u32 = 0xe444c4u;
+const GLYPH_2: u32 = 0xf42196u;
+const GLYPH_3: u32 = 0x69161eu;
+const GLYPH_4: u32 = 0x22fa62u;
+const GLYPH_5: u32 = 0x691e8fu;
+const GLYPH_6: u32 = 0x699e86u;
+const GLYPH_7: u32 = 0x44221fu;
+const GLYPH_8: u32 = 0x699696u;
+const GLYPH_9: u32 = 0x617996u;
+const GLYPH_MINUS: u32 = 0xe000u;
+const GLYPH_SLASH: u32 = 0x884211u;
+
+/// A planeswalker's rim and ink. Gilt, and explicitly not a shield: the
+/// shield-shaped loyalty box is the printed planeswalker frame's own element,
+/// and "a plain shield nobody owns" is the argument every borrowed frame
+/// element makes (`docs/legal.md` §2).
+const GILT: vec3<f32> = vec3<f32>(0.87, 0.73, 0.38);
+
+/// Marked damage, which is the one thing on this plate that is not printed on
+/// a real card — so it is drawn as a rising fill rather than as a numeral.
+const EMBER: vec3<f32> = vec3<f32>(0.88, 0.27, 0.18);
+
+fn glyph_word(which: u32) -> u32 {
+    switch which {
+        case 0u: { return GLYPH_0; }
+        case 1u: { return GLYPH_1; }
+        case 2u: { return GLYPH_2; }
+        case 3u: { return GLYPH_3; }
+        case 4u: { return GLYPH_4; }
+        case 5u: { return GLYPH_5; }
+        case 6u: { return GLYPH_6; }
+        case 7u: { return GLYPH_7; }
+        case 8u: { return GLYPH_8; }
+        case 9u: { return GLYPH_9; }
+        case 10u: { return GLYPH_MINUS; }
+        default: { return GLYPH_SLASH; }
+    }
+}
+
+/// One cell of a glyph, and 0 outside it — which is what stops a stencil
+/// bleeding into the one beside it when the grid is sampled smoothly.
+fn glyph_cell(word: u32, col: i32, row: i32) -> f32 {
+    if col < 0 || col >= i32(GLYPH_W) || row < 0 || row >= i32(GLYPH_H) {
+        return 0.0;
+    }
+    // Bit `3 - column`, which is what lets the Rust literals be read as the
+    // pictures they draw.
+    let bit = u32(row) * 4u + (3u - u32(col));
+    return f32((word >> bit) & 1u);
+}
+
+/// How many decimal digits a number is drawn in. Three is the ceiling the
+/// packing allows, so this needs no fourth case.
+fn plate_digits(v: u32) -> u32 {
+    if v >= 100u { return 3u; }
+    if v >= 10u { return 2u; }
+    return 1u;
+}
+
+/// The `i`-th digit of `v` from the left, given it is drawn in `n` of them.
+///
+/// The loop is bounded at two because three digits is the ceiling — the same
+/// discipline as the rail's eleven: WebGL2 wants every bound at compile time.
+fn plate_digit_at(v: u32, n: u32, i: u32) -> u32 {
+    var p = 1u;
+    for (var k = 0u; k < 2u; k = k + 1u) {
+        if k + i + 1u < n {
+            p = p * 10u;
+        }
+    }
+    return (v / p) % 10u;
+}
+
+/// Draws the plate over `color` and returns what is left.
+///
+/// `word` is `cardplate::Plate::packed`. Not gated on whether the card has
+/// artwork: a card drawn as a flat tint is a card whose art has not loaded,
+/// and its body is the thing a player most needs off it.
+fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
+    let kind = word >> PLATE_KIND_SHIFT;
+    if kind == PLATE_NONE {
+        return color;
+    }
+
+    // Width units, so a length means the same thing on both axes.
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    let height = 1.0 / CARD_ASPECT;
+
+    // Every derivative this function takes, taken here — the branches below
+    // are not uniform, and a derivative asked for inside one of them is
+    // undefined on half the backends this ships to.
+    let aa = max(fwidth(p.x), 0.0015);
+
+    let x1 = 1.0 - PLATE_INSET;
+    let x0 = x1 - PLATE_W;
+    let y1 = height - PLATE_INSET;
+    let y0 = y1 - PLATE_H;
+    let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
+    let half = vec2<f32>(PLATE_W * 0.5, PLATE_H * 0.5);
+
+    let d_plate = sd_round_box(p - mid, half, PLATE_H * 0.28);
+    let inside = 1.0 - smoothstep(-aa, aa, d_plate);
+    if inside <= 0.0 {
+        return color;
+    }
+    var out = mix(color, PLATE, inside * 0.88);
+
+    let a = i32(word & PLATE_SLOT_MASK) - PLATE_BIAS;
+    let b = i32((word >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
+    let c = i32((word >> (PLATE_SLOT_BITS * 2u)) & PLATE_SLOT_MASK) - PLATE_BIAS;
+
+    // Damage rises from the bottom of the plate to `damage / toughness`, so
+    // what a player reads is how close to lethal this creature is rather than
+    // an arithmetic problem in two numerals.
+    if kind == PLATE_FIGHT && c > 0 && b > 0 {
+        let frac = clamp(f32(c) / f32(b), 0.0, 1.0);
+        let level = y1 - PLATE_H * frac;
+        let fill = inside * smoothstep(level - aa, level + aa, p.y);
+        out = mix(out, EMBER, fill * 0.58);
+    }
+
+    // The rim. Gilt for a planeswalker, which is the whole of how the two
+    // plates are told apart — same corner, same shape, same numeral role.
+    let rim = 1.0 - smoothstep(-aa, aa, abs(d_plate) - 0.0045);
+    var accent = INK;
+    if kind == PLATE_LOYALTY {
+        accent = GILT;
+    }
+    out = mix(out, accent, rim * 0.55);
+
+    // How many glyphs, and therefore how big they are: a lone loyalty numeral
+    // fills the plate's height, a `10/10` shrinks to fit its width. Shrinking
+    // rather than clipping is the degradation that stays honest — a plate that
+    // cut a digit off would be showing a number that is wrong.
+    let neg = kind == PLATE_FIGHT && a < 0;
+    let av = u32(abs(a));
+    let bv = u32(max(b, 0));
+    let da = plate_digits(av);
+    let db = plate_digits(bv);
+    let lead = select(0u, 1u, neg);
+    var n = da;
+    if kind == PLATE_FIGHT {
+        n = lead + da + 1u + db;
+    }
+
+    let span = f32(n * GLYPH_W + (n - 1u));
+    let unit = min(
+        (PLATE_W - 2.0 * PLATE_PAD) / span,
+        (PLATE_H - 2.0 * PLATE_PAD) / f32(GLYPH_H),
+    );
+    let text = vec2<f32>(span * unit, f32(GLYPH_H) * unit);
+    let local = (p - (mid - text * 0.5)) / unit;
+    if local.x < 0.0 || local.y < 0.0 || local.y >= f32(GLYPH_H) {
+        return out;
+    }
+
+    let stride = f32(GLYPH_W + 1u);
+    let k = u32(floor(local.x / stride));
+    if k >= n {
+        return out;
+    }
+    let col = local.x - f32(k) * stride;
+    if col >= f32(GLYPH_W) {
+        return out;
+    }
+
+    var which = 11u;
+    if kind == PLATE_LOYALTY {
+        which = plate_digit_at(av, da, k);
+    } else if k < lead {
+        which = 10u;
+    } else if k < lead + da {
+        which = plate_digit_at(av, da, k - lead);
+    } else if k > lead + da {
+        which = plate_digit_at(bv, db, k - lead - da - 1u);
+    }
+    let gw = glyph_word(which);
+
+    // The grid, sampled smoothly rather than tested. A stroke is one cell
+    // wide, so bilinear over the four cells around a point peaks at 1 in the
+    // middle of the stroke and reaches 0.5 at its edge — which is a stencil
+    // with soft sides at any size, and one that never shows a staircase on a
+    // card lying at CAMERA_LEAN.
+    let g = vec2<f32>(col, local.y) - vec2<f32>(0.5);
+    let base = floor(g);
+    let f = g - base;
+    let cx = i32(base.x);
+    let cy = i32(base.y);
+    let s0 = mix(glyph_cell(gw, cx, cy), glyph_cell(gw, cx + 1, cy), f.x);
+    let s1 = mix(glyph_cell(gw, cx, cy + 1), glyph_cell(gw, cx + 1, cy + 1), f.x);
+    let v = mix(s0, s1, f.y);
+    let e = max(aa / unit, 0.06);
+    return mix(out, accent, smoothstep(0.5 - e, 0.5 + e, v));
+}

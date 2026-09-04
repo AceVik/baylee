@@ -1367,9 +1367,14 @@ pub(super) fn spawn_own_board_overlay(
                         view.object(group.representative),
                         crate::cardmat::Offer::on(armed, &group.members, group.activatable),
                     );
+                    // And its body, for the same reason: the overlay draws the
+                    // same permanent through the same shader, so a 2/2 that is
+                    // a 4/4 on the table must not be a 2/2 here.
+                    let plate = baylee_client_core::cardplate::Plate::of(group).packed();
                     match group.art {
-                        Some(art) => CardLook::art(art, finish_of(statics, Some(art)), glow),
-                        None => CardLook::back(FinishTreatment::Plain, glow),
+                        Some(art) => CardLook::art(art, finish_of(statics, Some(art)), glow)
+                            .with_plate(plate),
+                        None => CardLook::back(FinishTreatment::Plain, glow).with_plate(plate),
                     }
                 },
                 cards.as_deref_mut(),

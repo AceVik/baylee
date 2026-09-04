@@ -13,7 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, plate_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -22,6 +22,10 @@ struct CardParams {
     /// offering to do with it. The bits are `cardmat::glow`, never the
     /// engine's keyword numbering.
     glow: u32,
+    /// What the reserved bottom-right corner says, packed by
+    /// `cardplate::Plate::packed`: a creature's power, toughness and marked
+    /// damage, or a planeswalker's loyalty.
+    plate: u32,
     /// 1.0 when `art` holds real artwork.
     has_art: f32,
     /// How strongly the finish is applied.
@@ -208,6 +212,13 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb),
         color.a,
     );
+
+    // ---- the plate the rail reserved a corner for
+    //
+    // After the rail, because the two share a bottom edge and the plate is
+    // what the rail stops short of; before the corner ink, for the same reason
+    // the rail is — nothing may survive outside the card.
+    color = vec4<f32>(plate_layer(uv, params.plate, color.rgb), color.a);
 
     // ---- the corners the scanner saw and the card does not have
     //

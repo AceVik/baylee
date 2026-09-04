@@ -38,6 +38,7 @@ pub mod automation;
 pub mod board;
 pub mod browser;
 pub mod card_face;
+pub mod cardplate;
 pub mod cardrail;
 pub mod deckbuilder;
 pub mod i18n;

@@ -349,6 +349,43 @@ P/T, no damage and no counter drawn anywhere on a card showing art.** They exist
 only on the constructed text face. Three rules facts, invisible on the normal
 view of the board. That goes first.
 
+**Done — the plate.** `baylee-client-core/src/cardplate.rs` says what the
+corner holds and `plate_layer` in `card_common.wgsl` draws it, which is the
+same split `cardrail` already had and for the same reason: the arithmetic
+belongs where a test can reach it without a GPU. Four things the
+implementation settled that the paragraph above did not.
+
+- *One `u32`, not four.* Three ten-bit numbers and two kind bits is exactly
+  thirty-two, so the whole plate is one more uniform beside `glow` — and it
+  rides the **material key**, so a creature that is dealt three damage becomes
+  a different material and the corner redraws with no second pass. That is the
+  trick the glow has used since M1. A number too big to pack **clamps**, never
+  wraps: a 40/40 drawn as a 1/1 is wrong and looks right, which is the worst
+  thing a board can show. Power is packed with a bias because power is
+  genuinely negative on a board.
+- *Damage is a fill, not a third numeral.* The plate reads `2/4` and fills
+  from the bottom to `damage / toughness`. What a player needs off a blocked
+  creature is how close to lethal it is, not an arithmetic problem in two
+  numbers — and damage is the one thing on that plate that is not printed on a
+  real card, so drawing it unlike the printed numbers is the honest treatment.
+- *Numerals are a stencil, drawn from a 4×6 bit grid.* There is no text on the
+  3D table and Bevy has no 3D text, so the alternatives were projecting a UI
+  numeral onto every card each frame — chasing its tap rotation, its hover
+  lift and its place in a stack, which is exactly the desync `Motion`'s "one
+  door" exists to prevent — or a rasterised atlas. A stencil is the same
+  argument the felt and the eleven marks already make: ornament is the easiest
+  thing to borrow by accident and arithmetic borrows nothing. The grid is
+  sampled bilinearly rather than tested, so a one-cell stroke has soft sides
+  at any size and no staircase at `CAMERA_LEAN`.
+- *Loyalty beats power.* The one case is a planeswalker that is also a
+  creature. Loyalty is what that permanent dies to and its power says nothing
+  about how close it is, so the gilt plate wins and the P/T stays one held
+  modifier away. It also had to go into `ObjectSummaryKey`: loyalty is drawn
+  now, and two walkers of one name differ by exactly that, so a stack of them
+  would have worn one number and lied about the other.
+
+Left in this corner: the counter chips, and the saga's square parchment plate.
+
 ### 1.5 States that are not keywords
 
 They take channels no keyword uses, so they cannot collide by construction.
@@ -733,8 +770,9 @@ inside one text entity, and a span has no layout node to click.
 
 **Second, the common turn made fast and safe.** ~~The keymap swap~~; ~~the
 `ChooseNumber` stepper and digit picks~~; ~~arm-then-act with mana abilities
-exempt~~; ~~concede confirmation~~; ~~engine holds~~ and the stop preset; the
-stack panel with runs.
+exempt~~; ~~concede confirmation~~; ~~engine holds~~ ~~and the stop preset~~.
+Left: the stack panel with runs, which is the one item on this list nothing
+else needs and which is deliberately not being done ahead of tranche 3.
 
 **Third, the board made legible.** The hearth shrunk and the own battlefield
 out from under the hand bar; P/T, damage and counter chips on art faces; combat

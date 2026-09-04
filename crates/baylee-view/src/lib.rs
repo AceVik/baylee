@@ -516,6 +516,7 @@ impl PublicObject {
             power: self.power,
             toughness: self.toughness,
             damage: self.damage,
+            loyalty: self.loyalty,
             counters,
             attached: self.attached_to.is_some(),
             summoning_sick: self.summoning_sick,
@@ -534,6 +535,7 @@ pub struct ObjectSummaryKey {
     power: Option<i16>,
     toughness: Option<i16>,
     damage: u16,
+    loyalty: Option<u16>,
     counters: Vec<CounterEntry>,
     attached: bool,
     summoning_sick: bool,
@@ -549,6 +551,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.power.hash(state);
         self.toughness.hash(state);
         self.damage.hash(state);
+        self.loyalty.hash(state);
         for c in &self.counters {
             c.kind.hash(state);
             c.count.hash(state);

@@ -212,6 +212,12 @@ pub struct CardGroup {
     pub toughness: Option<i16>,
     /// Marked damage.
     pub damage: u16,
+    /// A planeswalker's loyalty, which is its life total rather than a counter.
+    ///
+    /// In the grouping key too (`ObjectSummaryKey`), because it is drawn: two
+    /// walkers of one name on one board differ by exactly this, and a stack of
+    /// them would otherwise wear one of the two numbers and lie about the other.
+    pub loyalty: Option<u16>,
     /// Status bits.
     pub status: ObjectStatus,
     /// Counters on the representative — identical for every member by
@@ -803,6 +809,7 @@ fn card_group(obj: &PublicObject, individual: Option<Individual>, activatable: b
         power: obj.power,
         toughness: obj.toughness,
         damage: obj.damage,
+        loyalty: obj.loyalty,
         status: obj.status,
         counters: obj.counters.clone(),
         badges: KeywordBadge::from_bits(obj.keywords),
