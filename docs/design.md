@@ -285,9 +285,15 @@ corner, settled three things at once:
   author.** `hovered` has four writers; the keyboard cursor walking off a
   permanent onto a hand card would have met a stale `Table` source and been
   cleared a frame later. So the system remembers the value it left and treats
-  any difference as somebody else's, resetting to `Elsewhere` — the permissive
-  case, cleared only when the object has left both places, because
-  `move_cursor` heals a stale cursor by itself.
+  any difference as somebody else's, resetting to `Elsewhere` — whose union of
+  hand and table is not a weakened version of the other two but the keyboard
+  cursor's *own* invariant. A pointer hover holds while the pointer is over
+  the entity that reported it; a keyboard cursor holds while its object is
+  anywhere in `cursor_grid`, which spans the hand and every pod's lanes. An
+  `ObjectId` survives a zone change, so a card played off the cursor is still
+  in the grid one row down, and clearing it there would not remove a ghost —
+  it would drop the player's cursor and send the next arrow key back to the
+  first card in hand.
 
 - And the *second* thing in that photograph, which the hover fix did not
   touch: **a closed own-board overlay was showing the tops of your own
@@ -334,8 +340,11 @@ with the shape in the alpha channel — field at 0.095–0.150, rim at ~0.77 —
 and the seat's colour arrived as the material's `base_color`, which multiplies
 the *whole* texture. So the rim was never the part carrying the seat's colour;
 the entire mat was that colour, and the rim merely more opaque. `seat_mat`
-takes the accent now and crossfades toward it on `border` (the same number
-that sets the opacity, so the colour arrives exactly where the edge does), the
+takes the accent now and crossfades toward it on its own curve — the same
+distance from the edge that sets the opacity, but a shallower exponent, so the
+hue reaches further in than the ink does. Tying the two together is the
+obvious thing to write and it renders every rim off-white: a colour that only
+arrives where the rim is already opaque arrives on a handful of pixels. The
 material's tint is neutral brightness, and the glow underneath keeps the
 accent because spilling it onto the felt is the glow's whole job. The cost is
 one 512×256 texture per seat instead of one for the table, which is what

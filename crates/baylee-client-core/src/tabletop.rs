@@ -298,8 +298,16 @@ pub fn medallion(size: u32) -> Texture {
 /// turned its whole ground to brass, and the doc comment on the rim below
 /// claimed a separation the code never made. Baking it here is what makes
 /// that comment true: the field stays white and picks up only the neutral
-/// brightness the material now carries, and the accent reaches no further
-/// than `border`.
+/// brightness the material now carries, and the accent lives in the rim
+/// alone.
+///
+/// The rim's colour and the rim's opacity are two curves, not one. Both are
+/// driven by the same distance from the edge, but the hue crossfades on a
+/// *shallower* exponent than the opacity does, so the accent reaches
+/// further in than the ink does. Tying them together is the obvious thing
+/// to write and it looks wrong: where a rim is faint it is also barely
+/// coloured, so a seat's colour only ever arrives on the handful of pixels
+/// that are already nearly opaque, and every rim reads as off-white.
 #[must_use]
 pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]) -> Texture {
     let mut texture = Texture::blank(width, height);

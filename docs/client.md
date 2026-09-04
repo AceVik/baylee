@@ -124,7 +124,10 @@ shape in the alpha channel alone, and the seat colour arrived as the
 material's `base_color` — which multiplies the whole texture, so the field got
 the same hue as the rim and differed only in opacity. A gilt-rimmed board was
 in fact a sheet of brass. `seat_mat` takes the accent now and crossfades to it
-on the rim's own falloff, the material carries neutral brightness, and the
+on a shallower curve than the opacity's — the hue has to reach further in than
+the ink, or the colour only ever lands where the rim is already solid and
+every seat's rim reads off-white — the material carries neutral brightness,
+and the
 glow beneath keeps the accent because putting the seat's colour on the felt is
 what a glow is for. It costs a texture per seat rather than one per table;
 sharing that image is precisely what made the separation impossible.
@@ -989,9 +992,15 @@ behind and reads any difference as somebody else's write, which resets the
 source to `Elsewhere`. Without that, the keyboard cursor walking off a
 permanent and onto a hand card would meet a stale `Table` source, fail to find
 itself on the table and be cleared on the very next frame: the same stall as
-above, through a different door. `Elsewhere` is the permissive answer — it
-clears only when the object has left the hand *and* the table — because
-`move_cursor` already heals a stale cursor by itself.
+above, through a different door. `Elsewhere` clears only when the object has
+left the hand *and* the table, and that union is the keyboard cursor's own
+invariant rather than a weakening of the two above. The two kinds of hover
+are valid for different reasons: a *pointer* hover holds while the pointer is
+over the entity that reported it, a *keyboard* cursor while its object is
+anywhere in `cursor_grid` — which spans the hand and every pod's lanes. An
+`ObjectId` survives a zone change, so a card played off the cursor is still in
+the grid, one row down, and `move_cursor` keeps navigating from it. Clearing
+it there would drop the player's cursor, not a ghost.
 
 ## Settings, and what belongs to whom
 
