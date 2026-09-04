@@ -135,6 +135,12 @@ done_n=0
 # four hundred slots on the same mistake.
 NO_EDIT_STREAK=0
 NO_EDIT_LIMIT=3
+# And the same for a model that will not answer at all. The quota is waited
+# out above rather than counted here, so a run of failures this reaches is
+# something else — an expired login, a model name that no longer exists — and
+# none of those get better by trying the next card.
+FAIL_STREAK=0
+FAIL_LIMIT=5
 
 # How many accepted cards may wait for one gate run.
 #
@@ -155,6 +161,25 @@ HOLD=$LOG/pending
 rm -rf "$HOLD"
 mkdir -p "$HOLD"
 typeset -a PENDING PENDING_NAMES
+
+# How long to wait for the quota named in a verdict, in seconds.
+#
+# The message is `Individual quota reached. … Resets in 2h19m16s.` — a duration
+# and not a wall-clock time, so it is read as one. A minute of slack on top,
+# because a reset announced to the second is still a reset that has to have
+# happened, and a quarter of an hour if the message ever stops carrying one.
+quota_seconds() {
+  local text h=0 m=0 s=0
+  text=$(grep -o 'Resets in [0-9hms]*' "$1" | head -1)
+  if [ -z "$text" ]; then
+    print 900
+    return
+  fi
+  [[ $text =~ '([0-9]+)h' ]] && h=$match[1]
+  [[ $text =~ '([0-9]+)m' ]] && m=$match[1]
+  [[ $text =~ '([0-9]+)s' ]] && s=$match[1]
+  print $(( h * 3600 + m * 60 + s + 60 ))
+}
 
 # The gate itself. Narrow on purpose: it says the pool still compiles and its
 # data tests still hold, which is not the same as a card being right.
@@ -228,25 +253,42 @@ for dir in "$PKGS"/*(/); do
   echo "=== [$done_n/$COUNT] $slug — $name"
 
   verdict=$LOG/$slug.json
-  upstream_before=$(upstream_state)
-  ( cd "$ROOT" && agy -p "$(cat "$dir/PROMPT.md")" \
-      --model "$MODEL" \
-      --new-project \
-      --add-dir "$ROOT" \
-      --mode accept-edits \
-      --dangerously-skip-permissions \
-      --output-format json \
-      --json-schema "$HERE/verdict.schema.json" \
-      --print-timeout 20m \
-      > "$verdict" 2> "$LOG/$slug.err" )
-  rc=$?
+  # The card is attempted until it is actually attempted. A batch that runs
+  # overnight will meet the daily quota, and `agy` answers that in three
+  # seconds with `status: ERROR` — which the loop below would have recorded as
+  # a refusal and moved on from. The first run to hit it burned 202 of its 459
+  # cards that way in under ten minutes, refusing every one of them without
+  # ever asking the model. So: wait for the reset the message names, and try
+  # the same card again.
+  while :; do
+    upstream_before=$(upstream_state)
+    ( cd "$ROOT" && agy -p "$(cat "$dir/PROMPT.md")" \
+        --model "$MODEL" \
+        --new-project \
+        --add-dir "$ROOT" \
+        --mode accept-edits \
+        --dangerously-skip-permissions \
+        --output-format json \
+        --json-schema "$HERE/verdict.schema.json" \
+        --print-timeout 20m \
+        > "$verdict" 2> "$LOG/$slug.err" )
+    rc=$?
 
-  if [ "$(upstream_state)" != "$upstream_before" ]; then
-    print -u2 "escaped_the_clone: the model wrote cards into $UPSTREAM, not this clone."
-    print -u2 "  Nothing here may revert a tree it does not own. Go and look at it:"
-    print -u2 "    git -C $UPSTREAM status -- $WATCHED"
-    exit 3
-  fi
+    if [ "$(upstream_state)" != "$upstream_before" ]; then
+      print -u2 "escaped_the_clone: the model wrote cards into $UPSTREAM, not this clone."
+      print -u2 "  Nothing here may revert a tree it does not own. Go and look at it:"
+      print -u2 "    git -C $UPSTREAM status -- $WATCHED"
+      exit 3
+    fi
+
+    grep -q 'quota reached' "$verdict" 2>/dev/null || break
+    wait_s=$(quota_seconds "$verdict")
+    # Whatever is already accepted goes in first. A chunk left sitting
+    # uncommitted for two hours is a chunk that anything at all can lose.
+    flush_gate
+    echo "  quota reached — sleeping ${wait_s}s, then this card again"
+    sleep "$wait_s"
+  done
 
   verdict_status=$(python3 "$HERE/verdict.py" "$verdict" status 2>/dev/null)
   # What *this* script concluded, which is not always what the model claimed.
@@ -258,6 +300,9 @@ for dir in "$PKGS"/*(/); do
     echo "  agy failed (rc=$rc) — see $LOG/$slug.err"
     verdict_status=refused
     outcome=agy-failed
+    FAIL_STREAK=$((FAIL_STREAK+1))
+  else
+    FAIL_STREAK=0
   fi
 
   # What the model actually left behind. The pending cards are legitimately
@@ -311,6 +356,12 @@ for dir in "$PKGS"/*(/); do
   if [ $NO_EDIT_STREAK -ge $NO_EDIT_LIMIT ]; then
     echo "$NO_EDIT_STREAK cards in a row reported without an edit — stopping."
     echo "That is the prompt, not the pool. Fix it before spending the rest."
+    break
+  fi
+
+  if [ $FAIL_STREAK -ge $FAIL_LIMIT ]; then
+    echo "$FAIL_STREAK cards in a row and the model never answered — stopping."
+    echo "Not the quota (that waits). Look at $LOG/$slug.json."
     break
   fi
 done
