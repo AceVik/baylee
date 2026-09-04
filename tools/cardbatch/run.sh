@@ -14,12 +14,24 @@
 # thinking rather than throughput.
 #
 # Permissions are skipped, and that is only defensible because of where this
-# runs: a worktree of its own, on a branch of its own, with its own target
-# directory. The model needs a shell — the prompt asks it to compile and test
-# what it wrote, which is most of what makes the output worth having — and 792
+# runs: a *clone* of its own, on a branch of its own, with its own target
+# directory. The model needs a shell — the prompt asks it to compile what it
+# wrote, which is most of what makes the output worth having — and 792
 # permission prompts is not a batch. What keeps it honest is downstream: every
 # card is reverted unless the gate passes AND the only file it touched was its
 # own, so a shell used for anything else leaves nothing behind.
+#
+# A clone and not a git worktree, which is what this was first, and the
+# difference is the whole safety argument. A worktree's `.git` is a *file*
+# pointing back at the real repository, so `git rev-parse --git-common-dir`
+# answers with the main checkout's `.git` — and `agy` resolves the project it
+# is working on that way. The first trial run therefore edited
+# /Users/viktor/Projects/baylee while believing it was sandboxed: the guard
+# below saw a clean tree (a worktree's `git status` cannot see another
+# worktree's files), reverted nothing, and would have kept doing that for 792
+# cards. A clone's `.git` is a directory, so the common dir is its own, and
+# the guard is a guard. `refuse_shared_checkout` below makes the failure loud
+# rather than silent if this is ever pointed at a worktree again.
 #
 # The narrow gate is deliberate. `cargo test --workspace` takes minutes and
 # the client alone links half a gigabyte; per card that is the difference
@@ -30,6 +42,20 @@ PKGS=${1:?usage: run.sh <packages-dir> [count] [model]}
 COUNT=${2:-10}
 MODEL=${3:-gemini-3.8-flash-high}
 ROOT=$(git rev-parse --show-toplevel)
+
+# The isolation, asserted rather than assumed. `agy` finds the project it edits
+# through the git *common* directory, so in a worktree it walks out of here and
+# into the main checkout — see the note at the top. If this is not a clone,
+# stop: everything below (the per-card revert, the "touched only its own file"
+# check, skipped permissions) is arguing about a tree the model is not editing.
+if [ ! -d "$ROOT/.git" ]; then
+  print -u2 "refuse_shared_checkout: $ROOT/.git is not a directory, so this is a"
+  print -u2 "  worktree or a submodule, and agy would edit whatever holds"
+  print -u2 "  $(git rev-parse --git-common-dir) instead."
+  print -u2 "  instead. Clone the repository and run there."
+  exit 2
+fi
+
 HERE=$ROOT/tools/cardbatch
 LOG=$ROOT/target/cardbatch
 mkdir -p "$LOG"
