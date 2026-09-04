@@ -88,6 +88,25 @@ if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
   exit 1
 fi
 
+# The second isolation guard, and the one that matters: `agy` does not take the
+# working directory as the thing it edits. It carries its own notion of a
+# *project* (`--project`, `--new-project`), and given none it reuses the most
+# recent one — which on this machine is the real checkout. So the first batch
+# wrote its cards into /Users/viktor/Projects/baylee while every check in this
+# script inspected the clone, found it clean, and recorded `no-edit`; the card
+# the model had actually written was sitting in somebody else's working tree.
+# `--new-project` below binds the session to this directory. This check is what
+# turns that from a hope into a fact: the upstream checkout is photographed
+# before each card and compared after, and any difference stops the run, because
+# nothing here can safely revert a tree it does not own.
+UPSTREAM=$(git -C "$ROOT" remote get-url origin 2>/dev/null)
+upstream_state() {
+  if [ -n "$UPSTREAM" ] && [ -d "$UPSTREAM/.git" ]; then
+    git -C "$UPSTREAM" status --porcelain
+    git -C "$UPSTREAM" rev-parse HEAD
+  fi
+}
+
 done_n=0
 # A run that keeps reporting cards it never wrote is a broken prompt, not a
 # difficult pool, and it costs about six minutes of model time per card to keep
@@ -106,8 +125,11 @@ for dir in "$PKGS"/*(/); do
   echo "=== [$done_n/$COUNT] $slug — $name"
 
   verdict=$LOG/$slug.json
+  upstream_before=$(upstream_state)
   ( cd "$ROOT" && agy -p "$(cat "$dir/PROMPT.md")" \
       --model "$MODEL" \
+      --new-project \
+      --add-dir "$ROOT" \
       --mode accept-edits \
       --dangerously-skip-permissions \
       --output-format json \
@@ -115,6 +137,13 @@ for dir in "$PKGS"/*(/); do
       --print-timeout 20m \
       > "$verdict" 2> "$LOG/$slug.err" )
   rc=$?
+
+  if [ "$(upstream_state)" != "$upstream_before" ]; then
+    print -u2 "escaped_the_clone: the model changed $UPSTREAM, not this clone."
+    print -u2 "  Nothing here may revert a tree it does not own. Go and look at it:"
+    print -u2 "    git -C $UPSTREAM status"
+    exit 3
+  fi
 
   verdict_status=$(python3 "$HERE/verdict.py" "$verdict" status 2>/dev/null)
   # What *this* script concluded, which is not always what the model claimed.
