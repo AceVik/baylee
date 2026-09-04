@@ -55,7 +55,9 @@ pub mod tabletop;
 pub(crate) mod test_support;
 
 pub use automation::{AutoAnswer, AutoPilot, PhaseOrders};
-pub use board::{BoardModel, CardGroup, Lane, SeatPod, StackItem, ThreatSummary, TokenChip};
+pub use board::{
+    BoardModel, CardGroup, Lane, SeatPod, StackItem, ThreatSummary, TokenChip, ZonePile,
+};
 pub use browser::{BrowseRow, BrowseZone, Browser};
 pub use card_face::{
     CardFace, CardText, CardTextEntry, Characteristics, FaceText, Stats, TextBlock,
@@ -66,7 +68,7 @@ pub use deckbuilder::{
 pub use i18n::{Lang, Phrase};
 pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
 pub use interaction::{CombatFocus, Interaction, Prompt, SelectionOutcome};
-pub use layout::{LaneKind, SeatSlot, TableLayout};
+pub use layout::{LaneKind, PileKind, SeatSlot, TableLayout};
 pub use lobby::{
     DeckSummary, Field, FieldKind, GameListing, GameMode, GameQuery, GameSeat, GameSummary, Lobby,
     LobbyEvent, LobbyRequest, Screen, SeatHandover,

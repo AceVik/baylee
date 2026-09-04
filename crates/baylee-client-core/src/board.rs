@@ -20,7 +20,7 @@
 //! what a player would conclude from it.
 
 use crate::images::{ArtSize, ImageKey};
-use crate::layout::{LaneKind, pack_lane};
+use crate::layout::{LaneKind, PileKind, pack_lane};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, TargetRef};
@@ -306,6 +306,55 @@ pub struct ThreatSummary {
     pub air_defence: u32,
 }
 
+/// One of the four piles beside a seat's ground, as it is to be drawn.
+///
+/// Deliberately **not** a [`CardGroup`]: a pile has no interaction state, is
+/// never selected, never attacks and is not a permanent. What it has is a
+/// count, a place, and — for every pile but the library — a face that may be
+/// looked at.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct ZonePile {
+    /// Which pile this is, which is also where it stands.
+    pub kind: PileKind,
+    /// How many cards are in it.
+    pub count: u32,
+    /// The top card's picture, where there is one to show.
+    ///
+    /// Always `None` for a library — a library is face down to everyone,
+    /// its owner included (CR 401.2) — and `None` for a pile whose top
+    /// object is a token, which has no printing to draw.
+    pub art: Option<ImageKey>,
+    /// The top card's projected name, for the badge and for a reader.
+    pub name: Option<String>,
+    /// The object the top card is, so hovering the pile previews that card
+    /// through the machinery the battlefield already uses.
+    pub top: Option<ObjectId>,
+}
+
+impl ZonePile {
+    /// A pile of this kind with nothing in it — a place, and no cards.
+    #[must_use]
+    pub const fn empty(kind: PileKind) -> Self {
+        Self {
+            kind,
+            count: 0,
+            art: None,
+            name: None,
+            top: None,
+        }
+    }
+
+    /// Whether clicking this pile can open anything.
+    ///
+    /// An empty pile cannot: there is nothing to look at. Neither can a
+    /// library, ever — nobody may look through one, and a pile that opened
+    /// an empty panel would be claiming otherwise.
+    #[must_use]
+    pub const fn is_browsable(&self) -> bool {
+        !matches!(self.kind, PileKind::Library) && self.count > 0
+    }
+}
+
 /// One seat's board.
 // The flags are independent facts about a seat that a renderer reads one at a
 // time (is it me, is it their turn, do they hold priority, have they lost).
@@ -337,6 +386,14 @@ pub struct SeatPod {
     pub has_priority: bool,
     /// Board rows.
     pub lanes: Vec<Lane>,
+    /// The four piles standing beside this seat's ground, always all four and
+    /// always in [`PileKind::ALL`] order.
+    ///
+    /// All four even when empty, because a pile is a *place* — a graveyard
+    /// that appeared the first time something died and moved the exile pile
+    /// along would make the table rearrange itself mid-game. An empty one
+    /// draws as the bare recess it is and answers no clicks.
+    pub piles: Vec<ZonePile>,
     /// Grouped tokens across the whole board, for the compact chip row.
     pub tokens: Vec<TokenChip>,
     /// Threat arithmetic.
@@ -653,6 +710,10 @@ impl BoardModel {
             for lane in &pod.lanes {
                 keys.extend(lane.groups.iter().filter_map(|g| g.art));
             }
+            // A pile's top card is drawn face up on the table beside the mat,
+            // and it is very often a card nothing else is drawing — the last
+            // creature to die is in no lane by definition.
+            keys.extend(pod.piles.iter().filter_map(|p| p.art));
         }
         keys.extend(self.hand.iter().map(|h| h.art));
         keys.extend(self.stack.iter().filter_map(|s| s.art));
@@ -668,6 +729,47 @@ impl BoardModel {
         keys.dedup();
         keys
     }
+}
+
+/// The four piles beside one seat, in [`PileKind::ALL`] order, always all
+/// four.
+///
+/// The counts come from two different places, and that is not an
+/// inconsistency. A library is a *count* in the view and nothing else —
+/// there is no list to take the length of, because sending one would be
+/// sending the seat their opponent's next draws — while a graveyard, a
+/// public exile and a command zone are lists whose length is the count.
+/// Reading a library's size off a list would give nought at every table.
+fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
+    let i = player.get() as usize;
+    let seat = view.seats.get(i);
+    PileKind::ALL
+        .iter()
+        .map(|&kind| {
+            let list: Option<&[PublicObject]> = match kind {
+                PileKind::Library => None,
+                PileKind::Graveyard => view.graveyards.get(i).map(Vec::as_slice),
+                PileKind::Exile => view.exile.get(i).map(Vec::as_slice),
+                PileKind::Command => view.command.get(i).map(Vec::as_slice),
+            };
+            // `ZonePosition::Top` pushes, so the object listed last is the
+            // one lying on top of the pile — which is the one to draw.
+            let top = list.and_then(<[PublicObject]>::last);
+            let count = match kind {
+                PileKind::Library => seat.map_or(0, |s| s.library_count),
+                _ => list.map_or(0, |l| u32::try_from(l.len()).unwrap_or(u32::MAX)),
+            };
+            ZonePile {
+                kind,
+                count,
+                art: top
+                    .and_then(|o| o.card)
+                    .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+                name: top.map(|o| o.name.clone()),
+                top: top.map(|o| o.id),
+            }
+        })
+        .collect()
 }
 
 /// Resolves a target handle into something drawable.
@@ -757,6 +859,7 @@ fn build_pod(
         is_active: player == view.active,
         has_priority: view.priority == Some(player),
         lanes,
+        piles: zone_piles(view, player),
         tokens: token_chips(&permanents),
         threat: threat_summary(&permanents, seat.map_or(0, |s| s.hand_count)),
     }

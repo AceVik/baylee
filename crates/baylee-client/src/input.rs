@@ -118,8 +118,35 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
         }
     }
     duel.ability_menu = None;
-    if let Some(i) = duel.interaction.as_mut() {
-        i.toggle(object);
+    let answered = duel
+        .interaction
+        .as_mut()
+        .is_some_and(|i| i.toggle(object) != SelectionOutcome::Rejected);
+    if !answered {
+        open_pile(duel, object);
+    }
+}
+
+/// A tap that meant nothing else, on a card lying on top of a pile, opens
+/// that pile.
+///
+/// Last of all the branches above, and that ordering is the rule rather than
+/// an accident: while the engine is asking a player to choose a card out of
+/// their graveyard, a tap on the top of it must *answer the question*, not
+/// drop a panel over the board they are answering it from. Only a tap that
+/// nothing else claimed is a request to look through the pile.
+fn open_pile(duel: &mut Duel, object: ObjectId) {
+    let Some(board) = duel.board.as_ref() else {
+        return;
+    };
+    let opening = board.pods.iter().find_map(|pod| {
+        pod.piles
+            .iter()
+            .find(|pile| pile.top == Some(object) && pile.is_browsable())
+            .and_then(|pile| baylee_client_core::BrowseZone::of_pile(pile.kind, pod.player))
+    });
+    if let Some(zone) = opening {
+        duel.browser.open_at(zone);
     }
 }
 

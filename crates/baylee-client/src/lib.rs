@@ -57,6 +57,7 @@ pub mod manasources;
 pub mod manaui;
 pub mod net;
 pub mod prefs;
+pub mod rivermat;
 pub mod settings;
 pub mod settingsui;
 pub mod softkeys;
@@ -418,6 +419,7 @@ impl Plugin for DuelPlugin {
         loading::install(app);
         flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
+            .add_plugins(rivermat::RiverMaterialPlugin)
             .init_state::<DuelPhase>()
             .insert_resource(self.config.clone())
             .insert_resource(settings::ClientSettings::load())
@@ -472,7 +474,7 @@ impl Plugin for DuelPlugin {
                     table::track_canvas,
                     table::sync_scene,
                     table::sync_zones,
-                    table::sync_phase,
+                    table::sync_river,
                     table::glide,
                     table::frame_table,
                     table::apply_camera_rig,

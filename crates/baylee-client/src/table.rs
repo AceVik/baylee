@@ -23,6 +23,7 @@
 use crate::Duel;
 use crate::cardmat::{CardLook, CardMaterial, MOVING, material, motion_of};
 use crate::face;
+use crate::rivermat::RiverMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
@@ -49,66 +50,52 @@ const ZONE_LIFT: f32 = 0.002;
 const GLOW_LIFT: f32 = 0.001;
 /// Where the centre medallion is inlaid.
 const MEDALLION_LIFT: f32 = 0.0015;
-/// The felt's extent. Big enough that no seat sees its edge.
-const FELT: Vec2 = Vec2::new(60.0, 44.0);
-/// Where the lamplight pool lies: on the felt, under everything else.
-const HEARTH_LIFT: f32 = 0.0008;
-/// How far the lamplight and its inlaid ring reach, in table units.
+/// Bare timber kept around the table, so no camera angle finds the slab's
+/// edge.
 ///
-/// It shipped at 34, which put a twenty-unit ring with twenty-four ticks on
-/// it across the middle of the felt: the largest, brightest, most detailed
-/// thing on screen, and what the eye read was a roulette wheel. The bound is
-/// in `docs/design.md` §1.1 and is measured by
-/// `camera_tests::the_hearth_ring_is_no_bigger_than_a_seats_ground` — the
-/// lamp is atmosphere, the mats are where the game is.
-///
-/// Halving it to 18 did not fix that, and the test went on passing, because
-/// the test compared the ring against the mat's *long* edge. Measured
-/// against the edge that matters — a two-seat table gives each mat a depth
-/// of 4.42 units — an 18-unit quad puts a 10.8-unit ring on the felt: two
-/// and a half times as deep as a player's whole board, filling 86% of the
-/// gap between the two of them. At 4.5 the ring is 2.7, which is wider than
-/// one lane and narrower than a mat, and that is the bound the test states
-/// now.
-const HEARTH_SIZE: f32 = 4.5;
+/// The slab used to be a fixed 60 × 44 whoever was sitting at it — about four
+/// times a duel's table, which was harmless while the camera was 29 units up
+/// and is not now that it is 17. This is a margin rather than a size because
+/// the table is no longer one shape: it is cut to whatever
+/// [`TableLayout::extent`] reports, which changes with the seat count, the
+/// focus and the window.
+const SLAB_MARGIN: f32 = 4.0;
 /// How wide the medallion is inlaid, in table units.
 ///
-/// Derived from the ring for the same reason [`WASH_SIZE`] is, and it is the
-/// case that proves the reason: the medallion belongs *inside* the ring, and
-/// while it was the literal 9.5 it was inside a ring of 8.28 only because
-/// `HEARTH_SIZE` happened to be 18. Shrinking the lamp to 4.5 with the
-/// literal still in place would have put a 9.5-unit colour wheel around a
-/// 2.7-unit ring — the ornament swallowing the thing it is inlaid in. The
-/// factor is the proportion the table already had (`9.5 / (18 × 0.46)`), so
-/// this changes the size and nothing about the look.
-const MEDALLION_SIZE: f32 = HEARTH_SIZE * tabletop::HEARTH_INNER * 1.147;
-/// Where the phase wash lies: over the lamplight pool it colours, under the
-/// medallion, which it must never touch.
-const WASH_LIFT: f32 = 0.0011;
-/// How far the phase wash reaches.
-///
-/// Sized against the *ring*, not against the pool quad it shares a texture
-/// with: [`tabletop::hearth`] puts its band at
-/// [`tabletop::HEARTH_INNER`]–[`tabletop::HEARTH_OUTER`] of the quad's half
-/// width, so the ring a player actually sees is a good deal smaller than
-/// [`HEARTH_SIZE`]. A wash wider than that stops reading as a lamp over the
-/// middle of the table and starts reading as the table being that colour,
-/// which is the version this shipped as first and the reason the number is
-/// tied to the ring rather than written down.
-const WASH_SIZE: f32 = HEARTH_SIZE * tabletop::HEARTH_OUTER * 1.2;
-/// How strong the wash is at [`tabletop::PhaseLight::energy`] 1.0.
-const WASH_ALPHA: f32 = 0.24;
-/// How fast the wash follows a phase change, per second.
+/// A written number again, and small enough to float in the channel with
+/// resin visible on both sides of it —
+/// `camera_tests::the_medallion_floats_in_the_channel_it_is_set_in` is that
+/// bound. It used to be derived from the lamplight ring, which no longer
+/// exists: the channel *is* the light pool now, and a 4.5-unit ring across a
+/// 3.4-unit channel would have been the roulette wheel all over again, this
+/// time lying across both players' mats.
+const MEDALLION_SIZE: f32 = 2.2;
+/// How fast the channel follows a phase change, per second.
 ///
 /// Slower than a card moves. A step boundary is not an event a player has to
-/// catch — it is a condition they should notice having changed — and a wash
-/// that snapped would flicker through the four steps of combat.
+/// catch — it is a condition they should notice having changed — and a
+/// channel that snapped would flicker through the four steps of combat.
 const WASH_RATE: f32 = 3.0;
 /// Margin around a seat's pod, so its mat is a table the cards sit on rather
 /// than a box drawn tight around them.
 const ZONE_MARGIN: f32 = 0.55;
 /// How far past the mat the glow beneath it spreads.
 const GLOW_SPREAD: f32 = 2.4;
+/// How much of a seat's colour the glow beneath its mat spills onto the table.
+///
+/// It was `0.30`, and that was tuned when a mat was a fifth of the screen and
+/// the table under it was a felt of about its own brightness. Both ends of
+/// that moved: the mats now fill the screen, and the timber under them is a
+/// dark wood. Measured on the same frame, the timber came out `(35, 24, 18)`
+/// and a mat `(52, 77, 58)` — the mat is a nearly transparent sheet, so what
+/// was actually being read was this lamp, twice as bright as the table and
+/// warm or green depending on whose seat it was.
+///
+/// Every reference the design is drawn from does the opposite: the play
+/// surface is the quietest thing on the table and the seat is marked at its
+/// edge, not lit from beneath. The rim already carries the colour; this is
+/// what is left of the glow once the rim is doing its job.
+const GLOW_STRENGTH: f32 = 0.085;
 
 /// Extra lift per card in a counted stack, so a stack reads as a stack.
 const STACK_LIFT: f32 = 0.006;
@@ -128,17 +115,25 @@ const SELECTED_SCALE: f32 = 1.07;
 #[derive(Component)]
 pub struct DuelStage;
 
-/// The wash of colour over the middle of the table that says which step of
-/// the turn this is, and the colour it is currently showing.
+/// The table itself: one slab of timber with the resin channel poured
+/// through it.
 ///
-/// The colour is carried on the component rather than read back out of the
-/// material because it is the *eased* value: a material's `base_color` is
-/// where it ends up, and easing towards a target needs somewhere to keep
-/// where it started.
+/// It carries the two things that have to survive a frame. `cut` is the size
+/// the slab was last made at, so re-cutting only happens when the table
+/// actually changes shape — the channel is computed from the seating, and
+/// recomputing it every frame would be a megapixel of arithmetic for a table
+/// that has not moved. `shown` is the *eased* phase lamp, because easing
+/// towards a target needs somewhere to keep where it started.
 #[derive(Component)]
-pub struct PhaseWash {
-    /// The wash's current colour and strength, linear RGBA.
-    shown: LinearRgba,
+pub struct Slab {
+    /// The world size the timber was cut to.
+    cut: Vec2,
+    /// The lamp currently in the resin: `rgb` its colour, `w` its energy.
+    shown: Vec4,
+    /// Where the lamp was last entering the channel from.
+    source: Vec4,
+    /// The motion setting the current was last running at.
+    motion: f32,
 }
 
 /// The table camera.
@@ -652,6 +647,11 @@ struct Zone {
     mat: Entity,
     /// The pool of colour under it.
     glow: Entity,
+    /// The four pile places beside it, and the face-down library on one of
+    /// them. Empty when the scene index has no card mesh yet.
+    piles: Vec<Entity>,
+    /// Whether the library had run out when those were spawned.
+    library_empty: bool,
     /// What the mat was last tinted for.
     mood: Mood,
     /// The seat colour baked into the mat's rim.
@@ -924,61 +924,10 @@ pub fn spawn_stage(
     // and why this stage has no light in it at all.
     index.glow_image = Some(images.add(image_of(&tabletop::glow(128))));
 
-    // The felt.
-    commands.spawn((
-        DuelStage,
-        Mesh3d(meshes.add(Rectangle::new(FELT.x, FELT.y))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(images.add(image_of(&tabletop::felt(1024)))),
-            unlit: true,
-            ..default()
-        })),
-        Transform::from_xyz(0.0, TABLE_Y, 0.0)
-            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
-
-    // The pool of lamplight over the middle of the table, with the arcane
-    // ring inlaid in it. It sits under the seat mats — the mats draw over it
-    // where they overlap, so it reads as something the table has and they
-    // are lying on rather than as a decal floating above everything.
-    commands.spawn((
-        DuelStage,
-        Mesh3d(meshes.add(Rectangle::new(HEARTH_SIZE, HEARTH_SIZE))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(images.add(image_of(&tabletop::hearth(
-                1024,
-                tabletop::HEARTH_INNER,
-                tabletop::HEARTH_OUTER,
-            )))),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        })),
-        Transform::from_xyz(0.0, TABLE_Y + HEARTH_LIFT, 0.0)
-            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
-
-    // The phase wash: the same pool of light, coloured by where in the turn
-    // we are. It is laid *over* the hearth rather than multiplied into it,
-    // because multiplying candlelight by a cold colour gives grey — the
-    // usual way a tint like this fails. It starts at nothing and eases to
-    // whatever the first view says the step is.
-    commands.spawn((
-        DuelStage,
-        PhaseWash {
-            shown: LinearRgba::NONE,
-        },
-        Mesh3d(meshes.add(Rectangle::new(WASH_SIZE, WASH_SIZE))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::LinearRgba(LinearRgba::NONE),
-            base_color_texture: Some(images.add(image_of(&tabletop::glow(256)))),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        })),
-        Transform::from_xyz(0.0, TABLE_Y + WASH_LIFT, 0.0)
-            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
+    // The slab itself — timber with the resin channel poured through it —
+    // is not spawned here. It is cut to the layout, and at this point there
+    // may not be one: `sync_slab` makes it the first time a board arrives and
+    // re-cuts it whenever the seating or the window changes.
 
     // The medallion inlaid at the centre — the colour wheel every player
     // already has in their head, which is what makes it orientation rather
@@ -1015,6 +964,29 @@ fn image_of(texture: &tabletop::Texture) -> Image {
     );
     // The mat and the medallion are stretched over quads much larger than
     // they are; without a linear filter their soft edges come out as stairs.
+    image.sampler = bevy::image::ImageSampler::linear();
+    image
+}
+
+/// Wraps a generated *field* the same way, but in a linear format.
+///
+/// [`tabletop::channel`] does not write colours. Its channels are a depth, a
+/// direction and a coverage, and running those through an sRGB decode would
+/// bend every one of them — a flow vector would stop being a unit vector, and
+/// the shore would move. The two functions differ in exactly that one line,
+/// which is why they are two functions and not a boolean.
+fn field_of(texture: &tabletop::Texture) -> Image {
+    let mut image = Image::new(
+        Extent3d {
+            width: texture.width,
+            height: texture.height,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        texture.rgba.clone(),
+        TextureFormat::Rgba8Unorm,
+        RenderAssetUsages::RENDER_WORLD,
+    );
     image.sampler = bevy::image::ImageSampler::linear();
     image
 }
@@ -1083,6 +1055,85 @@ fn spawn_table_quad(
         .id()
 }
 
+/// How dark a pile's empty place is drawn on the timber.
+///
+/// A hollow rather than a mark: it has to say "a card belongs here" without
+/// competing with the cards that do lie there. Alpha, so it darkens whatever
+/// the resin and the wood are doing underneath rather than painting over
+/// them — and alpha is linear light, which is the trap that made the seat
+/// mats read as pale trays.
+const RECESS_TINT: LinearRgba = LinearRgba::new(0.0, 0.0, 0.0, 0.42);
+
+/// How far below a real card a pile's empty place lies.
+const RECESS_LIFT: f32 = -CARD_LIFT * 0.5;
+
+/// One seat's four pile places, and the face-down library standing on one.
+///
+/// Drawn here rather than as placements because neither has an object behind
+/// it: a library is face down to everybody, its owner included (CR 401.2),
+/// and an empty pile has no card in it at all. What both of them are is a
+/// *place* — and a place that appeared and vanished as cards moved through it
+/// would make the table rearrange itself in the middle of a game.
+fn spawn_piles(
+    commands: &mut Commands,
+    materials: &mut Assets<StandardMaterial>,
+    index: &SceneIndex,
+    slot: &SeatSlot,
+    library: u32,
+) -> Vec<Entity> {
+    let (Some(glow), Some(quad)) = (index.glow_image.clone(), index.quad.clone()) else {
+        return Vec::new();
+    };
+    let recess = materials.add(StandardMaterial {
+        base_color: Color::LinearRgba(RECESS_TINT),
+        base_color_texture: Some(glow),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    });
+
+    let mut out = Vec::new();
+    for pile in baylee_client_core::PileKind::ALL {
+        let at = slot.pile_center(pile);
+        out.push(
+            commands
+                .spawn((
+                    DuelStage,
+                    Mesh3d(quad.clone()),
+                    MeshMaterial3d(recess.clone()),
+                    card_transform(slot, at, false, RECESS_LIFT),
+                    // A click near a pile's empty place means the table, the
+                    // same as a click near the edge of a card does.
+                    Pickable::IGNORE,
+                ))
+                .id(),
+        );
+    }
+
+    // The library, as a short face-down stack. Short on purpose: the exact
+    // count is on the seat's tab, and a physical library does not tell you
+    // how many cards are in it either. What this has to say is only whether
+    // there is one — a seat with an empty library loses on its next draw.
+    if library > 0 {
+        let at = slot.pile_center(baylee_client_core::PileKind::Library);
+        let depth = (library as usize).min(MAX_STACK_DEPTH);
+        for i in 0..depth {
+            out.push(
+                commands
+                    .spawn((
+                        DuelStage,
+                        Mesh3d(quad.clone()),
+                        MeshMaterial3d(index.blank.clone().unwrap_or_default()),
+                        card_transform(slot, at, false, STACK_LIFT * i as f32),
+                        Pickable::IGNORE,
+                    ))
+                    .id(),
+            );
+        }
+    }
+    out
+}
+
 /// One seat's mat, with that seat's colour baked into its rim.
 ///
 /// The size is the texture's, not the mat's: every seat's quad is scaled from
@@ -1131,67 +1182,180 @@ fn zone_brightness(mood: Mood) -> f32 {
 /// is `zone_tests::a_standing_always_outranks_being_the_local_seat`.
 const LOCAL_LIFT: f32 = 1.10;
 
-/// Eases the middle of the table towards the colour of the current step.
+/// Cuts the slab to the table and keeps the resin lit by the turn.
 ///
-/// The step is on the board model, so this needs no engine and no view of its
-/// own; the arithmetic — which colour a step is worth — lives in
-/// [`tabletop::phase_light`], where it can be argued with in a test rather
-/// than looked at in a screenshot.
+/// Two jobs in one system because they need the same three things — the
+/// layout, the board and the slab entity — and because the second is
+/// meaningless without the first having run.
 ///
-/// It writes only when the colour actually moves. A wash that reached its
-/// target and kept writing would touch a material every frame for the rest of
-/// the game, which is exactly the garbage [`sync_zones`] exists to avoid.
-pub fn sync_phase(
+/// **Cutting.** The table is no longer a fixed quad. It is made to whatever
+/// [`TableLayout::extent`] reports plus [`SLAB_MARGIN`] of bare timber, which
+/// changes with the seat count, the focused pod and the window; and the
+/// channel is recomputed with it, because the channel is the negative form of
+/// exactly that layout. Both are guarded on the cut size, so a table that has
+/// not changed shape costs nothing.
+///
+/// **Lighting.** The step is on the board model, so this needs no engine and
+/// no view of its own; the arithmetic — which colour a step is worth — lives
+/// in [`tabletop::phase_light`], where it can be argued with in a test rather
+/// than looked at in a screenshot. It writes only when the colour actually
+/// moves: a lamp that reached its target and kept writing would touch a
+/// material every frame for the rest of the game, which is exactly the
+/// garbage [`sync_zones`] exists to avoid.
+#[allow(clippy::too_many_arguments)] // one surface: three asset stores and the slab
+pub fn sync_river(
+    mut commands: Commands,
     time: Res<Time>,
     duel: Res<Duel>,
     prefs: Res<crate::prefs::Prefs>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut washes: Query<(&mut PhaseWash, &MeshMaterial3d<StandardMaterial>)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<RiverMaterial>>,
+    mut slabs: Query<(&mut Slab, &mut Mesh3d, &MeshMaterial3d<RiverMaterial>)>,
 ) {
-    let Some(board) = duel.board.as_ref() else {
+    let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return;
     };
-    let light = tabletop::phase_light(board.step);
-    // sRGB in, because the generator and the palette both write what the
-    // table should *look* like; the alpha is where the strength lives, so
-    // the wash fades out rather than to black.
-    let want = Color::srgba(
-        light.rgb[0],
-        light.rgb[1],
-        light.rgb[2],
-        light.energy * WASH_ALPHA,
-    )
-    .to_linear();
-    let t = if prefs.all().reduce_motion {
+    let Some((min, max)) = layout.extent() else {
+        return;
+    };
+
+    // Measured about the origin rather than about the extent's own centre,
+    // because the origin is where the medallion is inlaid and where the pool
+    // is centred. For every seat count that can actually be played the ring
+    // is symmetric and the two agree.
+    let reach = min.abs().max(max.abs());
+    let span = (reach + Vec2::splat(SLAB_MARGIN)) * 2.0;
+
+    let motion = if prefs.all().reduce_motion {
+        crate::cardmat::STILL
+    } else {
+        crate::cardmat::MOVING
+    };
+
+    // Where the light enters: the active seat's own shore, running inward
+    // across the channel. At two seats that is the reference photograph —
+    // cool at one bank, molten at the other — and at six it is a pool lit
+    // from whoever's turn it is, which is the same statement without needing
+    // a river to have ends.
+    let source = board
+        .pods
+        .iter()
+        .find(|pod| pod.is_active)
+        .and_then(|pod| layout.slot(pod.player))
+        .map_or(Vec4::new(0.0, -1.0, 0.0, 1.0), |slot| {
+            let inward = (-slot.center).try_normalize().unwrap_or(Vec2::Y);
+            Vec4::new(slot.center.x, slot.center.y, inward.x, inward.y)
+        });
+
+    let want = crate::rivermat::wash_of(board.step);
+    let ease = if prefs.all().reduce_motion {
         1.0
     } else {
         1.0 - (-WASH_RATE * time.delta_secs()).exp()
     };
-    for (mut wash, handle) in &mut washes {
-        let next = LinearRgba {
-            red: wash.shown.red + (want.red - wash.shown.red) * t,
-            green: wash.shown.green + (want.green - wash.shown.green) * t,
-            blue: wash.shown.blue + (want.blue - wash.shown.blue) * t,
-            alpha: wash.shown.alpha + (want.alpha - wash.shown.alpha) * t,
-        };
-        // Below a step this small nothing on screen changes, so stop —
-        // otherwise the wash writes a material every frame forever.
-        let moved = [
-            next.red - wash.shown.red,
-            next.green - wash.shown.green,
-            next.blue - wash.shown.blue,
-            next.alpha - wash.shown.alpha,
-        ]
-        .iter()
-        .any(|d| d.abs() > 1e-4);
-        if !moved {
-            continue;
-        }
-        wash.shown = next;
-        if let Some(mut material) = materials.get_mut(&handle.0) {
-            material.base_color = Color::LinearRgba(next);
-        }
+
+    let Ok((mut slab, mut mesh, handle)) = slabs.single_mut() else {
+        // No slab yet. Cut one, and let the next frame light it.
+        let channel = cut(span, layout, &mut images);
+        commands.spawn((
+            DuelStage,
+            Slab {
+                cut: span,
+                shown: Vec4::ZERO,
+                source,
+                motion,
+            },
+            Mesh3d(meshes.add(Rectangle::new(span.x, span.y))),
+            MeshMaterial3d(materials.add(RiverMaterial {
+                channel,
+                params: crate::rivermat::RiverParams {
+                    wash: Vec4::ZERO,
+                    source,
+                    span,
+                    motion,
+                    gain: crate::rivermat::WASH_GAIN,
+                },
+            })),
+            Transform::from_xyz(0.0, TABLE_Y, 0.0)
+                .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        ));
+        return;
+    };
+
+    let recut = (slab.cut - span).abs().max_element() > 1e-3;
+    let next = slab.shown + (want - slab.shown) * ease;
+    // Below a step this small nothing on screen changes, so stop. A slab that
+    // reached its colour and went on writing would touch a material — and so
+    // a uniform upload — every frame for the rest of the game.
+    let still = (next - slab.shown).abs().max_element() <= 1e-4
+        && (slab.source - source).abs().max_element() <= 1e-4
+        && (slab.motion - motion).abs() <= f32::EPSILON;
+    if still && !recut {
+        return;
     }
+    slab.shown = next;
+    slab.source = source;
+    slab.motion = motion;
+
+    if recut {
+        slab.cut = span;
+        *mesh = Mesh3d(meshes.add(Rectangle::new(span.x, span.y)));
+    }
+    if let Some(mut material) = materials.get_mut(&handle.0) {
+        if recut {
+            material.channel = cut(span, layout, &mut images);
+        }
+        material.params.wash = next;
+        material.params.source = source;
+        material.params.span = span;
+        material.params.motion = motion;
+    }
+}
+
+/// Generates the channel field a slab of this size needs.
+///
+/// Cut in **world** units, so the shore keeps its real size however large the
+/// table is or however coarsely the image is sampled. The resolution follows
+/// the slab's shape rather than being square, because a square texture on a
+/// table twice as wide as it is deep spends half its detail on the axis that
+/// has least of it.
+fn cut(span: Vec2, layout: &TableLayout, images: &mut Assets<Image>) -> Handle<Image> {
+    /// Texels across the slab. Measured, not guessed: in a debug build this
+    /// size costs about 160 ms and 2048 costs 630 ms, and a re-cut happens on
+    /// every window resize. The field varies over a unit and a half, so this
+    /// is far more resolution than its content needs — what it buys is a
+    /// shore that is a line rather than a staircase.
+    const ACROSS: u32 = 1024;
+
+    #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+    let down = ((ACROSS as f32 * span.y / span.x).round() as u32).clamp(64, ACROSS);
+
+    let banks: Vec<tabletop::Bank> = layout
+        .slots
+        .iter()
+        .map(|slot| tabletop::Bank {
+            center: slot.center,
+            half_extent: slot.half_extent,
+            facing: slot.facing,
+        })
+        .collect();
+
+    // The water reaches the *table*, not the slab: every unit of overhang
+    // that keeps the slab's edge out of frame has to be dry timber, or the
+    // river is a flood.
+    let pool = layout
+        .extent()
+        .map_or(span * 0.5, |(min, max)| min.abs().max(max.abs()));
+
+    images.add(field_of(&tabletop::channel(
+        ACROSS,
+        down,
+        span,
+        pool,
+        &banks,
+        ZONE_MARGIN,
+    )))
 }
 
 /// Keeps one mat and one glow per seat in step with the table.
@@ -1200,6 +1364,7 @@ pub fn sync_phase(
 /// that: the layout does not move once a game has begun, and a mat rebuilt
 /// every frame would be four meshes and four materials of pure garbage per
 /// frame for a table nobody is looking at that hard.
+#[allow(clippy::too_many_lines)] // one seat's ground, glow and piles in one pass
 pub fn sync_zones(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -1232,12 +1397,19 @@ pub fn sync_zones(
         // is the opposite case — it is a white falloff whose entire job is
         // to spill the seat's colour onto the felt, so it takes the accent.
         let mat_tint = LinearRgba::rgb(brightness, brightness, brightness);
-        let glow_tint = accent.to_linear() * brightness * 0.30;
+        let glow_tint = accent.to_linear() * brightness * GLOW_STRENGTH;
 
+        // The one fact about a pile the *places* depend on. A seat whose
+        // library has run out loses on its next draw, and the table stops
+        // showing a stack there — which is worth a rebuild; how many cards
+        // are in a library that still has some is not, and is on the tab.
+        let library_empty = pod.library_count == 0;
         if let Some(zone) = index.zones.get(&pod.player) {
-            if zone.mood == mood && zone.accent == accent {
+            let stale_piles = zone.library_empty != library_empty;
+            if zone.mood == mood && zone.accent == accent && !stale_piles {
                 continue;
             }
+            let old_piles = zone.piles.clone();
             // Only the colour changes, so only the colour is written: the
             // mesh, the transform and the texture all still hold — unless
             // the accent itself moved, which the rim is baked with and so
@@ -1257,9 +1429,25 @@ pub fn sync_zones(
                     material.base_color_texture = Some(image);
                 }
             }
+            let fresh = stale_piles.then(|| {
+                for entity in old_piles {
+                    commands.entity(entity).despawn();
+                }
+                spawn_piles(
+                    &mut commands,
+                    &mut materials,
+                    &index,
+                    slot,
+                    pod.library_count,
+                )
+            });
             index.zones.entry(pod.player).and_modify(|zone| {
                 zone.mood = mood;
                 zone.accent = accent;
+                zone.library_empty = library_empty;
+                if let Some(fresh) = fresh {
+                    zone.piles = fresh;
+                }
             });
             continue;
         }
@@ -1288,11 +1476,20 @@ pub fn sync_zones(
                 texture: glow_image.clone(),
             },
         );
+        let piles = spawn_piles(
+            &mut commands,
+            &mut materials,
+            &index,
+            slot,
+            pod.library_count,
+        );
         index.zones.insert(
             pod.player,
             Zone {
                 mat,
                 glow,
+                piles,
+                library_empty,
                 mood,
                 accent,
             },
@@ -1304,7 +1501,7 @@ pub fn sync_zones(
         if seen.contains(player) {
             return true;
         }
-        for entity in [zone.mat, zone.glow] {
+        for entity in [zone.mat, zone.glow].into_iter().chain(zone.piles.clone()) {
             commands.entity(entity).despawn();
         }
         false
@@ -1422,6 +1619,44 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         .is_some_and(|i| group.members.iter().any(|member| i.is_selected(*member))),
                 });
             }
+        }
+
+        // The piles standing beside the ground. A pile whose top card is an
+        // object is a placement like any other, and deliberately so:
+        // `index.cards` is keyed by `ObjectId`, and an id survives a zone
+        // change — so a creature that dies *glides* off its lane and onto the
+        // graveyard through the update-in-place branch below, instead of
+        // blinking out of one place and into another. It also inherits the
+        // material cache, the hover lift, the arming glow and the selection
+        // lift, every one of which would have to be written a second time in
+        // a renderer of its own. "Nothing on the table is positioned
+        // directly" is the rule; a pile is not an exception to it.
+        //
+        // A library has no object, and neither has an empty pile. Those two
+        // are drawn by `sync_zones`, which needs no card behind them.
+        for pile in &pod.piles {
+            let Some(top) = pile.top else {
+                continue;
+            };
+            out.push(Placement {
+                object: top,
+                slot: *slot,
+                position: slot.pile_center(pile.kind),
+                // A card in a graveyard is not a permanent and has no tap
+                // state to draw; the same goes for its power and toughness,
+                // which is why the corner is the empty one rather than
+                // `Corner::of`. Drawing a 4/4 on a card that is no longer a
+                // creature would be inventing a fact.
+                tapped: false,
+                count: usize::try_from(pile.count).unwrap_or(usize::MAX),
+                art: pile.art,
+                offer: crate::cardmat::Offer::on(duel.armed.as_ref(), &[top], false),
+                corner: baylee_client_core::cardplate::Corner::default(),
+                selected: duel
+                    .interaction
+                    .as_ref()
+                    .is_some_and(|i| i.is_selected(top)),
+            });
         }
     }
     out
@@ -1724,12 +1959,22 @@ mod camera_tests {
 
     /// Every corner of every seat's mat, in table space.
     fn corners(layout: &TableLayout) -> Vec<Vec2> {
+        box_corners(layout, |slot| slot.half_extent)
+    }
+
+    /// The corners of every seat's whole *place* — the ground and the piles
+    /// standing beside it, which is the box the camera actually frames.
+    fn places(layout: &TableLayout) -> Vec<Vec2> {
+        box_corners(layout, SeatSlot::footprint)
+    }
+
+    fn box_corners(layout: &TableLayout, half: fn(&SeatSlot) -> Vec2) -> Vec<Vec2> {
         let mut out = Vec::new();
         for slot in &layout.slots {
             let (sin, cos) = slot.facing.sin_cos();
             for sx in [-1.0_f32, 1.0] {
                 for sy in [-1.0_f32, 1.0] {
-                    let local = slot.half_extent * Vec2::new(sx, sy);
+                    let local = half(slot) * Vec2::new(sx, sy);
                     out.push(
                         slot.center
                             + Vec2::new(
@@ -1775,7 +2020,7 @@ mod camera_tests {
     }
 
     #[test]
-    fn every_seats_mat_is_inside_the_part_of_the_window_you_can_see() {
+    fn every_seats_place_is_inside_the_part_of_the_window_you_can_see() {
         let canvas = Canvas::hud(WINDOW);
         for n in 2..=8 {
             let layout = TableLayout::new(&seats(n), 1.78, None);
@@ -1783,7 +2028,7 @@ mod camera_tests {
             let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
             let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
             let right = 1.0 - 2.0 * canvas.right / canvas.window.x;
-            for corner in corners(&layout) {
+            for corner in places(&layout) {
                 let at = project(rig, canvas, corner);
                 assert!(
                     at.y >= bottom - 1e-3 && at.y <= top + 1e-3,
@@ -1819,17 +2064,24 @@ mod camera_tests {
                 at.y
             );
         }
-        // Horizontally a four-seat table does not fit a phone at any honest
-        // distance — at the width this needs, the felt's own edge comes into
-        // frame — and no camera can fix that. What fixes it is tranche 4
-        // turning the vertical rail into a horizontal strip, which changes
-        // `Canvas`. Asserted here as the deliberate gap it is.
-        assert!(
-            corners(&layout)
-                .into_iter()
-                .any(|corner| project(rig, canvas, corner).x < -1.0),
-            "a phone now fits a four-seat table sideways — tighten this test",
-        );
+        // Sideways this used to be a deliberate gap: a four-seat table did
+        // not fit a phone at any honest distance, and the test asserted the
+        // overflow so nobody would mistake it for working. It fits now, and
+        // not because the camera got cleverer — the ring solve takes the pile
+        // strips out of `x` before it fits the span to the canvas, so the
+        // whole table is a strip narrower than it was and each seat's ground
+        // a strip narrower still. The claim is now the strong one, and it is
+        // made about the seat's whole *place*, piles included, because that
+        // is the box the camera frames.
+        let right = 1.0 - 2.0 * canvas.right / canvas.window.x;
+        for corner in places(&layout) {
+            let at = project(rig, canvas, corner);
+            assert!(
+                at.x >= -1.0 - 1e-3 && at.x <= right + 1e-3,
+                "{corner} lands at x {}, outside -1..{right}",
+                at.x
+            );
+        }
     }
 
     #[test]
@@ -1839,35 +2091,117 @@ mod camera_tests {
         assert!(rig.distance.is_finite());
     }
 
-    /// `docs/design.md` §1.1: the ring is atmosphere, the mats are the game.
-    /// The bound is measurable, so it is measured — and it goes both ways.
+    /// `docs/design.md` §1.1: the middle of the table is atmosphere, the mats
+    /// are the game. The bound is measurable, so it is measured — and it goes
+    /// both ways.
     ///
-    /// It used to compare the ring against [`SeatSlot::lane_width`], the
+    /// This replaces the lamplight ring's version of the same rule, which the
+    /// resin channel has taken over from. That test is worth remembering
+    /// twice: it first compared the ring against `SeatSlot::lane_width`, the
     /// mat's *long* edge, which a ring two and a half times the mat's depth
-    /// passes comfortably; the hearth dominated four straight screenshots
-    /// while this test agreed it was small. Measuring against
-    /// [`SeatSlot::mat_depth`] is the whole fix, and the lower bound is
-    /// here for the reason `docs/client.md` gives about the felt's own
-    /// brightness: a one-sided assertion only stops the mistake it was
-    /// written after, and the opposite mistake ships next.
+    /// passes comfortably — the hearth dominated four straight screenshots
+    /// while its test agreed it was small. So the medallion is measured
+    /// against the gap it actually sits in, and the lower bound is here for
+    /// the reason `docs/client.md` gives about the felt's own brightness: a
+    /// one-sided assertion only stops the mistake it was written after, and
+    /// the opposite mistake ships next.
+    /// The wood is written twice — once in Rust, where a test can block the
+    /// image at card size and measure that the grain survives, and once in
+    /// WGSL, where the GPU actually draws it. Nothing in either compiler can
+    /// notice that they have drifted apart, and the drawing is the one nobody
+    /// can assert about directly.
+    ///
+    /// The two are not pixel-identical and are not meant to be: a lattice
+    /// hash on the CPU and a `sin`-based one on the GPU give the same kind of
+    /// noise and not the same noise. What has to agree is everything a test
+    /// or a person reasoned about — the three colours the wood is mixed from,
+    /// and the period and wander of the grain.
     #[test]
-    fn the_hearth_ring_is_no_bigger_than_a_seats_ground() {
-        for n in [2, 4, 6] {
-            let layout = TableLayout::new(&seats(n), 1.78, None);
-            let local = layout.local().copied().expect("a local seat");
-            // `HEARTH_OUTER` is a fraction of the quad's *half* width, so the
-            // ring a player sees is that fraction of the quad across.
-            let ring = HEARTH_SIZE * tabletop::HEARTH_OUTER;
+    fn the_shader_and_the_generator_agree_about_the_wood() {
+        use crate::cardmat::tests::wgsl_const;
+        let src = include_str!("shaders/river.wgsl");
+        for (name, ours) in [
+            ("GRAIN_LINES", tabletop::GRAIN_LINES),
+            ("GRAIN_WANDER", tabletop::GRAIN_WANDER),
+        ] {
+            let theirs = wgsl_const(src, name);
             assert!(
-                ring < local.mat_depth(),
-                "at {n} seats the eye lands on the ring, not on the board: \
-                 {ring} vs a mat {} deep",
+                (ours - theirs).abs() < 1e-6,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+        for (name, ours) in [
+            ("WOOD_DEEP", tabletop::WOOD_DEEP),
+            ("WOOD_BASE", tabletop::WOOD_BASE),
+            ("WOOD_PALE", tabletop::WOOD_PALE),
+        ] {
+            let line = src
+                .lines()
+                .find(|line| line.trim_start().starts_with(&format!("const {name}:")))
+                .unwrap_or_else(|| panic!("the shader has no {name}"));
+            let Some((inside, _)) = line
+                .rsplit_once("vec3<f32>(")
+                .and_then(|(_, tail)| tail.split_once(')'))
+            else {
+                panic!("{name} is not a vec3 literal: {line}")
+            };
+            let theirs: Vec<f32> = inside
+                .split(',')
+                .map(|part| part.trim().parse().expect("a number"))
+                .collect();
+            assert_eq!(theirs.len(), 3, "{name} has {} channels", theirs.len());
+            for (channel, (ours, theirs)) in ours.iter().zip(&theirs).enumerate() {
+                assert!(
+                    (ours - theirs).abs() < 1e-6,
+                    "{name} channel {channel}: {ours} here, {theirs} in the shader"
+                );
+            }
+        }
+    }
+
+    /// `PILE_REACH` is chosen in the model crate, which cannot see the mat's
+    /// printed border — that is `ZONE_MARGIN`, and it lives here. This is the
+    /// two of them being made to agree.
+    #[test]
+    fn a_pile_stands_clear_of_the_mat_it_serves() {
+        let timber = baylee_client_core::layout::PILE_REACH - CARD_WIDTH * 0.5 - ZONE_MARGIN;
+        assert!(
+            timber > 0.0,
+            "a pile's near edge falls {} inside the mat's own border — it \
+             would be lying on the board it stands beside, not on the table",
+            -timber
+        );
+    }
+
+    #[test]
+    fn the_medallion_floats_in_the_channel_it_is_set_in() {
+        let gap = baylee_client_core::layout::CENTRE_GAP;
+        assert!(
+            MEDALLION_SIZE < gap,
+            "the colour wheel is {MEDALLION_SIZE} across a channel of {gap} — it \
+             would be lying on both players' mats"
+        );
+        // And with resin visible on both sides of it, or it is not inlaid in
+        // anything: it is a lid.
+        let resin = (gap - MEDALLION_SIZE) * 0.5;
+        assert!(
+            resin > 0.4,
+            "only {resin} of resin shows beside the medallion"
+        );
+
+        for n in [2, 4, 6] {
+            let layout = TableLayout::new(&seats(n), 2.0, None);
+            let local = layout.local().copied().expect("a local seat");
+            assert!(
+                MEDALLION_SIZE < local.mat_depth(),
+                "at {n} seats the eye lands on the medallion, not on the board: \
+                 {MEDALLION_SIZE} vs a mat {} deep",
                 local.mat_depth()
             );
             assert!(
-                ring > local.lane_height(),
-                "at {n} seats the lamp has shrunk to nothing: {ring} vs a \
-                 lane {} tall",
+                MEDALLION_SIZE > local.lane_height(),
+                "at {n} seats the medallion has shrunk to nothing: \
+                 {MEDALLION_SIZE} vs a lane {} tall",
                 local.lane_height()
             );
         }
@@ -2387,6 +2721,10 @@ mod combat_tests {
                     groups,
                     overflowing: false,
                 }],
+                piles: baylee_client_core::PileKind::ALL
+                    .into_iter()
+                    .map(baylee_client_core::ZonePile::empty)
+                    .collect(),
                 tokens: Vec::new(),
                 threat: baylee_client_core::ThreatSummary::default(),
             }],

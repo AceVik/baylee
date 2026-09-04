@@ -75,6 +75,93 @@ impl LaneKind {
     }
 }
 
+/// One of the four piles that stand beside a seat's ground.
+///
+/// These are the zones that are *not* the battlefield, and they are drawn
+/// where a player would really have them: on the bare timber beside the mat
+/// rather than on it. A pile lying on the mat would read as a permanent in
+/// play, and whether a creature is in the graveyard or on the battlefield is
+/// the one thing about a graveyard that may never be ambiguous.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum PileKind {
+    /// The library. Face down always — nobody may look through a library,
+    /// its owner included, so it is the one pile with no top card to show
+    /// and no way into it.
+    Library,
+    /// The graveyard, top card up: it is public, and which card died last is
+    /// information the game is played on.
+    Graveyard,
+    /// Public exile.
+    Exile,
+    /// The command zone — commanders, emblems, companions.
+    Command,
+}
+
+impl PileKind {
+    /// All four, in the order they are laid out.
+    pub const ALL: [Self; 4] = [Self::Library, Self::Graveyard, Self::Exile, Self::Command];
+
+    /// Which side of the mat this pile stands on: `1.0` the seat's right
+    /// hand, `-1.0` their left.
+    ///
+    /// Library and graveyard share the right because the two of them are one
+    /// motion — a card drawn comes off the top of the first and a card that
+    /// dies goes onto the second — and because that is where a player who
+    /// holds their hand in the left hand puts them.
+    #[must_use]
+    pub const fn side(self) -> f32 {
+        match self {
+            Self::Library | Self::Graveyard => 1.0,
+            Self::Exile | Self::Command => -1.0,
+        }
+    }
+
+    /// Which lane row the pile stands level with.
+    ///
+    /// Never [`LaneKind::Creatures`]. That row is the one nearest the middle
+    /// of the table, where attackers step forward and blockers come to meet
+    /// them; a pile parked at the end of it would be standing in the only
+    /// part of the board that moves.
+    #[must_use]
+    pub const fn row(self) -> LaneKind {
+        match self {
+            Self::Library | Self::Command => LaneKind::Lands,
+            Self::Graveyard | Self::Exile => LaneKind::Support,
+        }
+    }
+
+    /// A label for accessibility and for the keyboard zone cycle.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Library => "Library",
+            Self::Graveyard => "Graveyard",
+            Self::Exile => "Exile",
+            Self::Command => "Command",
+        }
+    }
+}
+
+/// How far the centre of a pile stands out past the edge of the ground it
+/// serves.
+///
+/// Half a card, the mat's printed border, and bare timber between the two.
+/// The timber is the whole point of the number: a pile touching the mat reads
+/// as part of the board. The border being cleared is the client's own
+/// `ZONE_MARGIN`, and `a_pile_stands_clear_of_the_mat_it_serves` over there
+/// fails if the two ever drift apart.
+pub const PILE_REACH: f32 = 1.45;
+
+/// How much wider than its playing surface a seat's whole place is, per side.
+///
+/// The pile strip: [`PILE_REACH`] out to the middle of a pile, and half a
+/// card further to its outer edge. It is subtracted inside the ring solve
+/// rather than added to the answer afterwards, and that is the whole point of
+/// having it as a constant: a table that grows by two strips *after* being
+/// fitted to the canvas is a table 15% wider than the screen it is seen
+/// through, and the camera pays for it by drawing every card smaller.
+const PILE_STRIP: f32 = PILE_REACH + CARD_WIDTH * 0.5;
+
 /// One seat's place at the table.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SeatSlot {
@@ -133,6 +220,34 @@ impl SeatSlot {
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
         self.center - away * offset_from_front
     }
+
+    /// Centre of one of the four piles, in table space.
+    ///
+    /// Beside the mat rather than on it, level with the lane row it belongs
+    /// to. Built from the same frame [`lane_center`](Self::lane_center) uses,
+    /// so a pile turns with its seat: at four players the seat on your left
+    /// keeps their library at *their* right hand, which is your far side.
+    #[must_use]
+    pub fn pile_center(&self, pile: PileKind) -> Vec2 {
+        // The pod's own sideways direction: `away` turned a quarter to the
+        // right, which for a seat facing up the table is the world's `+x`.
+        let side = Vec2::new(self.facing.cos(), -self.facing.sin());
+        let out = pile.side() * (self.half_extent.x + PILE_REACH);
+        self.lane_center(pile.row()) + side * out
+    }
+
+    /// The seat's whole footprint: the ground, plus the piles standing beside
+    /// it.
+    ///
+    /// [`half_extent`](Self::half_extent) is the *playing* surface and has to
+    /// stay that, because it is what the lanes are packed into. This is what
+    /// the camera has to frame. Growing the one to mean the other would let
+    /// the board spread into the strips the piles stand in, and the first
+    /// wide turn would put a creature on top of the graveyard.
+    #[must_use]
+    pub fn footprint(&self) -> Vec2 {
+        Vec2::new(self.half_extent.x + PILE_STRIP, self.half_extent.y)
+    }
 }
 
 /// Where every seat sits, and how much room each one gets.
@@ -184,14 +299,36 @@ impl TableLayout {
             // A seat's ground is a chord of the ring: `2·r·sin(π/n)` of it,
             // less the gap that keeps neighbours apart. Solved for the ring
             // that makes that chord `MIN_POD_WIDTH` wide, with `x` written in
-            // terms of `y` by the aspect above — so this is one division and
+            // terms of `y` by the aspect below — so this is one division and
             // not a search.
+            //
+            // The pile strips are deliberately **not** in here, and that is
+            // the whole difference between a table and a table nobody can
+            // see. Widening this to cover them grows the ring by half at
+            // seven seats, past `CameraRig::MAX_DISTANCE`, so the camera
+            // clamps and the near mats slide under the hand bar — and the
+            // pods do not even get the width, because on an ellipse it is the
+            // distance to the nearest neighbour that limits them and not this
+            // estimate. The strips come off the *width* below, where they
+            // cost a narrower board at a crowded table and nothing else.
+            //
+            // The `PILE_STRIP` in the inversion is a different thing from the
+            // one left out above, and both are needed: `x` below is a strip
+            // shorter than it used to be, so the `y` that produces a given
+            // mean radius has to be a strip's share taller. Without it this
+            // solve aims at a ring it no longer builds.
             let mean = MIN_POD_WIDTH
                 / (2.0 * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE).max(1e-3);
-            (2.0f32.mul_add(mean, -((aspect - 1.0) * half_depth)) / (aspect + 1.0)).max(0.0)
+            (2.0f32.mul_add(mean, PILE_STRIP - (aspect - 1.0) * half_depth) / (aspect + 1.0))
+                .max(0.0)
         };
         let ry = clear.max(crowded);
-        let rx = aspect.mul_add(ry + half_depth, -half_depth).max(half_depth);
+        // The strip comes off `x` here, so what ends up the shape of the
+        // canvas is the *footprint* — ground and piles together, which is
+        // what `extent` reports and the camera frames.
+        let rx = aspect
+            .mul_add(ry + half_depth, -half_depth - PILE_STRIP)
+            .max(half_depth);
         let radius = Vec2::new(rx, ry);
         if n == 0 {
             return Self {
@@ -205,11 +342,38 @@ impl TableLayout {
         // have the whole table; three or more share the ring and may have
         // their arc of it and no more.
         let across = rx + half_depth;
+        // Where each seat will sit, needed before the widths because a seat's
+        // room is decided by how far away its nearest neighbour actually is.
+        let centers: Vec<Vec2> = (0..n)
+            .map(|i| {
+                let (sin, cos) = (core::f32::consts::TAU * (i as f32) / (n as f32)).sin_cos();
+                Vec2::new(radius.x * sin, -radius.y * cos)
+            })
+            .collect();
         let pod_half_width = if n < 3 {
             across
         } else {
-            let mean = (rx + ry) * 0.5;
-            (mean * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE).min(across)
+            // Two bounds, and the tighter one wins.
+            //
+            // The first is the arc: a seat's share of a ring of mean radius.
+            // The second is the one that was missing, and it is not a
+            // refinement — the ring is an **ellipse**, and on an ellipse the
+            // seats out on the flanks sit far closer together than a circle
+            // of the same mean radius would put them. Measured, at six seats,
+            // the nearest pair is a third closer than the arc estimate says,
+            // and their mats have been overlapping ever since a table could
+            // seat six. Adding the pile strips is what made it visible: two
+            // seats' piles met in the middle of the gap.
+            //
+            // The strip comes off both, because the arc a seat gets has to
+            // hold its piles as well as its board.
+            let mean = f32::midpoint(rx, ry);
+            let by_arc = mean * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE;
+            let closest = (0..n)
+                .map(|i| centers[i].distance(centers[(i + 1) % n]))
+                .fold(f32::INFINITY, f32::min);
+            let by_neighbour = closest * 0.5 * ARC_SHARE;
+            (by_arc.min(by_neighbour) - PILE_STRIP).clamp(CARD_WIDTH, across)
         };
 
         // Even shares, with a focus bonus borrowed from everyone else.
@@ -224,9 +388,10 @@ impl TableLayout {
             .enumerate()
             .map(|(i, &player)| {
                 let angle = core::f32::consts::TAU * (i as f32) / (n as f32);
-                let (sin, cos) = angle.sin_cos();
                 // Angle 0 is the near edge; y grows away from the local seat.
-                let center = Vec2::new(radius.x * sin, -radius.y * cos);
+                // Taken from the list the widths were measured against, so
+                // the two cannot disagree about where a seat is.
+                let center = centers[i];
 
                 let share = weights[i] / total * n as f32;
                 SeatSlot {
@@ -252,23 +417,29 @@ impl TableLayout {
         Self { slots, radius }
     }
 
-    /// The rectangle every seat's mat fits inside, in table space, as
-    /// `(min, max)`. `None` for a table with no seats.
+    /// The rectangle every seat's ground and every seat's piles fit inside,
+    /// in table space, as `(min, max)`. `None` for a table with no seats.
     ///
-    /// A pod's `half_extent` is measured in its *own* frame — a seat on the
-    /// left plays across the table, not along it — so each box is rotated by
-    /// its `facing` before it is taken in. Without that a four-seat table
-    /// reports itself a third narrower than it is, and the camera framed from
-    /// it cuts the side seats' lands off at the screen edge.
+    /// A pod's box is measured in its *own* frame — a seat on the left plays
+    /// across the table, not along it — so each one is rotated by its
+    /// `facing` before it is taken in. Without that a four-seat table reports
+    /// itself a third narrower than it is, and the camera framed from it cuts
+    /// the side seats' lands off at the screen edge.
+    ///
+    /// The box is [`SeatSlot::footprint`] rather than `half_extent`, because
+    /// this is what the camera frames and the piles have to be inside it.
+    /// They stand outside the playing surface by design, so framing the
+    /// playing surface alone would put every graveyard off the screen.
     #[must_use]
     pub fn extent(&self) -> Option<(Vec2, Vec2)> {
         let mut bounds: Option<(Vec2, Vec2)> = None;
         for slot in &self.slots {
             let (sin, cos) = slot.facing.sin_cos();
             let (sin, cos) = (sin.abs(), cos.abs());
+            let footprint = slot.footprint();
             let half = Vec2::new(
-                cos.mul_add(slot.half_extent.x, sin * slot.half_extent.y),
-                sin.mul_add(slot.half_extent.x, cos * slot.half_extent.y),
+                cos.mul_add(footprint.x, sin * footprint.y),
+                sin.mul_add(footprint.x, cos * footprint.y),
             );
             let (lo, hi) = (slot.center - half, slot.center + half);
             bounds = Some(match bounds {
@@ -397,6 +568,142 @@ mod tests {
 
     fn seats(n: u8) -> Vec<PlayerId> {
         (0..n).map(PlayerId::new).collect()
+    }
+
+    #[test]
+    fn a_pile_stands_beside_the_ground_and_never_on_it() {
+        for n in [2, 3, 4, 6, 8] {
+            let layout = TableLayout::new(&seats(n), 2.0, None);
+            for slot in &layout.slots {
+                let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
+                for pile in PileKind::ALL {
+                    let across = (slot.pile_center(pile) - slot.center).dot(side);
+                    let near_edge = across.abs() - CARD_WIDTH * 0.5;
+                    assert!(
+                        near_edge > slot.half_extent.x,
+                        "{n} seats: the near edge of the {} is {near_edge} out from \
+                         the middle of a mat {} wide — it is lying on the board",
+                        pile.label(),
+                        slot.half_extent.x
+                    );
+                    assert!(
+                        (across.signum() - pile.side()).abs() < 1e-6,
+                        "{n} seats: the {} came out on the seat's other hand",
+                        pile.label()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_four_piles_are_four_places() {
+        let layout = TableLayout::new(&seats(2), 2.0, None);
+        let slot = layout.local().expect("a local seat");
+        for (i, a) in PileKind::ALL.iter().enumerate() {
+            for b in &PileKind::ALL[i + 1..] {
+                let gap = slot.pile_center(*a).distance(slot.pile_center(*b));
+                assert!(
+                    gap > CARD_HEIGHT,
+                    "the {} and the {} are {gap} apart, and a card is {CARD_HEIGHT} \
+                     long — they would be stacked on each other",
+                    a.label(),
+                    b.label()
+                );
+            }
+        }
+    }
+
+    /// At a crowded table the piles are the parts that come nearest the seat
+    /// next door, and they are the last thing added to a ring solve that was
+    /// written without them.
+    /// The four corners of a pile's card, turned to face its seat.
+    fn pile_corners(slot: &SeatSlot, pile: PileKind) -> [Vec2; 4] {
+        let at = slot.pile_center(pile);
+        let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
+        let away = Vec2::new(slot.facing.sin(), slot.facing.cos());
+        [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+            .map(|(x, y)| at + side * (x * CARD_WIDTH * 0.5) + away * (y * CARD_HEIGHT * 0.5))
+    }
+
+    /// Whether two convex quads share any area — the separating-axis test,
+    /// written out rather than approximated by circles round each box. A
+    /// circle bound is *sufficient* and would have failed at seat counts
+    /// where nothing actually touches, which makes it useless for telling a
+    /// real overlap from a near miss.
+    fn quads_overlap(a: [Vec2; 4], b: [Vec2; 4]) -> bool {
+        for poly in [a, b] {
+            for i in 0..4 {
+                let edge = poly[(i + 1) % 4] - poly[i];
+                let axis = Vec2::new(-edge.y, edge.x);
+                let (pa, pb) = (a.map(|p| axis.dot(p)), b.map(|p| axis.dot(p)));
+                let hi = |v: [f32; 4]| v.into_iter().fold(f32::NEG_INFINITY, f32::max);
+                let lo = |v: [f32; 4]| v.into_iter().fold(f32::INFINITY, f32::min);
+                if hi(pa) < lo(pb) - 1e-6 || hi(pb) < lo(pa) - 1e-6 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    #[test]
+    fn no_two_seats_piles_stand_on_each_other() {
+        for n in [3, 4, 5, 6, 7, 8] {
+            let layout = TableLayout::new(&seats(n), 2.0, None);
+            for (i, a) in layout.slots.iter().enumerate() {
+                for b in &layout.slots[i + 1..] {
+                    for pa in PileKind::ALL {
+                        for pb in PileKind::ALL {
+                            assert!(
+                                !quads_overlap(pile_corners(a, pa), pile_corners(b, pb)),
+                                "{n} seats: seat {:?}'s {} lies on top of seat {:?}'s {}",
+                                a.player,
+                                pa.label(),
+                                b.player,
+                                pb.label()
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// The reason [`SeatSlot::footprint`] exists at all: the piles stand
+    /// outside the playing surface, so a camera framed from `half_extent`
+    /// puts every one of them off the screen.
+    #[test]
+    fn every_pile_is_inside_the_rectangle_the_camera_frames() {
+        for n in [2, 3, 4, 6, 8] {
+            let layout = TableLayout::new(&seats(n), 2.0, None);
+            let (min, max) = layout.extent().expect("a table with seats");
+            for slot in &layout.slots {
+                let (sin, cos) = slot.facing.sin_cos();
+                // A card's own box, turned to face its seat, then measured
+                // along the table's axes — the same rotation `extent` does.
+                let half = Vec2::new(
+                    cos.abs()
+                        .mul_add(CARD_WIDTH * 0.5, sin.abs() * CARD_HEIGHT * 0.5),
+                    sin.abs()
+                        .mul_add(CARD_WIDTH * 0.5, cos.abs() * CARD_HEIGHT * 0.5),
+                );
+                for pile in PileKind::ALL {
+                    let at = slot.pile_center(pile);
+                    let (lo, hi) = (at - half, at + half);
+                    assert!(
+                        lo.x >= min.x - 1e-3
+                            && lo.y >= min.y - 1e-3
+                            && hi.x <= max.x + 1e-3
+                            && hi.y <= max.y + 1e-3,
+                        "{n} seats: the {} of seat {:?} runs {lo} to {hi}, outside \
+                         the framed table {min} to {max} — the camera cuts it off",
+                        pile.label(),
+                        slot.player
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -642,22 +949,41 @@ mod tests {
                 CENTRE_GAP * 0.5
             );
 
-            // And no further out than it has to be. There are exactly two
-            // reasons the ring may stand where it does, so one of them has to
-            // be tight: either the mats are as close to the middle as the
-            // channel allows, or they are as narrow as a board may get and the
-            // ring grew only to stop them touching. A ring that satisfies
-            // neither is empty table, and empty table is what every card is
-            // drawn smaller for.
+            // And no further out than it has to be. There are exactly three
+            // reasons the ring may stand where it does and the mats be as
+            // wide as they are, so one of them has to be tight:
+            //
+            // - the mats are as close to the middle as the channel allows;
+            // - the ring stands exactly where the crowding solve put it, so a
+            //   seat's share of the arc is exactly a board's worth;
+            // - or the ellipse is what limits them — its flanks bring two
+            //   seats closer together than any circle of the same mean radius
+            //   would, and a place wider than half that gap would be lying on
+            //   the neighbour's.
+            //
+            // A ring that satisfies none of the three is empty table, and
+            // empty table is what every card on it is drawn smaller for.
             let widest = layout
                 .slots
                 .iter()
                 .map(|slot| slot.half_extent.x * 2.0)
                 .fold(0.0_f32, f32::max);
+            let mean = f32::midpoint(layout.radius.x, layout.radius.y);
+            let by_arc = mean * (core::f32::consts::PI / f32::from(n)).sin() * ARC_SHARE;
+            let closest = (0..usize::from(n))
+                .map(|i| {
+                    let next = (i + 1) % usize::from(n);
+                    layout.slots[i].center.distance(layout.slots[next].center)
+                })
+                .fold(f32::INFINITY, f32::min);
+            let by_neighbour = closest * 0.5 * ARC_SHARE;
             assert!(
-                (inner - CENTRE_GAP * 0.5).abs() < 1e-3 || (widest - MIN_POD_WIDTH).abs() < 1e-2,
-                "{n} seats: mats stop {inner} out and are {widest} wide — \
-                 neither the channel nor the crowding is what put them there"
+                (inner - CENTRE_GAP * 0.5).abs() < 1e-3
+                    || (by_arc - MIN_POD_WIDTH * 0.5).abs() < 1e-2
+                    || (widest * 0.5 - (by_neighbour - PILE_STRIP)).abs() < 1e-2,
+                "{n} seats: mats stop {inner} out and are {widest} wide; the arc \
+                 offers {by_arc} and the nearest neighbour {by_neighbour} — none \
+                 of the channel, the crowding or the ellipse put them there"
             );
         }
     }

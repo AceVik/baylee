@@ -321,6 +321,17 @@ pub(super) fn preview_anchor(
             }
         }
     }
+    // A pile's top card lies face up on the table beside its mat and lifts
+    // under the pointer like any other card, so it has to preview like one —
+    // without this arm it lifts and shows nothing, which reads as a bug in
+    // the preview rather than as a card that has none.
+    for pod in &board.pods {
+        for pile in &pod.piles {
+            if pile.top == Some(h) {
+                return Some((pile.art, None));
+            }
+        }
+    }
     if let Some(cmd) = view
         .command
         .get(view.seat.get() as usize)

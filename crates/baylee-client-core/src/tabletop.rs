@@ -21,6 +21,8 @@
 
 use std::f32::consts::{PI, TAU};
 
+use glam::Vec2;
+
 /// A generated image: RGBA8, `width * height * 4` bytes, row-major from the
 /// top-left.
 #[derive(Clone, Debug)]
@@ -338,15 +340,24 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]
             // stay louder, and a mat nobody can see is not quiet, it is
             // missing.
             //
-            // These were three times higher, and were tuned while the whole
-            // texture was tinted by the seat's accent — a dark, saturated
-            // multiplier that held the field down. Against the neutral
-            // brightness the material carries now the same numbers rendered
-            // a mat at three times the felt's luminance: a pale concrete
-            // slab that the cards on it had to compete with, which is the
-            // rule above backwards. Measured against felt at `(23, 38, 28)`,
-            // these put the field at about `(52, 60, 54)`.
-            let base = [0.050, 0.040, 0.031][lane];
+            // Lowered twice, for the same reason each time, and the second
+            // time is the one worth remembering. These numbers are an
+            // **alpha** on white, and an alpha is linear light: 0.050 of it
+            // is not a five-percent tint, it is display 0.24 laid over
+            // whatever is beneath. Against a dark green felt that was a
+            // modest lift and it was tuned and accepted there. Against the
+            // timber the table is cut from now — measured at `(42, 29, 21)`
+            // on the same frame — the same veil put the mat at `(65, 61, 59)`:
+            // a pale tray, brighter and greyer than the table it lies on,
+            // filling most of the screen because a mat now *is* most of the
+            // screen.
+            //
+            // Every reference this table is drawn from puts the play surface
+            // at or below the surround and marks a seat at its edge. So the
+            // veil is cut to about a quarter, which lands the field just above
+            // the wood — the mat says where a seat's ground is without being
+            // the brightest thing in the room.
+            let base = [0.0135, 0.0105, 0.0080][lane];
             // A hairline *between* lanes, so the rows separate without a
             // border drawn around each one. Measured in pixels from the two
             // boundaries: expressed as a fraction of a lane it comes out
@@ -679,9 +690,244 @@ pub fn phase_light(step: baylee_view::Step) -> PhaseLight {
     }
 }
 
+/// One seat's ground, as the channel generator needs to see it.
+///
+/// The resin is defined by what it is *not*: the channel is whatever the mats
+/// leave, so the only thing [`channel`] needs to know about a seat is the
+/// rectangle it occupies. Deliberately not `SeatSlot` — this module has never
+/// depended on the layout, and a shape is all there is to say here.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Bank {
+    /// Centre of the mat in table space.
+    pub center: Vec2,
+    /// Half the mat's extent, before the margin is added.
+    pub half_extent: Vec2,
+    /// The rotation that turns the mat towards its owner.
+    pub facing: f32,
+}
+
+/// How deep the resin reads at its deepest, in table units.
+///
+/// The channel between two seats is [`layout::CENTRE_GAP`] across, so half of
+/// that is the most distance any point in it can have from a bank — this is
+/// what maps that distance onto the shading's full range, and a wider pool at
+/// a crowded table simply saturates rather than going on getting darker.
+///
+/// [`layout::CENTRE_GAP`]: crate::layout::CENTRE_GAP
+pub const RESIN_DEPTH: f32 = 1.6;
+
+/// A rectangle's signed distance: negative inside, positive outside.
+fn sd_box(p: Vec2, half: Vec2) -> f32 {
+    let d = p.abs() - half;
+    d.max(Vec2::ZERO).length() + d.x.max(d.y).min(0.0)
+}
+
+/// How far inside an ellipse a point is, positive within and negative beyond.
+///
+/// The implicit function normalised by its own gradient, which is the cheap
+/// approximation rather than the exact distance — exact would need a root
+/// find per pixel, and this is used to fade a pool's outer edge into wood
+/// where nothing measures it.
+fn inside_ellipse(p: Vec2, radius: Vec2) -> f32 {
+    let scaled = Vec2::new(p.x / radius.x, p.y / radius.y);
+    let gradient = Vec2::new(p.x / (radius.x * radius.x), p.y / (radius.y * radius.y)).length();
+    if gradient < 1e-6 {
+        return radius.min_element();
+    }
+    (1.0 - scaled.length()) / gradient
+}
+
+/// Grain lines per table unit: a period of about **1.6 cards**.
+///
+/// Coarser than the wood in the photographs, and deliberately. This is a
+/// period, not a preference — `the_timber_grain_is_coarser_than_a_card` fails
+/// below roughly one card, because that is the point where blocking the image
+/// at card size averages the figure away, which is exactly what the eye does
+/// when a card is sitting on it. Fifteen lines across a table is what is left,
+/// and it still reads as wood because a line here is long rather than fine.
+pub const GRAIN_LINES: f32 = 0.62;
+
+/// How far a grain line wanders across the table, in units. Enough that the
+/// lines are not a corduroy, far too little to make them a pattern.
+pub const GRAIN_WANDER: f32 = 1.8;
+
+/// The trough between two grain lines.
+pub const WOOD_DEEP: [f32; 3] = [0.085, 0.058, 0.044];
+/// The wood's own colour.
+pub const WOOD_BASE: [f32; 3] = [0.170, 0.118, 0.084];
+/// The lifted edge of a grain line, where a plane has caught the figure.
+pub const WOOD_PALE: [f32; 3] = [0.255, 0.185, 0.132];
+
+/// The timber the table is cut from: a dark, warm wood with its grain running
+/// the long way.
+///
+/// Three rules, each of which the rejected granite broke.
+///
+/// **The grain is coarser than a card.** Granite's speckle was finer, which
+/// is what made it read as terrazzo and what made it alias: detail below the
+/// size of the thing standing on it competes with that thing and wins,
+/// because there is more of it. `span` is therefore the *world* size this
+/// texture covers, not a pixel count — the grain keeps its real-world period
+/// however large the table is cut or however coarsely the image is sampled.
+///
+/// **The grain runs parallel to the long axis.** Diagonal grain under rows of
+/// cards is noise; grain along the rows is a ruler they line up against.
+///
+/// **The dark is warm.** Brown-black, never blue-black: a cold black eats the
+/// identity of black and blue cards, which are the two the table can least
+/// afford to swallow. Every sample here keeps red above blue, and
+/// `the_timber_is_a_warm_dark_and_never_a_cold_one` is that as a build
+/// failure.
+#[must_use]
+pub fn timber(width: u32, height: u32, span: Vec2) -> Texture {
+    let (deep, wood, pale) = (WOOD_DEEP, WOOD_BASE, WOOD_PALE);
+
+    let mut texture = Texture::blank(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            // Table space, so everything below is in units and not in pixels.
+            let u = (x as f32 + 0.5) / width as f32;
+            let v = (y as f32 + 0.5) / height as f32;
+            let p = Vec2::new((u - 0.5) * span.x, (v - 0.5) * span.y);
+
+            // Stretched hard along x: a feature is many times longer than it
+            // is wide, which is the whole difference between grain and noise.
+            // Two octaves, not three. The third sits at a period of about a
+            // third of a card, which is speckle by the definition above — it
+            // buys nothing the eye can resolve past a card standing on it and
+            // costs the figure that can be resolved.
+            let drift = fbm(p.x * 0.055, p.y * 0.16, 0x51_a3, 2) - 0.5;
+            let figure = fbm(p.x * 0.10, p.y * 0.42, 0x77_c1, 2) - 0.5;
+
+            // The lines themselves. `sin` rather than a sawtooth so a line
+            // has two soft shoulders instead of one hard step.
+            let phase = (p.y + drift * GRAIN_WANDER * 2.0) * GRAIN_LINES * TAU;
+            let ring = 0.5 + 0.5 * phase.sin();
+            // Sharpened towards the trough: real figure is mostly pale wood
+            // with narrow dark lines in it, not an even wave.
+            let ring = ring * ring;
+
+            let base = mix(deep, wood, ring);
+            let colour = mix(base, pale, (figure + 0.5) * ring * 0.55);
+            texture.put(x, y, [colour[0], colour[1], colour[2], 1.0]);
+        }
+    }
+    texture
+}
+
+/// The channel: where the resin is, how deep, and which way it runs.
+///
+/// This is the **negative form of the layout** and nothing else — the resin
+/// is wherever a card never lies. At two seats that is a band between two
+/// banks and reads as a river; at five it is a pool with five shores. One
+/// rule, one shape, no second design, which is what makes the ring survivable
+/// at all: a river needs two ends and a ring has none.
+///
+/// The result is a field rather than a picture, and the shader reads all four
+/// channels:
+///
+/// - **red** — how deep, `0.0` at a bank and `1.0` at [`RESIN_DEPTH`]. Depth
+///   is what carries the illusion of a pour with a bottom to it.
+/// - **green, blue** — which way the current runs, as a unit vector biased
+///   into `0.0..1.0`. It is the *tangent* of the distance field, so the flow
+///   follows the channel: along a duel's band, round a crowded table's pool,
+///   and never in some fixed screen direction that would swim against the
+///   shape it is in.
+/// - **alpha** — resin or wood, with a soft edge a pixel or two wide so the
+///   shore does not stair-step.
+///
+/// `span` is the world size of the whole slab and `pool` the semi-axes of the
+/// water's outer edge — which is the *table*, not the slab. The two differ:
+/// the slab runs well past the seating so no camera angle finds its edge, and
+/// every unit of that overhang has to be dry timber. Deriving one from the
+/// other is how a river becomes a flood.
+///
+/// `margin` is the clear table kept between a mat and the water — the same
+/// margin the seat's own rim is drawn at, so the resin starts where the mat's
+/// ground visibly stops rather than under its edge.
+#[must_use]
+pub fn channel(
+    width: u32,
+    height: u32,
+    span: Vec2,
+    pool: Vec2,
+    banks: &[Bank],
+    margin: f32,
+) -> Texture {
+    let cells = (width as usize) * (height as usize);
+    let at = |x: u32, y: u32| -> Vec2 {
+        let u = (x as f32 + 0.5) / width as f32;
+        let v = (y as f32 + 0.5) / height as f32;
+        Vec2::new((u - 0.5) * span.x, (v - 0.5) * span.y)
+    };
+
+    // The field first, whole, and the flow read back off it afterwards. The
+    // obvious thing — sampling the field five times per pixel for a central
+    // difference — is five times the work for the same numbers, and this
+    // generator runs again every time the table is resized.
+    let mut depth = vec![0.0_f32; cells];
+    for y in 0..height {
+        for x in 0..width {
+            let p = at(x, y);
+            let mut d = inside_ellipse(p, pool);
+            for bank in banks {
+                let (sin, cos) = bank.facing.sin_cos();
+                let local = p - bank.center;
+                let turned = Vec2::new(
+                    cos.mul_add(local.x, -(sin * local.y)),
+                    sin.mul_add(local.x, cos * local.y),
+                );
+                d = d.min(sd_box(turned, bank.half_extent + Vec2::splat(margin)));
+            }
+            depth[(y as usize) * (width as usize) + x as usize] = d;
+        }
+    }
+
+    let step = Vec2::new(span.x / width as f32, span.y / height as f32);
+    let (last_x, last_y) = (width as usize - 1, height as usize - 1);
+    let read = |x: usize, y: usize| -> f32 { depth[y * (width as usize) + x] };
+
+    let mut texture = Texture::blank(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let (cx, cy) = (x as usize, y as usize);
+            let d = read(cx, cy);
+            // The field's gradient points from the nearest bank towards open
+            // water, so a quarter turn from it points *along* the channel.
+            let slope = Vec2::new(
+                (read((cx + 1).min(last_x), cy) - read(cx.saturating_sub(1), cy)) / (2.0 * step.x),
+                (read(cx, (cy + 1).min(last_y)) - read(cx, cy.saturating_sub(1))) / (2.0 * step.y),
+            );
+            let flow = if slope.length_squared() < 1e-8 {
+                Vec2::X
+            } else {
+                let n = slope.normalize();
+                Vec2::new(-n.y, n.x)
+            };
+
+            // A shore two texels wide, so the waterline is a line and not a
+            // staircase. Anything narrower aliases at this resolution.
+            let feather = step.x.max(step.y) * 2.0;
+            let coverage = (d / feather).clamp(0.0, 1.0);
+            texture.put(
+                x,
+                y,
+                [
+                    (d / RESIN_DEPTH).clamp(0.0, 1.0),
+                    flow.x.mul_add(0.5, 0.5),
+                    flow.y.mul_add(0.5, 0.5),
+                    coverage,
+                ],
+            );
+        }
+    }
+    texture
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::CARD_WIDTH;
 
     /// Every pixel of a texture, as `(x, y, rgba)`.
     fn pixels(t: &Texture) -> impl Iterator<Item = (u32, u32, [f32; 4])> + '_ {
@@ -728,6 +974,187 @@ mod tests {
     /// white and slate black are both under it, which is why neither appears
     /// in the failures this test can produce.
     const HAS_A_HUE: f32 = 0.35;
+
+    /// Relative luminance, the channel the eye actually judges "how dark" by.
+    fn luma(rgba: [f32; 4]) -> f32 {
+        0.2126f32.mul_add(rgba[0], 0.7152f32.mul_add(rgba[1], 0.0722 * rgba[2]))
+    }
+
+    /// A duel's two mats, near enough to the real geometry to test against.
+    fn duel_banks() -> (Vec2, [Bank; 2]) {
+        let span = Vec2::new(26.6, 13.3);
+        let half = Vec2::new(13.29, 2.47);
+        (
+            span,
+            [
+                Bank {
+                    center: Vec2::new(0.0, -4.17),
+                    half_extent: half,
+                    facing: 0.0,
+                },
+                Bank {
+                    center: Vec2::new(0.0, 4.17),
+                    half_extent: half,
+                    facing: PI,
+                },
+            ],
+        )
+    }
+
+    /// Where a point of table lands in a generated field.
+    fn sample(t: &Texture, span: Vec2, p: Vec2) -> [f32; 4] {
+        #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        let x = (((p.x / span.x + 0.5) * t.width as f32) as u32).min(t.width - 1);
+        #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        let y = (((p.y / span.y + 0.5) * t.height as f32) as u32).min(t.height - 1);
+        t.pixel(x, y)
+    }
+
+    #[test]
+    #[ignore = "a measurement, not an assertion; run with --ignored"]
+    fn timber_at_screen_resolution_is_not_a_freeze() {
+        let span = Vec2::new(34.6, 21.3);
+        for w in [512u32, 1024, 1536, 2048] {
+            let h = (w as f32 * span.y / span.x) as u32;
+            let t = std::time::Instant::now();
+            let _ = timber(w, h, span);
+            let a = t.elapsed();
+            let t = std::time::Instant::now();
+            let _ = channel(w, h, span, span * 0.5, &duel_banks().1, 0.55);
+            println!("{w}x{h}: timber {a:?}  channel {:?}", t.elapsed());
+        }
+    }
+
+    #[test]
+    fn the_timber_is_a_warm_dark_and_never_a_cold_one() {
+        // Warm, because a cold black eats the identity of black and blue
+        // cards — the two colours the table can least afford to swallow.
+        // Every sample, not the average: an average stays warm while
+        // individual grain lines go blue.
+        let wood = timber(256, 128, Vec2::new(26.6, 13.3));
+        let mut sum = 0.0;
+        for (x, y, rgba) in pixels(&wood) {
+            assert!(
+                rgba[0] > rgba[2],
+                "({x},{y}) is {rgba:?} — blue at or above red is a cold black"
+            );
+            sum += luma(rgba);
+        }
+        let mean = sum / (wood.width * wood.height) as f32;
+
+        // Both bounds. The felt shipped four times too dark past a one-sided
+        // "dark enough" assertion, and a resin table is the darker design of
+        // the two — what rescues the photograph is studio light on gloss, and
+        // a camera looking straight down has none of it.
+        assert!(
+            (0.09..=0.20).contains(&mean),
+            "the timber's mean luminance is {mean}, outside the band it has to sit in"
+        );
+    }
+
+    #[test]
+    fn the_timber_grain_is_coarser_than_a_card() {
+        // The rule the granite broke. Detail finer than the thing standing on
+        // it competes with that thing and wins, because there is more of it —
+        // that is what read as terrazzo, and what aliased.
+        //
+        // Measured rather than asserted by eye: block the image into squares
+        // one card wide and compare how much contrast survives. Speckle
+        // averages away to nothing at that size; long grain does not.
+        let span = Vec2::new(26.6, 13.3);
+        let wood = timber(256, 128, span);
+        let card_px = (CARD_WIDTH / span.x * wood.width as f32).round().max(2.0);
+        #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        let block = card_px as u32;
+
+        let all: Vec<f32> = pixels(&wood).map(|(_, _, rgba)| luma(rgba)).collect();
+        let fine = deviation(&all);
+
+        let mut coarse = Vec::new();
+        for by in (0..wood.height).step_by(block as usize) {
+            for bx in (0..wood.width).step_by(block as usize) {
+                let mut sum = 0.0;
+                let mut count = 0.0;
+                for y in by..(by + block).min(wood.height) {
+                    for x in bx..(bx + block).min(wood.width) {
+                        sum += luma(wood.pixel(x, y));
+                        count += 1.0;
+                    }
+                }
+                coarse.push(sum / count);
+            }
+        }
+        // The bound is arithmetic, not taste. Averaging a wave of period `P`
+        // over a box of width `W` scales it by `sinc(W/P)`, so even a perfect
+        // grain at 1.6 cards keeps only `sinc(0.625) ≈ 0.47` — a threshold of
+        // one half would have been unreachable by construction, which is what
+        // the first draft of this test asserted. Speckle at a third of a card
+        // keeps `sinc(3) ≈ 0.1`. Anywhere between is a real distinction, and
+        // this sits well clear of the speckle end.
+        let survives = deviation(&coarse) / fine;
+        assert!(
+            survives > 0.35,
+            "only {survives} of the timber's contrast survives being averaged over \
+             a card — that is speckle, not grain"
+        );
+    }
+
+    #[test]
+    fn the_channel_is_exactly_what_the_mats_leave() {
+        let (span, banks) = duel_banks();
+        let field = channel(256, 128, span, span * 0.5, &banks, 0.55);
+
+        // Under a mat there is no water. This is the whole placement rule:
+        // orange light under a card would falsify its colour identity, which
+        // is the one thing this table may not do.
+        for bank in banks {
+            let a = sample(&field, span, bank.center)[3];
+            assert!(
+                a < 0.01,
+                "a mat at {:?} is standing in water ({a})",
+                bank.center
+            );
+        }
+
+        // And between them there is, at its deepest in the middle.
+        let middle = sample(&field, span, Vec2::ZERO);
+        assert!(
+            middle[3] > 0.99,
+            "the channel is dry in the middle: {middle:?}"
+        );
+        let shore = sample(&field, span, Vec2::new(0.0, -1.6));
+        assert!(
+            middle[0] > shore[0],
+            "the middle {} is no deeper than the shore {}",
+            middle[0],
+            shore[0]
+        );
+    }
+
+    #[test]
+    fn the_current_runs_along_the_channel_and_not_across_it() {
+        // A river that flowed into its own bank would be a texture scrolling
+        // in a fixed direction, which is what this field exists to avoid: the
+        // flow is the *tangent* of the distance to the nearest shore, so it
+        // follows whatever shape the layout leaves.
+        let (span, banks) = duel_banks();
+        let field = channel(256, 128, span, span * 0.5, &banks, 0.55);
+        for x in [-8.0, -3.0, 0.0, 4.0, 9.0] {
+            let f = sample(&field, span, Vec2::new(x, 0.0));
+            let flow = Vec2::new(f[1].mul_add(2.0, -1.0), f[2].mul_add(2.0, -1.0));
+            assert!(
+                flow.x.abs() > flow.y.abs() * 3.0,
+                "at x={x} the current runs {flow:?}, across a channel that lies along x"
+            );
+        }
+    }
+
+    /// Standard deviation, for the two contrast measurements above.
+    fn deviation(values: &[f32]) -> f32 {
+        let n = values.len() as f32;
+        let mean = values.iter().sum::<f32>() / n;
+        (values.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / n).sqrt()
+    }
 
     #[test]
     fn the_wash_never_speaks_in_a_colour_of_the_pie() {

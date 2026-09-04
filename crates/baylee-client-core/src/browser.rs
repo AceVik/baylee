@@ -66,6 +66,23 @@ impl BrowseZone {
         }
     }
 
+    /// The panel a pile standing beside the table opens, when it opens one.
+    ///
+    /// `None` for a library, and that is the whole reason this is an
+    /// `Option`: nobody may look through a library, its owner included
+    /// (CR 401.2), so there is no panel for one to open and the pile beside
+    /// the mat has to be inert rather than merely empty.
+    #[must_use]
+    pub const fn of_pile(pile: crate::layout::PileKind, player: PlayerId) -> Option<Self> {
+        use crate::layout::PileKind;
+        match pile {
+            PileKind::Library => None,
+            PileKind::Graveyard => Some(Self::Graveyard(player)),
+            PileKind::Exile => Some(Self::Exile(player)),
+            PileKind::Command => Some(Self::Command(player)),
+        }
+    }
+
     /// What the zone is called.
     #[must_use]
     pub fn label(self) -> Phrase {
