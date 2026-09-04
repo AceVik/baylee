@@ -579,10 +579,16 @@ pub struct SceneIndex {
     ///
     /// The same trick as [`UiCardMaterials`](crate::cardmat::UiCardMaterials):
     /// `false` is "animated", so the derived `Default` is the right answer,
-    /// and the setting lives beside the cache instead of inside its key. A
-    /// change empties both maps; `sync_scene` re-assigns every card's
-    /// material from its look on the very next frame, so the table catches up
-    /// immediately and nothing has to be found and patched.
+    /// and the setting lives beside the cache instead of inside its key —
+    /// which is the whole point of keeping it here. Were it in the key, every
+    /// card on the table would be two entries instead of one and nothing
+    /// would ever evict the half no longer wanted.
+    ///
+    /// A change rewrites the clock on the materials already made rather than
+    /// throwing them away. Emptying the maps is the obvious thing to write
+    /// and it is strictly worse: the handles are still held by every card
+    /// entity, so the discarded materials do not go anywhere — they are
+    /// merely rebuilt, once each, on the next frame.
     still: bool,
     /// A seat's zone: the mat and the glow under it, with the mood they were
     /// last drawn in. Held here for the same reason the cards are — so a
@@ -1323,6 +1329,7 @@ struct Placement {
     art: Option<ImageKey>,
     offer: crate::cardmat::Offer,
     corner: baylee_client_core::cardplate::Corner,
+    selected: bool,
 }
 
 /// Computes placements for the whole table.
@@ -1365,6 +1372,19 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // in this client on a card showing art. Resolved here for
                     // the same reason the offer is: the group is here.
                     corner: baylee_client_core::cardplate::Corner::of(group),
+                    // Chosen for the pending choice — resolved here for the
+                    // same reason again, and through `is_selected` rather
+                    // than `selected()`. In the two combat modes the answer
+                    // being built is a list of *pairs*, and `selected()` is
+                    // empty however many attackers have been declared;
+                    // `is_selected` is the method that reads the pairs. The
+                    // sync loop used to ask the empty list, which is why a
+                    // declared attacker lay flat on the table and combat
+                    // drew nothing at all.
+                    selected: duel
+                        .interaction
+                        .as_ref()
+                        .is_some_and(|i| group.members.iter().any(|member| i.is_selected(*member))),
                 });
             }
         }
@@ -1433,14 +1453,9 @@ pub fn sync_scene(
     let wanted = placements(&duel);
     let mut live: HashSet<ObjectId> = HashSet::new();
 
-    // Selection state, read once: the keyboard/mouse cursor and the cards
-    // already chosen for the pending choice.
+    // The keyboard/mouse cursor. What is *chosen* rides on the placement,
+    // because that is where a group's members are.
     let hovered = duel.hovered;
-    let selected: HashSet<ObjectId> = duel
-        .interaction
-        .as_ref()
-        .map(|i| i.selected().iter().copied().collect())
-        .unwrap_or_default();
 
     // The snapshot the faces below were built from: rules text is projected,
     // so a face is only stale when the game state that produced it moved on.
@@ -1512,7 +1527,7 @@ pub fn sync_scene(
         // made, which is the same claim being selected makes and belongs at
         // the same height. Selected wins over both; the pointer moving away
         // must not put an armed card back down.
-        if selected.contains(&placement.object) || placement.offer.armed {
+        if placement.selected || placement.offer.armed {
             transform.translation.y += SELECTED_LIFT;
             transform.scale *= SELECTED_SCALE;
         } else if hovered == Some(placement.object) {
@@ -2270,5 +2285,182 @@ mod tests {
         };
         assert_eq!(look(0), FinishTreatment::Foil, "its own deck's printing");
         assert_eq!(look(1), FinishTreatment::Plain, "a hole is not a foil");
+    }
+}
+
+/// Combat, as the table draws it.
+///
+/// The board here is built by hand rather than through a view: what is under
+/// test is the *bridge* between the interaction state and the placements, and
+/// a `PlayerView` in the middle would put the whole projection between the
+/// thing being asserted and the thing being set.
+#[cfg(test)]
+mod combat_tests {
+    use super::*;
+    use baylee_client_core::board::{BoardModel, Lane, SeatPod};
+    use baylee_client_core::interaction::Interaction;
+    use baylee_client_core::layout::LaneKind;
+    use baylee_core::ids::Defender;
+    use baylee_engine::choice::Pending;
+
+    fn obj(slot: u32) -> ObjectId {
+        ObjectId::new(slot, 0)
+    }
+
+    /// One creature, standing for itself.
+    fn creature(slot: u32) -> CardGroup {
+        CardGroup {
+            representative: obj(slot),
+            members: vec![obj(slot)],
+            name: format!("Creature {slot}"),
+            power: Some(2),
+            toughness: Some(2),
+            damage: 0,
+            loyalty: None,
+            status: baylee_view::ObjectStatus::NONE,
+            counters: Vec::new(),
+            badges: Vec::new(),
+            art: None,
+            is_token: true,
+            summoning_sick: false,
+            activatable: false,
+            individual: None,
+        }
+    }
+
+    /// A one-seat board holding `groups` in the creature lane.
+    fn board(groups: Vec<CardGroup>) -> BoardModel {
+        BoardModel {
+            seq: 1,
+            local: PlayerId::new(0),
+            turn: 1,
+            step: baylee_view::Step::DeclareAttackers,
+            pods: vec![SeatPod {
+                player: PlayerId::new(0),
+                life: 20,
+                poison: 0,
+                energy: 0,
+                hand_count: 0,
+                library_count: 40,
+                graveyard_count: 0,
+                has_lost: false,
+                is_local: true,
+                is_active: true,
+                has_priority: true,
+                lanes: vec![Lane {
+                    kind: LaneKind::Creatures,
+                    groups,
+                    overflowing: false,
+                }],
+                tokens: Vec::new(),
+                threat: baylee_client_core::ThreatSummary::default(),
+            }],
+            stack: Vec::new(),
+            hand: Vec::new(),
+        }
+    }
+
+    fn duel(board: BoardModel, interaction: Option<Interaction>) -> Duel {
+        Duel {
+            board: Some(board),
+            layout: Some(TableLayout::new(&[PlayerId::new(0)], 1.78, None)),
+            interaction,
+            ..Duel::default()
+        }
+    }
+
+    /// The defect `docs/design.md` §2.2 calls "unreadable": both combat
+    /// prompts were fully operable and drew nothing, because the sync loop
+    /// asked `selected()` — a list that stays empty in the two combat modes,
+    /// where the answer being built is a list of *pairs*.
+    #[test]
+    fn a_declared_attacker_is_marked_chosen_and_an_undeclared_one_is_not() {
+        let mut i = Interaction::new(
+            Pending::ChooseAttackers {
+                player: PlayerId::new(0),
+                attackers: vec![obj(1), obj(2)],
+                defenders: vec![Defender::Player(PlayerId::new(1))],
+            },
+            PlayerId::new(0),
+        );
+        assert!(
+            i.declare_attacker(obj(1), Defender::Player(PlayerId::new(1))),
+            "the choice offered this attacker"
+        );
+
+        let duel = duel(board(vec![creature(1), creature(2)]), Some(i));
+        let placed = placements(&duel);
+        let chosen = |id: ObjectId| {
+            placed
+                .iter()
+                .find(|p| p.object == id)
+                .unwrap_or_else(|| panic!("{id:?} is on the table"))
+                .selected
+        };
+        assert!(chosen(obj(1)), "the declared attacker lies flat");
+        assert!(
+            !chosen(obj(2)),
+            "a creature held back is drawn as attacking"
+        );
+    }
+
+    /// A card standing for four is chosen when *any* of the four is: the
+    /// representative is a drawing decision, and a plan or a declaration
+    /// names one particular permanent.
+    #[test]
+    fn a_stack_of_identical_creatures_is_chosen_by_any_of_its_members() {
+        let mut group = creature(1);
+        group.members = vec![obj(1), obj(2), obj(3)];
+        let mut i = Interaction::new(
+            Pending::ChooseAttackers {
+                player: PlayerId::new(0),
+                attackers: vec![obj(1), obj(2), obj(3)],
+                defenders: vec![Defender::Player(PlayerId::new(1))],
+            },
+            PlayerId::new(0),
+        );
+        // Not the representative — that is the whole point.
+        assert!(i.declare_attacker(obj(3), Defender::Player(PlayerId::new(1))));
+
+        let duel = duel(board(vec![group]), Some(i));
+        let placed = placements(&duel);
+        assert_eq!(placed.len(), 1, "one card stands for the three");
+        assert!(
+            placed[0].selected,
+            "the card drawn for the stack ignores a declaration by a member \
+             that is not its representative"
+        );
+    }
+
+    /// The same rule outside combat, where `selected()` *is* the answer being
+    /// built. Reading the raw list was wrong here too, just less visibly: a
+    /// target chosen from a stack of four is one particular permanent, and
+    /// the card drawn for the stack is the only thing on the table that can
+    /// show it has been chosen.
+    #[test]
+    fn a_target_chosen_from_a_stack_lifts_the_card_that_stands_for_it() {
+        let mut group = creature(1);
+        group.members = vec![obj(1), obj(2), obj(3)];
+        let mut i = Interaction::new(
+            Pending::ChooseTargets {
+                player: PlayerId::new(0),
+                options: vec![obj(1), obj(2), obj(3)],
+                player_options: vec![],
+                min: 1,
+                max: 1,
+            },
+            PlayerId::new(0),
+        );
+        // Again not the representative.
+        assert_eq!(
+            i.toggle(obj(3)),
+            baylee_client_core::interaction::SelectionOutcome::Added
+        );
+
+        let duel = duel(board(vec![group]), Some(i));
+        assert!(
+            placements(&duel)[0].selected,
+            "the stack was targeted and the card drawn for it sits flat"
+        );
     }
 }

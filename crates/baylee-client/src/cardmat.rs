@@ -284,9 +284,10 @@ pub struct CardParams {
     /// in [`CardLook`], which is the part worth stating. `CardLook` is the
     /// *cache key*: putting a global preference in it would make every card
     /// on the table two entries instead of one, and nothing evicts the half
-    /// that is no longer wanted. So the caches hold the setting once and
-    /// throw their contents away when it changes — a hundred materials
-    /// rebuilt on a click nobody makes twice.
+    /// that is no longer wanted. So the caches hold the setting once, beside
+    /// their contents rather than inside the key, and a change rewrites this
+    /// field on the materials already made — nothing is discarded, because
+    /// every card entity still holds the handle either way.
     pub motion: f32,
     /// The colour a card with no artwork is drawn in.
     pub tint: Vec4,
@@ -297,10 +298,14 @@ pub const MOVING: f32 = 1.0;
 
 /// A card holding still, for [`Preferences::reduce_motion`].
 ///
-/// Zero, and the shaders are written so that zero is the *average* of every
-/// term it stops rather than an arbitrary frame of it. A still card is the
-/// moving one held still, not a different drawing — the three terms where
-/// phase zero is not the average are handled where they appear.
+/// Zero, and the shaders are written so that zero lands every term it stops
+/// somewhere that term could have been. For a pure `a + b·sin(t·ω)` that
+/// place is the mean; for a term carrying a *spatial* phase as well — the
+/// indestructible border's `uv.y`, the rail's per-slot offset — it is an
+/// honest frame of the animation rather than its average, which is equally
+/// what is wanted. A still card is the moving one held still, not a different
+/// drawing. The three terms where phase zero is neither are handled where
+/// they appear.
 ///
 /// [`Preferences::reduce_motion`]: baylee_client_core::prefs::Preferences::reduce_motion
 pub const STILL: f32 = 0.0;

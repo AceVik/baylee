@@ -758,10 +758,27 @@ Status by variant: eight are fine (`Mulligan`, `LegendChoice`, `ChooseColor`,
 `MulliganBottom` and `DiscardChoice` show no tally of what has been chosen,
 `ChooseCastMode` renders "Mode 1 / Mode 2" with no text, and `ChooseNumber`
 never prints its value anywhere while its arrow keys also pan the camera. Two
-are **unreadable**: both combat prompts are fully operable and draw nothing,
-because the renderer reads `selected()` — which is empty in combat modes —
-while `is_selected()`, the method that knows about pairs, has no caller, and
-`assignment()` and `focus_position()` have none either. Two **lock**:
+are **half-drawn**: both combat prompts are fully operable, and until now they
+drew *nothing* — the renderer asked `selected()`, which is empty in the two
+combat modes, because there the answer being built is a list of *pairs* and
+`is_selected()` is the method that reads them. A declared attacker now lifts
+and scales like any other chosen card: the chosen-state rides on `Placement`,
+resolved in `placements()` where a group's *members* are, so a declaration
+naming a permanent that is not the card's representative counts too. What is
+still undrawn is the *pairing* — `assignment()` has no caller, and neither does
+`focus_position()`'s companion on the table.
+
+And that hole has a second half, found while fixing the first: **declared**
+combat is undrawn as well. `view.combat` — the engine's own
+`AttackerView`/`BlockerView` list — is read in exactly one place in the client
+(`board.rs::individual_objects`), and only to stop attackers and blockers from
+merging into a group. Nothing renders it. So an attack made *against* this
+seat is as invisible as one this seat is still declaring, and once the engine
+confirms a declaration the table stops showing even the lift. Both halves want
+the same drawing fed from two sources — `Interaction::assignment` for the
+declaration being built, `view.combat` for the one that stands.
+
+Two **lock**:
 `ChooseCards` with off-board options, and `OrderObjects` always.
 
 The fix that covers the locked pair and most of the rest is one thing: a **zone
@@ -1046,8 +1063,9 @@ else needs and which is deliberately not being done ahead of tranche 3.
 
 **Third, the board made legible.** ~~The hearth shrunk and the own battlefield
 out from under the hand bar~~ (done — §1.1); ~~P/T, damage and counter chips on
-art faces~~ (done — §1.4, plate and chips both); combat drawn — `is_selected`,
-assignment lines, the focus pulse and the per-defender
+art faces~~ (done — §1.4, plate and chips both); combat drawn — ~~a declared
+attacker drawn as chosen~~ (done — §2.2), assignment lines from both sources,
+the focus pulse and the per-defender
 summary; ~~`motion` wired to `reduce_motion`~~ (done — §1.3); the palette
 unified; the keyword
 dominance table and the off-pie films; flying as elevation.
