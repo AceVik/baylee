@@ -114,8 +114,8 @@ enum Cmd {
     },
     /// Prepare per-card task packages for LLM implementation batches.
     CardBatch {
-        /// Only these cards (comma-separated names); default: all
-        /// unimplemented acceptance cards.
+        /// Only these cards (comma-separated names); default: every card in
+        /// the pool that is still a generated stub.
         #[arg(long)]
         cards: Option<String>,
         /// Output directory for task packages.
@@ -525,9 +525,12 @@ fn card_batch(
              - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\
              - `{package}/SCRYFALL.json` — metadata, if you need the printed details.\n\n\
              Hard rules:\n\
-             1. `index`, `oracle_id`, `scryfall_id` and the `faces` literals are\n\
-                generated facts. Do not edit them. You may edit only `coverage`,\n\
-                `keywords` and `abilities`.\n\
+             1. Every `//!` line at the top of the file, `index`, `oracle_id`,\n\
+                `scryfall_id` and the `faces` literals are generated facts. Do\n\
+                not edit, add or delete a single one of them. That header is\n\
+                the human-verification surface: `xtask validate` compares it\n\
+                against the card you build and fails on any drift. You may edit\n\
+                only `coverage`, `keywords` and `abilities`.\n\
              2. Never restate a default. The macros in `baylee-cards-dsl/src/build.rs`\n\
                 supply them, and the defaults are *rules* defaults.\n\
              3. Do not invent `Effect`, `Modifier` or `Filter` variants. If the\n\
@@ -535,8 +538,15 @@ fn card_batch(
              4. Every oracle sentence is implemented, or the card is refused. A\n\
                 card that is nearly right is worse than a stub: the deckbuilder\n\
                 offers implemented cards as playable.\n\
-             5. `cargo check -p baylee-cards` and `cargo test -p baylee-cards`\n\
-                must pass before you finish.\n\n\
+             5. The only command you may run is\n\
+                `cargo check --all-targets -p baylee-cards` (`--all-targets` so\n\
+                a test you wrote is compiled too), and only to find out whether\n\
+                your own edit compiles. Do not run\n\
+                `cargo test`, `cargo clippy`, `cargo fmt`, `cargo run` or any\n\
+                `xtask` command. The harness around you runs the full gate on\n\
+                this card the moment you finish and reverts the file if it\n\
+                fails, so running any of that here buys nothing and costs more\n\
+                time than writing the card does.\n\n\
              Refusing is a correct outcome, not a failure. If any clause is\n\
              inexpressible, revert your edits to `{slug}.rs` so it stays the\n\
              generated stub, and report `status: \"refused\"`.\n\n\
