@@ -46,6 +46,8 @@ const GLOW_HEXPROOF: u32 = 2u;
 const GLOW_SHROUD: u32 = 4u;
 const GLOW_ACTIVATABLE: u32 = 8u;
 const GLOW_SUMMONING_SICK: u32 = 16u;
+const GLOW_ARMED: u32 = 32u;
+const GLOW_WILL_TAP: u32 = 64u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
@@ -233,6 +235,29 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
                 let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
                 let amber = vec3<f32>(0.99, 0.78, 0.34);
                 color = vec4<f32>(color.rgb + amber * band * (0.22 + 0.60 * chase), color.a);
+            }
+            // Armed: the tap has been made, and one more sends it. The same
+            // register as the offer above and deliberately the opposite
+            // motion — no chase, a bright ring pulled in tight against the
+            // printed edge, breathing slowly in place. The card has stopped
+            // inviting anything; it is waiting, and a light that still
+            // travelled would say it was still a suggestion.
+            if (params.glow & GLOW_ARMED) != 0u {
+                let hold = 0.86 + 0.14 * sin(t * 2.2);
+                // Concentrated toward the edge rather than spread across the
+                // band, so it is a ring and not a wash — an armed card and a
+                // hovered one must not read the same.
+                let ring = pow(band, 0.45);
+                let gold = vec3<f32>(1.00, 0.87, 0.54);
+                color = vec4<f32>(color.rgb + gold * ring * 0.52 * hold, color.a);
+            }
+            // What it will cost: the sources an armed mana run would tap.
+            // Cool against the deed's warm, and a beat behind it, because the
+            // two are one sentence and the price follows the verb.
+            if (params.glow & GLOW_WILL_TAP) != 0u {
+                let pulse = 0.70 + 0.30 * sin(t * 2.2 - 0.9);
+                let indigo = vec3<f32>(0.56, 0.60, 0.98);
+                color = vec4<f32>(color.rgb + indigo * band * 0.40 * pulse, color.a);
             }
         }
     }

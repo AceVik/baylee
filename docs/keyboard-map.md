@@ -143,8 +143,20 @@ list, which reduces a permanent to the one tap it usually has.
 An armed deed is re-checked against the engine's *current* offer everywhere it
 is read — the two keys, the button, and the row that draws it — so a deed the
 engine has withdrawn between the taps disarms and says so rather than being
-sent. Picking from the ability chooser arms rather than sends: the chooser
-disambiguates, it does not confirm.
+sent. A `Run` is re-read too, and can come back a different answer: between the
+two taps this seat holds priority, so the one thing that can have changed is
+its own manual land tap, after which the spell is castable outright and the run
+would float mana nobody asked for. Picking from the ability chooser arms rather
+than sends: the chooser disambiguates, it does not confirm.
+
+**An armed deed is drawn as a sentence in two halves.** The card wears
+`glow::ARMED` — a bright ring held tight against its printed edge, breathing in
+place — and lifts to the height a chosen card sits at, keeping it when the
+pointer leaves. Whatever an armed mana run would tap wears `glow::WILL_TAP`, a
+cooler pulse a beat behind, because the price follows the verb and "Tap 3, then
+cast" does not say *which* three. The armed card stops wearing the
+`ACTIVATABLE` chase it accepted: one border carrying both would be saying the
+same thing twice. `docs/client.md` §"The card surface" has the whole register.
 
 ## Mouse
 

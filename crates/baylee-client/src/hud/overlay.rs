@@ -722,6 +722,7 @@ pub fn sync_overlay(
             hovered,
             &selected,
             &selectable,
+            duel.armed.as_ref(),
             layout,
             duel.hand_scroll,
             &mut textures,
@@ -769,7 +770,10 @@ pub fn sync_overlay(
                     Some(key) => CardLook::art(
                         key,
                         finish_of(statics, Some(key)),
-                        crate::cardmat::glow_of(hovered.and_then(|id| view.object(id)), false),
+                        crate::cardmat::glow_of(
+                            hovered.and_then(|id| view.object(id)),
+                            crate::cardmat::Offer::NONE,
+                        ),
                     ),
                     None => CardLook::back(FinishTreatment::Plain, 0),
                 },
@@ -891,6 +895,7 @@ pub fn sync_overlay(
             statics,
             hovered,
             &selected,
+            duel.armed.as_ref(),
             duel.overlay_open,
             duel.overlay_t,
             window_h,
@@ -1226,6 +1231,7 @@ pub(super) fn spawn_own_board_overlay(
     statics: &GameStatic,
     hovered: Option<ObjectId>,
     selected: &[ObjectId],
+    armed: Option<&crate::Armed>,
     open: bool,
     overlay_t: f32,
     window_h: f32,
@@ -1352,14 +1358,14 @@ pub(super) fn spawn_own_board_overlay(
                 crate::face::Detail::Compact,
                 fonts,
                 {
-                    // The same two claims the table draws, drawn the same
-                    // way: what the rules made the card, and what the player
-                    // could do with it. The overlay is where a seat looks at
-                    // its own board, so it is the last place that cue should
-                    // be missing.
+                    // The same claims the table draws, drawn the same way:
+                    // what the rules made the card, and what the player could
+                    // do with it or has just said they will. The overlay is
+                    // where a seat looks at its own board, so it is the last
+                    // place those cues should be missing.
                     let glow = crate::cardmat::glow_of(
                         view.object(group.representative),
-                        group.activatable,
+                        crate::cardmat::Offer::on(armed, &group.members, group.activatable),
                     );
                     match group.art {
                         Some(art) => CardLook::art(art, finish_of(statics, Some(art)), glow),

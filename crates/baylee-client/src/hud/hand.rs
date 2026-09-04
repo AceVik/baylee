@@ -18,6 +18,7 @@ pub(super) fn spawn_hand_bar(
     hovered: Option<ObjectId>,
     selected: &[ObjectId],
     selectable: &[ObjectId],
+    armed: Option<&crate::Armed>,
     layout: HandLayout,
     scroll: f32,
     textures: &mut CardTextures,
@@ -68,6 +69,11 @@ pub(super) fn spawn_hand_bar(
         // one is the engine offering to put the card on the stack, this one
         // is a question already asked pointing at the hand.
         let is_offered = selectable.contains(&card.id);
+        // What this client is offering to do with the card. A card in hand is
+        // never activatable — that is a battlefield word — so the only bit
+        // this can carry is the armed one, and `Deed::Run` puts nothing here
+        // because the lands it would tap are on the table, not in the hand.
+        let offer = crate::cardmat::Offer::on(armed, &[card.id], false);
         // No border: the card is rounded like a real one; hover/selection
         // read as a soft accent glow instead of a frame.
         let shadow = if is_selected {
@@ -122,7 +128,14 @@ pub(super) fn spawn_hand_bar(
             // A card in hand is not on a battlefield, so no keyword glow: the
             // border tells a player what is protected *there*, and a hand
             // that glowed would be saying something that is not yet true.
-            CardLook::art(card.art, finish_of(statics, Some(card.art)), 0),
+            // The armed ring is not a keyword and is drawn — it is a claim
+            // about the card *in the hand*, and the hand is where the player
+            // is looking when they arm a spell.
+            CardLook::art(
+                card.art,
+                finish_of(statics, Some(card.art)),
+                crate::cardmat::glow_of(None, offer),
+            ),
             cards.as_deref_mut(),
         );
         // Positioned by the layout rule; the strip's margin carries the
@@ -134,7 +147,12 @@ pub(super) fn spawn_hand_bar(
                 Node {
                     position_type: PositionType::Absolute,
                     left: px(left),
-                    top: px(0),
+                    // An armed card stands out of the row, the way the table
+                    // lifts an armed permanent. The bar keeps exactly this
+                    // much headroom inside its own clip (`HAND_BAR_H` is the
+                    // card plus twice ten, and the strip starts at ten), so
+                    // the raise never cuts the card's top edge off.
+                    top: px(if offer.armed { -ARMED_RAISE } else { 0.0 }),
                     width: px(HAND_CARD_W),
                     height: px(HAND_CARD_H),
                     border_radius: card_radius(HAND_CARD_W),
@@ -343,3 +361,11 @@ pub const OVERLAY_CARD_H: f32 = OVERLAY_CARD_W * 88.0 / 63.0;
 pub const TAB_H: f32 = 48.0;
 /// The hand bar's height, including its padding.
 pub const HAND_BAR_H: f32 = HAND_CARD_H + 20.0;
+
+/// How far an armed card stands out of the row.
+///
+/// Bounded by the bar's own padding: the strip sits ten pixels down inside a
+/// clipping container, so anything up to ten is headroom that already exists
+/// and anything past it would take the top off the card instead of raising
+/// it.
+const ARMED_RAISE: f32 = 8.0;

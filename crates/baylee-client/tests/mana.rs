@@ -568,3 +568,93 @@ fn cancelling_the_ability_chooser_activates_nothing() {
     assert!(duel.ability_menu.is_none());
     assert!(duel.outbox().is_empty(), "cancel is not an answer");
 }
+
+/// Karn, the Great Creator — a planeswalker, and therefore a permanent with
+/// two abilities *neither* of which makes mana.
+const WALKER: &str = "a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1";
+
+fn preset_with_a_planeswalker() -> GamePreset {
+    let mut preset = preset();
+    preset.seats[0].starting_battlefield.push(entry(WALKER));
+    preset
+}
+
+/// Picking from the chooser *arms*; it does not send.
+///
+/// The chooser disambiguates and confirming is a separate statement, which is
+/// the whole of arm-then-act. The painland test above cannot show it: both of
+/// Yavimaya Coast's abilities make mana, and a mana ability is the one
+/// exemption, so that path goes straight onto the wire. A planeswalker is the
+/// other shape — two abilities, neither of them mana — and it is the one this
+/// branch actually runs in.
+#[test]
+fn picking_from_the_chooser_arms_rather_than_sends() {
+    use baylee_client::input::{ability_menu_keys, activate_card, armed_keys};
+    use baylee_client::keys::Fired;
+    use baylee_client::{Deed, Duel};
+    use baylee_client_core::interaction::Interaction;
+    use baylee_client_core::prefs::Action;
+
+    let mut table = Table::open_with(&preset_with_a_planeswalker());
+    table.walk_to_main();
+
+    let karn = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name.starts_with("Karn"))
+        .expect("the planeswalker is on the table")
+        .id;
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+
+    let options = baylee_client::abilities::options(
+        baylee_client_core::Lang::En,
+        duel.view.as_ref().expect("a view"),
+        duel.interaction.as_ref().expect("a choice"),
+        karn,
+    );
+    assert!(
+        options.len() >= 2,
+        "a loyalty ability is not a mana ability, so both are offered: {options:?}"
+    );
+    assert!(
+        options.iter().all(|o| !o.mana),
+        "none of a planeswalker's abilities makes mana"
+    );
+
+    activate_card(&mut duel, karn);
+    assert_eq!(duel.ability_menu, Some(karn), "two abilities are a menu");
+
+    assert!(ability_menu_keys(
+        Fired::of_actions(&[Action::CursorDown]),
+        &mut duel
+    ));
+    assert!(ability_menu_keys(
+        Fired::of_actions(&[Action::Confirm]),
+        &mut duel
+    ));
+    assert!(duel.ability_menu.is_none(), "answering closes the menu");
+    assert!(
+        duel.outbox().is_empty(),
+        "picking is not confirming — nothing is on the wire yet"
+    );
+    assert_eq!(
+        duel.armed.as_ref().map(|a| a.deed.clone()),
+        Some(Deed::Ability(options[1].action.clone())),
+        "what is armed is the entry the highlight was on"
+    );
+
+    // And the confirm after it is the send.
+    assert!(armed_keys(Fired::of_actions(&[Action::Confirm]), &mut duel));
+    assert_eq!(
+        duel.outbox().first().cloned().expect("the key sent one"),
+        options[1].action,
+    );
+    assert!(duel.armed.is_none(), "sending disarms");
+}

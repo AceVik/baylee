@@ -989,7 +989,7 @@ struct Placement {
     tapped: bool,
     count: usize,
     art: Option<ImageKey>,
-    activatable: bool,
+    offer: crate::cardmat::Offer,
 }
 
 /// Computes placements for the whole table.
@@ -1018,7 +1018,15 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     tapped: group.status.is_tapped(),
                     count: group.count(),
                     art: group.art,
-                    activatable: group.activatable,
+                    // Resolved here rather than in the sync loop, because
+                    // here is where the group's *members* are: a plan taps
+                    // one particular Forest, and the card drawn for it may
+                    // be standing for four.
+                    offer: crate::cardmat::Offer::on(
+                        duel.armed.as_ref(),
+                        &group.members,
+                        group.activatable,
+                    ),
                 });
             }
         }
@@ -1091,11 +1099,11 @@ pub fn sync_scene(
         // earned reads as plain rather than as a leak.
         let finish = crate::cardmat::finish_of(statics, placement.art);
         // Keywords are what the card is, sickness is what it cannot do this
-        // turn, `activatable` is what the player could do with it. All three
-        // ride on the material, so a Forest that becomes tappable becomes a
-        // different material and needs no second pass — and stops being one
-        // the moment priority moves on.
-        let glow = crate::cardmat::glow_of(object, placement.activatable);
+        // turn, and the offer is what the player could do with it — or has
+        // just said they will. All of it rides on the material, so a Forest
+        // that becomes tappable becomes a different material and needs no
+        // second pass — and stops being one the moment priority moves on.
+        let glow = crate::cardmat::glow_of(object, placement.offer);
 
         let material = if show_face {
             // One material per colour identity, so a mono-green board is one
@@ -1131,8 +1139,12 @@ pub fn sync_scene(
         let mut transform =
             card_transform(&placement.slot, placement.position, placement.tapped, 0.0);
         // Hover (cursor) lifts the card a touch; a chosen card stays raised
-        // until the choice is answered. Selected wins over hovered.
-        if selected.contains(&placement.object) {
+        // until the choice is answered, and so does an armed one — a deed
+        // waiting on a second tap is a commitment the player has already
+        // made, which is the same claim being selected makes and belongs at
+        // the same height. Selected wins over both; the pointer moving away
+        // must not put an armed card back down.
+        if selected.contains(&placement.object) || placement.offer.armed {
             transform.translation.y += SELECTED_LIFT;
             transform.scale *= SELECTED_SCALE;
         } else if hovered == Some(placement.object) {

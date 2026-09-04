@@ -173,12 +173,26 @@ pub fn fire_armed(duel: &mut Duel) {
                 duel.last_error = Some(STALE.to_string());
             }
         }
-        // A plan is not re-planned here: `ManaRun` re-checks every one of its
-        // steps against what the engine is offering as it spends them, and
-        // stops honestly if a land it counted on can no longer be tapped.
+        // The plan itself is not re-planned: `ManaRun` re-checks every one of
+        // its steps against what the engine is offering as it spends them, and
+        // stops honestly if a land it counted on can no longer be tapped. What
+        // *is* re-read is whether a run is still the right answer — between the
+        // two taps this seat holds priority, so the one thing that can have
+        // changed is its own manual land tap, after which the spell may be
+        // castable outright and the run would float mana nobody asked for.
         Deed::Run(plan) => {
-            duel.last_error = None;
-            duel.mana_run = Some(crate::ManaRun::new(plan, armed.object));
+            if let Some(action) = duel
+                .interaction
+                .as_ref()
+                .and_then(|i| i.play_card(armed.object))
+            {
+                duel.submit(action);
+            } else if duel.reachable.contains(&armed.object) {
+                duel.last_error = None;
+                duel.mana_run = Some(crate::ManaRun::new(plan, armed.object));
+            } else {
+                duel.last_error = Some(STALE.to_string());
+            }
         }
     }
 }

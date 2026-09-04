@@ -44,6 +44,8 @@ const GLOW_HEXPROOF: u32 = 2u;
 const GLOW_SHROUD: u32 = 4u;
 const GLOW_ACTIVATABLE: u32 = 8u;
 const GLOW_SUMMONING_SICK: u32 = 16u;
+const GLOW_ARMED: u32 = 32u;
+const GLOW_WILL_TAP: u32 = 64u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
@@ -181,6 +183,22 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
                 let chase = pow(1.0 - min(head, 1.0 - head) * 2.0, 5.0);
                 let amber = vec3<f32>(0.99, 0.78, 0.34);
                 color = vec4<f32>(color.rgb + amber * band * (0.22 + 0.60 * chase), color.a);
+            }
+            // Armed and its price, the same two the table draws and drawn the
+            // same way: a steady ring for the deed, a cooler pulse a beat
+            // behind it on whatever would pay. This is the twin that matters
+            // most for `Deed::Play`, because the card being armed is in the
+            // hand and the hand is drawn here.
+            if (params.glow & GLOW_ARMED) != 0u {
+                let hold = 0.86 + 0.14 * sin(t * 2.2);
+                let ring = pow(band, 0.45);
+                let gold = vec3<f32>(1.00, 0.87, 0.54);
+                color = vec4<f32>(color.rgb + gold * ring * 0.52 * hold, color.a);
+            }
+            if (params.glow & GLOW_WILL_TAP) != 0u {
+                let pulse = 0.70 + 0.30 * sin(t * 2.2 - 0.9);
+                let indigo = vec3<f32>(0.56, 0.60, 0.98);
+                color = vec4<f32>(color.rgb + indigo * band * 0.40 * pulse, color.a);
             }
         }
     }

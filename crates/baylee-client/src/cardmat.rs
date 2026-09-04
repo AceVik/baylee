@@ -25,6 +25,7 @@
 
 use baylee_client_core::cardrail;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
+use baylee_core::ids::ObjectId;
 use bevy::asset::embedded_asset;
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
@@ -63,6 +64,23 @@ pub mod glow {
     /// than on its border. The border says what a card is; the face says
     /// what it can do.
     pub const SUMMONING_SICK: u32 = 16;
+    /// An armed deed is waiting on this card: the tap has been made, and one
+    /// more sends it.
+    ///
+    /// Deliberately not drawn like [`ACTIVATABLE`], which is the light beside
+    /// it in the same register: that one travels, because it is an invitation
+    /// and the eye should find it across a whole board. This one holds still,
+    /// because it is a commitment. A player has to be able to tell "you could"
+    /// from "you are about to" at a glance — only one of the two is undone by
+    /// looking away.
+    pub const ARMED: u32 = 32;
+    /// An armed mana run would tap this permanent to pay for its deed.
+    ///
+    /// The other half of the same statement: the card says what will happen,
+    /// its sources say what it will cost. Drawn rather than written because
+    /// "Tap 3, then cast" does not say *which* three, and which three is a
+    /// plan the player never made and would otherwise have to trust blind.
+    pub const WILL_TAP: u32 = 64;
 
     /// Where the keyword rail's eleven marks begin in the word.
     ///
@@ -126,14 +144,91 @@ pub fn glow_bits(keywords: u128) -> u32 {
     bits
 }
 
+/// What this client is offering to do with one card, right now.
+///
+/// Three claims about the *client's own state* rather than about the card, and
+/// they travel together rather than as three arguments for the same reason
+/// [`glow_of`] exists at all: they change with priority and with a tap, and a
+/// caller that passed two of the three would have the same card saying two
+/// different things in the hand and on the table.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Offer {
+    /// Something on this permanent can be activated right now.
+    pub activatable: bool,
+    /// This is the card [`crate::Duel::armed`] is holding.
+    pub armed: bool,
+    /// An armed mana run would tap this permanent to pay for its deed.
+    pub will_tap: bool,
+}
+
+impl Offer {
+    /// Nothing on offer, which is the whole board while this seat is not the
+    /// one being asked.
+    pub const NONE: Self = Self {
+        activatable: false,
+        armed: false,
+        will_tap: false,
+    };
+
+    /// Only the offer the engine itself made — what a card outside the
+    /// battlefield can ever have.
+    #[must_use]
+    pub const fn activatable(activatable: bool) -> Self {
+        Self {
+            activatable,
+            armed: false,
+            will_tap: false,
+        }
+    }
+
+    /// What one drawn card is being offered, given what this client has
+    /// armed.
+    ///
+    /// One reader for the three surfaces that draw a card — the table, the
+    /// hand bar and the own-board overlay — for the same reason [`glow_of`]
+    /// is one function: they draw the same cards, and an armed spell that lit
+    /// up in the hand but not on the table would be worse than not drawing it
+    /// at all.
+    ///
+    /// `members` is every permanent the drawn card stands for
+    /// (`CardGroup::members`), which is one id for a card in hand and may be
+    /// four for a stack of Forests. Both answers here are **any**, where
+    /// `CardGroup::activatable` is deliberately *all*, and the difference is
+    /// not an inconsistency: `activatable` invites a click, so a stack where
+    /// only one member could act would be inviting one that gets refused.
+    /// These two invite nothing — they announce what an armed deed is and
+    /// what it will spend — and a stack of three Forests two of which are
+    /// about to tap is better drawn lit than dark.
+    ///
+    /// The plan is walked rather than indexed. It holds at most a handful of
+    /// steps — a spell nobody can pay for has no plan at all — and a set
+    /// built per frame to answer six questions costs more than the answers.
+    #[must_use]
+    pub fn on(armed: Option<&crate::Armed>, members: &[ObjectId], activatable: bool) -> Self {
+        let Some(armed) = armed else {
+            return Self::activatable(activatable);
+        };
+        Self {
+            activatable,
+            armed: members.contains(&armed.object),
+            will_tap: match &armed.deed {
+                crate::Deed::Run(plan) => {
+                    plan.steps.iter().any(|step| members.contains(&step.source))
+                }
+                crate::Deed::Play | crate::Deed::Ability(_) => false,
+            },
+        }
+    }
+}
+
 /// Everything a permanent's surface is saying about it, in one word.
 ///
 /// Three different kinds of claim ride here and the shader draws each in its
 /// own place: the keywords are what the rules have *made* the card (the
 /// border), summoning sickness is what it cannot do *this turn* (a veil over
-/// the face), and `activatable` is what this client is *offering* (a light
-/// running round the edge). They are gathered in one function so that no
-/// caller can assemble a different subset than another — a card in hand, in
+/// the face), and the [`Offer`] is what this client is proposing (the lights
+/// in the border's outer register). They are gathered in one function so that
+/// no caller can assemble a different subset than another — a card in hand, in
 /// the overlay and on the table must agree about what it is.
 ///
 /// Sickness is asked of creatures only. The view reports it for every
@@ -142,12 +237,22 @@ pub fn glow_bits(keywords: u128) -> u32 {
 /// every fresh permanent breathed would be teaching the player something
 /// false.
 #[must_use]
-pub fn glow_of(object: Option<&baylee_view::PublicObject>, activatable: bool) -> u32 {
+pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 {
     let from_card = object.map_or(0, |o| {
         let sick = o.summoning_sick && o.types.contains(baylee_core::types::TypeSet::CREATURE);
         glow_bits(o.keywords) | if sick { glow::SUMMONING_SICK } else { 0 }
     });
-    from_card | if activatable { glow::ACTIVATABLE } else { 0 }
+    // An armed card is not also inviting a tap: the invitation was accepted,
+    // and drawing both would put a travelling light and a steady one on the
+    // same border saying the same thing twice.
+    let offered = if offer.armed {
+        glow::ARMED
+    } else if offer.activatable {
+        glow::ACTIVATABLE
+    } else {
+        0
+    };
+    from_card | offered | if offer.will_tap { glow::WILL_TAP } else { 0 }
 }
 
 /// What the shader needs to know about one card.
@@ -563,13 +668,13 @@ pub(crate) mod tests {
         use baylee_core::types::TypeSet;
         let mut creature = permanent(TypeSet::CREATURE);
         creature.summoning_sick = true;
-        assert_eq!(glow_of(Some(&creature), false), glow::SUMMONING_SICK);
+        assert_eq!(glow_of(Some(&creature), Offer::NONE), glow::SUMMONING_SICK);
 
         let mut land = permanent(TypeSet::LAND);
         land.summoning_sick = true;
-        assert_eq!(glow_of(Some(&land), false), 0);
+        assert_eq!(glow_of(Some(&land), Offer::NONE), 0);
         assert_eq!(
-            glow_of(Some(&land), true),
+            glow_of(Some(&land), Offer::activatable(true)),
             glow::ACTIVATABLE,
             "a land that entered this turn still offers its mana ability"
         );
@@ -587,7 +692,7 @@ pub(crate) mod tests {
             .union(KeywordSet::INDESTRUCTIBLE)
             .bits();
         assert_eq!(
-            glow_of(Some(&obj), true),
+            glow_of(Some(&obj), Offer::activatable(true)),
             glow::HEXPROOF | glow::INDESTRUCTIBLE | glow::SUMMONING_SICK | glow::ACTIVATABLE
         );
     }
@@ -734,6 +839,128 @@ pub(crate) mod tests {
                 < f32::EPSILON,
             "the shader reads a different number of mark bits than the mask holds"
         );
+    }
+
+    /// Every flag below the rail is the same number on both sides, in *both*
+    /// shaders.
+    ///
+    /// Three copies of the same table — one Rust, two WGSL — and nothing in
+    /// either compiler can notice when one of them moves. A wrong number here
+    /// has no error and no crash: the card in the hand draws one thing and
+    /// the same card on the table draws another, or a bit lands in the rail's
+    /// field and a permanent grows a keyword mark it does not have.
+    #[test]
+    fn the_glow_flags_are_the_same_number_in_all_three_files() {
+        let table = include_str!("shaders/card.wgsl");
+        let ui = include_str!("shaders/card_ui.wgsl");
+        for (name, ours) in [
+            ("GLOW_INDESTRUCTIBLE", glow::INDESTRUCTIBLE),
+            ("GLOW_HEXPROOF", glow::HEXPROOF),
+            ("GLOW_SHROUD", glow::SHROUD),
+            ("GLOW_ACTIVATABLE", glow::ACTIVATABLE),
+            ("GLOW_SUMMONING_SICK", glow::SUMMONING_SICK),
+            ("GLOW_ARMED", glow::ARMED),
+            ("GLOW_WILL_TAP", glow::WILL_TAP),
+        ] {
+            for (which, src) in [("card.wgsl", table), ("card_ui.wgsl", ui)] {
+                let theirs = wgsl_const(src, name);
+                assert!(
+                    (theirs - ours as f32).abs() < f32::EPSILON,
+                    "{name}: {ours} here, {theirs} in {which}"
+                );
+            }
+            // And none of them may reach into the rail, which would draw a
+            // keyword mark for something that is not a keyword.
+            assert_eq!(ours & glow::MARK_MASK, 0, "{name} overlaps the rail");
+        }
+    }
+
+    /// An armed card is not also inviting a tap.
+    ///
+    /// Both lights live in the same register on the border, and the whole
+    /// point of the pair is that one travels and one holds still. Drawing
+    /// both would put a chase and a steady ring on the same edge saying the
+    /// same thing twice, and a player would have nothing left to read the
+    /// difference from.
+    #[test]
+    fn arming_a_card_replaces_the_offer_it_accepted() {
+        use baylee_core::types::TypeSet;
+        let obj = permanent(TypeSet::CREATURE);
+        let offer = Offer {
+            activatable: true,
+            armed: true,
+            will_tap: false,
+        };
+        assert_eq!(glow_of(Some(&obj), offer), glow::ARMED);
+        assert_eq!(
+            glow_of(Some(&obj), Offer::activatable(true)),
+            glow::ACTIVATABLE
+        );
+        // The price is a separate claim and rides alongside either of them:
+        // the land being spent is not the card being cast.
+        let paying = Offer {
+            activatable: true,
+            armed: false,
+            will_tap: true,
+        };
+        assert_eq!(
+            glow_of(Some(&obj), paying),
+            glow::ACTIVATABLE | glow::WILL_TAP
+        );
+    }
+
+    /// A card standing for four permanents lights up when the deed touches
+    /// *any* of them.
+    ///
+    /// The opposite of `CardGroup::activatable`, which is deliberately *all*,
+    /// and for a reason that does not transfer: that one invites a click, so
+    /// lighting a stack where only one member could act would invite a click
+    /// that gets refused. These two invite nothing — they announce what is
+    /// about to happen — and a stack of three Forests two of which are about
+    /// to tap is better drawn lit than dark.
+    #[test]
+    fn a_stack_is_lit_by_whichever_of_it_the_deed_touches() {
+        use baylee_client_core::manaplan::{Plan, Step, Tap};
+        let forests: Vec<ObjectId> = (1..=3).map(|i| ObjectId::new(i, 0)).collect();
+        let elsewhere = ObjectId::new(9, 0);
+
+        let run = crate::Armed {
+            object: elsewhere,
+            deed: crate::Deed::Run(Plan {
+                steps: vec![Step {
+                    source: forests[1],
+                    tap: Tap::Intrinsic,
+                    color: None,
+                }],
+            }),
+        };
+        let offer = Offer::on(Some(&run), &forests, false);
+        assert!(offer.will_tap, "one of the three is being spent");
+        assert!(!offer.armed, "the spell is not one of the lands");
+
+        // And a plan that touches none of them leaves the stack dark.
+        let other = crate::Armed {
+            object: elsewhere,
+            deed: crate::Deed::Run(Plan {
+                steps: vec![Step {
+                    source: elsewhere,
+                    tap: Tap::Intrinsic,
+                    color: None,
+                }],
+            }),
+        };
+        assert_eq!(
+            Offer::on(Some(&other), &forests, true),
+            Offer::activatable(true)
+        );
+
+        // A deed that is not a run spends nothing, whatever it is aimed at.
+        let play = crate::Armed {
+            object: forests[0],
+            deed: crate::Deed::Play,
+        };
+        let offer = Offer::on(Some(&play), &forests, false);
+        assert!(offer.armed && !offer.will_tap);
     }
 
     /// Every mark the rail carries is the keyword it claims to be, and the

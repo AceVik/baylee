@@ -56,8 +56,9 @@ const MARK_COUNT: u32 = 11u;
 /// Where the marks begin in the glow word, and how wide the field is.
 ///
 /// Both card shaders do the shifting at the call site, so nothing below this
-/// line knows that the flags for indestructible, hexproof, shroud, an offer
-/// and a sleeping creature live underneath. The Rust half is
+/// line knows that the flags for indestructible, hexproof, shroud, a sleeping
+/// creature and the three lights this client offers live underneath. The
+/// Rust half is
 /// `cardmat::glow::MARK_SHIFT`, and a test reads this file to check that the
 /// two still agree.
 const MARK_SHIFT: u32 = 8u;

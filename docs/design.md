@@ -555,7 +555,7 @@ any lone ability goes through on the click that found it, including "Sacrifice
 this:".~~ ~~Concede has no confirmation at all today; one misclick ends a
 ranked game.~~
 
-**Done, except the drawing.** `Duel::armed` holds an [`Armed`] — an
+**Done.** `Duel::armed` holds an [`Armed`] — an
 `ObjectId` and a `Deed` (`Play`, `Ability`, or a mana `Run`) — and the second
 tap on the same card, the confirm keys, or the button in the prompt bar send
 it. Everything is resolved against the *current* `LegalActions` at every one
@@ -575,11 +575,37 @@ prints two mana abilities, and the second would have asked. And picking from the
 not confirm, and a lone "Sacrifice this:" arming while the same ability among
 three did not would be exactly the inconsistency a player trips on.
 
-What is left is the *drawing*: the card does not lift yet and the plan's lands
-wear no rings. Both want a new bit in the `glow` word (bits 5–7 are free below
-`MARK_SHIFT`) in `cardmat.rs` and in both `.wgsl` files. Until then the prompt
-bar's armed row — the deed as a button, the way back beside it — is the whole
-signal, which is enough to be safe and not yet enough to be good.
+The *drawing* is two more bits in the `glow` word — `ARMED` and `WILL_TAP`,
+bits 5 and 6, below `MARK_SHIFT` where three were free — and it is the same
+sentence in two halves: the armed card says what will happen, the lands the
+plan would spend say what it will cost. Drawn rather than written, because
+"Tap 3, then cast" does not say *which* three and which three is a plan the
+player never made.
+
+Both ride in the border's outer register beside `ACTIVATABLE`, and the
+grammar there is now three words rather than one. `ACTIVATABLE` travels — it
+is an invitation, and a travelling light is what the eye finds across a whole
+board. `ARMED` holds still and pulls in tight against the printed edge: the
+invitation has been accepted, and a light that still moved would say it was
+still a suggestion. `WILL_TAP` is cool where those two are warm, and a beat
+behind the armed card's breath, because the price follows the verb. An armed
+card is **not** also drawn activatable — `glow_of` drops the offer the arming
+accepted, or the same border would carry a chase and a ring saying the same
+thing twice.
+
+The lift is the other half and costs no bit: an armed permanent takes the
+`SELECTED_LIFT`, not the hover's, and keeps it when the pointer leaves,
+because arming is a commitment the player has already made and being selected
+is the same claim. In the hand the card stands eight pixels out of the row,
+which is headroom the bar already had.
+
+Two things about the group case. `Offer::on` takes a `CardGroup`'s **members**,
+not its representative, because a plan taps one particular Forest and the card
+drawn for it may be standing for four. And both bits are **any**, where
+`CardGroup::activatable` is deliberately *all* — the reason for *all* is that
+an offer invites a click and must not invite one that gets refused, and these
+two invite nothing. A stack of three Forests two of which are about to tap is
+better drawn lit than dark.
 
 ### 2.6 Touch
 

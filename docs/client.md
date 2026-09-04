@@ -306,6 +306,23 @@ separation is the whole grammar:
   reason (see "Tapping lands for a spell"). It is added on top of any sheath
   instead of averaged into it, because the two are answering different
   questions and both have to stay legible.
+- **And the perimeter also says what has been decided.** Two more bits share
+  that register, and the difference between them and `ACTIVATABLE` is motion.
+  `glow::ARMED` is the card an armed deed is waiting on (see
+  `docs/keyboard-map.md` §Arming): a bright ring pulled in tight against the
+  printed edge, breathing in place and **not** travelling, because the offer
+  has already been accepted and a light that still moved would say it was
+  still a suggestion. `glow::WILL_TAP` is what that deed would spend — the
+  sources of an armed mana `Run` — cool where the other two are warm, and a
+  beat behind the armed card, because the price follows the verb. `glow_of`
+  drops `ACTIVATABLE` on an armed card rather than drawing both: one border
+  carrying a chase *and* a ring would be saying the same thing twice with
+  nothing left to read the difference from. `Offer::on` answers both from a
+  `CardGroup`'s **members** rather than its representative — a plan taps one
+  particular Forest and the card drawn for it may stand for four — and both
+  are *any* where `CardGroup::activatable` is *all*, because that rule exists
+  to stop an offer inviting a click that gets refused and these two invite
+  nothing.
 - **The rail says what the card does in combat.** Eleven keywords — flying,
   first and double strike, deathtouch, haste, lifelink, menace, reach,
   trample, vigilance, defender — are marks along the bottom edge, one slot
