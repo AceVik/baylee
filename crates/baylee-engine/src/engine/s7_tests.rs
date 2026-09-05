@@ -646,3 +646,92 @@ fn toxic_deluge_rejects_x_outside_the_offered_range() {
     // no life.
     assert_eq!(engine.state().players[0].life, life_start);
 }
+
+/// A spell with `{X}` in its *printed* cost is asked what X is.
+///
+/// Toxic Deluge above reaches the same question through its mandatory
+/// pay-X-life cost, which is the other half of `needs_x` — so the printed
+/// `{X}` half was covered by nothing at all, and it was wrong. The stage read
+/// the cost through `wizard_cost`, which substitutes the X chosen *so far*,
+/// and so far is zero: `{X}{U}{U}{U}` arrived as `{0}{U}{U}{U}`,
+/// `has_variable()` was false, and the spell was cast for X = 0 with nobody
+/// asked. Nothing failed and nothing logged; the question simply never
+/// happened, which is why no test noticed for as long as there have been X
+/// spells in the pool.
+#[test]
+fn a_printed_x_is_asked_for_and_is_the_number_that_resolves() {
+    // Commander's Insight, {X}{U}{U}{U}: "target player draws X cards".
+    let insight = card_index("54d7d7f8-22cd-4859-b203-924d248b422b");
+    let island = card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373");
+    let mut engine = Engine::new(
+        &preset(
+            35,
+            vec![insight],
+            vec![island, island, island, island, island],
+            vec![],
+            vec![],
+        ),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+
+    let mut guard = 0;
+    while !matches!(engine.state().turn.phase, Phase::FirstMain) || engine.state().turn.active != p0
+    {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        guard += 1;
+        assert!(guard < 20);
+    }
+
+    // Every island, so X has more than one legal value to be asked about.
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities {
+        engine
+            .apply(player, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+
+    let card = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("five islands pay {2}{U}{U}{U}");
+
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!(
+            "a printed X must be asked about, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(min, 0);
+    assert!(max >= 2, "X of two has to be inside the offered range");
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+
+    let Pending::ChoosePlayer { .. } = engine.pending().clone() else {
+        panic!("expected the target player, got {:?}", engine.pending())
+    };
+    engine.apply(p0, PlayerAction::ChoosePlayer(p0)).unwrap();
+
+    // And X = 2 is the number that resolves, not the zero it used to be.
+    let before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let mut guard = 0;
+    while engine.state().zones.list(ZoneLocation::Hand(p0)).len() == before {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        guard += 1;
+        assert!(guard < 6, "the spell never resolved");
+    }
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        before + 2,
+        "X = 2 draws two cards"
+    );
+}

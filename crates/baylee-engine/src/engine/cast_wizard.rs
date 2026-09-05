@@ -326,7 +326,15 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             WizardStage::XValue => {
-                let cost = wizard_cost(&wizard);
+                // The chosen option's *printed* cost, and deliberately not
+                // `wizard_cost`: that one substitutes the chosen X into the
+                // cost, and the chosen X at this stage is still the zero the
+                // wizard starts with. So `{X}{U}{U}{U}` arrived here as
+                // `{0}{U}{U}{U}` — no variable left in it, `needs_x` false,
+                // and every spell with an X in its printed cost was quietly
+                // cast for X = 0 without anybody being asked. Nothing failed;
+                // the question simply never appeared.
+                let cost = chosen_option_cost(&wizard);
                 // X is asked when the cost has a variable OR a mandatory
                 // part scales with it (Toxic Deluge's pay-X-life).
                 let needs_x = cost.has_variable()
@@ -954,10 +962,19 @@ static SCRY_TWO: [baylee_cards_dsl::Effect; 1] = [baylee_cards_dsl::Effect::Scry
 }];
 
 fn wizard_cost(wizard: &CastWizard) -> ManaCost {
-    let base = wizard
+    chosen_option_cost(wizard).with_x(wizard.x)
+}
+
+/// The chosen cast option's cost as printed, X still in it.
+///
+/// Split out from [`wizard_cost`] because the two are wanted at different
+/// moments: everything downstream of the X question wants the cost with X
+/// filled in, and the X question itself has to look at the cost that still
+/// says X.
+fn chosen_option_cost(wizard: &CastWizard) -> ManaCost {
+    wizard
         .options
         .iter()
         .find(|o| Some(o.kind) == wizard.option)
-        .map_or(ManaCost::ZERO, |o| o.cost);
-    base.with_x(wizard.x)
+        .map_or(ManaCost::ZERO, |o| o.cost)
 }
