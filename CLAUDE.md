@@ -326,7 +326,7 @@ information has no field to leak through: libraries are counts,
 another seat's hand is a count, a face-down permanent's `card` is `None` for
 anyone not entitled to look, and `crates/baylee-gamehost/src/view.rs` has a
 test per sentence of that. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`,
-currently 11) is asserted in gamehost and client tests — bump it on any breaking
+currently 12) is asserted in gamehost and client tests — bump it on any breaking
 view change so a client refuses a host it cannot render.
 
 The last of those is the one that says why the whole field exists.
@@ -375,6 +375,26 @@ been handing every seat's envelopes to whichever socket was holding the lock,
 which is invisible while exactly one seat answers over a socket and wrong the
 moment two do, so a table now fans `(seat, envelope)` out and each connection
 sends on what is addressed to its own seat.
+
+`SeatKind::StandIn` is the **mirror**, and the reason both exist: a chair and
+whoever is answering for it are two different questions. A seat with no socket
+is on no decision clock — nobody should lose on time to a question they never
+saw — which is right, and left the whole table waiting on a player who had
+closed their laptop. So the awaited seat is on exactly one of *two* clocks
+(`Deadline::Decide` / `Deadline::StandIn` on `EngineRunner::clock`), the second
+being `HouseRules::reconnect_window_secs`, a field carried through three crates
+and read by nobody until now. They expire into different things: a decision
+timeout answers once, a reconnect timeout hands the chair to the house
+(`Session::stand_in`), because a player absent for this question is absent for
+the next one too. `SeatAttached` takes it straight back (`hand_back`).
+
+Two details that are easy to get backwards. A held chair is **not** relabelled
+an AI — `SeatIdentity` has `away` beside `is_ai` (`VIEW_VERSION` 12), because a
+seat that renamed itself to the house after a thirty-second hiccup would keep
+saying so after the player returned. And the roster travels in `GameStatic`,
+sent once per socket: a chair changing hands now marks every seat's roster
+stale so the next view carries a fresh one, which had been missing since
+`take_over`/`release` existed and was invisible for exactly that reason.
 
 The engine never carries card text, so a client names an ability through
 `AbilityRef { card, index }`; reserved indices (`SPELL`, `ENTERS`, …) count

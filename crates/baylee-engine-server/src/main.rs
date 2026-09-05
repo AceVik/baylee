@@ -185,6 +185,12 @@ fn sit(session: &mut Session, seat: PlayerId) -> Result<bool, &'static str> {
     match session.seat_kind(seat) {
         None => Err("no such seat"),
         Some(SeatKind::Driven(_)) => Err("that seat is already being driven"),
+        // Unreachable here: the reconnect window is `EngineRunner`'s, and
+        // this harness has no clock at all. Spelled out rather than folded
+        // into the human arm, because sitting down at a chair the house is
+        // holding is a different thing from joining an empty one, and the day
+        // this harness grows a clock it should say so rather than guess.
+        Some(SeatKind::StandIn(_)) => Err("that seat is being held for a player"),
         Some(SeatKind::Human) => Ok(false),
         Some(SeatKind::Ai(_)) => {
             session.take_over(seat);

@@ -700,10 +700,38 @@ expiry the house agent answers for the seat, because it is legal for every
 `Pending`; a timeout that produced an illegal action would leave the same
 seat stuck on the same question forever.
 
+`HouseRules::reconnect_window_secs` is enforced as of 2026-09-05, and it is a
+**second clock**, not a longer first one. A seat with no socket is on no
+decision clock at all — nobody should lose on time to a question they never
+saw — which was right and left the table waiting on a closed laptop forever.
+So the same `awaiting_seat()` is on exactly one of two deadlines: the decision
+clock if its socket is here, the reconnect window if it is not, and neither if
+the chair is an AI's (it never had a socket to lose). The two limits are
+independent: a table that gives its players all the time in the world still
+must not sit forever on a player who has gone.
+
+They also expire into different things. A decision timeout answers *once*,
+because the seat is there and simply took too long over this question. A
+reconnect timeout changes *who answers*: `Session::stand_in` puts the house in
+the chair, because a player who is not there for this question is not there
+for the next one either, and answering once would put the table back where it
+was one decision later. `SeatAttached` hands the chair straight back
+(`Session::hand_back`) — no window, no second deadline — and both directions
+re-check the race, since a socket can return between a timer firing and the
+expiry being applied.
+
+It is the mirror of `SeatKind::Driven`, and the two are why a chair and
+whoever is answering for it are separate questions in `Session`. A held chair
+is **not** relabelled as an AI: `SeatIdentity` gained `away` beside `is_ai`
+(`VIEW_VERSION` 12), because a seat that renamed itself to the house after a
+thirty-second hiccup would be telling the table something untrue, and would go
+on saying it after the player was back. The roster travels in `GameStatic`,
+which is sent once per socket, so a chair changing hands now marks every
+seat's roster stale and the next view carries a fresh one — which had been
+missing since `take_over`/`release` existed.
+
 Still open here: `time_extension_votes`, which unlike everything above does
-need the wire — `TimeExtensionRequest/Vote/Result` are not in the proto — and
-`reconnect_window_secs`, which needs the gateway to hold a seat open rather
-than only rebuild it.
+need the wire — `TimeExtensionRequest/Vote/Result` are not in the proto.
 
 Server: `baylee-engine-server` (tokio + tokio-tungstenite), one process,
 games as `Session`s — engine + human seat + auto-driven AI seats
