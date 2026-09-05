@@ -144,6 +144,33 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         stack_item: stack_item(obj),
         summoning_sick: obj.kind == ObjectKind::Permanent
             && baylee_engine::combat::summoning_sick(state, obj),
+        // Permanents only, for the same reason as `summoning_sick`: nothing
+        // else can be tapped for it. The engine's own offer reads the grant
+        // through the same function, so what the planner is told a land makes
+        // is what the engine will hand out when it is tapped.
+        granted_mana: (obj.kind == ObjectKind::Permanent)
+            .then(|| granted_mana(state, id))
+            .flatten(),
+    })
+}
+
+/// The mana a granted ability lets `id` make, when it is one a client's
+/// planner can use.
+///
+/// This crate is the one that can see both halves — the engine's effect table
+/// and the DSL that says what an `AddMana` produces — which is the same reason
+/// `token` is resolved here. It is not hidden information: the grant comes
+/// from a permanent on the battlefield and the ability is already offered in
+/// `LegalActions` to whoever may activate it.
+fn granted_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::GrantedMana> {
+    let (cost, effects, mana_ability) = baylee_engine::effects::granted_activated(state, id)?;
+    if !mana_ability {
+        return None;
+    }
+    let mana = baylee_cards_dsl::simple_mana(&cost, effects)?;
+    Some(baylee_view::GrantedMana {
+        colors: mana.colors,
+        amount: mana.amount,
     })
 }
 
@@ -992,5 +1019,104 @@ mod tests {
             theirs.looking_at.is_empty(),
             "a seat not being asked was handed a list anyway"
         );
+    }
+    /// A land under a Chromatic Lantern taps for any colour, and there is no
+    /// card anywhere a client could read that off — the ability exists only
+    /// in the effect table. It is projected for the same reason as an
+    /// animated land's types: without it a client's mana planner counts that
+    /// land for nothing and the player taps it by hand.
+    ///
+    /// The opponent's land in the same test is the half that matters as much:
+    /// the grant says "lands *you* control", and a projection that ignored
+    /// the filter would offer the planner a land the engine refuses.
+    #[test]
+    fn a_land_under_a_lantern_says_what_it_now_makes() {
+        use baylee_engine::choice::{Pending, PlayerAction};
+
+        let lantern = by_oracle_id("539f5396-d99a-417d-a84c-dff7930b5900")
+            .expect("Chromatic Lantern is in the pool")
+            .index;
+        let mut preset = mixed_print_preset();
+        let land = DeckEntry {
+            card: island(),
+            print: PrintRef::new(0),
+        };
+        preset.seats[0].starting_battlefield = vec![
+            land,
+            DeckEntry {
+                card: lantern,
+                print: PrintRef::new(0),
+            },
+        ];
+        preset.seats[1].starting_battlefield = vec![land];
+
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        for _ in 0..2 {
+            let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+                panic!("expected a mulligan")
+            };
+            engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        }
+        let view = player_view(engine.state(), PlayerId::new(0), None, 1, None, false);
+
+        let land_of = |seat: u8| {
+            view.battlefield
+                .iter()
+                .find(|o| {
+                    o.controller == PlayerId::new(seat)
+                        && o.types.contains(baylee_core::types::TypeSet::LAND)
+                })
+                .expect("each seat has its land")
+        };
+        let granted = land_of(0)
+            .granted_mana
+            .as_ref()
+            .expect("the Lantern grants the land an ability");
+        assert_eq!(granted.amount, 1, "one mana, of a colour it will ask for");
+        assert_eq!(
+            granted.colors.len(),
+            5,
+            "any colour, and the client has to know which five"
+        );
+
+        assert!(
+            land_of(1).granted_mana.is_none(),
+            "the grant is `lands you control` and the opponent is not you"
+        );
+        let lantern_itself = view
+            .battlefield
+            .iter()
+            .find(|o| o.types.contains(baylee_core::types::TypeSet::ARTIFACT))
+            .expect("the Lantern is on the battlefield");
+        assert!(
+            lantern_itself.granted_mana.is_none(),
+            "the Lantern's own mana ability is printed on it and is not a grant"
+        );
+
+        // And the half that makes the projection worth anything: the engine
+        // offers this exact land under this exact handle. A view that said a
+        // land makes mana the engine will not hand out is worse than one that
+        // said nothing — the planner would tap it and the payment would fail.
+        let land = land_of(0).id;
+        for _ in 0..30 {
+            let Pending::Priority { player, legal } = engine.pending().clone() else {
+                break;
+            };
+            if player == PlayerId::new(0) {
+                assert!(
+                    legal
+                        .abilities
+                        .contains(&(land, baylee_engine::choice::GRANTED_ABILITY)),
+                    "the engine offers the granted ability the view described"
+                );
+                assert!(
+                    legal.mana_abilities.contains(&land),
+                    "and offers it as a mana ability, which is why it needs no stack"
+                );
+                return;
+            }
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        }
+        panic!("seat 0 never got priority");
     }
 }

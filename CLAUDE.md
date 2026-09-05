@@ -303,13 +303,24 @@ the macro refactor of all 197 card files to a byte-identical pool.
 ### Hidden information is unrepresentable, not omitted
 
 `baylee-view` carries **projected** characteristics (P/T after anthems, a
-clone's name, an animated land's types), because a client cannot run the layer
-system. Hidden information has no field to leak through: libraries are counts,
+clone's name, an animated land's types, the mana a Chromatic Lantern's grant
+lets a land make), because a client cannot run the layer system. Hidden
+information has no field to leak through: libraries are counts,
 another seat's hand is a count, a face-down permanent's `card` is `None` for
 anyone not entitled to look, and `crates/baylee-gamehost/src/view.rs` has a
 test per sentence of that. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`,
-currently 9) is asserted in gamehost and client tests — bump it on any breaking
+currently 10) is asserted in gamehost and client tests — bump it on any breaking
 view change so a client refuses a host it cannot render.
+
+The last of those is the one that says why the whole field exists.
+`PublicObject::granted_mana` is not decoration: an ability a continuous effect
+grants is offered under the synthetic index `choice::GRANTED_ABILITY` and is
+printed on no card, so a client knew the handle and not what came out of it —
+and the mana planner counted such a land for nothing. One lookup
+(`effects::granted_activated`) and one reading (`baylee_cards_dsl::simple_mana`)
+serve every caller, because an offer and a projection that disagreed would be
+a land the planner counts on and the engine refuses. `docs/protocol.md`
+§"Granted mana" is normative.
 
 The print table is the one place that rule was broken, and not through a view:
 `GameStatic.prints` is shared by the whole game and deduplicated per card, so a

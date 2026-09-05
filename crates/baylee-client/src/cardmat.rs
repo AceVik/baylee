@@ -757,6 +757,7 @@ pub(crate) mod tests {
             targets: Vec::new(),
             stack_item: None,
             summoning_sick: false,
+            granted_mana: None,
         }
     }
 

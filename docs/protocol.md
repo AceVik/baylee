@@ -96,6 +96,33 @@ as a parameter, the way it already takes `priority`: both live in the engine
 rather than in the `GameState` the view is built from, so only the caller can
 read them.
 
+## Granted mana (view version 10)
+
+A land under a Chromatic Lantern taps for any colour, and there is no card
+anywhere a client can read that off: the ability exists only in the engine's
+effect table, offered under the synthetic index `choice::GRANTED_ABILITY`.
+The client therefore knew the *handle* and not what came out of it — its mana
+planner counted such a land for nothing, and the player tapped those lands by
+hand while everything else was planned for them.
+
+`PublicObject::granted_mana` is a projected characteristic in exactly the sense
+`power` and `subtypes` are, and is carried for the same reason: a client cannot
+run the layer system. It is `Option<GrantedMana { colors, amount }>` — "n mana,
+of one of these colours" — and `None` both for a permanent with no such ability
+and for a grant too complicated to reduce to that sentence, which keeps the
+honest-stub rule the card pool already obeys. That is
+**`VIEW_VERSION` 9 → 10**.
+
+Two functions rather than a third copy of the rule. `effects::granted_activated`
+is the engine's own lookup: `legal_actions` offers the ability through it,
+`start_granted` runs it, and `crates/baylee-gamehost/src/view.rs` projects it.
+`baylee_cards_dsl::simple_mana` is the reading — free cost, a single `AddMana`,
+a fixed amount, no restriction — and the client's `manasources` asks it of a
+*printed* mana ability. An offer and a projection that disagreed would be a
+land the planner counts on and the engine refuses, with the rest of the plan's
+lands already tapped, so they are one function each and the gamehost test
+asserts the two answers against each other.
+
 ## Client preferences (`/settings`)
 
 Keys and standing orders follow the **account**, not the machine: a player who

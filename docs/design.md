@@ -141,9 +141,10 @@ fails on both locks and on every future one of the same shape.
 
 ### Two corrections to `CLAUDE.md`
 
-- `VIEW_VERSION` is **9** (`crates/baylee-view/src/lib.rs:41`); the file said 7,
-  then 8. Bumped to 9 by `PlayerView::priority_held`. One audit worked from
-  the stale number, which is what a stale contract file costs.
+- `VIEW_VERSION` is **10** (`crates/baylee-view/src/lib.rs:41`); the file said
+  7, then 8, then 9. Bumped to 9 by `PlayerView::priority_held` and to 10 by
+  `PublicObject::granted_mana`. One audit worked from the stale number, which
+  is what a stale contract file costs.
 - The copy limit was enforced **per row** in the gateway (`main.rs`) and **per
   card** in the client (`deckbuilder/builder.rs`). Two printings of one card
   therefore saved with eight copies — through the side that is supposed to be
@@ -1005,7 +1006,8 @@ which a slow multiplayer game needs more than it needs shaders.
 
 Everything here is outside the client and costs more. Grouped so it can land in
 one `VIEW_VERSION` bump where possible — 9 has since been spent on
-`priority_held` (§2.4), so this batch is a bump to **10**.
+`priority_held` (§2.4) and 10 on `granted_mana`, so this batch is a bump to
+**11**.
 
 - **A refused action answered on the wire** — the other half of Lock A, and the
   only item here that blocks something in §0.

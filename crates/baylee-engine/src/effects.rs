@@ -105,3 +105,48 @@ impl EffectTable {
         self.effects.len()
     }
 }
+
+/// The activated ability a continuous effect grants `source`, if any.
+///
+/// One function with three readers, and that is the point of it existing.
+/// [`crate::Engine::legal_actions`] offers this ability under the synthetic
+/// index `choice::GRANTED_ABILITY`, `start_granted` runs it when the answer
+/// comes back, and the view projects what it makes so a client can plan mana
+/// through it. Written out three times, an offer and a projection that
+/// disagreed would be a land the planner counts on and the engine refuses.
+///
+/// The **first** applying grant is the answer, because a permanent has one
+/// synthetic slot: a second would have no index to be offered under, so
+/// finding it here would only invent an ability nobody can activate.
+#[must_use]
+pub fn granted_activated(
+    state: &crate::state::GameState,
+    source: ObjectId,
+) -> Option<(
+    baylee_cards_dsl::cost::Cost,
+    &'static [baylee_cards_dsl::effect::Effect],
+    bool,
+)> {
+    let obj = state.object(source)?;
+    state.effects.iter().find_map(|fx| {
+        let Modifier::GrantActivated {
+            cost,
+            effects,
+            mana_ability,
+        } = &fx.modifier
+        else {
+            return None;
+        };
+        let applies = match &fx.filter {
+            EffectFilter::ObjectIs(id) => *id == source,
+            EffectFilter::Dsl(filter) => crate::eval::matches(
+                filter,
+                state,
+                obj,
+                fx.controller,
+                fx.source.unwrap_or(source),
+            ),
+        };
+        applies.then_some((*cost, *effects, *mana_ability))
+    })
+}

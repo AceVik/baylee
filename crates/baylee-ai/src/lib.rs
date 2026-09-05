@@ -425,6 +425,7 @@ mod tests {
             targets: vec![],
             stack_item: None,
             summoning_sick: false,
+            granted_mana: None,
         }
     }
 

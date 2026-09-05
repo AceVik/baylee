@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 9;
+pub const VIEW_VERSION: u32 = 10;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -469,6 +469,30 @@ pub struct PublicObject {
     /// Whether the permanent came under its controller's control this turn and
     /// has neither haste nor an ability that ignores it.
     pub summoning_sick: bool,
+    /// Mana this permanent can make through an ability it does not print.
+    ///
+    /// A projected *characteristic* like the ones above, and carried for the
+    /// same reason: a land under a Chromatic Lantern taps for any colour, and
+    /// there is no card anywhere a client could read that off — the ability
+    /// exists only in the effect table. Without this a client's mana planner
+    /// counts such a land for nothing and the player taps it by hand.
+    ///
+    /// `None` for everything that has no such ability, and for a granted
+    /// ability too complicated to reduce to "n mana of these colours".
+    pub granted_mana: Option<GrantedMana>,
+}
+
+/// Mana a granted ability makes, as much of it as a planner can use.
+///
+/// Deliberately not an ability: the client already knows the handle
+/// (`choice::GRANTED_ABILITY`) and the engine already decided whether it may
+/// be activated. What it cannot know is what comes out.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GrantedMana {
+    /// The colours it may make. More than one means the ability asks.
+    pub colors: Vec<baylee_core::mana::ManaColor>,
+    /// How much, of whichever colour is chosen.
+    pub amount: u8,
 }
 
 impl PublicObject {
@@ -902,6 +926,7 @@ mod tests {
             targets: vec![],
             stack_item: None,
             summoning_sick: false,
+            granted_mana: None,
         }
     }
 

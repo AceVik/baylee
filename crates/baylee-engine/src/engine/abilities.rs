@@ -216,29 +216,13 @@ impl<L: CardLookup> Engine<L> {
             }
             // Granted abilities (Urza's Saga chapters): the first granted
             // ability surfaces as synthetic index `choice::GRANTED_ABILITY`.
-            for fx in self.state.effects.iter() {
-                let baylee_cards_dsl::Modifier::GrantActivated {
-                    cost, mana_ability, ..
-                } = &fx.modifier
-                else {
-                    continue;
-                };
-                let applies = match &fx.filter {
-                    crate::effects::EffectFilter::ObjectIs(target) => *target == id,
-                    crate::effects::EffectFilter::Dsl(filter) => crate::eval::matches(
-                        filter,
-                        &self.state,
-                        obj,
-                        fx.controller,
-                        fx.source.unwrap_or(id),
-                    ),
-                };
-                if applies && self.can_afford(player, id, cost) {
-                    legal.abilities.push((id, crate::choice::GRANTED_ABILITY));
-                    if *mana_ability {
-                        legal.mana_abilities.push(id);
-                    }
-                    break; // one synthetic slot per permanent
+            if let Some((cost, _, mana_ability)) =
+                crate::effects::granted_activated(&self.state, id)
+                && self.can_afford(player, id, &cost)
+            {
+                legal.abilities.push((id, crate::choice::GRANTED_ABILITY));
+                if mana_ability {
+                    legal.mana_abilities.push(id);
                 }
             }
         }
@@ -435,37 +419,8 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
-        let (cost, effects, mana_ability) = {
-            let obj = self
-                .state
-                .object(source)
-                .ok_or(EngineError::IllegalAction("no such permanent"))?;
-            self.state
-                .effects
-                .iter()
-                .find_map(|fx| {
-                    let baylee_cards_dsl::Modifier::GrantActivated {
-                        cost,
-                        effects,
-                        mana_ability,
-                    } = &fx.modifier
-                    else {
-                        return None;
-                    };
-                    let applies = match &fx.filter {
-                        crate::effects::EffectFilter::ObjectIs(id) => *id == source,
-                        crate::effects::EffectFilter::Dsl(filter) => crate::eval::matches(
-                            filter,
-                            &self.state,
-                            obj,
-                            fx.controller,
-                            fx.source.unwrap_or(source),
-                        ),
-                    };
-                    applies.then_some((*cost, *effects, *mana_ability))
-                })
-                .ok_or(EngineError::IllegalAction("no granted ability"))?
-        };
+        let (cost, effects, mana_ability) = crate::effects::granted_activated(&self.state, source)
+            .ok_or(EngineError::IllegalAction("no granted ability"))?;
         self.pay_cost(player, source, &cost)?;
         if mana_ability {
             let mut res = crate::resolve::Resolution {
