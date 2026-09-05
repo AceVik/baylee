@@ -963,7 +963,7 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             }
             // Modal triggers: offer the mode choice first.
-            if t.ability_index != u32::MAX
+            if t.ability_index != baylee_core::ids::AbilityRef::SYNTHETIC
                 && let Some(modes) = self
                     .state
                     .object(t.source)
@@ -1123,7 +1123,7 @@ impl<L: CardLookup> Engine<L> {
                             t.controller,
                             AbilityLoc {
                                 card,
-                                index: u32::MAX,
+                                index: baylee_core::ids::AbilityRef::SYNTHETIC,
                                 source: t.source,
                             },
                             targets,
@@ -1137,7 +1137,7 @@ impl<L: CardLookup> Engine<L> {
                     self.state.journal.record(GameEvent::AbilityTriggered {
                         object: id,
                         source: t.source,
-                        ability_index: u32::MAX,
+                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                         controller: t.controller,
                     });
                 }
@@ -1194,7 +1194,7 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(loc.source)
                 .map_or(&[][..], |o| o.abilities(&self.lookup));
-            let effects = if loc.index == u32::MAX {
+            let effects = if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 // Synthetic keyword trigger (prowess, ward): effects live
                 // in the side map, resolved below.
                 &[][..]
@@ -1219,7 +1219,7 @@ impl<L: CardLookup> Engine<L> {
                     ),
                 }
             };
-            if loc.index == u32::MAX {
+            if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 // Synthetic keyword trigger (prowess & co.): effects live in
                 // the side map instead of the card definition.
                 let synthetic = self
@@ -1654,7 +1654,7 @@ impl<L: CardLookup> Engine<L> {
                 t.controller,
                 AbilityLoc {
                     card,
-                    index: u32::MAX,
+                    index: baylee_core::ids::AbilityRef::SYNTHETIC,
                     source: t.source,
                 },
                 targets,
@@ -1668,7 +1668,7 @@ impl<L: CardLookup> Engine<L> {
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source: t.source,
-            ability_index: u32::MAX,
+            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
             controller: t.controller,
         });
     }

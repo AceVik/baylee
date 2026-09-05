@@ -202,7 +202,7 @@ fn collect_for_objects(
                 {
                     triggers.push(PendingTrigger {
                         source: permanent,
-                        ability_index: u32::MAX,
+                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                         controller: obj.controller,
                         timestamp: obj.timestamp,
                         event_object: Some(permanent),
@@ -243,7 +243,7 @@ fn collect_for_objects(
                     let event_object = event_object_of(&entry.event);
                     triggers.push(PendingTrigger {
                         source: permanent,
-                        ability_index: u32::MAX,
+                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                         controller: obj.controller,
                         timestamp: obj.timestamp,
                         event_object,
@@ -283,7 +283,7 @@ fn collect_for_objects(
                 if targets_this && caster != Some(obj.controller) {
                     triggers.push(PendingTrigger {
                         source: permanent,
-                        ability_index: u32::MAX,
+                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                         controller: obj.controller,
                         timestamp: obj.timestamp,
                         event_object: Some(target_obj),

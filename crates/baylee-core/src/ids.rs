@@ -99,6 +99,16 @@ impl AbilityRef {
     pub const MIRACLE: u32 = u32::MAX - 3;
     /// A recurring upkeep payment the card imposes (echo, pacts).
     pub const UPKEEP_COST: u32 = u32::MAX - 4;
+    /// An ability the card does not print: one a continuous effect granted
+    /// it, or a keyword the engine synthesises a trigger for (prowess, ward).
+    ///
+    /// Its own index because it used to have [`Self::SPELL`]'s. The engine
+    /// puts such an ability on the stack under a raw `u32::MAX`, and
+    /// `resolve::resolving_ability` turns whatever is on the stack into one
+    /// of these handles — so a ward tax and the card's own spell question
+    /// arrived as the same handle, and a standing "always yes" for either
+    /// one answered both. They are different questions about the same card.
+    pub const SYNTHETIC: u32 = u32::MAX - 5;
 
     /// The lowest reserved index. Real ability indices are positions in a
     /// card's ability list and never come close; reserving the top of the
@@ -106,7 +116,7 @@ impl AbilityRef {
     /// shockland's entry choice, a kicker — be addressed by the same
     /// handle, so "always yes for this card's question" works for them
     /// too.
-    pub const FIRST_RESERVED: u32 = u32::MAX - 4;
+    pub const FIRST_RESERVED: u32 = u32::MAX - 5;
 
     /// Whether this handle names a real entry in the card's ability list.
     #[must_use]
@@ -210,6 +220,44 @@ mod tests {
         assert_eq!(id.slot(), 42);
         assert_eq!(id.generation(), 7);
         assert_eq!(id.bumped().generation(), 8);
+    }
+
+    /// Each reserved index is a different question about a card, so no two of
+    /// them may be the same number.
+    ///
+    /// `SYNTHETIC` was `SPELL` — not by declaration, but because the engine
+    /// wrote a bare `u32::MAX` into an ability object on the stack and
+    /// `resolving_ability` handed that straight back as an `AbilityRef`. A
+    /// standing "always yes" for a ward tax therefore also answered the card's
+    /// own spell question. This test does not see what the engine writes; it
+    /// checks the half that lives here — that the reserved range is a set, and
+    /// that `FIRST_RESERVED` still names its floor, which is what silently
+    /// stops being true when a sixth one is added.
+    #[test]
+    fn every_reserved_ability_index_is_its_own_question() {
+        let reserved = [
+            ("SPELL", AbilityRef::SPELL),
+            ("ENTERS", AbilityRef::ENTERS),
+            ("ADDITIONAL_COST", AbilityRef::ADDITIONAL_COST),
+            ("MIRACLE", AbilityRef::MIRACLE),
+            ("UPKEEP_COST", AbilityRef::UPKEEP_COST),
+            ("SYNTHETIC", AbilityRef::SYNTHETIC),
+        ];
+        for (i, (name, value)) in reserved.iter().enumerate() {
+            for (other, other_value) in &reserved[i + 1..] {
+                assert_ne!(value, other_value, "{name} and {other} are one index");
+            }
+            assert!(
+                !AbilityRef::new(CardIndex::new(1), *value).is_listed_ability(),
+                "{name} would be read as a position in the ability list"
+            );
+        }
+        assert_eq!(
+            AbilityRef::FIRST_RESERVED,
+            reserved.iter().map(|(_, v)| *v).min().expect("non-empty"),
+            "the floor is the lowest reserved index, or a real ability index \
+             collides with one"
+        );
     }
 }
 

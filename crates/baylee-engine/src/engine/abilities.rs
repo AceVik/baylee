@@ -189,7 +189,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
             // Prepared (Emeritus of Woe): a prepared permanent may cast
-            // a copy of its linked spell — synthetic index u32::MAX - 1.
+            // a copy of its linked spell — synthetic index `choice::PREPARED_CAST`.
             if obj.riders.contains(&crate::object::Rider::Prepared) {
                 let linked = obj.card.and_then(|c| {
                     let face = obj.face_index as usize;
@@ -215,7 +215,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
             // Granted abilities (Urza's Saga chapters): the first granted
-            // ability surfaces as synthetic index u32::MAX.
+            // ability surfaces as synthetic index `choice::GRANTED_ABILITY`.
             for fx in self.state.effects.iter() {
                 let baylee_cards_dsl::Modifier::GrantActivated {
                     cost, mana_ability, ..
@@ -509,7 +509,7 @@ impl<L: CardLookup> Engine<L> {
                     player,
                     crate::object::AbilityLoc {
                         card,
-                        index: u32::MAX,
+                        index: baylee_core::ids::AbilityRef::SYNTHETIC,
                         source,
                     },
                     targets,
@@ -523,7 +523,7 @@ impl<L: CardLookup> Engine<L> {
             self.state.journal.record(GameEvent::AbilityTriggered {
                 object: id,
                 source,
-                ability_index: u32::MAX,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                 controller: player,
             });
         }
@@ -539,7 +539,7 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
-        // Prepared cast (synthetic index u32::MAX - 1): pay the linked
+        // Prepared cast (`choice::PREPARED_CAST`): pay the linked
         // spell's cost, put a copy on the stack, unprepare the source.
         if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);

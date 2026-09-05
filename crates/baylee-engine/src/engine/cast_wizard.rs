@@ -906,7 +906,7 @@ impl<L: CardLookup> Engine<L> {
                                 player,
                                 crate::object::AbilityLoc {
                                     card,
-                                    index: u32::MAX,
+                                    index: baylee_core::ids::AbilityRef::SYNTHETIC,
                                     source: spell,
                                 },
                                 SmallVec::new(),
