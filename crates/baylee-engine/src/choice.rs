@@ -411,15 +411,48 @@ impl SeatAutomation {
 /// arithmetic on a synthetic index overflows, which is exactly what happened
 /// to the ability chooser.
 ///
-/// One slot per permanent, so a permanent granted two abilities offers the
-/// first. That is the engine's own limit, not this constant's.
-pub const GRANTED_ABILITY: u32 = u32::MAX;
+/// This is slot 0; [`granted_ability`] names the rest. There used to be only
+/// this one, which was not a simplification but a bug: Urza's Saga grants
+/// *itself* two abilities — chapter I's `{T}: Add {C}` and chapter II's
+/// `{2}, {T}: Create a Construct` — and with one slot the Construct was never
+/// offered, on a card marked `Coverage::Implemented`.
+pub const GRANTED_ABILITY: u32 = granted_ability(0);
+
+/// How many granted abilities one permanent may offer at once.
+///
+/// A bound rather than an open range because these indices are carved out of
+/// the top of the same `u32` a printed ability's position lives in: a card
+/// with more abilities than this many short of `u32::MAX` is not a card.
+pub const GRANTED_SLOTS: u32 = 8;
+
+/// The index the `n`th granted ability of a permanent is offered under.
+///
+/// Counting *down* from `u32::MAX` so slot 0 keeps the value it always had,
+/// and so the block sits where nothing else can reach: a printed ability is
+/// numbered by its position in a list.
+#[must_use]
+pub const fn granted_ability(n: u32) -> u32 {
+    u32::MAX - n
+}
+
+/// Which granted slot `index` names, if it names one.
+///
+/// The decoder half of [`granted_ability`], and the one place that partition
+/// is written — an engine that decoded a slot differently from how the offer
+/// encoded it would run a different ability than the player pressed.
+#[must_use]
+pub const fn granted_slot(index: u32) -> Option<u32> {
+    let n = u32::MAX - index;
+    if n < GRANTED_SLOTS { Some(n) } else { None }
+}
 
 /// The ability index of a prepared permanent's linked cast (Emeritus of Woe).
 ///
 /// Same reason as [`GRANTED_ABILITY`]: what is being activated is not an
-/// ability the card prints.
-pub const PREPARED_CAST: u32 = u32::MAX - 1;
+/// ability the card prints. Below the granted block, which is why it moved
+/// when that block grew — these indices are per-session, chosen fresh in
+/// every `LegalActions`, so nothing outside a running game holds one.
+pub const PREPARED_CAST: u32 = u32::MAX - GRANTED_SLOTS;
 
 /// Everything a player may legally do with priority (precomputed).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]

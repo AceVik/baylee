@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 10;
+pub const VIEW_VERSION: u32 = 11;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -489,6 +489,15 @@ pub struct PublicObject {
 /// be activated. What it cannot know is what comes out.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GrantedMana {
+    /// Which of the permanent's granted abilities this is, counting from 0.
+    ///
+    /// Carried because it is not always the first: a permanent may be granted
+    /// several, and the one that makes mana is not necessarily the one at the
+    /// front. Without it a client would tap the slot next to the one it was
+    /// told about. A plain ordinal rather than the engine's synthetic index,
+    /// because this crate does not depend on the rules kernel and the
+    /// encoding is the kernel's (`choice::granted_ability`).
+    pub slot: u32,
     /// The colours it may make. More than one means the ability asks.
     pub colors: Vec<baylee_core::mana::ManaColor>,
     /// How much, of whichever colour is chosen.

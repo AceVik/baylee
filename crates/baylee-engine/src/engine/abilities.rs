@@ -214,14 +214,22 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
             }
-            // Granted abilities (Urza's Saga chapters): the first granted
-            // ability surfaces as synthetic index `choice::GRANTED_ABILITY`.
-            if let Some((cost, _, mana_ability)) =
-                crate::effects::granted_activated(&self.state, id)
-                && self.can_afford(player, id, &cost)
+            // Granted abilities (Urza's Saga chapters, a Chromatic Lantern's
+            // lands): each surfaces under its own synthetic index. The slot
+            // is the *position among the grants that apply*, affordable or
+            // not — an index that shifted when a cost became payable would
+            // name a different ability from one priority window to the next.
+            for (n, granted) in crate::effects::granted_activated(&self.state, id)
+                .take(crate::choice::GRANTED_SLOTS as usize)
+                .enumerate()
             {
-                legal.abilities.push((id, crate::choice::GRANTED_ABILITY));
-                if mana_ability {
+                if !self.can_afford(player, id, &granted.cost) {
+                    continue;
+                }
+                legal
+                    .abilities
+                    .push((id, crate::choice::granted_ability(n as u32)));
+                if granted.mana_ability {
                     legal.mana_abilities.push(id);
                 }
             }
@@ -417,10 +425,17 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         player: PlayerId,
         source: ObjectId,
+        slot: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
-        let (cost, effects, mana_ability) = crate::effects::granted_activated(&self.state, source)
+        // `slot` counts the grants that *apply*, in the order the offer
+        // counted them. Reading it back through the same iterator is what
+        // makes the two agree; a mismatch would run the ability next to the
+        // one the player pressed.
+        let granted = crate::effects::granted_activated(&self.state, source)
+            .nth(slot as usize)
             .ok_or(EngineError::IllegalAction("no granted ability"))?;
+        let (cost, effects, mana_ability) = (granted.cost, granted.effects, granted.mana_ability);
         self.pay_cost(player, source, &cost)?;
         if mana_ability {
             let mut res = crate::resolve::Resolution {
@@ -500,8 +515,8 @@ impl<L: CardLookup> Engine<L> {
             return self.start_prepared_cast(player, source);
         }
         // Granted abilities (synthetic index): resolve via the side map.
-        if ability_index == crate::choice::GRANTED_ABILITY {
-            return self.start_granted_activation(player, source, targets);
+        if let Some(slot) = crate::choice::granted_slot(ability_index) {
+            return self.start_granted_activation(player, source, slot, targets);
         }
         // Loyalty abilities route to their own activation path first.
         if let Some(AbilityDef::Loyalty { cost, .. }) = self

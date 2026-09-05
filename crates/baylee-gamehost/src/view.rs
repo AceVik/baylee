@@ -162,16 +162,22 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
 /// `token` is resolved here. It is not hidden information: the grant comes
 /// from a permanent on the battlefield and the ability is already offered in
 /// `LegalActions` to whoever may activate it.
+/// The **first** grant that is a mana ability, which is the one a planner can
+/// use: a permanent may be granted several (Urza's Saga is granted two), and
+/// the plan taps it once either way.
 fn granted_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::GrantedMana> {
-    let (cost, effects, mana_ability) = baylee_engine::effects::granted_activated(state, id)?;
-    if !mana_ability {
-        return None;
-    }
-    let mana = baylee_cards_dsl::simple_mana(&cost, effects)?;
-    Some(baylee_view::GrantedMana {
-        colors: mana.colors,
-        amount: mana.amount,
-    })
+    baylee_engine::effects::granted_activated(state, id)
+        .take(baylee_engine::choice::GRANTED_SLOTS as usize)
+        .enumerate()
+        .filter(|(_, g)| g.mana_ability)
+        .find_map(|(slot, g)| {
+            let mana = baylee_cards_dsl::simple_mana(&g.cost, g.effects)?;
+            Some(baylee_view::GrantedMana {
+                slot: u32::try_from(slot).unwrap_or(u32::MAX),
+                colors: mana.colors,
+                amount: mana.amount,
+            })
+        })
 }
 
 /// What a stack object is, for objects that are on the stack.

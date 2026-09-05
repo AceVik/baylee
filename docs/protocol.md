@@ -96,7 +96,7 @@ as a parameter, the way it already takes `priority`: both live in the engine
 rather than in the `GameState` the view is built from, so only the caller can
 read them.
 
-## Granted mana (view version 10)
+## Granted mana (view version 11)
 
 A land under a Chromatic Lantern taps for any colour, and there is no card
 anywhere a client can read that off: the ability exists only in the engine's
@@ -110,8 +110,15 @@ hand while everything else was planned for them.
 run the layer system. It is `Option<GrantedMana { colors, amount }>` — "n mana,
 of one of these colours" — and `None` both for a permanent with no such ability
 and for a grant too complicated to reduce to that sentence, which keeps the
-honest-stub rule the card pool already obeys. That is
-**`VIEW_VERSION` 9 → 10**.
+honest-stub rule the card pool already obeys. It also names **which** granted
+ability it describes (`slot`), because a permanent may be granted several and
+the mana one is not necessarily the first: Urza's Saga is granted chapter I's
+`{T}: Add {C}` and chapter II's `{2}, {T}: Create a Construct`, and a client
+told only "this makes mana" would tap the slot next to the one it was
+promised. A plain ordinal, not the engine's synthetic index — `baylee-view`
+does not depend on the rules kernel and `choice::granted_ability` is the
+kernel's encoding. That is **`VIEW_VERSION` 9 → 11**, two bumps in one night:
+10 added the field and 11 added the slot to it.
 
 Two functions rather than a third copy of the rule. `effects::granted_activated`
 is the engine's own lookup: `legal_actions` offers the ability through it,
@@ -121,7 +128,10 @@ a fixed amount, no restriction — and the client's `manasources` asks it of a
 *printed* mana ability. An offer and a projection that disagreed would be a
 land the planner counts on and the engine refuses, with the rest of the plan's
 lands already tapped, so they are one function each and the gamehost test
-asserts the two answers against each other.
+asserts the two answers against each other. Both walks stop at
+`choice::GRANTED_SLOTS`, so they agree at the bound as well as below it — a
+ninth grant projected as slot 8 would come back as `PREPARED_CAST`, an index
+in the same space that means something else entirely.
 
 ## Client preferences (`/settings`)
 

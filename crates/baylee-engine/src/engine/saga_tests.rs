@@ -229,3 +229,110 @@ fn saga_ticks_through_chapters_and_sacrifices_after_final() {
         still_there.is_some()
     );
 }
+
+/// Urza's Saga grants *itself* two abilities — chapter I's `{T}: Add {C}` and
+/// chapter II's `{2}, {T}: Create a Construct` — and for as long as a
+/// permanent had one synthetic slot the second was never offered. The card
+/// said `Coverage::Implemented` and half of it could not be played.
+///
+/// The sharp part is the second half: activating slot 1 has to *run* slot 1.
+/// An engine that decoded the index differently from how the offer encoded it
+/// would tap the saga for `{C}` while the player was buying a Construct, and
+/// nothing about the action would look wrong.
+#[test]
+fn a_saga_granted_two_abilities_offers_and_runs_both() {
+    use crate::choice::granted_ability;
+
+    let mut preset = preset(3, vec![urzas_saga()]);
+    // Chapter II costs `{2}`, so there has to be something to pay it with.
+    preset.seats[0].starting_battlefield = vec![entry(island()), entry(island())];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    drive_and_play_saga(&mut engine, p0);
+    let saga = saga_object(&engine).expect("saga on the battlefield");
+
+    // Chapter II resolves on the second lore counter, which is p0's next
+    // draw step; chapter III sacrifices the saga on the third, so this stops
+    // in between rather than driving a fixed number of steps.
+    let mut guard = 0;
+    loop {
+        guard += 1;
+        assert!(guard < 400, "chapter II never resolved");
+        let lore = engine
+            .state()
+            .object(saga)
+            .expect("the saga is still on the battlefield")
+            .counters
+            .get(baylee_cards_dsl::CounterKind::Lore);
+        if lore == 2
+            && let Pending::Priority { player, .. } = engine.pending()
+            && *player == p0
+            && engine.state().zones.stack_is_empty()
+        {
+            break;
+        }
+        drive(&mut engine, 1);
+    }
+
+    let islands: Vec<_> = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == island())
+        })
+        .collect();
+    assert_eq!(islands.len(), 2, "two lands to pay chapter II with");
+    for source in islands {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .expect("an Island taps for mana");
+    }
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority")
+    };
+    assert!(
+        legal.abilities.contains(&(saga, granted_ability(0))),
+        "chapter I's mana ability"
+    );
+    assert!(
+        legal.abilities.contains(&(saga, granted_ability(1))),
+        "chapter II's Construct ability — the one that used to have no slot"
+    );
+
+    let before = engine.state().players[0].mana_pool.total();
+    assert_eq!(before, 2, "both Islands are in the pool");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: saga,
+                ability_index: granted_ability(1),
+            },
+        )
+        .expect("chapter II's ability is activatable");
+
+    assert!(
+        engine
+            .state()
+            .object(saga)
+            .expect("the saga survives its own ability")
+            .status
+            .contains(Status::TAPPED),
+        "the ability costs `{{T}}`"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the `{{2}}` was spent — an engine that ran chapter I instead would \
+         have paid nothing and added a colorless"
+    );
+}

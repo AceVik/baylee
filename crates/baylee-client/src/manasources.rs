@@ -44,10 +44,9 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     // Printed mana abilities: Command Tower, a Llanowar Elf, a Sol Ring —
     // and the one that is printed on no card, which the view carries instead.
     for &(id, index) in &legal.abilities {
-        let source = if index == baylee_engine::choice::GRANTED_ABILITY {
-            granted_source(view, id)
-        } else {
-            printed_source(view, id, index)
+        let source = match baylee_engine::choice::granted_slot(index) {
+            Some(slot) => granted_source(view, id, slot),
+            None => printed_source(view, id, index),
         };
         if let Some(source) = source {
             sources.push(source);
@@ -135,12 +134,24 @@ fn mana_ability(
 /// printed card does not mention. `baylee-gamehost` projects what it makes
 /// (see `PublicObject::granted_mana`) precisely so this client can plan
 /// through it instead of leaving the player to tap those lands by hand.
+///
+/// `slot` is which granted ability is being asked about, and the answer is
+/// `None` for every slot but the one the view named: Urza's Saga is granted
+/// two abilities and only one of them makes mana. Saying otherwise would tap
+/// the permanent for a Construct and then try to pay a spell with it.
 #[must_use]
-pub fn granted_source(view: &PlayerView, object: baylee_core::ids::ObjectId) -> Option<Source> {
+pub fn granted_source(
+    view: &PlayerView,
+    object: baylee_core::ids::ObjectId,
+    slot: u32,
+) -> Option<Source> {
     let granted = view.object(object)?.granted_mana.as_ref()?;
+    if granted.slot != slot {
+        return None;
+    }
     Some(Source {
         id: object,
-        tap: Tap::Ability(baylee_engine::choice::GRANTED_ABILITY),
+        tap: Tap::Ability(baylee_engine::choice::granted_ability(slot)),
         colors: granted.colors.clone(),
         amount: granted.amount,
     })
@@ -174,6 +185,7 @@ mod tests {
         land.power = None;
         land.toughness = None;
         land.granted_mana = Some(baylee_view::GrantedMana {
+            slot: 0,
             colors: vec![
                 ManaColor::White,
                 ManaColor::Blue,

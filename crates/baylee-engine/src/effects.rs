@@ -115,20 +115,17 @@ impl EffectTable {
 /// through it. Written out three times, an offer and a projection that
 /// disagreed would be a land the planner counts on and the engine refuses.
 ///
-/// The **first** applying grant is the answer, because a permanent has one
-/// synthetic slot: a second would have no index to be offered under, so
-/// finding it here would only invent an ability nobody can activate.
-#[must_use]
+/// Registration order is slot order, and it has to be: the offer numbers the
+/// grants it finds and the activation decodes that number back, so the two
+/// walks must agree on what "the second one" means. The effect table is
+/// append-only within a game, which is what makes the order stable.
 pub fn granted_activated(
     state: &crate::state::GameState,
     source: ObjectId,
-) -> Option<(
-    baylee_cards_dsl::cost::Cost,
-    &'static [baylee_cards_dsl::effect::Effect],
-    bool,
-)> {
-    let obj = state.object(source)?;
-    state.effects.iter().find_map(|fx| {
+) -> impl Iterator<Item = GrantedAbility> {
+    let obj = state.object(source);
+    state.effects.iter().filter_map(move |fx| {
+        let obj = obj?;
         let Modifier::GrantActivated {
             cost,
             effects,
@@ -147,6 +144,21 @@ pub fn granted_activated(
                 fx.source.unwrap_or(source),
             ),
         };
-        applies.then_some((*cost, *effects, *mana_ability))
+        applies.then_some(GrantedAbility {
+            cost: *cost,
+            effects,
+            mana_ability: *mana_ability,
+        })
     })
+}
+
+/// One granted activated ability, as the engine and the view both read it.
+#[derive(Clone, Copy, Debug)]
+pub struct GrantedAbility {
+    /// What activating it costs.
+    pub cost: baylee_cards_dsl::cost::Cost,
+    /// What it does.
+    pub effects: &'static [baylee_cards_dsl::effect::Effect],
+    /// Whether it is a mana ability (CR 605.1) and so uses no stack.
+    pub mana_ability: bool,
 }
