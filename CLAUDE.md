@@ -395,6 +395,26 @@ between them on whether this launch was handed a `SeatTicket` — `BAYLEE_GAME`
 above the host can tell which it got, because both decode the same protobuf
 envelopes with the same function.
 
+**A socket that goes away no longer ends the game.** `NetworkHost` could always
+re-dial and ask for the frames the seat missed, and nothing ever called it —
+a drop put "the connection to the table was lost" in the prompt bar and left
+the player there while the table sat waiting. What was missing was the
+*policy*, and the trait was why nothing could supply it: `InstalledHost` is a
+`Box<dyn DuelHost>`, so `is_open()` was unreachable from above. `DuelHost` now
+answers `link()` with a `LinkState` (`Local` / `Up` / `Connecting` / `Down` —
+`Connecting` is its own state, or the system would redial once a frame for as
+long as a socket takes to open), and `keep_the_table_connected` in `lib.rs`
+drives it. The schedule is `baylee-client-core/src/reconnect.rs`, renderer-
+and transport-free like the lobby's decisions, so it is tested without a
+gateway to disconnect from: 0.5 s doubling to a 15 s cap, twelve dials, then
+it stops and says so. It is allowed to back off at all because the engine's
+decision clock does not run for a seat with no socket — nobody is losing on
+time while it waits. Giving up reports `DuelReport::Unreachable`, which is a
+variant rather than another `Failed(String)` because the gateway's `Error`
+envelope carries the engine's refusal of a *single action* through `Failed`,
+and a shell that returned to the lobby on every one of those would eject a
+player for a misclick.
+
 Without a ticket the binary adds `LobbyPlugin` (`crates/baylee-client/src/lobby.rs`)
 instead of opening a duel, and makes those HTTP calls itself: register/login,
 `POST /decks`, `POST /lobby/games` or `.../join`, then the same `SeatTicket`

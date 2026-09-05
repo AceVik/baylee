@@ -907,6 +907,27 @@ messages! {
     /// OPPONENT
     RailOpponent { en: "OPPONENT", de: "GEGNER" },
 
+    // ---- the connection to the table
+    /// Connection lost — reconnecting…
+    ///
+    /// Said while the client is dialling again, which it now does on its own.
+    /// The wording is deliberately not "the game is over": the table is still
+    /// there, the engine's decision clock does not run for a seat with no
+    /// socket, and the seat is being resumed from where it left off.
+    LinkLost {
+        en: "Connection lost — reconnecting…",
+        de: "Verbindung verloren — verbinde neu …",
+    },
+    /// The table cannot be reached. Rejoin from the lobby.
+    ///
+    /// After the retry schedule runs out. "That game no longer exists" reaches
+    /// a client as a refusal string rather than as a state it can match on, so
+    /// this is what a client says when it cannot tell the two apart.
+    LinkGaveUp {
+        en: "The table cannot be reached. Rejoin from the lobby.",
+        de: "Der Tisch ist nicht erreichbar. Tritt aus der Lobby erneut bei.",
+    },
+
 
     // ---- what an ability costs
     /// Tap for {0}

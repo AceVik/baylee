@@ -116,6 +116,11 @@ pub fn sync_overlay(
     // bar went on saying "Choose a target", and nothing else happened. It is
     // its own line now, under whatever the bar was already saying.
     let error = duel.last_error.clone();
+    // The connection, when it has something to say. Drawn in the same bar
+    // rather than in a banner of its own because that is where this client
+    // already speaks to the player, and above the rest of it because a table
+    // that cannot hear you makes every other line on the bar moot.
+    let link_note = duel.link_note;
     let hovered = duel.hovered;
     let selected: Vec<ObjectId> = duel
         .interaction
@@ -148,6 +153,7 @@ pub fn sync_overlay(
     if revision.seq == seq
         && revision.prompt == prompt
         && revision.error == error
+        && revision.link_note == link_note
         && revision.hovered == hovered
         && revision.selected == selected
         && revision.orders.as_ref().is_some_and(|o| o.same_as(&orders))
@@ -172,6 +178,7 @@ pub fn sync_overlay(
     revision.seq = seq;
     revision.prompt.clone_from(&prompt);
     revision.error.clone_from(&error);
+    revision.link_note = link_note;
     revision.hovered = hovered;
     revision.selected.clone_from(&selected);
     revision.orders = Some(orders.clone());
@@ -348,7 +355,7 @@ pub fn sync_overlay(
 
     // ---- prompt bar (choice headline + answer buttons), above the hand,
     // padded clear of the phase rail ---------------------------------------
-    if prompt.is_some() || error.is_some() {
+    if prompt.is_some() || error.is_some() || link_note.is_some() {
         let waiting = !duel.is_my_turn_to_act();
         let bar = commands
             .spawn((
@@ -366,6 +373,20 @@ pub fn sync_overlay(
                 soft_shadow(),
             ))
             .id();
+        // Above the headline, because a table this client cannot reach makes
+        // every other line in the bar moot: the question standing there was
+        // asked before the socket went, and answering it will not arrive.
+        if let Some(phrase) = link_note {
+            let line = commands
+                .spawn((
+                    Text::new(phrase.text(lang).to_string()),
+                    tf(&fonts, 15.0),
+                    TextColor(palette::DANGER),
+                ))
+                .id();
+            commands.entity(bar).add_child(line);
+        }
+
         if let Some(text) = prompt {
             let headline = commands
                 .spawn((

@@ -24,7 +24,7 @@
 //! and connects. Getting that ticket is the lobby's job, and the lobby is
 //! HTTP (see [`crate::settings::gateway_url`]).
 
-use crate::host::{DuelHost, HostMessage, host_message};
+use crate::host::{DuelHost, HostMessage, LinkState, host_message};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::PlayerAction;
 use baylee_protocol::v1::{self, Envelope};
@@ -219,6 +219,20 @@ pub struct NetworkHost {
     last_seq: u64,
     /// Whether the socket has reported itself open.
     open: bool,
+    /// Whether the socket has gone away since it was last open.
+    ///
+    /// Separate from `!open`, which is also true for the moments before the
+    /// first handshake lands: a table that has not connected yet is not a
+    /// table that dropped, and the retry schedule must not start on it.
+    lost: bool,
+    /// Whether a redial is in flight.
+    ///
+    /// Only ever true between [`NetworkHost::redial`] and the `Opened` (or
+    /// `Error`) that answers it, and it is what keeps the application from
+    /// dialling again on the very next frame — a socket takes longer than a
+    /// frame to open, and a host that looked `Down` throughout would be
+    /// redialled sixty times a second.
+    dialling: bool,
     /// Frames waiting for the socket to open.
     ///
     /// A browser `WebSocket` throws on a send before `onopen`, and the first
@@ -247,6 +261,8 @@ impl NetworkHost {
             link: Mutex::new(link),
             last_seq: 0,
             open: false,
+            lost: false,
+            dialling: false,
             outbox: Vec::new(),
             pending_out: Vec::new(),
         })
@@ -263,10 +279,15 @@ impl NetworkHost {
     ///
     /// # Errors
     /// When the socket cannot be created at all.
-    pub fn reconnect(&mut self) -> Result<(), String> {
+    pub fn redial(&mut self) -> Result<(), String> {
         let link = dial(&self.ticket)?;
         *self.link.get_mut().unwrap_or_else(PoisonError::into_inner) = link;
         self.open = false;
+        // Still lost until the new socket says `Opened`, and dialling until
+        // then so the application waits for this attempt instead of starting
+        // another one on the next frame.
+        self.lost = true;
+        self.dialling = true;
         let resume = Envelope {
             msg: Some(v1::envelope::Msg::Resume(v1::ResumeGame {
                 game_id: self.ticket.game_id.clone(),
@@ -274,7 +295,11 @@ impl NetworkHost {
                 last_seq: self.last_seq,
             })),
         };
-        self.outbox.push(resume);
+        // In front of whatever the player queued before the socket went, not
+        // behind it: the outbox survives a drop, so an action taken just
+        // before it would otherwise be the first thing the resumed socket
+        // sent — an answer arriving ahead of the request to be caught up.
+        self.outbox.insert(0, resume);
         Ok(())
     }
 
@@ -325,7 +350,11 @@ impl DuelHost for NetworkHost {
         };
         for event in events {
             match event {
-                WsEvent::Opened => self.open = true,
+                WsEvent::Opened => {
+                    self.open = true;
+                    self.lost = false;
+                    self.dialling = false;
+                }
                 WsEvent::Message(WsMessage::Binary(bytes)) => {
                     match Envelope::decode(bytes.as_slice()) {
                         Ok(envelope) => {
@@ -345,12 +374,27 @@ impl DuelHost for NetworkHost {
                 // The protocol is binary throughout; text on this socket is
                 // somebody else's, and pings answer themselves.
                 WsEvent::Message(_) => {}
-                WsEvent::Error(reason) => out.push(HostMessage::Failed(reason)),
+                // An error on a socket that is being redialled is that dial
+                // failing, and it is not always followed by a `Closed` — the
+                // browser and tungstenite disagree about that. Reported as
+                // "down" rather than as a message, or a host would sit in
+                // `Connecting` forever and never be dialled again, which is
+                // the freeze this whole path exists to prevent.
+                WsEvent::Error(reason) => {
+                    if self.dialling {
+                        self.dialling = false;
+                    } else {
+                        out.push(HostMessage::Failed(reason));
+                    }
+                }
+                // Deliberately no `Failed` here any more. It was one, and it
+                // read as the end of the game on the prompt bar while the
+                // table was still sitting there waiting for the seat — the
+                // link is a *state* now, and the banner is drawn from it.
                 WsEvent::Closed => {
                     self.open = false;
-                    out.push(HostMessage::Failed(
-                        "the connection to the table was lost".to_string(),
-                    ));
+                    self.lost = true;
+                    self.dialling = false;
                 }
             }
         }
@@ -380,6 +424,18 @@ impl DuelHost for NetworkHost {
 
     fn seat(&self) -> PlayerId {
         self.seat
+    }
+
+    fn link(&self) -> LinkState {
+        match (self.lost, self.dialling) {
+            (false, _) => LinkState::Up,
+            (true, true) => LinkState::Connecting,
+            (true, false) => LinkState::Down,
+        }
+    }
+
+    fn reconnect(&mut self) -> Result<(), String> {
+        self.redial()
     }
 }
 

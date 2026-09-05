@@ -359,6 +359,12 @@ pub struct HudRevision {
     /// happens while a question is standing, and the two lines are drawn
     /// together.
     error: Option<String>,
+    /// What the connection is doing, so losing or regaining it redraws.
+    ///
+    /// The one thing in this struct that changes without the game changing at
+    /// all: a socket goes away between snapshots, and the bar has to say so
+    /// without waiting for a view that is not coming.
+    link_note: Option<baylee_client_core::i18n::Phrase>,
     /// How much art has arrived, failed or been evicted.
     ///
     /// Same reason as `texts`, one asset later: a hand card is built with

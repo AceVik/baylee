@@ -596,6 +596,58 @@ the environment, or `?game=…&token=…` in the page URL in a browser. A ticket
 that will not connect is a hard stop, not a quiet fall back to solo play —
 somebody is waiting at that table.
 
+### When the socket goes away
+
+`NetworkHost::redial` re-dials and queues a `ResumeGame` naming the last
+sequence the seat saw; the gateway answers with a full snapshot when the
+client is behind and with nothing at all when it is not. That has worked since
+the host was written and **nothing ever called it**. A dropped socket pushed
+`Failed("the connection to the table was lost")`, which set the prompt bar's
+sticky error and reported the duel as broken — while the table was still
+there, and the seat still resumable.
+
+The mechanism was never the missing part. The policy was, and the trait was
+why nobody could supply it: `InstalledHost` is a `Box<dyn DuelHost>`, so
+`NetworkHost::is_open` was not reachable from the application at all.
+
+Three pieces now:
+
+- **`DuelHost::link()`** returns a `LinkState`. Four states rather than three,
+  and `Connecting` is the one that earns its place: after a dial is started the
+  host is not `Down` any more, or the system would start another dial on the
+  very next frame and keep doing it for as long as a socket takes to open. A
+  `WsEvent::Error` arriving *while dialling* also falls to `Down` rather than
+  becoming a message, because a failed dial is not reliably followed by a
+  `Closed` on every platform, and a host stuck in `Connecting` forever is the
+  freeze this whole path exists to prevent. `Local` is the default, so a host
+  with no socket never enters the schedule — an in-process engine would
+  otherwise be "reconnected" to twelve times and then declared unreachable.
+- **`Retry`** (`baylee-client-core/src/reconnect.rs`) is the schedule and
+  nothing else: 0.5 s, doubling to a 15 s cap, twelve dials, then `exhausted`.
+  Renderer-free and transport-free for the same reason the lobby's decisions
+  are — a schedule that can only be exercised by disconnecting a real gateway
+  is a schedule that is never tested. It is allowed to back off at all because
+  the engine's decision clock does not run for a seat with no socket
+  (`docs/protocol.md`), so nobody is losing a game on time while it waits.
+- **`keep_the_table_connected`** is the wiring, and runs only in `Opening` and
+  `Playing`. Not `Finished`: a table whose game has ended closes its socket in
+  the ordinary course of things, and a client that redialled then would spend
+  two minutes trying to rejoin a game it just watched end.
+
+The banner is drawn from `link()` every frame, **not** through
+`Duel::last_error` — that field clears in `Duel::submit`, a call a
+disconnected player cannot make, so the words would have outlived the
+disconnection they described. It is a `Phrase` on `Duel`, so the decision
+stays where a test can read it and the words stay in the overlay, which is the
+only thing that knows the language.
+
+Running out reports `DuelReport::Unreachable`, once rather than once a frame.
+Its own variant, because the gateway's `Error` envelope carries the engine's
+refusal of a *single action* through `DuelReport::Failed` — a shell that
+returned to the lobby on every `Failed` would eject a player for a misclick.
+Nothing reads `DuelReport` yet; `Unreachable` exists so that whatever does can
+match on it rather than on prose.
+
 ## The lobby
 
 Without a ticket the binary adds `LobbyPlugin` (`src/lobby.rs`) instead of

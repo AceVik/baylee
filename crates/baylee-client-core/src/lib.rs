@@ -49,6 +49,7 @@ pub mod lobby;
 pub mod manapip;
 pub mod manaplan;
 pub mod prefs;
+pub mod reconnect;
 pub mod tabletop;
 
 /// View builders for tests.

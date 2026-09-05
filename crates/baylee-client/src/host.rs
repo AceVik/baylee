@@ -26,6 +26,26 @@ pub enum HostMessage {
     Failed(String),
 }
 
+/// Whether a host still has the connection it plays through.
+///
+/// A state rather than a message, because the banner that draws it is a
+/// function of *now*: a message would have to be cleared by something, and
+/// the only thing a client does on a dead socket is wait. It was routed
+/// through `Duel::last_error` first, which clears in `submit` — a call a
+/// disconnected player cannot make, so the words stayed on the screen after
+/// the table came back.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum LinkState {
+    /// There is no socket to lose: an engine running in this process.
+    Local,
+    /// Connected, or opening for the first time.
+    Up,
+    /// The socket went away and this host is dialling again.
+    Connecting,
+    /// The socket went away and nothing is being done about it.
+    Down,
+}
+
 /// A source of duel state.
 ///
 /// Implementations must be non-blocking: [`DuelHost::poll`] is called once per
@@ -40,6 +60,31 @@ pub trait DuelHost: Send + Sync + 'static {
 
     /// The seat this client plays.
     fn seat(&self) -> PlayerId;
+
+    /// Whether the connection this host plays through is still there.
+    ///
+    /// Defaults to [`LinkState::Local`], which is the truthful answer for a host
+    /// with no socket: an in-process engine cannot be disconnected from, so
+    /// the retry schedule never starts.
+    fn link(&self) -> LinkState {
+        LinkState::Local
+    }
+
+    /// Opens the connection again, resuming the seat where it left off.
+    ///
+    /// Only ever called on a [`LinkState::Down`] host, and deliberately not called
+    /// by the host itself: one that redialled on its own would hammer a
+    /// gateway that is down, and only the application knows whether a player
+    /// is still sitting there. Defaults to doing nothing, for a host that has
+    /// nothing to reopen.
+    ///
+    /// # Errors
+    /// When the connection cannot be started at all — a malformed URL, or a
+    /// transport that could not be created. Not when the dial *fails*: that
+    /// answer arrives later, through [`DuelHost::link`].
+    fn reconnect(&mut self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// Decodes one server envelope into the message a client acts on.
