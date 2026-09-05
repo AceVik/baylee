@@ -813,9 +813,30 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.mana_abilities.contains(&source) {
                     return Err(EngineError::IllegalAction("mana ability not activatable"));
                 }
-                casting::activate_mana(&mut self.state, player, source)?;
-                self.after_action(player);
-                Ok(())
+                // `mana_abilities` has two producers, and only one of them is
+                // the CR 305.6 shortcut this action was written for. The other
+                // is a mana ability a continuous effect *granted*, which lives
+                // in `legal.abilities` at the synthetic index and is activated
+                // like any other ability.
+                //
+                // Both were offered here and only the first could be taken:
+                // `activate_mana` asks `intrinsic_mana`, a granted ability has
+                // none, and the answer came back "illegal action for your
+                // seat" — for a source the engine had just listed. Every
+                // caller reads the list the same way (`HeuristicAgent` sends
+                // `ActivateManaAbility { source: legal.mana_abilities[0] }`
+                // outright), so the list has to mean one thing: everything in
+                // it is activatable by this action.
+                //
+                // Intrinsic first, because a land with a granted ability on
+                // top of its own basic type still taps for its own colour
+                // unless the player names the other ability by index.
+                if casting::can_activate_mana(&self.state, player, source) {
+                    casting::activate_mana(&mut self.state, player, source)?;
+                    self.after_action(player);
+                    return Ok(());
+                }
+                self.start_activation(player, source, u32::MAX, SmallVec::new())
             }
             (
                 Pending::ChooseAttackers { player: p, .. },
