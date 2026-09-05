@@ -136,3 +136,13 @@ similar_names = "allow"
 lto = "thin"
 codegen-units = 1
 panic = "abort"
+
+[profile.dev]
+# Line tables instead of full debug info. A backtrace keeps its file and line
+# numbers — which is all a panicking test is ever read for — while the
+# artefacts get much smaller, and it is artefact size that drives both a
+# 165 GB `target/debug` and the link time of every Bevy test binary.
+#
+# Not `debug = false`: a panic with no line number costs more to chase than
+# the disk ever saved.
+debug = "line-tables-only"

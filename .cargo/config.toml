@@ -6,3 +6,18 @@
 # dependency (see crates/baylee-client/Cargo.toml).
 [target.wasm32-unknown-unknown]
 rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
+# The rules half of the gate, for work that cannot touch the client.
+#
+# `baylee-client` is a Bevy crate and dominates a full `--workspace` run, so an
+# engine or card change that rebuilt it was paying for a renderer it had not
+# touched. Eight crates rather than the obvious five: `baylee-gamehost`'s AI
+# harness pulls `baylee-ai`, and `codegen --check` / `validate` live in
+# `baylee-cards-codegen` — a rules gate without those two lets CI failures
+# through, which saves no time at all.
+#
+# Two aliases because a cargo alias is exactly one subcommand.
+# `scripts/gate-rules.sh` runs both and stops at the first failure.
+[alias]
+lint-rules = "clippy --all-targets -p baylee-core -p baylee-view -p baylee-engine -p baylee-cards -p baylee-cards-dsl -p baylee-cards-codegen -p baylee-ai -p baylee-gamehost -- -D warnings"
+test-rules = "test --all-targets -p baylee-core -p baylee-view -p baylee-engine -p baylee-cards -p baylee-cards-dsl -p baylee-cards-codegen -p baylee-ai -p baylee-gamehost"

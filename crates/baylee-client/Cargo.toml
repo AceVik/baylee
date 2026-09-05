@@ -55,6 +55,11 @@ futures-util.workspace = true
 # all; the loopback bind is the second lock, not the first.
 dev-control = ["dep:image"]
 
+# No `dev-dylink = ["bevy/dynamic_linking"]` here, and it was tried: at
+# bevy 0.19.1 `bevy_dylib` does not resolve, and because cargo resolves the
+# whole feature graph for the lockfile, merely *declaring* the feature breaks
+# every command in the workspace — including ones that never enable it.
+
 [[bin]]
 name = "baylee-client"
 path = "src/main.rs"
