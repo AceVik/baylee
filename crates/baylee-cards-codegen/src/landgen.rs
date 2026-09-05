@@ -403,7 +403,10 @@ pub fn read(card: &ScryfallCard, cats: &SubtypeCatalogs) -> Result<CardBody, Lan
     if card.card_faces.as_ref().is_some_and(|f| f.len() >= 2) {
         return Err(LandRefusal::NotAPlainLand);
     }
-    let type_line = card.type_line.as_deref().ok_or(LandRefusal::NotAPlainLand)?;
+    let type_line = card
+        .type_line
+        .as_deref()
+        .ok_or(LandRefusal::NotAPlainLand)?;
     let (left, right) = match type_line.split_once('\u{2014}') {
         Some((l, r)) => (l, r),
         None => (type_line, ""),
