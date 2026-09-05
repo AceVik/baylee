@@ -27,6 +27,43 @@ pub enum SeatKind {
     Human,
     /// An auto-driven AI seat.
     Ai(HeuristicAgent),
+    /// An AI seat whose controls somebody has taken.
+    ///
+    /// It answers over a socket exactly as a human seat does — that *is* the
+    /// feature: the dev harness can play the opponent by hand, so a client
+    /// change can be exercised against a chosen line instead of against
+    /// whatever the heuristic happened to pick. The agent is kept rather than
+    /// dropped, so releasing hands the chair back to the house AI in the
+    /// middle of a game.
+    ///
+    /// Reachable only from the loopback dev harness. Nothing in the gateway
+    /// path constructs one, and it must stay that way: a seat someone else
+    /// can take over is an opponent someone else can play.
+    Driven(HeuristicAgent),
+}
+
+impl SeatKind {
+    /// Whether this seat's answers arrive over a socket rather than from an
+    /// agent inside the process.
+    ///
+    /// The distinction [`Session::pump`] turns on, and the reason it is a
+    /// method: "is it a human" and "does it answer over the wire" were the
+    /// same question until a seat could be taken over, and reading it as the
+    /// former in even one place would leave a driven seat being played by the
+    /// house AI it was taken from.
+    #[must_use]
+    pub const fn answers_over_socket(&self) -> bool {
+        matches!(self, Self::Human | Self::Driven(_))
+    }
+
+    /// Whether the chair is an AI chair, however it is being played.
+    ///
+    /// What the roster shows, so a seat does not change its name in the
+    /// lobby the moment a developer takes the controls.
+    #[must_use]
+    pub const fn is_ai_chair(&self) -> bool {
+        matches!(self, Self::Ai(_) | Self::Driven(_))
+    }
 }
 
 /// A live game: engine plus the seat roster.
@@ -100,15 +137,69 @@ impl Session {
         })
     }
 
-    /// Human (non-AI) seats, as player ids in seat order.
+    /// The seats that are played over a socket, in seat order.
+    ///
+    /// Humans, and any AI seat whose controls have been taken — the two are
+    /// the same thing to everything that sends views, which is why the name
+    /// is about the socket and not about who is on the other end of it.
     #[must_use]
     pub fn human_seats(&self) -> Vec<PlayerId> {
         self.seats
             .iter()
             .enumerate()
-            .filter(|(_, k)| matches!(k, SeatKind::Human))
+            .filter(|(_, k)| k.answers_over_socket())
             .map(|(i, _)| PlayerId::new(i as u8))
             .collect()
+    }
+
+    /// What kind of chair a seat is, or `None` when it is not a seat here.
+    ///
+    /// The three answers are not interchangeable to a caller deciding whether
+    /// someone may sit down: an AI chair can be taken over, a human chair can
+    /// be joined, and a chair already being driven must be refused — and
+    /// [`Session::take_over`] alone cannot tell the last two apart, because
+    /// both are already answering over a socket.
+    #[must_use]
+    pub fn seat_kind(&self, seat: PlayerId) -> Option<&SeatKind> {
+        self.seats.get(seat.get() as usize)
+    }
+
+    /// Takes the controls of an AI seat, so it answers over a socket instead.
+    ///
+    /// Returns whether it took: a seat that is already human, already driven,
+    /// or is not a seat at all is refused rather than silently accepted,
+    /// because a caller that thinks it is driving a chair it is not would sit
+    /// waiting for a question the house AI has already answered.
+    ///
+    /// The game is not disturbed. Whatever the agent has already played
+    /// stands, and the next question addressed to this seat simply goes out
+    /// over the wire rather than into [`HeuristicAgent::act`].
+    pub fn take_over(&mut self, seat: PlayerId) -> bool {
+        let Some(kind) = self.seats.get_mut(seat.get() as usize) else {
+            return false;
+        };
+        let SeatKind::Ai(agent) = kind else {
+            return false;
+        };
+        *kind = SeatKind::Driven(agent.clone());
+        true
+    }
+
+    /// Hands a driven seat back to the house AI it was taken from.
+    ///
+    /// Returns whether it was being driven. The agent comes back with it —
+    /// it was kept rather than dropped precisely so that a developer who
+    /// disconnects mid-game leaves a playable opponent behind instead of a
+    /// table that stops at the next question nobody is there to answer.
+    pub fn release(&mut self, seat: PlayerId) -> bool {
+        let Some(kind) = self.seats.get_mut(seat.get() as usize) else {
+            return false;
+        };
+        let SeatKind::Driven(agent) = kind else {
+            return false;
+        };
+        *kind = SeatKind::Ai(agent.clone());
+        true
     }
 
     /// The seats that won: one for a solo winner, every seat on the team for
@@ -159,7 +250,7 @@ impl Session {
                     .get(i)
                     .cloned()
                     .unwrap_or_else(|| format!("Seat {i}")),
-                is_ai: matches!(kind, SeatKind::Ai(_)),
+                is_ai: kind.is_ai_chair(),
                 team: self.teams.get(i).copied().flatten(),
             })
             .collect();
@@ -257,7 +348,10 @@ impl Session {
                 }
                 return out;
             };
-            let is_human = matches!(self.seats.get(player.get() as usize), Some(SeatKind::Human));
+            let is_human = self
+                .seats
+                .get(player.get() as usize)
+                .is_some_and(SeatKind::answers_over_socket);
             if is_human {
                 let priority = priority_holder(&pending);
                 for seat in self.human_seats() {
@@ -282,7 +376,8 @@ impl Session {
                     );
                     agent.act(&view, &pending)
                 }
-                SeatKind::Human => unreachable!(),
+                // Both answer over a socket, so `pump` returned above.
+                SeatKind::Human | SeatKind::Driven(_) => unreachable!(),
             };
             let mut moves_the_game = !action.is_automation_setting();
             if self.engine.apply(player, action).is_err() {
@@ -413,7 +508,11 @@ impl Session {
         player: PlayerId,
         action: PlayerAction,
     ) -> Result<Vec<(PlayerId, Envelope)>, String> {
-        if !matches!(self.seats.get(player.get() as usize), Some(SeatKind::Human)) {
+        if !self
+            .seats
+            .get(player.get() as usize)
+            .is_some_and(SeatKind::answers_over_socket)
+        {
             return Err("not a human seat".to_string());
         }
         // Read before the action is spent: an automation setting is the one
@@ -530,6 +629,103 @@ mod tests {
             }],
             seats: vec![mk(false), mk(true)],
         }
+    }
+
+    /// The whole point of a driven seat: the question stops going to the
+    /// house AI and starts going out over the wire.
+    ///
+    /// Seat 1 is an AI chair. Left alone it answers its own mulligan inside
+    /// `pump`, and the game never stops for it — `pump` only returns when a
+    /// seat that answers over a socket is on the clock. Taken over, the same
+    /// question comes back addressed to seat 1, which is what somebody at the
+    /// other end of the harness answers.
+    #[test]
+    fn a_driven_seat_is_asked_instead_of_answering_itself() {
+        let human = PlayerId::new(0);
+        let ai = PlayerId::new(1);
+
+        // Left alone, nothing ever stops for seat 1.
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        let _ = session.pump();
+        let _ = session.act(human, PlayerAction::MulliganKeep);
+        assert_ne!(
+            session.awaiting_seat(),
+            Some(ai),
+            "the house AI answers for itself"
+        );
+
+        // Taken over, the same question is addressed to it.
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        assert!(session.take_over(ai), "seat 1 is an AI chair");
+        let _ = session.pump();
+        let _ = session.act(human, PlayerAction::MulliganKeep);
+        assert_eq!(
+            session.awaiting_seat(),
+            Some(ai),
+            "a driven seat is asked over the wire"
+        );
+    }
+
+    /// Releasing hands the chair back mid-game, so a developer who
+    /// disconnects leaves a playable opponent rather than a table stopped at
+    /// a question nobody is there to answer.
+    #[test]
+    fn releasing_a_seat_gives_it_back_to_the_house_ai() {
+        let human = PlayerId::new(0);
+        let ai = PlayerId::new(1);
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        assert!(session.take_over(ai));
+        let _ = session.pump();
+        let _ = session.act(human, PlayerAction::MulliganKeep);
+        assert_eq!(session.awaiting_seat(), Some(ai), "stopped for the driver");
+
+        assert!(session.release(ai), "it was being driven");
+        // The question it was stopped on is now answered by the agent it was
+        // taken from, so the table moves again without the driver.
+        let _ = session.pump();
+        assert_ne!(
+            session.awaiting_seat(),
+            Some(ai),
+            "the house AI has the chair back"
+        );
+    }
+
+    /// Both refusals, because a caller that believed it was driving a chair
+    /// it was not would sit waiting for a question the house AI has already
+    /// answered.
+    #[test]
+    fn only_an_ai_chair_can_be_taken_over_and_only_once() {
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        assert!(
+            !session.take_over(PlayerId::new(0)),
+            "seat 0 is a human seat"
+        );
+        assert!(
+            !session.take_over(PlayerId::new(7)),
+            "there is no seat 7 to take"
+        );
+        assert!(!session.release(PlayerId::new(1)), "it is not driven yet");
+        assert!(session.take_over(PlayerId::new(1)));
+        assert!(
+            !session.take_over(PlayerId::new(1)),
+            "and it cannot be taken twice"
+        );
+    }
+
+    /// A chair does not change what it *is* when somebody takes the
+    /// controls, so the roster a client draws stays put.
+    #[test]
+    fn a_driven_chair_is_still_an_ai_chair_on_the_roster() {
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        session.describe("g".to_string(), vec!["You".into(), "House AI".into()]);
+        let before = session.game_static(PlayerId::new(0));
+        assert!(session.take_over(PlayerId::new(1)));
+        let after = session.game_static(PlayerId::new(0));
+        assert_eq!(
+            before.seats.iter().map(|s| s.is_ai).collect::<Vec<_>>(),
+            after.seats.iter().map(|s| s.is_ai).collect::<Vec<_>>(),
+            "the roster says what the chair is, not who is holding it"
+        );
     }
 
     fn forest() -> CardIndex {
