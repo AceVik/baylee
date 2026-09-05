@@ -152,6 +152,7 @@ pub fn sync_overlay(
         && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
         && revision.faces == faces.always()
         && revision.texts == texts.len()
+        && revision.arrivals == textures.epoch()
         && revision.combat == combat
         && revision.ability_menu == ability_menu
         && revision.ability_pick == ability_pick
@@ -174,6 +175,7 @@ pub fn sync_overlay(
     revision.preview_scale = preview_scale;
     revision.faces = faces.always();
     revision.texts = texts.len();
+    revision.arrivals = textures.epoch();
     revision.combat = combat;
     revision.ability_menu = ability_menu;
     revision.ability_pick = ability_pick;

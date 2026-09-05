@@ -74,8 +74,16 @@ pub fn track_modifier(keys: Res<ButtonInput<KeyCode>>, mut mode: ResMut<FaceMode
 ///
 /// Three independent reasons, and any one of them is enough: the player is
 /// holding the modifier, the player always wants text, or there is no image to
-/// draw — a printing whose art failed, or an object with no card behind it at
-/// all, which is the case for every token.
+/// draw *at this moment*.
+///
+/// That last one covers more than it looks like. An object with no card behind
+/// it at all — every token — and a printing whose art failed, but also a
+/// printing whose art has simply not arrived yet, and those are the same
+/// situation for one frame at a time: a `Some(handle)` whose bytes are still
+/// in flight cannot be bound, so the material never prepares and the card is
+/// drawn as *nothing*. A readable face that turns into art a moment later is
+/// the honest version of that wait, and it is free — the machinery is the one
+/// a failed load already uses.
 #[must_use]
 pub fn wants_face(
     mode: &FaceMode,
@@ -83,7 +91,7 @@ pub fn wants_face(
     textures: &crate::textures::CardTextures,
     art: Option<baylee_client_core::images::ImageKey>,
 ) -> bool {
-    mode.held || settings.prefer_text_view || art.is_none_or(|key| textures.has_failed(key))
+    mode.held || settings.prefer_text_view || art.is_none_or(|key| !textures.has_arrived(key))
 }
 
 // ------------------------------------------------------------ building faces
@@ -563,7 +571,7 @@ mod tests {
         );
     }
 
-    /// The four independent reasons to draw the face. Each one alone is
+    /// The five independent reasons to draw the face. Each one alone is
     /// enough, and none of them may need the others.
     #[test]
     fn every_reason_to_draw_the_face_stands_on_its_own() {
@@ -581,15 +589,23 @@ mod tests {
             ..crate::settings::ClientSettings::default()
         };
 
-        // Art that is loading or loaded: the image wins.
+        // Art still in flight. This one used to read the other way — the
+        // image won the moment a handle existed — and that is precisely how a
+        // card came to be drawn as nothing: an unloaded texture cannot be
+        // bound, so the material never prepares.
+        assert!(wants_face(&quiet, &plain, &textures, Some(art)));
+
+        textures.mark_arrived(art);
+        // Art that is on the GPU: the image wins.
         assert!(!wants_face(&quiet, &plain, &textures, Some(art)));
         // The modifier, the latch, and a token with no printing at all.
         assert!(wants_face(&held, &plain, &textures, Some(art)));
         assert!(wants_face(&quiet, &latched, &textures, Some(art)));
         assert!(wants_face(&quiet, &plain, &textures, None));
         // And art that will never arrive.
-        textures.mark_failed(art);
-        assert!(wants_face(&quiet, &plain, &textures, Some(art)));
+        let lost = ImageKey::new(PrintRef::new(1), 0, ArtSize::Small);
+        textures.mark_failed(lost);
+        assert!(wants_face(&quiet, &plain, &textures, Some(lost)));
     }
 
     /// The table quad is tinted by colour identity, so two different decks

@@ -65,6 +65,17 @@ pub struct CardTextures {
     /// player would otherwise see as a blank rectangle. The constructed face
     /// takes over for exactly these.
     failed: HashSet<ImageKey>,
+    /// Printings whose bytes are actually on the GPU.
+    ///
+    /// Holding a `Handle<Image>` is not the same as having the image, and the
+    /// difference is visible: `art` is an `Option<Handle<Image>>` in an
+    /// `AsBindGroup`, so `None` binds the fallback texture but a `Some` whose
+    /// bytes have not arrived makes the whole material fail to prepare — and a
+    /// card with no prepared material is not drawn at all. Until a key is in
+    /// here it is, for drawing purposes, a card with no art.
+    arrived: HashSet<ImageKey>,
+    /// Bumped whenever `arrived` or `failed` changes — see [`Self::epoch`].
+    epoch: u64,
 }
 
 impl CardTextures {
@@ -76,6 +87,8 @@ impl CardTextures {
             card_back: images.add(solid_texture([26, 30, 38, 255])),
             issued: 0,
             failed: HashSet::new(),
+            arrived: HashSet::new(),
+            epoch: 0,
         }
     }
 
@@ -90,7 +103,54 @@ impl CardTextures {
     /// The load-state sweep is the normal caller; a test needs it too, because
     /// there is no way to fail a load without a network.
     pub fn mark_failed(&mut self, key: ImageKey) {
-        self.failed.insert(key);
+        if self.failed.insert(key) {
+            self.epoch += 1;
+        }
+    }
+
+    /// Whether this printing's art is on the GPU and can be drawn.
+    ///
+    /// False for a key nobody has asked for yet, false while the load is in
+    /// flight, false forever for one that failed, and false again if the
+    /// budget evicted it — every case in which asking for the art would draw
+    /// nothing.
+    #[must_use]
+    pub fn has_arrived(&self, key: ImageKey) -> bool {
+        self.arrived.contains(&key)
+    }
+
+    /// Records a printing whose art is now on the GPU.
+    ///
+    /// The load-state sweep is the normal caller; a test needs it too, because
+    /// there is no way to finish a load without a network.
+    pub fn mark_arrived(&mut self, key: ImageKey) {
+        if self.arrived.insert(key) {
+            self.epoch += 1;
+        }
+    }
+
+    /// How many times art has arrived, failed or been evicted.
+    ///
+    /// The HUD is a *retained* tree: [`hud::sync_overlay`] rebuilds it only
+    /// when something in `HudRevision` changed, and a load finishing is not a
+    /// new snapshot. On the table that does not matter — `sync_scene` decides
+    /// per frame and the material flips to the art the frame after it lands —
+    /// but a hand card would keep whatever it was built with until the
+    /// opponent did something. So the gate compares this, and a counter rather
+    /// than a `Changed` flag because [`Self::get`] takes `&mut self` and the
+    /// table calls it every frame.
+    ///
+    /// Eviction counts as well, and that is the one case with a cost: a board
+    /// big enough to thrash the budget bumps this every frame and rebuilds the
+    /// overlay with it. It is still the right answer — a HUD card holds a
+    /// *clone* of the handle, so an eviction frees nothing until the tree that
+    /// holds it is rebuilt — but if a phone ever shows it, the fix is to read
+    /// the counter at the end of `sync_overlay` rather than at its start.
+    ///
+    /// [`hud::sync_overlay`]: crate::hud::sync_overlay
+    #[must_use]
+    pub fn epoch(&self) -> u64 {
+        self.epoch
     }
 
     /// The placeholder texture.
@@ -113,8 +173,10 @@ impl CardTextures {
 
     /// The texture for a key, starting a load if this is the first request.
     ///
-    /// Always returns something drawable: an unresolvable printing or a load
-    /// still in flight yields the card back rather than a hole in the table.
+    /// An unresolvable printing yields the card back. A load still in flight
+    /// yields its handle, which is *not* drawable yet — ask [`Self::has_arrived`]
+    /// before building a material out of it, or draw the constructed face
+    /// instead, which is what the board does.
     pub fn get(
         &mut self,
         key: ImageKey,
@@ -129,7 +191,9 @@ impl CardTextures {
             // An unresolvable printing never even becomes a request, so no
             // load state will ever report it; it is a permanent failure the
             // moment it is asked for.
-            self.failed.insert(key);
+            if self.failed.insert(key) {
+                self.epoch += 1;
+            }
             return self.card_back.clone();
         };
         let handle: Handle<Image> = assets.load(request.url);
@@ -137,6 +201,13 @@ impl CardTextures {
         self.issued += 1;
         for evicted in self.budget.insert(key) {
             self.handles.remove(&evicted);
+            // Dropping the handle drops the image, so the art is no longer
+            // there to draw. Leaving the key in `arrived` would tell the board
+            // to build a material around a texture that has to be fetched
+            // again, which is the invisible card this set exists to prevent.
+            if self.arrived.remove(&evicted) {
+                self.epoch += 1;
+            }
         }
         handle
     }
@@ -172,32 +243,39 @@ impl CardTextures {
     }
 }
 
-/// Notes which loads have failed, so the renderer can fall back to text.
+/// Notes which loads have finished and which have failed, so the renderer
+/// knows which cards have art to draw.
 ///
-/// Bevy reports a failed load only through the asset server, and nothing asked
-/// it before: a 404 left a card as an untextured rectangle for the rest of the
-/// game. Checking once per frame is cheap — the map holds at most a board's
-/// worth of handles — and it is the only signal that distinguishes "still
-/// loading" from "never arriving".
-pub fn note_failed_loads(mut textures: ResMut<CardTextures>, assets: Res<AssetServer>) {
-    let newly_failed: Vec<ImageKey> = textures
-        .handles
-        .iter()
-        .filter(|(key, handle)| {
-            !textures.failed.contains(*key)
-                && matches!(
-                    assets.get_load_state(*handle),
-                    Some(bevy::asset::LoadState::Failed(_))
-                )
-        })
-        .map(|(key, _)| *key)
-        .collect();
+/// Bevy reports both only through the asset server, and nothing asked it
+/// before: a 404 left a card as an untextured rectangle for the rest of the
+/// game, and a load merely in flight left one as nothing at all. Checking once
+/// per frame is cheap — the map holds at most a board's worth of handles — and
+/// it is the only signal that separates the three states a request can be in.
+pub fn note_load_states(mut textures: ResMut<CardTextures>, assets: Res<AssetServer>) {
+    let mut newly_failed: Vec<ImageKey> = Vec::new();
+    let mut newly_arrived: Vec<ImageKey> = Vec::new();
+    for (key, handle) in &textures.handles {
+        match assets.get_load_state(handle) {
+            Some(bevy::asset::LoadState::Failed(_)) if !textures.failed.contains(key) => {
+                newly_failed.push(*key);
+            }
+            Some(bevy::asset::LoadState::Loaded) if !textures.arrived.contains(key) => {
+                newly_arrived.push(*key);
+            }
+            _ => {}
+        }
+    }
     for key in newly_failed {
         bevy::log::debug!(
             ?key,
             "card art failed to load; falling back to the card face"
         );
         textures.failed.insert(key);
+        textures.epoch += 1;
+    }
+    for key in newly_arrived {
+        textures.arrived.insert(key);
+        textures.epoch += 1;
     }
 }
 
@@ -316,5 +394,40 @@ mod tests {
     fn the_board_asks_for_cheap_art_and_only_focus_asks_for_readable_art() {
         assert_eq!(CardTextures::size_for(false), ArtSize::Small);
         assert_eq!(CardTextures::size_for(true), ArtSize::Normal);
+    }
+
+    /// The signal the retained HUD redraws on.
+    ///
+    /// `hud::sync_overlay` rebuilds only when something in `HudRevision`
+    /// changed, and it compares [`CardTextures::epoch`] for exactly this: what
+    /// a card should draw — its art or its constructed face — changes when a
+    /// load lands or fails, and neither of those is a new snapshot. A counter
+    /// that stood still would leave a cold-cache hand showing text faces until
+    /// the opponent did something; one that moved for nothing would rebuild
+    /// two hundred rows a frame.
+    #[test]
+    fn the_epoch_moves_when_what_a_card_can_draw_does_and_not_otherwise() {
+        let mut images = Assets::<Image>::default();
+        let mut textures = CardTextures::new(&mut images, default_budget_bytes());
+        let art = ImageKey::new(baylee_core::ids::PrintRef::new(0), 0, ArtSize::Small);
+        let lost = ImageKey::new(baylee_core::ids::PrintRef::new(1), 0, ArtSize::Small);
+
+        let start = textures.epoch();
+        textures.mark_arrived(art);
+        let arrived = textures.epoch();
+        assert!(arrived > start, "art landing is a redraw");
+
+        textures.mark_arrived(art);
+        assert_eq!(
+            textures.epoch(),
+            arrived,
+            "the same art landing twice is not a second redraw"
+        );
+
+        textures.mark_failed(lost);
+        assert!(
+            textures.epoch() > arrived,
+            "a load giving up is a redraw too — that card switches to its face"
+        );
     }
 }

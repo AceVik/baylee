@@ -353,6 +353,13 @@ pub struct HudRevision {
     /// How many printings have text. Text arrives over the network mid-game,
     /// and a face built before it lands says a good deal less.
     texts: usize,
+    /// How much art has arrived, failed or been evicted.
+    ///
+    /// Same reason as `texts`, one asset later: a hand card is built with
+    /// either its art or its constructed face, and which of those it should
+    /// be changes when a load finishes. The table re-decides every frame and
+    /// needs nothing here; a retained tree does.
+    arrivals: u64,
     /// Where the combat focus points and how many declarations stand.
     ///
     /// Both change without a new snapshot — aiming and declaring never leave
