@@ -709,3 +709,13 @@ Server: `baylee-engine-server` (tokio + tokio-tungstenite), one process,
 games as `Session`s — engine + human seat + auto-driven AI seats
 (baylee-ai). E2E smoke: real binary over a real socket
 (`crates/baylee-engine-server/tests/e2e.rs`).
+
+On the **listening** harness a socket names its own seat: `seat_token` is a
+seat number, because that socket authenticates nothing and the field would
+otherwise be read by nothing. Naming an AI chair takes it over
+(`Session::take_over`), so the questions the house AI would have answered go
+out over the wire instead, and hanging up gives the chair back. Two rules
+keep it honest — a seat another socket is already driving is refused, and a
+seat that is not at the table is refused — and the reason it is loopback-only
+is now larger than it was: a connection is handed the hidden information of
+whichever seat it names.

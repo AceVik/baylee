@@ -127,7 +127,9 @@ attached engine takes `--attach <ws>` `--game <id>` `--token <tok>`, or the
 same three as `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`; with
 none of them it falls back to the listening dev harness, which takes `PORT` and
 `BAYLEE_BIND` and defaults to loopback deliberately: it has no authentication,
-every action runs as seat 0, so binding it publicly hands out the game. The
+so a socket names its own seat (`JoinGame.seat_token` is a seat *number*
+there) and is handed that seat's hidden information — binding it publicly
+hands out every hand at the table. The
 client takes `BAYLEE_GATEWAY` (card text, and the table it plays
 at) plus `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN` and optionally `BAYLEE_SEAT`: with
 those three it plays against the gateway instead of against the house AI in
@@ -352,6 +354,27 @@ networked seat gets — so `baylee-ai` cannot reach an opponent's hand even by
 mistake. That is also why the AI-vs-AI harness (`gamehost::harness::play_game`,
 with the acceptance-deck soak) lives in gamehost: building a view takes the
 engine, which is the boundary the agent may not cross.
+
+That boundary is also what makes an AI chair **drivable**. `SeatKind::Driven`
+is an AI seat whose controls someone has taken: `Session::take_over` puts a
+socket where the agent was, `release` hands it back — keeping the agent, so a
+developer who disconnects mid-game leaves a playable opponent rather than a
+table that stops at the next question — and everything that sends views asks
+`answers_over_socket()` instead of "is this a human", because to a session
+the two are the same thing. Since `act` already took `(&PlayerView,
+&Pending)`, a program driving a chair sees exactly what a networked player
+sees and no more: the anti-cheat line holds for a development tool by
+construction rather than by remembering to.
+
+`baylee-engine-server`'s listening harness is where that is reachable —
+`JoinGame.seat_token` is a seat number there, an AI chair is taken over on
+join and given back when the socket drops. That is the rules-side counterpart
+of the client's `dev-control`: a scripted opponent over the real wire, seeing
+what a seat is entitled to see. It also forced the harness to *route*. It had
+been handing every seat's envelopes to whichever socket was holding the lock,
+which is invisible while exactly one seat answers over a socket and wrong the
+moment two do, so a table now fans `(seat, envelope)` out and each connection
+sends on what is addressed to its own seat.
 
 The engine never carries card text, so a client names an ability through
 `AbilityRef { card, index }`; reserved indices (`SPELL`, `ENTERS`, …) count
