@@ -223,6 +223,7 @@ mod tests {
                 player: PlayerId::new(1),
                 display_name: "House AI".into(),
                 is_ai: true,
+                away: false,
                 team: None,
             }],
             prints: vec![],

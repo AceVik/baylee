@@ -212,6 +212,7 @@ pub fn statics(count: u16) -> GameStatic {
             player: PlayerId::new(0),
             display_name: "You".to_string(),
             is_ai: false,
+            away: false,
             team: None,
         }],
         prints: (0..count)

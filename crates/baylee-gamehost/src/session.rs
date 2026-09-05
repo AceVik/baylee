@@ -40,6 +40,17 @@ pub enum SeatKind {
     /// path constructs one, and it must stay that way: a seat someone else
     /// can take over is an opponent someone else can play.
     Driven(HeuristicAgent),
+    /// A player's chair the house is holding, because nobody is on the other
+    /// end of it.
+    ///
+    /// The mirror of [`SeatKind::Driven`], and the reason both exist: a chair
+    /// and whoever is answering for it are two different things. A seat with
+    /// no socket is sent nothing and is on no decision clock, which is right
+    /// — and left the whole table waiting on a player who had closed their
+    /// laptop. `HouseRules::reconnect_window_secs` says how long to wait
+    /// before the house sits down instead; the player gets the chair back the
+    /// moment their socket returns.
+    StandIn(HeuristicAgent),
 }
 
 impl SeatKind {
@@ -63,6 +74,15 @@ impl SeatKind {
     #[must_use]
     pub const fn is_ai_chair(&self) -> bool {
         matches!(self, Self::Ai(_) | Self::Driven(_))
+    }
+
+    /// Whether this is a player's chair the house is currently holding.
+    ///
+    /// A third answer rather than a second reading of `is_ai_chair`, because
+    /// the chair has not changed hands — only who is answering for it has.
+    #[must_use]
+    pub const fn is_away(&self) -> bool {
+        matches!(self, Self::StandIn(_))
     }
 }
 
@@ -96,6 +116,12 @@ pub struct Session {
     revealed: Vec<Vec<bool>>,
     /// Team per seat, for the seat roster.
     teams: Vec<Option<u8>>,
+    /// Which seats have yet to be told that a chair changed hands.
+    ///
+    /// Not game state, for the same reason `revealed` is not: it is what a
+    /// seat has been *told*, which is a property of the connection. See
+    /// [`Session::roster_changed`].
+    roster_dirty: Vec<bool>,
     /// What clients call this game (see [`Session::describe`]).
     game_id: String,
     /// What clients call each seat (see [`Session::describe`]).
@@ -132,6 +158,7 @@ impl Session {
                 .map(|spec| own_prints(spec, preset.prints.len()))
                 .collect(),
             teams: preset.seats.iter().map(|s| s.team).collect(),
+            roster_dirty: vec![false; preset.seats.len()],
             game_id: String::new(),
             names: Vec::new(),
         })
@@ -182,6 +209,7 @@ impl Session {
             return false;
         };
         *kind = SeatKind::Driven(agent.clone());
+        self.roster_changed();
         true
     }
 
@@ -199,7 +227,63 @@ impl Session {
             return false;
         };
         *kind = SeatKind::Ai(agent.clone());
+        self.roster_changed();
         true
+    }
+
+    /// The house sits down at a player's chair, because nobody is answering
+    /// on it.
+    ///
+    /// Returns whether it took: only a human chair can be stood in for. An AI
+    /// chair has nobody to wait for, and a driven one is the dev harness's,
+    /// which hands itself back when its socket drops.
+    ///
+    /// *When* to call this is not a question this crate can answer — it needs
+    /// a wall clock, and nothing below the transport may read one. The caller
+    /// owns the deadline; `HouseRules::reconnect_window_secs` is how long the
+    /// table said to wait.
+    pub fn stand_in(&mut self, seat: PlayerId) -> bool {
+        let teams = self.teams.clone();
+        let Some(kind) = self.seats.get_mut(seat.get() as usize) else {
+            return false;
+        };
+        if !matches!(kind, SeatKind::Human) {
+            return false;
+        }
+        // The same agent an AI chair at this table would get, teams included
+        // — a stand-in that did not know who its allies were would play the
+        // seat's own team as an enemy.
+        *kind = SeatKind::StandIn(HeuristicAgent::new(AIProfile::default()).with_teams(teams));
+        self.roster_changed();
+        true
+    }
+
+    /// The player came back; the chair is theirs again.
+    ///
+    /// Returns whether the house was holding it. The agent is dropped rather
+    /// than kept — unlike [`Session::release`], there is nothing to hand back
+    /// *to*: the chair was never an AI chair, and a fresh stand-in is built
+    /// if the player leaves again.
+    pub fn hand_back(&mut self, seat: PlayerId) -> bool {
+        let Some(kind) = self.seats.get_mut(seat.get() as usize) else {
+            return false;
+        };
+        if !matches!(kind, SeatKind::StandIn(_)) {
+            return false;
+        }
+        *kind = SeatKind::Human;
+        self.roster_changed();
+        true
+    }
+
+    /// A chair changed hands, so every seat's roster is out of date.
+    ///
+    /// The roster travels in [`GameStatic`], which is sent once when a socket
+    /// attaches — so before this existed, a chair could change hands and the
+    /// table was simply never told. Every seat is marked, not just the one
+    /// that changed: the roster lists all of them.
+    fn roster_changed(&mut self) {
+        self.roster_dirty.iter_mut().for_each(|d| *d = true);
     }
 
     /// The seats that won: one for a solo winner, every seat on the team for
@@ -251,6 +335,7 @@ impl Session {
                     .cloned()
                     .unwrap_or_else(|| format!("Seat {i}")),
                 is_ai: kind.is_ai_chair(),
+                away: kind.is_away(),
                 team: self.teams.get(i).copied().flatten(),
             })
             .collect();
@@ -267,8 +352,16 @@ impl Session {
     /// wire rather than building it from a preset it happens to have in hand.
     /// A field that only the local path filled in would be missing in exactly
     /// the case nobody tests at a desk.
+    ///
+    /// Producing the envelope *is* the act of telling the seat, which is why
+    /// this takes `&mut self` where [`Session::game_static`] does not: it
+    /// clears the seat's pending roster change. Anything that only wants to
+    /// look reads `game_static`.
     #[must_use]
-    pub fn game_static_envelope(&self, seat: PlayerId) -> Envelope {
+    pub fn game_static_envelope(&mut self, seat: PlayerId) -> Envelope {
+        if let Some(dirty) = self.roster_dirty.get_mut(seat.get() as usize) {
+            *dirty = false;
+        }
         let statics = self.game_static(seat);
         Envelope {
             msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
@@ -297,7 +390,8 @@ impl Session {
     }
 
     /// A seat's view, preceded by a fresh opening payload when this view is
-    /// the first to show it one of the game's printings.
+    /// the first to show it one of the game's printings, or when a chair has
+    /// changed hands since this seat was last told the roster.
     ///
     /// The order matters: the entry has to be there before the object that
     /// points at it, or the client draws a card it cannot key an image on.
@@ -311,7 +405,15 @@ impl Session {
             self.engine.automation(seat).hold.suppresses(),
         );
         let mut out = Vec::new();
-        if self.reveal(seat, &view) {
+        // Two separate `let`s: `reveal` marks printings as shown, so folding
+        // it into an `||` would let the other half short-circuit it away.
+        let revealed = self.reveal(seat, &view);
+        let roster_moved = self
+            .roster_dirty
+            .get(seat.get() as usize)
+            .copied()
+            .unwrap_or(false);
+        if revealed || roster_moved {
             out.push(self.game_static_envelope(seat));
         }
         out.push(view_envelope(self.seq, &view));
@@ -365,7 +467,7 @@ impl Session {
                 // An AI seat is handed exactly what a networked client is
                 // handed: its own filtered view, and the choice addressed
                 // to it. Nothing else is reachable from here.
-                SeatKind::Ai(agent) => {
+                SeatKind::Ai(agent) | SeatKind::StandIn(agent) => {
                     let view = crate::view::player_view(
                         self.engine.state(),
                         player,
@@ -406,6 +508,20 @@ impl Session {
     #[must_use]
     pub const fn decision_timeout_secs(&self) -> u32 {
         self.house_rules.decision_timeout_secs
+    }
+
+    /// How long a seat may be gone before the house takes its chair, per the
+    /// table's house rules (`0` = wait forever).
+    ///
+    /// A second clock rather than the same one, because it answers a
+    /// different question. A seat with no socket is on no decision clock at
+    /// all — nobody should lose on time to a question they never saw — and
+    /// that is exactly the state this one measures. It is also independent of
+    /// `decision_timeout_secs`: a table that gives its players all the time in
+    /// the world still must not sit forever waiting on a closed laptop.
+    #[must_use]
+    pub const fn reconnect_window_secs(&self) -> u32 {
+        self.house_rules.reconnect_window_secs
     }
 
     /// The seat that currently owes an answer, if any.
@@ -725,6 +841,136 @@ mod tests {
             before.seats.iter().map(|s| s.is_ai).collect::<Vec<_>>(),
             after.seats.iter().map(|s| s.is_ai).collect::<Vec<_>>(),
             "the roster says what the chair is, not who is holding it"
+        );
+    }
+
+    /// The bug this whole mechanism exists for: seat 0 walks away holding the
+    /// decision, and the table waits on it forever.
+    ///
+    /// A seat with no socket is on no decision clock — deliberately, because
+    /// nobody should lose on time to a question they never saw — so nothing
+    /// else was ever going to move this game again.
+    #[test]
+    fn a_chair_the_house_stands_in_for_stops_holding_up_the_table() {
+        let gone = PlayerId::new(0);
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        let _ = session.pump();
+        assert_eq!(session.awaiting_seat(), Some(gone), "seat 0 owes an answer");
+        let stuck = session.decision_seq();
+        assert_eq!(
+            session
+                .pump()
+                .iter()
+                .filter(|(_, e)| matches!(e.msg, Some(v1::envelope::Msg::ChoiceRequest(_))))
+                .count(),
+            1,
+            "pumping again just asks seat 0 the same question"
+        );
+        assert_eq!(session.decision_seq(), stuck, "and the game has not moved");
+
+        assert!(session.stand_in(gone), "seat 0 is a player's chair");
+        let _ = session.pump();
+        assert!(
+            session.decision_seq() > stuck,
+            "the house answered and the table moved on"
+        );
+    }
+
+    /// Both refusals in one place, because `stand_in` is reached from a
+    /// deadline rather than from a request: a caller that stood in for the
+    /// wrong chair would have no one to tell.
+    #[test]
+    fn only_a_players_chair_can_be_stood_in_for() {
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        assert!(
+            !session.stand_in(PlayerId::new(1)),
+            "seat 1 is an AI chair; it is not waiting for anyone"
+        );
+        assert!(
+            !session.stand_in(PlayerId::new(7)),
+            "there is no seat 7 to stand in for"
+        );
+        assert!(
+            !session.hand_back(PlayerId::new(0)),
+            "seat 0 is already the player's"
+        );
+        assert!(session.take_over(PlayerId::new(1)), "now it is driven");
+        assert!(
+            !session.stand_in(PlayerId::new(1)),
+            "a driven chair hands itself back when its socket drops"
+        );
+        assert!(session.stand_in(PlayerId::new(0)));
+        assert!(
+            !session.stand_in(PlayerId::new(0)),
+            "and the house cannot sit down twice"
+        );
+    }
+
+    /// The chair was only ever borrowed.
+    #[test]
+    fn a_player_who_comes_back_gets_their_chair_back() {
+        let gone = PlayerId::new(0);
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        let _ = session.pump();
+        assert!(session.stand_in(gone));
+        assert!(session.hand_back(gone), "the house was holding it");
+        let _ = session.pump();
+        assert_eq!(
+            session.awaiting_seat(),
+            Some(gone),
+            "the question is theirs again"
+        );
+    }
+
+    /// A held chair still belongs to the player who left it.
+    ///
+    /// Two fields rather than one, because a seat that renamed itself to the
+    /// house AI after a thirty-second hiccup would be telling the table
+    /// something untrue — and would go on saying it after the player was
+    /// back, since a roster is sent once.
+    #[test]
+    fn a_held_chair_says_away_rather_than_calling_itself_an_ai() {
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        session.describe("g".to_string(), vec!["You".into(), "House AI".into()]);
+        assert!(session.stand_in(PlayerId::new(0)));
+        let seen = session.game_static(PlayerId::new(1));
+        assert!(seen.seats[0].away, "seat 0 is being stood in for");
+        assert!(!seen.seats[0].is_ai, "but it is still a player's chair");
+        assert!(session.hand_back(PlayerId::new(0)));
+        assert!(
+            !session.game_static(PlayerId::new(1)).seats[0].away,
+            "and it stops saying so"
+        );
+    }
+
+    /// Whether a `GameStatic` was addressed to a seat in one pump.
+    fn told_the_roster(out: &[(PlayerId, Envelope)], seat: PlayerId) -> bool {
+        out.iter()
+            .any(|(p, e)| *p == seat && matches!(e.msg, Some(v1::envelope::Msg::GameStatic(_))))
+    }
+
+    /// The roster travels in `GameStatic`, which is sent once when a socket
+    /// attaches — so a chair could change hands and the table was simply
+    /// never told. That had been true of `take_over`/`release` since they
+    /// existed; standing in is what made it visible.
+    #[test]
+    fn a_seat_learns_the_roster_changed_when_a_chair_changes_hands() {
+        let watcher = PlayerId::new(0);
+        let mut session = Session::new(&test_preset()).expect("the preset builds");
+        session.describe("g".to_string(), vec!["You".into(), "House AI".into()]);
+        let _ = session.pump();
+        assert!(
+            !told_the_roster(&session.pump(), watcher),
+            "nothing changed, so nothing is re-sent"
+        );
+        assert!(session.take_over(PlayerId::new(1)));
+        assert!(
+            told_the_roster(&session.pump(), watcher),
+            "the chair changed hands and the table is told"
+        );
+        assert!(
+            !told_the_roster(&session.pump(), watcher),
+            "told once, not on every view after"
         );
     }
 

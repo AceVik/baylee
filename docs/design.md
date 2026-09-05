@@ -145,7 +145,8 @@ fails on both locks and on every future one of the same shape.
   7, then 8, then 9, then 10. Bumped to 9 by `PlayerView::priority_held`, to 10
   by `PublicObject::granted_mana` and to 11 by the slot that field names. One
   audit worked from the stale number, which is what a stale contract file
-  costs.
+  costs. (**12** since 2026-09-05, when `SeatIdentity` gained `away` — a chair
+  the house is holding for a player who is not here.)
 - The copy limit was enforced **per row** in the gateway (`main.rs`) and **per
   card** in the client (`deckbuilder/builder.rs`). Two printings of one card
   therefore saved with eight copies — through the side that is supposed to be

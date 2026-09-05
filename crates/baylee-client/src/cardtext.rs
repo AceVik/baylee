@@ -315,6 +315,7 @@ mod tests {
                 player: baylee_core::ids::PlayerId::new(0),
                 display_name: "You".to_string(),
                 is_ai: false,
+                away: false,
                 team: None,
             }],
             prints: ids

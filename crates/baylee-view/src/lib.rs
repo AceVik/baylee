@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 11;
+pub const VIEW_VERSION: u32 = 12;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -308,6 +308,15 @@ pub struct SeatIdentity {
     pub display_name: String,
     /// Whether the seat is played by the house AI.
     pub is_ai: bool,
+    /// Whether a player's chair is being held by the house because nobody is
+    /// on the other end of it right now.
+    ///
+    /// Deliberately *not* the same field as `is_ai`: a chair the house is
+    /// standing in for still belongs to the player who left it, and a seat
+    /// that renamed itself to "the house AI" after a thirty-second hiccup
+    /// would be telling the table something that is not true. The two are
+    /// never both set.
+    pub away: bool,
     /// Team, for multiplayer formats where seats are allied.
     pub team: Option<u8>,
 }
