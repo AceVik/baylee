@@ -1,0 +1,19 @@
+{
+  "id": "1cad1bd2-7c56-4ce0-99a6-b2a49c1288dd",
+  "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838",
+  "name": "Arcane Signet",
+  "mana_cost": "{2}",
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+  "colors": [],
+  "color_identity": [],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "191",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

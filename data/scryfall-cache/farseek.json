@@ -1,0 +1,23 @@
+{
+  "id": "c1aac0f5-1d01-4673-b8d3-878d9a1d423c",
+  "oracle_id": "495e52e6-4c2b-4574-9474-eadbdcc8b4ac",
+  "name": "Farseek",
+  "mana_cost": "{1}{G}",
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.",
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "173",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

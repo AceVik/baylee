@@ -1,0 +1,23 @@
+{
+  "id": "7afc4a15-5ff8-457a-aa62-803b2d78d912",
+  "oracle_id": "78826359-fe63-44ad-adc4-a17ffcd710e4",
+  "name": "Nature's Lore",
+  "mana_cost": "{1}{G}",
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "177",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "11e12a84-e7be-4afc-a230-c2e644743fa8",
+  "oracle_id": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b",
+  "name": "Dark Ritual",
+  "mana_cost": "{B}",
+  "type_line": "Instant",
+  "oracle_text": "Add {B}{B}{B}.",
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "793",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

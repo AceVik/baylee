@@ -1,0 +1,19 @@
+{
+  "id": "b61634ae-05be-4b56-8ebb-9d4ade902e42",
+  "oracle_id": "ca204b66-8d0c-431a-8d34-282f7c2d17da",
+  "name": "Lightning Greaves",
+  "mana_cost": "{2}",
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}",
+  "colors": [],
+  "color_identity": [],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "202",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

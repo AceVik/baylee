@@ -513,3 +513,136 @@ lie.** Nobody writes a test for a mechanic the card says is missing, so the
 half-built path underneath it never gets exercised. Bug 3 had been live in
 every game containing a dual land; it took writing the test that the header
 said was pointless to find it.
+
+## 2026-09-05 — salvaging `cards/llm-batch`, and what the transcoder caught
+
+An abandoned branch held 26 hand-written cards. Ten of them had already
+reached `main` by other routes (landgen, the fetchland work), so the salvage
+was the remaining sixteen — the Commander staples: An Offer You Can't Refuse,
+Arcane Signet, Birds of Paradise, Commander's Sphere, Dark Ritual, Farseek,
+Fellwar Stone, Lightning Greaves, Llanowar Elves, Mind Stone, Nature's Lore,
+Negate, Rampant Growth, Swiftfoot Boots, Thought Vessel, Three Visits.
+
+**The branch was not merged, and could not have been.** Three reasons, each
+sufficient:
+
+1. Its `CardIndex` values (194–214) name other cards now. The ledger is
+   append-only, and it has grown from 214 entries to 1343 since the branch
+   was cut — merging would have put sixteen cards at sixteen occupied seats.
+2. The files predate `card!`/`face!` and the prelude, so every one of them
+   restates the defaults the macros exist to supply.
+3. The DSL had moved underneath them. Seven `AddMana*` variants had become
+   one `Effect::AddMana { source: ManaSource, .. }`, and `SearchLibrary` had
+   replaced `dest`/`tapped`/`shuffle` with a `finds: &[Find]` slice. The
+   branch names variants and fields that no longer exist.
+
+So the salvage was the normal path: sixteen names into `data/card-pool.txt`,
+then `xtask codegen`. **The transcoder read eight of the sixteen in full** —
+Birds of Paradise, Dark Ritual, Farseek, Llanowar Elves, Mind Stone, Nature's
+Lore, Negate, Three Visits — and the other eight came out as honest stubs.
+
+The entry worth keeping is Farseek. It searches for "a Plains, Island, Swamp,
+or Mountain card"; the branch had written that as `BASIC_LAND`. That filter
+is not a narrower version of the right one, it is wrong in both directions at
+once: it admits a basic Forest, which the card excludes, and it refuses Blood
+Crypt, which the card allows — and Farseek fetching a shockland is most of
+why the card is played. The transcoder, reading the same sentence off the
+forge script, produced the four-subtype `Or`. Nothing in the gate could have
+told the two apart: both compile, both pass `validate`, both are
+`Coverage::Implemented`.
+
+**So where the transcoder produces a card, prefer it to a hand-written one.**
+Not because a machine reads better than a person, but because the refusal
+rule means it read *every* clause — an LLM that misreads one clause produces
+exactly the same artefact as one that reads them all.
+
+### The test debt was real, but half of it was a measuring error
+
+The sixteen cards are the first or second user of four DSL features, so the
+first question was which of them the engine had never played. Grepping for
+`AddManaCommanderIdentity` and `AddManaLandColor` returned zero cards and
+zero tests — which was fiction: those are the *old* variant names, and the
+features are alive and well covered as `ManaSource::CommanderIdentity`
+(Command Tower) and `ManaSource::LandColor` (Reflecting Pool). Grep the
+spelling the code uses now, or the coverage number is made up.
+
+What survived the correction was genuine, and is now three tests in
+`card_tests`:
+
+- **Equipment had two cards and no engine test at all.** Sword of Hearth and
+  Home and Helm of the Host have been in the pool since M2; nothing had ever
+  equipped anything. `lightning_greaves_grants_both_keywords_to_what_it_is_attached_to`
+  is the first, and it checks the half that matters — the keywords land on
+  the creature, not on the Equipment.
+- **`LandColor { mine: false }` had a card (Exotic Orchard) and no test.**
+  The two sides of that effect differ by one comparison, so a sign error
+  would have produced a Fellwar Stone that reads your own lands and passed
+  every test in the suite.
+- **`CreateTokenForTargetController` had one card (Crib Swap) and no test.**
+  An Offer You Can't Refuse resolves it *after* countering the spell it
+  points at, so "its controller" has to be found through an object that is
+  already a card in a graveyard.
+
+### "The card is already on main" is not the same as "the card is finished"
+
+The plan for the branch was: for each card, does main have a file? If yes,
+nothing to salvage. That test was `[ -f ]`, and it is the wrong test. Nine
+lands answered "yes" and three of them — Evolving Wilds, Terramorphic Expanse
+and Rogue's Passage — were still `// GENERATED STUB`, because both readers
+had refused them: landgen knows thirteen sentence shapes and none of them is
+a library search, and the forge scripts carry clauses it does not claim.
+Deleting the branch on the strength of the file existing would have thrown
+away the only finished version of three cards.
+
+The check that answers the question is `grep -l "GENERATED STUB"`, and by
+extension: before deleting anything, compare what the two sides *say*, not
+whether both have something to say.
+
+All three are expressible today and are now written in the current DSL rather
+than copied. Two of them are one effect (`Filter::BASIC_LAND` into
+`Find::BATTLEFIELD_TAPPED`, which `search_tests` already covers through
+Cultivate), but the third was not covered at all: Rogue's Passage is the
+first card in the pool to *grant* `KeywordSet::UNBLOCKABLE`, a keyword
+`combat::can_block` has always read and no card had ever produced. Its test
+attacks with two creatures and points the Passage at one, because an empty
+blocker offer proves nothing on its own — a creature that could not block
+anyway produces the same empty list.
+
+Two smaller corrections came out of the same pass. Rampant Growth had
+restated `Filter::BASIC_LAND` as a local `static`, which is the thing
+`filters.rs` exists to stop; and Fellwar Stone's comment blamed
+`granted_mana` for the client planner counting it as zero, when the seam is
+`simple_mana` in `baylee-cards-dsl/src/manaread.rs` refusing a `LandColor`
+source outright. `granted_mana` is about abilities a card does not print;
+Fellwar Stone prints its own. A comment naming the wrong seam sends the next
+reader to the wrong file, which is the same defect class as the fetchland
+comments that said "tapped" where the code says untapped.
+
+### A test that was never run is a test that was not written
+
+The Lightning Greaves test was written in one sitting and first *ran* in the
+next. It went red immediately, and not on anything about the card: equipping
+worked, `attached_to` was set, and the creature had neither haste nor shroud.
+
+`Filter::AttachedToBySource` is an input to the layer projection, and the
+projection is cached behind a single generation counter. Every other write
+that feeds it — a counter, a token, a zone change, a static registering —
+bumps that counter. `Effect::AttachSelf` wrote `attached_to` and bumped
+nothing, and so did the SBA that unattaches an Equipment whose host is gone.
+
+The failure mode is worse than "it does not work", which is why nothing had
+caught it: the grant is not lost, it is *late*. It appears the moment
+anything else invalidates the cache — a creature entering, a counter, damage
+— so a Sword of Hearth and Home has been giving out its +2/+2 since M2, just
+not until something unrelated happened. The test found it only because it
+equipped and then asked immediately.
+
+Two lessons, and the second is the one worth keeping:
+
+- When a new filter reads a field, ask what invalidates the projection when
+  that field changes. "Nothing" is a legal answer for a field nothing reads;
+  it stops being legal the moment a filter reads it.
+- Equipment had two cards in the pool for months, a `validate` that passed
+  and a `codegen --check` that passed, and it did not work. Card data being
+  well-formed says nothing about the rules behind it running. The mechanic
+  has to be *played* once in an engine test, and the test has to be run.

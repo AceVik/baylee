@@ -1,0 +1,19 @@
+{
+  "id": "b30a8f92-ce42-4b27-a893-bcf97fde228d",
+  "oracle_id": "c97361b5-af16-4a7b-af85-a429dbaf4ad2",
+  "name": "Mind Stone",
+  "mana_cost": "{2}",
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mbc",
+  "set_name": "Mystery Booster Commander Edition",
+  "collector_number": "76",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

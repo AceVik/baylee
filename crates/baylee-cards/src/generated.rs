@@ -248,6 +248,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::treasure_map::CARD,
     ),
     (
+        "0b67c4e2-f88b-4e01-85a1-9d5f5b8db13b",
+        &crate::cards::commander_s_sphere::CARD,
+    ),
+    (
         "0b7393aa-d563-45bc-9946-8e7d1729d498",
         &crate::cards::mountain_valley::CARD,
     ),
@@ -266,6 +270,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "0bbd5a04-c281-4afb-98a1-657b4eca102c",
         &crate::cards::subterranean_hangar::CARD,
+    ),
+    (
+        "0bc7f093-bef0-4f1a-852c-4b75ebf54838",
+        &crate::cards::arcane_signet::CARD,
     ),
     (
         "0c25f6b1-8fb3-4406-9605-0282d2dbbcec",
@@ -564,6 +572,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::mortuary_mire::CARD,
     ),
     (
+        "1b882a0e-0ede-4d1a-bd1a-9b7cffbcde8e",
+        &crate::cards::three_visits::CARD,
+    ),
+    (
         "1bc44216-4e06-4f66-89b7-5c327004604e",
         &crate::cards::valakut_the_molten_pinnacle::CARD,
     ),
@@ -658,6 +670,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "23467047-6dba-4498-b783-1ebc4f74b8c2",
         &crate::cards::ancient_tomb::CARD,
+    ),
+    (
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+        &crate::cards::an_offer_you_can_t_refuse::CARD,
     ),
     (
         "23732d20-aba6-46cc-89d0-0542629bc6b5",
@@ -1002,6 +1018,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "33f52df8-4b44-4422-8b0a-37fead9c894b",
         &crate::cards::vineglimmer_snarl::CARD,
+    ),
+    (
+        "3407fe41-fdd3-4119-8f70-4bc4590a379f",
+        &crate::cards::negate::CARD,
     ),
     (
         "340bbe8b-e987-4c3e-ab4e-9dee63e57d4f",
@@ -1496,6 +1516,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::unstable_frontier::CARD,
     ),
     (
+        "495e52e6-4c2b-4574-9474-eadbdcc8b4ac",
+        &crate::cards::farseek::CARD,
+    ),
+    (
         "49e43de3-460b-4562-aef6-da43bd56debc",
         &crate::cards::spawning_bed::CARD,
     ),
@@ -1674,6 +1698,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "53d6113d-acdb-4754-9641-f7991a96c7b9",
         &crate::cards::yavimaya_hollow::CARD,
+    ),
+    (
+        "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b",
+        &crate::cards::dark_ritual::CARD,
     ),
     (
         "54022a10-c9f0-458d-a0ed-228843cd9a40",
@@ -2144,6 +2172,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::ravaged_highlands::CARD,
     ),
     (
+        "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+        &crate::cards::llanowar_elves::CARD,
+    ),
+    (
         "68979160-b5ce-4787-8a1e-1f40e614c3b0",
         &crate::cards::spirit_water_revival::CARD,
     ),
@@ -2548,6 +2580,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::shatterskull_smashing::CARD,
     ),
     (
+        "78826359-fe63-44ad-adc4-a17ffcd710e4",
+        &crate::cards::nature_s_lore::CARD,
+    ),
+    (
         "78a2972c-14f4-41f3-99f9-167948bdd73a",
         &crate::cards::petrified_hamlet::CARD,
     ),
@@ -2826,6 +2862,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "852d4dc3-404d-4565-99e9-1eac8f6eca5e",
         &crate::cards::desert_of_the_indomitable::CARD,
+    ),
+    (
+        "8539f295-5d58-4436-a73a-b9277c4c7795",
+        &crate::cards::rampant_growth::CARD,
     ),
     (
         "8551a9cf-c54b-42d4-92d6-550f4890a3d7",
@@ -3188,6 +3228,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::cavernous_maw::CARD,
     ),
     (
+        "95560508-7ac9-4be9-8a3f-3c7d5b52807b",
+        &crate::cards::fellwar_stone::CARD,
+    ),
+    (
         "956381ba-6d37-4a8a-846c-bad79222dbee",
         &crate::cards::force_of_will::CARD,
     ),
@@ -3274,6 +3318,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "995c8dac-fd27-468a-abd4-02372cf0c850",
         &crate::cards::mount_doom::CARD,
+    ),
+    (
+        "9965d9c5-2ebf-4a6c-930e-55c5890979be",
+        &crate::cards::thought_vessel::CARD,
     ),
     (
         "99720c65-be96-4220-8ed4-720660bf6928",
@@ -4212,6 +4260,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::shattered_sanctum::CARD,
     ),
     (
+        "c8b143ad-43ec-4e0d-a440-e348daa31391",
+        &crate::cards::swiftfoot_boots::CARD,
+    ),
+    (
         "c8c632ab-14ec-44e1-ac00-81d48336320d",
         &crate::cards::neglected_manor::CARD,
     ),
@@ -4228,6 +4280,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::sundering_eruption::CARD,
     ),
     (
+        "c97361b5-af16-4a7b-af85-a429dbaf4ad2",
+        &crate::cards::mind_stone::CARD,
+    ),
+    (
         "c9b7ea9c-3bcb-4538-aa25-cdb82a52037e",
         &crate::cards::goldmire_bridge::CARD,
     ),
@@ -4242,6 +4298,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "c9fe1383-1331-4a58-a45a-3320250221a9",
         &crate::cards::woodland_cemetery::CARD,
+    ),
+    (
+        "ca204b66-8d0c-431a-8d34-282f7c2d17da",
+        &crate::cards::lightning_greaves::CARD,
     ),
     (
         "ca4b6689-04ee-4227-9bdc-cb5a9590c745",
@@ -4466,6 +4526,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "d38476e9-2e47-4c0c-8129-483c0bd09ec0",
         &crate::cards::gruul_guildgate::CARD,
+    ),
+    (
+        "d3a0b660-358c-41bd-9cd2-41fbf3491b1a",
+        &crate::cards::birds_of_paradise::CARD,
     ),
     (
         "d3b7b541-6f05-46c1-8031-c848c4bd4635",
@@ -6732,10 +6796,26 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::ziatora_s_proving_ground::CARD),
     Some(&crate::cards::zoetic_cavern::CARD),
     Some(&crate::cards::zof_consumption::CARD),
+    Some(&crate::cards::an_offer_you_can_t_refuse::CARD),
+    Some(&crate::cards::arcane_signet::CARD),
+    Some(&crate::cards::birds_of_paradise::CARD),
+    Some(&crate::cards::commander_s_sphere::CARD),
+    Some(&crate::cards::dark_ritual::CARD),
+    Some(&crate::cards::farseek::CARD),
+    Some(&crate::cards::fellwar_stone::CARD),
+    Some(&crate::cards::lightning_greaves::CARD),
+    Some(&crate::cards::llanowar_elves::CARD),
+    Some(&crate::cards::mind_stone::CARD),
+    Some(&crate::cards::nature_s_lore::CARD),
+    Some(&crate::cards::negate::CARD),
+    Some(&crate::cards::rampant_growth::CARD),
+    Some(&crate::cards::swiftfoot_boots::CARD),
+    Some(&crate::cards::thought_vessel::CARD),
+    Some(&crate::cards::three_visits::CARD),
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x93c712006ec3a940;
+pub const POOL_HASH: u64 = 0x671372b294cbbd1;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

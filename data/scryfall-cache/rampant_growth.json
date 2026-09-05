@@ -1,0 +1,23 @@
+{
+  "id": "b7c47024-5e08-4b17-b41a-7647f8b814b9",
+  "oracle_id": "8539f295-5d58-4436-a73a-b9277c4c7795",
+  "name": "Rampant Growth",
+  "mana_cost": "{1}{G}",
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "set": "tdc",
+  "set_name": "Tarkir: Dragonstorm Commander",
+  "collector_number": "265",
+  "rarity": "common",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

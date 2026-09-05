@@ -694,3 +694,348 @@ fn a_granted_mana_ability_is_activatable_the_way_it_is_offered() {
         "and it is the colour that was named"
     );
 }
+
+fn swamp() -> baylee_core::ids::CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
+fn badlands() -> baylee_core::ids::CardIndex {
+    card_index("13ff3222-91cb-4796-a34e-899ed817694c")
+}
+fn lightning_greaves() -> baylee_core::ids::CardIndex {
+    card_index("ca204b66-8d0c-431a-8d34-282f7c2d17da")
+}
+fn llanowar_elves() -> baylee_core::ids::CardIndex {
+    card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
+}
+fn fellwar_stone() -> baylee_core::ids::CardIndex {
+    card_index("95560508-7ac9-4be9-8a3f-3c7d5b52807b")
+}
+fn an_offer_you_cant_refuse() -> baylee_core::ids::CardIndex {
+    card_index("234a734b-ba28-4f1b-9d01-3c3e7d516590")
+}
+fn dark_ritual() -> baylee_core::ids::CardIndex {
+    card_index("53f7c868-b03e-4fc2-8dcf-a75bbfa3272b")
+}
+
+/// Activates printed ability `index` of `card`.
+#[track_caller]
+fn activate(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+    index: u32,
+) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(id, ai)| {
+            *ai == index
+                && engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+        .expect("the ability is offered");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .expect("the ability activates");
+}
+
+/// The keywords a battlefield object has *after* the layer system has run,
+/// which is the only reading that can see a granted one.
+fn keywords(
+    engine: &Engine<RegistryLookup>,
+    object: baylee_core::ids::ObjectId,
+) -> baylee_cards_dsl::KeywordSet {
+    engine
+        .state()
+        .object(object)
+        .expect("object exists")
+        .characteristics()
+        .keywords
+}
+
+/// Taps everything that makes mana for `seat`, which is what a player does
+/// before casting.
+#[track_caller]
+fn tap_all_mana(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+}
+
+/// Lightning Greaves: "Equipped creature has haste and shroud." Equipment
+/// had two cards in the pool and no engine test at all, so nothing had ever
+/// checked the half that matters — that the keywords land on the creature
+/// the Equipment is attached to, and not on the Equipment.
+#[test]
+fn lightning_greaves_grants_both_keywords_to_what_it_is_attached_to() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(31, forest())
+        .battlefield(0, &[forest(), lightning_greaves(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("elves deployed");
+    let greaves = on_battlefield(&engine, p0, lightning_greaves()).expect("greaves deployed");
+    assert!(
+        !keywords(&engine, elves).contains(baylee_cards_dsl::KeywordSet::HASTE),
+        "nothing is equipped yet"
+    );
+
+    reach_main_phase(&mut engine, p0);
+    // Ability 1 is Equip {0}; ability 0 is the static that grants.
+    activate(&mut engine, p0, lightning_greaves(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "equip targets a creature you control, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(options, vec![elves], "the only creature you control");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(greaves)
+            .is_some_and(|o| o.attached_to == Some(elves))
+    });
+    let kw = keywords(&engine, elves);
+    assert!(
+        kw.contains(baylee_cards_dsl::KeywordSet::HASTE),
+        "equipped creature has haste"
+    );
+    assert!(
+        kw.contains(baylee_cards_dsl::KeywordSet::SHROUD),
+        "equipped creature has shroud"
+    );
+    assert!(
+        !keywords(&engine, greaves).contains(baylee_cards_dsl::KeywordSet::SHROUD),
+        "the Equipment grants the keywords, it does not keep them"
+    );
+}
+
+/// Fellwar Stone reads the colours off the lands an *opponent* controls.
+/// Reflecting Pool's side of that effect had a test; this side had a card
+/// (Exotic Orchard) and none — and the two differ by one comparison, so a
+/// sign error there would have produced a Stone that reads your own lands
+/// and passed every test in the suite.
+#[test]
+fn fellwar_stone_reads_the_opponents_lands_and_not_your_own() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(32, forest())
+        .battlefield(0, &[forest(), fellwar_stone()])
+        .battlefield(1, &[badlands()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    activate(&mut engine, p0, fellwar_stone(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected a colour choice, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::Black, ManaColor::Red],
+        "the opponent's Badlands — your own Forest is not an option"
+    );
+}
+
+/// An Offer You Can't Refuse: "Counter target noncreature spell. Its
+/// controller creates two Treasure tokens." The Treasures go to the player
+/// whose spell was countered, which is the whole cost of the card — and the
+/// effect resolves *after* the counter, so it has to find that player
+/// through a spell that is already a card in a graveyard.
+#[test]
+fn an_offer_you_cant_refuse_pays_the_countered_spells_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(33, forest())
+        .battlefield(0, &[island()])
+        .hand(0, &[an_offer_you_cant_refuse()])
+        .battlefield(1, &[swamp()])
+        .hand(1, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // p0 holds; p1 answers with an instant of their own.
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    let ritual = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p1))[0];
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: ritual })
+        .unwrap();
+
+    // p0 answers that: tap the Island, counter the Ritual.
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p0);
+    let offer = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: offer })
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![ritual], "the only noncreature spell up there");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ritual],
+            },
+        )
+        .unwrap();
+
+    let treasures = |e: &Engine<RegistryLookup>, seat: PlayerId| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Battlefield)
+            .iter()
+            .filter(|id| {
+                e.state()
+                    .object(**id)
+                    .is_some_and(|o| o.token.is_some() && o.controller == seat)
+            })
+            .count()
+    };
+    pass_until(&mut engine, |e| treasures(e, p1) == 2);
+    assert_eq!(
+        treasures(&engine, p0),
+        0,
+        "the Treasures are the countered player's, not the counterer's"
+    );
+    assert!(
+        on_battlefield(&engine, p1, dark_ritual()).is_none(),
+        "the Ritual was countered"
+    );
+}
+
+fn rogue_s_passage() -> baylee_core::ids::CardIndex {
+    card_index("f29dc596-2121-4421-8463-15f6c2e8b9b3")
+}
+
+/// Rogue's Passage: "{4}, {T}: Target creature can't be blocked this turn."
+///
+/// `KeywordSet::UNBLOCKABLE` was read by `combat::can_block` and granted by
+/// no card in the pool, so the rule had never been exercised from a card.
+/// The control is inside the test rather than beside it: seat 0 attacks with
+/// two creatures and only one of them was pointed at, so an empty offer —
+/// which a blocker that simply could not block would also produce — is not
+/// what this asserts.
+#[test]
+fn rogue_s_passage_takes_its_target_out_of_the_blockers_offer() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(17, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                rogue_s_passage(),
+                llanowar_elves(),
+                ondu_cleric(),
+            ],
+        )
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("elves deployed");
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("cleric deployed");
+
+    // Both of seat 0's creatures are summoning sick on turn 1, so the attack
+    // is on turn 3.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number >= 3
+            && e.state().turn.active == p0
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+    });
+    assert!(
+        !keywords(&engine, elves).contains(baylee_cards_dsl::KeywordSet::UNBLOCKABLE),
+        "nothing has been activated yet"
+    );
+
+    // Four Forests: the Passage itself is not a basic land, so the CR 305.6
+    // shortcut leaves it untapped to pay its own {T}.
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, rogue_s_passage(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the ability targets a creature, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&elves), "any creature is a legal target");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        keywords(e, elves).contains(baylee_cards_dsl::KeywordSet::UNBLOCKABLE)
+    });
+    assert!(
+        !keywords(&engine, cleric).contains(baylee_cards_dsl::KeywordSet::UNBLOCKABLE),
+        "the grant names the target and nothing else"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (elves, baylee_core::ids::Defender::Player(p1)),
+                    (cleric, baylee_core::ids::Defender::Player(p1)),
+                ],
+            },
+        )
+        .unwrap();
+
+    let blockers = loop {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { blockers, .. } => break blockers,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while reaching blockers: {other:?}"),
+        }
+    };
+    assert_eq!(blockers.len(), 1, "seat 1 has exactly one creature");
+    assert_eq!(
+        blockers[0].attackers,
+        vec![cleric],
+        "the Passage's target is not among the attackers it may be paired with"
+    );
+}

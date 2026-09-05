@@ -1,0 +1,19 @@
+{
+  "id": "3ef87948-0ad9-4757-a692-2262c8e24367",
+  "oracle_id": "95560508-7ac9-4be9-8a3f-3c7d5b52807b",
+  "name": "Fellwar Stone",
+  "mana_cost": "{2}",
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add one mana of any color that a land an opponent controls could produce.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mbc",
+  "set_name": "Mystery Booster Commander Edition",
+  "collector_number": "74",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

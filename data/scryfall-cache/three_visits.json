@@ -1,0 +1,23 @@
+{
+  "id": "99bf792f-963e-4509-8d3c-7db129c6a77f",
+  "oracle_id": "1b882a0e-0ede-4d1a-bd1a-9b7cffbcde8e",
+  "name": "Three Visits",
+  "mana_cost": "{1}{G}",
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a Forest card, put it onto the battlefield, then shuffle.",
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "181",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

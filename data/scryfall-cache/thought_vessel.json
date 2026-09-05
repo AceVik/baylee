@@ -1,0 +1,19 @@
+{
+  "id": "ad077996-6b5e-4eb8-bb6e-93d43c5efa8f",
+  "oracle_id": "9965d9c5-2ebf-4a6c-930e-55c5890979be",
+  "name": "Thought Vessel",
+  "mana_cost": "{2}",
+  "type_line": "Artifact",
+  "oracle_text": "You have no maximum hand size.\n{T}: Add {C}.",
+  "colors": [],
+  "color_identity": [],
+  "set": "mbc",
+  "set_name": "Mystery Booster Commander Edition",
+  "collector_number": "78",
+  "rarity": "uncommon",
+  "layout": "normal",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "card_faces": null
+}

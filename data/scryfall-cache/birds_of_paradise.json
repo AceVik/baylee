@@ -1,0 +1,23 @@
+{
+  "id": "492c2f9a-51e7-4e0f-9899-23bf43ea988b",
+  "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a",
+  "name": "Birds of Paradise",
+  "mana_cost": "{G}",
+  "type_line": "Creature — Bird",
+  "oracle_text": "Flying\n{T}: Add one mana of any color.",
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "set": "msc",
+  "set_name": "Marvel Super Heroes Commander",
+  "collector_number": "170",
+  "rarity": "rare",
+  "layout": "normal",
+  "power": "0",
+  "toughness": "1",
+  "loyalty": null,
+  "card_faces": null
+}
