@@ -283,6 +283,10 @@ fn run_attachment_sbas(state: &mut GameState) -> bool {
         if let Some(obj) = state.object_mut(id) {
             obj.attached_to = None;
         }
+        // The same projection input as the attaching side: an Equipment
+        // grants through `Filter::AttachedToBySource`, so a host that is
+        // gone has to take the grant with it.
+        state.invalidate_projections();
         changed = true;
     }
     changed

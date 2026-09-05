@@ -1513,6 +1513,13 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 && let Some(obj) = state.object_mut(res.source)
             {
                 obj.attached_to = Some(target_id);
+                // An Equipment grants through `Filter::AttachedToBySource`,
+                // so what it is attached to is an input to the layer
+                // projection. This is the attaching write; the SBA unattach
+                // in `sba.rs` is the other, and both have to bump the
+                // generation or the cached characteristics stay valid and
+                // the equipped creature keeps none of the keywords.
+                state.invalidate_projections();
             }
             None
         }
