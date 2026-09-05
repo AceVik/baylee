@@ -286,7 +286,53 @@ impl Duel {
     pub fn submit(&mut self, action: PlayerAction) {
         // Whatever was typed belonged to the question just answered.
         self.subtype_filter.clear();
+        // And so did the last refusal. Cleared here rather than when a new
+        // question arrives, because the acting seat is re-sent its own
+        // question every time anybody says anything — a refusal would have
+        // flashed and been gone before it was read. It stands until this
+        // player tries something else.
+        self.last_error = None;
         self.outbox.push(action);
+    }
+
+    /// Installs the question the host is asking.
+    ///
+    /// The line this draws is what everything in it obeys: state that belongs
+    /// to the *previous question* is cleared, state that belongs to *this
+    /// player* is not. The acting seat is re-sent its own question every time
+    /// anybody at the table says anything, so a refusal or an armed deed
+    /// dropped here would be dropped by the opponent pressing `F6`.
+    ///
+    /// A method rather than a match arm because that is the only way a test
+    /// can ask what a re-sent question does.
+    pub(crate) fn receive_choice(&mut self, pending: Pending) {
+        let seat = self.seat().unwrap_or(PlayerId::new(0));
+        if !matches!(pending, Pending::ChooseSubtype { .. }) {
+            self.subtype_filter.clear();
+        }
+        self.interaction = Some(Interaction::new(pending, seat));
+        // Decided here and not per frame: a panel that re-decided
+        // every frame whether to be open could never be closed.
+        if let Some(v) = self.view.as_ref() {
+            self.browser.follow(v, self.interaction.as_ref());
+        }
+        // A chooser belongs to the choice it was opened under. It
+        // would heal itself anyway — the options are rebuilt from the
+        // current `LegalActions` — but a menu that outlives its
+        // question is a menu a player has to dismiss.
+        self.ability_menu = None;
+        // …and so is a half-pressed concession. The game moved on.
+        self.concede_armed = false;
+        // An armed deed survives this, and that is the point. Only a question
+        // that is *not* this seat's priority window takes it — everything
+        // armable is a priority-window action.
+        if !matches!(
+            self.interaction.as_ref().map(Interaction::pending),
+            Some(Pending::Priority { player, .. }) if *player == seat
+        ) {
+            self.armed = None;
+        }
+        rebuild_board(self);
     }
 
     /// The actions queued for the host but not yet sent.
@@ -569,37 +615,7 @@ fn poll_host(
                     next.set(DuelPhase::Finished);
                     reports.write(DuelReport::Finished);
                 }
-                let seat = duel.seat().unwrap_or(PlayerId::new(0));
-                if !matches!(*pending, Pending::ChooseSubtype { .. }) {
-                    duel.subtype_filter.clear();
-                }
-                duel.interaction = Some(Interaction::new(*pending, seat));
-                // Decided here and not per frame: a panel that re-decided
-                // every frame whether to be open could never be closed.
-                let d = &mut *duel;
-                if let Some(v) = d.view.as_ref() {
-                    d.browser.follow(v, d.interaction.as_ref());
-                }
-                // A chooser belongs to the choice it was opened under. It
-                // would heal itself anyway — the options are rebuilt from the
-                // current `LegalActions` — but a menu that outlives its
-                // question is a menu a player has to dismiss.
-                duel.ability_menu = None;
-                // …and so is a half-pressed concession. The game moved on.
-                duel.concede_armed = false;
-                // An armed deed survives this, and that is the point: the
-                // acting seat is re-sent its own question every time anybody
-                // says anything, so clearing here would let the opponent
-                // disarm a spell by pressing `F6`. Only a question that is
-                // *not* this seat's priority window takes it — everything
-                // armable is a priority-window action.
-                if !matches!(
-                    duel.interaction.as_ref().map(Interaction::pending),
-                    Some(Pending::Priority { player, .. }) if *player == seat
-                ) {
-                    duel.armed = None;
-                }
-                rebuild_board(&mut duel);
+                duel.receive_choice(*pending);
             }
             HostMessage::Failed(reason) => {
                 duel.last_error = Some(reason.clone());

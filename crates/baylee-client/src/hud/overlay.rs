@@ -109,9 +109,13 @@ pub fn sync_overlay(
             lang, result, seat, team,
         ))
     });
-    let prompt = ending
-        .or_else(|| duel.interaction.as_ref().map(|i| i.prompt().headline(lang)))
-        .or_else(|| duel.last_error.clone());
+    let prompt = ending.or_else(|| duel.interaction.as_ref().map(|i| i.prompt().headline(lang)));
+    // A refusal used to *stand in* for the headline, which meant it was only
+    // ever seen when nothing was being asked — and the engine refuses an
+    // answer precisely while a question is standing. The player clicked, the
+    // bar went on saying "Choose a target", and nothing else happened. It is
+    // its own line now, under whatever the bar was already saying.
+    let error = duel.last_error.clone();
     let hovered = duel.hovered;
     let selected: Vec<ObjectId> = duel
         .interaction
@@ -143,6 +147,7 @@ pub fn sync_overlay(
 
     if revision.seq == seq
         && revision.prompt == prompt
+        && revision.error == error
         && revision.hovered == hovered
         && revision.selected == selected
         && revision.orders.as_ref().is_some_and(|o| o.same_as(&orders))
@@ -166,6 +171,7 @@ pub fn sync_overlay(
     }
     revision.seq = seq;
     revision.prompt.clone_from(&prompt);
+    revision.error.clone_from(&error);
     revision.hovered = hovered;
     revision.selected.clone_from(&selected);
     revision.orders = Some(orders.clone());
@@ -342,7 +348,7 @@ pub fn sync_overlay(
 
     // ---- prompt bar (choice headline + answer buttons), above the hand,
     // padded clear of the phase rail ---------------------------------------
-    if let Some(text) = prompt {
+    if prompt.is_some() || error.is_some() {
         let waiting = !duel.is_my_turn_to_act();
         let bar = commands
             .spawn((
@@ -360,18 +366,36 @@ pub fn sync_overlay(
                 soft_shadow(),
             ))
             .id();
-        let headline = commands
-            .spawn((
-                Text::new(text),
-                tf(&fonts, 18.0),
-                TextColor(if waiting {
-                    palette::MUTED
-                } else {
-                    palette::ACCENT
-                }),
-            ))
-            .id();
-        commands.entity(bar).add_child(headline);
+        if let Some(text) = prompt {
+            let headline = commands
+                .spawn((
+                    Text::new(text),
+                    tf(&fonts, 18.0),
+                    TextColor(if waiting {
+                        palette::MUTED
+                    } else {
+                        palette::ACCENT
+                    }),
+                ))
+                .id();
+            commands.entity(bar).add_child(headline);
+        }
+
+        // What the engine said no to. It survives until this seat submits
+        // something else (`Duel::submit` clears it), so it is still there to
+        // read after the click that earned it — and it is drawn even while
+        // another seat is being asked, because a refusal is an answer to
+        // something *this* player did.
+        if let Some(text) = error {
+            let line = commands
+                .spawn((
+                    Text::new(text),
+                    tf(&fonts, 13.0),
+                    TextColor(palette::DANGER),
+                ))
+                .id();
+            commands.entity(bar).add_child(line);
+        }
 
         // A choice that is answered by clicking has to say so. The prompt
         // bar used to draw "Discard 1 card(s)" and stop: no button, because

@@ -353,6 +353,12 @@ pub struct HudRevision {
     /// How many printings have text. Text arrives over the network mid-game,
     /// and a face built before it lands says a good deal less.
     texts: usize,
+    /// The last refusal, so that one appearing rebuilds the bar.
+    ///
+    /// Separate from `prompt` because it no longer replaces it: a refusal
+    /// happens while a question is standing, and the two lines are drawn
+    /// together.
+    error: Option<String>,
     /// How much art has arrived, failed or been evicted.
     ///
     /// Same reason as `texts`, one asset later: a hand card is built with
