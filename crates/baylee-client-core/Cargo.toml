@@ -19,3 +19,8 @@ serde_json.workspace = true
 
 [dev-dependencies]
 baylee-cards-dsl.workspace = true
+
+[features]
+# The view builders in `test_support`, for tests in crates above this one.
+# Enabled through a dev-dependency, so it is never in a shipped build.
+test-support = []

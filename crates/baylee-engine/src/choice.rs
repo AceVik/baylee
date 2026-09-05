@@ -399,6 +399,28 @@ impl SeatAutomation {
     }
 }
 
+/// The ability index of a *granted* activated ability.
+///
+/// An ability a continuous effect handed to a permanent is not printed on
+/// that permanent's card, so it has no position in the card's ability list to
+/// be named by. It is offered under this index instead, and
+/// [`PlayerAction::ActivateAbility`] takes it back the same way.
+///
+/// Named rather than written out because a client reads it: `u32::MAX` in a
+/// client would look like a bug, and `index + 1` for a label is one —
+/// arithmetic on a synthetic index overflows, which is exactly what happened
+/// to the ability chooser.
+///
+/// One slot per permanent, so a permanent granted two abilities offers the
+/// first. That is the engine's own limit, not this constant's.
+pub const GRANTED_ABILITY: u32 = u32::MAX;
+
+/// The ability index of a prepared permanent's linked cast (Emeritus of Woe).
+///
+/// Same reason as [`GRANTED_ABILITY`]: what is being activated is not an
+/// ability the card prints.
+pub const PREPARED_CAST: u32 = u32::MAX - 1;
+
 /// Everything a player may legally do with priority (precomputed).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct LegalActions {

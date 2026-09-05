@@ -913,6 +913,18 @@ messages! {
     TapFor { en: "Tap for {0}", de: "Tappen für {0}" },
     /// Ability {0}
     AbilityNumbered { en: "Ability {0}", de: "Fähigkeit {0}" },
+    /// Granted ability
+    ///
+    /// An ability another permanent handed this one. It has no position on
+    /// the card to be numbered by, so "Ability 1" would be a lie about a
+    /// printed ability that is also there.
+    GrantedAbility { en: "Granted ability", de: "Verliehene Fähigkeit" },
+    /// Cast the prepared spell
+    ///
+    /// Prepared (Emeritus of Woe) is offered under the other synthetic index,
+    /// and it is a cast rather than an ability — so it is neither numbered
+    /// nor ever a mana ability.
+    PreparedCast { en: "Cast the prepared spell", de: "Vorbereiteten Zauber wirken" },
     /// Sacrifice this
     CostSacrificeThis { en: "Sacrifice this", de: "Opfere dies" },
     /// Sacrifice

@@ -33,6 +33,9 @@ ehttp.workspace = true
 ewebsock.workspace = true
 
 [dev-dependencies]
+# The same crate as above, with its view builders switched on. A test target
+# only; `cargo build` of the client never sees the feature.
+baylee-client-core = { workspace = true, features = ["test-support"] }
 uuid.workspace = true
 naga.workspace = true
 # The networked host is tested against a real websocket server built from a

@@ -99,10 +99,32 @@ pub fn options(
         let Some(action) = interaction.activate(object, index) else {
             continue;
         };
+        // The two synthetic indices are not positions on the card, so neither
+        // the registry nor the card's ability list has anything to say about
+        // them — and the fallback label counts them out as "Ability N", which
+        // on `GRANTED_ABILITY` overflows: in a debug build the client dies the
+        // moment a Chromatic Lantern's land is under the pointer, and in a
+        // release build the button reads "Ability 0". For the granted one the
+        // engine has already answered the question that decides the button —
+        // whether tapping it is a mana ability — and a prepared cast is a
+        // cast, never a mana ability.
+        let (label, mana) = match index {
+            baylee_engine::choice::GRANTED_ABILITY => (
+                Phrase::GrantedAbility.text(lang).to_string(),
+                legal.mana_abilities.contains(&object),
+            ),
+            baylee_engine::choice::PREPARED_CAST => {
+                (Phrase::PreparedCast.text(lang).to_string(), false)
+            }
+            _ => (
+                printed_label(lang, view, object, index),
+                makes_mana(view, object, index),
+            ),
+        };
         out.push(AbilityOption {
             action,
-            label: printed_label(lang, view, object, index),
-            mana: makes_mana(view, object, index),
+            label,
+            mana,
         });
     }
     out
@@ -205,5 +227,72 @@ const fn pip(color: ManaColor) -> char {
         ManaColor::Red => 'R',
         ManaColor::Green => 'G',
         ManaColor::Colorless => 'C',
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    use baylee_core::ids::PlayerId;
+    use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};
+
+    fn offering(abilities: Vec<(ObjectId, u32)>, mana: Vec<ObjectId>) -> Interaction {
+        Interaction::new(
+            Pending::Priority {
+                player: PlayerId::new(0),
+                legal: Box::new(LegalActions {
+                    abilities,
+                    mana_abilities: mana,
+                    ..LegalActions::default()
+                }),
+            },
+            PlayerId::new(0),
+        )
+    }
+
+    /// The two synthetic indices are offered like any other ability and have
+    /// to be labelled without asking the card about them.
+    ///
+    /// `GRANTED_ABILITY` is `u32::MAX`, and the fallback label counts an
+    /// ability out as `index + 1` — so a permanent under a Chromatic Lantern
+    /// killed the client outright in a debug build, on the frame the chooser
+    /// was built. Nothing in the duel-flow ledger reaches this: it drives
+    /// `Interaction`, not the list of buttons drawn from it.
+    #[test]
+    fn a_granted_ability_is_labelled_without_asking_the_card_it_is_not_on() {
+        let id = ObjectId::new(1, 0);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [token(1, 0, "Ally", 2, 2)])
+            .build();
+
+        // Granted, and the engine says it makes mana — so it is one tap, not
+        // arm-then-act.
+        let i = offering(vec![(id, GRANTED_ABILITY)], vec![id]);
+        let out = options(Lang::En, &view, &i, id);
+        assert_eq!(out.len(), 1, "one granted ability, one button: {out:?}");
+        assert_eq!(out[0].label, "Granted ability");
+        assert!(out[0].mana, "the engine offered it as a mana ability");
+        assert_eq!(
+            out[0].action,
+            PlayerAction::ActivateAbility {
+                source: id,
+                ability_index: GRANTED_ABILITY,
+            }
+        );
+
+        // The same ability granted by something that is not a mana source.
+        let i = offering(vec![(id, GRANTED_ABILITY)], vec![]);
+        assert!(
+            !options(Lang::En, &view, &i, id)[0].mana,
+            "nothing else can tell the client this, so it must be the offer"
+        );
+
+        // A prepared cast is a cast: never a mana ability, and never
+        // "Ability 4294967295".
+        let i = offering(vec![(id, PREPARED_CAST)], vec![]);
+        let out = options(Lang::En, &view, &i, id);
+        assert_eq!(out[0].label, "Cast the prepared spell");
+        assert!(!out[0].mana);
     }
 }

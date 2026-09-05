@@ -51,8 +51,14 @@ pub mod manaplan;
 pub mod prefs;
 pub mod tabletop;
 
-#[cfg(test)]
-pub(crate) mod test_support;
+/// View builders for tests.
+///
+/// Reachable from a crate above this one through the `test-support` feature,
+/// which only a dev-dependency ever turns on: `baylee-client` has tests that
+/// need a `PlayerView` and no way to spell one, and a second builder written
+/// out there would drift from this one.
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
 
 pub use automation::{AutoAnswer, AutoPilot, PhaseOrders};
 pub use board::{

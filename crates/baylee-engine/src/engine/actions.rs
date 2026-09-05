@@ -836,7 +836,12 @@ impl<L: CardLookup> Engine<L> {
                     self.after_action(player);
                     return Ok(());
                 }
-                self.start_activation(player, source, u32::MAX, SmallVec::new())
+                self.start_activation(
+                    player,
+                    source,
+                    crate::choice::GRANTED_ABILITY,
+                    SmallVec::new(),
+                )
             }
             (
                 Pending::ChooseAttackers { player: p, .. },

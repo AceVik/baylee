@@ -210,7 +210,7 @@ impl<L: CardLookup> Engine<L> {
                         )
                     });
                     if affordable {
-                        legal.abilities.push((id, u32::MAX - 1));
+                        legal.abilities.push((id, crate::choice::PREPARED_CAST));
                     }
                 }
             }
@@ -234,7 +234,7 @@ impl<L: CardLookup> Engine<L> {
                     ),
                 };
                 if applies && self.can_afford(player, id, cost) {
-                    legal.abilities.push((id, u32::MAX));
+                    legal.abilities.push((id, crate::choice::GRANTED_ABILITY));
                     if *mana_ability {
                         legal.mana_abilities.push(id);
                     }
@@ -541,11 +541,11 @@ impl<L: CardLookup> Engine<L> {
     ) -> Result<(), EngineError> {
         // Prepared cast (synthetic index u32::MAX - 1): pay the linked
         // spell's cost, put a copy on the stack, unprepare the source.
-        if ability_index == u32::MAX - 1 {
+        if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);
         }
         // Granted abilities (synthetic index): resolve via the side map.
-        if ability_index == u32::MAX {
+        if ability_index == crate::choice::GRANTED_ABILITY {
             return self.start_granted_activation(player, source, targets);
         }
         // Loyalty abilities route to their own activation path first.
