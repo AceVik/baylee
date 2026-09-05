@@ -2,7 +2,8 @@
 //! Oracle: {T}, Pay 1 life, Sacrifice this land: Search your library for a Swamp or Mountain card, put it onto the battlefield, then shuffle.
 //! Set: MH3 #216 — Modern Horizons 3 | Scryfall ID: 579743fe-f71e-4cb2-8629-d6b02ed1591d | Oracle ID: fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57
 // IMPLEMENTED — fetchland (tap + pay life + sacrifice → search Swamp/Mountain
-// to the battlefield tapped, shuffle).
+// to the battlefield untapped, shuffle). Untapped is the whole difference
+// between a fetchland and Evolving Wilds; `Find::BATTLEFIELD` says so.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::land;

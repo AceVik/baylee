@@ -2,7 +2,8 @@
 //! Oracle: {T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.
 //! Set: MKC #246 — Commander: Murders at Karlov Manor | Scryfall ID: 6e288374-2b71-4ace-b1d2-a19fee6cb4af | Oracle ID: ef86989d-ce80-4e55-aece-7d11710eeffa
 // IMPLEMENTED — fetchland (tap + pay life + sacrifice → search Island/Swamp
-// to the battlefield tapped, shuffle).
+// to the battlefield untapped, shuffle). Untapped is the whole difference
+// between a fetchland and Evolving Wilds; `Find::BATTLEFIELD` says so.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::land;
