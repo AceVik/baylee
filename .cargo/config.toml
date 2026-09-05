@@ -11,13 +11,16 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 #
 # `baylee-client` is a Bevy crate and dominates a full `--workspace` run, so an
 # engine or card change that rebuilt it was paying for a renderer it had not
-# touched. Eight crates rather than the obvious five: `baylee-gamehost`'s AI
-# harness pulls `baylee-ai`, and `codegen --check` / `validate` live in
-# `baylee-cards-codegen` — a rules gate without those two lets CI failures
-# through, which saves no time at all.
+# touched. It is the *only* exclusion, and that is the point: this said
+# `-p` eight times at first, which quietly left out `baylee-engine-server`,
+# which links `baylee-gamehost` directly, and `baylee-gateway`, whose
+# end-to-end tests link it through that crate. A new variant on a public enum
+# like `SeatKind` would have broken both with the rules gate green. An
+# enumeration also goes stale the moment a crate is added; "everything but
+# the renderer" cannot.
 #
 # Two aliases because a cargo alias is exactly one subcommand.
 # `scripts/gate-rules.sh` runs both and stops at the first failure.
 [alias]
-lint-rules = "clippy --all-targets -p baylee-core -p baylee-view -p baylee-engine -p baylee-cards -p baylee-cards-dsl -p baylee-cards-codegen -p baylee-ai -p baylee-gamehost -- -D warnings"
-test-rules = "test --all-targets -p baylee-core -p baylee-view -p baylee-engine -p baylee-cards -p baylee-cards-dsl -p baylee-cards-codegen -p baylee-ai -p baylee-gamehost"
+lint-rules = "clippy --workspace --all-targets --exclude baylee-client -- -D warnings"
+test-rules = "test --workspace --all-targets --exclude baylee-client"

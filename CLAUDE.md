@@ -18,14 +18,17 @@ cargo fmt --all                                          # format
 ```
 
 `gate-rules.sh` is fmt + `cargo lint-rules` + `cargo test-rules`, the last two
-being aliases in `.cargo/config.toml` over eight crates. It exists because
-`baylee-client` is a Bevy crate and dominates a `--workspace` run: an engine
-or card change that rebuilt it was paying twenty minutes for a renderer it
-had not touched. Eight crates and not the obvious five — `baylee-gamehost`'s
-AI harness pulls `baylee-ai`, and `codegen --check` / `validate` live in
-`baylee-cards-codegen`, so a shorter list would let CI failures through and
-save nothing. It is a **filter, not a replacement**: it says nothing about the
-client, and the full gate still runs before a push.
+being aliases in `.cargo/config.toml` for `--workspace --exclude
+baylee-client`. It exists because `baylee-client` is a Bevy crate and
+dominates a `--workspace` run: an engine or card change that rebuilt it was
+paying twenty minutes for a renderer it had not touched. The renderer is the
+**only** exclusion, and that is deliberate — the aliases first named eight
+crates by hand, leaving out `baylee-engine-server` (which links
+`baylee-gamehost`) and `baylee-gateway` (whose e2e tests link it through
+that crate), so a new variant on a public enum would have broken both with
+the rules gate green. A hand-written list also goes stale the moment a crate
+is added. It is a **filter, not a replacement**: it says nothing about the
+client, so the full gate still runs before a push.
 
 Single tests. Most engine tests are inline `#[cfg(test)]` modules under
 `crates/baylee-engine/src/engine/*_tests.rs`, so the module path is the filter:
