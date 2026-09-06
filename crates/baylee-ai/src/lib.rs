@@ -14,6 +14,7 @@
 
 #![warn(missing_docs)]
 
+mod activate;
 pub mod combat;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -126,7 +127,20 @@ impl HeuristicAgent {
                 if let Some(&card) = legal.lands.first() {
                     return PlayerAction::PlayLand { card };
                 }
-                // 2. Tap for mana.
+                // 2. Crack a fetchland.
+                //
+                // Before tapping, because the land it finds is mana this
+                // turn, and before casting, because step 4 measures what is
+                // affordable. A fetchland left alone is not a slow land, it
+                // is a land that makes nothing at all — and eight of them
+                // sit in the acceptance decks.
+                if let Some((source, ability_index)) = activate::fetch(view, &legal) {
+                    return PlayerAction::ActivateAbility {
+                        source,
+                        ability_index,
+                    };
+                }
+                // 3. Tap for mana.
                 //
                 // This asked `legal.castable` whether anything was worth
                 // paying for, and that is the one list which cannot answer
@@ -164,7 +178,7 @@ impl HeuristicAgent {
                         source: legal.mana_abilities[0],
                     };
                 }
-                // 3. Cast the costliest castable spell.
+                // 4. Cast the costliest castable spell.
                 if let Some(card) = legal
                     .castable
                     .iter()
@@ -173,10 +187,25 @@ impl HeuristicAgent {
                 {
                     return PlayerAction::CastSpell { card };
                 }
-                // 4. Activated abilities are NOT used by the v1
-                //    heuristic — blind activation loops on free no-op
-                //    abilities. (Equipment/loyalty use comes with
-                //    evaluation in a later difficulty tier.)
+                // 5. Everything else the policy recognises — a
+                //    planeswalker's loyalty, a permanent that draws or
+                //    makes a token for a tap.
+                //
+                //    This used to be a comment saying activated abilities
+                //    were skipped because blind activation "loops on free
+                //    no-op abilities". That is true of a free ability and
+                //    of nothing else: any cost that taps, sacrifices,
+                //    discards, exiles or spends alters the state the next
+                //    `LegalActions` is built from, so the handle is gone or
+                //    unaffordable when the seat next has priority.
+                //    `activate::choose` refuses the free shape and takes
+                //    the rest by an explicit whitelist.
+                if let Some((source, ability_index)) = activate::choose(view, &legal) {
+                    return PlayerAction::ActivateAbility {
+                        source,
+                        ability_index,
+                    };
+                }
                 PlayerAction::PassPriority
             }
             // Who may attack and what may be attacked both come from the
@@ -821,6 +850,108 @@ mod tests {
         assert_eq!(
             agent.act(&v, &pending),
             PlayerAction::ChoosePlayer(PlayerId::new(1))
+        );
+    }
+
+    /// The same permanent, but backed by a real registry card so the
+    /// activation policy can read what its abilities cost and do.
+    fn carded(mut object: PublicObject, index: u32, types: TypeSet) -> PublicObject {
+        object.card = Some(baylee_view::CardIdentity {
+            index: baylee_core::ids::CardIndex::new(index),
+            print: baylee_core::ids::PrintRef::new(0),
+            face: 0,
+        });
+        object.types = types;
+        object
+    }
+
+    /// Priority with exactly these abilities on offer and nothing else.
+    fn offering(abilities: Vec<(ObjectId, u32)>) -> Pending {
+        Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                abilities,
+                ..Default::default()
+            }),
+        }
+    }
+
+    /// Arid Mesa is `{T}, Pay 1 life, Sacrifice this: search`. An agent that
+    /// leaves it alone has played a land that makes no mana whatsoever, which
+    /// is what every fetchland in the acceptance decks did until now.
+    #[test]
+    fn a_fetchland_is_cracked() {
+        let mesa = carded(permanent(obj(1), PlayerId::new(0), 0), 7, TypeSet::LAND);
+        let v = view(0, &[20, 20], vec![mesa]);
+
+        assert_eq!(
+            agent().act(&v, &offering(vec![(obj(1), 0)])),
+            PlayerAction::ActivateAbility {
+                source: obj(1),
+                ability_index: 0,
+            },
+            "the fetchland was left on the battlefield doing nothing"
+        );
+    }
+
+    /// The same land at six life stays put. One life is not what stops it —
+    /// the margin after it is, and it is the same margin the pay-life-or-
+    /// enter-tapped answer keeps.
+    #[test]
+    fn a_fetchland_is_not_cracked_on_a_low_life_total() {
+        let mesa = carded(permanent(obj(1), PlayerId::new(0), 0), 7, TypeSet::LAND);
+        let v = view(0, &[6, 20], vec![mesa]);
+
+        assert_eq!(
+            agent().act(&v, &offering(vec![(obj(1), 0)])),
+            PlayerAction::PassPriority
+        );
+    }
+
+    /// Jace's ultimate is his −12, and at three loyalty the engine offers
+    /// only the first three abilities. "The most negative thing available"
+    /// would take the −1 every turn until he was gone; reading the ultimate
+    /// off the card instead sees it is not on offer, and pluses.
+    #[test]
+    fn a_walker_pluses_when_its_ultimate_is_out_of_reach() {
+        let jace = carded(
+            walker(obj(1), PlayerId::new(0), 3),
+            76,
+            TypeSet::PLANESWALKER,
+        );
+        let v = view(0, &[20, 20], vec![jace]);
+
+        assert_eq!(
+            agent().act(&v, &offering(vec![(obj(1), 0), (obj(1), 1), (obj(1), 2)])),
+            PlayerAction::ActivateAbility {
+                source: obj(1),
+                ability_index: 0,
+            },
+            "the walker spent loyalty it should have gained"
+        );
+    }
+
+    /// Offered the ultimate, it takes the ultimate — the engine only lists a
+    /// negative ability the walker can actually pay for.
+    #[test]
+    fn a_walker_takes_its_ultimate_when_it_is_offered() {
+        let jace = carded(
+            walker(obj(1), PlayerId::new(0), 12),
+            76,
+            TypeSet::PLANESWALKER,
+        );
+        let v = view(0, &[20, 20], vec![jace]);
+
+        assert_eq!(
+            agent().act(
+                &v,
+                &offering(vec![(obj(1), 0), (obj(1), 1), (obj(1), 2), (obj(1), 3)])
+            ),
+            PlayerAction::ActivateAbility {
+                source: obj(1),
+                ability_index: 3,
+            }
         );
     }
 }

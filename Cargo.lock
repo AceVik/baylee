@@ -545,6 +545,7 @@ dependencies = [
 name = "baylee-ai"
 version = "0.1.0"
 dependencies = [
+ "baylee-cards",
  "baylee-cards-dsl",
  "baylee-core",
  "baylee-engine",

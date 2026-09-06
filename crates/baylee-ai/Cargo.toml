@@ -9,6 +9,14 @@ description = "Heuristic AI controllers with difficulty profiles"
 workspace = true
 
 [dependencies]
+# What an offered ability *does*. `LegalActions` names one as a
+# `(source, index)` handle and nothing else, so the registry is the only
+# place to read its cost and its effects — the same lookup the client makes
+# to label the buttons. It is not shared with `manasources::ability_at`
+# because a shared helper would need `baylee-view` and `baylee-cards` both,
+# and the two crates that have them (gamehost, client) are downstream of
+# this one.
+baylee-cards.workspace = true
 baylee-core.workspace = true
 # For `KeywordSet`'s bit positions. The view carries keywords as a raw
 # `u128` and the combat maths has to read flying, first strike, deathtouch

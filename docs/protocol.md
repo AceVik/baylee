@@ -245,6 +245,15 @@ actually cost). That is **`VIEW_VERSION` 5 → 6**.
 same reason: building a view takes the engine, which is the boundary the
 agent may not cross.
 
+The agent does depend on `baylee-cards`, and that is not a hole in the
+same wall. `LegalActions` names an activated ability as a
+`(source, index)` handle and carries nothing about what it costs or does,
+so deciding whether to use one means reading the registry — which is
+public card data, identical for every seat, and exactly the lookup the
+client makes to label the same buttons. The line is *state* versus
+*printed text*: a registry answers "what does Arid Mesa say", never "what
+is in that library".
+
 ## Combat enumerates its own answers
 
 `Pending::ChooseAttackers` carries `attackers` beside `defenders`, and
