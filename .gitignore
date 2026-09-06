@@ -10,3 +10,9 @@ dist/
 
 # local configuration (see .env.example)
 .env
+
+# Claude Code: the skills under .claude/skills are project knowledge and are
+# tracked; everything else in there is per-machine state.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
