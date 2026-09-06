@@ -10,5 +10,11 @@ workspace = true
 
 [dependencies]
 baylee-core.workspace = true
+# For `KeywordSet`'s bit positions. The view carries keywords as a raw
+# `u128` and the combat maths has to read flying, first strike, deathtouch
+# and trample out of it — writing those positions down here would be a
+# third copy of a table that already exists twice, and a renumbered keyword
+# would silently make the agent block flyers with ground creatures.
+baylee-cards-dsl.workspace = true
 baylee-engine.workspace = true
 baylee-view.workspace = true

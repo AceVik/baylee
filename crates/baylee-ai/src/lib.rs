@@ -14,6 +14,8 @@
 
 #![warn(missing_docs)]
 
+pub mod combat;
+
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
 use baylee_core::preset::Politics;
@@ -196,11 +198,25 @@ impl HeuristicAgent {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
                 let victim = self.pick_defender(view, &opponents);
-                let defender = aim_at(view, victim, &squad, &defenders);
-                let attackers = squad.into_iter().map(|id| (id, defender)).collect();
+                let going = combat::choose_attackers(view, &squad, victim);
+                if going.is_empty() {
+                    return PlayerAction::DeclareAttackers { attackers: vec![] };
+                }
+                // What they aim at is decided by the squad that is actually
+                // going, not by the whole board: a walker is only worth
+                // attacking when the attack kills it, and the creatures
+                // staying home add nothing to that sum.
+                let defender = aim_at(view, victim, &going, &defenders);
+                let attackers = going.into_iter().map(|id| (id, defender)).collect();
                 PlayerAction::DeclareAttackers { attackers }
             }
-            Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers { blockers: vec![] },
+            Pending::ChooseBlockers { blockers, .. } => PlayerAction::DeclareBlockers {
+                blockers: combat::choose_blocks(
+                    view,
+                    &blockers,
+                    view.seat(player).map_or(0, |s| s.life),
+                ),
+            },
             Pending::LegendChoice { options, .. } => PlayerAction::ChooseObjects {
                 objects: vec![options[0]],
             },
@@ -451,6 +467,11 @@ mod tests {
         ObjectId::new(slot, 0)
     }
 
+    /// A default-profile agent at a table with no teams.
+    fn agent() -> HeuristicAgent {
+        HeuristicAgent::new(AIProfile::default())
+    }
+
     /// One permanent on the battlefield, as the seat sees it.
     fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         PublicObject {
@@ -693,6 +714,96 @@ mod tests {
         assert_eq!(
             agent.act(&v, &pending),
             PlayerAction::ChoosePlayer(PlayerId::new(2))
+        );
+    }
+
+    /// Facing lethal, the seat blocks with whatever it has — even a 1/1
+    /// under a 5/5, which dies and stops the game being over.
+    ///
+    /// Asked through `act` and not through `choose_blocks`, because the
+    /// bug this replaces was not in the maths: `Pending::ChooseBlockers`
+    /// was answered `vec![]` and no combat function was ever called.
+    #[test]
+    fn a_seat_facing_lethal_chump_blocks() {
+        let attacker = permanent(obj(1), PlayerId::new(1), 5);
+        let chump = permanent(obj(2), PlayerId::new(0), 1);
+        let mut v = view(0, &[4, 20], vec![attacker, chump]);
+        v.combat = CombatView {
+            attackers: vec![baylee_view::AttackerView {
+                creature: obj(1),
+                defending: Defender::Player(PlayerId::new(0)),
+            }],
+            blockers: vec![],
+        };
+        let pending = Pending::ChooseBlockers {
+            player: PlayerId::new(0),
+            attacker: PlayerId::new(1),
+            blockers: vec![baylee_engine::choice::BlockOption {
+                blocker: obj(2),
+                attackers: vec![obj(1)],
+            }],
+        };
+
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(obj(2), obj(1))],
+            },
+            "the seat took five to the face on four life"
+        );
+    }
+
+    /// The same 1/1 does not block the same 5/5 at a comfortable life
+    /// total: the creature is worth more than three points of life.
+    #[test]
+    fn the_same_block_is_declined_when_it_is_not_lethal() {
+        let attacker = permanent(obj(1), PlayerId::new(1), 5);
+        let chump = permanent(obj(2), PlayerId::new(0), 1);
+        let mut v = view(0, &[20, 20], vec![attacker, chump]);
+        v.combat = CombatView {
+            attackers: vec![baylee_view::AttackerView {
+                creature: obj(1),
+                defending: Defender::Player(PlayerId::new(0)),
+            }],
+            blockers: vec![],
+        };
+        let pending = Pending::ChooseBlockers {
+            player: PlayerId::new(0),
+            attacker: PlayerId::new(1),
+            blockers: vec![baylee_engine::choice::BlockOption {
+                blocker: obj(2),
+                attackers: vec![obj(1)],
+            }],
+        };
+
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+            "a 1/1 was thrown under a 5/5 for nothing"
+        );
+    }
+
+    /// A 1/1 does not run into an untapped 4/4; the 4/4 on the same board
+    /// does attack, because nothing over there kills it.
+    #[test]
+    fn only_the_creature_that_survives_the_block_attacks() {
+        let small = permanent(obj(1), PlayerId::new(0), 1);
+        let big = permanent(obj(2), PlayerId::new(0), 4);
+        let wall = permanent(obj(3), PlayerId::new(1), 3);
+        let v = view(0, &[20, 20], vec![small, big, wall]);
+        let pending = Pending::ChooseAttackers {
+            player: PlayerId::new(0),
+            attackers: vec![obj(1), obj(2)],
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+        };
+
+        let PlayerAction::DeclareAttackers { attackers } = agent().act(&v, &pending) else {
+            panic!("the agent answered an attack declaration with something else");
+        };
+        assert_eq!(
+            attackers,
+            vec![(obj(2), Defender::Player(PlayerId::new(1)))],
+            "the 1/1 charged a 3/3, or the 4/4 stayed home"
         );
     }
 
