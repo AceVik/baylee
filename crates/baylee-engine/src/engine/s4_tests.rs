@@ -86,6 +86,7 @@ fn preset(seed: u64, seat0: SeatBuilder, seat1: SeatBuilder) -> GamePreset {
         capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
+        commanders: vec![],
         starting_life: None,
         starting_hand: Some(b.hand.into_iter().map(entry).collect()),
         starting_battlefield: b.battlefield.into_iter().map(entry).collect(),

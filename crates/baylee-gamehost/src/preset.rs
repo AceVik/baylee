@@ -76,6 +76,14 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                     print: PrintRef::new(d.print_ref as u16),
                 })
                 .collect();
+            let commanders = s
+                .commanders
+                .iter()
+                .map(|d| DeckEntry {
+                    card: CardIndex::new(d.card_index),
+                    print: PrintRef::new(d.print_ref as u16),
+                })
+                .collect();
             let starting_hand: Vec<DeckEntry> = s
                 .starting_hand
                 .iter()
@@ -99,6 +107,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                 capabilities: baylee_core::preset::SeatCapabilities::default(),
                 deck,
                 sideboard,
+                commanders,
                 starting_life: s.starting_life,
                 starting_hand: if starting_hand.is_empty() {
                     None
@@ -147,6 +156,7 @@ mod tests {
             }),
             deck: vec![],
             sideboard: vec![],
+            commanders: vec![],
             starting_life: None,
             starting_hand: vec![],
             starting_battlefield: vec![],

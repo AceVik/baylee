@@ -53,6 +53,7 @@ fn duel_preset() -> GamePreset {
         capabilities: SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
+        commanders: vec![],
         starting_life: None,
         starting_hand: None,
         starting_battlefield: vec![],

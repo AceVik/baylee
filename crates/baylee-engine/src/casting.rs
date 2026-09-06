@@ -116,7 +116,18 @@ pub fn can_cast(
             .riders
             .iter()
             .any(|r| matches!(r, crate::object::Rider::PlayableFromExileFor(p) if *p == player));
-    if !in_hand && !flashback_ok && !disturb_ok && !adventure_ok && !takeover_ok {
+    // Commander (CR 903.8): a commander in the command zone may be cast
+    // from there by its owner, at the same timing it would have from a
+    // hand. The marker list is what makes it a commander — an emblem is in
+    // the same zone and is not castable by anybody.
+    let commander_ok = !in_hand
+        && obj.zone == Zone::Command
+        && obj.zone_owner == Some(player)
+        && state
+            .commanders
+            .get(player.get() as usize)
+            .is_some_and(|cs| cs.iter().any(|c| c.object == card));
+    if !in_hand && !flashback_ok && !disturb_ok && !adventure_ok && !takeover_ok && !commander_ok {
         return Err(CastError::NotInHand);
     }
     let c = obj.characteristics();
@@ -165,9 +176,19 @@ pub fn can_cast(
         };
         let face = &def.faces[0];
         let any_alt = face.alternative_costs.iter().any(|alt| {
-            let condition_ok =
-                !matches!(alt.condition, baylee_cards_dsl::AltCondition::NotYourTurn)
-                    || state.turn.active != player;
+            // Every condition, not merely the one that was written first.
+            // `CommanderControlled` fell through the old `!matches!` as
+            // "true", so Flawless Maneuver and Fierce Guardianship were
+            // offered as castable with no commander anywhere — and the
+            // wizard, which does check the condition, then found no way to
+            // cast them at all.
+            let condition_ok = match alt.condition {
+                baylee_cards_dsl::AltCondition::Always => true,
+                baylee_cards_dsl::AltCondition::NotYourTurn => state.turn.active != player,
+                baylee_cards_dsl::AltCondition::CommanderControlled => {
+                    controls_a_commander(state, player)
+                }
+            };
             condition_ok && affordable(state, pool, &alt.cost.mana)
         });
         let any_mode = def.abilities.iter().any(|a| match a {
@@ -270,6 +291,29 @@ pub fn intrinsic_mana(state: &GameState, source: ObjectId) -> Option<ManaColor> 
         }
     }
     only
+}
+
+/// Does `player` control one of their own commanders right now?
+///
+/// This is card text, not a rule — "if you control a commander" is what
+/// Fierce Guardianship and Flawless Maneuver print — but it lives here
+/// because two readers ask it: the legality probe below and the wizard's
+/// list of cast options. A probe that answered differently from the wizard
+/// offers a spell the wizard then refuses to cast, which is exactly the bug
+/// this replaces. It reads the marker list rather than the command zone,
+/// since a commander on the battlefield has left that zone by definition.
+#[must_use]
+pub fn controls_a_commander(state: &GameState, player: PlayerId) -> bool {
+    state
+        .commanders
+        .get(player.get() as usize)
+        .is_some_and(|cs| {
+            cs.iter().any(|c| {
+                state
+                    .object(c.object)
+                    .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == player)
+            })
+        })
 }
 
 /// Whether the intrinsic mana ability of `source` can be activated now.

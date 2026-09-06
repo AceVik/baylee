@@ -173,6 +173,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// All legal ways to cast `card` right now.
+    #[allow(clippy::too_many_lines)] // one branch per printed way to cast; splitting hides the list
     fn cast_options(
         &self,
         player: PlayerId,
@@ -191,10 +192,20 @@ impl<L: CardLookup> Engine<L> {
             .ok_or(EngineError::IllegalAction("unknown card"))?;
         let face = &def.faces[0];
         let pool = &self.state.players[player.get() as usize].mana_pool;
+        // Commander tax (CR 903.8): {2} more generic for each previous cast
+        // of this commander from the command zone. It is a cost increase, so
+        // it lands on every way of casting the card, an alternative cost
+        // included (CR 601.2f) — and on the affordability probes too, or a
+        // mode would be offered that the player then cannot pay for.
+        let tax = self.commander_tax(player, card);
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
-            casting::wild_or_not(casting::mana_is_wild(&self.state), pool, cost)
+            casting::wild_or_not(
+                casting::mana_is_wild(&self.state),
+                pool,
+                &cost.with_more_generic(tax),
+            )
         };
         let mut options = Vec::new();
         // Disturb casts come from the graveyard: no normal-cost option.
@@ -209,7 +220,7 @@ impl<L: CardLookup> Engine<L> {
                     options.push(CastModeDesc {
                         index: (options.len()) as u8,
                         kind: CastModeKind::Face(i),
-                        cost: back.mana_cost,
+                        cost: back.mana_cost.with_more_generic(tax),
                     });
                 }
             }
@@ -230,7 +241,7 @@ impl<L: CardLookup> Engine<L> {
             options.push(CastModeDesc {
                 index: 0,
                 kind: CastModeKind::Normal,
-                cost: normal_cost,
+                cost: normal_cost.with_more_generic(tax),
             });
         }
         // Alternative costs (pitch, evoke, conditional free).
@@ -240,13 +251,17 @@ impl<L: CardLookup> Engine<L> {
                 AltCondition::NotYourTurn => self.state.turn.active != player,
                 AltCondition::CommanderControlled => self.has_commander_on_battlefield(player),
             };
-            if !condition_ok || !self.can_afford(player, card, &alt.cost) {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: alt.cost.mana.with_more_generic(tax),
+                ..alt.cost
+            };
+            if !condition_ok || !self.can_afford(player, card, &taxed) {
                 continue;
             }
             options.push(CastModeDesc {
                 index: (options.len()) as u8,
                 kind: CastModeKind::Alternative(i),
-                cost: alt.cost.mana,
+                cost: alt.cost.mana.with_more_generic(tax),
             });
         }
         // MDFC: castable non-front faces (non-land backs, CR 712.4).
@@ -258,7 +273,7 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: (options.len()) as u8,
                     kind: CastModeKind::Face(i),
-                    cost: back.mana_cost,
+                    cost: back.mana_cost.with_more_generic(tax),
                 });
             }
         }
@@ -273,7 +288,7 @@ impl<L: CardLookup> Engine<L> {
                     options.push(CastModeDesc {
                         index: (options.len()) as u8,
                         kind: CastModeKind::Mode(i),
-                        cost,
+                        cost: cost.with_more_generic(tax),
                     });
                 }
             }
@@ -284,16 +299,36 @@ impl<L: CardLookup> Engine<L> {
         Ok(options)
     }
 
-    fn has_commander_on_battlefield(&self, player: PlayerId) -> bool {
+    /// CR 903.8's tax on `card`, in generic mana: `{2}` for each previous
+    /// cast of *this* commander from the command zone.
+    ///
+    /// Zero unless the card is in the command zone right now — a commander
+    /// cast from a hand it was bounced to pays nothing. And per commander,
+    /// not per seat: a partner deck taxes its two independently, which is
+    /// why the count sits on [`crate::state::Commander`] rather than beside
+    /// `commander_casts`.
+    fn commander_tax(&self, player: PlayerId, card: ObjectId) -> u32 {
+        if self.state.object(card).map(|o| o.zone) != Some(Zone::Command) {
+            return 0;
+        }
         self.state
-            .zones
-            .list(ZoneLocation::Command(player))
-            .iter()
-            .any(|id| {
-                self.state
-                    .object(*id)
-                    .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == player)
-            })
+            .commanders
+            .get(player.get() as usize)
+            .and_then(|cs| cs.iter().find(|c| c.object == card))
+            .map_or(0, |c| c.casts.saturating_mul(2))
+    }
+
+    /// The condition Fierce Guardianship and Flawless Maneuver print — "if
+    /// you control a commander", which is card text and not a rule of the
+    /// format: does this player control their own commander right now?
+    ///
+    /// This read the command *zone* until now, and so was always false: a
+    /// commander on the battlefield is no longer listed in the zone it left,
+    /// so the one place the answer could be yes is the one place the lookup
+    /// could not reach. It now defers to `casting`, which is where the
+    /// legality probe asks the same question.
+    fn has_commander_on_battlefield(&self, player: PlayerId) -> bool {
+        casting::controls_a_commander(&self.state, player)
     }
 
     /// Drives the wizard forward until it needs an answer or finishes.
@@ -763,15 +798,25 @@ impl<L: CardLookup> Engine<L> {
                 _ => None,
             };
         }
-        // Commander-cast tracking (Commander's Insight): casts from the
-        // command zone count.
+        // Commander-cast tracking: casts from the command zone count, once
+        // for the seat (Commander's Insight) and once for the commander
+        // itself (CR 903.8's tax). Both here, so the two cannot drift.
         if self
             .state
             .object(card)
             .is_some_and(|o| o.zone == crate::zone::Zone::Command)
-            && let Some(v) = self.state.commander_casts.get_mut(player.get() as usize)
         {
-            *v = v.saturating_add(1);
+            if let Some(v) = self.state.commander_casts.get_mut(player.get() as usize) {
+                *v = v.saturating_add(1);
+            }
+            if let Some(c) = self
+                .state
+                .commanders
+                .get_mut(player.get() as usize)
+                .and_then(|cs| cs.iter_mut().find(|c| c.object == card))
+            {
+                c.casts = c.casts.saturating_add(1);
+            }
         }
         // MDFC back-face cast: the object becomes its chosen face (CR 712.4).
         if let Some(CastModeKind::Face(i)) = wizard.option {

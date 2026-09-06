@@ -321,6 +321,7 @@ pub(crate) mod tests {
             capabilities: baylee_core::preset::SeatCapabilities::default(),
             deck: deck.clone(),
             sideboard: vec![],
+            commanders: vec![],
             starting_life: None,
             starting_hand: None,
             starting_battlefield: vec![],

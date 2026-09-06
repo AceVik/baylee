@@ -267,6 +267,17 @@ pub struct BaseCache {
     tokens: FxHashMap<(usize, Option<i16>), Arc<Characteristics>>,
 }
 
+/// One of a seat's commanders (CR 903.3), and what it has cost so far.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Commander {
+    /// The card. Its [`ObjectId`] is the marker, because it survives the
+    /// zone changes that make the card a new object (CR 400.7).
+    pub object: ObjectId,
+    /// Times it has been cast from the command zone, which is the whole of
+    /// CR 903.8's tax: `{2}` more generic for each of them.
+    pub casts: u32,
+}
+
 /// The whole game world: cloneable for AI, hashable for determinism.
 #[derive(Clone, Debug)]
 pub struct GameState {
@@ -310,7 +321,24 @@ pub struct GameState {
     pub next_restriction_id: u32,
     /// Times each player cast a commander from the command zone this
     /// game (Commander's Insight).
+    ///
+    /// Deliberately *not* the tax counter: CR 903.8 taxes each commander
+    /// for its own previous casts, while Commander's Insight counts the
+    /// player's casts of any of them. A partner deck makes the two differ,
+    /// so they are two numbers — incremented together, at one place, which
+    /// is what keeps them from drifting.
     pub commander_casts: Vec<u32>,
+    /// Each seat's commanders (CR 903.3), by seat index.
+    ///
+    /// The list is the marker, and it has to be: commander-ness belongs to
+    /// the card (CR 903.3) while a zone change makes a new object
+    /// (CR 400.7), so a flag on the object would have to survive every
+    /// `move_object`. The command *zone* cannot serve either, which is the
+    /// bug this replaces — `move_object` removes the id from the zone it
+    /// left, so "my commander is on the battlefield" was unanswerable and
+    /// every card that asked got `false`. `ObjectId` outlives the zone
+    /// change, so this list stays true wherever the card goes.
+    pub commanders: Vec<Vec<Commander>>,
     /// The monarch designation (CR 718), if any.
     pub monarch: Option<PlayerId>,
     /// The player who took the first turn (Surgical Metamorph & co.).
@@ -427,6 +455,7 @@ impl GameState {
             restriction_info: rustc_hash::FxHashMap::default(),
             next_restriction_id: 1,
             commander_casts: vec![0; preset.seats.len()],
+            commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             starting_player: PlayerId::new(0),
             ability_fires: rustc_hash::FxHashMap::default(),
@@ -458,7 +487,8 @@ impl GameState {
             let unoccupied = seat.deck.is_empty()
                 && seat.starting_battlefield.is_empty()
                 && seat.starting_hand.is_none()
-                && seat.emblems.is_empty();
+                && seat.emblems.is_empty()
+                && seat.commanders.is_empty();
             if unoccupied {
                 continue;
             }
@@ -471,6 +501,24 @@ impl GameState {
                     name,
                     ZoneLocation::Command(player),
                 );
+            }
+            // Commanders next (CR 903.6): they begin in the command zone,
+            // and are never shuffled into the library — which is why they
+            // are their own list on the seat and not a marked deck entry.
+            for &entry in &seat.commanders {
+                let id = state.create_card(player, entry, lookup)?;
+                state
+                    .move_object(
+                        id,
+                        ZoneLocation::Command(player),
+                        ZonePosition::Top,
+                        Cause::Setup,
+                    )
+                    .expect("freshly created object");
+                state.commanders[i].push(Commander {
+                    object: id,
+                    casts: 0,
+                });
             }
             for &entry in &seat.starting_battlefield {
                 let id = state.create_card(player, entry, lookup)?;
@@ -1147,6 +1195,17 @@ impl GameState {
             ] {
                 hash_zone(&mut h, self.zones.list(loc));
             }
+            // The commander counters, which no zone can stand in for: a
+            // commander cast and then returned leaves the command zone
+            // exactly as it found it, and the only difference between the
+            // two states is what the next cast costs (CR 903.8). That is a
+            // future outcome, so it belongs in the hash.
+            h.u32(self.commander_casts.get(seat).copied().unwrap_or(0));
+            h.usize(self.commanders.get(seat).map_or(0, Vec::len));
+            for c in self.commanders.get(seat).into_iter().flatten() {
+                h.u32(c.object.slot());
+                h.u32(c.casts);
+            }
         }
         h.finish()
     }
@@ -1208,6 +1267,18 @@ impl GameState {
             h.boolean(p.has_lost);
             for color in ManaColor::ALL {
                 h.u16(p.mana_pool.available(color));
+            }
+            // The commander tax belongs here even though nothing else that
+            // only grows does. It is rules-visible — a player can see what
+            // the next cast costs — and it only ever rises (CR 903.8), so a
+            // "loop" that casts a commander is a game still making progress
+            // and must not be called a draw. The ids need no canonical
+            // position: the list is fixed for the whole game, so its order
+            // already identifies each commander.
+            let seat = p.id.get() as usize;
+            h.u32(self.commander_casts.get(seat).copied().unwrap_or(0));
+            for c in self.commanders.get(seat).into_iter().flatten() {
+                h.u32(c.casts);
             }
         }
         for loc in &zones {
@@ -1769,6 +1840,7 @@ mod tests {
                     capabilities: baylee_core::preset::SeatCapabilities::default(),
                     deck: deck.clone(),
                     sideboard: vec![],
+                    commanders: vec![],
                     starting_life: None,
                     starting_hand: None,
                     starting_battlefield: vec![],

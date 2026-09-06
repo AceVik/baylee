@@ -46,6 +46,7 @@ pub struct Duel {
     hand: [Vec<CardIndex>; 2],
     battlefield: [Vec<CardIndex>; 2],
     sideboard: [Vec<CardIndex>; 2],
+    commanders: [Vec<CardIndex>; 2],
     library_filler: CardIndex,
 }
 
@@ -60,6 +61,7 @@ impl Duel {
             hand: [Vec::new(), Vec::new()],
             battlefield: [Vec::new(), Vec::new()],
             sideboard: [Vec::new(), Vec::new()],
+            commanders: [Vec::new(), Vec::new()],
             library_filler,
         }
     }
@@ -85,6 +87,17 @@ impl Duel {
         self
     }
 
+    /// A seat's commanders, which start in the command zone (CR 903.6).
+    ///
+    /// The format stays `Freeform`: the seat lists the commander, so the
+    /// commander rules that key off that list run, and the test does not
+    /// silently inherit 40 life for a duel it is counting damage in.
+    #[must_use]
+    pub fn commander(mut self, seat: usize, cards: &[CardIndex]) -> Self {
+        self.commanders[seat] = cards.to_vec();
+        self
+    }
+
     /// Builds the duel the way a lobby would: no seat may touch the state.
     #[must_use]
     pub const fn without_capabilities(mut self) -> Self {
@@ -107,6 +120,7 @@ impl Duel {
             },
             deck: deck.clone(),
             sideboard: self.sideboard[seat].iter().copied().map(entry).collect(),
+            commanders: self.commanders[seat].iter().copied().map(entry).collect(),
             starting_life: None,
             starting_hand: Some(self.hand[seat].iter().copied().map(entry).collect()),
             starting_battlefield: self.battlefield[seat].iter().copied().map(entry).collect(),

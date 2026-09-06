@@ -54,6 +54,7 @@ fn preset_with_hand(seed: u64, hand0: Vec<CardIndex>, hand1: Vec<CardIndex>) -> 
         capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
+        commanders: vec![],
         starting_life: None,
         starting_hand: Some(hand.into_iter().map(entry).collect()),
         starting_battlefield: vec![],

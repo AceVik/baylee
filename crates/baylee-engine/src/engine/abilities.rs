@@ -106,6 +106,16 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
+        // Commander (CR 903.8): your own commanders in the command zone.
+        // The emblems sharing that zone are filtered out by `can_cast`,
+        // which asks the marker list rather than the zone.
+        for &card in self.state.zones.list(ZoneLocation::Command(player)) {
+            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+                && self.has_a_legal_target(player, card)
+            {
+                legal.castable.push(card);
+            }
+        }
         // Flashback: granted cards in your graveyard are castable.
         for &card in self.state.zones.list(ZoneLocation::Graveyard(player)) {
             let granted = self.state.effects.iter().any(|fx| {

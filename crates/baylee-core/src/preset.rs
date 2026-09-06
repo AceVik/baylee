@@ -253,6 +253,13 @@ pub struct SeatSpec {
     /// Cards outside the game this seat may reach (wishes, Karn's −2).
     /// Never shuffled into the library: a sideboard is not the deck.
     pub sideboard: Vec<DeckEntry>,
+    /// This seat's commanders (CR 903.3), which start in the command zone
+    /// and are never part of the library.
+    ///
+    /// Empty in every format but Commander, and defaulted on the wire so a
+    /// preset written before commanders existed still deserializes.
+    #[serde(default)]
+    pub commanders: Vec<DeckEntry>,
     /// Starting life override (format default when `None`).
     pub starting_life: Option<i32>,
     /// Fixed starting hand (drawn instead of random when set; testing/boss).
@@ -360,6 +367,8 @@ pub enum CardList {
     StartingHand,
     /// Cards that start on the battlefield.
     StartingBattlefield,
+    /// The seat's commanders.
+    Commander,
 }
 
 impl core::fmt::Display for CardList {
@@ -369,6 +378,7 @@ impl core::fmt::Display for CardList {
             Self::Sideboard => "sideboard",
             Self::StartingHand => "starting hand",
             Self::StartingBattlefield => "starting battlefield",
+            Self::Commander => "commanders",
         })
     }
 }
@@ -415,7 +425,8 @@ impl GamePreset {
             let count = spec.deck.len()
                 + spec.sideboard.len()
                 + hand.len()
-                + spec.starting_battlefield.len();
+                + spec.starting_battlefield.len()
+                + spec.commanders.len();
             if count > MAX_CARDS_PER_SEAT {
                 return Err(PresetError::TooManyCards { seat, count });
             }
@@ -436,6 +447,7 @@ impl GamePreset {
                     CardList::StartingBattlefield,
                     spec.starting_battlefield.as_slice(),
                 ),
+                (CardList::Commander, spec.commanders.as_slice()),
             ];
             for (list, entries) in lists {
                 for (entry, e) in entries.iter().enumerate() {
@@ -480,6 +492,7 @@ mod tests {
                         print: PrintRef::new(print_ref),
                     }],
                     sideboard: vec![],
+                    commanders: vec![],
                     starting_life: None,
                     starting_hand: None,
                     starting_battlefield: vec![],

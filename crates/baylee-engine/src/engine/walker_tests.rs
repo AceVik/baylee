@@ -41,6 +41,7 @@ fn preset(seed: u64, bf0: Vec<CardIndex>) -> GamePreset {
         capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: deck.clone(),
         sideboard: vec![],
+        commanders: vec![],
         starting_life: None,
         starting_hand: None,
         starting_battlefield: bf.into_iter().map(entry).collect(),

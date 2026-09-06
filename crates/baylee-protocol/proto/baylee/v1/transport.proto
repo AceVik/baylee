@@ -82,6 +82,10 @@ message SeatSpec {
   // Cards outside the game this seat may reach (wishes). Never shuffled
   // into the library.
   repeated DeckEntry sideboard = 8;
+  // This seat's commanders (CR 903.3). They start in the command zone and
+  // are never part of the library, so they are a list of their own rather
+  // than a marker inside `deck`.
+  repeated DeckEntry commanders = 9;
   optional int32 starting_life = 3;
   repeated DeckEntry starting_hand = 4;
   repeated DeckEntry starting_battlefield = 5;

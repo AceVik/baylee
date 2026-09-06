@@ -497,6 +497,7 @@ mod tests {
             capabilities: baylee_core::preset::SeatCapabilities::default(),
             deck: vec![],
             sideboard: vec![],
+            commanders: vec![],
             starting_life: Some(20),
             starting_hand: None,
             starting_battlefield: vec![],

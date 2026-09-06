@@ -500,6 +500,7 @@ mod tests {
             },
             deck: deck.clone(),
             sideboard: vec![],
+            commanders: vec![],
             starting_life: None,
             starting_hand: Some(vec![
                 DeckEntry {

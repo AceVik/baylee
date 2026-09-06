@@ -120,9 +120,18 @@ fn colors_of(state: &GameState, you: PlayerId, source: ManaSource) -> Vec<ManaCo
         ManaSource::Fixed(color) => vec![color],
         ManaSource::Choice(colors) => colors.to_vec(),
         ManaSource::CommanderIdentity => {
+            // The marker list, not the command zone: colour identity is a
+            // property of the commander card wherever it is (CR 903.4), so
+            // reading the zone made an Arcane Signet stop producing the
+            // moment its commander was cast — exactly when it matters.
             let mut colors = ColorSet::EMPTY;
-            for id in state.zones.list(ZoneLocation::Command(you)) {
-                if let Some(obj) = state.object(*id) {
+            for c in state
+                .commanders
+                .get(you.get() as usize)
+                .into_iter()
+                .flatten()
+            {
+                if let Some(obj) = state.object(c.object) {
                     colors = colors.union(obj.characteristics().color_identity);
                 }
             }

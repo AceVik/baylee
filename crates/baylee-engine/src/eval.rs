@@ -72,12 +72,16 @@ pub fn matches_projected(
             .is_some_and(|attached| attached == obj.id),
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
+            // The marker list rather than the command zone, for the reason
+            // `resolve::mana` gives: Path of Ancestry has to keep working
+            // once the commander it names is on the battlefield.
             let obj_subs = chars.subtypes;
             state
-                .zones
-                .list(ZoneLocation::Command(you))
-                .iter()
-                .filter_map(|id| state.object(*id))
+                .commanders
+                .get(you.get() as usize)
+                .into_iter()
+                .flatten()
+                .filter_map(|c| state.object(c.object))
                 .any(|commander| obj_subs.intersects(commander.characteristics().subtypes))
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
@@ -449,6 +453,7 @@ mod tests {
             capabilities: baylee_core::preset::SeatCapabilities::default(),
             deck: vec![],
             sideboard: vec![],
+            commanders: vec![],
             starting_life: Some(20),
             starting_hand: None,
             starting_battlefield: vec![],

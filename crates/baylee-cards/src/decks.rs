@@ -175,6 +175,7 @@ pub fn probe_preset(seed: u64, card: CardIndex) -> Option<GamePreset> {
         capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck,
         sideboard: vec![],
+        commanders: vec![],
         starting_life: None,
         starting_hand: Some(hand),
         starting_battlefield: field,
@@ -218,6 +219,22 @@ fn print_ref_for(prints: &mut Vec<PrintInfo>, print: &PrintInfo) -> PrintRef {
     PrintRef::new((prints.len() - 1) as u16)
 }
 
+/// The format a table of these decks is playing.
+///
+/// A deck that named a commander is playing Commander; anything else is
+/// `Freeform`, as every table was before this existed. The distinction buys
+/// one thing today — 40 starting life (CR 903.7), the only `FormatId` the
+/// engine reads — and it is deliberately *not* what puts commanders in the
+/// command zone. `SeatSpec::commanders` does that on its own, so a test can
+/// seat a commander without also inheriting a format's life total.
+fn format_for<'a>(mut decks: impl Iterator<Item = &'a LoadedDeck>) -> FormatId {
+    if decks.any(|d| !d.commanders.is_empty()) {
+        FormatId::Commander
+    } else {
+        FormatId::Freeform
+    }
+}
+
 /// Builds a two-player preset from two loaded decks.
 #[must_use]
 pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
@@ -233,11 +250,12 @@ pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
             })
             .collect()
     };
-    let seat = |entries: Vec<DeckEntry>, side: Vec<DeckEntry>| SeatSpec {
+    let seat = |entries: Vec<DeckEntry>, side: Vec<DeckEntry>, cmd: Vec<DeckEntry>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
         capabilities: baylee_core::preset::SeatCapabilities::default(),
         deck: entries,
         sideboard: side,
+        commanders: cmd,
         starting_life: None,
         starting_hand: None,
         starting_battlefield: vec![],
@@ -245,11 +263,19 @@ pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
         team: None,
     };
     let seats = vec![
-        seat(entries(&a.main), entries(&a.sideboard)),
-        seat(entries(&b.main), entries(&b.sideboard)),
+        seat(
+            entries(&a.main),
+            entries(&a.sideboard),
+            entries(&a.commanders),
+        ),
+        seat(
+            entries(&b.main),
+            entries(&b.sideboard),
+            entries(&b.commanders),
+        ),
     ];
     GamePreset {
-        format: FormatId::Freeform,
+        format: format_for([a, b].into_iter()),
         seed,
         house_rules: HouseRules::default(),
         modifiers: vec![],
@@ -287,6 +313,7 @@ pub fn preset_for_all(seed: u64, decks: &[&LoadedDeck]) -> GamePreset {
             capabilities: baylee_core::preset::SeatCapabilities::default(),
             deck: entries(&deck.main),
             sideboard: entries(&deck.sideboard),
+            commanders: entries(&deck.commanders),
             starting_life: None,
             starting_hand: None,
             starting_battlefield: vec![],
@@ -295,7 +322,7 @@ pub fn preset_for_all(seed: u64, decks: &[&LoadedDeck]) -> GamePreset {
         })
         .collect();
     GamePreset {
-        format: FormatId::Freeform,
+        format: format_for(decks.iter().copied()),
         seed,
         house_rules: HouseRules::default(),
         modifiers: vec![],

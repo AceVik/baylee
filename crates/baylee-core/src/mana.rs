@@ -295,6 +295,33 @@ impl ManaCost {
         out
     }
 
+    /// The cost with `n` more generic mana (a cost increase, CR 601.2f).
+    ///
+    /// The mirror of [`Self::with_less_generic`], and the commander tax is
+    /// what needed it: a cost that prints no generic symbol at all has to
+    /// grow one rather than stay unchanged.
+    #[must_use]
+    pub fn with_more_generic(&self, n: u32) -> Self {
+        if n == 0 {
+            return *self;
+        }
+        let mut out = Self::ZERO;
+        let mut grown = false;
+        for s in self.symbols() {
+            match s {
+                ManaSymbol::Generic(amount) if !grown => {
+                    grown = true;
+                    out.push_sorted(ManaSymbol::Generic(amount + n));
+                }
+                other => out.push_sorted(other),
+            }
+        }
+        if !grown {
+            out.push_sorted(ManaSymbol::Generic(n));
+        }
+        out
+    }
+
     /// Two costs combined (additional costs like kicker stack onto the
     /// base cost, CR 601.2f).
     #[must_use]

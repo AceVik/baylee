@@ -888,10 +888,24 @@ fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     // The same parser, so a sideboard cannot hold what a deck could not.
     parse_deck_lines(&body.cards)?;
     parse_deck_lines(&body.sideboard)?;
-    if let Some(c) = &body.commander
-        && baylee_cards::decks::by_name(c).is_none()
-    {
-        return Err(err(StatusCode::BAD_REQUEST, "unknown commander"));
+    if let Some(c) = &body.commander {
+        // Two questions, not one. The name has to resolve, *and* the card
+        // it resolves to has to be allowed to lead a deck (CR 903.3): the
+        // check used to stop at the first, so any card in the pool could be
+        // named as a commander and the engine would seat it in the command
+        // zone without complaint.
+        let Some(index) = baylee_cards::decks::by_name(c) else {
+            return Err(err(StatusCode::BAD_REQUEST, "unknown commander"));
+        };
+        let eligible = baylee_cards::by_index(index).is_some_and(|def| {
+            !matches!(def.commander, baylee_cards_dsl::CommanderRule::NotEligible)
+        });
+        if !eligible {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "that card cannot be a commander",
+            ));
+        }
     }
     Ok(())
 }
@@ -1096,13 +1110,38 @@ const MAX_SEATS: usize = 8;
 fn loaded_deck(
     deck: &Deck,
 ) -> Result<baylee_cards::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)> {
-    let main = expand(&parse_deck_lines(&deck.cards)?);
+    let mut main = expand(&parse_deck_lines(&deck.cards)?);
     let side = expand(&parse_deck_lines(&deck.sideboard)?);
+    // The commander is stored by name and resolved here, the same way the
+    // rows are — and it is *moved* out of the list rather than copied.
+    // `DeckBuilder::set_commander` seats the leader among the rows on
+    // purpose (a commander outside the list is a deck nobody meant to
+    // build), so what arrives here is a hundred rows with the commander
+    // among them. Copying it would make a 101st card that sits in the
+    // library and the command zone at once: drawable, and two of a legend.
+    //
+    // Moving it also keeps its printing. The player picked one for that
+    // row, and the card that goes to the command zone is the piece of
+    // cardboard they picked. A name that resolves to no row at all — a deck
+    // posted straight to the API — still gets its commander, at the
+    // registry's reference printing.
+    let commanders = deck
+        .commander
+        .as_deref()
+        .and_then(baylee_cards::decks::by_name)
+        .map(|index| {
+            let card = match main.iter().position(|c| c.index == index) {
+                Some(at) => main.remove(at),
+                None => baylee_cards::decks::DeckCard::plain(index),
+            };
+            vec![card]
+        })
+        .unwrap_or_default();
     Ok(baylee_cards::decks::LoadedDeck {
         name: deck.name.clone(),
         main,
         sideboard: side,
-        commanders: vec![],
+        commanders,
     })
 }
 
@@ -2165,5 +2204,53 @@ mod tests {
         let old = r#"{"accounts":{},"tokens":{},"decks":{}}"#;
         let store: store::Store = serde_json::from_str(old).expect("older store loads");
         assert!(store.automation.is_empty());
+    }
+
+    fn deck_named(cards: &[&str], commander: Option<&str>) -> store::Deck {
+        store::Deck {
+            id: "d".into(),
+            account_id: "a".into(),
+            name: "a commander deck".into(),
+            cards: cards.iter().map(|s| (*s).to_string()).collect(),
+            sideboard: Vec::new(),
+            commander: commander.map(ToString::to_string),
+            updated_at: 0,
+        }
+    }
+
+    /// A commander is one of the deck's rows on the way in — the builder
+    /// seats it among them on purpose — and exactly one card on the way out.
+    /// Copying it rather than moving it would shuffle a second Katara into
+    /// the library while the first one sat in the command zone.
+    #[test]
+    fn a_commander_is_moved_out_of_the_deck_list_and_not_copied() {
+        let deck = deck_named(
+            &["1 Katara, the Fearless", "3 Forest"],
+            Some("Katara, the Fearless"),
+        );
+        let Ok(loaded) = loaded_deck(&deck) else {
+            panic!("the rows and the name both resolve")
+        };
+        let katara = baylee_cards::decks::by_name("Katara, the Fearless").expect("in the pool");
+
+        assert_eq!(loaded.commanders.len(), 1, "one commander");
+        assert_eq!(loaded.commanders[0].index, katara);
+        assert!(
+            loaded.main.iter().all(|c| c.index != katara),
+            "and no second copy left in the library"
+        );
+        assert_eq!(loaded.main.len(), 3, "the three Forests, and nothing else");
+    }
+
+    /// A deck posted straight to the API need not list its commander among
+    /// the rows, so a name that matches nothing there still seats one.
+    #[test]
+    fn a_commander_with_no_row_of_its_own_is_still_seated() {
+        let deck = deck_named(&["3 Forest"], Some("Katara, the Fearless"));
+        let Ok(loaded) = loaded_deck(&deck) else {
+            panic!("the rows and the name both resolve")
+        };
+        assert_eq!(loaded.commanders.len(), 1, "one commander");
+        assert_eq!(loaded.main.len(), 3, "and the deck list is untouched");
     }
 }
