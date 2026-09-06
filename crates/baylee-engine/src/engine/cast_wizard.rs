@@ -421,7 +421,7 @@ impl<L: CardLookup> Engine<L> {
                 // The same enumeration the object half of targeting uses, and
                 // for the same reason: "target opponent" is a choice over a
                 // smaller set, not a different kind of choice (CR 115.1), so
-                // the caster is out of it â and so is a teammate. Listing
+                // the caster is out of it — and so is a teammate. Listing
                 // every living player here was a hole even before teams: a
                 // "target opponent" spell offered its own caster.
                 let spec = self

@@ -209,7 +209,7 @@ fn a_table_with_no_teams_ends_exactly_as_it_did_before() {
     assert_eq!(result.reason, EndReason::LastPlayerStanding);
 }
 
-/// "Target opponent" is the same enumeration wherever it is asked â the cast
+/// "Target opponent" is the same enumeration wherever it is asked — the cast
 /// wizard's player choice included, which used to build its own list and so
 /// offered the caster their own face.
 #[test]

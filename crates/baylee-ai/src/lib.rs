@@ -54,7 +54,7 @@ impl HeuristicAgent {
         self
     }
 
-    /// Whether `seat` is an *opponent* of `me` â a different side, not merely
+    /// Whether `seat` is an *opponent* of `me` — a different side, not merely
     /// a different seat (CR 102.3).
     ///
     /// The engine offers a teammate's creatures as legal targets, because
