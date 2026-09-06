@@ -42,6 +42,20 @@ pub struct Player {
     pub lands_played_this_turn: u8,
     /// Set when a draw was attempted from an empty library (SBA loses).
     pub tried_empty_draw: bool,
+    /// Combat damage this player has taken from each commander over the
+    /// course of the game (CR 903.10a): twenty-one from one of them and
+    /// they lose, whatever their life total says.
+    ///
+    /// Keyed by the commander's [`ObjectId`], which works for the same
+    /// reason the marker list does — the id survives the zone changes that
+    /// make the card a new object (CR 400.7). A commander that dies, goes
+    /// home and comes back down is the same commander, and its tally does
+    /// not start over.
+    ///
+    /// A `Vec` of pairs and not a map: there are at most a handful of
+    /// commanders at a table, and a hashed collection would put iteration
+    /// order into a hash that has to be identical on every machine.
+    pub commander_damage: Vec<(ObjectId, u16)>,
     /// Whether this player has lost (stays seated in multiplayer until
     /// CR 800.4 cleanup runs).
     pub has_lost: bool,
@@ -276,6 +290,23 @@ pub struct Commander {
     /// Times it has been cast from the command zone, which is the whole of
     /// CR 903.8's tax: `{2}` more generic for each of them.
     pub casts: u32,
+    /// The zone-arrival timestamp its owner has already been asked about
+    /// (CR 903.9a), or 0 while no arrival has been offered.
+    ///
+    /// The rule says "put into that zone *since the last time state-based
+    /// actions were checked*", which sounds like one watermark on the game
+    /// and is not: two commanders swept up by the same wrath arrive at two
+    /// timestamps, and a single watermark moved by the first question
+    /// silently swallows the second. Per commander it is exact, because
+    /// SBAs run before every priority grant — the first check after an
+    /// arrival is always the one that offers it, so "not offered yet" and
+    /// "arrived since the last check" name the same moment.
+    ///
+    /// Comparing against the *arrival* rather than storing a yes/no is what
+    /// makes a second question legal: a commander left in a graveyard and
+    /// later exiled by someone else has arrived somewhere new, and its
+    /// owner is asked again.
+    pub answered: u64,
 }
 
 /// The whole game world: cloneable for AI, hashable for determinism.
@@ -440,6 +471,7 @@ impl GameState {
                     hand_modifier: 0,
                     lands_played_this_turn: 0,
                     tried_empty_draw: false,
+                    commander_damage: Vec::new(),
                     has_lost: false,
                     team: s.team,
                 })
@@ -518,6 +550,7 @@ impl GameState {
                 state.commanders[i].push(Commander {
                     object: id,
                     casts: 0,
+                    answered: 0,
                 });
             }
             for &entry in &seat.starting_battlefield {
@@ -1163,6 +1196,14 @@ impl GameState {
                 h.u8(r.flags.bits());
                 h.u32(r.restriction.0);
             }
+            // Commander damage (CR 903.10a), which no life total records:
+            // two seats on the same life with twelve and twenty points from
+            // the same commander are one attack apart from different games.
+            h.usize(p.commander_damage.len());
+            for (source, amount) in &p.commander_damage {
+                h.u32(source.slot());
+                h.u16(*amount);
+            }
         }
         for (slot, generation, value) in self.arena.slots() {
             h.u32(slot);
@@ -1205,6 +1246,10 @@ impl GameState {
             for c in self.commanders.get(seat).into_iter().flatten() {
                 h.u32(c.object.slot());
                 h.u32(c.casts);
+                // And which arrival in a graveyard or exile has already
+                // been offered (CR 903.9a) — two states that differ only in
+                // whether the owner has said no yet are two states.
+                h.u64(c.answered);
             }
         }
         h.finish()
@@ -1275,6 +1320,26 @@ impl GameState {
             // and must not be called a draw. The ids need no canonical
             // position: the list is fixed for the whole game, so its order
             // already identifies each commander.
+            //
+            // Commander damage belongs here for the same reason and by the
+            // same argument (CR 903.10a): it is rules-visible, it only ever
+            // rises, and a "loop" that lands another swing from a commander
+            // is a game walking towards a loss rather than standing still.
+            // The order is the order it was first dealt in, which is the
+            // same on every machine.
+            h.usize(p.commander_damage.len());
+            for (source, amount) in &p.commander_damage {
+                h.u32(source.slot());
+                h.u16(*amount);
+            }
+            // `Commander::answered` deliberately does *not* join it, in
+            // either form. As a timestamp it would be the tax bug in
+            // reverse — a number that only grows makes every situation
+            // unique and no loop detectable — and as a "has this arrival
+            // been offered" bit it is a constant here: this hash is taken
+            // at priority grants, the SBA fixpoint has finished by then,
+            // and a commander sitting in a graveyard has therefore always
+            // been offered already.
             let seat = p.id.get() as usize;
             h.u32(self.commander_casts.get(seat).copied().unwrap_or(0));
             for c in self.commanders.get(seat).into_iter().flatten() {

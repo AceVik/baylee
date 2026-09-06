@@ -382,6 +382,25 @@ fn deal_damage_to_player(
         amount: amount as u16,
         is_combat,
     });
+    // Commander damage (CR 903.10a). Combat damage only — a commander's
+    // *ability* pinging for twenty-one is not this rule — and it counts by
+    // the commander, not by whoever is swinging it: a commander stolen with
+    // Agent of Treachery still adds to the tally its owner's opponents keep
+    // against it, because the rule names the object and not a controller.
+    let from_a_commander = state
+        .commanders
+        .iter()
+        .flatten()
+        .any(|c| c.object == source);
+    if is_combat && from_a_commander {
+        let dealt = amount as u16;
+        let tally = &mut state.players[player.get() as usize].commander_damage;
+        if let Some(entry) = tally.iter_mut().find(|(id, _)| *id == source) {
+            entry.1 = entry.1.saturating_add(dealt);
+        } else {
+            tally.push((source, dealt));
+        }
+    }
     amount
 }
 

@@ -176,6 +176,10 @@ impl<L: CardLookup> Engine<L> {
                 self.awaiting_answer = true;
                 return;
             }
+            if let Some((player, card)) = outcome.commander_zone {
+                self.ask_commander_zone(player, card);
+                return;
+            }
             if outcome.changed {
                 continue;
             }

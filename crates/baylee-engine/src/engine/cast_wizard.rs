@@ -7,7 +7,7 @@
 
 use super::{
     AbilityDef, CardLookup, Cause, Engine, EngineError, GameEvent, ObjectId, ObjectKind, Pending,
-    PlayerId, SmallVec, Zone, ZoneLocation, ZonePosition, eval, mana_pay,
+    PlayerId, SmallVec, ZoneLocation, ZonePosition, eval, mana_pay,
 };
 use crate::casting;
 use crate::choice::{CastModeDesc, CastModeKind, ChoicePrompt, YesNoPrompt};
@@ -197,7 +197,7 @@ impl<L: CardLookup> Engine<L> {
         // it lands on every way of casting the card, an alternative cost
         // included (CR 601.2f) — and on the affordability probes too, or a
         // mode would be offered that the player then cannot pay for.
-        let tax = self.commander_tax(player, card);
+        let tax = casting::commander_tax(&self.state, player, card);
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
@@ -297,25 +297,6 @@ impl<L: CardLookup> Engine<L> {
             return Err(EngineError::IllegalAction("no way to cast this spell"));
         }
         Ok(options)
-    }
-
-    /// CR 903.8's tax on `card`, in generic mana: `{2}` for each previous
-    /// cast of *this* commander from the command zone.
-    ///
-    /// Zero unless the card is in the command zone right now — a commander
-    /// cast from a hand it was bounced to pays nothing. And per commander,
-    /// not per seat: a partner deck taxes its two independently, which is
-    /// why the count sits on [`crate::state::Commander`] rather than beside
-    /// `commander_casts`.
-    fn commander_tax(&self, player: PlayerId, card: ObjectId) -> u32 {
-        if self.state.object(card).map(|o| o.zone) != Some(Zone::Command) {
-            return 0;
-        }
-        self.state
-            .commanders
-            .get(player.get() as usize)
-            .and_then(|cs| cs.iter().find(|c| c.object == card))
-            .map_or(0, |c| c.casts.saturating_mul(2))
     }
 
     /// The condition Fierce Guardianship and Flawless Maneuver print — "if

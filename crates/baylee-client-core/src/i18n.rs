@@ -847,6 +847,11 @@ messages! {
         en: "A draw was offered. Accept?",
         de: "Ein Remis wurde angeboten. Annehmen?",
     },
+    /// Put your commander into the command zone?
+    CommanderToCommandZone {
+        en: "Put your commander into the command zone?",
+        de: "Deinen Kommandeur in die Kommandozone legen?",
+    },
     /// Yes or no?
     YesOrNo { en: "Yes or no?", de: "Ja oder nein?" },
     /// Offer a draw

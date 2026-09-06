@@ -163,9 +163,14 @@ pub fn can_cast(
         }
     }
     let pool = &state.players[player.get() as usize].mana_pool;
+    // Commander tax (CR 903.8). A cost *increase*, so it lands on every way
+    // of casting the card — printed cost, alternative cost and mode alike
+    // (CR 601.2f) — which is why it is folded into each probe below rather
+    // than into the first one.
+    let tax = commander_tax(state, player, card);
     // Printed cost probed with X = 0; the full payment is validated when
     // the wizard finishes.
-    if !affordable(state, pool, &c.mana_cost.with_x(0)) {
+    if !affordable(state, pool, &c.mana_cost.with_x(0).with_more_generic(tax)) {
         // Alternative costs may still make it castable (pitch/evoke) —
         // the wizard computes the exact options.
         let Some(card_ref) = obj.card else {
@@ -189,14 +194,17 @@ pub fn can_cast(
                     controls_a_commander(state, player)
                 }
             };
-            condition_ok && affordable(state, pool, &alt.cost.mana)
+            condition_ok && affordable(state, pool, &alt.cost.mana.with_more_generic(tax))
         });
         let any_mode = def.abilities.iter().any(|a| match a {
             baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes.iter().any(|m| {
                 affordable(
                     state,
                     pool,
-                    &m.cost_override.unwrap_or(face.mana_cost).with_x(0),
+                    &m.cost_override
+                        .unwrap_or(face.mana_cost)
+                        .with_x(0)
+                        .with_more_generic(tax),
                 )
             }),
             _ => false,
@@ -291,6 +299,34 @@ pub fn intrinsic_mana(state: &GameState, source: ObjectId) -> Option<ManaColor> 
         }
     }
     only
+}
+
+/// CR 903.8's tax on casting `card` from the command zone, in generic mana:
+/// `{2}` for each previous cast of *this* commander from there.
+///
+/// Zero unless the card is in the command zone right now — a commander cast
+/// from a hand it was bounced to pays nothing. And per commander rather than
+/// per seat: a partner deck taxes its two independently, which is why the
+/// count sits on [`crate::state::Commander`] and not beside
+/// `GameState::commander_casts`, whose job is Commander's Insight.
+///
+/// It lives beside [`controls_a_commander`] for the same reason that one
+/// does, and it moved here from the wizard after making the same mistake in
+/// the other direction: the wizard charged the tax and the legality probe
+/// did not, so a commander that had been cast once was *offered* for its
+/// printed cost and then refused mid-wizard. A tax the counter records and
+/// nothing charges is not a tax, and one only half the engine charges is
+/// worse than none.
+#[must_use]
+pub fn commander_tax(state: &GameState, player: PlayerId, card: ObjectId) -> u32 {
+    if state.object(card).map(|o| o.zone) != Some(Zone::Command) {
+        return 0;
+    }
+    state
+        .commanders
+        .get(player.get() as usize)
+        .and_then(|cs| cs.iter().find(|c| c.object == card))
+        .map_or(0, |c| c.casts.saturating_mul(2))
 }
 
 /// Does `player` control one of their own commanders right now?

@@ -6,6 +6,30 @@ use super::{
 };
 
 impl<L: CardLookup> Engine<L> {
+    /// Asks a commander's owner whether it goes to the command zone rather
+    /// than staying in the graveyard or in exile (CR 903.9a).
+    ///
+    /// The pass that found it has already written down that it asked, so
+    /// this must not be the place a question can be dropped.
+    pub(crate) fn ask_commander_zone(&mut self, player: PlayerId, card: ObjectId) {
+        self.pending_plan = Some(PlanKind::CommanderZone { card });
+        self.pending = Pending::YesNo {
+            player,
+            prompt: crate::choice::YesNoPrompt::CommanderZone { card },
+            // The rules ask this question, not the card — but they ask it
+            // *about* a card, and that is what a standing answer has to be
+            // filed under. "Always put Katara back" is an answer about
+            // Katara, not about every commander this seat will ever have.
+            source: self.state.object(card).and_then(|o| o.card).map(|c| {
+                baylee_core::ids::AbilityRef::new(
+                    c.index,
+                    baylee_core::ids::AbilityRef::COMMANDER_ZONE,
+                )
+            }),
+        };
+        self.awaiting_answer = true;
+    }
+
     /// Offers a draw to every other player still in the game (CR 104.4a).
     ///
     /// Only from your own priority: the offer suspends a decision that has to
@@ -510,6 +534,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::PlayLandFace { .. } => {
                         unreachable!("land-face plans are answered via ChooseMode")
                     }
+                    PlanKind::CommanderZone { .. } => {
+                        unreachable!("command-zone plans are answered via YesNo")
+                    }
                     PlanKind::Miracle { .. } => {
                         unreachable!("miracle plans are answered via YesNo")
                     }
@@ -693,6 +720,31 @@ impl<L: CardLookup> Engine<L> {
                         resolve::Flow::Complete => {
                             self.finish_resolution(&res);
                         }
+                    }
+                    return Ok(());
+                }
+                // A commander offered its way home (CR 903.9a). Saying no
+                // is a real answer — the card stays where it is, and the
+                // pass that asked has already recorded that it did, so the
+                // question does not come round again for this arrival.
+                if matches!(self.pending_plan, Some(PlanKind::CommanderZone { .. })) {
+                    let Some(PlanKind::CommanderZone { card }) = self.pending_plan.take() else {
+                        unreachable!()
+                    };
+                    if answer {
+                        // The *owner's* command zone (CR 903.9a): a
+                        // commander stolen and then killed goes home to
+                        // whoever brought it, not to whoever took it.
+                        let owner = self.state.object(card).map_or(player, |o| o.owner);
+                        if let Some(obj) = self.state.object_mut(card) {
+                            obj.kind = ObjectKind::Card;
+                        }
+                        self.state.move_object(
+                            card,
+                            ZoneLocation::Command(owner),
+                            ZonePosition::Top,
+                            Cause::StateBased,
+                        )?;
                     }
                     return Ok(());
                 }

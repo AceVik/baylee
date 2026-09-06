@@ -58,6 +58,22 @@ Storing a handle the registry does not know is refused rather than kept: it
 could never fire, and it would fail silently — the seat would just be asked a
 question it believed it had answered for good.
 
+The reserved indices are therefore **wire constants**: a stored answer is a
+number, and moving one silently re-points every account that holds it. They
+live in `baylee_core::ids::AbilityRef`, count down from `u32::MAX`, and a test
+there keeps them a set with `FIRST_RESERVED` at its floor. The newest is
+`COMMANDER_ZONE`, CR 903.9a's "put your commander into the command zone?" —
+the odd one, in that the rules ask it about a card that prints nothing of the
+sort, and an ordinary one in that a player may want it answered once and for
+good.
+
+What is *not* in that space, despite counting down from the same `u32::MAX`,
+is `baylee-engine`'s `choice::granted_ability(n)` and `choice::PREPARED_CAST`.
+Those name a slot in one `LegalActions`, chosen fresh every time it is built
+and held by nothing outside that game, which is why an ability the engine puts
+on the stack carries `AbilityRef::SYNTHETIC` rather than the slot it was
+offered under.
+
 ## Priority holds (view version 9)
 
 The other half of `SetStandingAnswer` is `PlayerAction::SetPriorityHold`, and

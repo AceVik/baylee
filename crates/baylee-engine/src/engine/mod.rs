@@ -194,6 +194,11 @@ enum PlanKind {
         /// The drawn card.
         card: ObjectId,
     },
+    /// A commander offered its way back to the command zone (CR 903.9a).
+    CommanderZone {
+        /// The commander card, in a graveyard or in exile.
+        card: ObjectId,
+    },
     /// Target choice for a synthetic trigger (granted triggered ability).
     SyntheticTriggerTarget {
         /// The queued trigger.

@@ -256,6 +256,12 @@ pub enum YesNoPrompt {
         /// The player who offered.
         proposer: PlayerId,
     },
+    /// "Your commander is in a graveyard or in exile — put it into the
+    /// command zone instead?" (CR 903.9a).
+    CommanderZone {
+        /// The commander card, wherever it currently is.
+        card: baylee_core::ids::ObjectId,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -453,6 +459,20 @@ pub const fn granted_slot(index: u32) -> Option<u32> {
 /// when that block grew — these indices are per-session, chosen fresh in
 /// every `LegalActions`, so nothing outside a running game holds one.
 pub const PREPARED_CAST: u32 = u32::MAX - GRANTED_SLOTS;
+
+// The indices in this module are **not** `AbilityRef` indices, and that is
+// the distinction to keep before adding another one here. They name a slot in
+// one `LegalActions` — chosen fresh every time it is built, held by nothing
+// outside the game it was built for — while an `AbilityRef` is stored against
+// an *account* and replayed into the next game. The two spaces both count
+// down from `u32::MAX` and would collide if either were read as the other,
+// which is why an ability the engine puts on the stack carries
+// `AbilityRef::SYNTHETIC` rather than the slot it was offered under.
+//
+// CR 903.9a's "put your commander into the command zone?" is asked under
+// `AbilityRef::COMMANDER_ZONE` for that reason: it is a question a player
+// answers once and for good, so it is a wire constant and belongs in
+// `baylee-core` beside the other reserved handles.
 
 /// Everything a player may legally do with priority (precomputed).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]

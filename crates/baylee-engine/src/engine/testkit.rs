@@ -47,6 +47,7 @@ pub struct Duel {
     battlefield: [Vec<CardIndex>; 2],
     sideboard: [Vec<CardIndex>; 2],
     commanders: [Vec<CardIndex>; 2],
+    life: [Option<i32>; 2],
     library_filler: CardIndex,
 }
 
@@ -62,6 +63,7 @@ impl Duel {
             battlefield: [Vec::new(), Vec::new()],
             sideboard: [Vec::new(), Vec::new()],
             commanders: [Vec::new(), Vec::new()],
+            life: [None, None],
             library_filler,
         }
     }
@@ -77,6 +79,18 @@ impl Duel {
     #[must_use]
     pub fn battlefield(mut self, seat: usize, cards: &[CardIndex]) -> Self {
         self.battlefield[seat] = cards.to_vec();
+        self
+    }
+
+    /// A seat's starting life, overriding the format's.
+    ///
+    /// What it is for is separating a loss from the life total that usually
+    /// comes with it: commander damage (CR 903.10a) kills a player who is
+    /// nowhere near dying, and a test run at twenty life would watch them
+    /// lose and be unable to say which rule did it.
+    #[must_use]
+    pub fn life(mut self, seat: usize, amount: i32) -> Self {
+        self.life[seat] = Some(amount);
         self
     }
 
@@ -121,7 +135,7 @@ impl Duel {
             deck: deck.clone(),
             sideboard: self.sideboard[seat].iter().copied().map(entry).collect(),
             commanders: self.commanders[seat].iter().copied().map(entry).collect(),
-            starting_life: None,
+            starting_life: self.life[seat],
             starting_hand: Some(self.hand[seat].iter().copied().map(entry).collect()),
             starting_battlefield: self.battlefield[seat].iter().copied().map(entry).collect(),
             emblems: vec![],

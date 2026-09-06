@@ -279,7 +279,17 @@ impl HeuristicAgent {
                 YesNoPrompt::Kicker
                 | YesNoPrompt::PayTax { .. }
                 | YesNoPrompt::DrawOffer { .. } => PlayerAction::YesNo(false),
-                YesNoPrompt::Generic => PlayerAction::YesNo(true),
+                // Both yes, for reasons that happen to agree. An optional
+                // effect is written on a card this seat chose to play, so
+                // taking it is the default. And a commander goes home
+                // (CR 903.9a) because the command zone is the one zone
+                // nobody can reach into, and the {2} on the next cast is
+                // cheaper than the deck's whole plan being milled or
+                // exiled — a seat that would rather reanimate it needs the
+                // evaluator this agent does not have yet.
+                YesNoPrompt::CommanderZone { .. } | YesNoPrompt::Generic => {
+                    PlayerAction::YesNo(true)
+                }
             },
             Pending::GameOver(_) => PlayerAction::PassPriority, // unreachable in the driver
         }

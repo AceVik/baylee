@@ -281,6 +281,12 @@ pub enum LossReason {
     EmptyDraw,
     /// Ten or more poison counters (CR 104.3d).
     Poison,
+    /// Twenty-one combat damage from one commander (CR 903.10a).
+    ///
+    /// Its own reason and not [`Self::Life`] because it is not a life
+    /// total: a player on forty life loses to it, and the log saying "life"
+    /// there would describe a game nobody played.
+    CommanderDamage,
     /// Concession (CR 104.3a).
     Conceded,
 }

@@ -16,6 +16,14 @@ pub struct SbaOutcome {
     pub changed: bool,
     /// A pending legend-rule choice interrupts the fixpoint.
     pub legend_choice: Option<(PlayerId, Vec<baylee_core::ids::ObjectId>)>,
+    /// A commander in a graveyard or in exile whose owner may send it to
+    /// the command zone instead (CR 903.9a) — also an interruption.
+    ///
+    /// The pass has already recorded that it asked (`Commander::answered`),
+    /// so a caller that drops this field does not defer the question, it
+    /// *loses* it: the commander stays in the graveyard with nobody asked.
+    /// There is exactly one caller outside the tests for that reason.
+    pub commander_zone: Option<(PlayerId, baylee_core::ids::ObjectId)>,
 }
 
 /// Runs one SBA pass over the state (CR 704.3 list, S2 subset):
@@ -36,9 +44,19 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
             break;
         }
         let p = PlayerId::new(player as u8);
-        let (life, poison, empty_draw, has_lost) = {
+        let (life, poison, empty_draw, has_lost, commander_damage) = {
             let pl = &state.players[player];
-            (pl.life, pl.poison, pl.tried_empty_draw, pl.has_lost)
+            (
+                pl.life,
+                pl.poison,
+                pl.tried_empty_draw,
+                pl.has_lost,
+                pl.commander_damage
+                    .iter()
+                    .map(|(_, n)| *n)
+                    .max()
+                    .unwrap_or(0),
+            )
         };
         if has_lost {
             continue;
@@ -49,6 +67,12 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
             Some(LossReason::Poison)
         } else if empty_draw {
             Some(LossReason::EmptyDraw)
+        } else if commander_damage >= 21 {
+            // CR 903.10a: twenty-one from *the same* commander, which is
+            // why the maximum of the tallies is the number to compare and
+            // not their sum. Three commanders at seven apiece is a player
+            // in trouble, not a player who has lost.
+            Some(LossReason::CommanderDamage)
         } else {
             None
         };
@@ -215,6 +239,53 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
         outcome.changed = true;
     }
     state.return_token_cleanup(candidates);
+
+    // --- Commanders in a graveyard or in exile (CR 903.9a) --------------
+    // "If a commander is in a graveyard or in exile and that object was put
+    // into that zone since the last time state-based actions were checked,
+    // its owner may put it into the command zone." A *may*, so it is a
+    // question rather than a move, and it interrupts the fixpoint the way
+    // the legend rule does.
+    //
+    // Last in the pass on purpose. Everything above can be the thing that
+    // put it there — lethal damage, the legend rule, an aura falling off a
+    // creature that was holding it up — and a commander destroyed by this
+    // very pass is caught by this very pass rather than the next one.
+    //
+    // Whose commander is asked first is decided by seat order and then by
+    // position in the seat's list, which is fixed for the whole game: a
+    // wrath that kills two seats' commanders asks them in seat order, every
+    // replay, and neither question is lost because each commander carries
+    // its own `answered` watermark.
+    'seats: for seat in 0..state.commanders.len() {
+        for i in 0..state.commanders[seat].len() {
+            let id = state.commanders[seat][i].object;
+            let Some((owner, arrived)) = state.object(id).and_then(|obj| {
+                matches!(
+                    obj.zone,
+                    crate::zone::Zone::Graveyard | crate::zone::Zone::Exile
+                )
+                .then_some((obj.owner, obj.timestamp))
+            }) else {
+                // Not in one of the two zones — or gone entirely, which is
+                // what `eliminate_player` leaves behind: a marker naming a
+                // card that no longer exists. Neither is a question.
+                continue;
+            };
+            if arrived == state.commanders[seat][i].answered {
+                continue; // this arrival has been offered already
+            }
+            if state.players[owner.get() as usize].has_lost {
+                continue; // nobody there to answer
+            }
+            // Recorded before the question is asked, not after it is
+            // answered: a "no" must not be asked again, and neither must a
+            // question that never reaches an answer.
+            state.commanders[seat][i].answered = arrived;
+            outcome.commander_zone = Some((owner, id));
+            break 'seats;
+        }
+    }
 
     outcome
 }

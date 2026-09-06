@@ -282,9 +282,9 @@ PublicObject.stack_item: Option<StackItem>
 `AbilityRef { card: CardIndex, index: u32 }` is the stable handle. `index` is
 the position in that card's `CardDef::abilities`, so a client that knows the
 card pool can map it to text; the reserved indices (`SPELL`, `ENTERS`,
-`ADDITIONAL_COST`, `MIRACLE`, `UPKEEP_COST`, all counting down from
-`u32::MAX`) name the abilities that are not listed on the card, and
-`AbilityRef::is_listed_ability` separates the two.
+`ADDITIONAL_COST`, `MIRACLE`, `UPKEEP_COST`, `SYNTHETIC`, `COMMANDER_ZONE`,
+all counting down from `u32::MAX`) name the questions that are not listed on
+the card, and `AbilityRef::is_listed_ability` separates the two.
 
 The same handle addresses a seat's standing answers
 (`PlayerAction::SetStandingAnswer`), which is why it deliberately says nothing

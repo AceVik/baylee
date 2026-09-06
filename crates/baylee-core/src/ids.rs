@@ -109,6 +109,14 @@ impl AbilityRef {
     /// arrived as the same handle, and a standing "always yes" for either
     /// one answered both. They are different questions about the same card.
     pub const SYNTHETIC: u32 = u32::MAX - 5;
+    /// The commander's "put it into the command zone instead?" (CR 903.9a).
+    ///
+    /// The odd one out among these: the others name a question the card
+    /// itself raises or one an effect gave it, and this one is raised by the
+    /// rules about a card that prints nothing of the sort. It is a handle
+    /// here all the same, because what it addresses is what they all address
+    /// — a card-scoped question a player may want answered once and for good.
+    pub const COMMANDER_ZONE: u32 = u32::MAX - 6;
 
     /// The lowest reserved index. Real ability indices are positions in a
     /// card's ability list and never come close; reserving the top of the
@@ -116,7 +124,7 @@ impl AbilityRef {
     /// shockland's entry choice, a kicker — be addressed by the same
     /// handle, so "always yes for this card's question" works for them
     /// too.
-    pub const FIRST_RESERVED: u32 = u32::MAX - 5;
+    pub const FIRST_RESERVED: u32 = u32::MAX - 6;
 
     /// Whether this handle names a real entry in the card's ability list.
     #[must_use]
@@ -242,6 +250,7 @@ mod tests {
             ("MIRACLE", AbilityRef::MIRACLE),
             ("UPKEEP_COST", AbilityRef::UPKEEP_COST),
             ("SYNTHETIC", AbilityRef::SYNTHETIC),
+            ("COMMANDER_ZONE", AbilityRef::COMMANDER_ZONE),
         ];
         for (i, (name, value)) in reserved.iter().enumerate() {
             for (other, other_value) in &reserved[i + 1..] {

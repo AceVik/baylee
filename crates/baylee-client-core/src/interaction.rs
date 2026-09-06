@@ -254,6 +254,7 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt) -> String {
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::Miracle { .. } => Phrase::CastForMiracle.text(lang).to_string(),
         YesNoPrompt::DrawOffer { .. } => Phrase::DrawWasOffered.text(lang).to_string(),
+        YesNoPrompt::CommanderZone { .. } => Phrase::CommanderToCommandZone.text(lang).to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }
