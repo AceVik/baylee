@@ -18,7 +18,7 @@ use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
 use baylee_core::preset::Politics;
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};
-use baylee_view::PlayerView;
+use baylee_view::{Phase, PlayerView};
 
 /// A greedy one-ply heuristic controller. Deterministic given the same
 /// view (the engine's seeded RNG does all randomness).
@@ -124,20 +124,43 @@ impl HeuristicAgent {
                 if let Some(&card) = legal.lands.first() {
                     return PlayerAction::PlayLand { card };
                 }
-                // 2. Tap mana while holding anything castable-but-unpaid
-                //    or while unspent mana could matter (simple: always
-                //    tap before casting, never float into the pass).
-                if !legal.castable.is_empty() && !legal.mana_abilities.is_empty() {
-                    let floating = mana_available(view);
-                    let best_unpaid = legal
-                        .castable
+                // 2. Tap for mana.
+                //
+                // This asked `legal.castable` whether anything was worth
+                // paying for, and that is the one list which cannot answer
+                // it: `casting::can_cast` probes affordability against the
+                // pool that is floating *right now*. With an empty pool it
+                // is empty, so the guard was never true, so no land was
+                // ever tapped, so the pool stayed empty. Measured over the
+                // acceptance decks, an agent played 34 lands and cast three
+                // spells across 180 turns, put no creature on the
+                // battlefield, and won by the opponent running out of
+                // library.
+                //
+                // What a player actually asks is about their *hand*: is
+                // there something here I cannot pay for yet? Sorcery timing
+                // keeps it to the seat's own main phase with an empty
+                // stack, so an instant's mana is not tapped away on
+                // somebody else's turn.
+                //
+                // It taps toward the *costliest* card in hand, which is to
+                // say it taps out. That is a real cost — the leftover
+                // floats away at end of step, and nothing is held up for a
+                // trick — and it is what `hold_up` is for; that knob is
+                // still read by nobody.
+                let main = matches!(view.phase, Phase::FirstMain | Phase::SecondMain);
+                if !legal.mana_abilities.is_empty()
+                    && main
+                    && view.active == player
+                    && view.stack.is_empty()
+                    && view
+                        .hand
                         .iter()
-                        .any(|id| mana_value(view, *id) > floating);
-                    if best_unpaid {
-                        return PlayerAction::ActivateManaAbility {
-                            source: legal.mana_abilities[0],
-                        };
-                    }
+                        .any(|c| c.mana_value > mana_available(view))
+                {
+                    return PlayerAction::ActivateManaAbility {
+                        source: legal.mana_abilities[0],
+                    };
                 }
                 // 3. Cast the costliest castable spell.
                 if let Some(card) = legal
@@ -196,7 +219,6 @@ impl HeuristicAgent {
                 max,
                 ..
             } => {
-                let n = (if max <= 2 { max } else { min }) as usize;
                 // An opponent's permanents first, everything else after: the
                 // count may force a teammate's creature (a spell with two
                 // required targets and one enemy on the board is still cast),
@@ -209,11 +231,30 @@ impl HeuristicAgent {
                             .is_none_or(|o| self.hostile(o.controller, player))
                     })
                     .collect();
+                let enemies = ordered.len();
                 for id in &options {
                     if !ordered.contains(id) {
                         ordered.push(*id);
                     }
                 }
+                // How many to name. The bounds are the card's own words:
+                // "up to two" is 0..=2, "two target creatures" is 2..=2, and
+                // "any number of target creatures" is 0..=99.
+                //
+                // Taking `min` for that last one takes *none*, and a
+                // no-target answer to "any number" is what stalled a game at
+                // turn 34: the engine put the cast back, the board was
+                // unchanged, so the agent cast the same spell again and the
+                // harness's loop detector ended the game. A spell was cast to
+                // do something, so an unbounded choice takes every enemy it
+                // was offered, and never fewer than one.
+                let n = if max <= 2 {
+                    max as usize
+                } else if min == 0 {
+                    enemies.max(1)
+                } else {
+                    min as usize
+                };
                 let objects = ordered[..n.min(ordered.len())].to_vec();
                 // "Any target" with nothing on the battlefield worth hitting
                 // is still a legal spell: the rest of the count comes off the

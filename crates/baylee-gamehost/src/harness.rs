@@ -24,12 +24,162 @@ struct LoopKey {
     turn: u32,
     phase: baylee_engine::turn::Phase,
     step: baylee_engine::turn::Step,
-    pending_kind: std::mem::Discriminant<Pending>,
+    pending: u64,
+}
+
+/// The open question, in full.
+///
+/// This was `discriminant(&pending)` — the *kind* of question — and that is
+/// blind to the one place a game legitimately asks two different questions
+/// over an unchanged board: a cast in progress. The wizard lives on
+/// `Engine`, not in the `GameState` the hash is taken of, so "cast a spell
+/// with kicker, decline the kicker" repeated a key it had not repeated a
+/// situation of, and a game was called a loop at turn 34.
+///
+/// Making the key finer can only lose detections, never invent them, and
+/// what it loses is a loop that varies its question — which the action cap
+/// still catches, now reported as [`Halt::CapReached`] rather than
+/// misfiled as a loop.
+fn pending_fingerprint(pending: &Pending) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    format!("{pending:?}").hash(&mut h);
+    h.finish()
+}
+
+/// Why a harness game stopped.
+#[derive(Clone, Debug)]
+pub enum Halt {
+    /// The game ended by its own rules — somebody won, or it was a draw.
+    Finished(GameResult),
+    /// The same decision point came round again, exactly: a real loop, and
+    /// the deterministic agents would spin on it forever.
+    Repeated {
+        /// The action number the state was first seen at.
+        first_seen: usize,
+    },
+    /// The action cap ran out with the game still moving. Not the same
+    /// thing as a loop at all: the game was going somewhere, just slowly.
+    CapReached,
+}
+
+/// What one seat looked like when the game stopped.
+#[derive(Clone, Copy, Debug)]
+pub struct SeatSnapshot {
+    /// Life total.
+    pub life: i32,
+    /// Cards in hand.
+    pub hand: usize,
+    /// Cards left in the library — a game that is going nowhere and a game
+    /// about to end on an empty draw look identical without this.
+    pub library: usize,
+    /// Permanents controlled.
+    pub permanents: usize,
+    /// How many of those are creatures.
+    pub creatures: usize,
+}
+
+/// What the agents actually did, counted over the whole game.
+///
+/// The end state says how a game finished and not how it was played, and
+/// those turned out to be very different questions: every acceptance game
+/// ends, and none of them ends in combat.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Tally {
+    /// Lands played.
+    pub lands: usize,
+    /// Spells cast.
+    pub spells: usize,
+    /// Abilities activated by hand (mana abilities not counted).
+    pub abilities: usize,
+    /// Attack declarations that named at least one creature.
+    pub attacks: usize,
+    /// Attack declarations that named none.
+    pub attacks_declined: usize,
+    /// Block declarations that named at least one blocker.
+    pub blocks: usize,
+    /// Block declarations that named none.
+    pub blocks_declined: usize,
+    /// Mana abilities activated.
+    pub taps: usize,
+    /// Actions the engine refused because the cost could not be paid.
+    ///
+    /// The agent compares a card's mana *value* against the pool's total,
+    /// which is a comparison that ignores colour, so this is the count of
+    /// times it tapped up and then could not pay after all.
+    pub refused_cost: usize,
+    /// Actions the engine refused for any other reason.
+    pub refused_other: usize,
+}
+
+/// A played harness game, with enough of the end state to say *why* it
+/// stopped.
+///
+/// [`play_game`] answers `Option<GameResult>`, and a `None` there covers
+/// two situations that want opposite fixes: a genuine loop, and a game
+/// still making progress when the cap ran out. The soak asserts on a count
+/// of those `None`s and so could never explain itself.
+#[derive(Clone, Debug)]
+pub struct Report {
+    /// Why it stopped.
+    pub halt: Halt,
+    /// Actions taken.
+    pub actions: usize,
+    /// Turn number reached.
+    pub turn: u32,
+    /// Phase and step it stopped in, and the question that was open —
+    /// `Debug` text, because this exists to be read by a person looking at
+    /// a game that stopped somewhere it should not have.
+    pub at: String,
+    /// Every seat, in seat order.
+    pub seats: Vec<SeatSnapshot>,
+    /// What the agents did, in seat order.
+    pub tally: Vec<Tally>,
+    /// The last handful of question/answer pairs, newest last, and empty
+    /// for a game that ended properly.
+    ///
+    /// A repeat says *that* the game came round again and never *how*, and
+    /// the how is one line: the question asked, and what was answered to
+    /// it. Kept as a short ring rather than a full trace because it is
+    /// carried by every game the soak plays and only ever read by the few
+    /// that stop badly.
+    pub trail: Vec<String>,
+}
+
+impl Report {
+    /// Whether the game reached its own ending.
+    #[must_use]
+    pub const fn finished(&self) -> bool {
+        matches!(self.halt, Halt::Finished(_))
+    }
+
+    /// Attaches the last few question/answer pairs.
+    #[must_use]
+    fn with_trail(mut self, trail: Vec<String>) -> Self {
+        self.trail = trail;
+        self
+    }
 }
 
 /// Plays a full game between the agents at the table. Returns the result,
-/// or `None` when the action cap was hit (pathological stalls count as
-/// timeouts).
+/// or `None` when the game did not reach one — see [`play_report`] for
+/// which of the two ways that happens.
+///
+/// # Panics
+/// As [`play_report`].
+pub fn play_game<L: CardLookup>(
+    lookup: L,
+    preset: &GamePreset,
+    agents: &[HeuristicAgent],
+    max_actions: usize,
+) -> Option<GameResult> {
+    match play_report(lookup, preset, agents, max_actions).halt {
+        Halt::Finished(result) => Some(result),
+        Halt::Repeated { .. } | Halt::CapReached => None,
+    }
+}
+
+/// Plays a full game and reports how it ended.
 ///
 /// One agent per seat, in seat order. It took a `[HeuristicAgent; 2]` for
 /// as long as the harness only ever played duels — which meant the room a
@@ -44,12 +194,12 @@ struct LoopKey {
 /// # Panics
 /// On engine-internal invariant violations (an illegal action that is not
 /// a late legality miss), or when `agents` does not have one agent per seat.
-pub fn play_game<L: CardLookup>(
+pub fn play_report<L: CardLookup>(
     lookup: L,
     preset: &GamePreset,
     agents: &[HeuristicAgent],
     max_actions: usize,
-) -> Option<GameResult> {
+) -> Report {
     assert_eq!(
         agents.len(),
         preset.seats.len(),
@@ -59,10 +209,12 @@ pub fn play_game<L: CardLookup>(
     );
     let mut engine = Engine::new(preset, lookup).expect("preset builds");
     let mut seen: std::collections::HashMap<LoopKey, usize> = std::collections::HashMap::new();
+    let mut tally = vec![Tally::default(); preset.seats.len()];
+    let mut trail: Vec<String> = Vec::with_capacity(TRAIL);
     for i in 0..max_actions {
         let pending = engine.pending().clone();
         if let Pending::GameOver(result) = pending {
-            return Some(result);
+            return report(&engine, Halt::Finished(result), i, tally);
         }
         let player_for_hash = pending_player(&pending);
         let key = LoopKey {
@@ -71,14 +223,16 @@ pub fn play_game<L: CardLookup>(
             turn: engine.state().turn.number,
             phase: engine.state().turn.phase,
             step: engine.state().turn.step,
-            pending_kind: std::mem::discriminant(&pending),
+            pending: pending_fingerprint(&pending),
         };
-        if seen.insert(key, i).is_some() {
+        if let Some(first_seen) = seen.insert(key, i) {
             // Exact repetition: an infinite combo loop (real MTG boards
             // allow these; the deterministic agent would spin forever).
-            return None;
+            return report(&engine, Halt::Repeated { first_seen }, i, tally).with_trail(trail);
         }
-        let player = pending_player(&pending)?;
+        // `GameOver` is the only pending nobody answers, and it returned
+        // above.
+        let player = player_for_hash.expect("a decision point has a seat");
         // The agent sees what a client would see, and nothing else.
         let view = crate::view::player_view(
             engine.state(),
@@ -89,6 +243,35 @@ pub fn play_game<L: CardLookup>(
             engine.automation(player).hold.suppresses(),
         );
         let action = agents[player.get() as usize].act(&view, &pending);
+        if trail.len() == TRAIL {
+            trail.remove(0);
+        }
+        trail.push(format!("{i}: {} → {action:?}", short(&pending)));
+        // Counted before it is applied, and only for the shapes that say
+        // something about how the game is being *played*: an answer to a
+        // trigger is not a decision anybody watches for.
+        let t = &mut tally[player.get() as usize];
+        match &action {
+            PlayerAction::PlayLand { .. } => t.lands += 1,
+            PlayerAction::CastSpell { .. } => t.spells += 1,
+            PlayerAction::ActivateAbility { .. } => t.abilities += 1,
+            PlayerAction::ActivateManaAbility { .. } => t.taps += 1,
+            PlayerAction::DeclareAttackers { attackers } => {
+                if attackers.is_empty() {
+                    t.attacks_declined += 1;
+                } else {
+                    t.attacks += 1;
+                }
+            }
+            PlayerAction::DeclareBlockers { blockers } => {
+                if blockers.is_empty() {
+                    t.blocks_declined += 1;
+                } else {
+                    t.blocks += 1;
+                }
+            }
+            _ => {}
+        }
         if let Err(err) = engine.apply(player, action) {
             // Late legality/payment misses are AI mis-evaluation, not engine
             // bugs, and the engine has already recovered: a cast that fails
@@ -101,8 +284,10 @@ pub fn play_game<L: CardLookup>(
             // If the agent really is stuck, the state repeats exactly and the
             // loop detector above ends the game on the next pass.
             if format!("{err}").contains("cannot pay") {
+                tally[player.get() as usize].refused_cost += 1;
                 continue;
             }
+            tally[player.get() as usize].refused_other += 1;
             if let Pending::Priority { .. } = &pending {
                 engine
                     .apply(player, PlayerAction::PassPriority)
@@ -110,7 +295,68 @@ pub fn play_game<L: CardLookup>(
             }
         }
     }
-    None
+    report(&engine, Halt::CapReached, max_actions, tally).with_trail(trail)
+}
+
+/// How many question/answer pairs a [`Report`] keeps.
+const TRAIL: usize = 24;
+
+/// One question, short enough to put on a line.
+fn short(pending: &Pending) -> String {
+    // The variant, not the whole payload: a `Priority` carries every legal
+    // action, and printing those is a page per line.
+    match pending {
+        Pending::Priority { player, .. } => format!("Priority({})", player.get()),
+        other => format!("{other:?}").chars().take(200).collect(),
+    }
+}
+
+/// The end state, as one line per seat.
+fn report<L: CardLookup>(
+    engine: &Engine<L>,
+    halt: Halt,
+    actions: usize,
+    tally: Vec<Tally>,
+) -> Report {
+    use baylee_core::types::TypeSet;
+    use baylee_engine::zone::ZoneLocation;
+
+    let state = engine.state();
+    let battlefield = state.zones.list(ZoneLocation::Battlefield);
+    let seats = (0..state.players.len())
+        .map(|i| {
+            let seat = PlayerId::new(u8::try_from(i).expect("a table fits in a u8"));
+            let mine = || {
+                battlefield
+                    .iter()
+                    .filter_map(|id| state.object(*id))
+                    .filter(move |o| o.controller == seat)
+            };
+            SeatSnapshot {
+                life: state.players[i].life,
+                hand: state.zones.list(ZoneLocation::Hand(seat)).len(),
+                library: state.zones.list(ZoneLocation::Library(seat)).len(),
+                permanents: mine().count(),
+                creatures: mine()
+                    .filter(|o| o.characteristics().types.contains(TypeSet::CREATURE))
+                    .count(),
+            }
+        })
+        .collect();
+    Report {
+        halt,
+        actions,
+        turn: state.turn.number,
+        at: format!(
+            "{:?}/{:?} {}",
+            state.turn.phase,
+            state.turn.step,
+            short(engine.pending())
+        ),
+        seats,
+        tally,
+        trail: Vec::new(),
+    }
 }
 
 #[cfg(test)]
@@ -308,6 +554,8 @@ mod tests {
             HeuristicAgent::new(AIProfile::default()),
         ];
         let mut finished = 0;
+        let mut attacks = 0;
+        let mut lines = Vec::new();
         for seed in [1u64, 7, 42, 1337] {
             let (a, b) = if seed % 2 == 0 {
                 (&allytifact, &victory)
@@ -315,13 +563,65 @@ mod tests {
                 (&victory, &allytifact)
             };
             let preset = baylee_cards::decks::preset_for(seed, a, b);
-            if play_game(RegistryLookup, &preset, &agents, 20_000).is_some() {
+            let r = play_report(RegistryLookup, &preset, &agents, 20_000);
+            if r.finished() {
                 finished += 1;
             }
+            attacks += r.tally.iter().map(|t| t.attacks).sum::<usize>();
+            let seats: Vec<String> = r
+                .seats
+                .iter()
+                .zip(&r.tally)
+                .map(|(s, t)| {
+                    format!(
+                        "{}life h{} l{} b{}/{}c · {}land {}spell {}abil {}atk/{} {}blk/{} · {}tap {}refused-cost {}refused-other",
+                        s.life,
+                        s.hand,
+                        s.library,
+                        s.permanents,
+                        s.creatures,
+                        t.lands,
+                        t.spells,
+                        t.abilities,
+                        t.attacks,
+                        t.attacks_declined,
+                        t.blocks,
+                        t.blocks_declined,
+                        t.taps,
+                        t.refused_cost,
+                        t.refused_other,
+                    )
+                })
+                .collect();
+            lines.push(format!(
+                "seed {seed}: {:?} after {} actions on turn {} at {}\n    {}",
+                r.halt,
+                r.actions,
+                r.turn,
+                r.at,
+                seats.join("\n    ")
+            ));
+            for step in &r.trail {
+                lines.push(format!("      {step}"));
+            }
         }
+        // The report rather than the count, because "2/4" says nothing about
+        // whether the other two looped or were still playing when the cap ran
+        // out, and those want opposite fixes.
+        let report = lines.join("\n");
         assert!(
-            finished >= 2,
-            "at least half of the self-play games should finish (got {finished}/4)"
+            finished >= 3,
+            "self-play games should finish (got {finished}/4)\n{report}"
         );
+        // The bar used to be two of four and every one of them was reached
+        // by decking the opponent out over 180 turns: nobody tapped a land,
+        // nobody cast a creature, and both seats declared an empty attack
+        // ninety times each. A count of finished games could not see that,
+        // so this asks the question that could.
+        assert!(
+            attacks > 0,
+            "nobody attacked in any of the four games\n{report}"
+        );
+        println!("{report}");
     }
 }

@@ -198,13 +198,24 @@ impl<L: CardLookup> Engine<L> {
         // included (CR 601.2f) — and on the affordability probes too, or a
         // mode would be offered that the player then cannot pay for.
         let tax = casting::commander_tax(&self.state, player, card);
+        // Convoke (CR 702.51) pays {1} per untapped creature or artifact and
+        // is therefore part of what "afford" means. It has to be the same
+        // count `casting::can_cast` uses, or the spell is offered in
+        // `LegalActions` and then refused here as "no way to cast this
+        // spell" — which is what happened, and it is why the count lives in
+        // one function.
+        let convoke = if face.convoke {
+            casting::convoke_sources(&self.state, player).len() as u32
+        } else {
+            0
+        };
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
             casting::wild_or_not(
                 casting::mana_is_wild(&self.state),
                 pool,
-                &cost.with_more_generic(tax),
+                &cost.with_more_generic(tax).with_less_generic(convoke),
             )
         };
         let mut options = Vec::new();
@@ -526,26 +537,7 @@ impl<L: CardLookup> Engine<L> {
             }
             WizardStage::Convoke => {
                 let face = self.wizard_face(&wizard);
-                let untapped: Vec<ObjectId> = self
-                    .state
-                    .zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .copied()
-                    .filter(|id| {
-                        self.state.object(*id).is_some_and(|o| {
-                            o.controller == wizard.player
-                                && (o
-                                    .characteristics()
-                                    .types
-                                    .contains(baylee_core::types::TypeSet::CREATURE)
-                                    || o.characteristics()
-                                        .types
-                                        .contains(baylee_core::types::TypeSet::ARTIFACT))
-                                && !o.status.contains(crate::object::Status::TAPPED)
-                        })
-                    })
-                    .collect();
+                let untapped = crate::casting::convoke_sources(&self.state, wizard.player);
                 if !face.convoke || untapped.is_empty() {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
@@ -635,22 +627,15 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         let player = wizard.player;
-        // Delve (CR 702.66): exile the chosen graveyard cards; each pays
-        // for {1} of the generic part.
-        for &card in &wizard.delve_exiles {
-            let _ = self.state.move_object(
-                card,
-                ZoneLocation::Exile(player),
-                ZonePosition::Top,
-                Cause::Cost,
-            )?;
-        }
-        // Convoke (CR 702.51): tap the chosen creatures; each pays for {1}.
-        for &creature in &wizard.convoke_taps {
-            if let Some(obj) = self.state.object_mut(creature) {
-                obj.status.insert(crate::object::Status::TAPPED);
-            }
-        }
+        // Delve (CR 702.66) and convoke (CR 702.51) each pay for {1} of the
+        // generic part, so the count comes off the cost before anything is
+        // paid — but the exiling and the tapping happen *after* the mana
+        // does, below. They used to happen here, and a cast that then could
+        // not pay the rest returned an error with the graveyard already
+        // exiled and the creatures already tapped: the spell went back to
+        // hand and the costs stayed spent. CR 601.2h reverses the whole
+        // casting when a cost cannot be paid, and there is no half of it to
+        // keep.
         let reduction = (wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32;
         if reduction > 0 {
             total = reduce_generic(&total, reduction);
@@ -687,6 +672,20 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction("cannot pay the total cost"));
             }
             self.apply_spend_riders(player, wizard.card, &riders);
+        }
+        // The mana is paid, so the rest of the cost may now be spent.
+        for &card in &wizard.delve_exiles {
+            let _ = self.state.move_object(
+                card,
+                ZoneLocation::Exile(player),
+                ZonePosition::Top,
+                Cause::Cost,
+            )?;
+        }
+        for &creature in &wizard.convoke_taps {
+            if let Some(obj) = self.state.object_mut(creature) {
+                obj.status.insert(crate::object::Status::TAPPED);
+            }
         }
         // Non-mana parts of the chosen alternative cost (pay life etc.).
         if let Some(CastModeKind::Alternative(i)) = wizard.option {

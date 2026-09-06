@@ -399,24 +399,27 @@ impl<L: CardLookup> Engine<L> {
                 {
                     return Err(EngineError::IllegalAction("invalid target selection"));
                 }
-                // Wizard path: targets go to the active cast wizard.
-                if self.cast_wizard.is_some() {
-                    let mut wizard = self.cast_wizard.take().expect("wizard active");
-                    wizard.targets = objects.into_iter().collect();
-                    wizard.target_players = players.into_iter().collect();
-                    wizard.stage = cast_wizard::WizardStage::Kicker;
-                    self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
-                }
-                // Wizard path: convoke (tap creatures, {1} each).
-                if self
-                    .cast_wizard
-                    .as_ref()
-                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Convoke)
-                {
-                    let mut wizard = self.cast_wizard.take().expect("wizard active");
-                    wizard.convoke_taps = objects.into_iter().collect();
-                    wizard.stage = cast_wizard::WizardStage::Done;
+                // Wizard path: a cast in progress is asking, and *which*
+                // question it asked is the stage it is standing in.
+                //
+                // These were two `if`s in the other order, and the first one
+                // asked only whether a wizard was active — so it answered
+                // every question the wizard could ask, the convoke branch
+                // below it was unreachable, and `convoke_taps` was written by
+                // nothing. Answering the convoke question therefore filed the
+                // tapped permanents as the spell's *targets* and put the
+                // wizard back at `Kicker`, which asked the kicker question
+                // again, over an unchanged board, forever: a self-play game
+                // stalled on turn 34 casting one Spirit Water Revival.
+                if let Some(mut wizard) = self.cast_wizard.take() {
+                    if wizard.stage == cast_wizard::WizardStage::Convoke {
+                        wizard.convoke_taps = objects.into_iter().collect();
+                        wizard.stage = cast_wizard::WizardStage::Done;
+                    } else {
+                        wizard.targets = objects.into_iter().collect();
+                        wizard.target_players = players.into_iter().collect();
+                        wizard.stage = cast_wizard::WizardStage::Kicker;
+                    }
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }

@@ -47,6 +47,33 @@ pub fn mana_is_wild(state: &GameState) -> bool {
         .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::ManaIsAnyColor))
 }
 
+/// The permanents convoke may be paid with (CR 702.51): untapped creatures
+/// and artifacts the caster controls, one `{1}` each.
+///
+/// One function because the offer and the payment must not disagree. The
+/// wizard enumerated these to ask which to tap, and `can_cast` did not
+/// count them at all — so a convoke spell was offered as castable exactly
+/// when its printed cost was already payable, which is the one case convoke
+/// is not for. Clever Concealment and Spirit Water Revival were
+/// `Coverage::Implemented` and could never actually be convoked.
+#[must_use]
+pub fn convoke_sources(state: &GameState, player: PlayerId) -> Vec<ObjectId> {
+    state
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            state.object(*id).is_some_and(|o| {
+                o.controller == player
+                    && (o.characteristics().types.contains(TypeSet::CREATURE)
+                        || o.characteristics().types.contains(TypeSet::ARTIFACT))
+                    && !o.status.contains(crate::object::Status::TAPPED)
+            })
+        })
+        .collect()
+}
+
 /// Whether `pool` covers `cost`, honouring a mana-conversion effect.
 pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) -> bool {
     wild_or_not(mana_is_wild(state), pool, cost)
@@ -168,9 +195,24 @@ pub fn can_cast(
     // (CR 601.2f) — which is why it is folded into each probe below rather
     // than into the first one.
     let tax = commander_tax(state, player, card);
+    // Convoke (CR 702.51) is a *reduction* of the generic part, so it goes
+    // on the same probes the tax does and in the other direction. Read off
+    // the printed face: a granted convoke does not exist.
+    let convoke = obj
+        .card
+        .and_then(|c| lookup.card(c.index))
+        .filter(|def| def.faces[0].convoke)
+        .map_or(0, |_| convoke_sources(state, player).len() as u32);
+    let probe = |cost: &ManaCost| {
+        affordable(
+            state,
+            pool,
+            &cost.with_more_generic(tax).with_less_generic(convoke),
+        )
+    };
     // Printed cost probed with X = 0; the full payment is validated when
     // the wizard finishes.
-    if !affordable(state, pool, &c.mana_cost.with_x(0).with_more_generic(tax)) {
+    if !probe(&c.mana_cost.with_x(0)) {
         // Alternative costs may still make it castable (pitch/evoke) —
         // the wizard computes the exact options.
         let Some(card_ref) = obj.card else {
@@ -194,19 +236,12 @@ pub fn can_cast(
                     controls_a_commander(state, player)
                 }
             };
-            condition_ok && affordable(state, pool, &alt.cost.mana.with_more_generic(tax))
+            condition_ok && probe(&alt.cost.mana)
         });
         let any_mode = def.abilities.iter().any(|a| match a {
-            baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes.iter().any(|m| {
-                affordable(
-                    state,
-                    pool,
-                    &m.cost_override
-                        .unwrap_or(face.mana_cost)
-                        .with_x(0)
-                        .with_more_generic(tax),
-                )
-            }),
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes
+                .iter()
+                .any(|m| probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))),
             _ => false,
         });
         if !any_alt && !any_mode {
