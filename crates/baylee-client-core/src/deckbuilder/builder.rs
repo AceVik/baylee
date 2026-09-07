@@ -831,6 +831,20 @@ impl DeckBuilder {
             });
         }
         // Advice from here down. None of it stops a save.
+        if let Some(name) = &self.stale_commander {
+            // Advice rather than a block, and the wording says what will
+            // happen rather than asking for something. There is no button
+            // that puts this mark back — the card is not one the `?` menu
+            // offers a commander chip on, which is the whole reason it is
+            // stale — so blocking here would be a deck that cannot be saved
+            // and cannot be fixed either. Naming another commander clears
+            // it; saving as it stands is a Freeform deck, and the player is
+            // told so before they press the button rather than at the table.
+            out.push(Problem {
+                blocking: false,
+                message: Phrase::CommanderNoLongerEligible.fill(lang, &[name]),
+            });
+        }
         if counts.main > 0 && counts.main < MIN_CONSTRUCTED {
             out.push(Problem {
                 blocking: false,
@@ -906,12 +920,18 @@ impl DeckBuilder {
             self.commander = Some(slot);
             self.dirty = true;
         }
+        self.stale_commander = None;
         true
     }
 
     /// Takes the commander mark off, leaving the card in the deck.
     pub fn clear_commander(&mut self) {
-        if self.commander.take().is_some() {
+        // Both taken, then asked: `||` would short-circuit past the second
+        // one and leave a warning standing about a deck that no longer has
+        // the mark it is about.
+        let marked = self.commander.take().is_some();
+        let stale = self.stale_commander.take().is_some();
+        if marked || stale {
             self.dirty = true;
         }
     }
@@ -1006,6 +1026,7 @@ impl DeckBuilder {
         self.inspecting = None;
         self.commander = None;
         self.pending_commander = None;
+        self.stale_commander = None;
         // A nameless deck cannot be saved, so that is where the caret starts.
         self.focus_on(BuildField::Name);
     }
@@ -1062,8 +1083,18 @@ impl DeckBuilder {
         if let Some(name) = self.pending_commander.clone()
             && let Some(slot) = self.slot_of(&name)
         {
-            self.commander = Some(slot);
             self.pending_commander = None;
+            // The same question `set_commander` asks, and for the same
+            // reason: a mark the rules will not seat is one the gateway
+            // refuses on save. Asking it in only one of the two places meant
+            // a deck could be *loaded* into a state it could never be saved
+            // from — and the mark that got there that way looked exactly
+            // like one the player had chosen.
+            if self.pool.get(slot).is_some_and(|card| card.commander) {
+                self.commander = Some(slot);
+            } else {
+                self.stale_commander = Some(name);
+            }
         }
         if self.pending.is_empty() {
             return;

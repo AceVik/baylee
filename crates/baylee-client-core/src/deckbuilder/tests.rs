@@ -778,3 +778,85 @@ fn moving_a_card_to_the_zone_it_is_in_does_nothing() {
     assert!(!b.move_entry(0, Zone::Main, Zone::Main));
     assert_eq!(b.count_of(forest, Zone::Main), 1);
 }
+
+/// A stored deck names its commander by name, and a name resolves through
+/// the pool — which is where the eligibility answer lives, and which can
+/// change under a saved deck.
+///
+/// `set_commander` has asked that question since it existed; the load path
+/// did not, and set the mark on whatever the name resolved to. So a deck
+/// saved when a card could lead one came back marked with a commander the
+/// gateway would refuse on the next save.
+#[test]
+fn a_stored_commander_the_rules_no_longer_seat_is_not_marked() {
+    let mut b = commander_pool();
+    b.load(
+        "d1",
+        "Old deck",
+        &["1 Grizzly Bears".to_string()],
+        &[],
+        Some("Grizzly Bears"),
+    );
+    assert_eq!(b.commander(), None, "the mark is refused");
+    assert_eq!(b.commander_name(), None, "and never reaches the wire");
+    let problems = b.problems(Lang::En);
+    assert!(
+        problems
+            .iter()
+            .any(|p| !p.blocking && p.message.contains("Grizzly Bears")),
+        "the player is told which card lost its seat: {problems:?}"
+    );
+}
+
+/// The same, with the pool arriving after the deck — the race `load`
+/// exists to survive. The answer has to be the same one.
+#[test]
+fn a_stale_commander_is_caught_when_the_pool_arrives_late() {
+    let mut b = DeckBuilder::new();
+    b.load(
+        "d1",
+        "Old deck",
+        &["1 Grizzly Bears".to_string()],
+        &[],
+        Some("Grizzly Bears"),
+    );
+    let mut cards = pool();
+    let mut general = card(
+        6,
+        "Nissa, Who Shakes the World",
+        "{3}{G}{G}",
+        5,
+        &["Legendary", "Planeswalker"],
+    );
+    general.commander = true;
+    cards.push(general);
+    b.set_pool(cards, true);
+    assert_eq!(b.commander(), None);
+    assert!(
+        b.problems(Lang::En)
+            .iter()
+            .any(|p| p.message.contains("Grizzly Bears"))
+    );
+}
+
+/// Naming a commander the rules do seat answers the warning: it is about
+/// the deck's leader, not about a card that is still in the ninety-nine.
+#[test]
+fn naming_a_new_commander_answers_the_stale_one() {
+    let mut b = commander_pool();
+    b.load(
+        "d1",
+        "Old deck",
+        &["1 Grizzly Bears".to_string()],
+        &[],
+        Some("Grizzly Bears"),
+    );
+    let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
+    assert!(b.set_commander(nissa));
+    assert!(
+        !b.problems(Lang::En)
+            .iter()
+            .any(|p| p.message.contains("Grizzly Bears")),
+        "the deck has a leader again"
+    );
+}

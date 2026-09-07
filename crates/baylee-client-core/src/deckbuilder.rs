@@ -617,6 +617,16 @@ pub struct DeckBuilder {
     commander: Option<usize>,
     /// A loaded deck's commander name, until the pool can resolve it.
     pending_commander: Option<String>,
+    /// A loaded deck's commander that the pool resolves but the rules will
+    /// not seat. The mark is not taken; the name is kept so it can be said.
+    ///
+    /// The gateway refuses such a deck on save (`POST /decks` answers "that
+    /// card cannot be a commander"), so this cannot come from a deck saved
+    /// today — it comes from one saved *before* the card's `CommanderRule`
+    /// changed. Remembered rather than dropped, because a Commander deck
+    /// quietly demoted to Freeform is something the player would otherwise
+    /// find out about at the table.
+    stale_commander: Option<String>,
     /// The open printing picker, if a card is being picked for.
     picker: Option<Picker>,
     focus: BuildField,

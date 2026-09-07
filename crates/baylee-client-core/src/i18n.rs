@@ -743,6 +743,11 @@ messages! {
         en: "{0} is no longer in the card pool.",
         de: "{0} ist nicht mehr im Kartenpool.",
     },
+    /// {0} can no longer be a commander — this deck will save without one.
+    CommanderNoLongerEligible {
+        en: "{0} can no longer be a commander — this deck will save without one.",
+        de: "{0} kann kein Kommandeur mehr sein — dieses Deck wird ohne einen gespeichert.",
+    },
     /// {0} cards — a constructed deck wants at least {1}.
     DeckTooSmall {
         en: "{0} cards — a constructed deck wants at least {1}.",
