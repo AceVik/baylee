@@ -62,12 +62,34 @@ pub enum Failure {
     /// URL at this size. Cleared by [`CardTextures::forget_unresolved`] when a
     /// new print table arrives.
     Unresolved,
-    /// The fetch itself failed — a 404, or a client with no network.
+    /// The fetch itself failed, and how many times it has been tried.
     ///
-    /// Survives a new print table, because a new print table says nothing
-    /// about a URL that already answered with nothing.
-    Load,
+    /// This was once a permanent answer, on the reasoning that a URL which
+    /// answered with nothing would answer the same way next time. That is
+    /// measurably false: a run of the offline table recorded two of these,
+    /// and curling all 194 printings of both decks against the CDN returned
+    /// 200 for every one of them. The failures were transient — and a
+    /// transient failure that is never retried is a card drawn blank for the
+    /// rest of the game, which is exactly the bug this enum was added to fix.
+    ///
+    /// So it is retried, [`LOAD_TRIES`] times, and only then believed. The
+    /// count is what keeps a genuine 404 from becoming a loop.
+    Load(u8),
 }
+
+/// How many times a failed fetch is tried again before the client accepts that
+/// the card has no art.
+///
+/// Three attempts spaced [`RETRY_AFTER`] apart covers a hiccup at either end
+/// without costing a missing printing more than three requests in a game.
+const LOAD_TRIES: u8 = 3;
+
+/// How long a failed fetch is left alone before being tried again.
+///
+/// Long enough that a network that is down stays cheap, short enough that a
+/// player who saw a card come up blank sees it fill in rather than reading it
+/// as the way the client looks.
+const RETRY_AFTER: f32 = 4.0;
 
 /// Card art held by the client.
 #[derive(Resource)]
@@ -133,6 +155,37 @@ impl CardTextures {
         }
     }
 
+    /// The failed fetches worth another attempt, with the count each is on.
+    ///
+    /// Separate from the system that calls it so the policy — which failures
+    /// come back, and how many times — is answered without a window.
+    #[must_use]
+    pub fn due_for_retry(&self) -> Vec<(ImageKey, u8)> {
+        self.failed
+            .iter()
+            .filter_map(|(key, why)| match why {
+                Failure::Load(tried) if *tried < LOAD_TRIES => Some((*key, *tried)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Issues another attempt at one failed fetch.
+    ///
+    /// Dropping the handle is the part that matters: [`Self::get`] returns
+    /// early for a key it already holds, so nothing would ask again while the
+    /// dead handle is still in the map. The key stays in `failed` until the art
+    /// actually lands, so the card goes on drawing its face in the meantime
+    /// rather than flickering once per sweep.
+    pub fn retry(&mut self, key: ImageKey) {
+        let tried = match self.failed.get(&key) {
+            Some(Failure::Load(n)) => *n,
+            _ => return,
+        };
+        self.failed.insert(key, Failure::Load(tried + 1));
+        self.handles.remove(&key);
+    }
+
     /// Forgets every printing that failed only because the print table had no
     /// entry for it yet.
     ///
@@ -144,12 +197,12 @@ impl CardTextures {
     /// blank rectangle, and the constructed face it fell back to was the only
     /// reason anyone could tell what it was.
     ///
-    /// A genuine load failure is kept, because a new print table says nothing
-    /// about a URL that already answered with nothing, and retrying every 404
-    /// on every earned printing would be a fetch storm for no gain.
+    /// A load failure is kept here, because a new print table says nothing
+    /// about a fetch that already failed — that one has its own way back, on a
+    /// timer rather than on an event. See [`retry_failed_loads`].
     pub fn forget_unresolved(&mut self) {
         let before = self.failed.len();
-        self.failed.retain(|_, why| *why == Failure::Load);
+        self.failed.retain(|_, why| matches!(why, Failure::Load(_)));
         if self.failed.len() != before {
             self.epoch += 1;
         }
@@ -325,12 +378,45 @@ pub fn note_load_states(mut textures: ResMut<CardTextures>, assets: Res<AssetSer
             ?key,
             "card art failed to load; falling back to the card face"
         );
-        textures.failed.insert(key, Failure::Load);
+        textures.failed.insert(key, Failure::Load(1));
         textures.epoch += 1;
     }
     for key in newly_arrived {
         textures.arrived.insert(key);
+        // A retry that landed. Without this the art would be on the GPU and
+        // the card would go on drawing its constructed face, because
+        // `has_failed` is the question the board asks first.
+        textures.failed.remove(&key);
         textures.epoch += 1;
+    }
+}
+
+/// Tries failed fetches again, a few times, slowly.
+///
+/// The measurement that made this necessary: an offline table recorded two
+/// load failures while all 194 printings of both decks answered `200` to a
+/// plain `curl`. A fetch can simply not land, and until this existed that card
+/// was blank for the rest of the game — the client had recorded an opinion
+/// about the network and never revisited it.
+///
+/// Dropping the handle is what actually re-fetches: [`CardTextures::get`]
+/// returns early for a key it already holds, so the key has to stop being held
+/// before anything will ask for it again. The entry stays in `failed`
+/// meanwhile, so the card keeps drawing its face until the art really arrives
+/// — `note_load_states` is what clears it, on success.
+pub fn retry_failed_loads(
+    mut textures: ResMut<CardTextures>,
+    time: Res<Time>,
+    mut next_sweep: Local<f32>,
+) {
+    let now = time.elapsed_secs();
+    if now < *next_sweep {
+        return;
+    }
+    *next_sweep = now + RETRY_AFTER;
+    for (key, tried) in textures.due_for_retry() {
+        textures.retry(key);
+        bevy::log::debug!(?key, attempt = tried + 1, "retrying a card image");
     }
 }
 
@@ -526,7 +612,7 @@ mod tests {
             "the same art landing twice is not a second redraw"
         );
 
-        textures.mark_failed(lost, Failure::Load);
+        textures.mark_failed(lost, Failure::Load(1));
         assert!(
             textures.epoch() > arrived,
             "a load giving up is a redraw too — that card switches to its face"
@@ -551,7 +637,7 @@ mod tests {
         let gone = ImageKey::new(baylee_core::ids::PrintRef::new(1), 0, ArtSize::Small);
 
         textures.mark_failed(early, Failure::Unresolved);
-        textures.mark_failed(gone, Failure::Load);
+        textures.mark_failed(gone, Failure::Load(1));
         assert!(textures.has_failed(early) && textures.has_failed(gone));
 
         let before = textures.epoch();
@@ -576,5 +662,54 @@ mod tests {
             steady,
             "a print table that forgives nothing is not a redraw"
         );
+    }
+
+    /// The measurement this exists for: an offline table recorded two load
+    /// failures in one game while all 194 printings of both decks answered
+    /// `200` to a plain `curl`. A fetch can simply not land — so treating the
+    /// first failure as the final answer blanks a card for the whole game,
+    /// which is the bug the player actually reported.
+    ///
+    /// It has to stop, though. A printing whose art really is gone must cost a
+    /// bounded number of requests, not one every four seconds forever.
+    #[test]
+    fn a_failed_fetch_is_tried_again_a_few_times_and_then_believed() {
+        let mut images = Assets::<Image>::default();
+        let mut textures = CardTextures::new(&mut images, default_budget_bytes());
+        let flaky = ImageKey::new(baylee_core::ids::PrintRef::new(0), 0, ArtSize::Small);
+        let absent = ImageKey::new(baylee_core::ids::PrintRef::new(1), 0, ArtSize::Small);
+
+        textures.mark_failed(flaky, Failure::Load(1));
+        textures.mark_failed(absent, Failure::Unresolved);
+
+        // An unresolvable printing is not a fetch that failed, and retrying it
+        // would be asking the network about a decision the print table makes.
+        assert_eq!(
+            textures.due_for_retry(),
+            vec![(flaky, 1)],
+            "only a failed fetch comes back, and only with its own count"
+        );
+
+        // Each sweep spends one attempt, and the card keeps drawing its face
+        // throughout — a key that left `failed` between sweeps would flicker.
+        for attempt in 1..LOAD_TRIES {
+            assert_eq!(textures.due_for_retry(), vec![(flaky, attempt)]);
+            textures.retry(flaky);
+            assert!(
+                textures.has_failed(flaky),
+                "a retry in flight is still a card with no art to draw"
+            );
+        }
+        assert!(
+            textures.due_for_retry().is_empty(),
+            "after {LOAD_TRIES} attempts the client believes the art is gone"
+        );
+
+        // And a retry that lands clears it, which is `note_load_states`' job —
+        // done here by hand, because there is no way to finish a load without a
+        // network.
+        textures.mark_arrived(flaky);
+        textures.failed.remove(&flaky);
+        assert!(!textures.has_failed(flaky));
     }
 }

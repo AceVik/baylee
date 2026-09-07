@@ -372,11 +372,21 @@ during the game was ever warmed. And `CardTextures::failed` had no way out at
 all: a printing asked for before its print entry arrived was recorded as failed
 and stayed that way, so an opponent's land could draw as a blank rectangle for
 the rest of the game. The set now records *why* (`Failure::Unresolved` vs
-`Failure::Load`) and a new print table forgives the first and keeps the second —
-a URL that answered with nothing will answer the same way however many print
-tables arrive, and retrying every 404 on every earned printing is a fetch storm.
-The unresolvable path also logs now; it was the silent one, which is the whole
-reason this hid.
+`Failure::Load`), and the two come back by different routes because different
+things change their answer: a new print table forgives an unresolvable printing,
+because a print table is the only thing that can resolve it; a failed fetch is
+retried on a timer, three times, four seconds apart.
+
+That second one was very nearly shipped as permanent, on the reasoning that a
+URL which answered with nothing would answer the same way next time. **The
+measurement says otherwise.** One offline game recorded two load failures while
+a plain `curl` of all 194 printings of both decks returned 200 for every one of
+them — the fetches were transient, and a transient failure believed the first
+time is a card drawn blank for the rest of the game, which is what the player
+reported. The attempt count is what keeps the other case honest: a printing
+whose art really is gone costs three requests in a game, not one every four
+seconds forever. The unresolvable path also logs now; it was the silent one,
+which is the whole reason all of this hid.
 
 ## The card surface
 

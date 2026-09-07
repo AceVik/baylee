@@ -595,6 +595,7 @@ impl Plugin for DuelPlugin {
                     hud::animate_overlay,
                     textures::drive_preloads,
                     textures::note_load_states,
+                    textures::retry_failed_loads,
                 )
                     .in_set(DuelSet::Present)
                     .run_if(not(in_state(DuelPhase::Closed))),

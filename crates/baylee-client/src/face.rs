@@ -604,7 +604,7 @@ mod tests {
         assert!(wants_face(&quiet, &plain, &textures, None));
         // And art that will never arrive.
         let lost = ImageKey::new(PrintRef::new(1), 0, ArtSize::Small);
-        textures.mark_failed(lost, crate::textures::Failure::Load);
+        textures.mark_failed(lost, crate::textures::Failure::Load(1));
         assert!(wants_face(&quiet, &plain, &textures, Some(lost)));
     }
 
