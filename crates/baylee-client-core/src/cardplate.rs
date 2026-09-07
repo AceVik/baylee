@@ -594,6 +594,7 @@ mod tests {
             is_token: false,
             summoning_sick: false,
             activatable: false,
+            commander: false,
             individual: None,
         }
     }

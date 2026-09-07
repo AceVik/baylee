@@ -131,10 +131,22 @@ pub(super) fn spawn_hand_bar(
             // The armed ring is not a keyword and is drawn — it is a claim
             // about the card *in the hand*, and the hand is where the player
             // is looking when they arm a spell.
+            //
+            // The crest is the same exception for the same reason. It is not
+            // a battlefield truth that has to wait: a commander is a
+            // commander in every zone, and this is the zone CR 903.9b leaves
+            // it in. `glow_of` cannot supply it here because a `HandObject`
+            // is not a `PublicObject`, so the one bit it can say is added at
+            // the call site.
             CardLook::art(
                 card.art,
                 finish_of(statics, Some(card.art)),
-                crate::cardmat::glow_of(None, offer),
+                crate::cardmat::glow_of(None, offer)
+                    | if card.commander {
+                        crate::cardmat::glow::COMMANDER
+                    } else {
+                        0
+                    },
             ),
             cards.as_deref_mut(),
         );
@@ -220,10 +232,18 @@ pub(super) fn spawn_hand_bar(
                 OVERLAY_CARD_H * 0.75,
                 crate::face::Detail::Compact,
                 fonts,
+                // Through `glow_of` rather than `glow_bits`, so this card wears
+                // the crest that says what zone it is sitting in and why. Safe
+                // to hand it a whole `PublicObject`: `summoning_sick` is built
+                // for permanents only, and a card in the command zone is not
+                // one, so the only bit this adds over the keywords is the
+                // crest.
                 match key {
-                    Some(key) => {
-                        CardLook::art(key, finish_of(statics, Some(key)), glow_bits(cmd.keywords))
-                    }
+                    Some(key) => CardLook::art(
+                        key,
+                        finish_of(statics, Some(key)),
+                        crate::cardmat::glow_of(Some(cmd), crate::cardmat::Offer::NONE),
+                    ),
                     None => CardLook::back(FinishTreatment::Plain, 0),
                 },
                 cards.as_deref_mut(),

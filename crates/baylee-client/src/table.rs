@@ -2627,6 +2627,7 @@ mod tests {
             is_token: true,
             summoning_sick: false,
             activatable: false,
+            commander: false,
             individual: None,
         };
         assert_eq!(stack_badge(&group), None);
@@ -2710,6 +2711,7 @@ mod combat_tests {
             is_token: true,
             summoning_sick: false,
             activatable: false,
+            commander: false,
             individual: None,
         }
     }

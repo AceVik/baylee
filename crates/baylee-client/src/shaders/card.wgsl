@@ -16,7 +16,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, plate_layer, chip_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, plate_layer, chip_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -57,6 +57,7 @@ const GLOW_ACTIVATABLE: u32 = 8u;
 const GLOW_SUMMONING_SICK: u32 = 16u;
 const GLOW_ARMED: u32 = 32u;
 const GLOW_WILL_TAP: u32 = 64u;
+const GLOW_COMMANDER: u32 = 128u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
@@ -319,6 +320,16 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // not stay in step.
     color = vec4<f32>(
         mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb),
+        color.a,
+    );
+
+    // ---- the crest, on the opposite edge from the rail
+    //
+    // Beside the rail rather than in it: this one is not a combat keyword and
+    // would not sort among eleven that are. It gets no `t` — a commander is a
+    // commander whatever the clock is doing.
+    color = vec4<f32>(
+        crest_layer(uv, (params.glow & GLOW_COMMANDER) != 0u, color.rgb),
         color.a,
     );
 

@@ -13,7 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, plate_layer, chip_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, plate_layer, chip_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -55,6 +55,7 @@ const GLOW_ACTIVATABLE: u32 = 8u;
 const GLOW_SUMMONING_SICK: u32 = 16u;
 const GLOW_ARMED: u32 = 32u;
 const GLOW_WILL_TAP: u32 = 64u;
+const GLOW_COMMANDER: u32 = 128u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
@@ -246,6 +247,16 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // ---- the rail, identical to the table's, from the same file
     color = vec4<f32>(
         mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb),
+        color.a,
+    );
+
+    // ---- the crest, also from that file
+    //
+    // The hand bar is where this one earns its keep: a commander that declined
+    // CR 903.9b sits in the hand looking like any other legend, and the
+    // command-zone card beside it is the same card in a zone that taxes it.
+    color = vec4<f32>(
+        crest_layer(uv, (params.glow & GLOW_COMMANDER) != 0u, color.rgb),
         color.a,
     );
 

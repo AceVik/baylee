@@ -18,7 +18,7 @@
 use baylee_client_core::i18n::{Lang, Phrase};
 
 use crate::Duel;
-use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of, glow_bits};
+use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of};
 use crate::textures::CardTextures;
 use baylee_client_core::automation::{AutoPilot, RailRow};
 use baylee_client_core::card_face::CardFace;

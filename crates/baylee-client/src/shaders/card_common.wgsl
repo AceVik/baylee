@@ -386,6 +386,126 @@ fn mark_layer(uv: vec2<f32>, bits: u32, t: f32, color: vec3<f32>) -> vec3<f32> {
     return out;
 }
 
+// ------------------------------------------------------------------ the crest
+//
+// A commander wears one mark on its top edge (CR 903.3). It is drawn here,
+// beside the rail, because it is the same alphabet: the same slot size, the
+// same inset, the same plate underneath and the same stroke weight, so it
+// reads as a twelfth glyph rather than as a second design.
+//
+// What it is *not* is a twelfth rail slot, and the difference is the whole
+// reason it has its own corner. The rail is what a creature can do in combat;
+// eleven equal facts a player counts. Being a commander is not one of those
+// and would not sort among them — it is an identity, true in every zone, for
+// the whole game, before a single attack is declared.
+//
+// So it takes the one region of the card nothing else uses. The rail is
+// bottom-left, the plate bottom-right, the chips run up the right edge; the
+// top edge is empty. Putting exactly one thing there means the silhouette
+// alone answers the question — anything at the top is a commander — at table
+// distance, long before the crown itself resolves. That is the rail's own
+// honest degradation, stated for a different mark: a pictogram far away is a
+// pip, and a pip in a place nothing else occupies is still unambiguous.
+//
+// It does not breathe. Every rail mark pulses on BEAT and every light this
+// client offers travels or holds; those all say something that is true *now*
+// and could stop being true. This one cannot, and a crest that moved would be
+// making the same promise the offer lights make.
+
+/// The crest's slot and inset, in card widths — the rail's own, deliberately.
+const CREST_SLOT: f32 = 0.115;
+const CREST_INSET: f32 = 0.052;
+
+/// A crown: a circlet under three points.
+///
+/// Filled rather than stroked, unlike most of the rail. An outline of this at
+/// eight pixels tall closes up into a blob; a silhouette survives, and the
+/// silhouette is what has to carry across a table of eight.
+///
+/// Drawn as a generic crown and not as the flared header a legendary frame
+/// prints, which is a design belonging to somebody else (`docs/legal.md` §2).
+fn crest_sdf(p: vec2<f32>) -> f32 {
+    let circlet = sd_round_box(p - vec2<f32>(0.0, 0.20), vec2<f32>(0.30, 0.10), 0.03);
+    // Wound the way `sd_tri` needs and `mark_trample` already is: the helper
+    // takes the outermost of three edge half-planes, whose normals it builds
+    // as `(edge.y, -edge.x)`, so the opposite winding puts every point outside
+    // all three and the triangle silently never draws. Which is exactly what
+    // happened the first time — the circlet rendered alone, as a white bar.
+    let left = sd_tri(
+        p,
+        vec2<f32>(-0.30, 0.12),
+        vec2<f32>(-0.21, -0.20),
+        vec2<f32>(-0.12, 0.12),
+    );
+    let centre = sd_tri(
+        p,
+        vec2<f32>(-0.13, 0.12),
+        vec2<f32>(0.0, -0.32),
+        vec2<f32>(0.13, 0.12),
+    );
+    let right = sd_tri(
+        p,
+        vec2<f32>(0.12, 0.12),
+        vec2<f32>(0.21, -0.20),
+        vec2<f32>(0.30, 0.12),
+    );
+    return min(circlet, min(left, min(centre, right)));
+}
+
+/// The crest layer: one still crown, centred on the card's top edge.
+///
+/// Takes a `bool` rather than the glow word, the way the rail takes its bits
+/// pre-shifted: which bit of that word means "commander" is the Rust half's
+/// business (`cardmat::glow::COMMANDER`), and nothing in this file knows the
+/// low end of it.
+fn crest_layer(uv: vec2<f32>, on: bool, color: vec3<f32>) -> vec3<f32> {
+    if !on {
+        return color;
+    }
+
+    // Width-units, so the slot is square — the same change of variables the
+    // rail makes, and for the same reason.
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    let slot = CREST_SLOT;
+    let x0 = 0.5 - slot * 0.5;
+    let x1 = x0 + slot;
+    let y0 = CREST_INSET;
+    let y1 = y0 + slot;
+
+    // Taken in uniform control flow, before any branch on where the fragment
+    // landed: a derivative asked for inside that branch is undefined on half
+    // the backends this ships to.
+    let aa = max(fwidth(p.x), 0.0015);
+
+    // The rail's plate, laid on harder: 0.82 where the rail uses 0.62.
+    //
+    // Not a different taste, a different background. The rail runs along the
+    // bottom border, which is dark on most printings, so a light mix already
+    // separates it. The crest sits on the *title bar*, which is pale on most
+    // printings — at 0.62 the disc washed out to nothing there and a white
+    // crown stood on white card stock, measured on General Tazri.
+    let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
+    let half = vec2<f32>(slot * 0.5 + 0.014, slot * 0.5 + 0.014);
+    let plate = sd_round_box(p - mid, half, slot * 0.30);
+    var out = mix(color, PLATE, (1.0 - smoothstep(-aa, aa, plate)) * 0.82);
+
+    if p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1 {
+        return out;
+    }
+
+    let cell = vec2<f32>((p.x - x0) / slot, (p.y - y0) / slot) - vec2<f32>(0.5);
+    let d = crest_sdf(cell);
+
+    // Cell units, so the edge is as soft in the preview as across the table.
+    let e = max(aa / slot, 0.02);
+    // Plain INK, and the only mark on the card with no accent of its own.
+    // Every hue in this client is spoken for — the chips tint by counter kind,
+    // the felt by seat — and a twelfth colour would be a claim nobody could
+    // look up.
+    out = mix(out, INK, 1.0 - smoothstep(-e, e, d));
+    return out;
+}
+
 // ------------------------------------------------------------------ the plate
 //
 // The bottom-right corner the rail has been reserving: a creature's power and

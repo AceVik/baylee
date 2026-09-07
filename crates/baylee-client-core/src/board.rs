@@ -198,6 +198,12 @@ pub enum Individual {
 }
 
 /// One drawable card, which may stand for several identical permanents.
+//
+// Four independent facts about one card, not a state machine: a token can be
+// summoning-sick, a commander can be activatable, and every combination of the
+// four occurs. The same reasoning as [`SeatPod`] below — a bitfield would
+// obscure them at every use site, and there is no state a card is *in* here.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct CardGroup {
     /// The object actually drawn and interacted with.
@@ -240,6 +246,13 @@ pub struct CardGroup {
     /// identical by construction, so in practice the two agree — this is
     /// what keeps them agreeing when they stop being identical.
     pub activatable: bool,
+    /// Whether this is one of its owner's commanders (CR 903.3).
+    ///
+    /// Not an `all`/`any` question like [`Self::activatable`] above it:
+    /// `ObjectSummaryKey` carries the same bit, so a commander never shares a
+    /// group with an ordinary copy of itself in the first place, and every
+    /// member of a group answers this the same way.
+    pub commander: bool,
     /// Why this card was kept separate, if it was.
     pub individual: Option<Individual>,
 }
@@ -545,6 +558,14 @@ pub struct HandCard {
     /// A weaker claim than [`Self::playable`], and drawn as a weaker one: the
     /// engine has not offered this card, the client is offering to fix that.
     pub reachable: bool,
+    /// Whether this is one of the seat's commanders (CR 903.3).
+    ///
+    /// The one thing a card in hand is marked for that is not about what can
+    /// be done with it. A commander reaches a hand by declining CR 903.9b's
+    /// replacement, and it is then the single card in the hand whose price
+    /// goes up if it is played and dies — worth telling apart from the
+    /// legend beside it that merely shares its art.
+    pub commander: bool,
 }
 
 /// What can be done with the cards in hand, from two different authorities.
@@ -668,6 +689,7 @@ impl BoardModel {
                 art: ImageKey::new(h.card.print, h.card.face, ArtSize::Small),
                 playable: openings.playable.contains(&h.id),
                 reachable: openings.reachable.contains(&h.id),
+                commander: h.commander,
             })
             .collect();
         // Playable first, then what a tap would reach, then cheapest, then by
@@ -922,6 +944,7 @@ fn card_group(obj: &PublicObject, individual: Option<Individual>, activatable: b
         is_token: obj.card.is_none(),
         summoning_sick: obj.summoning_sick,
         activatable,
+        commander: obj.commander,
         individual,
     }
 }

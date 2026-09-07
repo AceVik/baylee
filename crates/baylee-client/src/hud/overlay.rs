@@ -6,7 +6,16 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use baylee_client_core::commanderdamage;
 use baylee_client_core::interaction::Prompt;
+
+/// How wide the commander-damage track is drawn, in logical pixels.
+///
+/// The same in every seat's tab, whatever that seat's worst source is,
+/// because the bar's whole job is to be comparable: it stands for twenty-one
+/// (`commanderdamage::LETHAL`) and nothing else, so a half-full bar means the
+/// same thing under every name at the table.
+const TRACK_W: f32 = 52.0;
 
 /// How much of the own-board overlay stands above the hand bar when it is
 /// closed — which is the knob, and nothing else.
@@ -1293,6 +1302,101 @@ pub(super) fn spawn_player_tab(
     }
     if seat.energy > 0 {
         span(glyph::ENERGY, format!(" {}", seat.energy));
+    }
+
+    // The second life total (CR 903.10a), and shown like one: a bar rather
+    // than a row of numbers, because the question is "how close am I to dying
+    // to this" and not "what do these add up to" — they add up to nothing the
+    // rules recognise.
+    //
+    // Only when a commander has actually connected, the rule poison and energy
+    // follow above. A bar sitting at zero under all eight seats every game
+    // would be noise on the one screen that has no room for any.
+    if let Some(track) = commanderdamage::Track::of(&seat.commander_damage) {
+        let color = if track.danger {
+            palette::DANGER
+        } else {
+            counts_color
+        };
+        let row = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: px(4.0),
+                    ..default()
+                },
+                children![(
+                    Text::new(glyph::COMMAND.to_string()),
+                    icon_tf(fonts, 10.0),
+                    TextColor(color),
+                )],
+            ))
+            .id();
+        commands.entity(tab).add_child(row);
+
+        // Fixed width, and the same width in every seat's tab: the eye learns
+        // what full looks like once, and then reads every other seat against
+        // it. A bar scaled to its own worst source would make two seats with
+        // very different problems look identical.
+        let bar = commands
+            .spawn((
+                Node {
+                    width: px(TRACK_W),
+                    height: px(4.0),
+                    border_radius: BorderRadius::all(px(2.0)),
+                    ..default()
+                },
+                BackgroundColor(palette::PANEL_LIT),
+            ))
+            .id();
+        commands.entity(row).add_child(bar);
+
+        let fill = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0.0),
+                    top: px(0.0),
+                    width: px(TRACK_W * track.fill),
+                    height: px(4.0),
+                    border_radius: BorderRadius::all(px(2.0)),
+                    ..default()
+                },
+                BackgroundColor(color),
+            ))
+            .id();
+        commands.entity(bar).add_child(fill);
+
+        // One tick per other commander, on the same scale. They say how many
+        // more clocks are running and how far along each is; which commander
+        // is which is the tooltip's answer, the same half this panel already
+        // gives for a counter's colour.
+        for at in &track.ticks {
+            let tick = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: px(TRACK_W * at),
+                        top: px(0.0),
+                        width: px(1.0),
+                        height: px(4.0),
+                        ..default()
+                    },
+                    BackgroundColor(palette::MUTED),
+                ))
+                .id();
+            commands.entity(bar).add_child(tick);
+        }
+
+        let worst = commands
+            .spawn((
+                Text::new(track.worst.to_string()),
+                tf(fonts, 11.0),
+                TextColor(color),
+            ))
+            .id();
+        commands.entity(row).add_child(worst);
     }
     tab
 }

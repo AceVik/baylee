@@ -81,6 +81,20 @@ pub mod glow {
     /// "Tap 3, then cast" does not say *which* three, and which three is a
     /// plan the player never made and would otherwise have to trust blind.
     pub const WILL_TAP: u32 = 64;
+    /// This card is one of its owner's commanders (CR 903.3).
+    ///
+    /// The odd one out in this word, and drawn nowhere near the rest of it.
+    /// The four bits above are offers and a fact about *this turn*; the three
+    /// below are materials on the border. This is an identity — true in every
+    /// zone, for the whole game, before the first turn and after the card has
+    /// died four times — so it is drawn as a still crest on the card's face
+    /// and never touches the border register at all.
+    ///
+    /// It rides this word anyway because the word is what reaches every
+    /// surface: table, hand bar, tray, own-board overlay and hover preview all
+    /// key one [`CardLook`] on it. A commander drawn on the table and plain in
+    /// the overlay would be the same card disagreeing with itself.
+    pub const COMMANDER: u32 = 128;
 
     /// Where the keyword rail's eleven marks begin in the word.
     ///
@@ -240,7 +254,9 @@ impl Offer {
 pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 {
     let from_card = object.map_or(0, |o| {
         let sick = o.summoning_sick && o.types.contains(baylee_core::types::TypeSet::CREATURE);
-        glow_bits(o.keywords) | if sick { glow::SUMMONING_SICK } else { 0 }
+        glow_bits(o.keywords)
+            | if sick { glow::SUMMONING_SICK } else { 0 }
+            | if o.commander { glow::COMMANDER } else { 0 }
     });
     // An armed card is not also inviting a tap: the invitation was accepted,
     // and drawing both would put a travelling light and a steady one on the
@@ -1114,6 +1130,7 @@ pub(crate) mod tests {
             ("GLOW_SUMMONING_SICK", glow::SUMMONING_SICK),
             ("GLOW_ARMED", glow::ARMED),
             ("GLOW_WILL_TAP", glow::WILL_TAP),
+            ("GLOW_COMMANDER", glow::COMMANDER),
         ] {
             for (which, src) in [("card.wgsl", table), ("card_ui.wgsl", ui)] {
                 let theirs = wgsl_const(src, name);
@@ -1386,6 +1403,121 @@ struct Globals { time: f32 };
         assert!(
             (rail_end - plate_start).abs() < 1e-5,
             "the rail ends at {rail_end} and the plate starts at {plate_start}"
+        );
+    }
+
+    /// The crest is the rail's alphabet, on the edge the rail does not use.
+    ///
+    /// Two claims, and both are geometry rather than taste. It borrows the
+    /// rail's slot and inset so that a commander's crown is the same size and
+    /// sits the same distance in as a flying chevron — that is what makes it
+    /// read as one more glyph instead of a second design language. And it
+    /// lives on the *top* edge, which is the one region of the card nothing
+    /// else claims: the rail and the plate share the bottom, the chips run up
+    /// the right. A crest that drifted down into either would be two marks
+    /// overlapping with no error and no crash, which is exactly the failure
+    /// the flag test above exists to catch on the other axis.
+    #[test]
+    fn the_crest_shares_the_rails_metrics_and_none_of_its_edge() {
+        let src = include_str!("shaders/card_common.wgsl");
+        for name in ["SLOT", "INSET"] {
+            let crest = wgsl_const(src, &format!("CREST_{name}"));
+            let rail = wgsl_const(src, &format!("RAIL_{name}"));
+            assert!(
+                (crest - rail).abs() < f32::EPSILON,
+                "CREST_{name} is {crest} and RAIL_{name} is {rail}"
+            );
+        }
+
+        // Both edges measured in width-units, the way the shader measures
+        // them, because the card is taller than it is wide and a bound
+        // compared across that would be off by the aspect.
+        let aspect = wgsl_const(src, "CARD_ASPECT");
+        let height = 1.0 / aspect;
+        let crest_bottom = wgsl_const(src, "CREST_INSET") + wgsl_const(src, "CREST_SLOT");
+        let rail_top = height - wgsl_const(src, "RAIL_INSET") - wgsl_const(src, "RAIL_SLOT");
+        assert!(
+            crest_bottom < rail_top,
+            "the crest reaches {crest_bottom} and the rail starts at {rail_top}"
+        );
+
+        // The chips climb the right edge; the crest is centred, so what has to
+        // hold is that it never reaches their column.
+        let crest_right = 0.5 + wgsl_const(src, "CREST_SLOT") * 0.5 + 0.014;
+        let chip_left = wgsl_const(src, "CHIP_X") - wgsl_const(src, "CHIP_D") * 0.5;
+        assert!(
+            crest_right < chip_left,
+            "the crest reaches {crest_right} and the chips start at {chip_left}"
+        );
+    }
+
+    /// Every triangle in the shader is wound the way `sd_tri` needs.
+    ///
+    /// `sd_tri` takes the outermost of three edge half-planes and builds each
+    /// normal as `(edge.y, -edge.x)`. That is only "outside the triangle" for
+    /// one winding; give it the other and every point lands outside all three
+    /// edges, so the shape **silently never draws**. No error, no crash, no
+    /// pink card — just a pictogram that is quietly missing part of itself.
+    ///
+    /// This is not hypothetical. The commander crest shipped its first frame
+    /// as a plain white bar: the circlet drew, all three of the crown's points
+    /// were wound backwards, and every existing test stayed green, including
+    /// the one right above that checks where the crest *is*. Placement tests
+    /// cannot see shape — the same lesson the card quad taught when it shipped
+    /// as a bowtie.
+    ///
+    /// Checked for the whole file rather than for the crest, because the trap
+    /// is in the helper and catches the next mark just as easily as it caught
+    /// this one.
+    #[test]
+    fn every_triangle_in_the_shader_is_wound_so_it_actually_draws() {
+        let src = include_str!("shaders/card_common.wgsl");
+
+        // The last three `vec2<f32>` literals of a call are its vertices; an
+        // earlier one belongs to the point expression, the way `mark_trample`
+        // writes `p - vec2<f32>(0.0, stomp)`.
+        let vertices = |call: &str| -> Vec<(f32, f32)> {
+            call.match_indices("vec2<f32>(")
+                .filter_map(|(at, _)| {
+                    let open = at + "vec2<f32>(".len();
+                    let close = call[open..].find(')')? + open;
+                    let (x, y) = call[open..close].split_once(',')?;
+                    Some((x.trim().parse().ok()?, y.trim().parse().ok()?))
+                })
+                .collect()
+        };
+
+        let mut checked = 0;
+        for (at, _) in src
+            .match_indices("sd_tri(")
+            // The helper's own declaration matches too, and its parameter
+            // list spells `vec2<f32>` without a paren after it, so it parses
+            // to no vertices at all rather than to bad ones.
+            .filter(|(at, _)| !src[..*at].ends_with("fn "))
+        {
+            let rest = &src[at..];
+            let end = rest.find(");").expect("a call ends");
+            let verts = vertices(&rest[..end]);
+            let n = verts.len();
+            assert!(n >= 3, "sd_tri call with {n} vertex literals");
+            let [a, b, c] = [verts[n - 3], verts[n - 2], verts[n - 1]];
+
+            // Twice the signed area. Positive is the winding `sd_tri` treats
+            // as inside; the sign is what matters, not the magnitude.
+            let cross = (b.0 - a.0) * (c.1 - b.1) - (b.1 - a.1) * (c.0 - b.0);
+            assert!(
+                cross > 0.0,
+                "a triangle at byte {at} is wound backwards ({cross}) and will \
+                 not draw: {a:?} {b:?} {c:?}"
+            );
+            checked += 1;
+        }
+
+        // A parser that quietly matched nothing would make every assertion
+        // above vacuous, which is the way a test like this really fails.
+        assert!(
+            checked >= 6,
+            "only {checked} triangles found — the parser has drifted from the file"
         );
     }
 

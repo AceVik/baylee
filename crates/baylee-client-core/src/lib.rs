@@ -40,6 +40,7 @@ pub mod browser;
 pub mod card_face;
 pub mod cardplate;
 pub mod cardrail;
+pub mod commanderdamage;
 pub mod deckbuilder;
 pub mod i18n;
 pub mod images;

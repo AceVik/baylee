@@ -251,6 +251,20 @@ only ever bounded the bright end. It bounds both now.
   opponent borrows from the other opponents, never from you.
 - Lanes fan when crowded and report overflow when even fanning stops being
   legible.
+- A seat's tab carries a **second life total** when one applies. Twenty-one
+  combat damage from a single commander ends a game at any life total
+  (CR 903.10a), so a seat facing commanders is on two clocks and only one of
+  them is the number beside the heart. `client-core/src/commanderdamage.rs`
+  turns the tally into a track: the worst single source as a fill over a bar
+  that always stands for twenty-one, every other source as a tick on the same
+  scale, and the fill turning `DANGER` five short of lethal — the life
+  total's own threshold in the same panel, so a player learns one rule and
+  not two. The bar is a fixed width in every tab, because its job is to be
+  compared across seats. What it deliberately does not do is add the sources
+  up: twenty from one commander is lethal next hit and twenty spread over
+  seven is a scratch, and a total would be a number Magic does not have.
+  Which tick is which commander is the tooltip's answer — the same half this
+  panel already gives for a counter chip's colour.
 
 ## Grouping and the token summary
 
@@ -355,11 +369,19 @@ hide behind.
 
 **The glows come from `PublicObject.keywords`**, which is already projected —
 the layer system has run, so a creature that gained indestructible this turn
-glows this turn. `cardmat::glow_of` is the one gatherer every battlefield
-surface goes through; inside it `glow_bits` narrows the engine's `u128` to
-the bits the shader reads, and a test pins each one against `KeywordSet`,
-because that numbering is generated and a card glowing for the wrong keyword
-would be a rules lie a player would believe.
+glows this turn. `cardmat::glow_of` is the one gatherer for a `PublicObject`,
+wherever it is drawn — battlefield, stack, command zone, tray or preview;
+inside it `glow_bits` narrows the engine's `u128` to the bits the shader
+reads, and a test pins each one against `KeywordSet`, because that numbering
+is generated and a card glowing for the wrong keyword would be a rules lie a
+player would believe.
+
+The hand bar is the one caller that cannot go through it, because a
+`HandObject` is not a `PublicObject`, and it contributes exactly one bit at
+its own call site: `glow::COMMANDER`. Nothing else in that word is true of a
+card in a hand — the keyword sheaths say what is protected *on the
+battlefield*, and a hand that glowed with them would be claiming something
+that is not yet so.
 
 What a card *is* and what it can *do* are drawn in different places, and that
 separation is the whole grammar:
@@ -418,6 +440,23 @@ separation is the whole grammar:
   keywords are eleven coloured pips where six are six pictograms; that
   degradation is the honest one, since a rail that ran off the card or hid its
   tail would both be lying about the creature.
+- **The top edge says whose deck this is.** A commander (CR 903.3) wears a
+  crest: one crown on the card's top edge, centred, in the rail's own slot and
+  inset so it reads as a twelfth glyph in the same alphabet. It is *not* a
+  twelfth rail slot, and the difference is why it has its own corner — the
+  rail is eleven equal combat facts a player counts, and being a commander
+  would not sort among them. It is an identity: true in every zone, for the
+  whole game, before an attack is ever declared.
+  The top edge is the one region nothing else claims (the rail and the plate
+  share the bottom, the chips climb the right), so the silhouette alone
+  answers the question at table distance, long before the crown resolves; a
+  test asserts it reaches neither. It is plain `INK` with no accent of its
+  own, because every hue here is already spoken for — the chips tint by
+  counter kind, the felt by seat — and it does not move, unlike every rail
+  mark and every offer light, because those all say something that could stop
+  being true and this cannot. It reaches the hand bar too, which is where it
+  earns its keep: a commander that declined CR 903.9b's replacement is sitting
+  in the hand looking like any other legend.
 - **The corner says what the card *is* in numbers.** The fifth of the bottom
   edge the rail has been reserving since it was written now carries a plate:
   a creature's power and toughness, or a planeswalker's loyalty behind a gilt
