@@ -348,6 +348,36 @@ Board cards are fetched `small` (146×204); only the focused card is fetched
 A byte-budgeted LRU (`TextureBudget`) decides evictions; the browser budget is
 deliberately below the desktop one and the ordering is checked at compile time.
 
+**Everything the board draws is one size, and the hover preview is the
+exception.** The stack panel used to ask for `normal` — for a card it draws 66
+logical pixels wide — which made a spell cast out of a hand the player was
+already looking at fetch its art a second time and draw the constructed face
+until it landed. `board.rs` now asks `small` everywhere; the only key at the
+readable size is the one `hud::overlay` rewrites for the preview, which is also
+the only place drawing a card big enough to need it.
+
+That preview reads a size nothing else does, and it asks at the instant the
+pointer arrives — too late to fetch. So `Preload` warms `normal` for the local
+hand and the local command zone: the two zones the preview can point at that
+the rules keep small (a hand is about seven cards, CR 514.1; a command zone at
+most a pair). A battlefield has no such bound, and eighty permanents at 1.3 MB
+each would spend the whole browser budget on a convenience and then thrash it —
+so hovering a permanent still fetches on the spot.
+
+**Two things in that path could not recover, and both were invisible.** The
+preload queue was built on the first frame a view existed — when the
+battlefield is empty and every printing but the player's own deck is still a
+hole in `GameStatic.prints` — and never again, so nothing a seat *earned*
+during the game was ever warmed. And `CardTextures::failed` had no way out at
+all: a printing asked for before its print entry arrived was recorded as failed
+and stayed that way, so an opponent's land could draw as a blank rectangle for
+the rest of the game. The set now records *why* (`Failure::Unresolved` vs
+`Failure::Load`) and a new print table forgives the first and keeps the second —
+a URL that answered with nothing will answer the same way however many print
+tables arrive, and retrying every 404 on every earned printing is a fetch storm.
+The unresolvable path also logs now; it was the silent one, which is the whole
+reason this hid.
+
 ## The card surface
 
 Art is the texture; the *finish* and the keywords are the shader. One material

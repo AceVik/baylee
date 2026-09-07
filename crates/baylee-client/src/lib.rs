@@ -630,6 +630,7 @@ fn handle_commands(
 fn poll_host(
     host: Option<ResMut<InstalledHost>>,
     mut duel: ResMut<Duel>,
+    mut textures: ResMut<textures::CardTextures>,
     phase: Res<State<DuelPhase>>,
     mut next: ResMut<NextState<DuelPhase>>,
     mut reports: MessageWriter<DuelReport>,
@@ -642,7 +643,16 @@ fn poll_host(
     }
     for message in host.0.poll() {
         match message {
-            HostMessage::Static(statics) => duel.statics = Some(*statics),
+            HostMessage::Static(statics) => {
+                duel.statics = Some(*statics);
+                // A print table arriving is the one event that can turn an
+                // unresolvable printing into a resolvable one: this payload is
+                // re-sent, before the view that needs it, whenever the seat
+                // earns an entry it did not have. Without this the first ask
+                // decided the answer for the whole game, and a permanent whose
+                // entry arrived a frame late never drew its art again.
+                textures.forget_unresolved();
+            }
             HostMessage::View(view) => {
                 duel.view = Some(*view);
                 rebuild_board(&mut duel);

@@ -49,6 +49,26 @@ pub fn setup(
     commands.insert_resource(cache);
 }
 
+/// Why a printing's art will not arrive.
+///
+/// The distinction exists because exactly one of the two is temporary, and
+/// treating them alike cost the player a permanently blank card: a seat *earns*
+/// print entries as it sees cards (`GameStatic.prints` is a list of holes that
+/// fill in), so a card asked for before its entry arrived is unresolvable now
+/// and perfectly resolvable a moment later.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Failure {
+    /// The print table had no entry for this printing, or the entry carried no
+    /// URL at this size. Cleared by [`CardTextures::forget_unresolved`] when a
+    /// new print table arrives.
+    Unresolved,
+    /// The fetch itself failed — a 404, or a client with no network.
+    ///
+    /// Survives a new print table, because a new print table says nothing
+    /// about a URL that already answered with nothing.
+    Load,
+}
+
 /// Card art held by the client.
 #[derive(Resource)]
 pub struct CardTextures {
@@ -58,13 +78,18 @@ pub struct CardTextures {
     card_back: Handle<Image>,
     /// Requests issued this frame, for diagnostics and tests.
     issued: usize,
-    /// Printings whose art will not arrive.
+    /// Printings whose art will not arrive, and why.
     ///
     /// A printing with no artwork at the requested size, a 404, or a client
     /// with no network all end here, and every one of them is a card the
     /// player would otherwise see as a blank rectangle. The constructed face
     /// takes over for exactly these.
-    failed: HashSet<ImageKey>,
+    ///
+    /// The reason is kept because one of the two is temporary — see
+    /// [`Failure`], and [`Self::forget_unresolved`] for the way out. This set
+    /// had no way out at all, which is how an opponent's land could stay a
+    /// blank rectangle for the rest of the game.
+    failed: HashMap<ImageKey, Failure>,
     /// Printings whose bytes are actually on the GPU.
     ///
     /// Holding a `Handle<Image>` is not the same as having the image, and the
@@ -86,7 +111,7 @@ impl CardTextures {
             handles: HashMap::new(),
             card_back: images.add(solid_texture([26, 30, 38, 255])),
             issued: 0,
-            failed: HashSet::new(),
+            failed: HashMap::new(),
             arrived: HashSet::new(),
             epoch: 0,
         }
@@ -95,15 +120,37 @@ impl CardTextures {
     /// Whether this printing's art is known not to be coming.
     #[must_use]
     pub fn has_failed(&self, key: ImageKey) -> bool {
-        self.failed.contains(&key)
+        self.failed.contains_key(&key)
     }
 
-    /// Records a printing whose art will not arrive.
+    /// Records a printing whose art will not arrive, and why.
     ///
     /// The load-state sweep is the normal caller; a test needs it too, because
     /// there is no way to fail a load without a network.
-    pub fn mark_failed(&mut self, key: ImageKey) {
-        if self.failed.insert(key) {
+    pub fn mark_failed(&mut self, key: ImageKey, why: Failure) {
+        if self.failed.insert(key, why).is_none() {
+            self.epoch += 1;
+        }
+    }
+
+    /// Forgets every printing that failed only because the print table had no
+    /// entry for it yet.
+    ///
+    /// Called when a new print table arrives, which is the one event that can
+    /// change the answer: a seat is entitled to its own deck's printings and
+    /// earns the rest by seeing the cards, so the gamehost re-sends the payload
+    /// as entries are earned. Without this the first ask poisoned the key
+    /// permanently — the card the entry finally described went on drawing as a
+    /// blank rectangle, and the constructed face it fell back to was the only
+    /// reason anyone could tell what it was.
+    ///
+    /// A genuine load failure is kept, because a new print table says nothing
+    /// about a URL that already answered with nothing, and retrying every 404
+    /// on every earned printing would be a fetch storm for no gain.
+    pub fn forget_unresolved(&mut self) {
+        let before = self.failed.len();
+        self.failed.retain(|_, why| *why == Failure::Load);
+        if self.failed.len() != before {
             self.epoch += 1;
         }
     }
@@ -189,10 +236,18 @@ impl CardTextures {
         }
         let Some(request) = resolve(statics, key) else {
             // An unresolvable printing never even becomes a request, so no
-            // load state will ever report it; it is a permanent failure the
-            // moment it is asked for.
-            if self.failed.insert(key) {
+            // load state will ever report it — which is why it has to be
+            // recorded here, and why this is the one failure that says so out
+            // loud. The other path logs; this one did not, and a print table
+            // that had not caught up yet was therefore indistinguishable from
+            // a card whose art does not exist.
+            if self.failed.insert(key, Failure::Unresolved).is_none() {
                 self.epoch += 1;
+                bevy::log::debug!(
+                    ?key,
+                    known = statics.print(key.print).is_some(),
+                    "card art unresolvable; the print table has no URL for it yet"
+                );
             }
             return self.card_back.clone();
         };
@@ -256,7 +311,7 @@ pub fn note_load_states(mut textures: ResMut<CardTextures>, assets: Res<AssetSer
     let mut newly_arrived: Vec<ImageKey> = Vec::new();
     for (key, handle) in &textures.handles {
         match assets.get_load_state(handle) {
-            Some(bevy::asset::LoadState::Failed(_)) if !textures.failed.contains(key) => {
+            Some(bevy::asset::LoadState::Failed(_)) if !textures.failed.contains_key(key) => {
                 newly_failed.push(*key);
             }
             Some(bevy::asset::LoadState::Loaded) if !textures.arrived.contains(key) => {
@@ -270,7 +325,7 @@ pub fn note_load_states(mut textures: ResMut<CardTextures>, assets: Res<AssetSer
             ?key,
             "card art failed to load; falling back to the card face"
         );
-        textures.failed.insert(key);
+        textures.failed.insert(key, Failure::Load);
         textures.epoch += 1;
     }
     for key in newly_arrived {
@@ -285,9 +340,28 @@ pub fn note_load_states(mut textures: ResMut<CardTextures>, assets: Res<AssetSer
 /// jumps the queue by loading immediately — this only fills ahead.
 #[derive(Resource, Default)]
 pub struct Preload {
-    started: bool,
+    /// Every key ever queued, so the sweep can run again without asking twice.
+    queued: HashSet<ImageKey>,
+    /// How many print entries this seat held when the print table was last
+    /// swept.
+    ///
+    /// A seat is entitled to its own deck's printings and earns the rest by
+    /// seeing the cards, so this grows during a game. The sweep used to run
+    /// exactly once — on the first frame a view existed, when the battlefield
+    /// is empty and every printing but the player's own deck is still a hole —
+    /// and every card earned after that was never warmed at all.
+    swept: usize,
     in_flight: Vec<Handle<Image>>,
     queue: std::collections::VecDeque<ImageKey>,
+}
+
+impl Preload {
+    /// Queues a key, unless it has been queued before.
+    fn want(&mut self, key: ImageKey) {
+        if self.queued.insert(key) {
+            self.queue.push_back(key);
+        }
+    }
 }
 
 /// How many image loads may be in flight at once.
@@ -300,53 +374,81 @@ pub fn drive_preloads(
     mut textures: ResMut<CardTextures>,
     assets: Res<AssetServer>,
 ) {
-    if !preload.started {
-        let (Some(statics), Some(view)) = (duel.statics.as_ref(), duel.view.as_ref()) else {
-            return;
-        };
-        preload.started = true;
-        let mut queue = std::collections::VecDeque::new();
+    if let (Some(statics), Some(view)) = (duel.statics.as_ref(), duel.view.as_ref()) {
         // P1: the local hand, every command zone, the whole battlefield —
-        // everything a player sees in the first minute.
+        // everything a player is looking at *now*. Swept every frame rather
+        // than once: on the first frame a view exists the battlefield is
+        // empty, so a queue built there and never rebuilt holds nothing a
+        // player will be looking at a minute later. `want` makes the repeat
+        // free.
         for h in &view.hand {
-            queue.push_back(ImageKey::new(h.card.print, h.card.face, ArtSize::Small));
+            preload.want(ImageKey::new(h.card.print, h.card.face, ArtSize::Small));
         }
         for cmds in &view.command {
             for o in cmds {
                 if let Some(c) = o.card {
-                    queue.push_back(ImageKey::new(c.print, c.face, ArtSize::Small));
+                    preload.want(ImageKey::new(c.print, c.face, ArtSize::Small));
                 }
             }
         }
         for o in &view.battlefield {
             if let Some(c) = o.card {
-                queue.push_back(ImageKey::new(c.print, c.face, ArtSize::Small));
+                preload.want(ImageKey::new(c.print, c.face, ArtSize::Small));
             }
         }
-        let seen: bevy::platform::collections::HashSet<ImageKey> = queue.iter().copied().collect();
-        // P2: the rest of the print table, deterministically shuffled
-        // (xorshift*, fixed seed — same order on every client).
-        let mut rest: Vec<ImageKey> = (0..statics.prints.len())
-            .map(|i| baylee_core::ids::PrintRef::new(i as u16))
-            // A hole in the print table is a card this seat has not been
-            // shown. Preloading it would be fetching the art of a card the
-            // player is not entitled to know is in the game at all.
-            .filter(|print| statics.print(*print).is_some())
-            .map(|print| ImageKey::new(print, 0, ArtSize::Small))
-            .filter(|k| !seen.contains(k))
-            .collect();
-        let mut s = 0x9e37_79b9_7f4a_7c15u64;
-        for i in (1..rest.len()).rev() {
-            s ^= s << 13;
-            s ^= s >> 7;
-            s ^= s << 17;
-            let j = (s % (i as u64 + 1)) as usize;
-            rest.swap(i, j);
+        // P2: the same cards at the size the hover preview reads them at.
+        //
+        // The preview rewrites whatever key it was handed to `ArtSize::Normal`
+        // (`hud::overlay`), and it does so at the moment the pointer arrives —
+        // far too late to fetch. That is why a card a player could already see
+        // in their hand still flashed the constructed face when they looked at
+        // it: the hand draws `Small`, and the two are different keys.
+        //
+        // Only the hand and the *local* command zone, which are the two zones
+        // the preview can point at that the rules keep small — a hand is about
+        // seven cards (CR 514.1) and a command zone at most a pair. A
+        // battlefield has no such bound, and queueing eighty permanents at
+        // 1.3 MB each would spend the whole mobile budget on a convenience and
+        // then thrash it. Hovering a permanent still fetches on the spot; it
+        // is one image, and the face it falls back to meanwhile is correct.
+        for h in &view.hand {
+            preload.want(ImageKey::new(h.card.print, h.card.face, ArtSize::Normal));
         }
-        for key in rest {
-            queue.push_back(key);
+        if let Some(cmds) = view.command.get(view.seat.get() as usize) {
+            for o in cmds {
+                if let Some(c) = o.card {
+                    preload.want(ImageKey::new(c.print, c.face, ArtSize::Normal));
+                }
+            }
         }
-        preload.queue = queue;
+        // P3: the rest of the print table, deterministically shuffled
+        // (xorshift*, fixed seed — same order on every client). Re-swept
+        // whenever this seat has earned entries it did not have last time,
+        // which is the only event that can add to it.
+        let known = statics.prints.iter().flatten().count();
+        if known != preload.swept {
+            preload.swept = known;
+            let mut rest: Vec<ImageKey> = (0..statics.prints.len())
+                .map(|i| baylee_core::ids::PrintRef::new(i as u16))
+                // A hole in the print table is a card this seat has not been
+                // shown. Preloading it would be fetching the art of a card the
+                // player is not entitled to know is in the game at all.
+                .filter(|print| statics.print(*print).is_some())
+                .map(|print| ImageKey::new(print, 0, ArtSize::Small))
+                .filter(|k| !preload.queued.contains(k))
+                .collect();
+            let mut s = 0x9e37_79b9_7f4a_7c15u64;
+            for i in (1..rest.len()).rev() {
+                s ^= s << 13;
+                s ^= s >> 7;
+                s ^= s << 17;
+                let j = (s % (i as u64 + 1)) as usize;
+                rest.swap(i, j);
+            }
+            for key in rest {
+                preload.want(key);
+            }
+        }
     }
 
     // Retire finished loads.
@@ -424,10 +526,55 @@ mod tests {
             "the same art landing twice is not a second redraw"
         );
 
-        textures.mark_failed(lost);
+        textures.mark_failed(lost, Failure::Load);
         assert!(
             textures.epoch() > arrived,
             "a load giving up is a redraw too — that card switches to its face"
+        );
+    }
+
+    /// A seat earns print entries as it sees cards, so a printing that could
+    /// not be resolved a moment ago can be resolvable now. Nothing said so:
+    /// `failed` had no way out, and an opponent's land whose entry arrived a
+    /// frame after the permanent did stayed a blank rectangle for the rest of
+    /// the game.
+    ///
+    /// The two failures have to part company here or the fix would be worse
+    /// than the bug — retrying every 404 on every earned printing is a fetch
+    /// storm, and a URL that answered with nothing will answer the same way
+    /// however many print tables arrive.
+    #[test]
+    fn a_new_print_table_forgives_the_unresolved_and_not_the_unreachable() {
+        let mut images = Assets::<Image>::default();
+        let mut textures = CardTextures::new(&mut images, default_budget_bytes());
+        let early = ImageKey::new(baylee_core::ids::PrintRef::new(0), 0, ArtSize::Small);
+        let gone = ImageKey::new(baylee_core::ids::PrintRef::new(1), 0, ArtSize::Small);
+
+        textures.mark_failed(early, Failure::Unresolved);
+        textures.mark_failed(gone, Failure::Load);
+        assert!(textures.has_failed(early) && textures.has_failed(gone));
+
+        let before = textures.epoch();
+        textures.forget_unresolved();
+        assert!(
+            !textures.has_failed(early),
+            "the print table caught up, so the card gets another chance"
+        );
+        assert!(
+            textures.has_failed(gone),
+            "a 404 is still a 404 after a new print table"
+        );
+        assert!(
+            textures.epoch() > before,
+            "those cards can draw something else now, so the HUD has to rebuild"
+        );
+
+        let steady = textures.epoch();
+        textures.forget_unresolved();
+        assert_eq!(
+            textures.epoch(),
+            steady,
+            "a print table that forgives nothing is not a redraw"
         );
     }
 }

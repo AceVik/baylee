@@ -665,7 +665,14 @@ impl BoardModel {
                         StackKind::Ability { source } => view.object(source).and_then(|s| s.card),
                         StackKind::Spell => None,
                     })
-                    .map(|c| ImageKey::new(c.print, c.face, ArtSize::Normal));
+                    // `Small`, like every other card on the board, and for two
+                    // reasons that agree: the stack panel draws a card 66
+                    // logical pixels wide, so `Normal` was fetching 488×680 for
+                    // a thumbnail — and because it was the only board key at
+                    // that size, a spell cast from a hand the player could
+                    // already see drew the constructed face while a second copy
+                    // of the same art was fetched.
+                    .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small));
                 StackItem {
                     id: o.id,
                     name: o.name.clone(),
@@ -1297,7 +1304,7 @@ mod tests {
     }
 
     #[test]
-    fn required_images_are_deduplicated_and_sized_by_role() {
+    fn one_card_in_three_places_is_one_image() {
         let mut card = token(1, 0, "Serra Angel", 4, 4);
         card.card = Some(CardIdentity {
             index: baylee_core::ids::CardIndex::new(7),
@@ -1317,11 +1324,14 @@ mod tests {
         let m = model(&view);
         let keys = m.required_images();
 
-        // The two battlefield copies grouped into one small texture; the stack
-        // copy asks for the readable size. Two entries, not three.
-        assert_eq!(keys.len(), 2);
-        assert!(keys.iter().any(|k| k.size == ArtSize::Small));
-        assert!(keys.iter().any(|k| k.size == ArtSize::Normal));
+        // Three objects, one image: the two battlefield copies group, and the
+        // stack copy asks at the same size they do. It used to ask at
+        // `Normal`, which made this two entries — and meant a spell cast from
+        // a hand the player could already see fetched its art a second time
+        // and drew the constructed face until it landed. The board has exactly
+        // one size now; the hover preview is the only thing that reads bigger.
+        assert_eq!(keys.len(), 1);
+        assert!(keys.iter().all(|k| k.size == ArtSize::Small));
     }
 
     #[test]
@@ -1452,7 +1462,7 @@ mod tests {
     #[test]
     fn an_ability_on_the_stack_borrows_its_sources_picture() {
         let source = printed(1, 0, "Llanowar Elves", 33);
-        let source_art = ImageKey::new(PrintRef::new(33), 0, ArtSize::Normal);
+        let source_art = ImageKey::new(PrintRef::new(33), 0, ArtSize::Small);
         let mut ability = token(2, 0, "Llanowar Elves", 0, 0);
         ability.card = None;
         ability.types = TypeSet::EMPTY;
