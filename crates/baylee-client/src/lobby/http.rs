@@ -441,30 +441,49 @@ pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
         )
 }
 
-/// Asks once, at startup, whether this gateway takes sign-ups.
+/// Asks once, at startup, whether this gateway takes sign-ups — and whether it
+/// mirrors card art.
 pub(super) fn ask_about_registration(state: Res<LobbyState>, mailbox: Res<Mailbox>) {
     /// `GET /auth/config`.
     #[derive(serde::Deserialize)]
     struct Body {
         registration_enabled: bool,
+        /// Whether `GET /art/…` serves card images.
+        ///
+        /// Defaulted rather than required: a gateway built before the mirror
+        /// existed answers without the field, and the right reading of a
+        /// missing answer is "no mirror", which is exactly what the client
+        /// already did.
+        #[serde(default)]
+        art_cache: bool,
     }
 
     let box_ = Arc::clone(&mailbox.0);
-    let url = format!("{}/auth/config", state.gateway);
+    let gateway = state.gateway.clone();
+    let url = format!("{gateway}/auth/config");
     ehttp::fetch(ehttp::Request::get(&url), move |result| {
-        let enabled = match result {
+        let body = match result {
             Ok(response) if response.ok => response
                 .text()
-                .and_then(|body| serde_json::from_str::<Body>(body).ok())
-                .map(|b| b.registration_enabled),
+                .and_then(|body| serde_json::from_str::<Body>(body).ok()),
             // A gateway that is not up yet says nothing about registration.
             // Leaving the offer standing is the recoverable failure.
             _ => None,
         };
-        if let Some(enabled) = enabled
-            && let Ok(mut box_) = box_.lock()
-        {
-            box_.push(Reply::Registration(enabled));
+        let Some(body) = body else {
+            return;
+        };
+        // Set straight from the callback rather than through the mailbox: this
+        // is process-wide configuration, not lobby state, and every reader of
+        // it — the deck builder's hover preview among them — can be drawing
+        // before the next frame's mailbox is drained.
+        if body.art_cache {
+            baylee_client_core::images::use_art_base(baylee_client_core::images::gateway_art_base(
+                &gateway,
+            ));
+        }
+        if let Ok(mut box_) = box_.lock() {
+            box_.push(Reply::Registration(body.registration_enabled));
         }
     });
 }

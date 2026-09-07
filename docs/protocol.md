@@ -37,6 +37,64 @@ including through a zone change, because a printing that silently reset to
 entry 0 would be invisible in every other test — the game would play
 perfectly and show the wrong art.
 
+## Card art (`GET /art/…`)
+
+The gateway mirrors printing images on disk, and the route is a **mirror of
+Scryfall's own path shape** so a client swaps one base URL and changes nothing
+else:
+
+```
+GET /art/{size}/{face}/{a}/{b}/{scryfall_id}.jpg
+        │      │      └──┴── the first two characters of the id
+        │      └── front | back
+        └── small | normal | art_crop
+```
+
+`a` and `b` are redundant — they are derivable from the id — and are
+**checked** rather than ignored, so one printing cannot end up cached under two
+names. Anything else is a 404 before a request leaves for the origin.
+
+This is the contract between `baylee_client_core::images::image_url`, which
+builds these URLs, and `baylee-gateway`'s `art.rs`, which answers them. The two
+crates cannot see each other — the gateway has no client dependency, and it
+must not gain one — so **each side tests the shape against this section**
+rather than against a shared constant.
+
+Three properties are load-bearing:
+
+- **It is a cache keyed by an id, never a proxy.** The only thing a caller may
+  name is a printing id; the origin URL is rebuilt from the fixed shape above.
+  There is nothing to point at another host with, which is what makes an
+  unauthenticated route safe to leave open — and it is unauthenticated on
+  purpose, because it serves public artwork the client would otherwise fetch
+  straight from a public CDN, and a token would break plain image loads while
+  protecting nothing.
+- **One rate limiter for the whole gateway**, not one per game: `docs/legal.md`
+  §3 allows ten requests a second, and four tables starting at once must not
+  leave at four times that.
+- **`Access-Control-Allow-Origin: *` and a one-year `Cache-Control`.** The
+  browser client is served from one origin and talks to the gateway on another,
+  so without the first it loads no art at all and fails silently. The second is
+  the client-side half of the cache, and on wasm it is the only half there is —
+  a printing's art never changes, because the id *is* the version.
+
+### Warming a table
+
+When a game is created the gateway walks the preset's whole print table and
+fetches it in the background. This is the one thing only the gateway may do: it
+builds the `GamePreset`, so it legitimately knows every deck at the table,
+while a *seat* knows its own printings and earns the rest by seeing the cards
+(see "Printings" above). Warming in a client would therefore hand a player
+their opponent's decklist. Warming here hands nobody anything — a client still
+learns a printing only when the rules let it, and only then asks for the
+picture, which is by then already local.
+
+`BAYLEE_ART_PATH` names the directory and `off` disables the mirror entirely,
+which is a real mode and not a degraded one: a gateway behind a CDN has no use
+for a second copy, and the test suite must never reach the network. With the
+mirror off, `/art` answers 404 and a client falls back to fetching from
+Scryfall itself.
+
 ## Remembered answers (`/automation`)
 
 A seat can tell the engine "always say yes to this ability" — that is

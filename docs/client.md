@@ -342,7 +342,25 @@ draws as a name with an empty plate, never as a missing entry.
 
 ## Images and memory
 
-Scryfall CDN, keyed by printing id — no API call is needed to render a board.
+Keyed by printing id — no API call is needed to render a board.
+
+**Where the bytes come from is one process-wide setting.** By default the
+Scryfall CDN; when `GET /auth/config` says `art_cache`, the gateway's own
+mirror instead (`images::use_art_base`, and `docs/protocol.md` §"Card art" for
+the route). A setting rather than a parameter, deliberately: the places that
+turn a printing into a picture include pure helpers in the deck builder and the
+lobby preview that have no resource to read, and threading a base URL through
+all of them would spread the knowledge instead of containing it. It is told
+rather than guessed, because a gateway with the mirror off answers 404 for
+every printing and a client that assumed wrong would draw a table of
+constructed faces.
+
+The gateway is asked at sign-in, so a client launched straight into a game with
+a `SeatTicket` — `dev-table`, or a browser handed `?game=…&token=…` — never asks
+and keeps the CDN. That is the correct fallback rather than a gap: the pictures
+still arrive, they are simply not the gateway's copies.
+
+
 Board cards are fetched `small` (146×204); only the focused card is fetched
 `normal`. That is the difference between ~36 MB and ~400 MB for a large table.
 A byte-budgeted LRU (`TextureBudget`) decides evictions; the browser budget is

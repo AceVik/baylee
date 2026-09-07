@@ -6,6 +6,7 @@
 //! reverse proxy in front of this process (Caddy/nginx) — this service
 //! must never be exposed on a plaintext listener in production.
 
+mod art;
 mod auth;
 mod engine;
 mod lobby;
@@ -80,6 +81,13 @@ struct AppState {
     /// store and need no database, so a gateway without Postgres still runs
     /// a full game — it just cannot serve card text.
     catalog: Option<baylee_catalog::Catalog>,
+    /// The disk mirror of card art (`BAYLEE_ART_PATH`, `off` to disable).
+    ///
+    /// An `Arc` of its own because the warming task outlives the request that
+    /// started it: a table's pictures keep arriving while the room is still
+    /// being arranged. See `art.rs` for why this is the layer that may warm
+    /// every deck at a table and a client is not.
+    art: Arc<art::ArtCache>,
 }
 
 impl AppState {
@@ -143,6 +151,7 @@ async fn main() {
             .filter_map(|s| s.trim().parse::<IpAddr>().ok())
             .collect(),
         catalog,
+        art: Arc::new(art::ArtCache::from_env()),
     });
     spawn_store_writer(state.clone(), save_rx);
     spawn_cleanup(state.clone());
@@ -180,6 +189,10 @@ async fn main() {
         .route("/printings", get(pool::printings))
         .route("/catalog/text", get(catalog_text))
         .route("/catalog/search", get(catalog_search))
+        // Public artwork, mirrored from Scryfall by printing id. Unauthenticated
+        // like the CDN it stands in for, and an id cache rather than a proxy —
+        // see `art.rs`.
+        .route("/art/{size}/{face}/{a}/{b}/{file}", get(art::art))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
@@ -326,6 +339,11 @@ async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "registration_enabled": state.registration_enabled,
         "confirmation_required": state.mail.required(),
+        // Whether `GET /art/…` mirrors card images. A client that pointed at a
+        // gateway with the mirror switched off would get a 404 for every card
+        // and draw a whole table of constructed faces, so it is told here
+        // rather than discovering it one blank card at a time.
+        "art_cache": state.art.enabled(),
     }))
 }
 
@@ -1160,6 +1178,26 @@ fn loaded_deck(
     })
 }
 
+/// Every printing at a table, deduplicated, as the ids the art cache keys on.
+///
+/// The gateway is the only party that may hold this list whole: a *seat* is
+/// entitled to its own deck's printings and earns the rest by seeing the cards,
+/// which is why `GameStatic.prints` is a list of holes. Warming from here tells
+/// no client anything — it only means the picture is already local by the time
+/// the rules let that client ask for it. See `art.rs`.
+fn table_prints(preset: &baylee_core::preset::GamePreset) -> Vec<String> {
+    // Deduplicated because a deck plays four of a card and the four are one
+    // picture — a hundred-card deck is about sixty distinct printings.
+    let mut ids: Vec<String> = preset
+        .prints
+        .iter()
+        .map(|p| p.scryfall_id.to_string())
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    ids
+}
+
 /// The deck an AI seat plays when the host did not give it one.
 fn house_deck() -> Result<baylee_cards::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)> {
     let text = std::fs::read_to_string("data/acceptance-decks.txt")
@@ -1253,6 +1291,7 @@ fn room_preset(
 /// lobby lock, and a failure to order one puts the room back the way it was
 /// rather than leaving a table nobody can play at.
 fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, Json<ErrorBody>)> {
+    let prints;
     {
         let mut lobby = state.lobby.lock();
         let Some(game) = lobby.games.get_mut(id) else {
@@ -1261,9 +1300,15 @@ fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, Json<ErrorBo
         if game.state != LobbyState::Waiting || !game.seats.iter().all(lobby::LobbySeat::ready) {
             return Ok(false);
         }
-        game.preset = Some(room_preset(&game.seats, auth::new_game_seed())?);
+        let preset = room_preset(&game.seats, auth::new_game_seed())?;
+        prints = table_prints(&preset);
+        game.preset = Some(preset);
         game.state = LobbyState::Playing;
     }
+    // Outside the lobby lock: it spawns a task rather than doing the work, but
+    // a mutex held across anything that touches the network is how a lobby
+    // route starts waiting on Scryfall.
+    state.art.warm(prints);
     if let Err(reason) = engine::start_engine(state, id) {
         let mut lobby = state.lobby.lock();
         if let Some(game) = lobby.games.get_mut(id) {
@@ -1292,6 +1337,7 @@ async fn create_game(
         {
             let mut preset = ai_preset(&deck, auth::new_game_seed())?;
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
+            state.art.warm(table_prints(&preset));
             let mut seats = vec![lobby::LobbySeat::open(0), lobby::LobbySeat::open(1)];
             seats[0].account_id = Some(account_id.clone());
             seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));

@@ -7,6 +7,9 @@
 dist/
 # Bevy's on-disk web asset cache (Scryfall images, fetched at runtime)
 .web-asset-cache/
+# the gateway's card-art mirror (BAYLEE_ART_PATH). docs/legal.md §3: card
+# images are cached at runtime and never committed.
+art-cache/
 
 # local configuration (see .env.example)
 .env

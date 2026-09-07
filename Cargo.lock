@@ -736,6 +736,7 @@ dependencies = [
  "tokio-tungstenite 0.26.2",
  "tracing",
  "tracing-subscriber",
+ "ureq 3.4.0",
  "uuid",
 ]
 

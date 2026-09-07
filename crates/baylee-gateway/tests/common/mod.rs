@@ -62,6 +62,12 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         .env("PORT", port.to_string())
         .env("STORE_PATH", &store_path)
         .env("BAYLEE_AGENT_TOKEN", &agent_token)
+        // No card-art mirror. Starting a game warms every printing at the
+        // table, and these tests start a lot of games: left on, the suite
+        // fetches a few hundred images from Scryfall and writes them into the
+        // working directory — which it did, once, before this line existed.
+        // A test that reaches the network is a test that fails on a train.
+        .env("BAYLEE_ART_PATH", "off")
         .env("RUST_LOG", if loud { "info" } else { "off" })
         .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
         .stdout(std::process::Stdio::null())

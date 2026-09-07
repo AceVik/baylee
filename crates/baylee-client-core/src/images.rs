@@ -164,7 +164,42 @@ pub struct ImageRequest {
 /// Images are served straight from the CDN by printing id, so a client never
 /// has to call the Scryfall API to render a board — which also means no rate
 /// limit applies to gameplay.
-const CDN: &str = "https://cards.scryfall.io";
+pub const SCRYFALL_CDN: &str = "https://cards.scryfall.io";
+
+/// Where card art is actually fetched from, when it is not the CDN.
+///
+/// A process-wide setting rather than a parameter, and deliberately: the two
+/// dozen places that turn a printing into a picture include pure helpers in the
+/// deck builder and the lobby preview that have no resource to read and no
+/// business knowing where bytes come from. This is configuration — one value,
+/// decided once at sign-in, read everywhere — and threading it through every
+/// one of those signatures would spread the knowledge rather than contain it.
+static ART_BASE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Points card art at a gateway's mirror instead of the CDN.
+///
+/// Called once, when `GET /auth/config` says the gateway mirrors art. A gateway
+/// with the mirror switched off answers 404 for every printing, so this must be
+/// told rather than assumed — a client that guessed wrong would draw a whole
+/// table of constructed faces.
+pub fn use_art_base(base: String) {
+    let _ = ART_BASE.set(base);
+}
+
+/// The base in force. The CDN until [`use_art_base`] says otherwise.
+#[must_use]
+pub fn art_base() -> &'static str {
+    ART_BASE.get().map_or(SCRYFALL_CDN, String::as_str)
+}
+
+/// The art base for a gateway, from the URL the client already talks to it on.
+///
+/// `docs/protocol.md` §"Card art" is the shape; the gateway route is a mirror
+/// of the CDN's own path, so nothing below this line changes.
+#[must_use]
+pub fn gateway_art_base(gateway: &str) -> String {
+    format!("{}/art", gateway.trim_end_matches('/'))
+}
 
 /// Builds the CDN URL for a printing.
 ///
@@ -172,6 +207,16 @@ const CDN: &str = "https://cards.scryfall.io";
 /// caller renders a card back rather than issuing a request that will 404.
 #[must_use]
 pub fn image_url(entry: &PrintEntry, face: Face, size: ArtSize) -> Option<String> {
+    image_url_at(art_base(), entry, face, size)
+}
+
+/// The same, against a named base.
+///
+/// Split out so a test can name the base instead of setting the process-wide
+/// one, which is settable only once and would leak into every other test in the
+/// binary.
+#[must_use]
+pub fn image_url_at(base: &str, entry: &PrintEntry, face: Face, size: ArtSize) -> Option<String> {
     let id = entry.scryfall_id.as_str();
     // Scryfall shards by the first two characters of the id.
     let mut chars = id.chars();
@@ -187,7 +232,7 @@ pub fn image_url(entry: &PrintEntry, face: Face, size: ArtSize) -> Option<String
         return None;
     }
     Some(format!(
-        "{CDN}/{}/{}/{a}/{b}/{id}.jpg",
+        "{base}/{}/{}/{a}/{b}/{id}.jpg",
         size.path_segment(),
         face.path_segment()
     ))
@@ -409,6 +454,39 @@ mod tests {
             "https://cards.scryfall.io/small/front/f/3/f333ea01-124f-4125-87ab-609be40e774c.jpg"
         );
         assert_eq!(req.treatment, FinishTreatment::Plain);
+    }
+
+    /// The gateway's `/art` route is a *mirror* of the CDN's path, so pointing
+    /// the client at it changes the base and nothing else. `baylee-gateway`
+    /// cannot see this crate and this crate cannot see it, so each side tests
+    /// its half of the shape written down in `docs/protocol.md` §"Card art" —
+    /// spelled out here rather than computed, because a test that rebuilt the
+    /// string the same way the code does would agree with it however wrong
+    /// both were. That is not hypothetical: the gateway's half lost the `.jpg`
+    /// the first time it was written inline.
+    #[test]
+    fn a_gateway_mirror_changes_the_base_and_nothing_else() {
+        let entry = PrintEntry {
+            scryfall_id: "f333ea01-124f-4125-87ab-609be40e774c".into(),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        };
+        let base = gateway_art_base("http://127.0.0.1:28766");
+        assert_eq!(base, "http://127.0.0.1:28766/art");
+        assert_eq!(
+            image_url_at(&base, &entry, Face::Front, ArtSize::Small).expect("resolves"),
+            "http://127.0.0.1:28766/art/small/front/f/3/f333ea01-124f-4125-87ab-609be40e774c.jpg"
+        );
+        // A gateway URL a player typed with a trailing slash is the same
+        // gateway, and a doubled separator is a different path to a router.
+        assert_eq!(
+            gateway_art_base("http://127.0.0.1:28766/"),
+            "http://127.0.0.1:28766/art"
+        );
+        // Nothing set the process-wide base, so the default is still the CDN —
+        // which is also what makes every other test in this file independent
+        // of this one.
+        assert_eq!(art_base(), SCRYFALL_CDN);
     }
 
     #[test]
