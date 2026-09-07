@@ -505,7 +505,7 @@ One game in that page reads:
 
 ```json
 { "id": "…", "name": "Kitchen table", "host": "viktor", "yours": false,
-  "state": "waiting", "locked": false, "startable": true,
+  "state": "waiting", "locked": false, "startable": true, "rematch": false,
   "seats": [ { "seat": 0, "kind": "human", "ai": null, "taken": true,
                "player": "viktor", "you": false, "host": true,
                "deck": "Mono-Green", "ready": true },
@@ -583,6 +583,63 @@ already arrived. An
 and a socket opened against it is accepted and then closed with nothing on it,
 because there is no game yet to describe. The host of an open table has to wait
 for its `state` to turn `"playing"`, which is what the lobby feed below is for.
+
+### Playing it again
+
+`POST /lobby/games/{id}/rematch` answers the `{game_id, seat, seat_token}` a
+join answers — a ticket to a table that is not the one in the path. `403` for
+anyone who was not sitting at that table; a game's id was in every player's own
+listing while it waited, so it is no secret and cannot be what the check rests
+on.
+
+`{id}` is **either end of the pair**: the game that is over, or the room opened
+from it. The two people pressing the button are looking at different things —
+whoever just finished has the game's id on the screen in front of them, and
+whoever went back to the lobby has the room's, the finished game being in
+nobody's listing. `409` for anything else.
+
+The route is **idempotent**, and that is the whole of it. The first press opens
+a room with the arrangement copied — how many chairs, the sides they play for,
+who was in them, which were the AI and at what difficulty, the name and the
+password — and writes a pointer to it on the finished game. Every press after
+that follows the pointer, so two people pressing at the same moment sit down at
+one table instead of at two. A human chair's deck is re-read from the store, so
+an edit between games counts; what the finished table played is the fallback,
+for a deck deleted since.
+
+Pressing it is also the ready statement, because `said_ready` means "I want to
+play" and there is nothing else a button that says *play again* could be saying.
+So the room starts itself once every chair is ready. That is not the rule taken
+out of `set_seat` above: that one fired when a player picked a deck to look at
+it, and this one fires when everyone at the table has asked for another game.
+An AI chair is ready as soon as it is configured, so a solo player is one press
+from the next game — which is the case that matters most, the game being
+repeated having itself been one tap.
+
+Nothing of the finished game travels. The seat token is new (one token names one
+game for the whole of its life), the preset is rebuilt from the chairs when the
+room starts rather than inherited, and `said_ready` is written only for the
+player who actually pressed. The other players learn of the room the ordinary
+way: it is a waiting table in their own listing with their chair already in it,
+`you: true` — the finished game itself is filtered out of every listing and has
+nothing to say. The one thing the pointer does buy is a stay of execution: a
+finished game whose room is still waiting outlives its grace period, or the
+player who takes a minute longer to press would open a second table.
+
+A copied chair is **reserved, not taken**. It carries the account that had it
+and the deck it played, and no seat token, because a token can only be minted
+into a reply to the player it belongs to — so a chair is not `ready` until it
+has one, and `POST …/ready` from the lobby says the right thing without being
+enough. Every other way of taking a chair issues the token in the same breath,
+which is why the rule reads as noise everywhere else: a table that started on a
+reserved chair would be a table its own player could not open a socket to.
+
+Which is why the listing says `"rematch": true` on such a room. It is the one
+thing a client cannot work out for itself: the row looks like any other waiting
+table with its chair in it, and the button on it has to be *play again* rather
+than *ready*. A client that sent the wrong one would be answered `200` and
+would then draw the chair still saying `"ready": false`, which is the truth and
+no help at all.
 
 ### The lobby feed
 

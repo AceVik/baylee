@@ -100,11 +100,27 @@ impl LobbySeat {
     }
 
     /// Whether the seat is settled enough for the game to start: somebody is
-    /// in it, they have something to play, and they have said so.
+    /// in it, they have something to play, they can reach the table, and they
+    /// have said so.
+    ///
+    /// The third of those is the one that is not obvious. Every way of taking
+    /// a chair issues its seat token in the same breath — creating a room,
+    /// creating the one-tap game, joining — so a chair with an account and no
+    /// token could not exist, and the check would have been noise. A rematch
+    /// room is the first place it can: it copies the arrangement of a table
+    /// that is over, and a token can only be minted into a reply to the
+    /// player it belongs to. Such a chair is *reserved*, not taken, and a
+    /// game that started on one would be a game its player could not open a
+    /// socket to.
     #[must_use]
     pub fn ready(&self) -> bool {
         match self.kind {
-            SeatKind::Human => self.account_id.is_some() && self.deck.is_some() && self.said_ready,
+            SeatKind::Human => {
+                self.account_id.is_some()
+                    && self.deck.is_some()
+                    && self.seat_token_hash.is_some()
+                    && self.said_ready
+            }
             // An AI the host gave no deck plays the house deck, so there is
             // nothing left to wait for.
             SeatKind::Ai => true,
@@ -121,6 +137,23 @@ impl LobbySeat {
         *self = Self::open(self.seat);
         // The team is the table's shape, which nobody changed by standing up.
         self.team = team;
+    }
+
+    /// The same chair at the next table: who was in it, what they brought,
+    /// and which side they played for.
+    ///
+    /// The mirror of [`LobbySeat::vacate`] and the same trap — a field
+    /// forgotten here carries something of the finished game into the new
+    /// one. Exactly two must not travel. A seat token names one game for the
+    /// whole of its life, and `said_ready` is a statement about *this* table
+    /// that only the player pressing the button gets to make.
+    #[must_use]
+    pub fn again(&self) -> Self {
+        Self {
+            seat_token_hash: None,
+            said_ready: false,
+            ..self.clone()
+        }
     }
 }
 
@@ -185,6 +218,26 @@ pub struct LobbyGame {
     /// Hands out [`LobbySeat::joined_seq`]. Monotonic for the room's life, so
     /// a player who leaves and comes back is at the back of the queue.
     pub next_seq: u64,
+    /// The room opened to play this table again, once somebody asked for one.
+    ///
+    /// It lives on the finished game rather than in a map of its own because
+    /// "has a rematch been opened yet" is a question about *this* table, and
+    /// every caller already has it in hand. It is what makes the route
+    /// idempotent: the second player to press the button joins the room the
+    /// first one opened instead of opening a second one beside it.
+    pub rematch: Option<String>,
+    /// The finished game this room is a rematch of, if it is one.
+    ///
+    /// Two readers, and the second is the reason it is a field on the room
+    /// rather than a flag on the route. The reaper answers what the pointer
+    /// above cannot — a finished game whose room is still waiting has to
+    /// outlive its grace period, or the player who takes a minute longer to
+    /// press the button opens a second table instead of joining the first.
+    /// And `set_ready` reads it to start such a room the moment its last
+    /// chair is ready: everyone here has already asked to play again, so a
+    /// room where all of them said so and nobody could press start would be
+    /// stuck for no reason anyone at the table could see.
+    pub parent: Option<String>,
 }
 
 impl LobbyGame {
@@ -287,6 +340,43 @@ impl LobbyGame {
             finished_at: None,
             password_hash: None,
             next_seq: 0,
+            rematch: None,
+            parent: None,
+        }
+    }
+
+    /// A fresh room with a finished table's arrangement already in it.
+    ///
+    /// Everything that made the table what it was travels: how many chairs,
+    /// who sat in them, which were the AI and at what difficulty, the sides
+    /// they played for, the name and the password. Nothing of the *game*
+    /// does — [`LobbyGame::blank`] supplies the preset, the engine link and
+    /// the broadcast, so the room builds its own from the seats when it
+    /// starts rather than inheriting one that was already played.
+    ///
+    /// The host is the old host, and where there was none it is whoever
+    /// joined earliest — the rule that already applies when a host leaves.
+    /// A two-seat table against the house predates rooms and has no host at
+    /// all, and a room nobody may arrange is one nobody can change their
+    /// mind at.
+    #[must_use]
+    pub fn rematch_of(parent: &Self, id: String, created_at: u64) -> Self {
+        Self {
+            state: LobbyState::Waiting,
+            host: parent.host.clone().or_else(|| {
+                parent
+                    .seats
+                    .iter()
+                    .filter(|s| s.kind == SeatKind::Human)
+                    .min_by_key(|s| s.joined_seq.unwrap_or(u64::MAX))
+                    .and_then(|s| s.account_id.clone())
+            }),
+            name: parent.name.clone(),
+            seats: parent.seats.iter().map(LobbySeat::again).collect(),
+            password_hash: parent.password_hash.clone(),
+            next_seq: parent.next_seq,
+            parent: Some(parent.id.clone()),
+            ..Self::blank(id, created_at)
         }
     }
 
@@ -522,6 +612,15 @@ impl Lobby {
                         LobbyState::Playing => "playing",
                         LobbyState::Over => "over",
                     },
+                    // Whether this room is the next table of one that
+                    // finished. A player takes their chair here by pressing
+                    // rematch, not ready: the chair is *reserved* until they
+                    // do, because that is the only reply their seat token can
+                    // be minted into. A client that could not tell the two
+                    // rooms apart would send the wrong one, be answered
+                    // `200`, and leave the player looking at a chair that
+                    // still says it is not ready.
+                    "rematch": g.parent.is_some(),
                     // Everything a player needs to decide whether to sit
                     // down: how many chairs, which are people, which are the
                     // AI and how hard, and what everyone brought. A room is
