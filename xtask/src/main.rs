@@ -1025,6 +1025,25 @@ fn post(
     }
 }
 
+/// PUTs JSON and returns the status. Same shape as [`post`], and the same
+/// reason for returning a refusal rather than raising it.
+fn put(
+    agent: &ureq::Agent,
+    url: &str,
+    token: &str,
+    body: &serde_json::Value,
+) -> anyhow::Result<u16> {
+    let req = agent
+        .put(url)
+        .header("content-type", "application/json")
+        .header("authorization", &format!("Bearer {token}"));
+    match req.send_json(body) {
+        Ok(resp) => Ok(resp.status().as_u16()),
+        Err(ureq::Error::StatusCode(code)) => Ok(code),
+        Err(e) => Err(anyhow::anyhow!("{url}: {e}")),
+    }
+}
+
 /// GETs JSON and returns the body.
 fn get(agent: &ureq::Agent, url: &str, token: &str) -> anyhow::Result<String> {
     let mut resp = agent
@@ -1051,18 +1070,27 @@ fn acceptance_deck(root: &Path, name: &str) -> anyhow::Result<serde_json::Value>
     let rows = acceptance::parse_decks(&text).map_err(|e| anyhow::anyhow!("{e}"))?;
     let mut main = Vec::new();
     let mut side = Vec::new();
+    // `POST /decks` takes one commander by name, and takes it *beside* the
+    // rows — `LoadedDeck` seats a leader that has no row of its own. This used
+    // to drop the row entirely, under a comment saying the engine did not run
+    // the format; it has since, and the dev table was the one seat at a
+    // commander table playing without a commander.
+    let mut commander = None;
     for row in rows.iter().filter(|r| r.deck == name) {
         let line = format!("{} {}", row.count, row.name);
         match row.zone {
             acceptance::Zone::Main => main.push(line),
             acceptance::Zone::Sideboard => side.push(line),
-            // The engine does not run the commander format yet, so a
-            // commander row would only be a deck the gateway refuses.
-            acceptance::Zone::Commander => {}
+            acceptance::Zone::Commander => commander = Some(row.name.clone()),
         }
     }
     anyhow::ensure!(!main.is_empty(), "no deck called `{name}` in the file");
-    Ok(serde_json::json!({ "name": name, "cards": main, "sideboard": side }))
+    Ok(serde_json::json!({
+        "name": name,
+        "cards": main,
+        "sideboard": side,
+        "commander": commander,
+    }))
 }
 
 /// Arranges a room's chairs and starts it.
@@ -1185,8 +1213,13 @@ fn dev_table(
     anyhow::ensure!(status == 200, "sign in as {DEV_NAME}: {status} {body}");
     let token = field(&body, "token")?;
 
-    // A deck. Reused when a previous run already saved it, so the card pool
-    // is not re-validated on every launch.
+    // A deck. The account survives between runs, so one is usually already
+    // stored — and it is *rewritten* rather than reused, because
+    // `data/acceptance-decks.txt` is what a dev table is supposed to be
+    // playing. A deck saved by an older build simply stayed as it was, which
+    // is how seat 0 kept sitting down at a commander table with no commander
+    // for a while after the file had one.
+    let body = acceptance_deck(root, deck_name)?;
     let decks: serde_json::Value =
         serde_json::from_str(&get(&agent, &format!("{gateway}/decks"), &token)?)?;
     let existing = decks.as_array().and_then(|list| {
@@ -1196,14 +1229,14 @@ fn dev_table(
             .map(ToString::to_string)
     });
     let deck_id = if let Some(id) = existing {
+        let status = put(&agent, &format!("{gateway}/decks/{id}"), &token, &body)?;
+        anyhow::ensure!(
+            status == 204,
+            "refresh the {deck_name} deck from the file: {status}"
+        );
         id
     } else {
-        let (status, body) = post(
-            &agent,
-            &format!("{gateway}/decks"),
-            Some(&token),
-            &acceptance_deck(root, deck_name)?,
-        )?;
+        let (status, body) = post(&agent, &format!("{gateway}/decks"), Some(&token), &body)?;
         anyhow::ensure!(status == 200, "save the {deck_name} deck: {status} {body}");
         field(&body, "deck_id")?
     };
