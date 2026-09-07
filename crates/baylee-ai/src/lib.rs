@@ -27,9 +27,20 @@ use baylee_view::{Phase, PlayerView};
 /// view (the engine's seeded RNG does all randomness).
 #[derive(Clone, Debug)]
 pub struct HeuristicAgent {
-    /// Difficulty knobs. `politics` steers who this seat attacks; the
-    /// evaluation knobs (lookahead, temperature, mulligan skill, hold-up)
-    /// are still read by nobody and wait on the evaluator.
+    /// Difficulty knobs. `politics` is read — it picks who this seat swings
+    /// at. The other four are not, and one of them cannot be as written:
+    /// `lookahead` counts *plies*, and an agent handed a `PlayerView` has
+    /// no tree to walk. It sees one position and the questions asked about
+    /// it, never the position an answer would produce — and giving it an
+    /// engine to find out would hand it every hand at the table, which is
+    /// the boundary `act(&PlayerView, &Pending)` exists to hold.
+    ///
+    /// What *is* reachable from a view is combat simulation:
+    /// `Pending::ChooseAttackers` and `ChooseBlockers` enumerate the whole
+    /// exchange, so a trade can be worked out without a tree, which is what
+    /// `combat` does. `temperature_milli`, `mulligan_skill` and `hold_up`
+    /// are ordinary unfinished work — noise on the choice, a keep rule, and
+    /// a reason to leave mana open.
     profile: AIProfile,
     /// Which side each seat plays for, in seat order. Empty means a table
     /// with no teams on it, where every seat is a side of its own.

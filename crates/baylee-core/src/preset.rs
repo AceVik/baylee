@@ -132,6 +132,15 @@ pub enum HoldUp {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AIProfile {
     /// Evaluation lookahead in plies (0 = greedy).
+    ///
+    /// Read by nobody, and it cannot be read where the house AI lives: a
+    /// `HeuristicAgent` is handed a `PlayerView` and a `Pending`, which is
+    /// one position and the questions asked about it — never the position
+    /// an answer would produce. Walking plies takes the engine
+    /// (`GameState::clone` is a flat copy exactly so a search can), and the
+    /// engine is on the other side of the line `baylee-ai` exists to keep,
+    /// so a searching agent is a different thing living in a different
+    /// place rather than a bigger number here.
     pub lookahead: u8,
     /// Evaluation noise (milli-units; 0 = deterministic-sharp).
     pub temperature_milli: u32,

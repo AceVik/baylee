@@ -624,4 +624,97 @@ mod tests {
         );
         println!("{report}");
     }
+
+    /// A cracked fetchland has to *find*.
+    ///
+    /// `Tally::abilities` counts the activation and a zero `refused_cost`
+    /// says the engine accepted it — neither of them says a land arrived.
+    /// The step in between is the agent's own answer to the search
+    /// (`Pending::ChooseCards`), and an answer of "nothing" would sacrifice
+    /// the land for no land at all. On a report that reads exactly like
+    /// mana screw, which is the one symptom the soak is least able to tell
+    /// apart from bad luck.
+    ///
+    /// So: an empty opening hand and a library of one basic. No land drop
+    /// is possible, and every land that reaches this seat's battlefield
+    /// came out of the library.
+    #[test]
+    fn cracking_a_fetchland_puts_a_land_onto_the_battlefield() {
+        use baylee_engine::zone::ZoneLocation;
+
+        let mesa = baylee_cards::decks::by_name("Arid Mesa").expect("Arid Mesa is registered");
+        let mountain = baylee_cards::decks::by_name("Mountain").expect("Mountain is registered");
+        // The probe preset already puts the Mesa on the battlefield and
+        // builds a print table for everything it uses; the deck it pads
+        // with is what gets replaced, not the scaffolding.
+        let mut preset = baylee_cards::decks::probe_preset(9, mesa).expect("the probe deck builds");
+        let basic = *preset.seats[0]
+            .deck
+            .iter()
+            .find(|e| e.card == mountain)
+            .expect("a colourless card's probe deck pads with every basic");
+        for seat in &mut preset.seats {
+            seat.deck = vec![basic; 40];
+            seat.starting_hand = Some(vec![]);
+        }
+        let mut engine = Engine::new(&preset, RegistryLookup).expect("preset builds");
+        let agent = HeuristicAgent::new(AIProfile::default());
+        let me = PlayerId::new(0);
+        let mine = |engine: &Engine<RegistryLookup>, card| {
+            let state = engine.state();
+            state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter_map(|id| state.object(*id))
+                .filter(|o| o.controller == me && o.card.is_some_and(|c| c.index == card))
+                .count()
+        };
+        assert_eq!(mine(&engine, mesa), 1, "the Mesa starts on the battlefield");
+        // What the battlefield held when the Mesa was cracked. The
+        // sacrifice is a *cost*, so by the time the activation is applied
+        // the land is already gone and only the find is still outstanding —
+        // and nothing can be played while the ability is on the stack. So a
+        // count that moves from here moved because the search found.
+        let mut cracked: Option<usize> = None;
+        for i in 0..200u64 {
+            let pending = engine.pending().clone();
+            if matches!(pending, Pending::GameOver(_)) {
+                break;
+            }
+            let player = pending_player(&pending).expect("a decision point has a seat");
+            let view = crate::view::player_view(
+                engine.state(),
+                player,
+                priority_holder(&pending),
+                i,
+                Some(&pending),
+                engine.automation(player).hold.suppresses(),
+            );
+            let action = agent.act(&view, &pending);
+            let activating = player == me
+                && cracked.is_none()
+                && matches!(action, PlayerAction::ActivateAbility { .. });
+            let before = mine(&engine, mountain);
+            if engine.apply(player, action).is_err() && matches!(pending, Pending::Priority { .. })
+            {
+                engine
+                    .apply(player, PlayerAction::PassPriority)
+                    .expect("passing is always legal");
+            }
+            if activating {
+                cracked = Some(before);
+            }
+            if cracked.is_some_and(|before| mine(&engine, mountain) > before) {
+                break;
+            }
+        }
+        let before = cracked.expect("the agent never cracked the fetchland");
+        assert_eq!(
+            mine(&engine, mountain),
+            before + 1,
+            "the fetchland was cracked and the search found nothing"
+        );
+        assert_eq!(mine(&engine, mesa), 0, "a cracked fetchland is sacrificed");
+    }
 }
