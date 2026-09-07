@@ -169,6 +169,12 @@ impl GameSeat {
 }
 
 /// A table, as `GET /lobby/games` lists it.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a wire DTO, for the reason GameSeat above gives: each flag is \
+              one of the row's own answers, and the gateway is what decides \
+              how many there are"
+)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GameSummary {
     /// Opaque game id.
@@ -193,6 +199,17 @@ pub struct GameSummary {
     /// should be able to see who they are waiting for.
     #[serde(default)]
     pub startable: bool,
+    /// Whether this room is the next table of a game that finished.
+    ///
+    /// The one thing about such a room that cannot be worked out from the
+    /// rest of the row: it looks like any other waiting table with this
+    /// player's chair already in it, and the button on it has to be *play
+    /// again* rather than *ready*. A chair there is reserved until its player
+    /// claims it, and only `POST …/rematch` mints the seat token that claim
+    /// consists of — pressing ready is answered `200` and changes nothing
+    /// anyone can see.
+    #[serde(default)]
+    pub rematch: bool,
     /// Every seat at the table, taken or not.
     #[serde(default)]
     pub seats: Vec<GameSeat>,
@@ -457,6 +474,17 @@ pub enum LobbyRequest {
         /// The table to get up from.
         game_id: String,
     },
+    /// `POST /lobby/games/{id}/rematch` — take a chair at the next table.
+    ///
+    /// It answers a seat ticket like a join does, so its reply is
+    /// [`LobbyEvent::Seated`] and everything downstream of that is already
+    /// written. `game_id` is either end of the pair — the game that just
+    /// finished, which is what the player pressing it from the veil has, or
+    /// the room it opened, which is what a player back in the lobby sees.
+    Rematch {
+        /// The finished game, or the room opened from it.
+        game_id: String,
+    },
 }
 
 /// The outcome of a [`LobbyRequest`], handed back by the shell.
@@ -574,6 +602,17 @@ pub struct Lobby {
     awaiting: Option<SeatHandover>,
     /// What the seat now being granted was asked for.
     asked_for: Option<GameMode>,
+    /// A game the player has asked to play again, not yet asked for.
+    ///
+    /// The press happens on the veil over a finished game and the request has
+    /// to go out after the shell has left it, because that shell tears the
+    /// seat down on the way — a request sent first would have its `busy` flag
+    /// and its status line cleared out from under it, and the seat screen
+    /// would still be pointing at the game that ended. So the button records
+    /// the intent and [`Lobby::take_rematch`] is what turns it into a
+    /// request, on the other side of the unseating. Deliberately *not*
+    /// cleared by [`Lobby::unseat`], which is the whole reason it exists.
+    rematch_wanted: Option<String>,
 }
 
 impl Lobby {
@@ -1108,6 +1147,47 @@ impl Lobby {
         })
     }
 
+    /// Asks for a chair at the next table.
+    ///
+    /// `game_id` is either end of the pair — the game that just ended, or the
+    /// room opened from it — because the two people pressing this are looking
+    /// at different screens and the gateway answers both with the same ticket.
+    ///
+    /// [`Lobby::asked_for`] is cleared for the reason [`Lobby::join_seat`]
+    /// clears it: what comes back is a seat at a table that may not have
+    /// started, and the open-table veil is a different screen from the seat
+    /// one.
+    pub fn rematch(&mut self, game_id: &str) -> Option<LobbyRequest> {
+        if self.busy || self.token.is_none() {
+            return None;
+        }
+        self.busy = true;
+        self.asked_for = None;
+        self.note(Phrase::PlayingAgain);
+        Some(LobbyRequest::Rematch {
+            game_id: game_id.to_string(),
+        })
+    }
+
+    /// Remembers that the player pressed *play again* on a finished game.
+    ///
+    /// Nothing goes out yet; see the field of the same name.
+    pub fn want_rematch(&mut self, game_id: impl Into<String>) {
+        self.rematch_wanted = Some(game_id.into());
+    }
+
+    /// The game a press is still waiting to be spent on, if there is one.
+    #[must_use]
+    pub fn rematch_wanted(&self) -> Option<&str> {
+        self.rematch_wanted.as_deref()
+    }
+
+    /// The request that press turned into, once the shell has left the table.
+    pub fn take_rematch(&mut self) -> Option<LobbyRequest> {
+        let game_id = self.rematch_wanted.take()?;
+        self.rematch(&game_id)
+    }
+
     /// Says whether this player is ready to play.
     pub fn set_ready(&mut self, game_id: &str, ready: bool) -> Option<LobbyRequest> {
         if self.busy || self.token.is_none() {
@@ -1259,6 +1339,7 @@ impl Lobby {
         self.busy = false;
         self.awaiting = None;
         self.asked_for = None;
+        self.rematch_wanted = None;
         self.password.clear();
         self.focus = Field::Email;
         self.screen = Screen::SignIn { registering: false };
@@ -1809,6 +1890,44 @@ mod tests {
         }])));
         assert_eq!(*lobby.screen(), Screen::Seated(handover));
         assert_eq!(lobby.awaiting(), None);
+    }
+
+    /// The press to play again is recorded on one side of the unseating and
+    /// spent on the other, so the one thing it must survive is the unseating
+    /// — which clears `busy`, the status line and everything else about the
+    /// seat, and would clear a request already in flight with them.
+    #[test]
+    fn the_press_to_play_again_outlives_leaving_the_table() {
+        let mut lobby = seated_lobby();
+        lobby.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "g1".to_string(),
+            seat: 0,
+            seat_token: "st".to_string(),
+        }));
+        lobby.want_rematch("g1");
+        lobby.unseat_because(Phrase::GameEnded, &[]);
+        assert_eq!(
+            lobby.take_rematch(),
+            Some(LobbyRequest::Rematch {
+                game_id: "g1".to_string()
+            })
+        );
+        assert!(lobby.busy(), "and it is a request, not a note");
+        assert_eq!(lobby.take_rematch(), None, "spent exactly once");
+    }
+
+    /// Leaving without pressing it asks for nothing, which is what lets the
+    /// shell fall through to re-reading the table list.
+    #[test]
+    fn leaving_a_finished_game_asks_for_no_rematch_by_itself() {
+        let mut lobby = seated_lobby();
+        lobby.unseat_because(Phrase::GameEnded, &[]);
+        assert_eq!(lobby.take_rematch(), None);
+        // And a press that outlives the account it was made under is dropped
+        // rather than sent, having nothing to sign it with.
+        lobby.want_rematch("g1");
+        lobby.sign_out();
+        assert_eq!(lobby.take_rematch(), None);
     }
 
     #[test]

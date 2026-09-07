@@ -112,6 +112,13 @@ fn every_request_hits_the_route_the_gateway_serves() {
             "POST",
             "http://gw/lobby/games/g1/join",
         ),
+        (
+            LobbyRequest::Rematch {
+                game_id: "g1".to_string(),
+            },
+            "POST",
+            "http://gw/lobby/games/g1/rematch",
+        ),
     ];
     for (request, method, url) in cases {
         let (built, _) = build("http://gw", None, "en", request.clone());
@@ -231,6 +238,19 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
         matches!(expect, Expect::Moved),
         "the room moved, so the page being read is asked for again"
     );
+
+    // Playing again answers a ticket, exactly as a join does. Reading it as
+    // anything else would leave the player on the veil with a seat granted.
+    let (again, expect) = build(
+        "http://gw",
+        None,
+        "en",
+        LobbyRequest::Rematch {
+            game_id: "g1".to_string(),
+        },
+    );
+    assert_eq!(body(&again), serde_json::json!({}));
+    assert!(matches!(expect, Expect::Seat));
 }
 
 #[test]
@@ -616,6 +636,117 @@ fn a_reply_that_lands_after_the_seat_was_taken_does_not_dial_again() {
             Screen::Seated(_)
         ),
         "a second dial would have failed and unseated us"
+    );
+}
+
+/// Moves the app into a phase and lets that transition's systems run.
+fn phase(app: &mut App, next: DuelPhase) {
+    app.world_mut()
+        .resource_mut::<NextState<DuelPhase>>()
+        .set(next);
+    app.update();
+}
+
+/// The whole *play again* path from the player's side: the button stands over
+/// the finished game, pressing it and coming back asks the gateway for the
+/// next table, and the ticket that answers seats them again.
+///
+/// Written as a press rather than as a hand-built request because these two
+/// halves are exactly the pair that can be wired to nothing: a button no
+/// system reads and a reader no button reaches both pass a test that calls
+/// the method itself.
+#[test]
+fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "g1".to_string(),
+            seat: 0,
+            seat_token: "st".to_string(),
+        }));
+        // Stand in for the dial that opened the game now ending.
+        state.connected = true;
+    }
+    phase(&mut app, DuelPhase::Finished);
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::PlayAgain), "{found:?}");
+    assert!(found.contains(&Press::Leave), "leaving stays on offer");
+
+    press(&mut app, Press::PlayAgain);
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.rematch_wanted(),
+        Some("g1"),
+        "the button recorded nothing for the way out to send"
+    );
+    phase(&mut app, DuelPhase::Closed);
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.rematch_wanted(),
+        None,
+        "and leaving the table spent it, rather than re-reading the list"
+    );
+
+    // The reply is an ordinary ticket, to a table that is not the one played.
+    app.world_mut().resource_mut::<LobbyState>().connected = true;
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .expect("mailbox")
+        .push(Reply::Event(LobbyEvent::Seated(SeatHandover {
+            game_id: "g2".to_string(),
+            seat: 1,
+            seat_token: "st2".to_string(),
+        })));
+    app.update();
+    let Screen::Seated(handover) = app.world().resource::<LobbyState>().lobby.screen() else {
+        panic!("the ticket seats the player again");
+    };
+    assert_eq!(handover.game_id, "g2");
+}
+
+/// The other end of the same press. A room opened by somebody else's rematch
+/// is a waiting table with this player's chair in it, and the only thing that
+/// distinguishes it is the flag the gateway sets — without which the row
+/// would offer *ready*, be answered `200`, and change nothing at all.
+#[test]
+fn a_rematch_room_in_the_list_asks_to_be_played_rather_than_readied() {
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "g2".to_string(),
+                name: "Kitchen".to_string(),
+                state: "waiting".to_string(),
+                rematch: true,
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        you: true,
+                        ready: false,
+                        ..GameSeat::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: true,
+                        ready: true,
+                        ..GameSeat::default()
+                    },
+                ],
+                ..GameSummary::default()
+            }])));
+    }
+    app.update();
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::Rematch(0)), "{found:?}");
+    assert!(
+        !found.contains(&Press::Ready(0, true)),
+        "ready cannot claim a reserved chair: {found:?}"
     );
 }
 

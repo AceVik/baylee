@@ -907,24 +907,42 @@ fn table(
             // Ready is the player's own statement and start is the host's:
             // two different buttons because they are two different claims,
             // and a host has to make both.
+            //
+            // A chair at a rematch room is a third thing again: it is being
+            // *kept* for this player, and claiming it is what says they are
+            // ready. Pressing ready there would be answered `200` and leave
+            // the chair exactly as unready as it was, so the button has to be
+            // the other one until the chair is claimed.
             let ready = game.i_am_ready();
-            let say = button(
-                commands,
-                fonts,
-                metrics,
-                if ready {
-                    Phrase::NotReady.text(lang)
-                } else {
-                    Phrase::Ready.text(lang)
-                },
-                Press::Ready(index, !ready),
-                if ready {
-                    palette::PANEL
-                } else {
-                    palette::ACCENT
-                },
-                !lobby.busy(),
-            );
+            let say = if game.rematch && !ready {
+                button(
+                    commands,
+                    fonts,
+                    metrics,
+                    Phrase::PlayAgain.text(lang),
+                    Press::Rematch(index),
+                    palette::ACCENT,
+                    !lobby.busy(),
+                )
+            } else {
+                button(
+                    commands,
+                    fonts,
+                    metrics,
+                    if ready {
+                        Phrase::NotReady.text(lang)
+                    } else {
+                        Phrase::Ready.text(lang)
+                    },
+                    Press::Ready(index, !ready),
+                    if ready {
+                        palette::PANEL
+                    } else {
+                        palette::ACCENT
+                    },
+                    !lobby.busy(),
+                )
+            };
             commands.entity(row).add_child(say);
             if game.yours {
                 let start = button(
@@ -1420,18 +1438,43 @@ pub(super) fn spawn_leave_button(
                 top: px(64),
                 width: percent(100),
                 justify_content: JustifyContent::Center,
+                column_gap: px(12),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
+    // Play again first, because it is what most players want and the one that
+    // needs the other three still at the table. Only for a game reached
+    // through the gateway: an offline duel against the house has no table to
+    // ask for another of, and the request would have no account to make it.
+    let networked = matches!(state.lobby.screen(), Screen::Seated(_));
+    if networked {
+        let again = button(
+            &mut commands,
+            &fonts,
+            metrics,
+            Phrase::PlayAgain.text(lang),
+            Press::PlayAgain,
+            palette::ACCENT,
+            true,
+        );
+        commands.entity(holder).add_child(again);
+    }
+    // Quiet beside *play again*, which is what most players want — but the
+    // accent again when it stands alone, an offline duel having no table to
+    // ask for another of and nothing else to press.
     let leave = button(
         &mut commands,
         &fonts,
         metrics,
         Phrase::BackToLobby.text(lang),
         Press::Leave,
-        palette::ACCENT,
+        if networked {
+            palette::PANEL
+        } else {
+            palette::ACCENT
+        },
         true,
     );
     commands.entity(holder).add_child(leave);

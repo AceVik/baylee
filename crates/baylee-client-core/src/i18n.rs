@@ -253,6 +253,10 @@ messages! {
     TakingYourSeat { en: "taking your seat…", de: "nehme deinen Platz ein…" },
     /// Back to the lobby from a finished game.
     BackToLobby { en: "Back to the lobby", de: "Zurück zur Lobby" },
+    /// The other button over a finished game, and the one on a rematch room
+    /// in the list — the same press either way, from the two screens the two
+    /// players are looking at.
+    PlayAgain { en: "Play again", de: "Nochmal spielen" },
 
     // ---- the status line
     /// Signed in, nothing happening.
@@ -296,6 +300,8 @@ messages! {
     OpeningTable { en: "opening a table…", de: "eröffne einen Tisch…" },
     /// Sitting down at one.
     SittingDown { en: "sitting down…", de: "setze mich…" },
+    /// Asking for a chair at the next table.
+    PlayingAgain { en: "playing again…", de: "spiele nochmal…" },
     /// Saying ready.
     SayingReady { en: "ready…", de: "bereit…" },
     /// Taking it back.

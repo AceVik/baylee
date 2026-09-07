@@ -465,6 +465,16 @@ pub(super) fn clicks(
                     dispatch(&state, &mailbox, request);
                 }
             }
+            // The same press as the button on the veil, from the other side:
+            // this player went back to the lobby and their chair at the next
+            // table is waiting there for them.
+            Press::Rematch(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.rematch(&game);
+                    dispatch(&state, &mailbox, request);
+                }
+            }
             Press::StartRoom(index) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
@@ -518,10 +528,11 @@ pub(super) fn clicks(
                 }
                 None => state.lobby.tell(Phrase::NoOfflineDuel, &[]),
             },
-            // `Leave` is only ever spawned on the finished screen, and
-            // `PickerNothing` exists to stop a tap inside the picker
-            // reaching the shade behind it. Neither does anything here.
-            Press::Leave | Press::PickerNothing => {}
+            // `Leave` and `PlayAgain` are only ever spawned on the finished
+            // screen, where `leave_clicks` reads them, and `PickerNothing`
+            // exists to stop a tap inside the picker reaching the shade
+            // behind it. None of the three does anything here.
+            Press::Leave | Press::PlayAgain | Press::PickerNothing => {}
             Press::NewDeck => {
                 let request = state.lobby.build_deck();
                 dispatch(&state, &mailbox, request);
@@ -759,11 +770,29 @@ pub(super) fn leave_clicks(
     mut pointer: MessageReader<Pointer<Click>>,
     presses: Query<&Press>,
     parents: Query<&ChildOf>,
+    mut state: ResMut<LobbyState>,
     mut closes: MessageWriter<DuelCommand>,
 ) {
     for click in pointer.read() {
-        if let Some(Press::Leave) = in_lineage(click.entity, &presses, &parents) {
-            closes.write(DuelCommand::Close);
+        match in_lineage(click.entity, &presses, &parents) {
+            Some(Press::Leave) => {
+                closes.write(DuelCommand::Close);
+            }
+            // Both buttons close the table; the difference is what is waiting
+            // on the other side of it. Recorded rather than sent, because
+            // `came_back` tears the seat down on the way out and would clear
+            // a request already in flight — see `Lobby::want_rematch`.
+            Some(Press::PlayAgain) => {
+                let played = match state.lobby.screen() {
+                    Screen::Seated(handover) => Some(handover.game_id.clone()),
+                    _ => None,
+                };
+                if let Some(game_id) = played {
+                    state.lobby.want_rematch(game_id);
+                }
+                closes.write(DuelCommand::Close);
+            }
+            _ => {}
         }
     }
 }
@@ -782,7 +811,11 @@ pub(super) fn came_back(
         return;
     }
     state.lobby.unseat_because(Phrase::GameEnded, &[]);
-    let request = state.lobby.refresh();
+    // The order matters: unseating first is what lets the request survive,
+    // and what stops `poll` re-dialling the game that just ended before the
+    // new ticket arrives. A player who pressed *play again* is not shown the
+    // table list on the way — the answer puts them straight back in a seat.
+    let request = state.lobby.take_rematch().or_else(|| state.lobby.refresh());
     dispatch(&state, &mailbox, request);
 }
 
@@ -835,6 +868,11 @@ pub(crate) enum Press {
     SeatTeam(usize, u32, u8),
     /// Leave a finished game.
     Leave,
+    /// Play that game again. Beside [`Press::Leave`], because those are the
+    /// only two things left to do with a table that is over.
+    PlayAgain,
+    /// Take the chair kept for this player at a listed rematch room.
+    Rematch(usize),
     /// Open the settings screen.
     OpenSettings,
     /// Leave it.

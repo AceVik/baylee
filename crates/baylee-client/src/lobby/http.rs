@@ -212,6 +212,16 @@ pub(super) fn build(
             ),
             Expect::Left,
         ),
+        // A ticket, exactly as a join answers — which is why pressing play
+        // again needs nothing downstream of it that a join did not already
+        // need.
+        LobbyRequest::Rematch { game_id } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/rematch"),
+                &serde_json::json!({}),
+            ),
+            Expect::Seat,
+        ),
     };
     (bearer(request, token), expect)
 }
