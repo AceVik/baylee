@@ -262,6 +262,21 @@ pub enum YesNoPrompt {
         /// The commander card, wherever it currently is.
         card: baylee_core::ids::ObjectId,
     },
+    /// "Something is about to put your commander into your hand or library
+    /// — put it into the command zone instead?" (CR 903.9b).
+    ///
+    /// Asked *before* the effect moves anything, because a replacement
+    /// effect that asked afterwards would have already let the card land
+    /// where it was not going to.
+    CommanderReplace {
+        /// The commander card, still where the effect found it.
+        card: baylee_core::ids::ObjectId,
+        /// Whether the library is the destination being replaced. The two
+        /// answers are not the same question: a commander tucked into a
+        /// library is gone, while one bounced to hand recasts untaxed
+        /// (CR 903.8), so the prompt has to say which is happening.
+        to_library: bool,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }

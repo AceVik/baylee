@@ -184,6 +184,26 @@ pub enum AwaitingOp {
         /// Life to pay.
         amount: u16,
     },
+    /// Commanders whose owners have still to answer CR 903.9b for the
+    /// operation at `res.pc`, which has not run yet.
+    ///
+    /// One entry per commander, because the rule "may apply more than once
+    /// to the same event" and a wrath that bounces two of them is two
+    /// questions to two players. The last answer resumes the operation
+    /// *without* advancing the program counter: the effect was suspended
+    /// before it touched anything, so it runs once, with every answer in
+    /// hand.
+    CommanderReplace {
+        /// The commander the question on the table is about. It lives here
+        /// rather than on [`Resolution`] because the answer arrives as a
+        /// bare yes and has to find its card again — and a struct with
+        /// seven literals in three crates is not the place to put a field
+        /// only one operation reads.
+        asked: ObjectId,
+        /// Owners still to be asked, with the commander each is asked
+        /// about and whether the library is the destination in question.
+        remaining: Vec<(PlayerId, ObjectId, bool)>,
+    },
 }
 
 /// Whether a search shows what it found.
@@ -328,12 +348,87 @@ pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: Man
     run(state, res)
 }
 
+/// Puts CR 903.9b's question before an operation that is about to move
+/// cards into hands or libraries, and suspends if anyone has to answer it.
+///
+/// `moves` is what the operation is about to hand to
+/// [`GameState::move_object`], destination included — the same pairs, not a
+/// summary of them, so what the player is asked about cannot drift from
+/// what actually moves.
+///
+/// **Call this before the operation mutates anything.** The last answer
+/// re-enters the operation at the same program counter, so an effect that
+/// had already flipped a card's kind or dealt its damage would do it twice.
+pub(super) fn ask_commander_replace(
+    state: &GameState,
+    res: &mut Resolution,
+    moves: &[(ObjectId, ZoneLocation)],
+) -> Option<Pending> {
+    let mut remaining: Vec<(PlayerId, ObjectId, bool)> = Vec::new();
+    for &(id, to) in moves {
+        // Already answered: this is the second visit, the one that runs.
+        if state.commander_redirect.iter().any(|(o, _)| *o == id) {
+            continue;
+        }
+        if let Some(owner) = state.commander_owner(id, to) {
+            remaining.push((owner, id, matches!(to, ZoneLocation::Library(_))));
+        }
+    }
+    let (asked, pending) = next_commander_ask(state, &mut remaining)?;
+    res.awaiting = Some(AwaitingOp::CommanderReplace { asked, remaining });
+    Some(pending)
+}
+
+/// Takes the next owner off the list and builds their question.
+fn next_commander_ask(
+    state: &GameState,
+    remaining: &mut Vec<(PlayerId, ObjectId, bool)>,
+) -> Option<(ObjectId, Pending)> {
+    if remaining.is_empty() {
+        return None;
+    }
+    let (player, card, to_library) = remaining.remove(0);
+    let pending = Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::CommanderReplace { card, to_library },
+        // A card-scoped handle, so "always send Katara home" is an answer a
+        // seat can keep — and its own reserved index, because agreeing to
+        // that for a graveyard is not agreeing to it for a bounce.
+        source: state.object(card).and_then(|o| o.card).map(|c| {
+            baylee_core::ids::AbilityRef::new(
+                c.index,
+                baylee_core::ids::AbilityRef::COMMANDER_REPLACE,
+            )
+        }),
+    };
+    Some((card, pending))
+}
+
 /// Resumes a yes/no choice (shockland payment and friends).
 ///
 /// # Panics
 /// When the suspended operation is not a yes/no choice.
 #[must_use]
 pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
+    // CR 903.9b: record what this owner said, then either ask the next one
+    // or run the operation that has been waiting for all of them.
+    if matches!(res.awaiting, Some(AwaitingOp::CommanderReplace { .. })) {
+        let Some(AwaitingOp::CommanderReplace {
+            asked,
+            mut remaining,
+        }) = res.awaiting.take()
+        else {
+            unreachable!("just matched")
+        };
+        state.commander_redirect.push((asked, answer));
+        if let Some((asked, pending)) = next_commander_ask(state, &mut remaining) {
+            res.awaiting = Some(AwaitingOp::CommanderReplace { asked, remaining });
+            return Flow::Wait(pending);
+        }
+        // `take` above already cleared `awaiting`, and no `pc += 1` here:
+        // the operation this was asked for has not run yet.
+        return run(state, res);
+    }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")
     else {
@@ -700,7 +795,9 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
-        AwaitingOp::ManaChoice { .. } | AwaitingOp::PayLifeOrTapSelf { .. } => {
+        AwaitingOp::ManaChoice { .. }
+        | AwaitingOp::PayLifeOrTapSelf { .. }
+        | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
         AwaitingOp::PlayerMayPay { .. } => {

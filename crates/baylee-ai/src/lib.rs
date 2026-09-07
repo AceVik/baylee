@@ -387,6 +387,14 @@ impl HeuristicAgent {
                 YesNoPrompt::CommanderZone { .. } | YesNoPrompt::Generic => {
                     PlayerAction::YesNo(true)
                 }
+                // CR 903.9b answers itself from the destination, which is
+                // why the prompt carries it. A library is the same loss the
+                // graveyard would have been, so it goes home. A *hand* is
+                // strictly better than the command zone: the card is just
+                // as castable and CR 903.8 taxes only the command zone, so
+                // taking the redirect there would be paying {2} for
+                // nothing.
+                YesNoPrompt::CommanderReplace { to_library, .. } => PlayerAction::YesNo(to_library),
             },
             Pending::GameOver(_) => PlayerAction::PassPriority, // unreachable in the driver
         }

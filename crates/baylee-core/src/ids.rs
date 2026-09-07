@@ -117,6 +117,17 @@ impl AbilityRef {
     /// here all the same, because what it addresses is what they all address
     /// — a card-scoped question a player may want answered once and for good.
     pub const COMMANDER_ZONE: u32 = u32::MAX - 6;
+    /// The commander's "put it into the command zone instead of your hand
+    /// or library?" (CR 903.9b).
+    ///
+    /// Deliberately not [`Self::COMMANDER_ZONE`], though both questions send
+    /// the same card to the same zone. A commander in a graveyard is doing
+    /// nothing, so "always yes" is what nearly every player means there. A
+    /// commander in *hand* recasts for its printed cost — CR 903.8 taxes
+    /// only casts from the command zone — so saying no to a bounce is
+    /// ordinary play, and a single standing answer would have made the
+    /// cheap choice for a player who only ever agreed to the free one.
+    pub const COMMANDER_REPLACE: u32 = u32::MAX - 7;
 
     /// The lowest reserved index. Real ability indices are positions in a
     /// card's ability list and never come close; reserving the top of the
@@ -124,7 +135,7 @@ impl AbilityRef {
     /// shockland's entry choice, a kicker — be addressed by the same
     /// handle, so "always yes for this card's question" works for them
     /// too.
-    pub const FIRST_RESERVED: u32 = u32::MAX - 6;
+    pub const FIRST_RESERVED: u32 = u32::MAX - 7;
 
     /// Whether this handle names a real entry in the card's ability list.
     #[must_use]
@@ -251,6 +262,7 @@ mod tests {
             ("UPKEEP_COST", AbilityRef::UPKEEP_COST),
             ("SYNTHETIC", AbilityRef::SYNTHETIC),
             ("COMMANDER_ZONE", AbilityRef::COMMANDER_ZONE),
+            ("COMMANDER_REPLACE", AbilityRef::COMMANDER_REPLACE),
         ];
         for (i, (name, value)) in reserved.iter().enumerate() {
             for (other, other_value) in &reserved[i + 1..] {

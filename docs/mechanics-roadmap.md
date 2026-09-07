@@ -59,13 +59,17 @@ size, poison/energy/rad counter storage.
 Commander (CR 903): the command zone as a starting zone (903.6), casting
 out of it with the `{2}`-per-previous-cast tax (903.8), colour identity
 (903.4) and the "if you control a commander" condition cards print, the
-graveyard/exile return offered as a state-based action (903.9a), and
+graveyard/exile return offered as a state-based action (903.9a), the
+hand/library half as a real replacement effect (903.9b), and
 twenty-one combat damage from one commander as its own loss condition
 (903.10a). Commander-ness lives on a list of `ObjectId`s in the state,
 because it belongs to the *card* and not to a zone: every reader that
 looked in the command zone was wrong at the one moment it was asked.
-Still open: 903.9b, the hand/library half of the return, which is a
-replacement effect rather than an SBA; the 40 starting life and the
+903.9b is asked before the effect moves anything and answered into
+`GameState::commander_redirect`, so the card never touches the zone it
+was headed for — a correction afterwards would end in the same zone and
+be a different game; `docs/engine-internals.md` has the sites it does
+not reach yet. Still open: the 40 starting life and the
 colour-identity deck check the gateway would have to enforce; and the
 view, which carries neither "this is a commander" nor a damage tally, so
 a player cannot see either the tax they are about to pay or the counter

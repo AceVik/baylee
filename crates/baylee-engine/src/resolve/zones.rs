@@ -56,6 +56,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::ReturnToHand { .. } => {
             if let Some(&target_id) = res.targets.first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
+                // CR 903.9b, before the kind flips below: this operation
+                // re-runs from the top once every owner has answered.
+                if let Some(pending) =
+                    ask_commander_replace(state, res, &[(target_id, ZoneLocation::Hand(owner))])
+                {
+                    return Some(pending);
+                }
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Card;
                 }
@@ -84,17 +91,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 })
                 .copied()
                 .collect();
-            for id in all {
-                let owner = state.object(id).map_or(you, |o| o.owner);
+            let moves: Vec<(ObjectId, ZoneLocation)> = all
+                .iter()
+                .map(|&id| {
+                    let owner = state.object(id).map_or(you, |o| o.owner);
+                    (id, ZoneLocation::Hand(owner))
+                })
+                .collect();
+            // CR 903.9b "may apply more than once to the same event": a
+            // wrath that catches two commanders asks both owners, and only
+            // then does any card move. The last answer re-enters this arm
+            // from the top, so `all` is gathered a second time — which is
+            // the same set only because nothing above this line mutates.
+            // That is the precondition `ask_commander_replace` documents,
+            // and a mutation added before it would break this silently.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (id, to) in moves {
                 if let Some(obj) = state.object_mut(id) {
                     obj.kind = ObjectKind::Card;
                 }
-                let _ = state.move_object(
-                    id,
-                    ZoneLocation::Hand(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+                let _ = state.move_object(id, to, ZonePosition::Top, Cause::Effect);
             }
             None
         }
@@ -133,6 +151,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::GraveyardToHand { .. } => {
             if let Some(&target_id) = res.targets.first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
+                // CR 903.9b. A commander is in a graveyard to be returned
+                // only because its owner declined 903.9a, and this is a
+                // different question about a different destination.
+                if let Some(pending) =
+                    ask_commander_replace(state, res, &[(target_id, ZoneLocation::Hand(owner))])
+                {
+                    return Some(pending);
+                }
                 let _ = state.move_object(
                     target_id,
                     ZoneLocation::Hand(owner),
@@ -145,6 +171,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::GraveyardToTop { .. } => {
             if let Some(&target_id) = res.targets.first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
+                // CR 903.9b.
+                if let Some(pending) =
+                    ask_commander_replace(state, res, &[(target_id, ZoneLocation::Library(owner))])
+                {
+                    return Some(pending);
+                }
                 let _ = state.move_object(
                     target_id,
                     ZoneLocation::Library(owner),
@@ -171,6 +203,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::PutSourceOnTopOfLibrary => {
             let owner = state.object(res.source).map_or(you, |o| o.owner);
+            // CR 903.9b: a commander that puts *itself* on top is still
+            // being put into a library, and its owner still chooses.
+            if let Some(pending) =
+                ask_commander_replace(state, res, &[(res.source, ZoneLocation::Library(owner))])
+            {
+                return Some(pending);
+            }
             let _ = state.move_object(
                 res.source,
                 ZoneLocation::Library(owner),
@@ -206,13 +245,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::ShuffleGraveyardIntoLibrary => {
             let graveyard: Vec<ObjectId> = state.zones.list(ZoneLocation::Graveyard(you)).clone();
-            for card in graveyard {
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Library(you),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
+            let moves: Vec<(ObjectId, ZoneLocation)> = graveyard
+                .iter()
+                .map(|&card| (card, ZoneLocation::Library(you)))
+                .collect();
+            // CR 903.9b, asked before the shuffle rather than after it: a
+            // commander picked back out of a shuffled library is a commander
+            // whose owner has been told where it landed.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
             }
             state.shuffle_library(you);
             None
@@ -264,17 +308,23 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::PutTargetOnBottomOfLibrary => {
-            for &target in &res.targets {
-                let owner = state.object(target).map_or(you, |o| o.owner);
+            let moves: Vec<(ObjectId, ZoneLocation)> = res
+                .targets
+                .iter()
+                .map(|&target| {
+                    let owner = state.object(target).map_or(you, |o| o.owner);
+                    (target, ZoneLocation::Library(owner))
+                })
+                .collect();
+            // CR 903.9b. The tuck this rule exists for.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (target, to) in moves {
                 if let Some(obj) = state.object_mut(target) {
                     obj.kind = ObjectKind::Card;
                 }
-                let _ = state.move_object(
-                    target,
-                    ZoneLocation::Library(owner),
-                    ZonePosition::Bottom,
-                    Cause::Effect,
-                );
+                let _ = state.move_object(target, to, ZonePosition::Bottom, Cause::Effect);
             }
             None
         }

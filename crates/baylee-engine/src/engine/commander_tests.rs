@@ -764,3 +764,299 @@ fn twenty_one_damage_from_one_commander_ends_it_at_any_life_total() {
         "and the log says which rule did it"
     );
 }
+
+// -------------------------------------------------------------- CR 903.9b
+
+/// Cyclonic Rift — {1}{U} bounces one permanent its caster does not
+/// control, and overloaded for {6}{U} it bounces all of them. One card
+/// therefore reaches both halves of the rule: the single replacement, and
+/// the "more than once to the same event" that a mass bounce is.
+fn cyclonic_rift() -> CardIndex {
+    card_index("d75b9c82-1b49-4c3e-a1b5-aeef57d6644b")
+}
+
+/// True once CR 903.9b's question is the thing the game is waiting on.
+///
+/// Deliberately not [`asking_about_a_commander`]: the two questions send a
+/// card to the same zone and are still different questions, and a predicate
+/// that accepted either would let 903.9b be answered by 903.9a's code.
+fn asking_where_a_bounced_commander_goes(engine: &Engine<RegistryLookup>) -> bool {
+    matches!(
+        engine.pending(),
+        Pending::YesNo {
+            prompt: crate::choice::YesNoPrompt::CommanderReplace { .. },
+            ..
+        }
+    )
+}
+
+/// Seat 0's commander is cast, seat 1 bounces it with a rift, and `answer`
+/// is what seat 0 says to CR 903.9b. Returns the engine and the commander.
+#[track_caller]
+fn katara_bounced(answer: bool) -> (Engine<RegistryLookup>, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(7, forest())
+        .commander(0, &[katara()])
+        .battlefield(0, &[forest(), plains(), island()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[cyclonic_rift()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let card = commander_of(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+    pass_until(&mut engine, |e| resolved_and_back_to(e, p0, katara()));
+    let on_table = on_battlefield(&engine, p0, katara()).expect("she resolved");
+
+    pass_until(&mut engine, |e| own_main_phase(e, p1));
+    let rift = in_hand(&engine, p1, cyclonic_rift());
+    tap_all_mana(&mut engine, p1);
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: rift })
+        .unwrap();
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected the mode choice, got {:?}", engine.pending())
+    };
+    let normal = options
+        .iter()
+        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(0)))
+        .expect("the printed mode");
+    engine.apply(p1, PlayerAction::ChooseMode(normal)).unwrap();
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![on_table],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, asking_where_a_bounced_commander_goes);
+    let Pending::YesNo {
+        player,
+        prompt,
+        source,
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the owner is asked, not the rift's caster");
+    assert_eq!(
+        prompt,
+        crate::choice::YesNoPrompt::CommanderReplace {
+            card,
+            to_library: false,
+        },
+        "the hand is the destination being replaced, and the prompt says so"
+    );
+    assert_eq!(
+        source.map(|s| s.index),
+        Some(baylee_core::ids::AbilityRef::COMMANDER_REPLACE),
+        "its own standing-answer handle: agreeing to 903.9a for a graveyard \
+         is not agreeing to pay the tax after every bounce"
+    );
+    engine.apply(p0, PlayerAction::YesNo(answer)).unwrap();
+    (engine, card)
+}
+
+/// CR 903.9b is a *replacement*, so the card must never reach the hand it
+/// was headed for. The journal is what proves that and the final zone is
+/// not: moving to the hand and then to the command zone ends in the same
+/// place, and is a different game — a hand size was wrong in between, and
+/// anything that triggers on a card entering a hand has already fired.
+#[test]
+fn a_bounced_commander_that_goes_home_never_touches_the_hand() {
+    let p0 = PlayerId::new(0);
+    let (engine, card) = katara_bounced(true);
+
+    assert_eq!(zone_of(&engine, card), crate::zone::Zone::Command);
+    assert!(
+        !engine.journal().entries().iter().any(|e| matches!(
+            e.event,
+            crate::event::GameEvent::ZoneChanged { object, to: crate::zone::Zone::Hand, .. }
+                if object == card
+        )),
+        "the replacement happened instead of the move, not after it"
+    );
+    assert!(
+        !engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .contains(&card),
+        "and it is not in the hand now either"
+    );
+}
+
+/// The other answer, which is a real one rather than a formality: a
+/// commander in hand recasts for its printed cost, because CR 903.8 taxes
+/// only casts from the command zone. Saying no is how a player avoids
+/// paying {2} for nothing.
+#[test]
+fn a_bounced_commander_stays_in_the_hand_when_its_owner_declines() {
+    let p0 = PlayerId::new(0);
+    let (engine, card) = katara_bounced(false);
+
+    assert_eq!(zone_of(&engine, card), crate::zone::Zone::Hand);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .contains(&card),
+        "the bounce happened exactly as printed"
+    );
+    assert_eq!(
+        engine.state().commanders[0][0].casts,
+        1,
+        "and no second cast has been paid for, so the tax has not moved"
+    );
+}
+
+/// A three-seat table: seats 0 and 1 each bring a commander, seat 2 brings
+/// the rift, and everyone brings the lands to cast what they brought.
+///
+/// [`Duel`] is two seats by construction, and two seats cannot pose this
+/// question: a mass bounce only catches permanents its caster does not
+/// control, so in a duel it can only ever reach one player's commanders.
+fn rift_table(seed: u64) -> Engine<RegistryLookup> {
+    let deck: Vec<baylee_core::preset::DeckEntry> = (0..60)
+        .map(|_| baylee_core::preset::DeckEntry {
+            card: forest(),
+            print: baylee_core::ids::PrintRef::new(0),
+        })
+        .collect();
+    let entry = |card: CardIndex| baylee_core::preset::DeckEntry {
+        card,
+        print: baylee_core::ids::PrintRef::new(0),
+    };
+    let seat = |commanders: &[CardIndex], lands: &[CardIndex], hand: &[CardIndex]| {
+        baylee_core::preset::SeatSpec {
+            controller: baylee_core::preset::SeatController::Ai(
+                baylee_core::preset::AIProfile::default(),
+            ),
+            capabilities: baylee_core::preset::SeatCapabilities::default(),
+            deck: deck.clone(),
+            sideboard: vec![],
+            commanders: commanders.iter().copied().map(entry).collect(),
+            starting_life: None,
+            starting_hand: Some(hand.iter().copied().map(entry).collect()),
+            starting_battlefield: lands.iter().copied().map(entry).collect(),
+            emblems: vec![],
+            team: None,
+        }
+    };
+    let preset = baylee_core::preset::GamePreset {
+        format: baylee_core::preset::FormatId::Freeform,
+        seed,
+        house_rules: baylee_core::preset::HouseRules::default(),
+        modifiers: vec![],
+        prints: vec![baylee_core::preset::PrintInfo {
+            scryfall_id: uuid::Uuid::nil(),
+            lang: "EN".into(),
+            finish: baylee_core::preset::Finish::Normal,
+        }],
+        seats: vec![
+            seat(&[katara()], &[forest(), plains(), island()], &[]),
+            seat(&[katara()], &[forest(), plains(), island()], &[]),
+            seat(&[], &[island(); 7], &[cyclonic_rift()]),
+        ],
+    };
+    let mut engine = Engine::new(&preset, RegistryLookup).expect("the table starts");
+    // Not `keep_mulligans`, which answers exactly two: a third seat left
+    // holding its opening hand stops the game at a `Pending::Mulligan` that
+    // every later helper reads as "expected priority".
+    for _ in 0..3 {
+        let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+            panic!("expected a mulligan, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+    }
+    engine
+}
+
+/// CR 903.9b's own second sentence: "this replacement effect may apply more
+/// than once to the same event."
+///
+/// One overloaded rift catches two commanders belonging to two players, and
+/// both owners answer *before* anything moves. The two answers differ on
+/// purpose — one home, one to hand — because a single answer applied to
+/// both would pass whether the engine kept one list or one flag.
+#[test]
+fn one_mass_bounce_asks_every_commanders_owner_and_takes_both_answers() {
+    let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+    let mut engine = rift_table(11);
+
+    // Seats 0 and 1 deploy their commanders on their own turns.
+    let first = commander_of(&engine, p0);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: first })
+        .unwrap();
+    pass_until(&mut engine, |e| resolved_and_back_to(e, p0, katara()));
+
+    let second = commander_of(&engine, p1);
+    pass_until(&mut engine, |e| own_main_phase(e, p1));
+    tap_all_mana(&mut engine, p1);
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: second })
+        .unwrap();
+    pass_until(&mut engine, |e| resolved_and_back_to(e, p1, katara()));
+
+    // Seat 2 overloads the rift, which reaches both of them at once.
+    pass_until(&mut engine, |e| own_main_phase(e, p2));
+    let rift = in_hand(&engine, p2, cyclonic_rift());
+    tap_all_mana(&mut engine, p2);
+    engine
+        .apply(p2, PlayerAction::CastSpell { card: rift })
+        .unwrap();
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected the mode choice, got {:?}", engine.pending())
+    };
+    let overload = options
+        .iter()
+        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(1)))
+        .expect("the overload mode");
+    engine
+        .apply(p2, PlayerAction::ChooseMode(overload))
+        .unwrap();
+
+    // Two questions, in seat order, and nothing has moved yet: the bounce
+    // is still waiting on the second answer.
+    pass_until(&mut engine, asking_where_a_bounced_commander_goes);
+    let Pending::YesNo { player, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "seat order decides, every replay");
+    assert_eq!(
+        zone_of(&engine, first),
+        crate::zone::Zone::Battlefield,
+        "asked before the move, not after it"
+    );
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+
+    pass_until(&mut engine, asking_where_a_bounced_commander_goes);
+    let Pending::YesNo { player, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p1, "the second commander's owner is asked too");
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
+
+    pass_until(&mut engine, |e| {
+        !matches!(zone_of(e, first), crate::zone::Zone::Battlefield)
+    });
+    assert_eq!(
+        zone_of(&engine, first),
+        crate::zone::Zone::Command,
+        "the owner who said yes got the replacement"
+    );
+    assert_eq!(
+        zone_of(&engine, second),
+        crate::zone::Zone::Hand,
+        "and the owner who declined got the printed bounce"
+    );
+}

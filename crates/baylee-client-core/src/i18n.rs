@@ -863,6 +863,16 @@ messages! {
         en: "Put your commander into the command zone?",
         de: "Deinen Kommandeur in die Kommandozone legen?",
     },
+    /// Command zone instead of your hand? (CR 903.9b)
+    CommanderInsteadOfHand {
+        en: "Your commander would go to your hand. Command zone instead?",
+        de: "Dein Kommandeur käme auf die Hand. Stattdessen in die Kommandozone?",
+    },
+    /// Command zone instead of your library? (CR 903.9b)
+    CommanderInsteadOfLibrary {
+        en: "Your commander would go into your library. Command zone instead?",
+        de: "Dein Kommandeur käme in die Bibliothek. Stattdessen in die Kommandozone?",
+    },
     /// Yes or no?
     YesOrNo { en: "Yes or no?", de: "Ja oder nein?" },
     /// Offer a draw

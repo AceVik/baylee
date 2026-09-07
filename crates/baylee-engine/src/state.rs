@@ -359,6 +359,22 @@ pub struct GameState {
     /// so they are two numbers — incremented together, at one place, which
     /// is what keeps them from drifting.
     pub commander_casts: Vec<u32>,
+    /// Answers already given to CR 903.9b, waiting for the move they were
+    /// asked about.
+    ///
+    /// The rule replaces an event, so the answer has to be known *before*
+    /// the card moves: asking afterwards and moving a second time is a
+    /// different game — "shuffle target creature into its owner's library,
+    /// then that player draws a card" draws from a library the commander is
+    /// in. [`Self::move_object`] is synchronous and cannot ask, so the
+    /// question is put before the effect touches anything and the answer
+    /// waits here for the funnel to consume it.
+    ///
+    /// An entry is removed by the move it belongs to, which is what keeps
+    /// one list serving a whole event: CR 903.9b applies "more than once to
+    /// the same event", and a wrath that bounces three commanders leaves
+    /// three entries that three moves take one each.
+    pub commander_redirect: Vec<(ObjectId, bool)>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -487,6 +503,7 @@ impl GameState {
             restriction_info: rustc_hash::FxHashMap::default(),
             next_restriction_id: 1,
             commander_casts: vec![0; preset.seats.len()],
+            commander_redirect: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             starting_player: PlayerId::new(0),
@@ -1041,6 +1058,11 @@ impl GameState {
             let obj = self.object(id).ok_or(StateError::NoSuchObject(id))?;
             (obj.zone, obj.zone_owner.unwrap_or(obj.owner))
         };
+        // CR 903.9b, applied here because here is the only place it can be
+        // applied: the card must never reach the hand or the library it was
+        // headed for. The answer was taken before the effect ran; all that
+        // is left is to spend it.
+        let to = self.take_commander_redirect(id, to);
         let from_loc = ZoneLocation::of(from_zone, from_player);
         self.zones.remove(id, from_loc);
         self.timestamp += 1;
@@ -1091,6 +1113,56 @@ impl GameState {
             cause,
         });
         Ok(id)
+    }
+
+    /// Whether CR 903.9b has anything to say about this move: is the object
+    /// somebody's commander, and is it on its way to a hand or a library?
+    ///
+    /// Being a commander is [`Commander::object`], not a characteristic: the
+    /// id survives the zone changes that make the card a new object
+    /// (CR 400.7), which is the whole reason the marker is an id.
+    #[must_use]
+    pub fn commander_owner(&self, id: ObjectId, to: ZoneLocation) -> Option<PlayerId> {
+        if !matches!(to, ZoneLocation::Hand(_) | ZoneLocation::Library(_)) {
+            return None;
+        }
+        // Nothing here excludes a move from a library back into the same
+        // library, because nothing has to. CR 400.7 makes that no zone
+        // change at all, and it is the *callers* that enforce it: scry,
+        // dig and every other library-internal reorder move their cards
+        // without going near `ask_commander_replace`. A guard here would
+        // have read as load-bearing while no call site could reach it.
+        self.commanders
+            .iter()
+            .enumerate()
+            .find(|(_, list)| list.iter().any(|c| c.object == id))
+            .and_then(|(seat, _)| u8::try_from(seat).ok())
+            .map(PlayerId::new)
+    }
+
+    /// Consumes the answer recorded for `id` and says where it really goes.
+    ///
+    /// A missing entry means nobody was asked — every non-commander move,
+    /// and the sites listed in `docs/engine-internals.md` that this rule
+    /// does not reach yet — so the destination stands unchanged.
+    fn take_commander_redirect(&mut self, id: ObjectId, to: ZoneLocation) -> ZoneLocation {
+        let Some(at) = self.commander_redirect.iter().position(|(o, _)| *o == id) else {
+            return to;
+        };
+        let (_, home) = self.commander_redirect.remove(at);
+        if !home {
+            return to;
+        }
+        // The *owner's* command zone, for CR 903.9a's reason: a commander
+        // stolen and then bounced goes home to whoever brought it.
+        let Some(obj) = self.object_mut(id) else {
+            return to;
+        };
+        let owner = obj.owner;
+        // It stops being a permanent on the way, exactly as it would have
+        // stopped being one on the way to a hand.
+        obj.kind = ObjectKind::Card;
+        ZoneLocation::Command(owner)
     }
 
     /// Shuffles a player's library (journaled).
@@ -1252,6 +1324,14 @@ impl GameState {
                 h.u64(c.answered);
             }
         }
+        // Answers taken but not yet spent (CR 903.9b). A game suspended
+        // mid-effect with "yes" recorded and one with "no" recorded differ
+        // in nothing else, and they end differently.
+        h.usize(self.commander_redirect.len());
+        for (object, home) in &self.commander_redirect {
+            h.u32(object.slot());
+            h.boolean(*home);
+        }
         h.finish()
     }
 
@@ -1339,7 +1419,11 @@ impl GameState {
             // been offered" bit it is a constant here: this hash is taken
             // at priority grants, the SBA fixpoint has finished by then,
             // and a commander sitting in a graveyard has therefore always
-            // been offered already.
+            // been offered already. `commander_redirect` stays out for the
+            // second of those reasons: it is filled and spent inside one
+            // resolution, so it is empty every time this hash is taken.
+            // `snapshot_hash` carries it because that one runs at any
+            // moment, including a suspended one.
             let seat = p.id.get() as usize;
             h.u32(self.commander_casts.get(seat).copied().unwrap_or(0));
             for c in self.commanders.get(seat).into_iter().flatten() {

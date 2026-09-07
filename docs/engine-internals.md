@@ -84,6 +84,34 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+### A replacement that has to ask (CR 903.9b)
+`GameState::move_object` is the one funnel every zone change goes through,
+and it is synchronous: it cannot stop and ask a player anything. CR 903.9b
+needs exactly that — "if a commander would be put into its owner's hand or
+library, its owner **may** put it into the command zone instead" — so the
+question is asked *before* the operation that would move it, and the answer
+waits in `GameState::commander_redirect` for the funnel to spend.
+
+The order is what makes it a replacement rather than a correction. Asking
+afterwards and moving the card a second time ends in the same zone and is a
+different game: "shuffle target creature into its owner's library, then that
+player draws a card" draws from a library the commander is in, a hand size is
+briefly wrong, and anything watching for a card entering a hand has already
+fired. So `resolve::ask_commander_replace` suspends the resolution *at the
+same program counter* with nothing yet mutated, collects one answer per
+commander (the rule "may apply more than once to the same event", which a
+mass bounce is), and the last answer re-enters the operation, which then runs
+once with every answer in hand. Any effect that calls it must ask before its
+first mutation, or the re-run does that mutation twice.
+
+Where it does **not** reach yet, all of them paths where the move happens
+inside a choice that has already been answered or outside a resolution
+altogether: the turn-based and effect draws (`GameState::draw_cards`), a
+search or wish that finds a commander in a library, the hand-to-library
+put-backs (`AwaitingOp::PutBackOnTop`, `BottomFromHand`), and
+`CostPart::ReturnSelfToHand`. Each fails safe — no entry in
+`commander_redirect` means the printed move stands and no question is asked.
+
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing

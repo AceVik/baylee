@@ -255,6 +255,16 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt) -> String {
         YesNoPrompt::Miracle { .. } => Phrase::CastForMiracle.text(lang).to_string(),
         YesNoPrompt::DrawOffer { .. } => Phrase::DrawWasOffered.text(lang).to_string(),
         YesNoPrompt::CommanderZone { .. } => Phrase::CommanderToCommandZone.text(lang).to_string(),
+        // The destination is the whole of the decision (CR 903.8 taxes only
+        // the command zone), so the line has to name it rather than ask the
+        // same question twice.
+        YesNoPrompt::CommanderReplace { to_library, .. } => if to_library {
+            Phrase::CommanderInsteadOfLibrary
+        } else {
+            Phrase::CommanderInsteadOfHand
+        }
+        .text(lang)
+        .to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }
