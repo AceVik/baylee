@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 12;
+pub const VIEW_VERSION: u32 = 13;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -426,6 +426,17 @@ pub struct PublicObject {
     /// Owner — differs from the controller under control-changing effects, and
     /// clients mark that difference because it decides where the card returns.
     pub owner: PlayerId,
+    /// Whether this object is one of its owner's commanders (CR 903.3).
+    ///
+    /// Public information wherever the object itself is: a commander is
+    /// designated openly at the start of the game, so knowing that *this*
+    /// card is one reveals nothing the table did not already share.
+    ///
+    /// Carried on the object even though [`SeatView::commanders`] already
+    /// names the same ids, because every renderer that draws a card has a
+    /// `PublicObject` in hand and would otherwise have to carry the seat
+    /// list down with it. The host asserts the two agree.
+    pub commander: bool,
     /// Status bits.
     pub status: ObjectStatus,
     /// Projected types.
@@ -553,6 +564,7 @@ impl PublicObject {
             card: self.card.map(|c| (c.index, c.face)),
             name: self.name.clone(),
             controller: self.controller,
+            commander: self.commander,
             status: self.status,
             types: self.types,
             power: self.power,
@@ -572,6 +584,10 @@ pub struct ObjectSummaryKey {
     card: Option<(CardIndex, u8)>,
     name: String,
     controller: PlayerId,
+    /// A commander is drawn with a marker on it, so it must not group with an
+    /// ordinary copy of the same card — the token a clone effect makes is
+    /// identical in every other field.
+    commander: bool,
     status: ObjectStatus,
     types: TypeSet,
     power: Option<i16>,
@@ -588,6 +604,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.card.hash(state);
         self.name.hash(state);
         self.controller.hash(state);
+        self.commander.hash(state);
         self.status.hash(state);
         self.types.hash(state);
         self.power.hash(state);
@@ -621,6 +638,14 @@ pub struct HandObject {
     pub colors: ColorSet,
     /// Types, so a client can badge lands and instants.
     pub types: TypeSet,
+    /// Whether this is one of the seat's commanders (CR 903.3).
+    ///
+    /// A commander reaches a hand by declining CR 903.9b's replacement, and
+    /// there it is an ordinary card that happens to recast for its printed
+    /// cost — CR 903.8 taxes only the command zone. Worth marking for
+    /// exactly that reason: it is the one card in the hand whose price goes
+    /// up if it is played and then dies.
+    pub commander: bool,
 }
 
 // --------------------------------------------------------------------- seats
@@ -693,8 +718,58 @@ pub struct SeatView {
     pub has_lost: bool,
     /// Mana floating in this seat's pool.
     pub mana_pool: ManaPoolView,
-    /// How many times this seat's commander has been cast (commander tax).
-    pub commander_casts: Vec<u32>,
+    /// This seat's commanders (CR 903.3), in the order they were designated.
+    ///
+    /// Empty in every format but Commander, which is what a client keys the
+    /// command zone's panel on.
+    pub commanders: Vec<CommanderView>,
+    /// Combat damage this seat has *taken*, per commander that dealt it
+    /// (CR 903.10a): twenty-one from one of them and the seat loses whatever
+    /// its life total says, so this is a second life total and is shown like
+    /// one.
+    ///
+    /// Public, and public to everyone — the tally is a shared count at a real
+    /// table. The `source` names a commander in some seat's
+    /// [`SeatView::commanders`], which is what a client resolves it through;
+    /// seats with no damage from a given commander simply have no entry.
+    pub commander_damage: Vec<CommanderDamage>,
+}
+
+/// One of a seat's commanders, and what casting it has cost so far.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct CommanderView {
+    /// The commander's object handle.
+    ///
+    /// Stable across zone changes: an [`ObjectId`] survives the moves that
+    /// make a card a new object (CR 400.7), which is what lets a damage tally
+    /// and a cast count follow one commander through dying, going home and
+    /// coming back down.
+    pub object: ObjectId,
+    /// Its card.
+    ///
+    /// Known to every seat, in every zone — including its owner's hand or
+    /// library, which is where CR 903.9b's replacement leaves it when
+    /// declined. A commander is designated openly (CR 903.3), so this is not
+    /// the hidden-zone leak it would be for any other card: the seat learned
+    /// this identity from the command zone before the first turn.
+    pub card: Option<CardIdentity>,
+    /// Its name, for a client with no printing for it yet.
+    pub name: String,
+    /// Times it has been cast from the command zone.
+    ///
+    /// CR 903.8's tax in full: `{2}` more generic for each. Per *commander*
+    /// and not per seat — a seat with partners pays each one's tax
+    /// separately, and a single number could not say so.
+    pub casts: u32,
+}
+
+/// Commander damage one seat has taken from one commander (CR 903.10a).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct CommanderDamage {
+    /// The commander that dealt it.
+    pub source: ObjectId,
+    /// How much, over the whole game. Twenty-one is lethal.
+    pub amount: u16,
 }
 
 impl SeatView {
@@ -847,7 +922,19 @@ impl PlayerView {
     /// a library is a card this seat can see, and one whose printing it has
     /// never been sent. Without it a tutor would open a dialog of blank
     /// rectangles.
+    ///
+    /// So is [`SeatView::commanders`], for the same reason and one zone
+    /// further out. A commander that declined CR 903.9b sits in its owner's
+    /// *hand*, which no other seat's view walks — and the seat list still
+    /// names it, because CR 903.3 designates it openly. Entitlement has to
+    /// follow what the view actually says, or a seat is handed a card
+    /// identity it has no printing for and draws a hole.
     pub fn prints(&self) -> impl Iterator<Item = PrintRef> + '_ {
+        let commanders = self
+            .seats
+            .iter()
+            .flat_map(|s| s.commanders.iter())
+            .filter_map(|c| c.card.map(|k| k.print));
         let public = self
             .battlefield
             .iter()
@@ -857,7 +944,11 @@ impl PlayerView {
             .chain(self.command.iter().flatten())
             .chain(&self.looking_at)
             .filter_map(|o| o.card.map(|c| c.print));
-        self.hand.iter().map(|o| o.card.print).chain(public)
+        self.hand
+            .iter()
+            .map(|o| o.card.print)
+            .chain(public)
+            .chain(commanders)
     }
 
     /// Every permanent controlled by a seat, in battlefield order.
@@ -928,6 +1019,7 @@ mod tests {
             name: "Soldier".to_string(),
             controller: PlayerId::new(controller),
             owner: PlayerId::new(controller),
+            commander: false,
             status: ObjectStatus::NONE,
             types: TypeSet::CREATURE,
             supertypes: SupertypeSet::default(),
@@ -970,7 +1062,8 @@ mod tests {
                     library_count: 93,
                     graveyard_count: 0,
                     has_lost: false,
-                    commander_casts: vec![],
+                    commanders: vec![],
+                    commander_damage: vec![],
                 })
                 .collect(),
             hand: vec![],
@@ -1029,6 +1122,14 @@ mod tests {
             count: 1,
         }];
         assert_ne!(a.summary_key(), countered.summary_key());
+
+        // Nor may a commander merge into a stack of ordinary copies of
+        // itself. A clone effect makes a token that matches its original in
+        // every other field, and the commander is drawn with a marker — a
+        // group wearing one of the two would be lying about the rest.
+        let mut boss = obj(6, 0);
+        boss.commander = true;
+        assert_ne!(a.summary_key(), boss.summary_key());
     }
 
     #[test]

@@ -741,6 +741,7 @@ pub(crate) mod tests {
             name: "Test".to_string(),
             controller: PlayerId::new(0),
             owner: PlayerId::new(0),
+            commander: false,
             status: baylee_view::ObjectStatus::NONE,
             types,
             supertypes: SupertypeSet::EMPTY,

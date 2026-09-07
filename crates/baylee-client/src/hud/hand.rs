@@ -174,9 +174,13 @@ pub(super) fn spawn_hand_bar(
         .get(view.seat.get() as usize)
         .map_or(&[][..], Vec::as_slice);
     if !commanders.is_empty() {
-        let casts = view
+        // Matched to the card by object id, never by position. This used to
+        // index a seat-keyed vector with a command-zone slot, so every seat
+        // but the first showed seat 0's number, and a seat with partners
+        // showed one commander's tax against both.
+        let mine = view
             .seat(view.seat)
-            .map_or(&[][..], |s| s.commander_casts.as_slice());
+            .map_or(&[][..], |s| s.commanders.as_slice());
         let zone = commands
             .spawn((
                 Node {
@@ -194,8 +198,11 @@ pub(super) fn spawn_hand_bar(
                 Pickable::IGNORE,
             ))
             .id();
-        for (i, cmd) in commanders.iter().enumerate() {
-            let times_cast = casts.get(i).copied().unwrap_or(0);
+        for cmd in commanders {
+            let times_cast = mine
+                .iter()
+                .find(|c| c.object == cmd.id)
+                .map_or(0, |c| c.casts);
             let key = cmd
                 .card
                 .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small));

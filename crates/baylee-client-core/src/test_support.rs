@@ -22,6 +22,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         name: name.to_string(),
         controller: PlayerId::new(controller),
         owner: PlayerId::new(controller),
+        commander: false,
         status: ObjectStatus::NONE,
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::EMPTY,
@@ -86,7 +87,8 @@ impl ViewBuilder {
                         library_count: 80,
                         graveyard_count: 2,
                         has_lost: false,
-                        commander_casts: vec![0; n],
+                        commanders: vec![],
+                        commander_damage: vec![],
                     })
                     .collect(),
                 hand: Vec::new(),
@@ -182,6 +184,7 @@ impl ViewBuilder {
                 mana_value,
                 colors: ColorSet::default(),
                 types: TypeSet::CREATURE,
+                commander: false,
             })
             .collect();
         self

@@ -528,6 +528,7 @@ mod tests {
             name: "Creature".into(),
             controller,
             owner: controller,
+            commander: false,
             status: ObjectStatus::default(),
             types: TypeSet::CREATURE,
             supertypes: SupertypeSet::EMPTY,
@@ -580,7 +581,8 @@ mod tests {
                 graveyard_count: 0,
                 has_lost: false,
                 mana_pool: baylee_view::ManaPoolView::default(),
-                commander_casts: vec![],
+                commanders: vec![],
+                commander_damage: vec![],
             })
             .collect();
         PlayerView {

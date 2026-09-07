@@ -149,6 +149,50 @@ asserts the two answers against each other. Both walks stop at
 ninth grant projected as slot 8 would come back as `PREPARED_CAST`, an index
 in the same space that means something else entirely.
 
+## Commanders (view version 13)
+
+`SeatView` used to carry `commander_casts: Vec<u32>`, and it was two things
+at once: built as `GameState::commander_casts` — one running total per
+*seat*, which is what Commander's Insight counts — and read by the client as
+the per-commander tax, indexed by the card's slot in the command zone. At a
+duel where both seats have one commander the two shapes coincide exactly, so
+the mistake was invisible: every seat but the first drew seat 0's number, and
+a seat with partners could not have drawn the second commander's at all.
+
+It is now `SeatView::commanders`, a `CommanderView` per commander — `object`,
+`card`, `name`, and the `casts` that CR 903.8 charges `{2}` apiece for, taken
+from `Commander::casts` where the tax actually lives. A client matches it to a
+card by `object` and never by position. Beside it, `commander_damage` is the
+second life total CR 903.10a defines: `CommanderDamage { source, amount }` for
+each commander that has hit this seat, public to the whole table because
+twenty-one is a number everyone at it is counting.
+
+`PublicObject::commander` and `HandObject::commander` mark the card itself.
+Strictly redundant — the ids are in `SeatView::commanders` — and carried
+anyway, because every renderer that draws a card already holds one of these
+and would otherwise need the seat list threaded down beside it; the gamehost
+test asserts the two never disagree. It is also in `ObjectSummaryKey`, so a
+commander never collapses into a stack with an ordinary copy of itself.
+
+Unlike `PublicObject::card` beside it, the marker is **not** gated on what the
+seat is entitled to see, and neither is `CommanderView::card`: CR 903.3
+designates a commander openly, so every seat learned this identity from the
+command zone before the first turn and is told it again in every zone —
+including its owner's hand, where declining CR 903.9b leaves it. Gating one of
+the two and not the other would have been worse than either answer, because
+they are one claim.
+
+Manifest is the case that will break this, and gating the marker would not
+have fixed it. A commander manifested off a library is a card nobody
+announced, and `CommanderView::object` names its handle: blanking the card
+field still leaves it identifiable by cross-reference against the face-down
+permanent. That needs the handle hidden too, and nothing sets `FACE_DOWN` yet.
+
+`PlayerView::prints` walks the commander lines, which it has to. That hand is
+a zone no other seat's view walks, so without it a seat is told a card
+identity whose printing it was never given, and draws a hole where the card
+should be.
+
 ## Client preferences (`/settings`)
 
 Keys and standing orders follow the **account**, not the machine: a player who

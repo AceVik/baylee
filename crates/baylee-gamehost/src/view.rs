@@ -18,8 +18,9 @@ use baylee_engine::state::GameState;
 use baylee_engine::turn::{Phase as EnginePhase, Step as EngineStep};
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{
-    AttackerView, BlockerView, CardIdentity, CombatView, CounterEntry, CounterKind, GameStatic,
-    HandObject, ObjectStatus, Phase, PlayerView, PublicObject, SeatView, Step, TargetRef,
+    AttackerView, BlockerView, CardIdentity, CombatView, CommanderDamage, CommanderView,
+    CounterEntry, CounterKind, GameStatic, HandObject, ObjectStatus, Phase, PlayerView,
+    PublicObject, SeatView, Step, TargetRef,
 };
 
 pub use baylee_view as wire;
@@ -85,6 +86,35 @@ fn may_know_card(obj: &GameObject, seat: PlayerId) -> bool {
         || obj.controller == seat
 }
 
+/// Whether `id` is one of the table's commanders (CR 903.3).
+fn is_commander(state: &GameState, id: ObjectId) -> bool {
+    state.commanders.iter().flatten().any(|c| c.object == id)
+}
+
+/// One of a seat's commanders, as the whole table may see it.
+///
+/// The identity is not filtered per seat the way a battlefield object's is:
+/// a commander is designated openly before the first turn (CR 903.3), so
+/// every seat has already seen this card in the command zone and knowing it
+/// again — in a hand, after declining CR 903.9b — reveals nothing new.
+fn commander_view(state: &GameState, c: &baylee_engine::state::Commander) -> CommanderView {
+    let obj = state.object(c.object);
+    CommanderView {
+        object: c.object,
+        card: obj.and_then(|o| {
+            o.card.map(|card| CardIdentity {
+                index: card.index,
+                print: card.print,
+                face: o.face_index,
+            })
+        }),
+        name: obj.map_or_else(String::new, |o| {
+            state.names.get(o.characteristics().name).to_string()
+        }),
+        casts: c.casts,
+    }
+}
+
 /// The public name of an object as `seat` may know it.
 fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> String {
     if may_know_card(obj, seat) {
@@ -109,6 +139,19 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         name: public_name(state, obj, seat),
         controller: obj.controller,
         owner: obj.owner,
+        // Deliberately *not* gated on `known`, unlike the card above: a
+        // commander is designated openly (CR 903.3), and `commander_view`
+        // hands its identity to the whole table for the same reason. Two
+        // structs disagreeing about one fact would be worse than either
+        // answer.
+        //
+        // Manifest is the case that will break this, and gating here would
+        // not have fixed it: a commander manifested off a library is a card
+        // nobody announced, and `CommanderView::object` names its handle, so
+        // blanking one field still leaves it identifiable by cross-reference
+        // against the face-down permanent. That needs the handle hidden too,
+        // and nothing sets `FACE_DOWN` yet.
+        commander: is_commander(state, id),
         status: ObjectStatus::from_bits(obj.status.bits()),
         types: chars.types,
         supertypes: chars.supertypes,
@@ -345,6 +388,7 @@ pub fn player_view(
                 mana_value: chars.mana_cost.cmc(),
                 colors: chars.colors,
                 types: chars.types,
+                commander: is_commander(state, *id),
             })
         })
         .collect();
@@ -372,7 +416,17 @@ pub fn player_view(
                 graveyard_count: state.zones.list(ZoneLocation::Graveyard(p.id)).len() as u32,
                 has_lost: p.has_lost,
                 mana_pool: mana_pool(&p.mana_pool),
-                commander_casts: state.commander_casts.clone(),
+                commanders: state
+                    .commanders
+                    .get(p.id.get() as usize)
+                    .map_or_else(Vec::new, |list| {
+                        list.iter().map(|c| commander_view(state, c)).collect()
+                    }),
+                commander_damage: p
+                    .commander_damage
+                    .iter()
+                    .map(|&(source, amount)| CommanderDamage { source, amount })
+                    .collect(),
             })
             .collect(),
         hand,
@@ -1125,5 +1179,254 @@ mod tests {
             engine.apply(player, PlayerAction::PassPriority).unwrap();
         }
         panic!("seat 0 never got priority");
+    }
+
+    /// Katara, the Fearless — a legendary creature, so a legal commander.
+    fn katara() -> CardIndex {
+        by_oracle_id("0972d46e-423b-454e-87c7-a2d40fb6fb6d")
+            .unwrap()
+            .index
+    }
+
+    /// Elesh Norn, Mother of Machines — seat 0's *second* commander.
+    ///
+    /// The second one is the fixture and not decoration. At a table where
+    /// every seat has exactly one commander, a list indexed by seat and a
+    /// list indexed by commander have the same length and the same order,
+    /// and no assertion can tell the fix from the bug it replaced.
+    fn elesh_norn() -> CardIndex {
+        by_oracle_id("5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f")
+            .unwrap()
+            .index
+    }
+
+    /// A Commander table: seat 0 with partners, seat 1 with one commander,
+    /// and an Island on each battlefield to contrast against.
+    fn commander_preset() -> GamePreset {
+        let deck: Vec<DeckEntry> = (0..60)
+            .map(|_| DeckEntry {
+                card: island(),
+                print: PrintRef::new(0),
+            })
+            .collect();
+        let seat = |commanders: Vec<CardIndex>| SeatSpec {
+            controller: SeatController::Ai(AIProfile::default()),
+            capabilities: baylee_core::preset::SeatCapabilities::default(),
+            deck: deck.clone(),
+            sideboard: vec![],
+            commanders: commanders
+                .into_iter()
+                .map(|card| DeckEntry {
+                    card,
+                    print: PrintRef::new(0),
+                })
+                .collect(),
+            starting_life: None,
+            starting_hand: Some(vec![]),
+            starting_battlefield: vec![DeckEntry {
+                card: island(),
+                print: PrintRef::new(0),
+            }],
+            emblems: vec![],
+            team: None,
+        };
+        GamePreset {
+            format: FormatId::Commander,
+            seed: 5,
+            house_rules: HouseRules::default(),
+            modifiers: vec![],
+            prints: vec![print_info("EN", Finish::Normal)],
+            seats: vec![seat(vec![katara(), elesh_norn()]), seat(vec![katara()])],
+        }
+    }
+
+    fn sorted(mut ids: Vec<ObjectId>) -> Vec<ObjectId> {
+        ids.sort_by_key(|o| o.slot());
+        ids
+    }
+
+    /// A seat's commander line is that seat's, and it is one entry per
+    /// commander.
+    ///
+    /// It used to be `GameState::commander_casts` — one number per *seat* —
+    /// cloned whole into every seat's line, which is why the command-zone
+    /// panel indexed it by command-zone slot and got away with it: at a duel
+    /// where both seats have one commander the two shapes coincide. They
+    /// stop coinciding here, in both directions at once.
+    #[test]
+    fn each_seats_commanders_are_its_own_and_are_listed_one_per_commander() {
+        let preset = commander_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+
+        for seat in [0u8, 1] {
+            let view = player_view(engine.state(), PlayerId::new(seat), None, 0, None, false);
+            assert_eq!(
+                view.seats[0].commanders.len(),
+                2,
+                "seat 0 has partners, and seat {seat}'s view forgot one"
+            );
+            assert_eq!(
+                view.seats[1].commanders.len(),
+                1,
+                "seat 1 has one commander, and seat {seat}'s view invented another"
+            );
+            for (i, line) in view.seats.iter().enumerate() {
+                assert_eq!(
+                    sorted(line.commanders.iter().map(|c| c.object).collect()),
+                    sorted(view.command[i].iter().map(|o| o.id).collect()),
+                    "seat {i}'s line does not name the cards in seat {i}'s command zone"
+                );
+                assert!(
+                    line.commanders.iter().all(|c| c.casts == 0),
+                    "nothing has been cast yet"
+                );
+            }
+        }
+
+        // Everything above still passes if `casts` is filled from the seat
+        // total, because at the start of a game every count is zero. So give
+        // the three commanders three different numbers — none of which is a
+        // number any *seat* could be holding — and read them back. This is
+        // the assertion the old shape could not have satisfied: seat 0's two
+        // commanders have to answer 2 and 5, and one number per seat cannot
+        // say that.
+        let mut state = engine.state().clone();
+        state.commanders[0][0].casts = 2;
+        state.commanders[0][1].casts = 5;
+        state.commanders[1][0].casts = 7;
+        state.commander_casts = vec![99, 99];
+
+        for seat in [0u8, 1] {
+            let view = player_view(&state, PlayerId::new(seat), None, 0, None, false);
+            let casts = |i: usize| -> Vec<u32> {
+                view.seats[i].commanders.iter().map(|c| c.casts).collect()
+            };
+            assert_eq!(casts(0), vec![2, 5], "seat {seat}'s view of the partners");
+            assert_eq!(casts(1), vec![7], "seat {seat}'s view of seat 1");
+        }
+    }
+
+    /// The marker on the object and the seat's line are the same claim, so
+    /// they must never disagree. The object carries it only so that a
+    /// renderer holding one card does not have to carry the seat list down
+    /// with it — a redundancy that is safe exactly as long as this holds.
+    #[test]
+    fn the_marker_on_a_card_agrees_with_the_seat_that_claims_it() {
+        let preset = commander_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let view = player_view(engine.state(), PlayerId::new(0), None, 0, None, false);
+
+        let named: Vec<ObjectId> = view
+            .seats
+            .iter()
+            .flat_map(|s| s.commanders.iter().map(|c| c.object))
+            .collect();
+        assert_eq!(named.len(), 3, "two commanders for seat 0, one for seat 1");
+
+        let mut marked = 0;
+        for obj in view.command.iter().flatten().chain(&view.battlefield) {
+            assert_eq!(
+                obj.commander,
+                named.contains(&obj.id),
+                "the marker on {} disagrees with the seat list",
+                obj.name
+            );
+            marked += usize::from(obj.commander);
+        }
+        assert_eq!(marked, 3, "the command zones did not carry the marker");
+        assert!(
+            view.battlefield.iter().all(|o| !o.commander),
+            "an Island is not anybody's commander"
+        );
+    }
+
+    /// A commander that declined CR 903.9b's replacement sits in its owner's
+    /// hand, and everything the view says about it has to survive the trip.
+    ///
+    /// Two claims, and the second is the one with a way to go wrong. The
+    /// marker stays, because the card is still a commander. And *every* seat
+    /// keeps being told its identity — CR 903.3 designates a commander
+    /// openly, so a hand is not a hiding place for the fact that it is one —
+    /// which means the printing has to be earned by a seat that can no
+    /// longer see the card in any zone it is sent.
+    #[test]
+    fn a_commander_in_its_owners_hand_keeps_its_marker_and_its_printing() {
+        let preset = commander_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let mut state = engine.state().clone();
+        let katara_obj = state.commanders[0][0].object;
+        let print = state
+            .object(katara_obj)
+            .and_then(|o| o.card)
+            .expect("a commander has a card")
+            .print;
+        state
+            .move_object(
+                katara_obj,
+                ZoneLocation::Hand(PlayerId::new(0)),
+                baylee_engine::zone::ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
+            )
+            .expect("the commander reaches its owner's hand");
+
+        let owner = player_view(&state, PlayerId::new(0), None, 0, None, false);
+        let held = owner
+            .hand
+            .iter()
+            .find(|o| o.id == katara_obj)
+            .expect("it is in the hand it was sent to");
+        assert!(held.commander, "it is still a commander in a hand");
+
+        let other = player_view(&state, PlayerId::new(1), None, 0, None, false);
+        assert!(
+            other.command[0].iter().all(|o| o.id != katara_obj),
+            "it has left the command zone, so no seat sees it there"
+        );
+        let named = other.seats[0]
+            .commanders
+            .iter()
+            .find(|c| c.object == katara_obj)
+            .expect("seat 0's line still names it");
+        assert_eq!(
+            named.card.map(|c| c.print),
+            Some(print),
+            "and still says which printing it is"
+        );
+        assert!(
+            other.prints().any(|p| p == print),
+            "a seat told about a printing has to earn it, or it draws a hole"
+        );
+    }
+
+    /// The tally is a second life total (CR 903.10a), and it is public: the
+    /// seat taking the damage is not the only one who needs to see how close
+    /// twenty-one is.
+    #[test]
+    fn commander_damage_reaches_every_seats_view_keyed_by_the_commander() {
+        let preset = commander_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let mut state = engine.state().clone();
+        let katara_obj = state.commanders[0][0].object;
+        let norn_obj = state.commanders[0][1].object;
+        state.players[1].commander_damage.push((katara_obj, 13));
+        state.players[1].commander_damage.push((norn_obj, 4));
+
+        for seat in [0u8, 1] {
+            let view = player_view(&state, PlayerId::new(seat), None, 0, None, false);
+            let taken: Vec<(ObjectId, u16)> = view.seats[1]
+                .commander_damage
+                .iter()
+                .map(|d| (d.source, d.amount))
+                .collect();
+            assert_eq!(
+                taken,
+                vec![(katara_obj, 13), (norn_obj, 4)],
+                "seat {seat} was not told what seat 1 has taken, and from which commander"
+            );
+            assert!(
+                view.seats[0].commander_damage.is_empty(),
+                "seat 0 has taken none"
+            );
+        }
     }
 }
