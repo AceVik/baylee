@@ -1280,25 +1280,54 @@ it there would drop the player's cursor, not a ghost.
 
 **And the grace window is rearmed by the pointer, which is what let the
 flicker back in.** `*grace = 3` on every `CursorMoved`, so a player *moving*
-the mouse across their own lands holds it permanently open — and that is
-exactly when the lift is running. Hovering raises a card by `HOVER_LIFT` and
-grows it by `HOVER_SCALE`; the growth is self-correcting (a bigger card is
-still under the pointer), the rise is not, and a pointer near a card's lower
-edge is outside it a few frames later. `Out` fires, the hover clears, the card
-falls back, `Over` fires, and the card blinks for as long as the pointer stays
-put. Reported as "sometimes it flickers strangely", which is precisely the
-shape of a condition that needs the pointer to be both moving and near an
-edge.
+the mouse across their own lands holds it permanently open. What blinked there
+was reported as "sometimes it flickers strangely", and the cause was not in
+this file at all: **the hover preview was pickable, and a board card's preview
+opens centred on the window — exactly where a player's own lands sit.** The
+panel therefore landed on the pointer that opened it. `Out`, preview closed,
+`Over`, preview back, for as long as the pointer kept the grace window alive.
+The tooltip frame did carry `Pickable::IGNORE`; the card face inside it did
+not, and `Pickable` does not inherit.
 
-The fix is not a longer grace — a window wide enough to cover a glide is wide
-enough to keep a hover the pointer really did leave. It is that **a card still
-gliding cannot testify that the pointer went anywhere**, because it is the
-thing that moved: `still_gliding` walks the `Out` entity's lineage to its
-`Motion` and compares the transform against the target, and a card that has
-not arrived has its `Out` dropped. A settled card's `Out` is evidence and is
-honoured. The comparison is exact rather than a second threshold, because
-`glide` snaps the transform onto its target once inside `SETTLED` — two
-thresholds that disagreed would be a card permanently "still moving".
+Standing still is the worse half of the same bug, and the one that made it
+legible. With the pointer at rest the grace window expires mid-oscillation,
+and the `Out` it discards is the only one there will ever be — the card has
+left the hover map, so every later `Out` names the panel and matches no
+`CardVisual`. The hover latches, and `/state` reports a card the pointer left
+minutes ago.
+
+Reading the picking code did not find this; photographing the table did.
+`/state` said `hovered` never cleared, which reads as a picking failure and
+sent two sessions after one. What settled it was a screenshot: an opponent's
+permanent cleared perfectly and one of the player's own never did, and the
+difference between them was not in their entities but in where each one's
+preview panel opens. The rule that follows is worth more than the fix — **a
+description of a thing must not be able to take the pointer from it**, which
+is now one recursive `Pickable::IGNORE` in `hud/overlay.rs` rather than a
+property each face is trusted to remember.
+
+A guard on the `Out` was tried first and is worth writing down, because it
+looked so much like the answer: a card still gliding is the thing that moved,
+so drop its `Out`. That is wrong twice over. It fires *exactly* when a pointer
+leaves a card mid-lift, which is the ordinary case rather than a rare one; and
+the dropped `Out` is the only one there will ever be, for the same reason as
+above. Deferring rather than dropping fails identically. It also never
+explained the measurement, which is what eventually sank it.
+
+The lift geometry was a **second** defect, found while chasing the first and
+fixed on its own merits rather than because it caused anything: **a hovered
+card's growth must cover its own rise.** A lift of `y` shifts the footprint
+along the felt by `y * CAMERA_LEAN`; growth moves every edge out by half the
+card's *smaller* dimension times `scale - 1` — smaller, because the shift is
+in world space, always straight away from the viewer, while a pod is rotated
+to face its own seat. While the second covers the first, a pointer inside a
+card cannot end up outside it. `covered_lift` in `table.rs` is that bound, and
+the `const _: () = assert!(…)` lines under it are what make a tuning session
+fail to compile rather than fail on the table — the step from hover to
+selected included, since that is a rise like any other. The shipped numbers
+missed it by nearly double. Both lifts came down and both scales went up,
+which is the better affordance anyway: a card that grows says "this one" more
+plainly than a card that rises.
 
 ## Settings, and what belongs to whom
 

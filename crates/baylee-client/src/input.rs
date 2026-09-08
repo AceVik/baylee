@@ -85,22 +85,6 @@ fn find_in_lineage<'a, T: Component>(
 /// is evidence and is honoured. `glide` snaps the transform onto its target
 /// once inside `SETTLED`, so the comparison is exact rather than a second
 /// threshold that could disagree with the first.
-fn still_gliding(
-    entity: Entity,
-    moving: &Query<(&crate::table::Motion, &Transform)>,
-    parents: &Query<&ChildOf>,
-) -> bool {
-    let mut current = Some(entity);
-    for _ in 0..6 {
-        let Some(e) = current else { return false };
-        if let Ok((motion, transform)) = moving.get(e) {
-            return *transform != motion.target;
-        }
-        current = parents.get(e).ok().map(ChildOf::parent);
-    }
-    false
-}
-
 /// The one way a card becomes an action: play it when the engine offers
 /// that, otherwise select it for the pending choice. Clicks and the
 /// keyboard cursor both end here, so they can never disagree.
@@ -1215,7 +1199,6 @@ pub fn pointer_hover(
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
     parents: Query<&ChildOf>,
-    moving: Query<(&crate::table::Motion, &Transform)>,
     mut duel: ResMut<Duel>,
 ) {
     // `hovered` has four writers and only one of them is this system. A hover
@@ -1293,12 +1276,6 @@ pub fn pointer_hover(
             }
         }
         for out in outs.read() {
-            // A card still on its way to its mark moved out from under a
-            // pointer that never went anywhere — see [`still_gliding`], and
-            // the flicker it is named for.
-            if still_gliding(out.entity, &moving, &parents) {
-                continue;
-            }
             let is_current = find_in_lineage(out.entity, &cards, &parents)
                 .is_some_and(|v| duel.hovered == Some(v.object))
                 || find_in_lineage(out.entity, &hand_cards, &parents)

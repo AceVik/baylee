@@ -105,11 +105,50 @@ const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
 /// How many cards of a group are drawn behind the representative.
 const MAX_STACK_DEPTH: usize = 4;
 /// Lift and scale for the card under the cursor (subtle — a glance, not a jump).
-const HOVER_LIFT: f32 = 0.12;
-const HOVER_SCALE: f32 = 1.05;
+///
+/// The two numbers are not independent, which is why they are written down
+/// together with an assertion under them. Raising a card moves its *footprint*
+/// as well: the camera leans by [`CAMERA_LEAN`], so a card lifted by `y`
+/// covers a patch of felt shifted by `y * CAMERA_LEAN` away from the viewer.
+/// Growing it moves the footprint too — but outwards on every side at once.
+///
+/// So the growth is self-correcting and the rise is not, and a hover response
+/// whose rise outruns its growth slides the card out from under the very
+/// pointer that asked for it: `Out` fires, the hover clears, the card falls
+/// back, `Over` fires. The values this shipped with missed the bound by
+/// nearly double, so the assertions below are the point of the paragraph.
+///
+/// This is **not** the flicker that was reported, though it was fixed while
+/// chasing it. That one was a pickable preview panel opening over the card it
+/// described, and it happened on cards nowhere near this bound; the fix is in
+/// `hud/overlay.rs`. `docs/client.md` ("The pointer only speaks when it
+/// moves") has the measurement that tells the two apart, and is normative on
+/// which is which.
+const HOVER_LIFT: f32 = 0.06;
+const HOVER_SCALE: f32 = 1.06;
 /// Lift and scale for a card chosen for the pending choice (clearly "in").
-const SELECTED_LIFT: f32 = 0.22;
-const SELECTED_SCALE: f32 = 1.07;
+const SELECTED_LIFT: f32 = 0.12;
+const SELECTED_SCALE: f32 = 1.12;
+
+/// The most a card may rise, for a given growth, without any part of the
+/// footprint it started with leaving the pointer.
+///
+/// `CARD_WIDTH` rather than `CARD_HEIGHT` because the shift is in *world*
+/// space — always straight away from the viewer — while a pod is rotated to
+/// face its own seat, so a card's narrow dimension is the one the shift can
+/// end up aligned with. Taking the smaller of the two is what makes the bound
+/// hold at every seat instead of only at the near one.
+const fn covered_lift(scale: f32) -> f32 {
+    (CARD_WIDTH / 2.0) * (scale - 1.0) / CAMERA_LEAN
+}
+const _: () = assert!(HOVER_LIFT <= covered_lift(HOVER_SCALE));
+const _: () = assert!(SELECTED_LIFT <= covered_lift(SELECTED_SCALE));
+// Hover to selected is a rise as well, so the step between them is bound by
+// the growth between them and not by either pair on its own.
+const _: () = assert!(
+    (SELECTED_LIFT - HOVER_LIFT) * CAMERA_LEAN
+        <= (CARD_WIDTH / 2.0) * (SELECTED_SCALE - HOVER_SCALE)
+);
 
 /// Marks everything spawned for the duel, so closing it is one despawn.
 #[derive(Component)]

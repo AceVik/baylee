@@ -1093,6 +1093,33 @@ pub fn sync_overlay(
                 commands.entity(frame).add_child(far);
             }
             commands.entity(tooltip).add_child(frame);
+            // The preview is a *description of* the hovered card, so it must
+            // never take the pointer from it. The frame above already ignores
+            // the pointer — but `Pickable` does not inherit, and the card face
+            // inside it is a UI node like any other, 308 by 430 of it. A board
+            // card's preview is centred on the window, which is exactly where
+            // a player's own lands sit, so hovering one dropped a pickable
+            // panel over the very pointer that opened it. The card reported
+            // `Out` on the next frame, the preview closed, the card reported
+            // `Over`, and it blinked — the flicker reported on "my own mana
+            // cards". It was found by photographing the table, not by reading
+            // this code: an opponent's permanent behaved perfectly, because
+            // the panel opens nowhere near the top of the felt.
+            //
+            // Standing still is the worse half. The grace window in
+            // `pointer_hover` expires mid-oscillation, and the `Out` it
+            // discards is the only one there will ever be: the card is out of
+            // the hover map from then on, so every later `Out` names the panel
+            // instead and matches no `CardVisual`. The hover latches on a card
+            // the pointer left minutes ago.
+            //
+            // Recursive, because the face has children of its own and each
+            // would take the pointer alone. The resize handle hangs off
+            // `tooltip` rather than `frame`, so it stays pickable — which is
+            // the whole reason those are two entities.
+            commands
+                .entity(frame)
+                .insert_recursive::<Children>(Pickable::IGNORE);
             commands.entity(root).add_child(tooltip);
 
             // The speech-bubble tail, pointing at the hovered card.
