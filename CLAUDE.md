@@ -860,6 +860,22 @@ spell can point at a card in a graveyard nothing else is drawing. A player
 target keeps `name: None` — seat names live in `GameStatic`, which the board
 model has never carried.
 
+The question itself is a **sheet**, and two things about sheets are easy to
+get wrong twice. `hud::sheet()` on a panel paints that panel's *content box*,
+so any padding shows as a ring of flat `PARCHMENT` around the grain with the
+sheet's corners cut inside the panel's — `hud::sheet_surface()` is the
+parchment as an absolutely-positioned first child instead, because an
+absolute child is measured against its parent's *padding* box. And a `Text`
+is a `Node`: a label inside a button is a pickable child in front of it, so
+every label inside a control carries `Pickable::IGNORE` or `Feel` animates
+the button in its padding and goes dead across the middle. The slip's prose
+is Inter **Italic**, a second file rather than a switch (`Inter.ttf` is
+variable on `opsz`/`wght` only and `TextFont` has no style field), and its
+bracketed asides are greyed by `client_core::prose::bracketed`, which refuses
+to grey an unclosed bracket. The answers share the sheet's width with
+`flex_grow: 1` and a `flex_basis` of **zero** — grow alone divides only the
+slack left after the labels.
+
 Nothing on the table is positioned directly. `table::sync_scene` writes a
 `Motion` target and `table::glide` moves the card there, so a repacked lane, a
 tap, a hover and a card entering play all animate through one door and cannot

@@ -378,6 +378,103 @@ mod slip {
              it has to clear it and stay next to it"
         );
     }
+
+    /// The parchment covers the padding it lies under.
+    ///
+    /// [`sheet`] inserted on a panel paints that panel's **content box**, so
+    /// a sheet with padding drew the grain in the middle and flat
+    /// [`palette::PARCHMENT`] in a ring around it — twenty-two pixels of it
+    /// on the slip, sixteen on the browser — with the sheet's own rounded
+    /// corners cut inside the panel's. Two concentric rounded rectangles in
+    /// two colours where there should be one sheet, which is what "the
+    /// background still looks strange" was.
+    ///
+    /// An absolutely-positioned child is measured against its parent's
+    /// *padding* box, which is exactly the missing ring. Both halves are
+    /// asserted: that the surface is placed that way, and that neither panel
+    /// has gone back to wearing the sheet itself.
+    #[test]
+    fn the_parchment_covers_the_padding_it_lies_under() {
+        let sheets = UiSheets {
+            parchment: Handle::default(),
+        };
+        let mut app = App::new();
+        let surface = app.world_mut().spawn(sheet_surface(&sheets)).id();
+        let node = app
+            .world()
+            .entity(surface)
+            .get::<Node>()
+            .expect("the surface is a node");
+        assert_eq!(
+            node.position_type,
+            PositionType::Absolute,
+            "a surface in the flow takes a row of the column it is meant to \
+             lie under"
+        );
+        for (side, val) in [
+            ("left", node.left),
+            ("right", node.right),
+            ("top", node.top),
+            ("bottom", node.bottom),
+        ] {
+            assert_eq!(val, px(0), "the sheet stops short of the {side} edge");
+        }
+        assert!(
+            app.world().entity(surface).contains::<ImageNode>(),
+            "there is no parchment on it"
+        );
+
+        for (name, source) in [
+            ("the prompt slip", include_str!("overlay.rs")),
+            ("the zone browser", include_str!("tray.rs")),
+        ] {
+            assert!(
+                source.contains("sheet_surface(sheets)"),
+                "{name} draws no parchment surface"
+            );
+            assert!(
+                !source.contains(".insert(sheet("),
+                "{name} wears the sheet as its own image again, which leaves \
+                 its padding flat"
+            );
+        }
+    }
+
+    /// The answers divide the sheet between them.
+    ///
+    /// The claim the owner asked for — "100% width, evenly distributed, with
+    /// a small padding between them" — and the reason it needs a test is the
+    /// `flex_basis`: `flex_grow: 1.0` on its own divides only the slack left
+    /// after the labels, so three answers with three different words still
+    /// come out three different widths. Zero is what takes the labels out of
+    /// the sum.
+    #[test]
+    fn every_answer_is_drawn_the_same_width_as_every_other() {
+        let row = super::super::overlay::answer_row_node();
+        assert_eq!(
+            row.width,
+            percent(100),
+            "a row that does not span cannot share"
+        );
+        assert_eq!(row.flex_direction, FlexDirection::Row);
+        let Val::Px(gap) = row.column_gap else {
+            panic!("the gap is in pixels, not {:?}", row.column_gap);
+        };
+        assert!(
+            gap > 0.0 && gap < 20.0,
+            "the answers are {gap} apart, which is not the small padding asked for"
+        );
+
+        let button = super::super::overlay::answer_node();
+        assert!((button.flex_grow - 1.0).abs() < f32::EPSILON);
+        assert_eq!(
+            button.flex_basis,
+            px(0),
+            "a basis that is not zero leaves the label in the sum, and the \
+             widths follow the words instead of the row"
+        );
+        assert_eq!(button.justify_content, JustifyContent::Center);
+    }
 }
 
 /// The rail's light is *run*, not merely declared.

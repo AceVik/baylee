@@ -17,6 +17,23 @@ use baylee_client_core::interaction::Prompt;
 /// same thing under every name at the table.
 const TRACK_W: f32 = 52.0;
 
+/// The gap between two answers on the prompt slip, in logical pixels.
+///
+/// Small, and it has to be: the answers divide the sheet between them, so
+/// every pixel here is a pixel off each button. Wide enough that two brass
+/// edges never touch, narrow enough that the row still reads as one control
+/// with parts rather than as scattered buttons.
+const BUTTON_GAP: f32 = 8.0;
+
+/// The narrowest the prompt slip is drawn.
+///
+/// The sheet takes its width from its longest line, and its shortest question
+/// ("You have priority") is shorter than the two answers under it. Without a
+/// floor the slip shrinks to the words and the buttons are squeezed into a
+/// sliver; with one, every question is asked on a sheet of a recognisable
+/// size, which is also what stops the slip jumping about between steps.
+const SLIP_MIN_W: f32 = 380.0;
+
 /// Removes the overlay when the duel hands the screen back.
 ///
 /// The 3D stage has always been torn down on `Close`; the overlay was not,
@@ -354,9 +371,10 @@ pub fn sync_overlay(
         // pointer, so it takes nothing away from the board it lies over; only
         // the slip inside it is a surface.
         let slip_row = commands.spawn((slip_row_node(), Pickable::IGNORE)).id();
-        let mut slip = commands.spawn((
+        let slip = commands.spawn((
             Node {
                 max_width: px(620),
+                min_width: px(SLIP_MIN_W),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 row_gap: px(7),
@@ -369,37 +387,35 @@ pub fn sync_overlay(
             BorderColor::all(palette::PARCHMENT_EDGE),
             sheet_shadow(),
         ));
-        if let Some(sheets) = sheets.as_deref() {
-            slip.insert(sheet(sheets));
-        }
         let bar = slip.id();
         commands.entity(slip_row).add_child(bar);
+        // First child, and a child rather than the slip's own image: see
+        // [`sheet_surface`] for the ring of flat parchment that was.
+        if let Some(sheets) = sheets.as_deref() {
+            let surface = commands.spawn(sheet_surface(sheets)).id();
+            commands.entity(bar).add_child(surface);
+        }
         // Above the headline, because a table this client cannot reach makes
         // every other line in the bar moot: the question standing there was
         // asked before the socket went, and answering it will not arrive.
         if let Some(phrase) = link_note {
-            let line = commands
-                .spawn((
-                    Text::new(phrase.text(lang).to_string()),
-                    tf(&fonts, 15.0),
-                    TextColor(palette::INK_DANGER),
-                ))
-                .id();
+            let line = slip_line(
+                &mut commands,
+                &fonts,
+                phrase.text(lang),
+                15.0,
+                palette::INK_DANGER,
+            );
             commands.entity(bar).add_child(line);
         }
 
         if let Some(text) = prompt {
-            let headline = commands
-                .spawn((
-                    Text::new(text),
-                    tf(&fonts, 18.0),
-                    TextColor(if waiting {
-                        palette::PARCHMENT_SOFT
-                    } else {
-                        palette::PARCHMENT_INK
-                    }),
-                ))
-                .id();
+            let ink = if waiting {
+                palette::SLIP_SOFT
+            } else {
+                palette::SLIP_INK
+            };
+            let headline = slip_line(&mut commands, &fonts, &text, 18.0, ink);
             commands.entity(bar).add_child(headline);
         }
 
@@ -409,13 +425,7 @@ pub fn sync_overlay(
         // another seat is being asked, because a refusal is an answer to
         // something *this* player did.
         if let Some(text) = error {
-            let line = commands
-                .spawn((
-                    Text::new(text),
-                    tf(&fonts, 13.0),
-                    TextColor(palette::INK_DANGER),
-                ))
-                .id();
+            let line = slip_line(&mut commands, &fonts, &text, 13.0, palette::INK_DANGER);
             commands.entity(bar).add_child(line);
         }
 
@@ -430,13 +440,13 @@ pub fn sync_overlay(
             .filter(|i| !waiting && i.selected().next().is_none())
             .and_then(|i| pick_hint(&i.prompt()))
         {
-            let line = commands
-                .spawn((
-                    Text::new(hint.text(lang).to_string()),
-                    tf(&fonts, 12.0),
-                    TextColor(palette::PARCHMENT_SOFT),
-                ))
-                .id();
+            let line = slip_line(
+                &mut commands,
+                &fonts,
+                hint.text(lang),
+                12.0,
+                palette::SLIP_SOFT,
+            );
             commands.entity(bar).add_child(line);
         }
 
@@ -452,13 +462,7 @@ pub fn sync_overlay(
             .filter(|i| i.is_combat() && !waiting)
             .and_then(|i| combat_line(i, view, duel.statics.as_ref(), lang))
         {
-            let aim = commands
-                .spawn((
-                    Text::new(line),
-                    tf(&fonts, 13.0),
-                    TextColor(palette::PARCHMENT_SOFT),
-                ))
-                .id();
+            let aim = slip_line(&mut commands, &fonts, &line, 13.0, palette::SLIP_SOFT);
             commands.entity(bar).add_child(aim);
         }
 
@@ -471,17 +475,12 @@ pub fn sync_overlay(
         if let Some((line, threatened)) =
             incoming_line(view, duel.interaction.as_ref(), duel.statics.as_ref(), lang)
         {
-            let incoming = commands
-                .spawn((
-                    Text::new(line),
-                    tf(&fonts, 13.0),
-                    TextColor(if threatened {
-                        palette::INK_DANGER
-                    } else {
-                        palette::PARCHMENT_SOFT
-                    }),
-                ))
-                .id();
+            let ink = if threatened {
+                palette::INK_DANGER
+            } else {
+                palette::SLIP_SOFT
+            };
+            let incoming = slip_line(&mut commands, &fonts, &line, 13.0, ink);
             commands.entity(bar).add_child(incoming);
         }
 
@@ -578,38 +577,43 @@ pub fn sync_overlay(
             }
         };
         if !answers.is_empty() {
-            let row = commands
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: px(6),
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
+            // The answers share the sheet's width, whatever there are of
+            // them: two, three or one, each takes the same fraction of it.
+            // The row could shrink to its labels instead — it used to — and
+            // then "Pass priority" and "Skip turn" sat in a huddle in the
+            // middle of a sheet with two inches of parchment either side of
+            // it, and a mulligan's two answers were a different size from
+            // combat's three. A button whose width says nothing is a button
+            // whose position says nothing.
+            let row = commands.spawn((answer_row_node(), Pickable::IGNORE)).id();
             // The first answer is the one the question is asking for — keep,
             // confirm, pass — and it is the only one drawn in brass. The rest
-            // are the same button with its fill taken away, because two
+            // are the same button in the sheet's own colour, because two
             // equally loud answers make a player read both before finding out
             // which one the sheet meant.
             for (i, (action, label)) in answers.iter().enumerate() {
                 let lead = i == 0;
+                let rest = if lead {
+                    palette::BRASS
+                } else {
+                    palette::SLIP_GHOST
+                };
                 let button = commands
                     .spawn((
                         PromptButton { action: *action },
-                        Node {
-                            padding: UiRect::axes(px(14), px(6)),
-                            border: UiRect::all(px(1)),
-                            border_radius: btn_radius(),
-                            ..default()
-                        },
-                        BackgroundColor(if lead { palette::BRASS } else { Color::NONE }),
+                        answer_node(),
+                        BackgroundColor(rest),
                         BorderColor::all(if lead {
                             palette::BRASS
                         } else {
                             palette::PARCHMENT_EDGE
                         }),
+                        soft_shadow(),
+                        // The same component every other button in the client
+                        // carries: `ambience::feel` leans it towards the
+                        // pointer, sinks it under a press and owns its
+                        // `BackgroundColor` from the first frame on.
+                        Feel::new(rest),
                         children![(
                             Text::new(*label),
                             tf(&fonts, 13.0),
@@ -618,6 +622,15 @@ pub fn sync_overlay(
                             } else {
                                 palette::PARCHMENT_SOFT
                             }),
+                            // A label is a `Node`, and a node under the
+                            // pointer is what the pointer is *over*: without
+                            // this the button only ever lit up when the
+                            // pointer was in its padding, and went dead the
+                            // moment it crossed the word it is named after.
+                            // Measured, not guessed — hovering the padding
+                            // moved 155 levels and hovering the word moved
+                            // none.
+                            Pickable::IGNORE,
                         )],
                     ))
                     .id();
@@ -1386,6 +1399,88 @@ fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity)
 /// The row itself is `Pickable::IGNORE` and paints nothing: it spans the
 /// window so that its child can be centred in it, and takes no click away
 /// from the table it lies over.
+/// The row the prompt slip's answers stand in.
+///
+/// Full width, because the answers divide the sheet between them. The row
+/// used to shrink to its labels, and then "Pass priority" and "Skip turn"
+/// huddled in the middle of a sheet with parchment either side of them, and a
+/// mulligan's two answers came out a different size from combat's three. A
+/// button whose width says nothing is a button whose position says nothing.
+pub(super) fn answer_row_node() -> Node {
+    Node {
+        width: percent(100),
+        flex_direction: FlexDirection::Row,
+        column_gap: px(BUTTON_GAP),
+        margin: UiRect::top(px(2)),
+        ..default()
+    }
+}
+
+/// One answer on the prompt slip.
+///
+/// `flex_grow: 1` with a `flex_basis` of **zero** is the whole promise: grow
+/// alone divides the *slack* left over after the labels, so "Aim next" and
+/// "Declare none" would still come out different widths. A basis of zero
+/// takes the labels out of the sum, and the row is cut into equal parts.
+pub(super) fn answer_node() -> Node {
+    Node {
+        flex_grow: 1.0,
+        flex_basis: px(0),
+        flex_direction: FlexDirection::Row,
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        padding: UiRect::axes(px(10), px(7)),
+        border: UiRect::all(px(1)),
+        border_radius: btn_radius(),
+        ..default()
+    }
+}
+
+/// One line of the prompt slip's prose.
+///
+/// Four things at once, and they are one decision rather than four. The slip
+/// is the sheet a question is *written* on, so its lines are set in the
+/// italic of the same family, cast the faint warm shadow a letter lying on
+/// parchment casts, carry a little of the sheet through the ink, and hand
+/// their bracketed asides to a grey — a key to press or a count the board
+/// already shows is not part of the sentence, and reading it as if it were
+/// makes every question longer than it is.
+///
+/// The split is [`baylee_client_core::prose::bracketed`], which is where the
+/// test for it lives; here it becomes one [`TextSpan`] per run. The root
+/// carries the shadow, because a shadow is per text block rather than per
+/// span, and an empty root string draws nothing of its own.
+fn slip_line(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    ink: Color,
+) -> Entity {
+    let line = commands
+        .spawn((
+            Text::default(),
+            tf_italic(fonts, size),
+            TextColor(ink),
+            TextShadow {
+                offset: Vec2::new(0.0, 1.0),
+                color: palette::SLIP_SHADOW,
+            },
+        ))
+        .id();
+    for (run, aside) in baylee_client_core::prose::bracketed(text) {
+        let span = commands
+            .spawn((
+                TextSpan::new(run.to_string()),
+                tf_italic(fonts, size),
+                TextColor(if aside { palette::SLIP_ASIDE } else { ink }),
+            ))
+            .id();
+        commands.entity(line).add_child(span);
+    }
+    line
+}
+
 pub(super) fn slip_row_node() -> Node {
     Node {
         position_type: PositionType::Absolute,
@@ -1413,10 +1508,15 @@ fn spawn_step(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str)
                 ..default()
             },
             BackgroundColor(palette::BRASS),
+            soft_shadow(),
+            Feel::new(palette::BRASS),
             children![(
                 Text::new(glyph.to_string()),
                 tf(fonts, 17.0),
                 TextColor(palette::PARCHMENT_INK),
+                // See [`answer_node`]: a label is a node, and a node under the
+                // pointer is what the pointer is over.
+                Pickable::IGNORE,
             )],
         ))
         .id()

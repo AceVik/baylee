@@ -52,6 +52,7 @@ pub mod manapip;
 pub mod manaplan;
 pub mod manapool;
 pub mod prefs;
+pub mod prose;
 pub mod reconnect;
 pub mod sky;
 pub mod tabletop;

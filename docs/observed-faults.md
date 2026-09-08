@@ -979,3 +979,61 @@ about the table itself rather than the rules, and both are fixed.
     swings `4.31 / 3.64 / 2.90` per channel, while the opponent's rim — same
     shader, same material, `on_turn` at zero — moves `0.00 / 0.00 / 0.00` and
     so does the bare felt between them.
+
+49. **The prompt slip: a strange background, an unreadable aside, and buttons
+    that huddled in the middle.** *Fixed.* Six requests in one sentence, and
+    the first of them was a real defect rather than a taste.
+
+    **"Es sieht (der Hintergrund) noch seltsam aus."** `sheet()` was inserted
+    on the slip *itself*, and bevy paints a node's `ImageNode` over its
+    **content box**. The slip has `padding: axes(22, 13)`, so the parchment
+    was drawn in the middle with a ring of flat `palette::PARCHMENT` around
+    it — twenty-two pixels wide at the sides, thirteen top and bottom — and
+    the sheet's own rounded corners cut *inside* the slip's. Two concentric
+    rounded rectangles in two colours, which is exactly what "strange" looks
+    like when nobody has a word for it. `hud::sheet_surface` is the fix: the
+    parchment is an absolutely-positioned first child, which is measured
+    against its parent's *padding* box — precisely the missing ring — and is
+    `Pickable::IGNORE` so a surface never takes a click. The zone browser had
+    the same defect with a sixteen-pixel ring and is fixed with it.
+
+    Measured rather than argued: eleven samples across the old padding band
+    now span ten levels of grain (224…214), where a flat fill gives one value
+    at every x.
+
+    **Text.** Italic, a faint warm `TextShadow`, a little of the sheet through
+    the ink (`SLIP_INK` at α 0.94, `SLIP_SOFT` at 0.92), and bracketed asides
+    in a grey that has had the warmth drained out of it — an aside is a
+    different *kind* of sentence, a key to press or a count the board already
+    shows, and grey says so where another shade of brown would only say
+    "further away". The split is `client_core::prose::bracketed`, in the model
+    with a test, and an **unclosed** bracket greys nothing: one stray
+    character must not drain the rest of a line.
+
+    Italic needed a second font file. `Inter.ttf` is variable on `opsz` and
+    `wght` and nothing else, and `TextFont` carries a face and a size — no
+    style, no synthetic oblique — so a slant this client cannot ask for is a
+    slant it has to ship. `Inter-Italic[opsz,wght].ttf`, the same family under
+    the same OFL entry `NOTICE` already names.
+
+    **Buttons.** The row spans the sheet and every answer takes an equal part
+    of it (`flex_grow: 1`, `flex_basis: 0` — grow alone divides only the slack
+    left after the labels, so three answers with three different words still
+    come out three different widths). Each carries `soft_shadow()` and the
+    `ambience::Feel` every other button in the client has. The unlead answers
+    are filled in `SLIP_GHOST` rather than `Color::NONE`, because a drop
+    shadow under a surface that is not there renders as a dark rounded hole.
+
+50. **A button went dead under the word it is named after.** *Fixed, and it
+    was never the slip's bug alone.* `Feel` animates whatever the pointer is
+    over, and a `Text` is a `Node`: a label inside a button is a pickable
+    child sitting in front of it, so the hover stopped at the letters. The
+    lobby's `button` and `chip` had always marked their labels
+    `Pickable::IGNORE`; the phase rail and the prompt slip had not, so both
+    lit up in their padding and went dead across the middle.
+
+    Found by measurement and it would not have been found any other way — the
+    first diff was over the *word* and moved 0/0/0, which reads exactly like
+    "the animation was never wired". Hovering the same button's padding moved
+    155/156/148. With the labels ignored, the pointer on the word moves
+    140/141/134 and the neighbouring answer 2/0/1.

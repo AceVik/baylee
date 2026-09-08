@@ -30,14 +30,22 @@ use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_view::{GameStatic, PlayerView};
 use bevy::prelude::*;
 
-/// The three UI fonts: Inter for text, Font Awesome Solid for icons, and
-/// the `mana` font for mana symbols.
+/// The four UI fonts: Inter upright and italic for text, Font Awesome Solid
+/// for icons, and the `mana` font for mana symbols.
 /// Bundled OFL/CC-BY fonts (see NOTICE) — the default font has none of the
 /// weight range, the icon glyphs or the mana symbols.
 #[derive(Resource, Clone)]
 pub struct UiFonts {
     /// Text font (Inter, variable weight).
     pub text: Handle<Font>,
+    /// The same family, slanted.
+    ///
+    /// A second file rather than a switch, because there is nowhere to put
+    /// the switch: `Inter.ttf` is a variable font whose axes are `opsz` and
+    /// `wght` and nothing else, and [`TextFont`] carries a face and a size —
+    /// no style, no synthetic oblique. A slant this client cannot ask for is
+    /// a slant it has to ship.
+    pub italic: Handle<Font>,
     /// Icon font (Font Awesome 6 Free, solid).
     pub icons: Handle<Font>,
     /// Mana symbols (the `mana` font, SIL OFL). `docs/legal.md` §2 names it
@@ -49,6 +57,7 @@ pub struct UiFonts {
 pub fn setup_fonts(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(UiFonts {
         text: assets.load("fonts/Inter.ttf"),
+        italic: assets.load("fonts/Inter-Italic.ttf"),
         icons: assets.load("fonts/fa-solid-900.ttf"),
         mana: assets.load("fonts/mana.ttf"),
     });
@@ -58,6 +67,15 @@ pub fn setup_fonts(mut commands: Commands, assets: Res<AssetServer>) {
 pub(crate) fn tf(fonts: &UiFonts, size: f32) -> TextFont {
     TextFont {
         font: bevy::text::FontSource::Handle(fonts.text.clone()),
+        font_size: bevy::text::FontSize::Px(size),
+        ..default()
+    }
+}
+
+/// The same at a slant — the prompt slip's own voice.
+pub(crate) fn tf_italic(fonts: &UiFonts, size: f32) -> TextFont {
+    TextFont {
+        font: bevy::text::FontSource::Handle(fonts.italic.clone()),
         font_size: bevy::text::FontSize::Px(size),
         ..default()
     }
@@ -482,6 +500,39 @@ pub(crate) mod palette {
     pub const INK_DANGER: Color = Color::srgb(0.620, 0.200, 0.129);
     /// The shadow a sheet lying above the table casts.
     pub const SHEET_SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.66);
+
+    /// The prompt slip's own ink, and the aside's.
+    ///
+    /// [`PARCHMENT_INK`] and [`PARCHMENT_SOFT`] with a little of the sheet
+    /// showing through. The alpha is the whole point: the slip is written
+    /// *on* the parchment rather than printed over it, so the grain the sheet
+    /// carries comes up through the letters instead of stopping at them. It
+    /// is small — at 0.94 a stroke is still a stroke — because ink you can
+    /// see the table through is a watermark, not a question.
+    pub const SLIP_INK: Color = Color::srgba(0.098, 0.082, 0.062, 0.94);
+    /// The quieter of the two, for a hint or a tally.
+    pub const SLIP_SOFT: Color = Color::srgba(0.290, 0.251, 0.204, 0.92);
+    /// An aside — whatever the sheet said in brackets.
+    ///
+    /// Grey rather than a lighter ink: an aside is a different *kind* of
+    /// sentence (a key to press, a count already implied by the board), and
+    /// draining the warmth out of it says so where another shade of brown
+    /// would only say "further away".
+    pub const SLIP_ASIDE: Color = Color::srgba(0.404, 0.376, 0.337, 0.86);
+    /// What a letter on the slip casts.
+    ///
+    /// Warm and barely there: a hard black shadow under 13 px text reads as
+    /// a rendering fault, and the job here is only to lift the line off a
+    /// sheet that is the same family of colour as the ink is.
+    pub const SLIP_SHADOW: Color = Color::srgba(0.161, 0.129, 0.086, 0.32);
+    /// The fill under an answer that is not the one the sheet is asking for.
+    ///
+    /// Not [`Color::NONE`]: a button with no fill and a drop shadow renders
+    /// as a dark rounded hole in the parchment, because the shadow is drawn
+    /// under a surface that is not there. A few percent of the sheet's own
+    /// colour is enough to be a surface and not enough to compete with
+    /// [`BRASS`].
+    pub const SLIP_GHOST: Color = Color::srgb(0.878, 0.835, 0.741);
 }
 
 /// The generated surfaces the overlay is drawn on.
@@ -535,6 +586,42 @@ pub(crate) fn sheet_shadow() -> BoxShadow {
 /// larger object and a sheet with a button's radius reads as a big button.
 pub(crate) fn sheet_radius() -> BorderRadius {
     BorderRadius::all(px(14))
+}
+
+/// The parchment as a *child* of the node it covers, rather than as that
+/// node's own image.
+///
+/// This is a bug fix with a shape worth keeping. [`sheet`] inserted on the
+/// panel itself paints the **content box** — so a sheet with `padding` on it
+/// drew the parchment in the middle and flat [`palette::PARCHMENT`] in a ring
+/// around it, sixteen pixels wide on the browser and twenty-two on the prompt
+/// slip, with the sheet's own rounded corners cut *inside* the panel's. That
+/// is the "the background still looks strange" the owner reported: two
+/// concentric rounded rectangles in two different colours where there should
+/// have been one sheet.
+///
+/// An absolutely-positioned child is measured against its parent's padding
+/// box, which is exactly the area that was missing, and it is out of flow so
+/// it costs the column no gap and the layout no row. The radius is the
+/// parent's less the one-pixel border it sits inside, so the two curves are
+/// concentric rather than nested.
+///
+/// [`Pickable::IGNORE`] because it is a surface, not a control: without it
+/// the sheet is the topmost hit under every pointer on the panel.
+pub(crate) fn sheet_surface(sheets: &UiSheets) -> impl Bundle {
+    (
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(0),
+            right: px(0),
+            top: px(0),
+            bottom: px(0),
+            border_radius: BorderRadius::all(px(13)),
+            ..default()
+        },
+        sheet(sheets),
+        Pickable::IGNORE,
+    )
 }
 
 /// The soft radius + shadow every button and panel shares.

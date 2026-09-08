@@ -419,6 +419,7 @@ fn headless() -> App {
         // no asset server and does not need one to build a tree.
         .insert_resource(UiFonts {
             text: Handle::default(),
+            italic: Handle::default(),
             icons: Handle::default(),
             mana: Handle::default(),
         })

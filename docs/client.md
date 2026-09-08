@@ -1249,6 +1249,42 @@ path names the module the cargo feature gates, so a later
 `default-features = false` audit that drops the feature breaks the build
 rather than the table.
 
+The other half of "pickable" is what a button is made of. A `Text` is a
+`Node`, so a label inside a button is a pickable child standing in front of
+it, and `PickingInteraction` stops at the letters: the button lit up under
+the pointer in its padding and went dead across the middle. Every label
+inside a control is `Pickable::IGNORE` — the lobby's `button` and `chip`
+always did it, the phase rail and the prompt slip did not. It is worth
+measuring rather than reading, because the symptom is indistinguishable from
+an animation that was never wired: the diff over the word was 0/0/0 and the
+diff over the same button's padding was 155/156/148.
+
+## The prompt slip is a sheet, and a sheet is a child
+
+`hud::sheet()` inserted on a panel paints that panel's **content box**, so
+any panel with padding drew parchment in the middle and flat
+`palette::PARCHMENT` in a ring around it, with the sheet's own corners cut
+inside the panel's. `hud::sheet_surface()` is the parchment as an
+absolutely-positioned first child instead — an absolute child is measured
+against its parent's *padding* box, which is exactly the ring that was
+missing — carrying `Pickable::IGNORE` and a radius one pixel tighter than
+the panel's so the two curves are concentric. Both users of a sheet, the
+prompt slip and the zone browser, go through it.
+
+The slip's prose is set in Inter Italic, which is a **second font file** and
+has to be: `Inter.ttf` is variable on `opsz` and `wght` only, and `TextFont`
+carries a face and a size — there is no style field and no synthetic oblique,
+so a slant this client cannot ask for is a slant it has to ship. Bracketed
+asides are greyed, and which stretches those are is
+`baylee_client_core::prose::bracketed` — in the model, with a test, and
+deliberately refusing to grey an **unclosed** bracket, because one stray
+character must not drain the rest of a line.
+
+The answers underneath share the sheet's width: `flex_grow: 1.0` with a
+`flex_basis` of **zero**, since grow alone divides only the slack left over
+after the labels and three answers with three different words would still
+come out three different widths.
+
 The diagnosis is the part worth keeping. Reading the HUD for a full-screen
 node that might be swallowing the ray found nothing — `HudRoot` has carried
 `Pickable::IGNORE` since it was written. A temporary probe over `PointerHits`

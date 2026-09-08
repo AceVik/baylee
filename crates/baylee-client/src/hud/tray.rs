@@ -71,7 +71,7 @@ pub(super) fn spawn_tray(
             Pickable::IGNORE,
         ))
         .id();
-    let mut sheet_node = commands.spawn((
+    let sheet_node = commands.spawn((
         Node {
             max_width: px(TRAY_PANEL_W),
             max_height: percent(92),
@@ -87,11 +87,14 @@ pub(super) fn spawn_tray(
         BorderColor::all(palette::PARCHMENT_EDGE),
         sheet_shadow(),
     ));
-    if let Some(sheets) = sheets {
-        sheet_node.insert(sheet(sheets));
-    }
     let panel = sheet_node.id();
     commands.entity(frame).add_child(panel);
+    // First child, so every row below is drawn on it — see [`sheet_surface`]
+    // for why the parchment is not the panel's own image.
+    if let Some(sheets) = sheets {
+        let surface = commands.spawn(sheet_surface(sheets)).id();
+        commands.entity(panel).add_child(surface);
+    }
 
     // ---- header: what this is, and the way out of it ----
     let header = commands

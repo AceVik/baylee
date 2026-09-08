@@ -17,7 +17,8 @@ used during development as a read-only rules reference. No Forge source code
 or data files are copied into this repository.
 
 Bundled fonts (crates/baylee-client/assets/fonts/): the Inter font family
-(https://rsms.me/inter/), licensed under the SIL Open Font License 1.1;
+(https://rsms.me/inter/), upright and italic, licensed under the SIL Open Font
+License 1.1;
 Font Awesome Free 6.7.2 (https://fontawesome.com), icons licensed under
 CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); and the Mana font
 (https://github.com/andrewgioia/mana) by Andrew Gioia, licensed under the SIL

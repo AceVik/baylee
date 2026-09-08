@@ -220,12 +220,24 @@ pub(super) fn spawn_phase_rail(
                         palette::PANEL
                     }),
                     children![
+                        // Both `Pickable::IGNORE`, because a label is a `Node`
+                        // and a node under the pointer is what the pointer is
+                        // *over*. Without it the step lit up only where the
+                        // pointer was in the button's padding and went dead
+                        // over the word — the same bug the prompt slip's
+                        // answers had, and the lobby's buttons never did.
                         (
                             Text::new(icon.to_string()),
                             icon_tf(fonts, ICON_SIZE),
                             TextColor(ink),
+                            Pickable::IGNORE,
                         ),
-                        (Text::new(short), tf(fonts, LABEL_SIZE), TextColor(ink)),
+                        (
+                            Text::new(short),
+                            tf(fonts, LABEL_SIZE),
+                            TextColor(ink),
+                            Pickable::IGNORE,
+                        ),
                     ],
                 ))
                 .id();

@@ -266,6 +266,7 @@ mod tests {
         app.init_resource::<Loading>()
             .insert_resource(UiFonts {
                 text: Handle::default(),
+                italic: Handle::default(),
                 icons: Handle::default(),
                 mana: Handle::default(),
             })
