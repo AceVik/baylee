@@ -318,6 +318,10 @@ corner, settled three things at once:
   clipped nothing — it moved the picture by a few pixels and was photographed
   again before it was believed.
 
+  The panel itself is gone now, and with it both of those lines. Kept as a
+  record because the *reading* was the finding: two unrelated defects looked
+  like one because both drew a card top where no card was.
+
 **And the felt itself, read once more with the numbers rather than the eye.**
 Four photographs in, the hearth was still the loudest thing on the table and
 its test still passed. Both are explained by one line: the bound compared the
@@ -752,8 +756,8 @@ nothing".
 `Interaction::mode_for` matches all 17 `Pending` variants with no wildcard arm
 and `confirm()` builds an answer for every mode. **The model layer is
 complete; the renderer is not.** The client makes exactly four things
-clickable: battlefield cards, the own-board overlay lanes, the own hand and
-command zone, and the player tabs.
+clickable: battlefield cards, the own hand and command zone, and the player
+tabs.
 
 Status by variant: eight are fine (`Mulligan`, `LegendChoice`, `ChooseColor`,
 `ChoosePlayer`, `YesNo`, `ChooseSubtype` — the last only since yesterday —

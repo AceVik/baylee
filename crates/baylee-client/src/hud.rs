@@ -171,14 +171,6 @@ pub enum MenuAction {
     CancelArmed,
 }
 
-/// The sliding own-board overlay (the panel, positioned by animation).
-#[derive(Component)]
-pub struct OwnBoardOverlay;
-
-/// The knob on the overlay's top edge: click toggles it open/closed.
-#[derive(Component)]
-pub struct OverlayKnob;
-
 /// The card preview's resize handle (bottom-right corner).
 #[derive(Component)]
 pub struct PreviewResize;
@@ -365,8 +357,6 @@ pub struct HudRevision {
     orders: Option<baylee_client_core::automation::PhaseOrders>,
     autopilot: Option<AutoPilot>,
     focus: Option<PlayerId>,
-    /// The own-board overlay's open/closed state (knob arrow).
-    overlay_open: bool,
     /// Preview size (resized via handle or shortcut).
     preview_scale: f32,
     /// Whether cards are drawing their constructed face. Held on a key, so
@@ -549,8 +539,8 @@ pub(crate) fn soft_shadow() -> BoxShadow {
     )
 }
 
-/// An upward shadow for the own-board overlay.
-fn overlay_shadow() -> BoxShadow {
+/// An upward shadow for a panel standing over the table.
+fn upward_shadow() -> BoxShadow {
     BoxShadow::new(
         palette::SHADOW,
         Val::Px(0.0),
@@ -626,6 +616,6 @@ use stack::spawn_stack_panel;
 
 pub use hand::apply_hand_scroll;
 pub use hand::{HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W, TAB_H};
-pub use overlay::{animate_overlay, despawn_overlay, sync_overlay};
+pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::RAIL_W;
 pub use rail::same_team;

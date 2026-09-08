@@ -17,9 +17,9 @@
 //! whatever the cursor happens to be resting on.
 
 use crate::hud::{
-    AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton,
-    PileChip, PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton, TrayCard,
-    TrayClose, TrayFilter, TraySort, TrayTab,
+    AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PhaseButton, PileChip,
+    PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton, TrayCard, TrayClose,
+    TrayFilter, TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -381,9 +381,6 @@ fn look_around(
         if fired.has(Action::NextTurn) {
             duel.autopilot = Some(AutoPilot::ToNextTurn { from_turn: turn });
         }
-    }
-    if fired.has(Action::ToggleOverlay) {
-        duel.overlay_open = !duel.overlay_open;
     }
     if fired.has(Action::ToggleTextView) {
         // The modifier key shows the card face while held; this is the latch,
@@ -1227,7 +1224,6 @@ pub fn pointer(
     phase_buttons: Query<&PhaseButton>,
     rail_buttons: Query<&RailButton>,
     menu_buttons: Query<&MenuButton>,
-    knobs: Query<&OverlayKnob>,
     prompt_buttons: Query<&PromptButton>,
     ability_buttons: Query<&AbilityButton>,
     choice_buttons: Query<&ChoiceButton>,
@@ -1275,10 +1271,6 @@ pub fn pointer(
         }
         if let Some(button) = find_in_lineage(e, &phase_buttons, &parents) {
             prefs.edit().orders.toggle(button.side, button.row);
-            continue;
-        }
-        if find_in_lineage(e, &knobs, &parents).is_some() {
-            duel.overlay_open = !duel.overlay_open;
             continue;
         }
         if let Some(button) = find_in_lineage(e, &menu_buttons, &parents) {
@@ -1511,7 +1503,7 @@ pub fn pointer_hover(
 /// kind still draws the object.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub enum HoverSource {
-    /// A hand card, a command-zone card, or a card in the own-board overlay.
+    /// A hand card, or a card in the command zone.
     Hand,
     /// A permanent on the table.
     Table,
@@ -1546,11 +1538,6 @@ pub fn camera_controls(
     mut duel: ResMut<Duel>,
     mut rig: ResMut<crate::table::CameraRig>,
 ) {
-    // The canvas is not navigable while the own-board battlefield covers
-    // it (the "battlefield bar" is in front).
-    if duel.overlay_open {
-        return;
-    }
     let meta = keys.pressed(KeyCode::SuperLeft)
         || keys.pressed(KeyCode::SuperRight)
         || keys.pressed(KeyCode::AltLeft)
@@ -1663,9 +1650,9 @@ pub fn camera_controls(
     }
 }
 
-/// Navigates the camera to a seat's pod, framing it in the free canvas
-/// area (clear of the own-board overlay), cards upright. Also marks the
-/// seat as the layout's focus so its pod is enlarged.
+/// Navigates the camera to a seat.s pod, framing it in the free canvas
+/// area (clear of the tab strip and the hand bar), cards upright. Also
+/// marks the seat as the layout.s focus so its pod is enlarged.
 pub fn navigate_to_player(
     duel: &mut Duel,
     rig: &mut crate::table::CameraRig,
@@ -2265,7 +2252,7 @@ mod tests {
                 .resource_mut::<ButtonInput<KeyCode>>()
                 .clear();
         };
-        let overlay = |app: &App| app.world().resource::<crate::Duel>().overlay_open;
+        let open = |app: &App| app.world().resource::<crate::Duel>().browser.is_open();
         let filter = |app: &App| {
             app.world()
                 .resource::<crate::Duel>()
@@ -2275,26 +2262,27 @@ mod tests {
         };
 
         // An open panel is not a focused box: the letters belong to the game.
-        // `X` is `ToggleOverlay`, so the claim is not merely that the filter
+        // `G` is `ToggleBrowser`, so the claim is not merely that the filter
         // stayed empty — a key that went nowhere at all would satisfy that,
         // and a panel that swallowed the keyboard for as long as it stood
         // open is the bug this bargain exists to prevent. The action has to
         // have *fired*.
-        let was = overlay(&app);
-        type_letter(&mut app, KeyCode::KeyX, 'x');
+        let was = open(&app);
+        type_letter(&mut app, KeyCode::KeyG, 'g');
         assert_eq!(filter(&app), "", "the box typed without being asked to");
-        assert_ne!(overlay(&app), was, "the open panel ate a bound key");
+        assert_ne!(open(&app), was, "the open panel ate a bound key");
 
+        app.world_mut().resource_mut::<crate::Duel>().browser.open();
         app.world_mut()
             .resource_mut::<crate::Duel>()
             .browser
             .start_typing();
         // And now the other way round: the same key is a letter, and the
-        // overlay must not move under the player's typing.
-        let was = overlay(&app);
-        type_letter(&mut app, KeyCode::KeyX, 'x');
-        assert_eq!(filter(&app), "x");
-        assert_eq!(overlay(&app), was, "typing a letter reached the game");
+        // panel must not close under the player's typing.
+        let was = open(&app);
+        type_letter(&mut app, KeyCode::KeyG, 'g');
+        assert_eq!(filter(&app), "g");
+        assert_eq!(open(&app), was, "typing a letter reached the game");
 
         app.world_mut()
             .resource_mut::<crate::Duel>()

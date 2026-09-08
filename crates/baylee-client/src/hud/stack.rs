@@ -57,7 +57,7 @@ pub(super) fn spawn_stack_panel(
             },
             BackgroundColor(palette::PANEL),
             ZIndex(1),
-            overlay_shadow(),
+            upward_shadow(),
             Pickable::IGNORE,
         ))
         .id();

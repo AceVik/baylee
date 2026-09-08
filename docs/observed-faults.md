@@ -832,3 +832,26 @@ about the table itself rather than the rules, and both are fixed.
     a channel a hundred frames later. The counter-test is the same patch with
     `sky` pinned to `day`: `(100.1, 152.9, 208.9)`, seven times the blue.
     That is what the first half-second used to be.
+
+46. **"Es gibt noch dieses ausklappbare 2D battlefield — das soll komplett
+    weg."** *Removed.* `OwnBoardOverlay` drew the local seat's battlefield a
+    second time, flat, in the same half of the screen the camera already
+    frames that board in. Two drawings of one board is two hover states, two
+    glow registers and two click paths to keep in step — and this one kept a
+    power nothing else on screen has, which is covering the game: it is the
+    panel entry 42's black screen turned out to be. Gone with it: the knob,
+    the slide animation, the `X` action, `Duel::overlay_open`/`overlay_t` and
+    the redraw-gate field. `hud/overlay.rs` keeps its name and its job, the
+    retained HUD tree.
+
+    Removing an action is what made `Keymap`'s reader tolerant, and that is
+    the part worth keeping. `Keymap` is `#[serde(transparent)]` over a map
+    keyed by `Action`, so a stored blob still naming `toggle-overlay` was
+    refused **whole** — and `Preferences::from_json` answers a refusal with
+    the defaults, so one retired row would have silently reset every key
+    every player had ever bound. An unknown name is dropped and the rest of
+    the map kept now, which is the same bargain `#[serde(default)]` already
+    makes for every other field, and it holds in both directions of an
+    upgrade. `the_shipped_keymap_is_still_recognised` reads a literal blob
+    that names `toggle-overlay`, so the day the reader stops being tolerant
+    is the day that test goes red.

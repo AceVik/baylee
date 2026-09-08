@@ -238,16 +238,23 @@ Which is the lesson from how this table actually shipped. For a long time it
 rendered as a black screen with two faint gold rings floating in it, and
 every explanation offered for that was about colour: the felt is too dark,
 the textures are being tone mapped, the sRGB is being decoded twice. All of
-them were wrong. **The own-board overlay is an opaque panel the width of the
+them were wrong. **The own-board overlay was an opaque panel the width of the
 canvas, and it defaulted to open** — `palette::PANEL` is `srgba(0.05, 0.06,
 0.08, 0.88)`, so the entire table, its mats, its cards and every animation
 on them were behind a sheet of 88% black from the first frame. What finally
 found it was measuring instead of reasoning: a red clear colour renders at
 `(234, 51, 35)` in a stock Bevy app and at `(62, 19, 21)` in ours, and a
-clear colour never touches a material, a texture or a shader. The overlay is
-opt-in now (`Duel::overlay_open`, default false), which is also why the
-canvas is navigable by default — `input::camera_controls` refuses to run
-while the overlay covers the table.
+clear colour never touches a material, a texture or a shader.
+
+It was made opt-in, and has since been **removed altogether**. It drew the
+local seat's battlefield a second time, flat, in the half of the screen the
+camera already frames that board in — so every permanent had two places to
+be, two hover states and two sets of glows to keep in step, and the panel
+kept the one power nothing else on screen has: covering the game. What went
+with it is the whole sliding layer (`OwnBoardOverlay`, its knob, the `X`
+action and `Duel::overlay_open`/`overlay_t`); `hud/overlay.rs` keeps its name
+and its job, which is the retained HUD tree — tabs, prompt slip, stack.
+`input::camera_controls` no longer has anything to refuse to run under.
 
 The felt was too dark as well, and that was real: it was authored at about a
 quarter of the brightness it needed, and
@@ -635,8 +642,7 @@ to look like a photograph of a card. On the table the mesh is already rounded
 (`table::CARD_CORNER`), so the shader only inks the sliver the mesh edge
 antialiases through; in the overlay a UI node has no mesh, so `card_ui.wgsl`
 cuts the corner in alpha — and that is the one the player was actually looking
-at, since hand, preview, own-board overlay and printing picker all drew the
-scan square. Both cut with the same `corner_sdf` at the same `PRINTED_CORNER`
+at, since hand, preview and printing picker all drew the scan square. Both cut with the same `corner_sdf` at the same `PRINTED_CORNER`
 (4.76%, which is 3 mm on a 63 mm card, and lives in `card_common.wgsl` with
 the rail), and `hud::card_radius` is the same number again, because that
 wrapper node clips the card and carries its shadow.

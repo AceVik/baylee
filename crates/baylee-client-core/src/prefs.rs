@@ -58,8 +58,6 @@ pub enum Action {
     NextPhase,
     /// Fast-forward to the start of the next turn.
     NextTurn,
-    /// Slide the own-board overlay out of the way.
-    ToggleOverlay,
     /// Latch the constructed card face on.
     ToggleTextView,
     /// Open the zone browser, or shut it again.
@@ -93,7 +91,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 28] = [
+    pub const ALL: [Self; 27] = [
         Self::Primary,
         Self::Confirm,
         Self::Cancel,
@@ -119,7 +117,6 @@ impl Action {
         Self::AnswerNo,
         Self::NumberUp,
         Self::NumberDown,
-        Self::ToggleOverlay,
         Self::ToggleTextView,
         Self::ToggleBrowser,
     ];
@@ -145,7 +142,6 @@ impl Action {
             Self::CombatNone => Phrase::ActCombatNone,
             Self::NextPhase => Phrase::ActNextPhase,
             Self::NextTurn => Phrase::ActNextTurn,
-            Self::ToggleOverlay => Phrase::ActToggleOverlay,
             Self::ToggleTextView => Phrase::ActToggleTextView,
             Self::ToggleBrowser => Phrase::ActToggleBrowser,
             Self::HoldForStack => Phrase::ActHoldForStack,
@@ -193,9 +189,7 @@ impl Action {
             | Self::AnswerNo
             | Self::NumberUp
             | Self::NumberDown => Phrase::GroupQuestions,
-            Self::ToggleOverlay | Self::ToggleTextView | Self::ToggleBrowser => {
-                Phrase::GroupDisplay
-            }
+            Self::ToggleTextView | Self::ToggleBrowser => Phrase::GroupDisplay,
         }
     }
 }
@@ -305,12 +299,64 @@ fn pretty_key(name: &str) -> String {
 /// question the client asks sixty times a second ("was *confirm* pressed?")
 /// and because an action may honestly have two bindings — `Enter` and the
 /// numeric keypad's, say — while a chord doing two things is a bug.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(transparent)]
 pub struct Keymap {
     /// The bindings. A `BTreeMap` so the stored JSON is byte-stable and two
     /// saves of an unchanged keymap do not look like a change.
     bindings: BTreeMap<Action, Vec<Chord>>,
+}
+
+/// Reads a stored keymap, **dropping rows this client no longer understands**.
+///
+/// The derived implementation would refuse the whole map instead, and a
+/// refused map is not a missing row — `Preferences::from_json` falls back to
+/// the defaults wholesale, so every key a player ever rebound goes with it.
+/// That is a real hazard rather than a theoretical one in both directions: an
+/// action removed here (`toggle-overlay` went with the sliding board panel)
+/// is still written in every stored blob and every account's `/settings`,
+/// and a player running an older client after playing on a newer one has a
+/// blob naming actions their binary has never heard of.
+///
+/// So an unknown name is dropped and the rest of the map is kept, which is
+/// the same bargain `#[serde(default)]` makes for every other field here.
+/// `the_shipped_keymap_is_still_recognised` reads a literal blob that names
+/// `toggle-overlay`, so the day this stops being tolerant is the day that
+/// test goes red.
+impl<'de> serde::Deserialize<'de> for Keymap {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        use serde::Deserialize as _;
+
+        struct Rows;
+        impl<'de> serde::de::Visitor<'de> for Rows {
+            type Value = Keymap;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a map of action names to the chords bound to them")
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<Keymap, A::Error> {
+                let mut bindings = BTreeMap::new();
+                while let Some(name) = map.next_key::<String>()? {
+                    // The value is read either way: skipping the key without
+                    // consuming what it points at desynchronises the reader.
+                    let chords = map.next_value::<Vec<Chord>>()?;
+                    if let Ok(action) = Action::deserialize(serde::de::value::StrDeserializer::<
+                        A::Error,
+                    >::new(&name))
+                    {
+                        bindings.insert(action, chords);
+                    }
+                }
+                Ok(Keymap { bindings })
+            }
+        }
+
+        de.deserialize_map(Rows)
+    }
 }
 
 impl Default for Keymap {
@@ -348,7 +394,6 @@ impl Keymap {
         bind(Action::CombatNone, vec![Chord::key("KeyO")]);
         bind(Action::NextPhase, vec![Chord::key("Tab")]);
         bind(Action::NextTurn, vec![Chord::shift("Tab")]);
-        bind(Action::ToggleOverlay, vec![Chord::key("KeyX")]);
         bind(Action::ToggleTextView, vec![Chord::key("KeyT")]);
         bind(Action::ToggleBrowser, vec![Chord::key("KeyG")]);
         bind(Action::HoldForStack, vec![Chord::key("F6")]);
@@ -874,6 +919,31 @@ mod tests {
         let prefs = Preferences::from_json("{\"keymap\": 7, not json at all");
         assert!(prefs.is_default());
         assert_eq!(prefs.keymap.chords(Action::Confirm), &[Chord::key("Space")]);
+    }
+
+    /// A row naming an action this client does not have costs that row, and
+    /// nothing else.
+    ///
+    /// The derived reader refused the whole map, and `from_json` answers a
+    /// refusal by throwing the file away — so removing one action (or reading
+    /// a blob written by a newer client that has one more) silently reset
+    /// every key the player had ever bound. Both directions are exercised
+    /// here, because they are the same bug seen from either end of an
+    /// upgrade.
+    #[test]
+    fn an_action_this_client_does_not_have_costs_one_row_and_not_the_map() {
+        let stored = r#"{"keymap":{
+            "confirm":[{"key":"KeyQ"}],
+            "toggle-overlay":[{"key":"KeyX"}],
+            "summon-a-dragon":[{"key":"KeyZ"}]
+        }}"#;
+        let prefs = Preferences::from_json(stored);
+        assert_eq!(
+            prefs.keymap.chords(Action::Confirm),
+            &[Chord::key("KeyQ")],
+            "the player's own binding was thrown away with the row beside it"
+        );
+        assert!(prefs.keymap.chords(Action::Cancel).is_empty());
     }
 
     #[test]

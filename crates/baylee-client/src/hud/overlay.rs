@@ -1,5 +1,5 @@
-//! The retained HUD tree: the seat tabs, the own-board overlay, and the
-//! one system that rebuilds all of it.
+//! The retained HUD tree: the seat tabs, the prompt slip, the stack, and
+//! the one system that rebuilds all of it.
 //!
 //! Rebuilt only when [`HudRevision`] says something it draws has changed —
 //! a rebuild per frame would cost more than the whole table does.
@@ -16,27 +16,6 @@ use baylee_client_core::interaction::Prompt;
 /// (`commanderdamage::LETHAL`) and nothing else, so a half-full bar means the
 /// same thing under every name at the table.
 const TRACK_W: f32 = 52.0;
-
-/// How much of the own-board overlay stands above the hand bar when it is
-/// closed — which is the knob, and nothing else.
-///
-/// One constant because it is one fact stated in three places: the knob's own
-/// height, and the closed `top` computed both where the panel is spawned and
-/// where it is animated. Written out three times, it was possible for the
-/// panel to be taller than the handle it is supposed to be showing, and it
-/// was: the tops of your own permanents stood above the hand bar, clipped to
-/// their title bars, looking exactly like cards left behind by the cards you
-/// had played.
-pub(crate) const KNOB_H: f32 = 14.0;
-
-/// The closed panel's `top`, given the window's height.
-///
-/// Paired with `bottom: HAND_BAR_H`, this makes the closed panel exactly
-/// [`KNOB_H`] tall — which is what the lanes container has to clip against.
-#[must_use]
-pub(crate) fn closed_overlay_top(window_h: f32) -> f32 {
-    window_h - HAND_BAR_H - KNOB_H
-}
 
 /// Removes the overlay when the duel hands the screen back.
 ///
@@ -148,7 +127,6 @@ pub fn sync_overlay(
     let ability_menu = duel.ability_menu;
     let ability_pick = duel.ability_pick;
     let focus = duel.focus;
-    let overlay_open = duel.overlay_open;
     let preview_scale = settings.preview_scale;
     let browser = (
         duel.browser.is_open(),
@@ -172,7 +150,6 @@ pub fn sync_overlay(
         && revision.orders.as_ref().is_some_and(|o| o.same_as(&orders))
         && revision.autopilot == autopilot
         && revision.focus == focus
-        && revision.overlay_open == overlay_open
         && (revision.preview_scale - preview_scale).abs() < f32::EPSILON
         && revision.faces == faces.always()
         && revision.texts == texts.len()
@@ -197,7 +174,6 @@ pub fn sync_overlay(
     revision.orders = Some(orders.clone());
     revision.autopilot = autopilot;
     revision.focus = focus;
-    revision.overlay_open = overlay_open;
     revision.preview_scale = preview_scale;
     revision.faces = faces.always();
     revision.texts = texts.len();
@@ -1102,7 +1078,7 @@ pub fn sync_overlay(
                         ..default()
                     },
                     BackgroundColor(palette::PANEL_LIT),
-                    overlay_shadow(),
+                    upward_shadow(),
                     ZIndex(10),
                     Pickable::IGNORE,
                     children![(
@@ -1236,29 +1212,6 @@ pub fn sync_overlay(
                 commands.entity(root).add_child(tail);
             }
         }
-    }
-
-    // ---- the own-board overlay (sliding layer over the ellipse) --------
-    if let Some(statics) = duel.statics.as_ref() {
-        let overlay = spawn_own_board_overlay(
-            &mut commands,
-            lang,
-            board,
-            view,
-            statics,
-            hovered,
-            &selected,
-            duel.armed.as_ref(),
-            duel.overlay_open,
-            duel.overlay_t,
-            window_h,
-            &mut textures,
-            &assets,
-            &fonts,
-            &faces,
-            cards.as_mut(),
-        );
-        commands.entity(root).add_child(overlay);
     }
 
     // ---- the stack (left of the rail, when non-empty) --------------------
@@ -1689,270 +1642,6 @@ pub(super) fn spawn_player_tab(
         commands.entity(row).add_child(worst);
     }
     tab
-}
-
-/// The own-board overlay: the local player's battlefield as big rounded
-/// cards in three lanes, floating above the shared ellipse canvas, with a
-/// shadow upwards. Slides down/up (X key or the knob on its top edge).
-#[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_lines)] // panel + knob + lanes are one flat build
-pub(super) fn spawn_own_board_overlay(
-    commands: &mut Commands,
-    lang: Lang,
-    board: &baylee_client_core::BoardModel,
-    view: &PlayerView,
-    statics: &GameStatic,
-    hovered: Option<ObjectId>,
-    selected: &[ObjectId],
-    armed: Option<&crate::Armed>,
-    open: bool,
-    overlay_t: f32,
-    window_h: f32,
-    textures: &mut CardTextures,
-    assets: &AssetServer,
-    fonts: &UiFonts,
-    faces: &FaceCtx<'_>,
-    mut cards: Option<&mut UiCards<'_>>,
-) -> Entity {
-    // Spawn already at the current slide position — spawning open and
-    // correcting next frame is the battlefield's flicker.
-    let open_top = TAB_H;
-    let closed_top = closed_overlay_top(window_h);
-    let initial_top = closed_top + (open_top - closed_top) * overlay_t;
-    let panel = commands
-        .spawn((
-            OwnBoardOverlay,
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(0),
-                right: px(RAIL_W), // 100% minus the phase rail
-                top: px(initial_top),
-                bottom: px(HAND_BAR_H), // 100% minus tabs and the hand bar
-                flex_direction: FlexDirection::Column,
-                row_gap: px(6),
-                // No knob row: the knob floats on the panel's edge, only
-                // the button itself is visible. The top gutter is the knob's
-                // own height, which is also what makes a *closed* panel show
-                // the knob and nothing else — at `KNOB_H` tall its content
-                // box is then zero, so the lanes below have nothing to clip.
-                padding: UiRect {
-                    top: px(KNOB_H),
-                    bottom: px(8),
-                    left: px(12),
-                    right: px(12),
-                },
-                ..default()
-            },
-            BackgroundColor(palette::PANEL),
-            ZIndex(1),
-            overlay_shadow(),
-            Pickable::IGNORE,
-        ))
-        .id();
-
-    // The knob: shallow, centered on the top edge, integrated into the
-    // border; the arrow shows the direction the panel will move.
-    let knob = commands
-        .spawn((
-            OverlayKnob,
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(-7),
-                left: percent(50),
-                margin: UiRect::left(px(-36)),
-                width: px(72),
-                height: px(KNOB_H),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border_radius: BorderRadius {
-                    top_left: px(7),
-                    top_right: px(7),
-                    ..default()
-                },
-                ..default()
-            },
-            BackgroundColor(palette::PANEL_LIT),
-            children![(
-                Text::new((if open { '\u{f078}' } else { '\u{f077}' }).to_string()),
-                icon_tf(fonts, 9.0),
-                TextColor(palette::MUTED),
-            )],
-        ))
-        .id();
-    commands.entity(panel).add_child(knob);
-
-    let Some(pod) = board.pods.iter().find(|p| p.is_local) else {
-        return panel;
-    };
-
-    // The lanes go in their own box, and that box clips vertically.
-    //
-    // A closed panel is exactly `KNOB_H` tall, and a card in it is
-    // `OVERLAY_CARD_H` — so without this the tops of your own permanents
-    // stand above the hand bar whenever the overlay is shut, which reads as
-    // cards left behind by the ones you played. Clipped on `y` only: a row
-    // that outgrows the panel sideways is a different question, and hiding
-    // its tail would be the lie rule 3 is about.
-    let lanes = commands
-        .spawn((
-            Node {
-                flex_grow: 1.0,
-                // Without this the clip below is decoration. A flex item's
-                // automatic minimum size is its *content*, so the box grew to
-                // hold a full card row and then clipped nothing — which is
-                // why the first attempt at this fix changed the picture by a
-                // few pixels and nothing else.
-                min_height: px(0),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(6),
-                overflow: Overflow::clip_y(),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(panel).add_child(lanes);
-
-    for lane in &pod.lanes {
-        if lane.groups.is_empty() {
-            continue;
-        }
-        let row = commands
-            .spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(6),
-                    height: px(OVERLAY_CARD_H),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        for group in &lane.groups {
-            let is_selected = group.members.iter().any(|m| selected.contains(m));
-            let is_hovered = hovered == Some(group.representative);
-            let shadow = if is_selected || is_hovered {
-                BoxShadow::new(
-                    palette::ACCENT,
-                    Val::Px(0.0),
-                    Val::Px(0.0),
-                    Val::Px(0.0),
-                    Val::Px(8.0),
-                )
-            } else {
-                soft_shadow()
-            };
-            let object = view.object(group.representative);
-            let built = object.and_then(|o| faces.object(o, textures, group.art));
-            // A token has no printing at all, so its face is the only thing
-            // there is to draw — before this the overlay skipped it entirely.
-            let image = match group.art {
-                Some(art) => textures.get(art, statics, assets),
-                None => textures.card_back(),
-            };
-            if built.is_none() && group.art.is_none() {
-                continue;
-            }
-            let visual = spawn_card_art(
-                commands,
-                lang,
-                image,
-                built.as_ref(),
-                OVERLAY_CARD_W,
-                OVERLAY_CARD_H,
-                crate::face::Detail::Compact,
-                fonts,
-                {
-                    // The same claims the table draws, drawn the same way:
-                    // what the rules made the card, and what the player could
-                    // do with it or has just said they will. The overlay is
-                    // where a seat looks at its own board, so it is the last
-                    // place those cues should be missing.
-                    let glow = crate::cardmat::glow_of(
-                        view.object(group.representative),
-                        crate::cardmat::Offer::on(armed, &group.members, group.activatable),
-                    );
-                    // And its body, for the same reason: the overlay draws the
-                    // same permanent through the same shader, so a 2/2 that is
-                    // a 4/4 on the table must not be a 2/2 here.
-                    let corner = baylee_client_core::cardplate::Corner::of(group);
-                    match group.art {
-                        Some(art) => CardLook::art(art, finish_of(statics, Some(art)), glow)
-                            .with_corner(corner),
-                        None => CardLook::back(FinishTreatment::Plain, glow).with_corner(corner),
-                    }
-                },
-                cards.as_deref_mut(),
-            );
-            let card = commands
-                .spawn((
-                    HandCardVisual {
-                        object: group.representative,
-                    },
-                    Node {
-                        width: px(OVERLAY_CARD_W),
-                        height: px(OVERLAY_CARD_H),
-                        border_radius: card_radius(OVERLAY_CARD_W),
-                        overflow: Overflow::clip(),
-                        ..default()
-                    },
-                    shadow,
-                    children![(
-                        // Count chip for grouped stacks.
-                        Text::new(if group.count() > 1 {
-                            format!("×{}", group.count())
-                        } else {
-                            String::new()
-                        }),
-                        tf(fonts, 12.0),
-                        TextColor(palette::INK),
-                        Node {
-                            position_type: PositionType::Absolute,
-                            right: px(3),
-                            bottom: px(2),
-                            ..default()
-                        },
-                    ),],
-                ))
-                .id();
-            commands.entity(card).add_child(visual);
-            commands.entity(row).add_child(card);
-        }
-        commands.entity(lanes).add_child(row);
-    }
-    panel
-}
-
-/// Slides the own-board overlay between its raised and its down position.
-/// Raised: pinned under the tab bar. Down: slid beneath the hand (which
-/// stays on top), with only the knob peeking above the hand bar so there
-/// is always a way back.
-pub fn animate_overlay(
-    time: Res<Time>,
-    mut duel: ResMut<Duel>,
-    windows: Query<&Window>,
-    mut panels: Query<&mut Node, With<OwnBoardOverlay>>,
-) {
-    let target = if duel.overlay_open { 1.0 } else { 0.0 };
-    let Ok(window) = windows.single() else {
-        return;
-    };
-    // The `top` is recomputed every frame, so window resizes stay honest
-    // even when the animation has settled.
-    if (duel.overlay_t - target).abs() >= f32::EPSILON {
-        let step = time.delta_secs() * 5.0;
-        duel.overlay_t = if (target - duel.overlay_t).abs() <= step {
-            target
-        } else {
-            duel.overlay_t + (target - duel.overlay_t).signum() * step
-        };
-    }
-    let open_top = TAB_H;
-    let closed_top = closed_overlay_top(window.height());
-    let top = closed_top + (open_top - closed_top) * duel.overlay_t;
-    for mut node in &mut panels {
-        node.top = px(top);
-    }
 }
 
 /// Whether the hovered object is a card printed on both sides.

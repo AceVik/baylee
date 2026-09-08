@@ -465,7 +465,6 @@ messages! {
     /// Skip to the next turn
     ActNextTurn { en: "Skip to the next turn", de: "Zum nächsten Zug springen" },
     /// Hide the board overlay
-    ActToggleOverlay { en: "Hide the board overlay", de: "Brett-Overlay ausblenden" },
     /// Read card text instead of art
     ActToggleTextView { en: "Read card text instead of art", de: "Kartentext statt Bild lesen" },
     /// Open the zone browser

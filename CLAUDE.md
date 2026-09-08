@@ -663,15 +663,25 @@ carries `Tonemapping::None` so a future Bevy default cannot quietly treat
 display values as radiance.
 
 The table nonetheless shipped as a black screen with two gold rings in it,
-and the cause was none of that: `OwnBoardOverlay` is an opaque
+and the cause was none of that: `OwnBoardOverlay` was an opaque
 `palette::PANEL` (88% black) the width of the canvas, and it **defaulted to
 open**, so the felt, the mats, the cards and every animation were behind it
-from the first frame. `Duel::overlay_open` is opt-in now. The felt was also
+from the first frame. It was made opt-in, and is now **gone entirely** — a
+second, flat drawing of the one board the camera already frames best was
+answering a question the 3D table had stopped asking, and the panel that
+could hide the whole game had no reason left to exist. The felt was also
 authored about four times too dark, which a one-sided "dark enough"
 assertion let through; that bound goes both ways now. `docs/client.md`
 §"The table itself" has the measurement that found it — a red clear colour
 renders `(234, 51, 35)` in stock Bevy and `(62, 19, 21)` here, and a clear
 colour touches no material, texture or shader.
+
+Removing an action is what made `Keymap`'s reader tolerant. It is
+`#[serde(transparent)]` over a map keyed by `Action`, so a stored blob naming
+`toggle-overlay` was refused *whole*, and `Preferences::from_json` answers a
+refusal with the defaults — every key a player had ever bound, lost to one
+retired row. An unknown name is now dropped and the rest of the map kept, in
+both directions of an upgrade.
 
 The **camera frames the table against the part of the window it is seen
 through**, which is not the window: the tab strip, the hand bar and the phase

@@ -235,17 +235,6 @@ pub struct Duel {
     pub autopilot: Option<AutoPilot>,
     /// Hand bar scroll offset in pixels.
     pub hand_scroll: f32,
-    /// Whether the own-board overlay is raised over the table.
-    ///
-    /// Default `false`, and the polarity is the point: the overlay is an
-    /// opaque panel the width of the canvas, so a default of "open" hides
-    /// the table, the mats, the cards and every animation on them behind a
-    /// sheet of `palette::PANEL`. It is opt-in (the `X` action, or the knob
-    /// on its edge), and the derived `Default` has to land on the table.
-    pub overlay_open: bool,
-    /// Slide position of the own-board overlay: 0.0 = down (closed),
-    /// 1.0 = raised (open). Animated towards `overlay_open`.
-    pub overlay_t: f32,
     /// Whether the preview resize handle is being dragged.
     pub resize_drag: bool,
     /// The taps the client is making on the player's behalf, if any.
@@ -631,7 +620,6 @@ impl Plugin for DuelPlugin {
                     table::apply_camera_rig,
                     hud::sync_overlay,
                     hud::apply_hand_scroll,
-                    hud::animate_overlay,
                     textures::drive_preloads,
                     textures::load_the_card_back,
                     textures::note_load_states,

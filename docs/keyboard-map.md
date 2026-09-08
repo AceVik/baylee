@@ -31,7 +31,6 @@ Two consequences worth knowing before changing anything here:
 | Look at your own board | `H` | implemented |
 | Aim the next attack (or block) at the next defender | `C` / `⇧C` | implemented |
 | Declare nothing — no attackers, or no blockers | `O` | implemented |
-| Slide the own-board overlay down/up | `X` (or the knob) | implemented |
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
 | Open the zone browser (graveyards, exile, the stack) | `G` (or a pile chip) | implemented |
