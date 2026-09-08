@@ -1244,7 +1244,11 @@ pub fn pointer(
         if let Some(tab) = find_in_lineage(e, &tabs, &parents) {
             // A seat is a legal target of what is being cast ("any target",
             // CR 115.4), so the tab is how a player points at a face. It only
-            // stops being a camera control while that is true.
+            // stops being a camera control while that is true — and a click
+            // past `max` is swallowed rather than moving the camera, because
+            // the player was aiming at a face and missing by one is not a
+            // request to look somewhere else. What it still lacks is the line
+            // saying so; that arrives with the slip.
             if let Some(i) = duel.interaction.as_mut()
                 && i.toggle_player(tab.player) != SelectionOutcome::Rejected
             {

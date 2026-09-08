@@ -278,6 +278,15 @@ pub(super) fn combat_line(
     statics: Option<&GameStatic>,
     lang: Lang,
 ) -> Option<String> {
+    // `focus_position` answers for a target prompt as well now, and the aim
+    // there points at the *first* half of the pair — a candidate, not a
+    // defender — so `combat_focus` has nothing to name and this line would
+    // read "aiming at nothing (1 of 3)" over an ordinary card choice. The one
+    // caller filters on `is_combat` already; the guard is here so the
+    // function's name is true whoever calls it.
+    if !interaction.is_combat() {
+        return None;
+    }
     let (position, count) = interaction.focus_position()?;
     let declared = interaction.declared();
     let aiming = count > 1;

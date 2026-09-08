@@ -893,16 +893,16 @@ refused for the reasons already given.
 Six commits, each with its tests, in dependency order. §11 carries them as
 one entry; this is what that entry unfolds into.
 
-1. **The model.** `crates/baylee-client-core/src/interaction.rs`: focus and
-   `cycle_focus`/`focus_position` over `options ++ player_options` in
-   `Mode::Objects`; a members-aware `toggle` that picks the next unchosen
-   offered member and takes the last one back when none is left; `take_back()`
-   replacing wholesale `cancel()` for picks; `assignments()` yielding
-   `Target` pairs with a `LineEnd` source kept from the deed that was sent;
-   `is_selectable` in `Mode::Blockers` answers for the focus, not the whole
-   candidate list. Tests: a stack of four yields two distinct members, `Full`
-   past `max`, a seat reachable by cycling, a ground creature not selectable
-   while the focus is on a flier.
+1. **The model.** *Landed.* `crates/baylee-client-core/src/interaction.rs`:
+   one ordered `Vec<Pick>` in place of the two lists, so "the last pick" has
+   an answer; `cycle_focus`/`focus_position`/`aim()` over
+   `options ++ player_options` in `Mode::Objects`; `toggle_group`, which picks
+   the next unchosen member and takes the last one back when none is left;
+   `take_back()` beside wholesale `cancel()`; `is_selectable` in
+   `Mode::Blockers` answers for the focus, not the whole candidate list.
+   Tests: a stack of four yields two distinct members, `Full` past `max`, a
+   seat reachable by cycling, a pick taken back one at a time, a ground
+   creature not selectable while the focus is on a flier.
 2. **The offer on the table.** `crates/baylee-client/src/cardmat.rs` and
    `table.rs`: `Offer::on` reads `is_selectable` over `members` while a
    question stands and lights `ACTIVATABLE`; a picked card drops it and lifts;
@@ -912,8 +912,11 @@ one entry; this is what that entry unfolds into.
    `crates/baylee-client/src/combatlines.rs`: `Line.from: LineEnd`,
    `LineKind::Target`, proposed lines from a source permanent or seat anchor,
    the still candle ring at an offered seat, the focus ring at a seat anchor.
-   Tests in `running`: a target line exists while proposed and is gone once
-   sent; a ring at a named seat point.
+   The pairs come from a reader over `Interaction::picks()` and the deed the
+   shell is holding — not from `assignments()`, which step 1 was drafted to
+   grow: the source of a target line is the deed just sent, and `Interaction`
+   has never seen it. Tests in `running`: a target line exists while proposed
+   and is gone once sent; a ring at a named seat point.
 4. **Input.** `crates/baylee-client/src/input.rs`: aim keys walk the offer and
    move the cursor; `HoverSource::Seat` and the click on it; an unoffered click
    is inert and says why; `Esc` takes back one. Test in

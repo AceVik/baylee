@@ -195,4 +195,30 @@ mod combat {
             .build();
         assert!(incoming_line(&view, None, None, Lang::En).is_none());
     }
+
+    #[test]
+    fn the_aim_line_says_nothing_about_a_card_choice() {
+        // A target prompt has an aim too, and it is aimed at the candidate a
+        // click would pick rather than at a defender — so `combat_focus` has
+        // nothing to name and this line, drawn anyway, would say "aiming at
+        // nothing (1 of 3)" every time a spell asked which card to discard.
+        let view = ViewBuilder::new(2).build();
+        let choice = baylee_engine::choice::Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: vec![
+                ObjectId::new(1, 0),
+                ObjectId::new(2, 0),
+                ObjectId::new(3, 0),
+            ],
+            min: 1,
+            max: 1,
+            prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
+        };
+        let interaction = baylee_client_core::Interaction::new(choice, PlayerId::new(0));
+        assert!(interaction.focus_position().is_some(), "there is an aim");
+        assert!(
+            combat_line(&interaction, &view, None, Lang::En).is_none(),
+            "but it is not a combat aim, and this line only speaks for combat"
+        );
+    }
 }
