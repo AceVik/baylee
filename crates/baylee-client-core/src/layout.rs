@@ -295,13 +295,26 @@ pub struct TableLayout {
 /// a span wider wastes its height, and only a span of the same shape wastes
 /// neither.
 ///
-/// `party` is how many seats the busiest side holds, and it divides the width
-/// because a side of two reaches twice as far along itself. Without it a
-/// two-headed table came out exactly twice the shape it asked for: the camera
-/// fitted it by width, the four boards sat in the top half of the window and
-/// the bottom half was bare felt.
-fn ring_for(ry: f32, aspect: f32, half_depth: f32, party: usize) -> Vec2 {
-    let rx = (aspect / party as f32)
+/// `party` is how many seats a side holds *on average*, and it divides the
+/// width because a side of two reaches twice as far along itself. Without it
+/// a two-headed table came out exactly twice the shape it asked for: the
+/// camera fitted it by width, the four boards sat in the top half of the
+/// window and the bottom half was bare felt.
+///
+/// The average and not the busiest side, which is what it was first written
+/// as. On a table where every side is a pair the two are the same number, so
+/// nothing about a two-headed game changes — but a *mixed* table has sides of
+/// one and sides of two, and taking the worst of them halved the whole ring
+/// for the sake of one side. Six seats as two pairs and two singles came out
+/// on a ring 7.7 by 11.2, an ellipse so much taller than it is wide that four
+/// of the six were pushed onto its flanks, and every board at the table
+/// collapsed to 3.6 units — a third of what the same six seats get sitting
+/// alone. What the ring has to carry is the whole table's demand spread over
+/// the sides it has; a side that asks for more than its share takes a longer
+/// stretch of its own side, and the compartments already know how to hand
+/// that out.
+fn ring_for(ry: f32, aspect: f32, half_depth: f32, party: f32) -> Vec2 {
+    let rx = (aspect / party)
         .mul_add(ry + half_depth, -half_depth - PILE_STRIP)
         .max(half_depth);
     Vec2::new(rx, ry)
@@ -624,12 +637,12 @@ impl TableLayout {
         let plain: Vec<f32> = vec![1.0; n];
 
         let even = demand(&plain);
-        // How far along itself the busiest side reaches, in compartments.
-        // It shapes the ring, because a side of two is twice as wide as a
-        // side of one on the same table.
-        let busiest = parties.iter().map(Vec::len).max().unwrap_or(1);
+        // How far along itself a side reaches, in compartments, averaged over
+        // the sides there are. It shapes the ring, because a side of two is
+        // twice as wide as a side of one on the same table.
+        let spread = n.max(1) as f32 / t.max(1) as f32;
         let narrowest = |ry: f32| {
-            let radius = ring_for(ry, aspect, half_depth, busiest);
+            let radius = ring_for(ry, aspect, half_depth, spread);
             let sides = sides_on(t, radius);
             let held = compartment_half(&sides, &even, radius, half_depth);
             pod_half_width(held, radius.x + half_depth) * 2.0
@@ -645,8 +658,7 @@ impl TableLayout {
             // The ceiling, in whichever of the two radii binds first on this
             // canvas: `x` is derived from `y` by the aspect, so a cap on `x`
             // is a cap on `y` once it is read back through the same division.
-            let by_x =
-                (MAX_RING_X + half_depth + PILE_STRIP) * busiest as f32 / aspect - half_depth;
+            let by_x = (MAX_RING_X + half_depth + PILE_STRIP) * spread / aspect - half_depth;
             let (mut lo, mut hi) = (clear, MAX_RING_Y.min(by_x).max(clear));
             if narrowest(hi) < MIN_POD_WIDTH {
                 // Past the cap the camera would have to pull back further
@@ -669,7 +681,7 @@ impl TableLayout {
                 hi
             }
         };
-        let radius = ring_for(ry, aspect, half_depth, busiest);
+        let radius = ring_for(ry, aspect, half_depth, spread);
         if n == 0 {
             return Self {
                 slots: Vec::new(),
@@ -1702,6 +1714,78 @@ mod tests {
                 layout.radius,
                 apart.radius
             );
+        }
+    }
+
+    /// A table where some seats are partnered and some are not.
+    ///
+    /// The gateway arranges any of these — `--teams 1,1,2` is a two-on-one,
+    /// `1,1,2,2,0` is two pairs and a player on their own — and a side of two
+    /// reaches twice as far along itself as a side of one. The board is still
+    /// one board: the rule is that every *seat* gets the same one, not every
+    /// side, so a lone player's mat is exactly as wide as each half of the
+    /// pair across from them. Anything else and the table tells a player
+    /// their board is the smaller one before the game has started.
+    #[test]
+    fn a_mixed_table_still_hands_out_one_board() {
+        for order in [
+            vec![Some(1u8), Some(1), Some(2)],
+            vec![Some(1u8), Some(1), None, None],
+            vec![Some(1u8), Some(1), Some(2), Some(2), None],
+            vec![Some(1u8), Some(2), Some(1), None, Some(2), None],
+        ] {
+            let table: Vec<Seat> = order
+                .iter()
+                .enumerate()
+                .map(|(i, &t)| Seat::on(PlayerId::new(i as u8), t))
+                .collect();
+            for aspect in [1.78_f32, 1.0] {
+                let layout = TableLayout::seated(&table, aspect, None);
+                assert_eq!(layout.slots.len(), order.len());
+                // The same two escapes as `every_seat_gets_the_same_board`:
+                // a ring that has stopped growing, and mats already against
+                // the centre channel with nothing to be crowded by.
+                let at_ceiling =
+                    layout.radius.x >= MAX_RING_X - 1e-3 || layout.radius.y >= MAX_RING_Y - 1e-3;
+                let at_channel = layout
+                    .slots
+                    .iter()
+                    .map(|slot| slot.center.length() - slot.half_extent.y)
+                    .fold(f32::INFINITY, f32::min)
+                    <= CENTRE_GAP * 0.5 + 1e-3;
+                for slot in &layout.slots {
+                    assert!(
+                        (slot.half_extent - layout.slots[0].half_extent).length() < 1e-3,
+                        "{order:?} at {aspect}: seat {} plays on {:?} against the local \
+                         seat's {:?}",
+                        slot.ring_index,
+                        slot.half_extent,
+                        layout.slots[0].half_extent
+                    );
+                    assert!(
+                        at_ceiling || at_channel || slot.lane_width() >= MIN_POD_WIDTH - 1e-2,
+                        "{order:?} at {aspect}: a seat plays on {}",
+                        slot.lane_width()
+                    );
+                }
+                // Partners still share a side, and a lone seat still has one
+                // to itself.
+                for (i, slot) in layout.slots.iter().enumerate() {
+                    for (j, other) in layout.slots.iter().enumerate().skip(i + 1) {
+                        let together = order[i].is_some() && order[i] == order[j];
+                        let same_side = (slot.facing - other.facing).abs() < 1e-4;
+                        assert_eq!(
+                            together, same_side,
+                            "{order:?} at {aspect}: seats {i} and {j} face {} and {}",
+                            slot.facing, other.facing
+                        );
+                        assert!(
+                            !grounds_overlap(slot, other),
+                            "{order:?} at {aspect}: seats {i} and {j} overlap"
+                        );
+                    }
+                }
+            }
         }
     }
 

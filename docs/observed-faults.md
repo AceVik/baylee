@@ -503,3 +503,25 @@ about the table itself rather than the rules, and both are fixed.
     function with four tests, because the alternative is reading it off a
     photograph. Stack entries and their targets now carry `HandCardVisual`,
     which is what `pointer_hover` looks for.
+
+36. **A mixed table halved its ring for the sake of one side.** *Fixed.*
+    Entry 32 gave `ring_for` the size of the busiest side, because a side of
+    two reaches twice as far along itself as a side of one and a two-headed
+    table without that came out twice the shape it asked for. On a table where
+    *every* side is a pair that is right. On a mixed one — `--teams 1,1,2` is
+    a two-on-one, `1,1,2,2,0` is two pairs and a player on their own — it took
+    the worst side and applied it to the whole ellipse. A two-on-one on a
+    square canvas came out on a ring 2.5 by 11.2, a sliver, and handed every
+    seat 9.9 units of board where the promise is 12; four seats as a pair and
+    two singles came out on the same sliver and collapsed to the one-card
+    floor, 2.0 units, where the mats then overlapped each other.
+
+    It is the *average* side now — the whole table's demand spread over the
+    sides it has. A uniform team table is unchanged, because there the average
+    and the worst are the same number; the mixed tables go 9.9 → 12.0 and
+    2.0 → 12.0, at no cost in camera distance. A side that asks for more than
+    its share takes a longer stretch of its own side, which is what the
+    compartments have always done. `a_mixed_table_still_hands_out_one_board`
+    walks four seatings at two aspects and asks the thing the seating is for:
+    one board, the same for everybody, partners sharing a side and nobody
+    overlapping.
