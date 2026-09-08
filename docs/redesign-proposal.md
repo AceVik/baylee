@@ -275,7 +275,7 @@ and fail only `can_pay`. `compute_legal` computes exactly that set on the
 way to `castable` and throws the mana-short half away. A single
 `sorcery_timing: bool` would be the wrong shape: it leaves the client
 deciding "is this an instant, does it have flash" from types and keywords,
-which is the inference §11 refuses. With the list, `reachable` becomes the
+which is the inference §12 refuses. With the list, `reachable` becomes the
 planner over `castable_if_paid \ castable`. Until it lands, `reachable` is
 what it is, the abort becomes a phrase (appendix), and §5's ledger opens
 only for `castable`/`reachable` and re-checks `castable` after every tap,
@@ -368,7 +368,7 @@ the cost before sending, by tapping what the player points at. Then greedy
 and manual agree, because there is nothing to disagree about. Where the pool
 already holds more than the cost (mana left over from earlier), the ledger
 shows the engine's assignment honestly instead of pretending it can steer.
-The engine item that lifts this is small and named in §10: `CastSpell {
+The engine item that lifts this is small and named in §11: `CastSpell {
 card, pay: Option<PoolPlan> }`, a per-pip assignment from the pool the engine
 validates like any other answer.
 
@@ -716,7 +716,222 @@ there.
 
 ---
 
-## 10. Sequencing
+## 10. Choosing a target
+
+This closes `docs/observed-faults.md` entry 20 — "target selection needs a
+real design" — for declaring attackers and blockers and for every question
+the engine answers with a list of things to click on
+(`Pending::ChooseTargets`, `ChooseObjects`, convoke and delve). A mode is not
+one of those: it is a list on the slip, not a pointing, and it belongs to the
+ability sheet's `Pick1..9` in §7. It is written against the prompt slip of
+§2.1; every step lands in today's prompt bar.
+
+### 10.1 One model: point this at that
+
+A pick is a pair — a thing, and what it is pointed at. An attacker is pointed
+at a defender, a blocker at an attacker, a target at the spell or ability that
+wants it. One state (`Interaction`), one drawing (`combat::Line`), one pair of
+keys for walking the second half (`CombatFocusNext`/`Prev`, whose names stay
+because a keymap is stored per account). The three differ only in **who
+supplies the second half**, and each difference is a fact the engine gives us.
+
+Attacking, the player supplies both halves: the engine lists the defenders
+(CR 508.1a) and the client carries a focus so the next creature tapped goes
+against the one aimed at. Blocking, the second half is somebody else's
+standing declaration, already on the felt from `view.combat`, and it is the
+one case where aiming changes what is offered: `BlockOption` is per blocker,
+so while the focus is on a flier the ground is not lit. That is what "never
+click and get refused" costs here, and it is cheap — the offer is re-read from
+the focus. Casting, the second half is fixed — the spell — so a pick collapses
+to a set, and the list can hold seats (`player_options`), as an attack
+does through `Defender::Player`. Nothing else differs.
+
+### 10.2 What is legal is lit; what is not is plain
+
+The perimeter light (channel C3, `glow::ACTIVATABLE`) means "the engine offers
+a click here". It is the only thing on the table that travels, and the border
+register has no spare bit under `MARK_SHIFT`. It needs none.
+`Interaction::legal_actions()` is `None` outside `Mode::Priority`, so the
+moment a question stands nothing is activatable and the light goes dark —
+exactly when the offer needs it. Same claim, same light: while a question
+stands, `Offer::on` reads `is_selectable` over the group's `members` instead
+of `LegalActions`, and the warm chase runs round every offered card in hand,
+on the felt and in the tray. Nothing can be confused, because the two readers
+are never lit at once. A counted stack lights when **any** member is offered,
+where `CardGroup::activatable` demands all — the click rule in §10.3 is what
+makes "any" honest. A stack stays a stack while it is picked from;
+`Individual::Targeted` is for spells already sent, and a group forking under
+the pointer mid-question is the fault `docs/design.md` §2.3 names.
+
+A seat is offered in both its bodies: its tab wears the hand bar's offer
+treatment, and on the felt a still candle ring stands at its `seat_anchor` —
+the focus ring's geometry, held still and dim, so aiming at a seat brightens
+something already there. It cannot be read as the focus ring: the focus is
+gold, breathes, and there is exactly one.
+
+What is not offered is drawn as it always is — not dimmed, not greyed: the
+lit set already says it, and a felt that goes dark under every spell makes
+the whole table flinch twice a turn. A click on it changes nothing and puts
+one line on the slip, `NotOffered`; hover, preview and an unoffered pile top
+work as they always did. A pile chip wears the offer when any card inside it
+is offered — delve and a reanimation target live nowhere else on the felt —
+and the browser it opens lights them one by one.
+`every_offered_object_is_drawn_somewhere` grows one clause — drawn *as
+offered* — and reads `is_selectable`, never the board model, or this ships
+the way Lock B did.
+
+One thing this does not solve and must not hide: `Interaction` is rebuilt on
+every `HostMessage::Choice`, so a question re-sent unchanged wipes the picks
+so far. `Pending: PartialEq` from `docs/design.md` §4 is the fix, and it is a
+protocol item, not something to route around here.
+
+### 10.3 Aiming: pointer, keys, and forty tokens
+
+A pointer aims by clicking. The keyboard aims two ways, both of which exist
+today for combat. The cursor (`W A S D`) walks the hand row and every lane's
+representative, and `E` picks what it stands on. `C`/`⇧C` — the aim keys —
+walk **what the question is pointed at**: the defenders when attacking, the
+attackers when blocking, and under a target prompt the offer itself, objects
+then seats, in the engine's order. Walking moves the cursor, so one highlight
+stands where the answer will land; a seat is a cursor position too
+(`HoverSource::Seat`), and the click key on it is `toggle_player`, which
+today has one caller and no key. `focus_position` answers for a target prompt
+as for combat, so the slip says `AimedAt Grizzly Bears (2 of 5)`; with one
+candidate the focus starts on it and the slip says nothing about aiming.
+
+A counted stack takes clicks like a card takes one. A click picks the next
+unchosen offered member; another picks another, up to `max`; when no unchosen
+member is left the click takes the last one back — on a single card, the
+toggle it always was. Which four of the forty is the engine's problem
+(`docs/design.md` §2.3). The badge over the stack, the one place UI text
+already stands over the felt, reads `StackPicked` — "2 of 4" — instead of
+"×4" while the stack holds picks. There is no count stepper: one click per
+pick is the currency everywhere.
+
+### 10.4 A pick drawn: proposed, then standing
+
+A picked card lifts (`SELECTED_LIFT`, channel C5) and stops wearing the offer
+light, as an armed card does — one border never says "you could" and "you
+did" at once. A convoke pick wears `WILL_TAP` on top of the lift, because
+that is what the bit means — this will be spent — and a creature about to be
+tapped for a spell is the same claim as a land the plan would tap. And a line
+ties the pick to what it is pointed at. `Line.from` becomes a `LineEnd` and
+`LineKind` gains `Target`. The source is **the client's own record**, not
+`view.stack`: the engine puts nothing on the stack until every cost is paid
+(`cast_wizard.rs`, "pays everything and puts the spell on the stack"), so
+while the question stands the deed just sent has to be kept — an ability's
+line starts at the permanent it was armed on, a spell from hand has no place
+on the felt and starts at the caster's `seat_anchor`; a seat target ends at
+that seat's anchor, as an attack at a face does. The drawer does not change
+— the same quads at `PROPOSED` weight, recomputed from live transforms.
+Attack lines stay `DANGER`; block and target lines are the seat's candle,
+and cannot be mistaken for each other because the engine asks one question
+at a time.
+
+Target lines exist **only while proposed**. Once sent, the stack panel names
+each target as its own small card and the permanent wears the shadow tint
+(C8, `Individual::Targeted`) that `docs/design.md` §1.5 reserves for it; a
+third copy is the fault `docs/design.md` §1.3 forbids. Combat is the
+exception for a reason on the felt: a standing attack keeps deciding who
+takes damage until the step ends, so its line stays at `STANDING` weight. The
+focus ring stands at whatever is aimed at — a card, or a seat's anchor.
+
+### 10.5 Counting to done
+
+The slip shows three lines and a button. The headline is today's
+(`ChooseExactly`, `ChooseUpTo`, `ChooseBetween`, `ConvokeToHelpPay`). Under
+it the tally, `SelectedOf` — "2 of 3 chosen" — which Appendix A already
+lists and this section shares rather than twins. Under that the aim line,
+only with more than one candidate. The button says what it will send:
+`SendTargets` when something is picked, `NoTargets` when `min` is zero and
+nothing is, `ConvokeNone` for a convoke paid with mana — inert until
+`can_confirm`. `Space` is the button.
+
+"Any number" and "up to N" end when the player says so, with the button. So
+does exactly one. The house's one-click line is "the whole cost comes out of
+the card, and the next untap undoes it"; a target fails both halves, and Lock
+A says a mis-sent answer spends the decision. So a single target is picked
+and then confirmed, and the payoff of two stages here is that **confirm is the
+one send for every count** — there is no count at which the last click
+becomes the only click. Arming each pick would be a third stage, and noise:
+the line and the lift already say "proposed", and Lock A is not at risk until
+`Space`. A pick past `max` — `toggle` answers `Full` silently today — draws
+`AtMost` on the slip and moves nothing.
+
+`Esc` takes back the **last** pick, one at a time; today's `cancel()` wipes
+the whole answer in `Mode::Objects`, and the keyboard map's "half-built
+answer" becomes "the last pick". `O` stays combat's wholesale word and is a
+real answer, not a clearing: `DeclareNone` sends. Cancelling the whole
+question is the honest gap. There is no `PlayerAction::Cancel`; the reversal
+fault 24 describes happens in the engine on a *refused* answer, and
+`Interaction` cannot build one — the door is closed by construction. For
+`min == 0` the answer is `NoTargets`, and the button says so. For `min ≥ 1`
+the way out is `docs/design.md` §4's `Cancel` before costs are paid, and
+until it exists the slip carries no button that lies. The blocker's decision
+clock (`docs/design.md` §3 item 12) is still not on the slip; that is the
+next fault, not this one.
+
+### 10.6 Refused here
+
+**Sending the moment the count is full.** "Up to three" is not finished at
+three; a player who wanted two and slipped on a third has just sent it. For
+"exactly one" it makes the last click the only click — Lock A with a
+friendlier name. `Space` sends, at every count.
+
+**Dimming everything else.** The offer is one claim drawn once. A felt that
+darkens under every spell says it a second time in the one channel — the
+whole table — the design keeps quiet.
+
+**Client-side legality.** Nothing in the client says "probably illegal" or
+greys a card on its own reading of hexproof. The offer is the engine's
+enumeration and nothing else; the day the client disagrees with the engine it
+should be visibly wrong, so the engine gets fixed. Drag to target stays
+refused for the reasons already given.
+
+### 10.7 The six steps
+
+Six commits, each with its tests, in dependency order. §11 carries them as
+one entry; this is what that entry unfolds into.
+
+1. **The model.** `crates/baylee-client-core/src/interaction.rs`: focus and
+   `cycle_focus`/`focus_position` over `options ++ player_options` in
+   `Mode::Objects`; a members-aware `toggle` that picks the next unchosen
+   offered member and takes the last one back when none is left; `take_back()`
+   replacing wholesale `cancel()` for picks; `assignments()` yielding
+   `Target` pairs with a `LineEnd` source kept from the deed that was sent;
+   `is_selectable` in `Mode::Blockers` answers for the focus, not the whole
+   candidate list. Tests: a stack of four yields two distinct members, `Full`
+   past `max`, a seat reachable by cycling, a ground creature not selectable
+   while the focus is on a flier.
+2. **The offer on the table.** `crates/baylee-client/src/cardmat.rs` and
+   `table.rs`: `Offer::on` reads `is_selectable` over `members` while a
+   question stands and lights `ACTIVATABLE`; a picked card drops it and lifts;
+   `stack_badge` reads `StackPicked`. Tests: placement of an offered stack, a
+   picked card, and `every_offered_object_is_drawn_as_offered`.
+3. **The lines.** `crates/baylee-client-core/src/combat.rs` and
+   `crates/baylee-client/src/combatlines.rs`: `Line.from: LineEnd`,
+   `LineKind::Target`, proposed lines from a source permanent or seat anchor,
+   the still candle ring at an offered seat, the focus ring at a seat anchor.
+   Tests in `running`: a target line exists while proposed and is gone once
+   sent; a ring at a named seat point.
+4. **Input.** `crates/baylee-client/src/input.rs`: aim keys walk the offer and
+   move the cursor; `HoverSource::Seat` and the click on it; an unoffered click
+   is inert and says why; `Esc` takes back one. Test in
+   `crates/baylee-client/tests/duel_flow.rs`: a spell's target chosen through
+   the aim keys and `Space`, never a hand-built `PlayerAction`.
+5. **The words.** `crates/baylee-client-core/src/i18n.rs` and
+   `crates/baylee-client/src/hud/overlay.rs`: the seven arms; the tally, the
+   stateful button, the `NotOffered` and `AtMost` lines; the seat tab's offer
+   treatment. Overlay tests per button state; `docs/keyboard-map.md` gains the
+   aim keys' second job.
+6. **The stack panel.** `crates/baylee-client/src/hud/stack.rs`: entries
+   become pickable, on top of §11 step 4, so a counterspell's target can
+   be clicked. Test: a `ChooseTargets` whose only option is on the stack is
+   answerable by click.
+
+---
+
+## 11. Sequencing
 
 Defects are handed over (§0) and are prerequisites, not steps. Each step is
 one review; each ends with the tests it names.
@@ -733,16 +948,21 @@ one review; each ends with the tests it names.
 5. **Ability sheet in parchment with digits** (§7). Depends on 4's
    `bubble::place`; `Pick1..9` in `Keymap::standard` and the keymap doc.
 6. **Search dialog** (§6). Sort/filter in the model, scroll, checkboxes,
-   tally; the search field through softkeys (needs 8's `TextBuffer` only for
+   tally; the search field through softkeys (needs 9's `TextBuffer` only for
    the caret — a plain buffer suffices to ship this earlier).
 7. **The frame** (§2): prompt slip, turn track, plaques on mats, pool bar
    only when non-empty, `pass_when_nothing_to_do` on with the `duel_flow`
    counts updated, `extent` covering the piles.
-8. **Lobby text** (§9): `TextBuffer`, native keys, password toggle,
+8. **Choosing a target** (§10). Six commits of its own — the model, the
+   offer on the table, the lines, input, the words, the stack panel — and
+   the last of them wants step 4's pickable stack. Here because it is what
+   entry 20 asks for and every question the engine puts a list in front of
+   already goes through it.
+9. **Lobby text** (§9): `TextBuffer`, native keys, password toggle,
    `autocomplete` per form, one `text_field`.
-9. **Payment ledger** (§5). Last because it is largest and because its full
-   form needs the engine item. Ships in the "pool holds exactly the cost"
-   form first.
+10. **Payment ledger** (§5). Last because it is largest and because its full
+    form needs the engine item. Ships in the "pool holds exactly the cost"
+    form first.
 
 **Protocol batch additions** (to `docs/design.md` §4):
 - `LegalActions::castable_if_paid: Vec<ObjectId>` (§3).
@@ -754,7 +974,7 @@ one review; each ends with the tests it names.
 
 ---
 
-## 11. Refused, in the spirit of `docs/design.md` §6
+## 12. Refused, in the spirit of `docs/design.md` §6
 
 - **Client-side legality of any kind** — "playable" is the offer, and where
   the offer lacks a bit (timing for `reachable`) the answer is a protocol
@@ -806,6 +1026,12 @@ than add a second.
 | `SortByType` | Type | Typ |
 | `SortByPlace` | Place | Ort |
 | `SelectedOf` | {0} of {1} chosen | {0} von {1} gewählt |
+| `SendTargets` | Confirm targets | Ziele bestätigen |
+| `NoTargets` | No targets | Keine Ziele |
+| `ConvokeNone` | Pay with mana | Mit Mana bezahlen |
+| `NotOffered` | Not on offer here | Steht hier nicht zur Wahl |
+| `AtMost` | No more than {0} | Höchstens {0} |
+| `StackPicked` | {0} of {1} | {0} von {1} |
 | `SearchPlaceholder` | Search by name… | Nach Namen suchen… |
 | `NoMatches` | Nothing matches | Kein Treffer |
 | `SheetMore` | More… | Mehr… |

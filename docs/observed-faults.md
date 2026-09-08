@@ -187,6 +187,14 @@ not by the order they were told, and nothing here is fixed yet.
     registry token, so it carries no token id and there is nothing to look
     up. That is entry 16 below, not this one.
 
+    The gateway's mirror needed no change to serve them: `/art` is keyed on a
+    well-formed id and the two shards derived from it, never on membership of
+    a print table, so a token id it has never seen is fetched and cached like
+    a printing. Worth writing down rather than assuming — a route that *did*
+    check the table would have 404ed every token on the lobby path while
+    working perfectly under `dev-table`, which fetches straight from the CDN
+    (entry 2), so the fault would have been invisible to every test made here.
+
 16. **A copy has no provenance.** A permanent that entered as a copy of
     something else says nowhere what it copied, and the copy's own abilities
     were not offered ("tap: draw a card" on a copy that has it).
@@ -224,6 +232,18 @@ not by the order they were told, and nothing here is fixed yet.
 
 20. **Target selection needs a real design.** Attacking and every other
     "choose a target" step.
+
+    *Designed, not yet built.* `docs/redesign-proposal.md` §10 is the design
+    and §10.7 the six commits it lands in. One model carries all of it: a
+    pick is a pair — a thing, and what it is pointed at — so an attacker
+    against a defender, a blocker against an attacker and a target against
+    its spell differ only in *who supplies the second half*, which is a fact
+    the engine already gives us in each case. What the engine offers is lit
+    with the perimeter light, which is free precisely while a question stands
+    (`legal_actions()` is `None` outside priority, so nothing is activatable
+    then); what it does not offer is drawn exactly as it always is, because a
+    felt that darkens under every spell says the same thing twice. `Space` is
+    the one send at every count and `Esc` takes back one pick.
 
 21. **Reanimation works but does not flow.**
 
