@@ -8,6 +8,7 @@
 
 mod art;
 mod auth;
+mod cosmetics;
 mod engine;
 mod lobby;
 mod mail;
@@ -88,6 +89,13 @@ struct AppState {
     /// being arranged. See `art.rs` for why this is the layer that may warm
     /// every deck at a table and a client is not.
     art: Arc<art::ArtCache>,
+    /// Uploaded deck sleeves and playmats
+    /// (`BAYLEE_DECK_IMAGE_PATH`, `off` to disable).
+    ///
+    /// An `Arc` because every upload and every read is handed to
+    /// `spawn_blocking`: decoding a photograph on the runtime's thread
+    /// would stall every socket the gateway is holding.
+    deck_images: Arc<cosmetics::Store>,
 }
 
 impl AppState {
@@ -152,6 +160,7 @@ async fn main() {
             .collect(),
         catalog,
         art: Arc::new(art::ArtCache::from_env()),
+        deck_images: Arc::new(cosmetics::Store::from_env()),
     });
     spawn_store_writer(state.clone(), save_rx);
     spawn_cleanup(state.clone());
@@ -181,6 +190,7 @@ async fn main() {
         .route("/lobby/games/{id}/rematch", post(rematch))
         .route("/lobby/ws", get(lobby_ws))
         .route("/games/{id}/ws", get(game_ws))
+        .route("/games/{id}/cosmetics", get(game_cosmetics))
         // The control and engine planes. Neither carries a player's traffic
         // and neither accepts a player's token; see `engine.rs`.
         .route("/agent/ws", get(engine::agent_ws))
@@ -193,6 +203,25 @@ async fn main() {
         // like the CDN it stands in for, and an id cache rather than a proxy —
         // see `art.rs`.
         .route("/art/{size}/{face}/{a}/{b}/{file}", get(art::art))
+        // Axum caps a body at 2 MB by default, which is under a phone
+        // photograph. The cap that matters is the one in `cosmetics`,
+        // checked again before anything is decoded.
+        // The kind rides in the query rather than the path, and not by
+        // preference: axum registers a route by its path before it looks at
+        // the method, so `/images/{kind}` and `/images/{file}` are the same
+        // route wearing two different parameter names, and building the
+        // router panics. It panicked at startup, which meant the gateway
+        // never bound its port and every end-to-end test in the crate failed
+        // with "connection refused" — a message that says nothing about
+        // routing. `/images` is the collection and `/images/{file}` is one
+        // member of it, which is the shape that had no conflict to resolve.
+        .route(
+            "/images",
+            post(cosmetics::upload).layer(axum::extract::DefaultBodyLimit::max(
+                cosmetics::MAX_UPLOAD_BYTES,
+            )),
+        )
+        .route("/images/{id}", get(cosmetics::serve))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
@@ -344,6 +373,7 @@ async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
         // and draw a whole table of constructed faces, so it is told here
         // rather than discovering it one blank card at a time.
         "art_cache": state.art.enabled(),
+        "deck_images": state.deck_images.enabled(),
     }))
 }
 
@@ -797,6 +827,17 @@ struct DeckBody {
     #[serde(default)]
     sideboard: Vec<String>,
     commander: Option<String>,
+    /// Image id of the deck's sleeve, from `POST /images?kind=sleeve`.
+    ///
+    /// Not validated against the image store: a sleeve that is not there is a
+    /// deck that draws the generated back, which is what a deck with no sleeve
+    /// does anyway. Refusing the whole deck over a decoration would be a much
+    /// worse failure than losing the decoration.
+    #[serde(default)]
+    sleeve: Option<String>,
+    /// Image id of the deck's playmat.
+    #[serde(default)]
+    playmat: Option<String>,
 }
 
 /// Hard cap on the expanded card count of one deck. Comfortably above
@@ -960,6 +1001,8 @@ async fn list_decks(
                 "cards": d.cards.len(),
                 "sideboard": d.sideboard.len(),
                 "commander": d.commander,
+                "sleeve": d.sleeve,
+                "playmat": d.playmat,
             })
         })
         .collect();
@@ -986,6 +1029,8 @@ async fn get_deck(
         "cards": deck.cards,
         "sideboard": deck.sideboard,
         "commander": deck.commander,
+        "sleeve": deck.sleeve,
+        "playmat": deck.playmat,
     })))
 }
 
@@ -1004,6 +1049,8 @@ async fn create_deck(
         cards: body.cards,
         sideboard: body.sideboard,
         commander: body.commander,
+        sleeve: body.sleeve,
+        playmat: body.playmat,
         updated_at: auth::now_secs(),
     };
     let id = deck.id.clone();
@@ -1032,6 +1079,8 @@ async fn update_deck(
     deck.cards = body.cards;
     deck.sideboard = body.sideboard;
     deck.commander = body.commander;
+    deck.sleeve = body.sleeve;
+    deck.playmat = body.playmat;
     deck.updated_at = auth::now_secs();
     state.request_save();
     Ok(StatusCode::NO_CONTENT)
@@ -2178,6 +2227,57 @@ async fn game_ws(
     Ok(ws.on_upgrade(move |socket| run_game_socket(state, id, seat, socket)))
 }
 
+/// `GET /games/{id}/cosmetics?token=…` — every seat's sleeve and playmat.
+///
+/// The one route decorations travel on, and the reason they do not travel with
+/// the game: `GameStatic` is rules data and a view is what a seat is entitled
+/// to know, while a sleeve is a fact about a *deck*. The gateway is the layer
+/// that knows which deck sits in which chair, so answering here costs no
+/// `VIEW_VERSION` and leaves the engine as ignorant of decoration as it is of
+/// card text.
+///
+/// Authorised by the same seat token as the game socket, which is the honest
+/// bound: this says nothing a player will not see the moment the first card is
+/// drawn face-down in front of them, and nothing at all about a deck's
+/// contents.
+async fn game_cosmetics(
+    State(state): State<Shared>,
+    Path(id): Path<String>,
+    Query(params): Query<WsParams>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let lobby = state.lobby.lock();
+    let game = lobby
+        .games
+        .get(&id)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+    let token_hash = auth::token_hash(&params.token);
+    if !game.seats.iter().any(|s| {
+        s.seat_token_hash
+            .as_ref()
+            .is_some_and(|h| auth::ct_eq(h, &token_hash))
+    }) {
+        return Err(err(StatusCode::UNAUTHORIZED, "invalid seat token"));
+    }
+    // Seats with nothing set are left out rather than sent as empty objects:
+    // a table where nobody uploaded anything is `{}`, and the client's answer
+    // to "no entry" and to "an entry with no sleeve" has to be the same thing
+    // anyway — draw the generated back.
+    let mut seats = cosmetics::TableCosmetics::new();
+    for seat in &game.seats {
+        let Some(deck) = seat.deck.as_ref() else {
+            continue;
+        };
+        let worn = cosmetics::SeatCosmetics {
+            sleeve: deck.sleeve.clone(),
+            playmat: deck.playmat.clone(),
+        };
+        if !worn.is_empty() {
+            seats.insert(seat.seat, worn);
+        }
+    }
+    Ok(Json(serde_json::json!(seats)))
+}
+
 /// The names shown at each seat of a game, in seat order.
 ///
 /// The rules kernel has never heard of an account, so the roster is assembled
@@ -2436,6 +2536,8 @@ mod tests {
             cards: cards.iter().map(|s| (*s).to_string()).collect(),
             sideboard: Vec::new(),
             commander: commander.map(ToString::to_string),
+            sleeve: None,
+            playmat: None,
             updated_at: 0,
         }
     }

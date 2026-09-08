@@ -505,6 +505,9 @@ which is what turned this from a curl recipe into a contract:
 | save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commander}` | `{deck_id}` |
 | edit one | `PUT /decks/{id}` — same body | `204` |
 | throw one away | `DELETE /decks/{id}` | `204` |
+| upload a sleeve or mat | `POST /images?kind=sleeve\|playmat`, the image as the raw body | `{id, kind}` |
+| fetch one | `GET /images/{id}` | the stored JPEG |
+| what a table wears | `GET /games/{id}/cosmetics?token=…` | `{"<seat>":{sleeve, playmat}}` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
 | a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |
 | tables | `GET /lobby/games?q=&offset=&limit=` | `{games:[{id, name, host, yours, state, seats:[…]}], total, offset, limit}` |
@@ -566,6 +569,40 @@ URL.
 
 `seat` in the answer is a hint. The table states which chair this is, in the
 opening payload below, and the client believes the table.
+
+### Sleeves and playmats
+
+A deck carries two pictures: the back its cards are seen from, and the mat its
+controller plays on. Both are optional, both are `Deck` fields (`sleeve`,
+`playmat`) holding the id of an uploaded image, and a deck with neither is the
+ordinary case — the client then draws the *generated* back from
+`tabletop::card_back`, which is what `docs/legal.md` §2 requires: the printed
+back of a Magic card is somebody's trademark, and arithmetic is nobody's.
+
+Uploading is `POST /images?kind=…` with the picture as the raw body — one
+field needs no multipart parser — and it takes an account, so filling the disk
+takes an account first. What comes back is a content hash, which makes the
+same picture uploaded twice one file and makes `GET /images/{id}` cacheable
+forever. An image is stored at exactly one size per kind (a sleeve at 488×680,
+the same pixels as a card face; a mat at 1024×512), re-encoded on the way in
+rather than served as it arrived — an upload is otherwise a way to hand every
+other player at the table an arbitrary file to decode.
+
+The shape is settled **twice**, on purpose. The client's crop tool
+(`client-core::crop`) is where a player chooses which part of their picture is
+used, and it sends a rectangle already of the target's shape; the gateway then
+centre-crops whatever reaches it before scaling, because `resize_exact` on its
+own squashes and not every upload comes through that tool. The two agree by
+construction rather than by luck: both derive the width from the height with
+the same integer division, so a picture the tool cut is its own centred crop
+and the gateway finds nothing to do. Two roundings that merely agreed to
+within a pixel would still trim a column off every deliberate framing.
+
+Cosmetics never enter the engine. `GameStatic` is rules data, and what a seat's
+cards look like from the back changes no rule, so a client asks the *gateway* —
+which already knows every seat's deck — with the seat token it is already
+holding. `VIEW_VERSION` is untouched by any of this, and a client that does
+not ask simply plays with generated backs.
 
 ### Rooms
 

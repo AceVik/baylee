@@ -11,6 +11,12 @@ dist/
 # images are cached at runtime and never committed.
 art-cache/
 
+# the gateway store of pictures a player uploads for a deck: its sleeve and
+# its playmat (BAYLEE_DECK_IMAGE_PATH). Out of the repo for the same reason
+# art-cache is, and because the tree already carries one untracked file that
+# must never be committed.
+deck-images/
+
 # local configuration (see .env.example)
 .env
 

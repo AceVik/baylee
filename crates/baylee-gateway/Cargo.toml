@@ -19,6 +19,11 @@ baylee-protocol.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 getrandom.workspace = true
+# Uploaded sleeves and playmats are decoded before they are stored — the
+# decode *is* the validation. Already in the tree via the client, so this
+# adds nothing to audit; the extra formats are the ones a player's own
+# picture actually arrives in.
+image = { workspace = true, features = ["jpeg"] }
 lettre.workspace = true
 parking_lot.workspace = true
 prost.workspace = true

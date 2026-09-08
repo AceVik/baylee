@@ -53,6 +53,9 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     let store_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{port}.json"));
     let _ = std::fs::remove_file(&store_path);
     let agent_token = format!("test-agent-secret-{port}");
+    // Beside the store and named the same way, so a failure that outlives the
+    // run leaves both halves of the evidence in one place.
+    let stderr_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{port}.stderr"));
     let loud = std::env::var("GATEWAY_DEBUG").is_ok();
     let child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
         // The gateway reads `data/acceptance-decks.txt` for the house deck by
@@ -68,22 +71,43 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         // working directory — which it did, once, before this line existed.
         // A test that reaches the network is a test that fails on a train.
         .env("BAYLEE_ART_PATH", "off")
+        // Nor an image directory. Same rule as the line above: a new
+        // env switch with an "on" default is live in this whole suite
+        // without any test mentioning it, and a suite that writes
+        // files into the working directory leaves a mess.
+        .env("BAYLEE_DECK_IMAGE_PATH", "off")
         .env("RUST_LOG", if loud { "info" } else { "off" })
         .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
         .stdout(std::process::Stdio::null())
+        // Kept, not discarded. A gateway that fails on the way up says why on
+        // its stderr, and throwing that away leaves every test in the crate
+        // failing with "connection refused" from the *first* request — which
+        // names the symptom and not one thing about the cause. It cost a
+        // debugging session to a router the process never got past building.
         .stderr(if loud {
             std::process::Stdio::inherit()
         } else {
-            std::process::Stdio::null()
+            std::fs::File::create(&stderr_path)
+                .map_or_else(|_| std::process::Stdio::null(), Into::into)
         })
         .spawn()
         .expect("spawn gateway");
+    let mut up = false;
     for _ in 0..50 {
         if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            up = true;
             break;
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
+    assert!(
+        up,
+        "the gateway never bound port {port}. Its own words:\n{}",
+        std::fs::read_to_string(&stderr_path)
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "(nothing on stderr — run with GATEWAY_DEBUG=1)".to_string())
+    );
     Gateway {
         port,
         agent_token,
@@ -243,4 +267,44 @@ fn workspace_root() -> std::path::PathBuf {
         .join("../..")
         .canonicalize()
         .expect("the workspace root is above this crate")
+}
+
+/// The same client for a body that is not text, and an answer that is not
+/// either.
+///
+/// A picture cannot go through [`http`]: a JPEG is not UTF-8 in either
+/// direction, and `read_to_string` on the reply fails before the status can
+/// be read. The header block still is text, so it is split off as bytes and
+/// only then read as one.
+#[allow(dead_code)] // only the cosmetics tests upload anything
+pub fn http_bytes(
+    port: u16,
+    method: &str,
+    path: &str,
+    token: Option<&str>,
+    content_type: &str,
+    body: &[u8],
+) -> (u16, Vec<u8>) {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect http");
+    let auth = token.map_or(String::new(), |t| format!("Authorization: Bearer {t}\r\n"));
+    let head = format!(
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: {content_type}\r\n{auth}Content-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    stream.write_all(head.as_bytes()).expect("write head");
+    stream.write_all(body).expect("write body");
+    let mut raw = Vec::new();
+    stream.read_to_end(&mut raw).expect("read http");
+    let split = raw
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .expect("a header block");
+    let header = String::from_utf8_lossy(&raw[..split]).to_string();
+    let status: u16 = header
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .expect("http status");
+    (status, raw[split + 4..].to_vec())
 }

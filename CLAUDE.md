@@ -114,6 +114,9 @@ no rules" in `docs/protocol.md` for the whole circle.
 Env vars: gateway takes `PORT`, `STORE_PATH` (default `gateway-store.json` in
 the working directory, and *not* gitignored), `BAYLEE_ART_PATH` (the card-art
 mirror, default `art-cache/` and gitignored; `off` disables it),
+`BAYLEE_DECK_IMAGE_PATH` (the sleeve and the playmat a player uploads for a
+deck, default `deck-images/` and gitignored for the same reason; `off` or an
+empty value refuses uploads outright),
 `BAYLEE_REGISTRATION=off`,
 `BAYLEE_TRUSTED_PROXIES`, `DATABASE_URL`, `BAYLEE_AGENT_TOKEN` (the shared
 secret an agent presents; without it no agent may connect), `BAYLEE_SMTP_URL`

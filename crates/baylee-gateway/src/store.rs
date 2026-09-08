@@ -86,6 +86,16 @@ pub struct Deck {
     pub sideboard: Vec<String>,
     /// Commander card name, if any.
     pub commander: Option<String>,
+    /// Image id of the sleeve this deck's cards show face-down.
+    ///
+    /// Defaulted, like the sideboard above and for the same reason: a deck
+    /// saved before decks had a sleeve still loads as one without a sleeve.
+    /// `None` means the client draws its own generated back.
+    #[serde(default)]
+    pub sleeve: Option<String>,
+    /// Image id of the playmat this deck's seat plays on.
+    #[serde(default)]
+    pub playmat: Option<String>,
     /// Last update (unix seconds).
     pub updated_at: u64,
 }
