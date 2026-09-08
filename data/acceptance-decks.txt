@@ -29,7 +29,7 @@
 1 Flawless Maneuver
 1 Flooded Strand
 1 Force of Will
-2 Forest
+4 Forest
 1 Great Divide Guide
 1 Hagra Diabolist
 1 Halimar Excavator
@@ -41,7 +41,7 @@
 1 Homeward Path
 1 Indatha Triome
 1 Inspirit, Flagship Vessel
-2 Island
+4 Island
 1 Jasmine Dragon Tea Shop
 1 Jin-Gitaxias, Progress Tyrant
 1 Karn, the Great Creator
@@ -54,6 +54,7 @@
 1 Maskwood Nexus
 1 Mirrorhall Mimic
 1 Misty Rainforest
+1 Mountain
 1 Mox Opal
 1 Mycosynth Lattice
 1 Mystical Tutor
@@ -65,7 +66,7 @@
 1 Path of Ancestry
 1 Path to Exile
 1 Phyrexian Metamorph
-2 Plains
+4 Plains
 1 Polluted Delta
 1 Privileged Position
 1 Progenitor Mimic
@@ -86,6 +87,7 @@
 1 Spirit Water Revival
 1 Storm of Saruman
 1 Surgical Metamorph
+1 Swamp
 1 Swords to Plowshares
 1 Taiga
 1 Temple Garden
