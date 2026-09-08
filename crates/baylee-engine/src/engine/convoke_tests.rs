@@ -220,3 +220,96 @@ fn answering_the_convoke_question_does_not_ask_it_again() {
         "the cast changed nothing at all"
     );
 }
+
+/// A refused cast must not leave the question it was asking on the table.
+///
+/// Reported from a live game against a waterbend card: "sie wollte von mir 99
+/// Targets, hat 5 Mana gekostet und als ich keine Targets bestimmen konnte,
+/// kam nur die Meldung für invalid targets oder costs und ab hier war das
+/// Spiel gar nicht mehr spielbar."
+///
+/// The last clause is what this pins. The convoke question offers `min: 0`,
+/// so declining to tap anything is a legal answer — and castability is
+/// computed with the *maximum* convoke already subtracted, so declining it
+/// can leave a cost the pool cannot pay. `finish_cast` then refuses and tears
+/// the wizard down, CR 601.2h reversing the whole casting.
+///
+/// This was written to prove that the refusal orphaned the wizard's question:
+/// `Engine::apply` propagates `apply_inner`'s error with `?`, which is before
+/// it reaches `run_until_choice`. **It does not.** The test passed the first
+/// time it ran, so the engine already hands priority back here, and the
+/// unplayable table in that report has some other cause. It stays as the pin
+/// that says so.
+#[test]
+fn a_cast_that_cannot_pay_hands_priority_back() {
+    let mut engine = Duel::new(4, plains())
+        .hand(0, &[clever_concealment()])
+        .battlefield(0, &[plains(), plains(), ondu_cleric(), ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    let seat = PlayerId::new(0);
+    reach_main_phase(&mut engine, seat);
+
+    tap_all_lands(&mut engine, seat);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority")
+    };
+    // The premise: two Plains float {W}{W}, and the engine offers a {2}{W}{W}
+    // spell anyway because two untapped creatures *could* convoke the {2}.
+    let card = *legal
+        .castable
+        .first()
+        .expect("convoke makes the spell castable on two lands");
+
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the spell is castable");
+
+    // Answer every question the wizard asks with "nothing", which is legal
+    // for both of them and is what leaves the cost unpayable.
+    let mut refused = None;
+    for _ in 0..8 {
+        match engine.pending().clone() {
+            Pending::ChooseTargets { .. } => {
+                if let Err(err) = engine.apply(
+                    seat,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![],
+                        players: vec![],
+                    },
+                ) {
+                    refused = Some(err);
+                    break;
+                }
+            }
+            Pending::Priority { .. } => break,
+            other => panic!("unexpected question during the cast: {other:?}"),
+        }
+    }
+    assert!(
+        refused.is_some(),
+        "the engine paid a cost it had no mana for"
+    );
+
+    // The claim: after the refusal the seat is asked something it can answer.
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "the refused cast left its own question standing: {:?}",
+        engine.pending()
+    );
+    // And the spell is back in hand with nothing spent â the other half of
+    // CR 601.2h, already true before this fix and worth pinning beside it.
+    assert!(
+        engine.state().zones.stack_is_empty(),
+        "the unpayable spell reached the stack"
+    );
+    for id in permanents(&engine, seat) {
+        if engine.state().object(id).is_some_and(|o| {
+            o.characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+        }) {
+            assert!(!is_tapped(&engine, id), "a creature was convoked anyway");
+        }
+    }
+}
