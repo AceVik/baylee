@@ -294,8 +294,14 @@ pub struct TableLayout {
 /// same shape as the canvas. A span taller than the canvas wastes its width,
 /// a span wider wastes its height, and only a span of the same shape wastes
 /// neither.
-fn ring_for(ry: f32, aspect: f32, half_depth: f32) -> Vec2 {
-    let rx = aspect
+///
+/// `party` is how many seats the busiest side holds, and it divides the width
+/// because a side of two reaches twice as far along itself. Without it a
+/// two-headed table came out exactly twice the shape it asked for: the camera
+/// fitted it by width, the four boards sat in the top half of the window and
+/// the bottom half was bare felt.
+fn ring_for(ry: f32, aspect: f32, half_depth: f32, party: usize) -> Vec2 {
+    let rx = (aspect / party as f32)
         .mul_add(ry + half_depth, -half_depth - PILE_STRIP)
         .max(half_depth);
     Vec2::new(rx, ry)
@@ -618,8 +624,12 @@ impl TableLayout {
         let plain: Vec<f32> = vec![1.0; n];
 
         let even = demand(&plain);
+        // How far along itself the busiest side reaches, in compartments.
+        // It shapes the ring, because a side of two is twice as wide as a
+        // side of one on the same table.
+        let busiest = parties.iter().map(Vec::len).max().unwrap_or(1);
         let narrowest = |ry: f32| {
-            let radius = ring_for(ry, aspect, half_depth);
+            let radius = ring_for(ry, aspect, half_depth, busiest);
             let sides = sides_on(t, radius);
             let held = compartment_half(&sides, &even, radius, half_depth);
             pod_half_width(held, radius.x + half_depth) * 2.0
@@ -635,7 +645,8 @@ impl TableLayout {
             // The ceiling, in whichever of the two radii binds first on this
             // canvas: `x` is derived from `y` by the aspect, so a cap on `x`
             // is a cap on `y` once it is read back through the same division.
-            let by_x = (MAX_RING_X + half_depth + PILE_STRIP) / aspect - half_depth;
+            let by_x =
+                (MAX_RING_X + half_depth + PILE_STRIP) * busiest as f32 / aspect - half_depth;
             let (mut lo, mut hi) = (clear, MAX_RING_Y.min(by_x).max(clear));
             if narrowest(hi) < MIN_POD_WIDTH {
                 // Past the cap the camera would have to pull back further
@@ -658,7 +669,7 @@ impl TableLayout {
                 hi
             }
         };
-        let radius = ring_for(ry, aspect, half_depth);
+        let radius = ring_for(ry, aspect, half_depth, busiest);
         if n == 0 {
             return Self {
                 slots: Vec::new(),
@@ -1636,6 +1647,20 @@ mod tests {
                     );
                 }
             }
+
+            // And it is still the shape of the canvas. A side of two reaches
+            // twice as far along itself as a side of one, and the ring was
+            // shaped as though it did not: the table came out exactly twice
+            // as wide as it asked to be, the camera fitted it by width, and
+            // all four boards sat in the top half of the window with bare
+            // felt under them.
+            let (min, max) = layout.extent().expect("a seated table has an extent");
+            let span = max - min;
+            assert!(
+                (span.x / span.y - 1.78).abs() < 0.15,
+                "{order:?}: the table came out {} ({span:?})",
+                span.x / span.y
+            );
 
             // And the whole point of it: a table of two sides is a smaller
             // table than one of four, so the camera comes in rather than

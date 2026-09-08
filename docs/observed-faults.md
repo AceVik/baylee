@@ -426,3 +426,12 @@ about the table itself rather than the rules, and both are fixed.
     does not give a node's place back; only `Display::None` does, and a face
     that left the layout would resize the frame halfway through the turn. Both
     faces are absolutely positioned now, one on top of the other.
+
+32. **A two-headed table came out twice the shape it asked for.** *Fixed.*
+    The ring is sized so the whole span is the shape of the canvas — that is
+    what `ring_for` is — and it measured the span as one board per side. A
+    side of two reaches twice as far along itself, so the table was twice as
+    wide as it asked to be: the camera fitted it by width, all four boards
+    sat in the top half of the window, and the bottom half was bare felt.
+    The busiest side's party divides the width now, and the team test asserts
+    the span's shape as well as the seating.
