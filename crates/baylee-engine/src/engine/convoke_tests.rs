@@ -234,12 +234,13 @@ fn answering_the_convoke_question_does_not_ask_it_again() {
 /// can leave a cost the pool cannot pay. `finish_cast` then refuses and tears
 /// the wizard down, CR 601.2h reversing the whole casting.
 ///
-/// This was written to prove that the refusal orphaned the wizard's question:
-/// `Engine::apply` propagates `apply_inner`'s error with `?`, which is before
-/// it reaches `run_until_choice`. **It does not.** The test passed the first
-/// time it ran, so the engine already hands priority back here, and the
-/// unplayable table in that report has some other cause. It stays as the pin
-/// that says so.
+/// This was written to prove that the refusal orphaned the wizard's
+/// question: `Engine::apply` propagates `apply_inner`'s error with `?`, which
+/// is before it reaches `run_until_choice`. It does not — the wizard's own
+/// error branch resumes the game before returning. The first version of this
+/// test therefore passed, and was wrong to: it asked only for
+/// `Pending::Priority` and never for *whose*, and the answer was the
+/// opponent's. `waterbend_tests` has the reproduction that named the seat.
 #[test]
 fn a_cast_that_cannot_pay_hands_priority_back() {
     let mut engine = Duel::new(4, plains())
@@ -291,9 +292,12 @@ fn a_cast_that_cannot_pay_hands_priority_back() {
         "the engine paid a cost it had no mana for"
     );
 
-    // The claim: after the refusal the seat is asked something it can answer.
+    // The claim: after the refusal *this* seat is asked something it can
+    // answer. Naming the seat is the whole assertion — the first version of
+    // this test only asked for `Pending::Priority` and passed while the
+    // question went to the opponent, which is the bug it was written to find.
     assert!(
-        matches!(engine.pending(), Pending::Priority { .. }),
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat),
         "the refused cast left its own question standing: {:?}",
         engine.pending()
     );

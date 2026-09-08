@@ -503,3 +503,5 @@ mod token_tests;
 mod w1_tests;
 #[cfg(test)]
 mod walker_tests;
+#[cfg(test)]
+mod waterbend_tests;

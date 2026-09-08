@@ -326,6 +326,9 @@ impl<L: CardLookup> Engine<L> {
     /// Drives the wizard forward until it needs an answer or finishes.
     #[allow(clippy::too_many_lines)] // the wizard is a flat stage machine; extraction would obscure it
     pub(crate) fn advance_cast_wizard(&mut self) -> Result<(), EngineError> {
+        // Read before the stages run: `finish_cast` nulls the wizard itself
+        // on the way out, so by the error branch there is nobody left to ask.
+        let caster = self.cast_wizard.as_ref().map(|w| w.player);
         let result = self.advance_cast_wizard_inner();
         if result.is_err() {
             // A cast that fails mid-wizard (payment, late target legality)
@@ -333,7 +336,29 @@ impl<L: CardLookup> Engine<L> {
             // of leaving a consumed choice pending.
             self.cast_wizard = None;
             self.awaiting_answer = false;
-            self.run_until_choice();
+            // CR 601.2h reverses the *whole* casting, so the game returns to
+            // the moment before it began — and that includes whose priority
+            // it was. Nothing in the wizard path touches `passes` or
+            // `priority_holder`, so re-asking the caster is the exact
+            // restore. Resuming through `run_until_choice` instead walked
+            // the priority round on to the next seat, because to
+            // `priority_round` a holder who is no longer being asked has
+            // taken their turn: a player whose waterbend could not be paid
+            // was told "cannot pay the total cost" and then lost the rest of
+            // their own main phase to a spell that never happened.
+            if let Some(player) = caster
+                && self.priority_holder == Some(player)
+            {
+                self.pending = Pending::Priority {
+                    player,
+                    legal: Box::new(self.compute_legal(player)),
+                };
+                self.awaiting_answer = true;
+            } else {
+                // A cast that did not start from a priority round (cascade,
+                // a miracle offer) has no such moment to return to.
+                self.run_until_choice();
+            }
         }
         result
     }
