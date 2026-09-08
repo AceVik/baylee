@@ -344,6 +344,27 @@ draws as a name with an empty plate, never as a missing entry.
 
 Keyed by printing id — no API call is needed to render a board.
 
+**A token is the one thing on the table with no printing**, and for a long
+time that meant it had no picture: `card` was `None`, so the board model
+asked for nothing, the renderer fell back to drawing the card's own face, and
+a Soldier was a flat white rectangle with its name across it. An `ImageKey`
+therefore names an `ImageSource` — a `Print` or a `Token` — and a token's id
+is the one the engine already stamps on the object (`PublicObject::token`,
+whose doc says it exists for exactly this). What it resolves through is
+`TokenDef::scryfall_id`, a printed token card chosen per token in
+`baylee-cards/src/tokens.rs`, and the choice is deliberate: the picture
+carries the token's printed text, so a 4/4 Angel with flying may not wear the
+art of the 4/4 Angel with flying *and vigilance* that most sets print.
+
+Two consequences of putting the lookup on `TokenDef` rather than in the
+client. It is a `resolve` **parameter** and not a process-wide cell, because
+`baylee-client-core` does not link the card registry (the `manaplan` /
+`manasources` seam) and because a cell set on one path is already a known
+fault — `ART_BASE` is that, and `docs/observed-faults.md` entry 2 is where it
+is written down. And a **copy** token still has no picture: it is a copy of a
+card rather than of a registry token, carries `token: None`, and waits on the
+provenance work rather than borrowing somebody else's art.
+
 **Where the bytes come from is one process-wide setting.** By default the
 Scryfall CDN; when `GET /auth/config` says `art_cache`, the gateway's own
 mirror instead (`images::use_art_base`, and `docs/protocol.md` §"Card art" for

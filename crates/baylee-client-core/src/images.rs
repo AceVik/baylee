@@ -88,6 +88,25 @@ impl Face {
     }
 }
 
+/// What a picture belongs to.
+///
+/// Almost everything on the table is a printing, and a printing is an index
+/// into the game's print table. A token is the exception and has to be: it is
+/// not in anybody's deck, so there is no printing to point at — the engine
+/// stamps it with the id of the token definition that made it
+/// (`baylee_view::PublicObject::token`) and that number is the whole handle.
+///
+/// Both live in one key so a token's picture goes through the same cache, the
+/// same budget and the same eviction as every other, rather than growing a
+/// second half-implemented path beside them.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum ImageSource {
+    /// A printing in the game's print table.
+    Print(PrintRef),
+    /// A token, by its stable id in the compiled card registry's token list.
+    Token(u16),
+}
+
 /// A compact, copyable cache key.
 ///
 /// Deliberately not string-keyed: a table holds thousands of these and a
@@ -95,8 +114,8 @@ impl Face {
 /// in [`GameStatic`] turns it back into a URL when one is actually needed.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct ImageKey {
-    /// Index into the game's print table.
-    pub print: PrintRef,
+    /// What the picture belongs to.
+    pub source: ImageSource,
     /// Which face.
     pub face: Face,
     /// Which rendition.
@@ -108,9 +127,35 @@ impl ImageKey {
     #[must_use]
     pub const fn new(print: PrintRef, face_index: u8, size: ArtSize) -> Self {
         Self {
-            print,
+            source: ImageSource::Print(print),
             face: Face::from_index(face_index),
             size,
+        }
+    }
+
+    /// Builds a key for a token's picture at a size.
+    ///
+    /// Always the front: a token has one side.
+    #[must_use]
+    pub const fn token(id: u16, size: ArtSize) -> Self {
+        Self {
+            source: ImageSource::Token(id),
+            face: Face::Front,
+            size,
+        }
+    }
+
+    /// The printing this key names, if it names one.
+    ///
+    /// A token answers `None`, which is the right answer to every question
+    /// the print table can be asked about it — its finish, whether this seat
+    /// has earned it, whether it is worth preloading. A token is public, has
+    /// no finish and is in no deck.
+    #[must_use]
+    pub const fn printing(self) -> Option<PrintRef> {
+        match self.source {
+            ImageSource::Print(print) => Some(print),
+            ImageSource::Token(_) => None,
         }
     }
 
@@ -217,7 +262,17 @@ pub fn image_url(entry: &PrintEntry, face: Face, size: ArtSize) -> Option<String
 /// binary.
 #[must_use]
 pub fn image_url_at(base: &str, entry: &PrintEntry, face: Face, size: ArtSize) -> Option<String> {
-    let id = entry.scryfall_id.as_str();
+    art_url_at(base, entry.scryfall_id.as_str(), face, size)
+}
+
+/// The URL for a bare Scryfall id.
+///
+/// The half of [`image_url_at`] that has nothing to do with the print table,
+/// split out because a token has no [`PrintEntry`] and needs exactly this —
+/// and because a token's picture is served from the same shelf as a card's,
+/// which is the reason none of the transport below had to learn about tokens.
+#[must_use]
+pub fn art_url_at(base: &str, id: &str, face: Face, size: ArtSize) -> Option<String> {
     // Scryfall shards by the first two characters of the id.
     let mut chars = id.chars();
     let a = chars.next()?;
@@ -239,14 +294,39 @@ pub fn image_url_at(base: &str, entry: &PrintEntry, face: Face, size: ArtSize) -
 }
 
 /// Resolves a key against the game's print table into a fetchable request.
+///
+/// `token_art` answers a token id with the Scryfall id of the printed token
+/// card whose picture it wears. It is a parameter rather than a lookup made
+/// here because that table lives in the compiled card registry, which this
+/// crate deliberately does not link (the same seam
+/// `baylee_client_core::manaplan` and `manasources` are split along) — and a
+/// parameter rather than a process-wide cell because a cell set on one path
+/// and quietly missing on the others is what entry 2 of
+/// `docs/observed-faults.md` already is.
 #[must_use]
-pub fn resolve(statics: &GameStatic, key: ImageKey) -> Option<ImageRequest> {
-    let entry = statics.print(key.print)?;
-    Some(ImageRequest {
-        key,
-        url: image_url(entry, key.face, key.size)?,
-        treatment: entry.finish.into(),
-    })
+pub fn resolve(
+    statics: &GameStatic,
+    key: ImageKey,
+    token_art: impl Fn(u16) -> Option<&'static str>,
+) -> Option<ImageRequest> {
+    match key.source {
+        ImageSource::Print(print) => {
+            let entry = statics.print(print)?;
+            Some(ImageRequest {
+                key,
+                url: image_url(entry, key.face, key.size)?,
+                treatment: entry.finish.into(),
+            })
+        }
+        // A token is not a piece of cardboard anybody opened, so it has no
+        // finish: it is drawn plain however the deck it came out of was
+        // printed.
+        ImageSource::Token(id) => Some(ImageRequest {
+            key,
+            url: art_url_at(art_base(), token_art(id)?, key.face, key.size)?,
+            treatment: FinishTreatment::Plain,
+        }),
+    }
 }
 
 // ------------------------------------------------------------------- budget
@@ -441,6 +521,11 @@ mod tests {
         }
     }
 
+    /// The token table a test that is not about tokens brings: empty.
+    fn no_token_art(_: u16) -> Option<&'static str> {
+        None
+    }
+
     fn key(print: u16, size: ArtSize) -> ImageKey {
         ImageKey::new(PrintRef::new(print), 0, size)
     }
@@ -448,7 +533,7 @@ mod tests {
     #[test]
     fn url_follows_the_scryfall_cdn_sharding_scheme() {
         let s = statics();
-        let req = resolve(&s, key(0, ArtSize::Small)).expect("resolves");
+        let req = resolve(&s, key(0, ArtSize::Small), no_token_art).expect("resolves");
         assert_eq!(
             req.url,
             "https://cards.scryfall.io/small/front/f/3/f333ea01-124f-4125-87ab-609be40e774c.jpg"
@@ -493,15 +578,15 @@ mod tests {
     fn back_faces_and_sizes_select_different_paths() {
         let s = statics();
         let back = ImageKey::new(PrintRef::new(0), 1, ArtSize::Normal);
-        let req = resolve(&s, back).expect("resolves");
+        let req = resolve(&s, back, no_token_art).expect("resolves");
         assert!(req.url.contains("/normal/back/"));
     }
 
     #[test]
     fn finish_travels_as_a_treatment_not_a_separate_image() {
         let s = statics();
-        let foil = resolve(&s, key(1, ArtSize::Small)).expect("resolves");
-        let plain = resolve(&s, key(0, ArtSize::Small)).expect("resolves");
+        let foil = resolve(&s, key(1, ArtSize::Small), no_token_art).expect("resolves");
+        let plain = resolve(&s, key(0, ArtSize::Small), no_token_art).expect("resolves");
         assert_eq!(foil.treatment, FinishTreatment::Foil);
         // Same size and face, different printings: different files.
         assert_ne!(foil.url, plain.url);
@@ -520,16 +605,47 @@ mod tests {
         }));
         let nil = key(3, ArtSize::Small);
         assert!(
-            resolve(&s, nil).is_none(),
+            resolve(&s, nil, no_token_art).is_none(),
             "the renderer must draw a card back rather than fetch a certain 404"
         );
     }
 
     #[test]
+    fn a_token_is_fetched_from_the_same_shelf_as_a_card() {
+        // Nothing in the print table, and a picture all the same: the whole
+        // point of a token key. Tokens used to resolve to nothing, so every
+        // one of them was drawn as a flat coloured rectangle with its name
+        // written across it.
+        let s = statics();
+        let key = ImageKey::token(9, ArtSize::Small);
+        let req = resolve(&s, key, |id| {
+            (id == 9).then_some("2f40613b-1bde-4939-86ad-6bd40f9db0d6")
+        })
+        .expect("resolves");
+        assert_eq!(
+            req.url,
+            "https://cards.scryfall.io/small/front/2/f/2f40613b-1bde-4939-86ad-6bd40f9db0d6.jpg"
+        );
+        // A token is nobody's printing, so it is nobody's foil either.
+        assert_eq!(req.treatment, FinishTreatment::Plain);
+        assert_eq!(key.printing(), None, "a token names no printing");
+    }
+
+    #[test]
+    fn a_token_with_no_picture_is_drawn_rather_than_fetched() {
+        // The counter-test, and the reason `TokenDef::scryfall_id` may be
+        // empty at all: a token nobody has chosen art for must fall back to
+        // its own face, not issue a request built out of an empty id.
+        let s = statics();
+        assert!(resolve(&s, ImageKey::token(9, ArtSize::Small), |_| Some("")).is_none());
+        assert!(resolve(&s, ImageKey::token(9, ArtSize::Small), no_token_art).is_none());
+    }
+
+    #[test]
     fn an_implausible_printing_id_yields_no_request() {
         let s = statics();
-        assert!(resolve(&s, key(2, ArtSize::Small)).is_none());
-        assert!(resolve(&s, key(99, ArtSize::Small)).is_none());
+        assert!(resolve(&s, key(2, ArtSize::Small), no_token_art).is_none());
+        assert!(resolve(&s, key(99, ArtSize::Small), no_token_art).is_none());
     }
 
     #[test]
@@ -597,7 +713,7 @@ mod tests {
         let small = key(0, ArtSize::Small);
         let normal = small.at(ArtSize::Normal);
         assert_ne!(small, normal);
-        assert_eq!(small.print, normal.print);
+        assert_eq!(small.printing(), normal.printing());
 
         let mut budget = TextureBudget::new(DESKTOP_BUDGET_BYTES);
         budget.insert(small);

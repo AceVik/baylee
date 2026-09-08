@@ -457,9 +457,13 @@ impl Browser {
                 out.push(BrowseRow {
                     id: object.id,
                     name: object.name.clone(),
+                    // Same fallback as the board's: a token has no printing
+                    // but does have a picture, and the row beside its badge
+                    // is the one place a player reads a token as a card.
                     art: object
                         .card
-                        .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+                        .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
+                        .or_else(|| object.token.map(|t| ImageKey::token(t, ArtSize::Small))),
                     zone,
                     selectable,
                     selected: mine.is_some_and(|it| it.is_selected(object.id)),

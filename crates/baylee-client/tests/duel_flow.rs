@@ -858,10 +858,20 @@ fn the_static_payload_lets_every_board_card_resolve_to_an_image() {
     let board = client.board.expect("a board model");
 
     for key in board.required_images() {
-        assert!(
-            statics.print(key.print).is_some(),
-            "the print table must cover every card the board wants to draw"
-        );
+        // A token is on no print table — it is in nobody's deck — so the two
+        // sources answer separately, and every key the board asks for has to
+        // be answered by exactly one of them.
+        match key.printing() {
+            Some(print) => assert!(
+                statics.print(print).is_some(),
+                "the print table must cover every card the board wants to draw"
+            ),
+            None => assert!(
+                baylee_client_core::images::resolve(&statics, key, baylee_client::tokenart::of)
+                    .is_some(),
+                "the registry must cover every token the board wants to draw"
+            ),
+        }
     }
 }
 

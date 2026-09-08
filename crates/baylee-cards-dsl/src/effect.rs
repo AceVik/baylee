@@ -69,6 +69,20 @@ pub struct TokenDef {
     pub keywords: KeywordSet,
     /// Activated and triggered abilities, read exactly like a card face's.
     pub abilities: &'static [crate::ability::AbilityDef],
+    /// A printed token card whose picture this token wears.
+    ///
+    /// The same third-party identifier [`crate::CardDef::scryfall_id`]
+    /// carries, and here for the same reason: a token has no printing of its
+    /// own in the game's print table, so without an id the client has nothing
+    /// to draw and falls back to a flat coloured rectangle with the name
+    /// written on it. Which is what a token looked like.
+    ///
+    /// It is rules data only in the sense that the rest of this struct is —
+    /// the engine never reads it, and the picture is fetched at run time from
+    /// a third party like every other card image (`docs/legal.md` §3). Empty
+    /// means "no picture chosen", and a client draws the face instead rather
+    /// than issuing a request that cannot succeed.
+    pub scryfall_id: &'static str,
 }
 
 impl TokenDef {
@@ -87,6 +101,7 @@ impl TokenDef {
         toughness: None,
         keywords: KeywordSet::EMPTY,
         abilities: &[],
+        scryfall_id: "",
     };
 }
 

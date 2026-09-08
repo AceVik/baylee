@@ -171,6 +171,22 @@ not by the order they were told, and nothing here is fixed yet.
 
 15. **Tokens render ugly.** They should carry pictures the way Forge's do.
 
+    *Fixed for the tokens the registry defines.* A token has no printing, so
+    the board model asked for no image at all and the renderer fell back to
+    drawing the card's own face — which is what a flat coloured rectangle
+    with a name across it was. An `ImageKey` now names a `Print` **or** a
+    `Token`, the id being the one the engine already stamps on the object,
+    and each of the fourteen `TokenDef`s carries the Scryfall id of a printed
+    token card. Chosen one at a time rather than by search, because the
+    picture carries the token's printed text: the Angel is the Shadows over
+    Innistrad 4/4 with flying and *not* one of the many 4/4 Angels with
+    flying and vigilance, and the Army is the Lord of the Rings Orc Army,
+    since no card prints a bare "Army".
+
+    Still bare: a **copy** token. It is a copy of a card rather than of a
+    registry token, so it carries no token id and there is nothing to look
+    up. That is entry 16 below, not this one.
+
 16. **A copy has no provenance.** A permanent that entered as a copy of
     something else says nowhere what it copied, and the copy's own abilities
     were not offered ("tap: draw a card" on a copy that has it).

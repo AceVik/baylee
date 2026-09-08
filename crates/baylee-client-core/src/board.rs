@@ -1009,9 +1009,15 @@ fn card_group(obj: &PublicObject, individual: Option<Individual>, activatable: b
         status: obj.status,
         counters: obj.counters.clone(),
         badges: KeywordBadge::from_bits(obj.keywords),
+        // A token has no printing, so for as long as this read only `card` a
+        // token had no picture and the renderer fell back to drawing its
+        // face: a flat coloured rectangle with a name across it, which is
+        // what forty Soldiers looked like. The engine stamps the token id on
+        // the object for exactly this, and `PublicObject::token` says so.
         art: obj
             .card
-            .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+            .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
+            .or_else(|| obj.token.map(|t| ImageKey::token(t, ArtSize::Small))),
         is_token: obj.card.is_none(),
         summoning_sick: obj.summoning_sick,
         activatable,
@@ -1502,6 +1508,46 @@ mod tests {
     }
 
     #[test]
+    fn a_registry_token_asks_for_a_picture_and_a_copy_token_does_not() {
+        // Two permanents with no printing between them, and only one of them
+        // can be drawn: a Soldier the registry knows carries the token id its
+        // art is keyed on, while a token some clone effect made is a copy of
+        // a *card* and has no registry entry to point at. It waits on the
+        // provenance work (entry 16 of `docs/observed-faults.md`), and until
+        // then it is right that it falls back to its face rather than to
+        // somebody else's picture.
+        let mut soldier = token(1, 0, "Soldier", 1, 1);
+        soldier.token = Some(8);
+        let clone = token(2, 0, "Bear", 2, 2);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![soldier, clone])
+            .build();
+        let m = model(&view);
+        let lane = m
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane");
+        let art = |name: &str| {
+            lane.groups
+                .iter()
+                .find(|g| g.name == name)
+                .expect("group")
+                .art
+        };
+        assert_eq!(
+            art("Soldier"),
+            Some(ImageKey::token(8, ArtSize::Small)),
+            "a registry token knows which picture it wears"
+        );
+        assert_eq!(art("Bear"), None, "a copy token has no registry art");
+        assert!(
+            m.required_images()
+                .contains(&ImageKey::token(8, ArtSize::Small)),
+            "the token's picture has to be asked for, or nothing fetches it"
+        );
+    }
+
+    #[test]
     fn each_pod_is_measured_against_its_own_row() {
         // Seats do not get equal space, so the collapse cannot be decided by
         // one width for the whole table: the same four Soldiers are four
@@ -1584,7 +1630,7 @@ mod tests {
 
         let keys = m.required_images();
         assert_eq!(keys.len(), 1);
-        let request = resolve(&table, keys[0]).expect("the print table resolves it");
+        let request = resolve(&table, keys[0], |_| None).expect("the print table resolves it");
         assert!(
             request
                 .url

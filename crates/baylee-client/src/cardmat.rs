@@ -554,7 +554,7 @@ impl UiCards<'_> {
 /// `GameStatic.prints` withholds.
 #[must_use]
 pub fn finish_of(statics: &baylee_view::GameStatic, art: Option<ImageKey>) -> FinishTreatment {
-    art.and_then(|key| statics.print(key.print))
+    art.and_then(|key| statics.print(key.printing()?))
         .map_or(FinishTreatment::Plain, |entry| entry.finish.into())
 }
 
@@ -873,14 +873,10 @@ pub(crate) mod tests {
     /// nothing else, or a board of forty Islands stops being one material.
     #[test]
     fn a_look_is_shared_by_exactly_what_looks_the_same() {
-        use baylee_client_core::images::{ArtSize, Face};
+        use baylee_client_core::images::ArtSize;
         use baylee_core::ids::PrintRef;
 
-        let key = ImageKey {
-            print: PrintRef(0),
-            face: Face::Front,
-            size: ArtSize::Normal,
-        };
+        let key = ImageKey::new(PrintRef(0), 0, ArtSize::Normal);
         let plain = CardLook::art(key, FinishTreatment::Plain, 0);
         assert_eq!(plain, CardLook::art(key, FinishTreatment::Plain, 0));
         assert_ne!(

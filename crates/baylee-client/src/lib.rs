@@ -64,6 +64,7 @@ pub mod settingsui;
 pub mod softkeys;
 pub mod table;
 pub mod textures;
+pub mod tokenart;
 
 use baylee_client_core::automation::{self, AutoPilot, Situation};
 use baylee_client_core::board::BoardModel;

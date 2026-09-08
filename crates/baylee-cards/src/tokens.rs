@@ -112,6 +112,9 @@ pub static ALLY_1_1_WHITE: TokenDef = TokenDef {
     subtypes: &[creature::ALLY],
     power: Some(1),
     toughness: Some(1),
+    // TLA #8 — Avatar: The Last Airbender, the set the three cards that
+    // make this token come from.
+    scryfall_id: "01439983-8394-4a0c-9e9e-92a3f1927fe3",
     ..TokenDef::DEFAULT
 };
 
@@ -124,6 +127,9 @@ pub static ANGEL_4_4_WHITE_FLYING: TokenDef = TokenDef {
     power: Some(4),
     toughness: Some(4),
     keywords: KeywordSet::FLYING,
+    // SOI #1 — flying and nothing else. Most Angel tokens in print are
+    // 4/4 flying *and vigilance*, and their picture says so on the card.
+    scryfall_id: "bdb975fe-ac30-4249-bb55-7efb64645e4d",
     ..TokenDef::DEFAULT
 };
 
@@ -137,6 +143,10 @@ pub static ARMY_0_0_BLACK: TokenDef = TokenDef {
     subtypes: &[creature::ARMY],
     power: Some(0),
     toughness: Some(0),
+    // LTR #6, an Orc Army: no card prints a bare "Army", because amass
+    // always names a creature type, and Orcish Bowmasters is the only
+    // card in the pool that makes one.
+    scryfall_id: "db598f33-2ff9-4e0b-a067-05fecc03435f",
     ..TokenDef::DEFAULT
 };
 
@@ -149,6 +159,8 @@ pub static BIRD_1_1_WHITE_FLYING: TokenDef = TokenDef {
     power: Some(1),
     toughness: Some(1),
     keywords: KeywordSet::FLYING,
+    // DMU #2, Aether Channeler's own set.
+    scryfall_id: "5f3034f6-145f-4e60-9e55-c4054fd8e70f",
     ..TokenDef::DEFAULT
 };
 
@@ -159,6 +171,8 @@ pub static BLOOD: TokenDef = TokenDef {
     types: TypeSet::ARTIFACT,
     subtypes: &[artifact::BLOOD],
     abilities: SACRIFICE_TO_LOOT,
+    // VOW #17, the set that introduced Blood.
+    scryfall_id: "a6f374bc-cd29-469f-808a-6a6c004ee8aa",
     ..TokenDef::DEFAULT
 };
 
@@ -170,6 +184,8 @@ pub static BOAR_2_2_GREEN: TokenDef = TokenDef {
     subtypes: &[creature::BOAR],
     power: Some(2),
     toughness: Some(2),
+    // THS #8, Curse of the Swine's own set.
+    scryfall_id: "2f40613b-1bde-4939-86ad-6bd40f9db0d6",
     ..TokenDef::DEFAULT
 };
 
@@ -179,6 +195,8 @@ pub static CLUE: TokenDef = TokenDef {
     types: TypeSet::ARTIFACT,
     subtypes: &[artifact::CLUE],
     abilities: SACRIFICE_TO_DRAW,
+    // SOI #13, the set that introduced Clues.
+    scryfall_id: "271afa7e-2126-4497-b871-9795b7355d69",
     ..TokenDef::DEFAULT
 };
 
@@ -190,6 +208,8 @@ pub static CONSTRUCT_0_0: TokenDef = TokenDef {
     subtypes: &[creature::CONSTRUCT],
     power: Some(0),
     toughness: Some(0),
+    // MH2 #16, Urza's Saga's own set.
+    scryfall_id: "a7caaf39-8f16-4f1d-bee6-a45674306319",
     ..TokenDef::DEFAULT
 };
 
@@ -200,6 +220,8 @@ pub static FOOD: TokenDef = TokenDef {
     types: TypeSet::ARTIFACT,
     subtypes: &[artifact::FOOD],
     abilities: SACRIFICE_TO_GAIN_LIFE,
+    // ELD #15, the set that introduced Food.
+    scryfall_id: "bf36408d-ed85-497f-8e68-d3a922c388a0",
     ..TokenDef::DEFAULT
 };
 
@@ -211,6 +233,9 @@ pub static ILLUSION_X_BLUE: TokenDef = TokenDef {
     colors: ColorSet::from_slice(&[Color::Blue]),
     types: TypeSet::CREATURE,
     subtypes: &[creature::ILLUSION],
+    // ZNR #6, Skyclave Apparition's own set — and the one Illusion token
+    // in print with no fixed size, which is what this token is.
+    scryfall_id: "2300635e-7771-4676-a5a5-29a9d8f49f1a",
     ..TokenDef::DEFAULT
 };
 
@@ -222,6 +247,8 @@ pub static SHAPESHIFTER_1_1_CHANGELING: TokenDef = TokenDef {
     power: Some(1),
     toughness: Some(1),
     keywords: KeywordSet::CHANGELING,
+    // LRW #11, Crib Swap's own set.
+    scryfall_id: "1a7d89ca-8611-4bda-b5c8-0350ce091102",
     ..TokenDef::DEFAULT
 };
 
@@ -234,6 +261,8 @@ pub static SHAPESHIFTER_2_2_BLUE_CHANGELING: TokenDef = TokenDef {
     power: Some(2),
     toughness: Some(2),
     keywords: KeywordSet::CHANGELING,
+    // KHM #8, Maskwood Nexus's own set.
+    scryfall_id: "ef775ad0-b1a9-4254-ab6f-304558bb77a1",
     ..TokenDef::DEFAULT
 };
 
@@ -245,6 +274,9 @@ pub static SOLDIER_1_1_WHITE: TokenDef = TokenDef {
     subtypes: &[creature::SOLDIER],
     power: Some(1),
     toughness: Some(1),
+    // DMU #4. Elspeth's own set prints no Soldier token of its own, and a
+    // 1/1 white Soldier is the same card in every set that does.
+    scryfall_id: "8c4b0257-2ca5-4015-9d63-d7cf6e87ab9d",
     ..TokenDef::DEFAULT
 };
 
@@ -255,6 +287,8 @@ pub static TREASURE: TokenDef = TokenDef {
     types: TypeSet::ARTIFACT,
     subtypes: &[artifact::TREASURE],
     abilities: SACRIFICE_FOR_ANY_COLOR,
+    // RNA #12, Smothering Tithe's own set.
+    scryfall_id: "0559f9f3-eff0-465d-93c1-e875a8afe87f",
     ..TokenDef::DEFAULT
 };
 
@@ -340,6 +374,46 @@ mod tests {
             offenders.is_empty(),
             "these card files define tokens instead of using `crate::tokens`: {offenders:?}"
         );
+    }
+
+    /// A token with no picture is the flat coloured rectangle this file's
+    /// art keys exist to replace, and a *malformed* id is worse than none:
+    /// the client builds a URL out of it and fetches a guaranteed 404 every
+    /// time the token is drawn. Both are build failures, because neither is
+    /// visible from anywhere but the felt.
+    ///
+    /// The shape checked here is the one `baylee_client_core::images` will
+    /// accept — a hyphenated 36-character UUID that is not the nil one.
+    #[test]
+    fn every_token_names_a_picture_the_client_can_fetch() {
+        for token in ALL {
+            let id = token.scryfall_id;
+            assert!(!id.is_empty(), "{} has no art", token.name);
+            assert_eq!(id.len(), 36, "{}: {id} is not a UUID", token.name);
+            assert!(id.contains('-'), "{}: {id} is not a UUID", token.name);
+            assert!(
+                !id.chars().all(|c| c == '0' || c == '-'),
+                "{}: the nil UUID is well-formed and always wrong",
+                token.name
+            );
+            assert!(
+                id.chars().all(|c| c.is_ascii_hexdigit() || c == '-'),
+                "{}: {id} is not hexadecimal",
+                token.name
+            );
+        }
+    }
+
+    /// Two tokens sharing a picture is not an error — a 1/1 and a 2/2
+    /// Shapeshifter could reasonably wear the same art — but it has never
+    /// been what was *meant* here, and a copied line is how it would happen.
+    #[test]
+    fn no_two_tokens_were_given_the_same_picture_by_accident() {
+        let mut ids: Vec<&str> = ALL.iter().map(|t| t.scryfall_id).collect();
+        ids.sort_unstable();
+        let before = ids.len();
+        ids.dedup();
+        assert_eq!(before, ids.len(), "two tokens share an art id");
     }
 
     /// A token whose name promises a sacrifice outlet and delivers nothing is

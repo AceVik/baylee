@@ -2681,7 +2681,7 @@ mod tests {
     /// card — would be the leak.
     #[test]
     fn a_printing_a_seat_has_not_earned_is_drawn_plain() {
-        use baylee_client_core::images::{ArtSize, Face};
+        use baylee_client_core::images::ArtSize;
         use baylee_core::ids::PrintRef;
 
         let statics = baylee_view::GameStatic {
@@ -2700,13 +2700,9 @@ mod tests {
             ],
         };
         let look = |slot: u16| {
-            let key = ImageKey {
-                print: PrintRef(slot),
-                face: Face::Front,
-                size: ArtSize::Normal,
-            };
-            statics
-                .print(key.print)
+            let key = ImageKey::new(PrintRef(slot), 0, ArtSize::Normal);
+            key.printing()
+                .and_then(|p| statics.print(p))
                 .map_or(FinishTreatment::Plain, |entry| entry.finish.into())
         };
         assert_eq!(look(0), FinishTreatment::Foil, "its own deck's printing");

@@ -287,7 +287,7 @@ impl CardTextures {
             self.budget.touch(key);
             return handle.clone();
         }
-        let Some(request) = resolve(statics, key) else {
+        let Some(request) = resolve(statics, key, crate::tokenart::of) else {
             // An unresolvable printing never even becomes a request, so no
             // load state will ever report it — which is why it has to be
             // recorded here, and why this is the one failure that says so out
@@ -298,7 +298,7 @@ impl CardTextures {
                 self.epoch += 1;
                 bevy::log::debug!(
                     ?key,
-                    known = statics.print(key.print).is_some(),
+                    known = key.printing().is_some_and(|p| statics.print(p).is_some()),
                     "card art unresolvable; the print table has no URL for it yet"
                 );
             }
@@ -480,6 +480,11 @@ pub fn drive_preloads(
         for o in &view.battlefield {
             if let Some(c) = o.card {
                 preload.want(ImageKey::new(c.print, c.face, ArtSize::Small));
+            } else if let Some(t) = o.token {
+                // A token is on nobody's print table, so the sweep below can
+                // never reach it: if it is not asked for here it is only ever
+                // fetched at the moment it is first drawn.
+                preload.want(ImageKey::token(t, ArtSize::Small));
             }
         }
         // P2: the same cards at the size the hover preview reads them at.
