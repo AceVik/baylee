@@ -226,10 +226,18 @@ impl Default for CameraRig {
 }
 
 impl CameraRig {
-    /// Zoom limits.
+    /// As close as the player may pull the camera in: one seat's lane,
+    /// filling the screen.
     pub const MIN_DISTANCE: f32 = 7.0;
-    /// Zoom limits.
-    pub const MAX_DISTANCE: f32 = 46.0;
+    /// As far as the player may push it out.
+    ///
+    /// It is a limit on the *player's* zoom, and [`CameraRig::home`] clamps
+    /// itself to the same pair — which is why it has headroom over the
+    /// furthest table there is. A five-seat table asks for about 44 units,
+    /// and a limit sitting just above that would not stop the shot: it
+    /// would silently crop it, because a fit refused is a fit that no
+    /// longer fits.
+    pub const MAX_DISTANCE: f32 = 64.0;
 
     /// Moves the rig so `pod` (a seat's table-space centre) fills the free
     /// canvas area: camera outside the ellipse looking inward, cards
@@ -361,7 +369,21 @@ impl CameraRig {
 }
 
 /// How much bare felt is left around the table when it is framed.
-const AIR: f32 = 0.6;
+///
+/// Two things live in this number. The first is not optional: what the layout
+/// reports is the box the *cards* stand in, and a seat's mat is drawn
+/// [`ZONE_MARGIN`] wider than that on every side — so a shot framed on the
+/// reported box crops the mat's own printed border, and at the near edge it
+/// crops it under the hand bar.
+///
+/// The rest is the felt itself. A table framed to the last pixel of the band
+/// reads as a photograph someone cropped too tightly, whatever the arithmetic
+/// says about it fitting; leaving a couple of units of table showing all round
+/// is what makes it look like a table being played at rather than a diagram
+/// being displayed. It is also roughly where [`GLOW_SPREAD`] fades out, so the
+/// halo under an active seat's mat stays in frame with it.
+const AIR: f32 = 2.0;
+const _: () = assert!(AIR > ZONE_MARGIN);
 
 /// Half the camera's vertical field of view.
 fn half_fov() -> f32 {
@@ -2158,37 +2180,97 @@ mod camera_tests {
         out
     }
 
-    /// The shot is as close as the free band allows.
+    /// A seat's mat is wider than the box that seat reports.
     ///
-    /// A camera that fits the table with room to spare on *both* axes is a
-    /// camera that could have come in, and every card at the table is drawn
-    /// smaller for the felt around it. This used to be the case at every seat
-    /// count: the fit measured the corners of the box around the table, and
-    /// on a ring those corners are bare felt — at three seats it filled 86%
-    /// of the width it was given and 81% of the height, binding on neither.
+    /// The layout answers where *cards* go, so `half_extent` stops at the
+    /// cards; the mat under them is drawn `ZONE_MARGIN` wider on every side,
+    /// and that printed border is what makes it a playmat rather than a
+    /// rectangle ruled tight around the lanes. Nothing in the layout knows
+    /// it exists, so the camera has to, and [`AIR`] is where it is known.
+    /// This is the assertion that keeps the two in step: shrink `AIR` back
+    /// under `ZONE_MARGIN` and the near seat's border goes under the hand
+    /// bar, which is the one edge a player is looking at.
+    #[test]
+    fn a_seats_printed_border_is_inside_the_band_too() {
+        for window in [WINDOW, Vec2::new(1280.0, 800.0), Vec2::new(430.0, 932.0)] {
+            let canvas = Canvas::hud(window);
+            let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
+            let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
+            let right = 1.0 - 2.0 * canvas.right / canvas.window.x;
+            for n in 2..=8u8 {
+                let layout = TableLayout::new(&seats(n), canvas.aspect(), None);
+                let rig = CameraRig::home(&layout, canvas);
+                for corner in
+                    box_corners(&layout, |slot| slot.half_extent + Vec2::splat(ZONE_MARGIN))
+                {
+                    let at = project(rig, canvas, corner);
+                    assert!(
+                        at.y >= bottom - 1e-3 && at.y <= top + 1e-3,
+                        "{n} seats in {window}: a mat's border lands at y {}, outside \
+                         {bottom}..{top}",
+                        at.y
+                    );
+                    assert!(
+                        at.x >= -1.0 - 1e-3 && at.x <= right + 1e-3,
+                        "{n} seats in {window}: a mat's border lands at x {}, outside -1..{right}",
+                        at.x
+                    );
+                }
+            }
+        }
+    }
+
+    /// The shot is as close as the free band allows — around the felt.
+    ///
+    /// What the camera frames is the table plus [`AIR`], and *that* is what
+    /// has to fill the band: a fit with room to spare on both axes is a fit
+    /// that could have come in, and every card at the table is drawn smaller
+    /// for it. This used to be the case at every seat count, because the fit
+    /// measured the corners of the box around the table, and on a ring those
+    /// corners are bare felt — at three seats it filled 86% of the width it
+    /// was given and 81% of the height, binding on neither.
+    ///
+    /// Bounded from below as well, on the bare table this time, because the
+    /// two failures look nothing alike and only one of them is arithmetic: a
+    /// camera that could have come in wastes the screen, and a camera pushed
+    /// out until the table is a coaster in the middle of it has answered a
+    /// question nobody asked.
     #[test]
     fn the_shot_is_as_close_as_the_band_allows() {
         let canvas = Canvas::hud(WINDOW);
         let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
         let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
         let right = 1.0 - 2.0 * canvas.right / canvas.window.x;
-        for n in 2..=8u8 {
-            let layout = TableLayout::new(&seats(n), 2.01, None);
-            let rig = CameraRig::home(&layout, canvas);
+        let fill = |rig: CameraRig, points: &[Vec2]| {
             let (mut lo, mut hi) = (Vec2::splat(f32::INFINITY), Vec2::splat(f32::NEG_INFINITY));
-            for corner in places(&layout) {
+            for &corner in points {
                 let at = project(rig, canvas, corner);
                 lo = lo.min(at);
                 hi = hi.max(at);
             }
-            let across = (hi.x - lo.x) / (right + 1.0);
-            let along = (hi.y - lo.y) / (top - bottom);
+            Vec2::new(
+                (hi.x - lo.x) / (right + 1.0),
+                (hi.y - lo.y) / (top - bottom),
+            )
+        };
+        for n in 2..=8u8 {
+            let layout = TableLayout::new(&seats(n), 2.01, None);
+            let rig = CameraRig::home(&layout, canvas);
+            let framed = fill(rig, &layout.corners(AIR));
             assert!(
-                across.max(along) > 0.93,
+                framed.x.max(framed.y) > 0.93,
                 "{n} seats fills {:.0}% of the band across and {:.0}% along it, \
                  so the camera could have come in",
-                across * 100.0,
-                along * 100.0
+                framed.x * 100.0,
+                framed.y * 100.0
+            );
+            let table = fill(rig, &places(&layout));
+            assert!(
+                table.x.max(table.y) > 0.7,
+                "{n} seats leaves the table filling {:.0}% across and {:.0}% along, \
+                 which is more felt than a table needs around it",
+                table.x * 100.0,
+                table.y * 100.0
             );
         }
     }

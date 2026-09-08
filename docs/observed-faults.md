@@ -459,3 +459,24 @@ about the table itself rather than the rules, and both are fixed.
     `MAX_DISTANCE` still pins the far edge, because a mat behind the tab strip
     is one nobody can see and a mat under the hand bar is one the player can
     pull into view.
+
+34. **The table was framed to the last pixel, and looked cropped.** *Fixed.*
+    Entry 33 made the fit exact and then spent all of it: `AIR` was 0.6 units,
+    the shot pressed the outermost mats against the band on every side, and a
+    photograph of it reads as a picture somebody cropped too tightly however
+    correct the arithmetic is. Worse, 0.6 barely clears `ZONE_MARGIN` — a
+    seat reports the box its *cards* stand in and its mat is drawn 0.55 wider
+    than that, so the printed border of the near mat had 0.05 units of slack
+    against the hand bar and nothing else did.
+
+    `AIR` is 2.0 now: the mat's border, then felt. That is also about where
+    `GLOW_SPREAD` fades out, so the halo under the seat being waited on stays
+    in frame with the mat it belongs to. Five seats go from 41.5 to 44.2 units
+    of camera distance, which is why `MAX_DISTANCE` went 46 → 64 — a limit
+    sitting just above the furthest table does not stop that shot, it silently
+    crops it, and it was capping how far a player could pull back besides.
+    `a_seats_printed_border_is_inside_the_band_too` is the new assertion, over
+    three window shapes; the tightness test now measures the framed hull
+    rather than the bare table and is bounded on both sides, because "could
+    have come in" and "pushed out until the table is a coaster" are different
+    failures and only one of them was ever checked.
