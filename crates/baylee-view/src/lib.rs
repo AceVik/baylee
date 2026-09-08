@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 13;
+pub const VIEW_VERSION: u32 = 14;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -669,10 +669,19 @@ pub struct ManaPoolView {
     pub green: u16,
     /// Colorless mana.
     pub colorless: u16,
-    /// Mana that may only be spent on certain spells (Cavern of Souls).
-    /// Counted as a total: what it may pay for is a rules question the
-    /// engine answers when the payment is attempted.
-    pub restricted: u16,
+    /// Mana that may only be spent on certain spells (Cavern of Souls), by
+    /// colour — indexed the way [`baylee_core::mana::ManaColor::index`]
+    /// indexes, so `restricted[ManaColor::White.index()]` is restricted white
+    /// mana.
+    ///
+    /// This was a single uncoloured total until `VIEW_VERSION` 14, and that
+    /// made the pool unreadable exactly where a player has to read it: naming
+    /// white off a Cavern of Souls put an uncoloured number on the screen, so
+    /// there was no way to tell whether the choice had taken — or which of two
+    /// taps had produced what. *What* the restriction permits stays an engine
+    /// question, answered when the payment is attempted; which colour is under
+    /// it is a fact the player chose a moment ago and is owed back.
+    pub restricted: [u16; 6],
 }
 
 impl ManaPoolView {
@@ -685,7 +694,19 @@ impl ManaPoolView {
             + self.red as u32
             + self.green as u32
             + self.colorless as u32
-            + self.restricted as u32
+            + self.restricted_total()
+    }
+
+    /// Just the restricted mana, whatever colour it is under.
+    #[must_use]
+    pub const fn restricted_total(&self) -> u32 {
+        let mut sum = 0;
+        let mut i = 0;
+        while i < self.restricted.len() {
+            sum += self.restricted[i] as u32;
+            i += 1;
+        }
+        sum
     }
 
     /// Whether nothing is floating.

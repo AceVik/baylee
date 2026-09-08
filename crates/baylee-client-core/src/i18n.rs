@@ -955,6 +955,17 @@ messages! {
     },
 
 
+    // ---- the mana pool
+    /// Mana pool
+    ManaPool { en: "Mana pool", de: "Manavorrat" },
+    /// Tap for {0}, spendable only on some spells
+    ///
+    /// Cavern of Souls and its kin. The label has to say *both* halves: a
+    /// button reading only "Tap for WUBRG" beside another reading "Tap for
+    /// {C}" is two offers a player cannot tell apart, and the restricted one
+    /// is usually the reason the land is in the deck.
+    TapForRestricted { en: "Tap for {0} (restricted)", de: "Tappen für {0} (eingeschränkt)" },
+
     // ---- what an ability costs
     /// Tap for {0}
     TapFor { en: "Tap for {0}", de: "Tappen für {0}" },

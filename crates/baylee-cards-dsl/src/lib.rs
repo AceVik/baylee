@@ -40,7 +40,7 @@ pub use effect::{
     SpendRider, TargetReq, TargetSpec, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, ZoneRef};
-pub use manaread::{SimpleMana, simple_mana};
+pub use manaread::{SimpleMana, mana_made, simple_mana};
 // Re-exported so the authoring macros can name them through `$crate`, and so
 // a card file needs exactly one import (see `build::prelude`).
 pub use baylee_core::color::{Color, ColorSet};

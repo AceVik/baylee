@@ -266,8 +266,18 @@ fn per_seat_zone(
 }
 
 /// The floating mana of one seat, for the view.
+///
+/// Restricted mana is summed *per colour* rather than into one number. The
+/// engine holds one `RestrictedMana` per production, so two taps of the same
+/// Cavern naming white are two entries; the view is what a player reads, and
+/// "two restricted white" is the reading — how it got there is not.
 fn mana_pool(pool: &baylee_core::mana::ManaPool) -> baylee_view::ManaPoolView {
     use baylee_core::mana::ManaColor;
+    let mut restricted = [0u16; 6];
+    for mana in pool.restricted() {
+        let slot = &mut restricted[mana.color.index()];
+        *slot = slot.saturating_add(mana.amount);
+    }
     baylee_view::ManaPoolView {
         white: pool.available(ManaColor::White),
         blue: pool.available(ManaColor::Blue),
@@ -275,7 +285,7 @@ fn mana_pool(pool: &baylee_core::mana::ManaPool) -> baylee_view::ManaPoolView {
         red: pool.available(ManaColor::Red),
         green: pool.available(ManaColor::Green),
         colorless: pool.available(ManaColor::Colorless),
-        restricted: pool.restricted().iter().map(|r| r.amount).sum(),
+        restricted,
     }
 }
 

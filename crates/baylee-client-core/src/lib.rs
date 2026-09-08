@@ -49,6 +49,7 @@ pub mod layout;
 pub mod lobby;
 pub mod manapip;
 pub mod manaplan;
+pub mod manapool;
 pub mod prefs;
 pub mod reconnect;
 pub mod tabletop;

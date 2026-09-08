@@ -292,7 +292,23 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
                 format!("\u{2212}{}", -cost)
             }
         }
-        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
+        AbilityDef::Activated { cost, effects, .. }
+        | AbilityDef::ActivatedConditional { cost, effects, .. } => {
+            // A mana ability the planner refuses still has to say what it
+            // makes. `manasources` reads it through `simple_mana`, which
+            // refuses restricted mana on purpose and correctly; the button
+            // reads it through `mana_made`, which does not, because "{T}"
+            // beside "Tap for {C}" is the shape this whole path was reported
+            // as broken in.
+            if let Some((mana, true)) = baylee_cards_dsl::mana_made(cost, effects) {
+                let colors: String = mana.colors.iter().map(|c| pip(*c)).collect();
+                let colors = if mana.amount > 1 && mana.colors.len() == 1 {
+                    colors.repeat(mana.amount as usize)
+                } else {
+                    colors
+                };
+                return Phrase::TapForRestricted.fill(lang, &[&colors]);
+            }
             cost_label(lang, cost).unwrap_or_else(unnamed)
         }
         _ => unnamed(),
@@ -342,7 +358,7 @@ const fn pip(color: ManaColor) -> char {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use baylee_client_core::test_support::{ViewBuilder, token};
+    use baylee_client_core::test_support::{ViewBuilder, printed, token};
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};
 
@@ -557,6 +573,48 @@ mod tests {
         assert!(
             granted(vec![id, id]).mana,
             "one entry over and one grant to be about"
+        );
+    }
+
+    /// The card the whole restricted-mana path was reported broken on.
+    ///
+    /// Jasmine Dragon Tea Shop prints two mana abilities: `{T}: Add {C}` and
+    /// `{T}: Add one mana of any color`, the second spendable only on Allies.
+    /// `manasources` reduces a permanent to the one tap it can read and
+    /// `simple_mana` refuses restricted mana on purpose, so the first won the
+    /// mana slot and the second fell through to the cost label — which is
+    /// `{T}`, the same tap, saying nothing about what it makes. Two buttons,
+    /// one of them unreadable, and the unreadable one is the reason the land
+    /// is in the deck.
+    #[test]
+    fn a_restricted_mana_ability_says_what_it_makes() {
+        const JASMINE: u16 = 77;
+        let id = ObjectId::new(1, 0);
+        let mut land = printed(1, 0, "Jasmine Dragon Tea Shop", JASMINE);
+        land.types = baylee_core::types::TypeSet::LAND;
+        land.power = None;
+        land.toughness = None;
+        let view = ViewBuilder::new(2).with_battlefield(0, [land]).build();
+
+        let i = offering(vec![(id, 0), (id, 1)], vec![]);
+        let out = options(Lang::En, &view, &i, id);
+        let labels: Vec<&str> = out.iter().map(|o| o.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            vec!["Tap for C", "Tap for WUBRG (restricted)"],
+            "both taps have to be tellable apart: {out:?}"
+        );
+        assert!(
+            out.iter().all(|o| o.mana),
+            "both are mana abilities (CR 605.1), so both stay one tap"
+        );
+        assert_eq!(
+            out[1].action,
+            PlayerAction::ActivateAbility {
+                source: id,
+                ability_index: 1,
+            },
+            "and the second button sends the second ability"
         );
     }
 }

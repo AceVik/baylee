@@ -382,6 +382,21 @@ most a pair). A battlefield has no such bound, and eighty permanents at 1.3 MB
 each would spend the whole browser budget on a convenience and then thrash it —
 so hovering a permanent still fetches on the spot.
 
+**What is drawn during that fetch was the wrong thing.** `wants_face` answers
+"is this key's art here yet", and with the answer "no" the preview drew the
+*constructed face* — the text card, which reads "Rules text unavailable"
+wherever the catalog is not wired up. So hovering an opponent's land produced
+a paragraph of apology for as long as the download took, every single time,
+which is a worse picture of a card than a slightly soft one. The preview now
+falls back to the `small` art the board is already holding for that same
+permanent: `stopgap` is taken only when the big key has *not* arrived and the
+small one has, the full-size fetch is still started (asking is what starts
+it, so a preview that settled would never sharpen), and `CardLook` is built
+from whichever key is actually being drawn — a look naming one texture beside
+a handle holding another would hand the same material two different images on
+consecutive frames. The constructed face keeps its two real jobs: the
+modifier held, and a card whose art is nowhere at all.
+
 **Two things in that path could not recover, and both were invisible.** The
 preload queue was built on the first frame a view existed — when the
 battlefield is empty and every printing but the player's own deck is still a
@@ -1045,6 +1060,50 @@ is on is drawn as the chosen one so the two ways of answering are visibly the
 same menu. The list is rebuilt from `LegalActions` on the key as well as on
 the click, for the same reason.
 
+### The pool, and the land that always tapped for the wrong thing
+
+Rule 2 above — the planner refuses restricted mana — is correct and was, for
+one card, the entire user-visible bug. Jasmine Dragon Tea Shop prints *two*
+mana abilities: `{T}: Add {C}`, and `{T}: Add one mana of any color`
+spendable only on Allies. `manasources` reduces a permanent to the one tap it
+can read, `simple_mana` refuses the restricted one on purpose, so the land
+resolved to `{C}` — every time, whatever the player wanted, and the Ally
+spell the land is in the deck *for* stayed unlit.
+
+Three things were wrong and only one of them was the planner:
+
+- The restricted ability **was** in the chooser and was labelled `{T}`, which
+  is its activation cost and says nothing about what it makes. Beside a "Tap
+  for C" that is two offers a player cannot tell apart.
+  `baylee_cards_dsl::mana_made` is `simple_mana` without the restriction
+  filter, and that filter is the whole difference between the two questions: a
+  *planner* must refuse restricted mana, a *label* must not. Both readings
+  stay in `manaread.rs`, because two copies of the rule would be two answers.
+- The mana pool was **drawn nowhere**. It is the one zone with no card in it,
+  which is why it had no place on screen — and with no place on screen there
+  was no evidence a tap had done anything at all. It is now a bar at the
+  prompt bar's height on the opposite side, one pip and a numeral per kind,
+  visible whenever the seat has something to answer so it is a place a player
+  learns rather than a badge that comes and goes.
+- `ManaPoolView.restricted` was **one uncoloured total**, so even once drawn,
+  naming white off a Cavern of Souls produced a number with no colour on it.
+  `VIEW_VERSION` 14 makes it `[u16; 6]`, indexed as `ManaColor::index` indexes
+  — the engine's `RestrictedMana` carried the colour all along. *What* the
+  restriction permits stays an engine question, answered at the payment; which
+  colour is under it is a fact the player chose a moment ago and is owed back.
+  It is drawn as a rim round the pip rather than as a different symbol,
+  because the mana *is* white and simply cannot pay for everything white pays
+  for.
+
+The count is always a numeral beside the pip, never a row of repeated pips:
+colour alone must not carry meaning, and five discs is a number the player has
+to stop and count. `baylee-client-core/src/manapool.rs` decides the row and is
+tested without a renderer, like everything else in that crate.
+
+None of this changes what the planner does, and that is the point — the player
+can now do by hand the thing the planner is right to refuse, and watch it
+happen.
+
 ## A choice you answer by picking, not by clicking the table
 
 Four of the engine's seventeen pending choices name something that is not on
@@ -1218,6 +1277,28 @@ anywhere in `cursor_grid` — which spans the hand and every pod's lanes. An
 `ObjectId` survives a zone change, so a card played off the cursor is still in
 the grid, one row down, and `move_cursor` keeps navigating from it. Clearing
 it there would drop the player's cursor, not a ghost.
+
+**And the grace window is rearmed by the pointer, which is what let the
+flicker back in.** `*grace = 3` on every `CursorMoved`, so a player *moving*
+the mouse across their own lands holds it permanently open — and that is
+exactly when the lift is running. Hovering raises a card by `HOVER_LIFT` and
+grows it by `HOVER_SCALE`; the growth is self-correcting (a bigger card is
+still under the pointer), the rise is not, and a pointer near a card's lower
+edge is outside it a few frames later. `Out` fires, the hover clears, the card
+falls back, `Over` fires, and the card blinks for as long as the pointer stays
+put. Reported as "sometimes it flickers strangely", which is precisely the
+shape of a condition that needs the pointer to be both moving and near an
+edge.
+
+The fix is not a longer grace — a window wide enough to cover a glide is wide
+enough to keep a hover the pointer really did leave. It is that **a card still
+gliding cannot testify that the pointer went anywhere**, because it is the
+thing that moved: `still_gliding` walks the `Out` entity's lineage to its
+`Motion` and compares the transform against the target, and a card that has
+not arrived has its `Out` dropped. A settled card's `Out` is evidence and is
+honoured. The comparison is exact rather than a second threshold, because
+`glide` snaps the transform onto its target once inside `SETTLED` — two
+thresholds that disagreed would be a card permanently "still moving".
 
 ## Settings, and what belongs to whom
 

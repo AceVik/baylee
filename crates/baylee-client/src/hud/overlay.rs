@@ -779,6 +779,108 @@ pub fn sync_overlay(
         commands.entity(root).add_child(bar);
     }
 
+    // ---- the mana pool, opposite the prompt bar --------------------------
+    //
+    // The one zone with no card in it, and until now the one zone with no
+    // place on screen. That absence hid a defect rather than merely being
+    // untidy: a land with two mana abilities taps for whichever one the
+    // client's planner can read, and with nothing drawn there was no way to
+    // see which had fired — Jasmine Dragon Tea Shop made `{C}` every time and
+    // looked exactly like a land making the Ally mana it was tapped for.
+    //
+    // Left, because the prompt bar is right and the two must never push each
+    // other around; at the prompt bar's height, because that band is already
+    // where this client says what is going on. Drawn while the seat has
+    // something to answer even when empty, so it is a *place* a player learns
+    // rather than a badge that appears and vanishes — and hidden entirely
+    // when the seat is only watching, since floating mana it cannot spend is
+    // one more thing in the way.
+    {
+        let pool = view
+            .seat(view.seat)
+            .map(|s| s.mana_pool)
+            .unwrap_or_default();
+        let floating = baylee_client_core::manapool::row(&pool);
+        if !floating.is_empty() || duel.is_my_turn_to_act() {
+            let bar = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        bottom: px(HAND_BAR_H + 10.0),
+                        left: px(12),
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: px(8),
+                        padding: UiRect::axes(px(12), px(7)),
+                        border_radius: btn_radius(),
+                        ..default()
+                    },
+                    BackgroundColor(palette::PANEL),
+                    soft_shadow(),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let label = commands
+                .spawn((
+                    Text::new(Phrase::ManaPool.text(lang).to_string()),
+                    tf(&fonts, 11.0),
+                    TextColor(palette::MUTED),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(bar).add_child(label);
+            if floating.is_empty() {
+                // An em dash rather than a row of zeroes: "nothing floating"
+                // is one fact, not six.
+                let none = commands
+                    .spawn((
+                        Text::new("\u{2014}".to_string()),
+                        tf(&fonts, 15.0),
+                        TextColor(palette::DEAD),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(bar).add_child(none);
+            }
+            for entry in floating {
+                let group = commands
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            column_gap: px(3),
+                            // A restriction is drawn as a rim round the pair,
+                            // because the symbol itself has to keep meaning
+                            // its colour: this mana *is* white, it simply
+                            // cannot pay for everything white pays for.
+                            padding: UiRect::axes(px(4), px(2)),
+                            border: UiRect::all(px(if entry.restricted { 1.0 } else { 0.0 })),
+                            border_radius: btn_radius(),
+                            ..default()
+                        },
+                        BorderColor::all(palette::ACTIVE),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                let pip = crate::manaui::spawn_pip(&mut commands, &fonts, entry.pip, 18.0);
+                // The count as a numeral, always — colour alone must not
+                // carry meaning, and five discs in a row is a number the
+                // player has to stop and count.
+                let count = commands
+                    .spawn((
+                        Text::new(format!("\u{00d7}{}", entry.count)),
+                        tf(&fonts, 13.0),
+                        TextColor(palette::INK),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(group).add_children(&[pip, count]);
+                commands.entity(bar).add_child(group);
+            }
+            commands.entity(root).add_child(bar);
+        }
+    }
+
     // ---- bottom: the hand bar (always on top) + commander zone ----------
     if let Some(statics) = duel.statics.as_ref() {
         let commanders = view
@@ -827,11 +929,48 @@ pub fn sync_overlay(
                 size: ArtSize::Normal,
                 ..art
             });
+            // What can actually be drawn *this frame*, which is not always
+            // what the preview asks for. This is the only place that wants
+            // `Normal`, and `Preload` warms that size for the hand and the
+            // local command zone alone — a battlefield has no bound, and
+            // eighty permanents at 1.3 MB apiece would spend the whole browser
+            // budget on a convenience. So hovering an opponent's permanent
+            // arrives here with nothing at this size every single time.
+            //
+            // What filled the gap was the *constructed face*: a text card,
+            // reading "Rules text unavailable" wherever the catalog is not
+            // wired up, for as long as the fetch takes. The board's own
+            // `Small` art is already resident for anything on the table, and
+            // stretching 146 pixels to 308 is soft for half a second — but it
+            // is a picture of the card, and the other thing is not.
+            let small = art.map(|art| ImageKey {
+                size: ArtSize::Small,
+                ..art
+            });
+            let stopgap = match (key, small) {
+                (Some(big), Some(small))
+                    if !textures.has_arrived(big) && textures.has_arrived(small) =>
+                {
+                    Some(small)
+                }
+                _ => None,
+            };
+            let shown = stopgap.or(key);
             // The face first: it only borrows the cache, and the image below
-            // needs it mutably.
-            let built = hovered.and_then(|id| preview_face(&faces, view, &textures, id, key));
+            // needs it mutably. Asked about `shown`, so the stopgap counts as
+            // art having arrived and the text card stays off the screen.
+            let built = hovered.and_then(|id| preview_face(&faces, view, &textures, id, shown));
             let image = match key {
-                Some(key) => textures.get(key, statics, &assets),
+                // Always ask for the full-size art, even when the stopgap is
+                // what gets drawn — asking is what starts the fetch, and a
+                // preview that settled for `Small` would never sharpen.
+                Some(key) => {
+                    let full = textures.get(key, statics, &assets);
+                    match stopgap {
+                        Some(small) => textures.get(small, statics, &assets),
+                        None => full,
+                    }
+                }
                 None => textures.card_back(),
             };
             let visual = spawn_card_art(
@@ -855,10 +994,14 @@ pub fn sync_overlay(
                         baylee_client_core::cardplate::Corner::default,
                         baylee_client_core::cardplate::Corner::of_object,
                     );
-                    match key {
-                        Some(key) => CardLook::art(
-                            key,
-                            finish_of(statics, Some(key)),
+                    // `shown`, not `key`: the look is the cache key for the
+                    // material, and one naming the full-size art while the
+                    // handle beside it holds the stopgap would hand the same
+                    // material two different textures on consecutive frames.
+                    match shown {
+                        Some(shown) => CardLook::art(
+                            shown,
+                            finish_of(statics, Some(shown)),
                             crate::cardmat::glow_of(object, crate::cardmat::Offer::NONE),
                         )
                         .with_corner(corner),
