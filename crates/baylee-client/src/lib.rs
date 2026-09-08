@@ -210,6 +210,15 @@ pub struct Duel {
     pub focus: Option<PlayerId>,
     /// The card the pointer or keyboard cursor is on.
     pub hovered: Option<ObjectId>,
+    /// Where the pointer was when it found that card, in logical pixels.
+    ///
+    /// The preview is a tooltip, and a tooltip stands beside the thing it
+    /// describes — which for a permanent on the felt, a pile beside a mat or
+    /// a card in the stack panel is wherever the pointer is, since none of
+    /// them has a place in the HUD's own layout the way a hand card does.
+    /// `None` when the hover came from the keyboard cursor, which has no
+    /// position on the screen at all.
+    pub hovered_at: Option<Vec2>,
     /// The aspect ratio of the part of the window the table is *seen*
     /// through, once anything has measured it.
     ///

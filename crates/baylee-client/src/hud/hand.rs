@@ -321,21 +321,42 @@ pub fn apply_hand_scroll(
     }
 }
 
-/// Which card the preview shows and where its anchor (the bubble's tail
-/// target) sits horizontally: hand cards anchor at their strip position;
-/// everything else anchors at the screen's centre (`None`). Art comes
-/// from the hand, the battlefield lanes, or the command zone.
+/// Where the preview panel stands.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub(super) enum PreviewAt {
+    /// A card in the hand bar. The bubble sits above the bar with its tail on
+    /// the card, which is where a hand card's preview has always opened and
+    /// is the one place in the client where the card has a position the HUD
+    /// itself knows.
+    Hand(f32),
+    /// Anything the pointer found somewhere else — a permanent on the felt, a
+    /// pile beside a mat, a card in the stack panel. None of those has a place
+    /// in the HUD's layout, so the panel stands beside the pointer instead,
+    /// the way a tooltip does.
+    Pointer(Vec2),
+    /// A hover with no pointer behind it: the keyboard cursor names a card
+    /// without standing anywhere, so the panel falls back to the middle.
+    Loose,
+}
+
+/// Which card the preview shows and where it opens. Art comes from the hand,
+/// the battlefield lanes, the piles, the stack panel, or the command zone.
 pub(super) fn preview_anchor(
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
     hovered: Option<ObjectId>,
     layout: HandLayout,
     scroll: f32,
-) -> Option<(Option<ImageKey>, Option<f32>)> {
+    pointer: Option<Vec2>,
+) -> Option<(Option<ImageKey>, PreviewAt)> {
     let h = hovered?;
+    // The pointer's own answer for everything that is not in the hand bar.
+    // Checked once here rather than at each arm below, because "where the
+    // panel goes" is the same question whatever the card turned out to be.
+    let at = pointer.map_or(PreviewAt::Loose, PreviewAt::Pointer);
     if let Some(i) = board.hand.iter().position(|c| c.id == h) {
         let x = 10.0 + i as f32 * layout.step - scroll + HAND_CARD_W / 2.0;
-        return Some((Some(board.hand[i].art), Some(x)));
+        return Some((Some(board.hand[i].art), PreviewAt::Hand(x)));
     }
     for pod in &board.pods {
         for lane in &pod.lanes {
@@ -343,7 +364,7 @@ pub(super) fn preview_anchor(
                 if group.representative == h {
                     // A token has no art; it still gets a preview, built from
                     // its projected characteristics alone.
-                    return Some((group.art, None));
+                    return Some((group.art, at));
                 }
             }
         }
@@ -355,9 +376,25 @@ pub(super) fn preview_anchor(
     for pod in &board.pods {
         for pile in &pod.piles {
             if pile.top == Some(h) {
-                return Some((pile.art, None));
+                return Some((pile.art, at));
             }
         }
+    }
+    // The stack. Its panel draws cards an inch across, which is enough to
+    // recognise a spell and not enough to read one — and the stack is
+    // precisely where "what is about to happen" has to be read in a hurry.
+    // A target is checked before its parent because a target of one entry can
+    // be the spell of another, and the one under the pointer is the smaller
+    // picture.
+    for item in &board.stack {
+        for target in &item.targets {
+            if target.object() == Some(h) {
+                return Some((target.art, at));
+            }
+        }
+    }
+    if let Some(item) = board.stack.iter().find(|item| item.id == h) {
+        return Some((item.art, at));
     }
     if let Some(cmd) = view
         .command
@@ -367,10 +404,67 @@ pub(super) fn preview_anchor(
         return Some((
             cmd.card
                 .map(|c| ImageKey::new(c.print, c.face, ArtSize::Normal)),
-            None,
+            at,
         ));
     }
     None
+}
+
+/// The gap between the pointer and the panel it opened.
+///
+/// Wide enough that the panel never lands under the cursor arrow itself: the
+/// preview describes the card the pointer is on, and one that covers the
+/// pointer is describing something the player can no longer see.
+const PREVIEW_GAP: f32 = 18.0;
+
+/// How close the preview may come to an edge of the window.
+const PREVIEW_INSET: f32 = 8.0;
+
+/// Where the preview panel's top left corner goes, in logical pixels.
+///
+/// Pure arithmetic on purpose — it is the whole of the placement, and the
+/// alternative is reading it off a photograph.
+pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
+    // The band the panel may stand in: the tab strip above, the hand bar
+    // below, the phase rail to the right. Clamped so that a panel too tall
+    // for the band still starts at the top of it rather than below its
+    // bottom, which is what a naive clamp with crossed bounds does.
+    let low = Vec2::splat(PREVIEW_INSET);
+    let high = (window - panel - Vec2::new(RAIL_W + PREVIEW_INSET, PREVIEW_INSET)).max(low);
+    let banded = |v: Vec2| v.clamp(low, high);
+    match at {
+        PreviewAt::Hand(x) => banded(Vec2::new(
+            x - panel.x / 2.0,
+            window.y - HAND_BAR_H - 10.0 - panel.y,
+        )),
+        PreviewAt::Loose => banded(Vec2::new(
+            (window.x - panel.x) / 2.0,
+            window.y - HAND_BAR_H - 10.0 - panel.y,
+        )),
+        PreviewAt::Pointer(p) => {
+            // Beside the pointer, on whichever side it fits — a panel that
+            // always opened to the right would run off the screen for every
+            // card in the right-hand third of the table, and clamping it back
+            // would put it straight over the pointer.
+            let right = p.x + PREVIEW_GAP;
+            let left = p.x - PREVIEW_GAP - panel.x;
+            let x = if right + panel.x <= high.x {
+                right
+            } else {
+                left
+            };
+            // Vertically centred on the pointer, and kept clear of the tab
+            // strip and the hand bar.
+            let y = p.y - panel.y / 2.0;
+            Vec2::new(x, y).clamp(
+                Vec2::new(low.x, TAB_H + PREVIEW_INSET),
+                Vec2::new(
+                    high.x,
+                    (window.y - HAND_BAR_H - PREVIEW_INSET - panel.y).max(low.y),
+                ),
+            )
+        }
+    }
 }
 
 /// The face for whatever the preview is pointing at.

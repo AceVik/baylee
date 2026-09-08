@@ -947,16 +947,24 @@ pub fn sync_overlay(
         // ---- card preview: a speech-bubble tooltip over the hovered
         // card (hand, own battlefield, or command zone). No title text —
         // the image is big enough to read.
-        if let Some((art, anchor)) = preview_anchor(board, view, hovered, layout, duel.hand_scroll)
-        {
+        if let Some((art, anchor)) = preview_anchor(
+            board,
+            view,
+            hovered,
+            layout,
+            duel.hand_scroll,
+            duel.hovered_at,
+        ) {
             let scale = settings.preview_scale.clamp(0.5, 1.75);
             let img_w = 308.0 * scale;
             let img_h = img_w * 88.0 / 63.0;
-            let panel_w = img_w + 12.0;
-            let win_w = windows.single().map_or(1200.0, Window::width);
-            let anchor = anchor.unwrap_or(win_w / 2.0);
-            // Always fully in the viewport.
-            let left = (anchor - panel_w / 2.0).clamp(8.0, (win_w - panel_w - 8.0).max(8.0));
+            let window = windows.single().map_or(Vec2::new(1200.0, 800.0), |w| {
+                Vec2::new(w.width(), w.height())
+            });
+            // The panel is the picture plus its six pixels of padding on
+            // every side.
+            let panel = Vec2::new(img_w, img_h) + Vec2::splat(12.0);
+            let place = preview_place(anchor, panel, window);
             let key = art.map(|art| ImageKey {
                 size: ArtSize::Normal,
                 ..art
@@ -1046,8 +1054,8 @@ pub fn sync_overlay(
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        bottom: px(HAND_BAR_H + 10.0),
-                        left: px(left),
+                        top: px(place.y),
+                        left: px(place.x),
                         padding: UiRect::all(px(6)),
                         border_radius: preview_radius(img_w),
                         overflow: Overflow::clip(),
@@ -1163,24 +1171,30 @@ pub fn sync_overlay(
                 .insert_recursive::<Children>(Pickable::IGNORE);
             commands.entity(root).add_child(tooltip);
 
-            // The speech-bubble tail, pointing at the hovered card.
-            let tail = commands
-                .spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        bottom: px(HAND_BAR_H + 2.0),
-                        left: px(anchor - 9.0),
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                    children![(
-                        Text::new(glyph::CARET_DOWN.to_string()),
-                        icon_tf(&fonts, 18.0),
-                        TextColor(palette::PANEL_LIT),
-                    )],
-                ))
-                .id();
-            commands.entity(root).add_child(tail);
+            // The speech-bubble tail, pointing down at the hovered card —
+            // and only for a hand card, which is the only one the tail can
+            // point *at*. A panel standing beside a permanent needs none: it
+            // is already next to the thing it describes, and a caret aimed
+            // down into the hand bar from there would name a card at random.
+            if let PreviewAt::Hand(x) = anchor {
+                let tail = commands
+                    .spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            bottom: px(HAND_BAR_H + 2.0),
+                            left: px(x - 9.0),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                        children![(
+                            Text::new(glyph::CARET_DOWN.to_string()),
+                            icon_tf(&fonts, 18.0),
+                            TextColor(palette::PANEL_LIT),
+                        )],
+                    ))
+                    .id();
+                commands.entity(root).add_child(tail);
+            }
         }
     }
 

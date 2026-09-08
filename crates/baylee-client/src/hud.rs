@@ -541,7 +541,7 @@ mod tray;
 mod tests;
 
 use card::{FaceCtx, spawn_card_art};
-use hand::{preview_anchor, preview_face, spawn_hand_bar};
+use hand::{PreviewAt, preview_anchor, preview_face, preview_place, spawn_hand_bar};
 use rail::{combat_line, incoming_line, spawn_phase_rail};
 use stack::spawn_stack_panel;
 

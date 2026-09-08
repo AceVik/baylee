@@ -38,6 +38,109 @@ mod layout {
     }
 }
 
+/// Where the preview panel opens.
+///
+/// A hand card has a place in the HUD's own layout and the bubble has always
+/// pointed at it. Nothing else does: a permanent is on the felt, a pile is
+/// beside a mat, a stack card is in a panel that scrolls — so those anchor at
+/// the pointer, and the arithmetic that keeps the panel beside the pointer
+/// rather than on top of it, off the tab strip, off the hand bar and clear of
+/// the phase rail is the whole of the placement.
+mod preview_place {
+    use super::*;
+
+    /// A laptop's window, in logical pixels.
+    const WINDOW: Vec2 = Vec2::new(1728.0, 1052.0);
+    /// The preview at its default scale, padding included.
+    const PANEL: Vec2 = Vec2::new(320.0, 442.0);
+
+    fn covers(place: Vec2, panel: Vec2, point: Vec2) -> bool {
+        point.x >= place.x
+            && point.x <= place.x + panel.x
+            && point.y >= place.y
+            && point.y <= place.y + panel.y
+    }
+
+    /// The preview describes the card under the pointer, so a panel that
+    /// lands *on* the pointer is describing something the player can no
+    /// longer see — and, before `Pickable::IGNORE`, was also taking the
+    /// hover that opened it.
+    #[test]
+    fn the_panel_never_lands_under_the_pointer_that_opened_it() {
+        for x in [12.0_f32, 200.0, 864.0, 1400.0, 1716.0] {
+            for y in [60.0_f32, 300.0, 526.0, 870.0] {
+                let at = Vec2::new(x, y);
+                let place = preview_place(PreviewAt::Pointer(at), PANEL, WINDOW);
+                assert!(
+                    !covers(place, PANEL, at),
+                    "a pointer at {at} opened a panel at {place} that covers it"
+                );
+            }
+        }
+    }
+
+    /// Whatever it is anchored to, the panel stays inside the part of the
+    /// window a player can see it in: the tab strip is above, the hand bar
+    /// below, the phase rail to the right.
+    #[test]
+    fn the_panel_stays_in_the_band() {
+        let anchors = [
+            PreviewAt::Loose,
+            PreviewAt::Hand(20.0),
+            PreviewAt::Hand(1700.0),
+            PreviewAt::Pointer(Vec2::new(4.0, 8.0)),
+            PreviewAt::Pointer(Vec2::new(1724.0, 1040.0)),
+            PreviewAt::Pointer(Vec2::new(900.0, 60.0)),
+        ];
+        for at in anchors {
+            let place = preview_place(at, PANEL, WINDOW);
+            assert!(place.x >= 0.0, "{at:?} put the panel off the left: {place}");
+            assert!(
+                place.x + PANEL.x <= WINDOW.x - rail::RAIL_W,
+                "{at:?} put the panel under the phase rail: {place}"
+            );
+            assert!(place.y >= 0.0, "{at:?} put the panel off the top: {place}");
+            assert!(
+                place.y + PANEL.y <= WINDOW.y,
+                "{at:?} put the panel off the bottom: {place}"
+            );
+        }
+    }
+
+    /// A pointer anchor is also kept out from under the two bars, which the
+    /// clamp above allows and this does not: a preview whose top half is
+    /// behind the tab strip is a preview of a card's bottom half.
+    #[test]
+    fn a_pointer_anchor_clears_the_tab_strip_and_the_hand_bar() {
+        for y in [0.0_f32, 30.0, 500.0, 1000.0, 1052.0] {
+            let place = preview_place(PreviewAt::Pointer(Vec2::new(600.0, y)), PANEL, WINDOW);
+            assert!(place.y >= TAB_H, "at y {y} the panel starts at {}", place.y);
+            assert!(
+                place.y + PANEL.y <= WINDOW.y - HAND_BAR_H,
+                "at y {y} the panel ends at {}",
+                place.y + PANEL.y
+            );
+        }
+    }
+
+    /// The hand's bubble is unchanged: it sits ten pixels above the bar, so
+    /// the caret drawn between the two has something to bridge.
+    #[test]
+    fn a_hand_card_still_previews_above_the_hand_bar() {
+        let place = preview_place(PreviewAt::Hand(864.0), PANEL, WINDOW);
+        assert!(
+            (place.y + PANEL.y - (WINDOW.y - HAND_BAR_H - 10.0)).abs() < 1e-3,
+            "the panel's bottom edge is at {}",
+            place.y + PANEL.y
+        );
+        assert!(
+            (place.x + PANEL.x / 2.0 - 864.0).abs() < 1e-3,
+            "and it is centred on the card at {}",
+            place.x + PANEL.x / 2.0
+        );
+    }
+}
+
 mod own_board {
     use super::*;
 

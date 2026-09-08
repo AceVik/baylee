@@ -851,6 +851,7 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
     if fired.has(Action::Cancel) {
         if duel.hovered.is_some() {
             duel.hovered = None;
+            duel.hovered_at = None;
         } else if prefs.orders().selected().is_some() {
             prefs.rail_cursor().clear_selection();
         } else if let Some(i) = duel.interaction.as_mut() {
@@ -1016,6 +1017,12 @@ fn cursor_grid(duel: &Duel) -> Vec<Vec<ObjectId>> {
 
 /// Moves the card cursor; wraps inside a row and clamps the column when
 /// changing rows. With no cursor yet, starts at the first hand card.
+/// Walks the keyboard cursor over the hand and the lanes.
+///
+/// Every arm here clears `hovered_at`, because the keyboard cursor is not on
+/// the screen: it names a card, not a place. Left behind, the anchor would
+/// still be wherever the pointer last stopped, and the preview would open
+/// beside a card the cursor walked away from three presses ago.
 fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
     let grid = cursor_grid(duel);
     if grid.is_empty() {
@@ -1023,6 +1030,7 @@ fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
     }
     let Some(current) = duel.hovered else {
         duel.hovered = Some(grid[0][0]);
+        duel.hovered_at = None;
         return;
     };
     let Some((mut row, mut col)) = grid.iter().enumerate().find_map(|(r, row)| {
@@ -1031,6 +1039,7 @@ fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
             .map(|c| (r as i32, c as i32))
     }) else {
         duel.hovered = Some(grid[0][0]);
+        duel.hovered_at = None;
         return;
     };
     if d_col != 0 {
@@ -1042,6 +1051,7 @@ fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
         col = col.min(grid[row as usize].len() as i32 - 1);
     }
     duel.hovered = Some(grid[row as usize][col as usize]);
+    duel.hovered_at = None;
 }
 
 /// Sends the ability one row of the ability chooser stands for.
@@ -1341,6 +1351,7 @@ pub fn pointer(
         }
         // A click on nothing interactive closes the card preview.
         duel.hovered = None;
+        duel.hovered_at = None;
     }
 }
 
@@ -1422,6 +1433,7 @@ pub fn pointer_hover(
         };
         if !alive {
             duel.hovered = None;
+            duel.hovered_at = None;
             *source = HoverSource::Elsewhere;
         }
     }
@@ -1440,11 +1452,19 @@ pub fn pointer_hover(
     } else {
         *grace -= 1;
         for over in overs.read() {
+            // Where the pointer was when it found the card, so the preview
+            // can stand beside it. The event carries it; asking the window
+            // for the cursor instead would answer with wherever the pointer
+            // has since travelled, which on a fast sweep is a card or two
+            // further along.
+            let at = over.pointer_location.position;
             if let Some(v) = find_in_lineage(over.entity, &cards, &parents) {
                 duel.hovered = Some(v.object);
+                duel.hovered_at = Some(at);
                 *source = HoverSource::Table;
             } else if let Some(h) = find_in_lineage(over.entity, &hand_cards, &parents) {
                 duel.hovered = Some(h.object);
+                duel.hovered_at = Some(at);
                 *source = HoverSource::Hand;
             }
         }
@@ -1455,6 +1475,7 @@ pub fn pointer_hover(
                     .is_some_and(|h| duel.hovered == Some(h.object));
             if is_current {
                 duel.hovered = None;
+                duel.hovered_at = None;
                 *source = HoverSource::Elsewhere;
             }
         }

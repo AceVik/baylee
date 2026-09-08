@@ -154,6 +154,7 @@ fn spawn_stack_entry(
     let art = spawn_stack_card(
         commands,
         lang,
+        Some(item.id),
         item.art,
         stack_face(item, view, faces, textures),
         STACK_CARD_W,
@@ -297,6 +298,7 @@ fn stack_face(
 fn spawn_stack_card(
     commands: &mut Commands,
     lang: Lang,
+    object: Option<ObjectId>,
     art: Option<ImageKey>,
     face: Option<CardFace>,
     width: f32,
@@ -319,9 +321,23 @@ fn spawn_stack_card(
             },
             BackgroundColor(palette::PANEL_LIT),
             soft_shadow(),
-            Pickable::IGNORE,
         ))
         .id();
+    // The one pickable thing in this panel. A stack card is drawn an inch
+    // across — enough to recognise a spell, nowhere near enough to read one —
+    // and the stack is where a player most needs to read. `HandCardVisual` is
+    // what `pointer_hover` looks for, and it already speaks for every card
+    // the HUD draws rather than the felt; a card whose object this seat may
+    // not know (something cast face down) reports nothing and simply does not
+    // preview.
+    match object {
+        Some(object) => {
+            commands.entity(slot).insert(HandCardVisual { object });
+        }
+        None => {
+            commands.entity(slot).insert(Pickable::IGNORE);
+        }
+    }
     if let Some(key) = art {
         let image = textures.get(key, statics, assets);
         let visual = spawn_card_art(
@@ -361,6 +377,7 @@ fn spawn_stack_target(
         return spawn_stack_card(
             commands,
             lang,
+            target.object(),
             target.art,
             None,
             STACK_TARGET_W,

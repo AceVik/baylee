@@ -480,3 +480,26 @@ about the table itself rather than the rules, and both are fixed.
     rather than the bare table and is bounded on both sides, because "could
     have come in" and "pushed out until the table is a coaster" are different
     failures and only one of them was ever checked.
+
+35. **A permanent's preview opened in the middle of the screen, and the stack
+    had none at all.** *Fixed.* The hover preview was written for the hand,
+    where a card has a place in the HUD's own layout and the bubble points at
+    it. Everything else — a permanent on the felt, the top card of a pile, a
+    card in the command zone — anchored at `None`, which meant the centre of
+    the window: a panel three hundred pixels wide opening a foot away from the
+    card it describes, over the middle of the table, on every hover. The stack
+    panel was worse. It draws its cards an inch across, which is enough to
+    recognise a spell and nowhere near enough to read one, and the whole panel
+    was `Pickable::IGNORE` — so the one place where "what is about to happen,
+    and to what" has to be read in a hurry could not be read at all.
+
+    `Duel::hovered_at` carries the pointer position out of the `Over` event
+    that set the hover, and `PreviewAt` says which of the three placements a
+    card gets: the hand keeps its bubble and its caret, the keyboard cursor
+    (which names a card without standing anywhere) keeps the middle, and
+    everything the pointer found stands beside the pointer. `preview_place` is
+    the arithmetic — beside, never under, flipping to whichever side it fits,
+    clear of the tab strip, the hand bar and the phase rail — and it is a pure
+    function with four tests, because the alternative is reading it off a
+    photograph. Stack entries and their targets now carry `HandCardVisual`,
+    which is what `pointer_hover` looks for.
