@@ -568,3 +568,28 @@ about the table itself rather than the rules, and both are fixed.
     this too: a flat lens 29 units across with two tilted mats slicing into it
     read as a pit in the middle of the table, and on the round ring it is the
     hollow the three boards are set around.
+
+39. **The player's own board was drawn a fifth wider than everybody else's.**
+    *Fixed.* Every seat is laid out on exactly the same 12.0 units — there is
+    a test — and at a three-player free-for-all they were drawn 450, 381 and
+    378 pixels wide. A lean is paid for by the seat furthest from the camera
+    and collected by the seat nearest it, and the nearest seat is always the
+    player's own, so the one board a player compares every other board against
+    was the odd one out. A format is not something to read off the life
+    totals, and a table where your own half looks bigger than your opponents'
+    is the same mistake entry 38 was.
+
+    Two terms make it up and the lean drives both: a board turned away from
+    the camera keeps `√(¼ + ¾cos²)` of its width whatever the distance, and
+    the near seat stands `lean · cos · radius` closer to the eye than the ring
+    does while the far ones stand half that further away. The second shrinks
+    as the lens lengthens, so the fix is both halves at once — `CAMERA_LEAN`
+    0.40 → 0.24 and `FOV` 0.7 → 0.42, the same table framed the same way from
+    twice as far off through half the angle. 18.9% → 6.3%, and it is the
+    player's own board that comes back to the size of the opponents' rather
+    than theirs that grow. `MIN_DISTANCE` and `MAX_DISTANCE` are distances
+    through that same lens and moved with it.
+
+    `every_seat_is_drawn_a_board_of_the_same_width` is the bound, and it is a
+    bound rather than an equality: the last few per cent is the foreshortening
+    above, and the only lean that spends it is zero — a table of decals.

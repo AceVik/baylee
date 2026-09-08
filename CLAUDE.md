@@ -590,9 +590,12 @@ socket that could not be opened.
 A card is a **slab**, not a decal: a rounded face with a thin wall around its
 edge (whose UVs borrow the face's, so the edge is the card's own border
 colour) and a contact-shadow child under it. Neither reads at a camera exactly
-overhead, which is what `table::CAMERA_LEAN` is for — about 22° off vertical,
-enough for both and far too little to bring a horizon into frame, which is
-also why there is no sky behind the table and no point drawing one.
+overhead, which is what `table::CAMERA_LEAN` is for — about 14° off vertical,
+enough for both. It was 22°, and a lean is paid for by the seat furthest from
+the camera and collected by the seat nearest it, which is always the player's
+own: three boards laid out at the same 12.0 units were drawn 450, 381 and 378
+pixels wide. Halving the lean and `FOV` together brings that to 6.3%, and
+`every_seat_is_drawn_a_board_of_the_same_width` holds it there.
 
 The 3D table under the cards is **generated, not shipped**:
 `baylee-client-core/src/tabletop.rs` computes the felt, the centre medallion

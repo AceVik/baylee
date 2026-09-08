@@ -238,16 +238,21 @@ impl Default for CameraRig {
 impl CameraRig {
     /// As close as the player may pull the camera in: one seat's lane,
     /// filling the screen.
-    pub const MIN_DISTANCE: f32 = 7.0;
+    pub const MIN_DISTANCE: f32 = 12.0;
     /// As far as the player may push it out.
     ///
     /// It is a limit on the *player's* zoom, and [`CameraRig::home`] clamps
     /// itself to the same pair — which is why it has headroom over the
-    /// furthest table there is. A five-seat table asks for about 44 units,
+    /// furthest table there is. A five-seat table asks for about 81 units,
     /// and a limit sitting just above that would not stop the shot: it
     /// would silently crop it, because a fit refused is a fit that no
     /// longer fits.
-    pub const MAX_DISTANCE: f32 = 64.0;
+    ///
+    /// Both ends are distances through [`FOV`], so both moved when it did:
+    /// the same shot through half the angle stands twice as far off, and a
+    /// pair left where they were would have clamped every table on the way
+    /// in and every large one on the way out.
+    pub const MAX_DISTANCE: f32 = 120.0;
 
     /// As near vertical as the player may tilt: about 10° off plan.
     ///
@@ -555,18 +560,42 @@ pub fn frame_table(
 /// nothing, its contact shadow hides underneath it, and the board reads as
 /// artwork printed into the felt.
 ///
-/// This is the compromise: about 22° off vertical, which is enough that a
-/// card's edge and the shadow around it are both visible, and far too little
-/// to bring a horizon into frame — which is why there is no sky behind the
-/// table and no point drawing one.
-const CAMERA_LEAN: f32 = 0.40;
+/// This is the compromise: about 14° off vertical, which is enough that a
+/// card's edge and the shadow around it are both visible.
+///
+/// It was 22°, and the sentence above about a far seat's cards is why it is
+/// not any more. Everything the lean costs is paid by the seat furthest from
+/// the camera and collected by the seat nearest it, which on a free-for-all
+/// is the player's own: three boards laid out exactly 12.0 units wide each
+/// were drawn 450, 381 and 378 pixels wide, and the odd one out was the one
+/// the player is looking straight at. A board is the thing a player compares
+/// most often, so a table where their own is a fifth larger than everybody
+/// else's is a table that has misreported the format.
+///
+/// Two terms make up that error and the lean drives both. A seat's own width
+/// axis is turned away from the camera by its facing, and what is left of it
+/// is `√(¼ + ¾cos²)` — pure foreshortening, there at any distance. And the
+/// near seat stands `lean · cos · radius` closer to the eye than the ring's
+/// centre while the far ones stand half that further away, which is
+/// perspective and shrinks as the lens lengthens. Halving the lean and
+/// halving the field of view together take a free-for-all from 18.9% to 6.3%,
+/// and the seats that gave nothing up are the two opposite ones: it is the
+/// player's own board that comes back to the size of theirs.
+const CAMERA_LEAN: f32 = 0.24;
 
 /// The camera's vertical field of view, in radians.
 ///
 /// Shared with [`CameraRig::home`], which inverts the projection to work out
 /// how far back the table has to stand — a framing computed against a
 /// different angle from the one the camera is set to is a framing that misses.
-const FOV: f32 = 0.7;
+///
+/// 24° rather than the 40° it was, which is the other half of what
+/// [`CAMERA_LEAN`] buys: the same table framed the same way, from twice as
+/// far off through half the angle, so every seat sits at nearly the same
+/// depth and is drawn at nearly the same size. It is a longer lens than a
+/// room is normally seen through, and that is the point — a table is a thing
+/// a player reads, not a room they stand in.
+const FOV: f32 = 0.42;
 
 /// Where the camera actually is, as against where the rig says it should be.
 ///
@@ -2208,6 +2237,67 @@ mod camera_tests {
             }
         }
         out
+    }
+
+    /// How wide one seat's board is drawn, in pixels.
+    fn drawn_width(rig: CameraRig, canvas: Canvas, slot: &SeatSlot) -> f32 {
+        let (sin, cos) = slot.facing.sin_cos();
+        let axis = Vec2::new(cos, -sin) * slot.half_extent.x;
+        let ends = [slot.center + axis, slot.center - axis]
+            .map(|end| project(rig, canvas, end) * canvas.window * 0.5);
+        ends[0].distance(ends[1])
+    }
+
+    /// Every seat's board is laid out the same width, and is *drawn* nearly
+    /// the same width too.
+    ///
+    /// The layout half of that has its own test in `layout.rs`; this is the
+    /// camera half, and the two are different claims. A lean spends the
+    /// furthest seat's size on the nearest one, and the nearest one is always
+    /// the player's own — so the seat whose board the player compares every
+    /// other against was the one drawn wrong. At the lean and the lens this
+    /// shipped with it was 18.9% wider than its opponents' at a three-player
+    /// free-for-all, which is a difference a player reads as a different
+    /// format rather than as a camera.
+    ///
+    /// Bounded rather than equalised: the remaining few per cent is the
+    /// foreshortening of a board turned away from the camera, and squeezing
+    /// that out means a lean of zero, which is a table of decals.
+    #[test]
+    fn every_seat_is_drawn_a_board_of_the_same_width() {
+        // A phone is allowed a little more. Its ring is nearly a column —
+        // 2.5 × 11.2 at three seats — so the near seat stands a far larger
+        // fraction of the eye distance closer than it does on a ring that had
+        // room to be round, and no lens shortens that.
+        for (window, bound) in [
+            (WINDOW, 1.08),
+            (Vec2::new(1280.0, 800.0), 1.08),
+            (Vec2::new(430.0, 932.0), 1.13),
+        ] {
+            let canvas = Canvas::hud(window);
+            for n in 2..=8u8 {
+                let layout = TableLayout::new(&seats(n), canvas.aspect(), None);
+                let rig = CameraRig::home(&layout, canvas);
+                let drawn: Vec<f32> = layout
+                    .slots
+                    .iter()
+                    .map(|slot| drawn_width(rig, canvas, slot))
+                    .collect();
+                let widest = drawn.iter().copied().fold(0.0_f32, f32::max);
+                let narrowest = drawn.iter().copied().fold(f32::INFINITY, f32::min);
+                assert!(
+                    widest <= narrowest * bound,
+                    "{n} seats in {window}: boards laid out {:.2} wide are drawn \
+                     {drawn:?} — {:.1}% apart, and the widest is seat {}",
+                    layout.slots[0].lane_width(),
+                    (widest / narrowest - 1.0) * 100.0,
+                    drawn
+                        .iter()
+                        .position(|w| (w - widest).abs() < 1e-3)
+                        .unwrap_or_default()
+                );
+            }
+        }
     }
 
     /// A seat's mat is wider than the box that seat reports.

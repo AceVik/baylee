@@ -46,9 +46,20 @@ Neither reads at a purely top-down camera, which is why `CAMERA_LEAN` exists.
 The table is read from above — a four-seat pod ring is laid out for a plan
 view — but a camera exactly overhead throws away every cue that a card is an
 object: the edge projects to nothing and the shadow hides underneath. About
-22° off vertical is the compromise, and it is also why there is **no sky
-behind the table**: at that angle the top of the frame still looks 48° below
-the horizon, so a backdrop with a horizon in it would render nothing.
+14° off vertical is the compromise.
+
+It was 22°, and what moved it is that a lean is paid for by the seat furthest
+from the camera and collected by the seat nearest it — which is always the
+player's own. Three boards laid out at exactly the same 12.0 units were drawn
+450, 381 and 378 pixels wide, so the one board a player compares every other
+against was the odd one out, and a free-for-all looked like a format it was
+not. Halving the lean and halving `FOV` together — the same table framed the
+same way, from twice as far off through half the angle — bring that spread
+from 18.9% to 6.3%, and the seats that give nothing up are the opponents': it
+is the player's own board that comes back to the size of theirs.
+`every_seat_is_drawn_a_board_of_the_same_width` is the bound. The few per cent
+left is the foreshortening of a board turned away from the camera, and the
+only way to spend that is a lean of zero, which is a table of decals.
 
 The mesh has five tests of its own, and it is worth knowing why. It shipped
 once with every corner arc sweeping the quarter turn belonging to its
