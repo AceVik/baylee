@@ -151,6 +151,7 @@ pub fn sync_overlay(
         duel.browser.is_open(),
         duel.browser.tab(),
         duel.browser.filter().to_string(),
+        duel.browser.is_typing(),
     );
     let menu = (duel.can_offer_draw(), duel.concede_armed);
     let armed_deed = duel.armed.clone();

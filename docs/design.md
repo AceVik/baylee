@@ -954,9 +954,27 @@ gone. The mark sits along the bottom edge, because the top-left corner belongs
 to the ordering badge and two marks fighting for one corner is how a player
 learns to read neither.
 
-Still open here, and named so it is not mistaken for done: the filter has no
-text field in the tray, so `set_filter` still has no caller a player can reach.
-That is the same soft-keys work the lobby's fields need.
+**Done: the filter is a field.** `set_filter` was written and nothing ever
+called it, so "durchsuchbar" was the one word of the three the panel could not
+answer. The filter line is a button now, and clicking it gives the box the
+keyboard; clicking it again, `Enter`, or closing the panel hands it back.
+
+The bargain is the whole design. The panel can stand open for a whole turn —
+that is what "always visible" asked for — so a box that swallowed every
+keystroke while it merely stood open would end playing with the graveyard on
+screen. `Browser::is_typing` is therefore a focus a player *gives* it, and
+`browser_keys` returns `false` without it, ahead of the quiet check where a
+letter bound to no action would otherwise be dropped. `Cancel` empties the box
+before it lets go, so one press undoes a search that found nothing and the
+next returns the keyboard.
+
+`typing_epoch` counts how many times the box has been focused, because a
+platform with its own text input has to be *pointed* at a field on an edge:
+`input::browser_softkeys` is the table's half of what `lobby/systems.rs`
+already did for the sign-in form, and it is what raises a phone's keyboard
+over a tray whose scrolling and 44-pixel targets were sized for one. Where
+that path runs, `browser_keys` reads no raw keys at all, or every character
+would be entered twice.
 
 ### 2.5 Undo, and its absence
 

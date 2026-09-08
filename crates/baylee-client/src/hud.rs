@@ -260,6 +260,14 @@ pub struct TrayTab {
 #[derive(Component)]
 pub struct TrayClose;
 
+/// The browser's filter box.
+///
+/// A `Button` because it is a field a player *gives* the keyboard to: a box
+/// that swallowed every keystroke while the panel merely stood open would be
+/// the end of playing with the graveyard visible.
+#[derive(Component)]
+pub struct TrayFilter;
+
 /// The browser's sort control.
 ///
 /// One button rather than a menu, because four keys and a direction is not a
@@ -403,6 +411,7 @@ pub struct HudRevision {
         bool,
         Option<baylee_client_core::browser::BrowseZone>,
         String,
+        bool,
     ),
     /// The value a number choice stands at. It changes with no new snapshot —
     /// stepping X never leaves the client until Confirm — so without it the

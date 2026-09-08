@@ -548,6 +548,9 @@ impl Plugin for DuelPlugin {
             .init_resource::<face::FaceMode>()
             .init_resource::<combatlines::LineAssets>()
             .init_resource::<combatlines::FocusAssets>()
+            // Shared with the lobby, which may already have installed it: the
+            // table has one text field of its own, the browser's filter box.
+            .init_resource::<softkeys::SoftKeyboard>()
             .add_message::<DuelCommand>()
             .add_message::<DuelReport>()
             .configure_sets(
@@ -573,6 +576,11 @@ impl Plugin for DuelPlugin {
             .add_systems(
                 Update,
                 (
+                    // Before the key path, and for the reason the lobby's
+                    // sits there too: on a platform that owns the typing the
+                    // client must not also read raw keys, or a character is
+                    // entered twice.
+                    input::browser_softkeys,
                     input::keyboard,
                     input::pointer,
                     input::pointer_hover,

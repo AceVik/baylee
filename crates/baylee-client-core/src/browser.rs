@@ -207,6 +207,8 @@ pub struct Browser {
     filter: String,
     sort: SortKey,
     descending: bool,
+    typing: bool,
+    typing_epoch: u64,
 }
 
 impl Browser {
@@ -248,6 +250,7 @@ impl Browser {
     /// Closes the panel, keeping the tab and filter for the next time.
     pub fn close(&mut self) {
         self.open = false;
+        self.typing = false;
     }
 
     /// Shows one zone, or every zone when given `None`.
@@ -258,6 +261,53 @@ impl Browser {
     /// Narrows the list to cards whose name contains `text`.
     pub fn set_filter(&mut self, text: impl Into<String>) {
         self.filter = text.into();
+    }
+
+    /// Whether the filter box has the keyboard.
+    ///
+    /// A box that took every keystroke while the panel merely stood open
+    /// would be the end of playing with the graveyard visible, so this is a
+    /// focus a player gives it and takes back — the same bargain the lobby's
+    /// fields make.
+    #[must_use]
+    pub const fn is_typing(&self) -> bool {
+        self.typing
+    }
+
+    /// How many times the box has been focused.
+    ///
+    /// A platform with its own text input (a browser's `<input>`, and the
+    /// only thing that raises a phone's keyboard) has to be *pointed* at a
+    /// field, and it needs an edge rather than a level to do it on.
+    #[must_use]
+    pub const fn typing_epoch(&self) -> u64 {
+        self.typing_epoch
+    }
+
+    /// Gives the filter box the keyboard, opening the panel if it was shut.
+    pub fn start_typing(&mut self) {
+        self.open = true;
+        if !self.typing {
+            self.typing = true;
+            self.typing_epoch += 1;
+        }
+    }
+
+    /// Takes the keyboard back. The text stays.
+    pub fn stop_typing(&mut self) {
+        self.typing = false;
+    }
+
+    /// One typed character.
+    pub fn push_filter(&mut self, c: char) {
+        if !c.is_control() {
+            self.filter.push(c);
+        }
+    }
+
+    /// Rubs one character out, and says whether there was one.
+    pub fn pop_filter(&mut self) -> bool {
+        self.filter.pop().is_some()
     }
 
     /// What the rows are sorted by.
@@ -894,5 +944,76 @@ mod tests {
                 .all(|r| !r.selectable),
             "watching another seat choose is not choosing"
         );
+    }
+
+    /// The filter box is a field a player focuses, not a keyboard trap.
+    ///
+    /// `set_filter` existed from the start and nothing ever called it: the
+    /// panel could sort and scroll, and the one thing the owner asked for by
+    /// name — "durchsuchbar" — had no way in. It is typed into now, and the
+    /// bargain is that it has to be *given* the keyboard: a box that took
+    /// every keystroke while the panel merely stood open would end playing
+    /// with the graveyard visible.
+    #[test]
+    fn the_filter_box_only_types_while_it_holds_the_keyboard() {
+        let mut b = Browser::new();
+        assert!(!b.is_typing(), "a fresh panel does not own the keyboard");
+
+        b.start_typing();
+        assert!(b.is_open(), "focusing the box opens the panel it lives in");
+        assert!(b.is_typing());
+        let focused = b.typing_epoch();
+
+        for c in "Elv".chars() {
+            b.push_filter(c);
+        }
+        b.push_filter('\n');
+        assert_eq!(b.filter(), "Elv", "a control character reached the text");
+        assert!(b.pop_filter());
+        assert_eq!(b.filter(), "El");
+
+        // Focusing again while already focused is not a new focus: a platform
+        // input pointed at the box on every frame would fight the player for
+        // the caret.
+        b.start_typing();
+        assert_eq!(b.typing_epoch(), focused);
+
+        b.stop_typing();
+        assert!(!b.is_typing());
+        assert_eq!(
+            b.filter(),
+            "El",
+            "letting go of the box threw the text away"
+        );
+
+        // And closing the panel lets go: the keyboard belongs to the game
+        // again the moment the panel is not on screen.
+        b.start_typing();
+        b.close();
+        assert!(!b.is_typing());
+    }
+
+    /// Typing narrows the rows, which is the whole point of the box.
+    #[test]
+    fn what_is_typed_is_what_is_listed() {
+        let view = ViewBuilder::new(2)
+            .with_graveyard(
+                0,
+                vec![
+                    printed(1, 0, "Elvish Mystic", 1),
+                    printed(2, 0, "Mountain", 2),
+                ],
+            )
+            .build();
+        let mut b = Browser::new();
+        b.open();
+        assert_eq!(b.rows(&view, None).len(), 2);
+        b.start_typing();
+        for c in "mou".chars() {
+            b.push_filter(c);
+        }
+        let rows = b.rows(&view, None);
+        assert_eq!(rows.len(), 1, "the filter did not reach the rows");
+        assert_eq!(rows[0].name, "Mountain");
     }
 }

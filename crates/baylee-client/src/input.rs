@@ -19,7 +19,7 @@
 use crate::hud::{
     AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton,
     PileChip, PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton, TrayCard,
-    TrayClose, TraySort, TrayTab,
+    TrayClose, TrayFilter, TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -45,6 +45,7 @@ pub struct TrayWidgets<'w, 's> {
     tabs: Query<'w, 's, &'static TrayTab>,
     close: Query<'w, 's, &'static TrayClose>,
     sort: Query<'w, 's, &'static TraySort>,
+    filter: Query<'w, 's, &'static TrayFilter>,
     chips: Query<'w, 's, &'static PileChip>,
 }
 
@@ -312,6 +313,13 @@ pub fn keyboard(
     if number_keys(&mut typed, &mut duel) {
         return;
     }
+    // And the same again for the browser's filter box — but only while it has
+    // been given the keyboard, because the panel can stand open for a whole
+    // turn and a box that swallowed every keystroke would end playing with
+    // the graveyard visible.
+    if browser_keys(fired, &mut typed, &mut duel) {
+        return;
+    }
     if fired.quiet() {
         return;
     }
@@ -416,6 +424,108 @@ fn look_around(
 /// maximum is 9. Backspace takes a digit off, and the interaction clamps
 /// whatever comes out, so nothing typed here is expressible outside the range
 /// the engine offered.
+/// The platform's own text input, pointed at the browser's filter box.
+///
+/// Only the browser has one, and it is the only thing that raises a phone's
+/// keyboard — a canvas never does. The lobby's form does this for its fields;
+/// the table has exactly one field, and without this the pile a player wanted
+/// to search was searchable on a desktop and not on the device the tray's
+/// scrolling and 44-pixel targets were sized for.
+///
+/// Focus is an *edge*: `typing_epoch` counts how many times the box has been
+/// given the keyboard, because pointing the input at the field on every frame
+/// would fight the player for the caret.
+pub fn browser_softkeys(
+    mut keys: ResMut<crate::softkeys::SoftKeyboard>,
+    mut duel: ResMut<Duel>,
+    mut epoch: Local<u64>,
+    mut had_focus: Local<bool>,
+) {
+    if !crate::softkeys::SoftKeyboard::owns_typing() {
+        return;
+    }
+    let typing = duel.browser.is_typing();
+    if typing && *epoch != duel.browser.typing_epoch() {
+        *epoch = duel.browser.typing_epoch();
+        keys.open(
+            baylee_client_core::lobby::FieldKind::Name,
+            duel.browser.filter(),
+        );
+    }
+    if !typing {
+        if *had_focus {
+            keys.close();
+        }
+        *had_focus = false;
+        return;
+    }
+    *had_focus = true;
+    for key in keys.drain() {
+        match key {
+            // Not a keystroke: autofill and paste arrive as a whole value.
+            crate::softkeys::SoftKey::Text(value) => duel.browser.set_filter(value),
+            // Nothing to submit — the rows are already narrowed, so the
+            // action key means "done".
+            crate::softkeys::SoftKey::Submit => {
+                duel.browser.stop_typing();
+                keys.close();
+            }
+        }
+    }
+}
+
+/// Typing into the zone browser's filter box.
+///
+/// The panel could sort and scroll and the one thing the owner asked for by
+/// name — a graveyard you can *search* — had no way in: `Browser::set_filter`
+/// was written and nothing ever called it.
+///
+/// The box holds the keyboard only while it has been given it, which is what
+/// lets the panel stay open through a turn. `Cancel` is the way out and
+/// empties the box first when there is anything in it, so one press undoes
+/// the search and the next one lets go — a player who typed `mou` and found
+/// nothing should not have to rub out three letters to get back to the pile.
+fn browser_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
+    if !duel.browser.is_typing() {
+        return false;
+    }
+    // The box still owns the keyboard where the platform does the typing —
+    // `browser_softkeys` has already read the value — but the client must not
+    // read the raw keys as well, or every character is entered twice.
+    if crate::softkeys::SoftKeyboard::owns_typing() {
+        return true;
+    }
+    if fired.has(Action::Cancel) {
+        if duel.browser.filter().is_empty() {
+            duel.browser.stop_typing();
+        } else {
+            duel.browser.set_filter("");
+        }
+        return true;
+    }
+    for event in typed.read() {
+        if !event.state.is_pressed() {
+            continue;
+        }
+        match &event.logical_key {
+            Key::Character(s) => {
+                for c in s.chars() {
+                    duel.browser.push_filter(c);
+                }
+            }
+            Key::Space => duel.browser.push_filter(' '),
+            Key::Backspace => {
+                duel.browser.pop_filter();
+            }
+            // "Done" rather than "submit": the rows are already narrowed, so
+            // the only thing left to do is hand the keyboard back.
+            Key::Enter => duel.browser.stop_typing(),
+            _ => {}
+        }
+    }
+    true
+}
+
 fn number_keys(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
     if !matches!(
         duel.interaction.as_ref().map(Interaction::prompt),
@@ -1043,6 +1153,16 @@ fn browser_click(
             duel.browser.reverse();
         } else {
             duel.browser.cycle_sort();
+        }
+        return true;
+    }
+    // The filter box takes the keyboard on the click and gives it back on
+    // the next one, so a player can leave the panel open and keep playing.
+    if find_in_lineage(entity, &tray.filter, parents).is_some() {
+        if duel.browser.is_typing() {
+            duel.browser.stop_typing();
+        } else {
+            duel.browser.start_typing();
         }
         return true;
     }
@@ -2009,6 +2129,75 @@ mod tests {
         });
         app.update();
         assert_eq!(number(&app), 0);
+    }
+
+    /// The graveyard is searchable, and only while it has been asked to be.
+    ///
+    /// "Sortierbar, durchsuchbar, scrollbar" — the first and the last were
+    /// there and the middle one was not: `Browser::set_filter` was written
+    /// and no key or click ever reached it. What is pinned here is both
+    /// halves of the bargain, because the panel can stand open for a whole
+    /// turn: letters reach the box once it holds the keyboard, and they must
+    /// not before.
+    #[test]
+    fn the_pile_is_searchable_only_while_the_box_holds_the_keyboard() {
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::{Key, KeyboardInput};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        let mut duel = crate::Duel::default();
+        duel.browser.open();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .insert_resource(duel)
+            .add_systems(Update, super::keyboard);
+        let window = app.world_mut().spawn_empty().id();
+
+        let type_letter = |app: &mut App, c: char| {
+            app.world_mut().write_message(KeyboardInput {
+                key_code: KeyCode::KeyM,
+                logical_key: Key::Character(c.to_string().into()),
+                state: bevy::input::ButtonState::Pressed,
+                text: Some(c.to_string().into()),
+                repeat: false,
+                window,
+            });
+            app.update();
+        };
+        let filter = |app: &App| {
+            app.world()
+                .resource::<crate::Duel>()
+                .browser
+                .filter()
+                .to_string()
+        };
+
+        // An open panel is not a focused box: the letters belong to the game.
+        type_letter(&mut app, 'm');
+        assert_eq!(filter(&app), "", "the box typed without being asked to");
+
+        app.world_mut()
+            .resource_mut::<crate::Duel>()
+            .browser
+            .start_typing();
+        type_letter(&mut app, 'm');
+        type_letter(&mut app, 'o');
+        assert_eq!(filter(&app), "mo");
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::Backspace,
+            logical_key: Key::Backspace,
+            state: bevy::input::ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+        assert_eq!(filter(&app), "m", "backspace did not reach the box");
     }
 
     /// The arrows are bound to `NumberUp`/`NumberDown`, and `camera_controls`

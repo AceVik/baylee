@@ -135,8 +135,18 @@ pub(super) fn spawn_tray(
     commands.entity(tabs).add_children(&chips);
 
     // ---- what is typed, and what an ordering wants ----
-    let hint = if interaction.is_some_and(baylee_client_core::Interaction::is_ordering) {
+    //
+    // An ordering has no filter to offer — the panel is the answer being
+    // assembled, and narrowing it would hide places in it — so the row says
+    // what to do instead. Everywhere else this is a field: empty and unfocused
+    // it shows what it is for, focused it shows a caret, and either way it is
+    // the thing a player clicks to search the pile they are looking at.
+    let ordering = interaction.is_some_and(baylee_client_core::Interaction::is_ordering);
+    let typing = browser.is_typing();
+    let hint = if ordering {
         Phrase::BrowseOrderHint.text(lang).to_string()
+    } else if typing {
+        format!("{}\u{258f}", browser.filter())
     } else if browser.filter().trim().is_empty() {
         Phrase::BrowseFilter.text(lang).to_string()
     } else {
@@ -156,14 +166,29 @@ pub(super) fn spawn_tray(
         .id();
     let filter_line = commands
         .spawn((
-            Text::new(hint),
-            tf(fonts, 11.0),
-            TextColor(if browser.filter().trim().is_empty() {
-                palette::MUTED
+            TrayFilter,
+            Button,
+            Node {
+                flex_grow: 1.0,
+                padding: UiRect::axes(px(7), px(3)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(if typing {
+                palette::PANEL_LIT
             } else {
-                palette::ACCENT
+                palette::PANEL
             }),
-            Pickable::IGNORE,
+            children![(
+                Text::new(hint),
+                tf(fonts, 11.0),
+                TextColor(if typing || !browser.filter().trim().is_empty() {
+                    palette::ACCENT
+                } else {
+                    palette::MUTED
+                }),
+                Pickable::IGNORE,
+            )],
         ))
         .id();
     // A library is a hundred cards and a long graveyard is thirty, so "look
