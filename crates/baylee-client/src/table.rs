@@ -213,6 +213,15 @@ pub struct CameraRig {
     pub distance: f32,
     /// Azimuth around the target (0 = behind the local seat).
     pub yaw: f32,
+    /// How far the camera stands off vertical, as a tangent.
+    ///
+    /// [`CAMERA_LEAN`] is where every shot starts and where the framing
+    /// arithmetic is done, because that arithmetic is about which table fits
+    /// on which screen and a player tilting the camera has stopped asking
+    /// that question. This field is what the player then does to it, and it
+    /// is a tangent rather than an angle because that is what the transform
+    /// and the shadow offsets read.
+    pub lean: f32,
 }
 
 impl Default for CameraRig {
@@ -221,6 +230,7 @@ impl Default for CameraRig {
             target: Vec2::ZERO,
             distance: 20.0,
             yaw: 0.0,
+            lean: CAMERA_LEAN,
         }
     }
 }
@@ -239,6 +249,19 @@ impl CameraRig {
     /// longer fits.
     pub const MAX_DISTANCE: f32 = 64.0;
 
+    /// As near vertical as the player may tilt: about 10° off plan.
+    ///
+    /// Not zero, and the card is why. A card is a slab with a thin wall
+    /// around its edge and a contact shadow under it, and neither reads from
+    /// directly overhead — a table seen straight down is a table of decals.
+    pub const MIN_LEAN: f32 = 0.176;
+    /// As far over as the player may tilt: about 55° off plan.
+    ///
+    /// Bounded because there is nothing behind the table. No sky is drawn and
+    /// none would be worth drawing, so a camera flat enough to bring the
+    /// horizon into frame is a camera pointed at the clear colour.
+    pub const MAX_LEAN: f32 = 1.428;
+
     /// Moves the rig so `pod` (a seat's table-space centre) fills the free
     /// canvas area: camera outside the ellipse looking inward, cards
     /// upright with their bottoms toward the screen bottom, the pod
@@ -249,6 +272,7 @@ impl CameraRig {
             target: world_center * 0.72,
             distance: (slot.half_extent.length() * 2.6).clamp(9.0, Self::MAX_DISTANCE),
             yaw: world_center.y.atan2(world_center.x) + std::f32::consts::FRAC_PI_2,
+            lean: CAMERA_LEAN,
         }
     }
 
@@ -364,6 +388,11 @@ impl CameraRig {
             // Table space to world: `+y` away from the local seat is `-z`.
             target: Vec2::new(look.x, -look.y),
             yaw: 0.0,
+            // Every line above was solved at `CAMERA_LEAN`, so this is the
+            // one answer it can give. A shot the player has tilted is a shot
+            // they have taken over, and `frame_table` has stopped writing
+            // here by then.
+            lean: CAMERA_LEAN,
         }
     }
 }
@@ -578,6 +607,7 @@ pub fn apply_camera_rig(
                 target: current.target.lerp(target.target, t),
                 distance: current.distance + (target.distance - current.distance) * t,
                 yaw: current.yaw + yaw_delta * t,
+                lean: current.lean + (target.lean - current.lean) * t,
             }
         }
     };
@@ -588,7 +618,7 @@ pub fn apply_camera_rig(
     }
     shown.0 = Some(current);
 
-    let horizontal = current.distance * CAMERA_LEAN;
+    let horizontal = current.distance * current.lean;
     let height = current.distance;
     let offset = Vec3::new(
         current.yaw.sin() * horizontal,

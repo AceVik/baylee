@@ -1503,9 +1503,16 @@ pub enum HoverSource {
 }
 
 /// The battlefield canvas camera: arrows pan, Shift+Up/Down zooms,
-/// Shift+Left/Right rotates, left-drag pans, right-drag rotates, the
-/// wheel zooms (over the hand bar it scrolls the hand instead), and the
-/// touch gestures do what fingers do (pan/pinch/rotate).
+/// Shift+Left/Right rotates, **left-drag orbits** (turn and tilt),
+/// right- or middle-drag pans, the wheel zooms (over the hand bar it scrolls
+/// the hand instead), and the touch gestures do what fingers do
+/// (pan/pinch/rotate).
+///
+/// The mouse follows the orbit convention rather than the map one: a drag
+/// turns the table, and moving the view sideways is the other button. The
+/// keyboard keeps the bindings `docs/keyboard-map.md` lists, tilt included —
+/// there is no key for it, because tilt is the one thing a player wants to
+/// *aim* rather than step.
 #[allow(clippy::too_many_arguments)]
 pub fn camera_controls(
     keys: Res<ButtonInput<KeyCode>>,
@@ -1576,7 +1583,13 @@ pub fn camera_controls(
         }
     }
 
-    // ---- mouse: left-drag pans, right-drag rotates -----------------------
+    // ---- mouse: left-drag orbits, right- or middle-drag pans -------------
+    //
+    // The orbit convention every other 3D scene in this engine's ecosystem
+    // uses, and the one a player arrives with: drag turns the thing you are
+    // looking at, and moving the view sideways is the deliberate gesture on
+    // the other button. It used to be the other way round, which reads as a
+    // map rather than as a table.
     let (mut dx, mut dy) = (0.0, 0.0);
     for motion in motions.read() {
         dx += motion.delta.x;
@@ -1584,11 +1597,18 @@ pub fn camera_controls(
     }
     let drag_scale = rig.distance / 600.0;
     if buttons.pressed(MouseButton::Left) && !duel.resize_drag {
+        rig.yaw -= dx * 0.004;
+        // Dragging *down* tips the camera towards the table's own plane,
+        // which is the way round a hand expects: the far edge comes up to
+        // meet the pointer.
+        rig.lean = (rig.lean + dy * 0.004).clamp(
+            crate::table::CameraRig::MIN_LEAN,
+            crate::table::CameraRig::MAX_LEAN,
+        );
+    }
+    if buttons.pressed(MouseButton::Right) || buttons.pressed(MouseButton::Middle) {
         rig.target -= right * dx * drag_scale;
         rig.target -= forward * dy * drag_scale;
-    }
-    if buttons.pressed(MouseButton::Right) {
-        rig.yaw -= dx * 0.004;
     }
 
     // ---- wheel: zoom, unless the pointer is over the hand bar ------------
@@ -2314,6 +2334,109 @@ mod tests {
             crate::table::CameraRig::default().target,
             "and with no number pending the arrow still pans"
         );
+    }
+
+    /// The mouse follows the orbit convention: drag turns the table.
+    ///
+    /// It used to be the map one — left-drag slid the table around and only
+    /// the right button turned it — which is the wrong way round for a thing
+    /// you are looking *at* rather than travelling over, and is not what a
+    /// player arrives expecting from any other 3D scene.
+    #[test]
+    fn the_left_button_turns_the_table_and_the_right_one_moves_it() {
+        use bevy::input::ButtonInput;
+        use bevy::input::mouse::{MouseMotion, MouseWheel};
+        use bevy::prelude::*;
+
+        let drag = |button: MouseButton, delta: Vec2| {
+            let mut app = App::new();
+            app.init_resource::<ButtonInput<KeyCode>>()
+                .init_resource::<ButtonInput<MouseButton>>()
+                .init_resource::<crate::table::CameraRig>()
+                .add_message::<MouseMotion>()
+                .add_message::<MouseWheel>()
+                .add_message::<bevy::input::gestures::PanGesture>()
+                .add_message::<bevy::input::gestures::PinchGesture>()
+                .add_message::<bevy::input::gestures::RotationGesture>()
+                .init_resource::<crate::Duel>()
+                .add_systems(Update, super::camera_controls);
+            app.world_mut()
+                .resource_mut::<ButtonInput<MouseButton>>()
+                .press(button);
+            app.world_mut().write_message(MouseMotion { delta });
+            app.update();
+            *app.world().resource::<crate::table::CameraRig>()
+        };
+
+        let home = crate::table::CameraRig::default();
+        let turned = drag(MouseButton::Left, Vec2::new(40.0, 0.0));
+        assert!(
+            (turned.yaw - home.yaw).abs() > 1e-4,
+            "the left button did not turn the table"
+        );
+        assert_eq!(
+            turned.target, home.target,
+            "and it must not have moved it as well"
+        );
+
+        let tilted = drag(MouseButton::Left, Vec2::new(0.0, 40.0));
+        assert!(
+            tilted.lean > home.lean,
+            "dragging down did not tip the camera towards the table: {} against {}",
+            tilted.lean,
+            home.lean
+        );
+
+        for button in [MouseButton::Right, MouseButton::Middle] {
+            let moved = drag(button, Vec2::new(40.0, 20.0));
+            assert_ne!(
+                moved.target, home.target,
+                "{button:?} did not move the table"
+            );
+            assert!(
+                (moved.yaw - home.yaw).abs() < 1e-6 && (moved.lean - home.lean).abs() < 1e-6,
+                "{button:?} turned the table as well"
+            );
+        }
+    }
+
+    /// The tilt is bounded at both ends, and for two different reasons: a
+    /// card is a slab with a wall and a contact shadow and reads as a decal
+    /// from straight overhead, and there is nothing drawn behind the table
+    /// for a flat camera to find.
+    #[test]
+    fn the_camera_cannot_be_tipped_flat_or_stood_straight_up() {
+        use bevy::input::ButtonInput;
+        use bevy::input::mouse::{MouseMotion, MouseWheel};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .init_resource::<crate::table::CameraRig>()
+            .add_message::<MouseMotion>()
+            .add_message::<MouseWheel>()
+            .add_message::<bevy::input::gestures::PanGesture>()
+            .add_message::<bevy::input::gestures::PinchGesture>()
+            .add_message::<bevy::input::gestures::RotationGesture>()
+            .init_resource::<crate::Duel>()
+            .add_systems(Update, super::camera_controls);
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+
+        for delta in [10_000.0_f32, -20_000.0, 10_000.0] {
+            app.world_mut().write_message(MouseMotion {
+                delta: Vec2::new(0.0, delta),
+            });
+            app.update();
+            let lean = app.world().resource::<crate::table::CameraRig>().lean;
+            assert!(
+                (crate::table::CameraRig::MIN_LEAN..=crate::table::CameraRig::MAX_LEAN)
+                    .contains(&lean),
+                "a drag of {delta} left the camera leaning {lean}"
+            );
+        }
     }
 
     /// The browser had a pointer route and no keyboard one, which is exactly

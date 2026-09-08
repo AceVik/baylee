@@ -35,9 +35,10 @@ Two consequences worth knowing before changing anything here:
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
 | Open the zone browser (graveyards, exile, the stack) | `G` (or a pile chip) | implemented |
-| Battlefield camera: pan | arrows (not while choosing a number), left-drag, touch-drag | implemented |
+| Battlefield camera: pan | arrows (not while choosing a number), right- or middle-drag, touch-drag | implemented |
 | Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
-| Battlefield camera: rotate | `Shift+←/→`, right-drag, rotate gesture | implemented |
+| Battlefield camera: rotate | `Shift+←/→`, left-drag, rotate gesture | implemented |
+| Battlefield camera: tilt | left-drag (up/down) | implemented |
 | Select a phase/step button (the rail's keyboard cursor) | `⇧W` / `⇧S` | implemented |
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Fast-forward to the next turn | `⇧Tab` | implemented |

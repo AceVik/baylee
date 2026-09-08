@@ -525,3 +525,21 @@ about the table itself rather than the rules, and both are fixed.
     walks four seatings at two aspects and asks the thing the seating is for:
     one board, the same for everybody, partners sharing a side and nobody
     overlapping.
+
+37. **The mouse drove the table like a map, and the camera could not tilt.**
+    *Fixed.* Left-drag slid the table around and only the right button turned
+    it, which is the wrong way round for a thing you are looking *at* rather
+    than travelling over, and is not what a player arrives expecting from any
+    other 3D scene. It is the orbit convention now: left-drag turns and tilts,
+    right- or middle-drag moves, the wheel still zooms.
+
+    Tilt did not exist at all. `CAMERA_LEAN` was a constant everywhere,
+    including in the transform, so the one thing a player could not change
+    about the shot was the one a photographer changes first. `CameraRig::lean`
+    carries it, bounded at both ends and for two different reasons: a card is
+    a slab with a wall around its edge and a contact shadow under it and reads
+    as a decal from straight overhead (`MIN_LEAN`, about 10° off plan), and
+    there is nothing drawn behind the table for a flat camera to find
+    (`MAX_LEAN`, about 55°). `CameraRig::home` still solves at `CAMERA_LEAN`
+    and says so — a tilted shot is one the player has taken over, and
+    `frame_table` has stopped writing to the rig by then.
