@@ -36,6 +36,21 @@ pub const CARD_HEIGHT: f32 = 1.397;
 /// UI that sizes a card from one dimension needs the other, and a material
 /// node — unlike an image node — carries no intrinsic size to fall back on.
 pub const CARD_ASPECT: f32 = CARD_WIDTH / CARD_HEIGHT;
+/// The room one card needs along a lane, however it is turned.
+///
+/// A card taps by rotating a quarter turn about its own centre (CR 701.21),
+/// so the space it claims in a row is its *longest* dimension and not its
+/// width. Every cell in a lane is that wide, tapped or not, and the two
+/// things that buys are worth the quarter of a card of air around an
+/// untapped one: no card can ever overlap its neighbour, and tapping moves
+/// nothing — the cell was always the right size and the card turns inside
+/// it, on a board where a row that reshuffled itself every time a land paid
+/// for something would be unreadable exactly while it is being read.
+///
+/// Packing to [`CARD_WIDTH`] instead is what put a tapped creature 0.14
+/// units into each of its neighbours on a duel's lane that had seventeen
+/// units to spare.
+pub const CARD_SPAN: f32 = CARD_HEIGHT;
 /// Gap between cards in a comfortably filled lane.
 pub const CARD_GAP: f32 = 0.12;
 /// How much of a card must stay visible when a lane fans.
@@ -503,7 +518,12 @@ pub struct LanePacking {
     pub offsets: Vec<f32>,
     /// Distance between successive card centres.
     pub pitch: f32,
-    /// Whether cards overlap.
+    /// Whether the cells are tighter than a card's own span, so cards can
+    /// overlap.
+    ///
+    /// "Can", not "do": between [`CARD_WIDTH`] and [`CARD_SPAN`] an untapped
+    /// row still has air in it and a tapped one does not, and a lane cannot
+    /// know which of its cards will be turned.
     pub fanned: bool,
     /// Whether even a fan cannot show every card legibly, so the caller should
     /// group identical cards into counted stacks instead.
@@ -535,14 +555,14 @@ pub fn pack_lane(count: usize, width: f32) -> LanePacking {
     }
 
     let n = count as f32;
-    let comfortable_pitch = CARD_WIDTH + CARD_GAP;
-    let comfortable_span = comfortable_pitch * (n - 1.0) + CARD_WIDTH;
-    let usable = width.max(CARD_WIDTH);
+    let comfortable_pitch = CARD_SPAN + CARD_GAP;
+    let comfortable_span = comfortable_pitch * (n - 1.0) + CARD_SPAN;
+    let usable = width.max(CARD_SPAN);
 
     let (pitch, fanned) = if comfortable_span <= usable {
         (comfortable_pitch, false)
     } else {
-        ((usable - CARD_WIDTH) / (n - 1.0), true)
+        ((usable - CARD_SPAN) / (n - 1.0), true)
     };
 
     let min_pitch = CARD_WIDTH * MIN_VISIBLE_FRACTION;
@@ -850,7 +870,49 @@ mod tests {
         assert!(!packing.fanned);
         assert!(!packing.overflowing);
         assert_eq!(packing.offsets.len(), 4);
-        assert!((packing.pitch - (CARD_WIDTH + CARD_GAP)).abs() < 1e-5);
+        assert!((packing.pitch - (CARD_SPAN + CARD_GAP)).abs() < 1e-5);
+    }
+
+    /// The overlaps the owner saw, and the reason they made no sense: the
+    /// lane had room to spare.
+    ///
+    /// A card taps by turning a quarter of the way round, so it claims
+    /// [`CARD_SPAN`] of the row and not [`CARD_WIDTH`]. The lane packed to
+    /// the narrower of the two, so a tapped land or an attacking creature sat
+    /// 0.14 units inside each of its neighbours — on a duel's lane nearly
+    /// twenty units wide holding six cards. Tokens only made it louder: more
+    /// cards, tighter pitch, the same fault.
+    #[test]
+    fn a_row_of_tapped_cards_does_not_overlap_itself() {
+        // A duel's own lane is about twenty units across; a four-player pod's
+        // is about six. Both, and a deliberately crowded one below them.
+        for width in [19.7f32, 6.1, 3.0] {
+            for count in 2..=12usize {
+                let packing = pack_lane(count, width);
+                let step = packing.offsets[1] - packing.offsets[0];
+                assert!(
+                    (step - packing.pitch).abs() < 1e-4,
+                    "the reported pitch is not the step taken"
+                );
+                if packing.fanned {
+                    // A fan is overlap on purpose, and the pitch is already
+                    // held above the legibility floor by the case below.
+                    continue;
+                }
+                // `CARD_HEIGHT`, not `CARD_SPAN`: the width a tapped card
+                // really occupies is the card's long side, and a test that
+                // measured against the constant the packing is written in
+                // would agree with it however wrong both were. The first
+                // draft of this did exactly that and passed against the code
+                // it was written to fail.
+                assert!(
+                    step >= CARD_HEIGHT,
+                    "{count} cards in {width} units: a lane with room to \
+                     spare still overlapped when they tapped ({step} apart, \
+                     a tapped card being {CARD_HEIGHT} wide)"
+                );
+            }
+        }
     }
 
     #[test]
