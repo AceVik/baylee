@@ -466,6 +466,29 @@ pub fn sync_overlay(
             commands.entity(bar).add_child(aim);
         }
 
+        // ---- combat: what is coming at whom --------------------------------
+        //
+        // Unlike the aim above, this is not about a declaration this seat is
+        // making, so it is not filtered on `waiting`: an attack aimed at you
+        // while the other side is still choosing blockers is exactly the
+        // thing you need to be able to read.
+        if let Some((line, threatened)) =
+            incoming_line(view, duel.interaction.as_ref(), duel.statics.as_ref(), lang)
+        {
+            let incoming = commands
+                .spawn((
+                    Text::new(line),
+                    tf(&fonts, 13.0),
+                    TextColor(if threatened {
+                        palette::DANGER
+                    } else {
+                        palette::MUTED
+                    }),
+                ))
+                .id();
+            commands.entity(bar).add_child(incoming);
+        }
+
         // ---- the number stepper -------------------------------------------
         //
         // The one choice with nothing on the table to click. The headline

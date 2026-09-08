@@ -767,19 +767,20 @@ combat modes, because there the answer being built is a list of *pairs* and
 `is_selected()` is the method that reads them. A declared attacker now lifts
 and scales like any other chosen card: the chosen-state rides on `Placement`,
 resolved in `placements()` where a group's *members* are, so a declaration
-naming a permanent that is not the card's representative counts too. What is
-still undrawn is the *pairing* — `assignment()` has no caller, and neither does
-`focus_position()`'s companion on the table.
+naming a permanent that is not the card's representative counts too. The
+*pairing* is drawn as well now: `assignment()` grew `assignments()` beside it —
+the same answer for the whole board rather than one creature at a time — and
+`combatlines.rs` turns it into lines on the table.
 
 And that hole has a second half, found while fixing the first: **declared**
 combat is undrawn as well. `view.combat` — the engine's own
 `AttackerView`/`BlockerView` list — is read in exactly one place in the client
 (`board.rs::individual_objects`), and only to stop attackers and blockers from
 merging into a group. Nothing renders it. So an attack made *against* this
-seat is as invisible as one this seat is still declaring, and once the engine
-confirms a declaration the table stops showing even the lift. Both halves want
-the same drawing fed from two sources — `Interaction::assignment` for the
-declaration being built, `view.combat` for the one that stands.
+seat was as invisible as one this seat was still declaring, and once the engine
+confirmed a declaration the table stopped showing even the lift. Both halves
+now get the same drawing fed from those two sources — `Interaction::assignments`
+for the declaration being built, `view.combat` for the one that stands.
 
 Two **lock**:
 `ChooseCards` with off-board options, and `OrderObjects` always.
@@ -983,7 +984,7 @@ Ordered by damage, not by area. Sizes are rough.
 | 4 | Reconnect — `NetworkHost::reconnect()` is called only from a test and `DuelReport::Failed` has no reader at all | client | 1 d |
 | 5 | Disconnected-seat policy: an unattached seat stops the clock and stalls the table forever; `Playing` games are never reaped; engine death is silent to seats | engine-server + gateway | 3–4 d |
 | 6 | Legal strings — the fan-content disclaimer and Scryfall attribution are required by `docs/legal.md` §2–§3 and appear nowhere in the client | client + gateway | 1 d |
-| 7 | Combat drawn at all; P/T, damage and counters on cards showing art | client | 3–4 d |
+| 7 | ~~Combat drawn at all; P/T, damage and counters on cards showing art~~ **done** — §5, third tranche | client | 3–4 d |
 | 8 | Commander end to end | core→engine→gateway→client, **bump** | 2–3 w |
 | 9 | Opponents' command zones, graveyard/exile browsers, monarch badge, saga/level counters — all already in the view | client | 2–3 d |
 | 10 | `ChooseNumber` visible; concede confirmation; Offer-a-Draw only with priority | client | 1 d |
@@ -1067,10 +1068,23 @@ else needs and which is deliberately not being done ahead of tranche 3.
 
 **Third, the board made legible.** ~~The hearth shrunk and the own battlefield
 out from under the hand bar~~ (done — §1.1); ~~P/T, damage and counter chips on
-art faces~~ (done — §1.4, plate and chips both); combat drawn — ~~a declared
-attacker drawn as chosen~~ (done — §2.2), assignment lines from both sources,
+art faces~~ (done — §1.4, plate and chips both); ~~combat drawn — a declared
+attacker drawn as chosen, assignment lines from both sources,
 the focus pulse and the per-defender
-summary; ~~`motion` wired to `reduce_motion`~~ (done — §1.3); the palette
+summary~~ **— done.** `baylee-client-core/src/combat.rs` is the model:
+`view.combat` and `Interaction::assignments` produce the same `Line`, and
+whether the engine has accepted it is a `standing` flag rather than a third
+kind, so an attack aimed at this seat and one this seat is still building are
+drawn by the same code at different weights. `combatlines.rs` draws them as
+stretched unlit quads recomputed from where the cards *are* — a line built
+from `Motion::target` would arrive before its attacker did — and the focus
+ring breathes on the shader's own `BEAT`, held still by `reduce_motion`. The
+tally in the prompt bar is the one piece of arithmetic §6 allows, and it
+counts a block this seat has only *proposed*, because "what still reaches me
+if I block here" is the question being asked. What is *not* covered: the model
+and the geometry have tests, the two Bevy systems have none — `duel_flow.rs`
+builds no `App`, so neither has ever run outside a window. ~~`motion` wired to
+`reduce_motion`~~ (done — §1.3); the palette
 unified; the keyword
 dominance table and the off-pie films; flying as elevation.
 

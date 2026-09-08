@@ -133,3 +133,66 @@ mod preview {
         );
     }
 }
+
+mod combat {
+    use super::*;
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    use baylee_core::ids::Defender;
+    use baylee_view::{AttackerView, BlockerView};
+
+    fn attacked_by(power: i16, blocked: bool) -> PlayerView {
+        let blockers = if blocked {
+            vec![BlockerView {
+                blocker: ObjectId::new(10, 0),
+                attacker: ObjectId::new(1, 0),
+            }]
+        } else {
+            Vec::new()
+        };
+        ViewBuilder::new(2)
+            .with_battlefield(1, vec![token(1, 1, "Ogre", power, 3)])
+            .with_battlefield(0, vec![token(10, 0, "Wall", 0, 4)])
+            .with_combat(
+                vec![AttackerView {
+                    creature: ObjectId::new(1, 0),
+                    defending: Defender::Player(PlayerId::new(0)),
+                }],
+                blockers,
+            )
+            .build()
+    }
+
+    #[test]
+    fn an_attack_aimed_at_this_seat_is_read_out_and_marked() {
+        let view = attacked_by(3, false);
+        let (line, threatened) =
+            incoming_line(&view, None, None, Lang::En).expect("combat is declared");
+        assert!(
+            line.contains('3'),
+            "the number that gets through is in the line: {line}"
+        );
+        assert!(
+            threatened,
+            "three unblocked power at this seat is worth a colour"
+        );
+    }
+
+    #[test]
+    fn a_blocked_attack_is_still_read_out_but_no_longer_marked() {
+        let view = attacked_by(3, true);
+        let (line, threatened) =
+            incoming_line(&view, None, None, Lang::En).expect("combat is declared");
+        assert!(
+            !threatened,
+            "nothing reaches this seat once the attacker is blocked: {line}"
+        );
+    }
+
+    #[test]
+    fn there_is_no_line_when_nobody_is_attacking() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(1, 0, "Bear", 2, 2)])
+            .build();
+        assert!(incoming_line(&view, None, None, Lang::En).is_none());
+    }
+}

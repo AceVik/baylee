@@ -1583,7 +1583,7 @@ pub fn despawn_stage(
 ///
 /// Table space has `+y` running away from the local seat; the world has the
 /// camera on `+z`, so the two are mirrored on that axis.
-fn to_world(table: Vec2, height: f32) -> Vec3 {
+pub(crate) fn to_world(table: Vec2, height: f32) -> Vec3 {
     Vec3::new(table.x, height, -table.y)
 }
 

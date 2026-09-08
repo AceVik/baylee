@@ -657,6 +657,25 @@ decision — combat included — built by `Interaction` from what the engine
 offered. A client that cannot express an attack fails it instead of quietly
 passing the turn.
 
+What the table *draws* is one model over **two** sources.
+`baylee-client-core/src/combat.rs` reads `view.combat` — the engine's accepted
+declaration, and the only place an attack made *against* this seat exists —
+together with `Interaction::assignments`, the one this seat is still building
+and no view knows about. Both produce the same `Line`; `standing` says which,
+and is a flag rather than a third kind because a proposed attack and a
+confirmed one are the same claim drawn at different weights.
+`combatlines.rs` draws them as stretched unlit quads (there are no gizmos —
+`bevy_gizmos` is not in the workspace's bevy features) recomputed each frame
+from the cards' live `Transform`s, because a line built from `Motion::target`
+snaps to the destination while the card it belongs to is still gliding there.
+`Combat::tally` is the one arithmetic §6 of `docs/design.md` allows, and it
+counts a block this seat has only *proposed* — the number answers "what still
+reaches me if I block here", so a block that has not been sent has to count.
+The model and the geometry are tested; the two systems themselves are not.
+`duel_flow.rs` builds no `App`, so nothing in the suite has ever run
+`sync_combat_lines` — the same "declared but never wired" shape that hid the
+combat input gap.
+
 A spell whose mana is not floating yet is **not** a card with nothing to do.
 `baylee-client-core/src/manaplan.rs` decides which lands to tap for it —
 Kuhn's algorithm over demands against available mana, not a greedy sweep,

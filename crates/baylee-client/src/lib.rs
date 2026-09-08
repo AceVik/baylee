@@ -41,6 +41,7 @@ pub mod buildui;
 pub mod cardmat;
 pub mod cardtext;
 pub mod choices;
+pub mod combatlines;
 /// The dev-control harness. Native dev builds only; see the module docs for
 /// why it is a compile-time feature rather than a runtime switch.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
@@ -545,6 +546,8 @@ impl Plugin for DuelPlugin {
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
             .init_resource::<face::FaceMode>()
+            .init_resource::<combatlines::LineAssets>()
+            .init_resource::<combatlines::FocusAssets>()
             .add_message::<DuelCommand>()
             .add_message::<DuelReport>()
             .configure_sets(
@@ -588,6 +591,11 @@ impl Plugin for DuelPlugin {
                     table::sync_zones,
                     table::sync_river,
                     table::glide,
+                    // After the glide, and deliberately: a line is welded to
+                    // where its two cards *are* this frame, so it has to be
+                    // computed once they have moved.
+                    combatlines::sync_combat_lines.after(table::glide),
+                    combatlines::sync_focus_ring.after(table::glide),
                     table::frame_table,
                     table::apply_camera_rig,
                     hud::sync_overlay,

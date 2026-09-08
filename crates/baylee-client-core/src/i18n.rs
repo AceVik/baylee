@@ -922,6 +922,13 @@ messages! {
     AimedAt { en: "Aimed at {0} ({1} of {2})", de: "Zielt auf {0} ({1} von {2})" },
     /// {0} declared
     DeclaredCount { en: "{0} declared", de: "{0} deklariert" },
+    /// {0}: {1} attacking, {2} unblocked
+    IncomingAt {
+        en: "{0}: {1} attacking, {2} unblocked",
+        de: "{0}: {1} greifen an, {2} ungeblockt",
+    },
+    /// you
+    IncomingYou { en: "you", de: "dich" },
     /// a seat
     ASeat { en: "a seat", de: "ein Platz" },
     /// a permanent

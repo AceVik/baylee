@@ -3,6 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use baylee_client_core::combat::{Combat, LineEnd};
 
 /// Icon and the short rail label for a rail row.
 fn row_visual(row: RailRow) -> (char, &'static str) {
@@ -311,6 +312,60 @@ pub(super) fn combat_line(
             .collect::<Vec<_>>()
             .join("  ·  "),
     )
+}
+
+/// What is coming at each defender, and whether any of it reaches this seat.
+///
+/// The counterpart to [`combat_line`], and it answers a different question.
+/// That line is about the declaration this seat is *making*; this one is
+/// about the fight as it stands, so it is drawn whether or not this seat is
+/// the one being asked — an attack made against you while you wait for the
+/// blocker step is the thing you most need to read.
+///
+/// `true` in the second half means something unblocked is aimed at this seat,
+/// which is the one case the line is worth drawing in a colour that carries.
+#[must_use]
+pub(super) fn incoming_line(
+    view: &PlayerView,
+    interaction: Option<&baylee_client_core::Interaction>,
+    statics: Option<&GameStatic>,
+    lang: Lang,
+) -> Option<(String, bool)> {
+    let combat = Combat::read(view, interaction);
+    if combat.tallies.is_empty() {
+        return None;
+    }
+    let name = |end: LineEnd| match end {
+        LineEnd::Seat(p) if p == view.seat => Phrase::IncomingYou.text(lang).to_string(),
+        LineEnd::Seat(p) => statics.map_or_else(
+            || Phrase::ASeat.text(lang).to_string(),
+            |s| s.seat_name(p).to_string(),
+        ),
+        LineEnd::Object(o) => view.object(o).map_or_else(
+            || Phrase::APermanent.text(lang).to_string(),
+            |o| o.name.clone(),
+        ),
+    };
+    let threatened = combat
+        .tallies
+        .iter()
+        .any(|t| t.unblocked > 0 && t.at == LineEnd::Seat(view.seat));
+    let text = combat
+        .tallies
+        .iter()
+        .map(|t| {
+            Phrase::IncomingAt.fill(
+                lang,
+                &[
+                    &name(t.at),
+                    &t.attackers.to_string(),
+                    &t.unblocked.to_string(),
+                ],
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("  ·  ");
+    Some((text, threatened))
 }
 
 /// Whether two seats play on the same side (same team when teams are

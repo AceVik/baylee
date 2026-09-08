@@ -522,7 +522,7 @@ mod tests;
 
 use card::{FaceCtx, spawn_card_art};
 use hand::{preview_anchor, preview_face, spawn_hand_bar};
-use rail::{combat_line, spawn_phase_rail};
+use rail::{combat_line, incoming_line, spawn_phase_rail};
 use stack::spawn_stack_panel;
 
 pub use hand::apply_hand_scroll;

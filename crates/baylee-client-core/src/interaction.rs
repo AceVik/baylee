@@ -805,6 +805,28 @@ impl Interaction {
         }
     }
 
+    /// Every declaration made so far, as `(creature, what it was declared
+    /// against)`.
+    ///
+    /// [`Self::assignment`] answers for one creature, which is the right
+    /// question when drawing a card and the wrong one when drawing the whole
+    /// fight: asking it per object would walk the board to find the handful
+    /// of pairs that are actually here. Empty outside a combat declaration.
+    #[must_use]
+    pub fn assignments(&self) -> Vec<(ObjectId, CombatFocus)> {
+        match &self.mode {
+            Mode::Attackers { pairs, .. } => pairs
+                .iter()
+                .map(|(a, d)| (*a, CombatFocus::Defender(*d)))
+                .collect(),
+            Mode::Blockers { pairs, .. } => pairs
+                .iter()
+                .map(|(b, a)| (*b, CombatFocus::Attacker(*a)))
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+
     /// How many declarations are standing.
     #[must_use]
     pub fn declared(&self) -> usize {
