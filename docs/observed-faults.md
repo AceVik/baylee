@@ -613,9 +613,19 @@ about the table itself rather than the rules, and both are fixed.
     `dev-table` and the client's offline duel both deal — held 31 lands in 99
     cards, 31.3%, where a hundred-card singleton deck normally runs 36–38%.
     That is 2.19 lands in an opening seven, and a landless hand one game in
-    fourteen, however well it is shuffled. Nine basics take it to 39 in 107,
-    36.4%. `an_opening_hand_holds_what_the_deck_holds` writes the arithmetic
-    down so the next person to feel unlucky can tell the two causes apart.
+    fourteen, however well it is shuffled. Nine basics in and eight of the
+    deck's eleven clone effects out to the sideboard leaves 39 lands in 99
+    cards, 39.4%, which is where a five-colour deck with this much fixing
+    belongs; the opening seven now holds 2.76.
+    `an_opening_hand_holds_what_the_deck_holds` writes the arithmetic down so
+    the next person to feel unlucky can tell the two causes apart.
+
+    The cards leave by the **sideboard** rather than by deletion, because this
+    file is also the coverage proof — "both decks fully implemented" is its
+    first line — and a card cut out of it stops being named anywhere. Eight
+    clones is the one cut that costs no *mechanic*: Phyrexian Metamorph, Helm
+    of the Host, Storm of Saruman and Reflections of Littjara stay, so every
+    copy path in the pool is still dealt.
 
     One real limit came out of it: the gateway caps **every** card at four
     copies, basic lands included, and `the_starter_deck_is_one_the_gateway_

@@ -153,9 +153,12 @@ mod tests {
     ///
     /// The complaint this answers is "I never draw lands", and the two
     /// candidate causes are a shuffle that does not mix and a deck that does
-    /// not hold enough. This settles the first: an opening seven out of 99
-    /// cards, 31 of them lands, holds 2.19 lands on average, which is what
-    /// the deck's own ratio says and nothing to do with the shuffle.
+    /// not hold enough. This settles the first with the deck **as it stood**:
+    /// an opening seven out of 99 cards, 31 of them lands, holds 2.19 lands on
+    /// average, which is what that ratio says and nothing to do with the
+    /// shuffle. The numbers stay 99/31 after the deck was fixed, because they
+    /// are the measurement that acquitted the shuffle — not a copy of a deck
+    /// list that will drift.
     #[test]
     fn an_opening_hand_holds_what_the_deck_holds() {
         const DECK: usize = 99;

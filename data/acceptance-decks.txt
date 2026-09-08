@@ -13,7 +13,6 @@
 1 Clever Concealment
 1 Command Tower
 1 Crib Swap
-1 Cursed Mirror
 1 Cyclonic Rift
 1 Darksteel Forge
 1 Demonic Tutor
@@ -48,11 +47,9 @@
 1 Katara, the Fearless
 1 Kazandu Blademaster
 1 Loran of the Third Path
-1 Machine God's Effigy
 1 Mana Drain
 1 Marsh Flats
 1 Maskwood Nexus
-1 Mirrorhall Mimic
 1 Misty Rainforest
 1 Mountain
 1 Mox Opal
@@ -69,24 +66,19 @@
 4 Plains
 1 Polluted Delta
 1 Privileged Position
-1 Progenitor Mimic
 1 Raugrin Triome
 1 Reanimate
 1 Reflecting Pool
 1 Reflections of Littjara
 1 Reliquary Tower
-1 Rite of Replication
 1 Roaming Throne
-1 Sakashima of a Thousand Faces
 1 Savannah
 1 Sea Gate Loremaster
 1 Smothering Tithe
 1 Sokka, Tenacious Tactician
 1 Sol Ring
-1 Spark Double
 1 Spirit Water Revival
 1 Storm of Saruman
-1 Surgical Metamorph
 1 Swamp
 1 Swords to Plowshares
 1 Taiga
@@ -103,12 +95,20 @@
 1 Zagoth Triome
 
 [sideboard]
+1 Cursed Mirror
 1 Double Major
 1 Emeritus of Woe
 1 Fierce Guardianship
 1 Glasspool Mimic
 1 Liquimetal Coating
 1 Liquimetal Torque
+1 Machine God's Effigy
+1 Mirrorhall Mimic
+1 Progenitor Mimic
+1 Rite of Replication
+1 Sakashima of a Thousand Faces
+1 Spark Double
+1 Surgical Metamorph
 1 Sword of Hearth and Home
 1 Tribute to the World Tree
 1 Urza's Saga
