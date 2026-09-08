@@ -951,6 +951,57 @@ prints two mana abilities, and the second would have asked. And picking from the
 not confirm, and a lone "Sacrifice this:" arming while the same ability among
 three did not would be exactly the inconsistency a player trips on.
 
+**Done — the exemption was the right rule under the wrong name.** Playing the
+client produced two complaints that turned out to be one: a land should play on
+the click, and "tap to draw" should be the card, the effect, and nothing else.
+Both are the mana-ability exemption asked for by someone who does not know that
+is what it is called. So the line is restated as what it always meant:
+
+> An action is one click when **its whole cost comes out of the card itself and
+> the next untap step undoes it**, and nothing else moves.
+
+A mana ability passes that and keeps its own CR 605.1 reason besides. `{T}:
+Draw a card` passes it — the mistake costs a turn of that permanent and nothing
+more — and is `AbilityOption::tap_only`, read off the printed `Cost` (mana
+`ZERO`, parts exactly `[TapSelf]`) rather than off its label, which is a
+translated sentence. Playing a land passes it too: the worst case is the wrong
+land in the one land drop.
+
+What stays on the far side is everything whose cost *leaves* the card — a
+sacrifice, a discard, an exile, life, mana — and a loyalty ability, whose
+counters no untap step gives back. The fetchland is still two taps, and now for
+a stated reason rather than by not being in a list.
+
+One exception inside the exception, and it is the reason `plays_only_as_a_land`
+exists rather than a `lands.contains` at the call site. A modal double-faced
+card with a spell front and a land back is in **both** offer lists, and
+`play_card` checks lands first — so a one-click would resolve it to "play as
+land" every time and the front face would be unreachable by mouse. A card in
+both lists is therefore not one-click.
+
+`tap_only` is `false` wherever the cost cannot be read: a granted ability is
+printed on no card, and `PREPARED_CAST` is not an ability. Guessing there would
+fire something unarmed, and an extra tap is the cheaper way to be wrong.
+
+**Done — and the fetchland that tapped for mana.** Reported from a live game
+and fixed in the same change, because it is the same click path.
+`Interaction::activate` routed on the ability index's *numeric value*: a
+permanent named in `legal.mana_abilities` plus an index of 0 meant "mana
+ability", whatever the engine had actually offered at that index. Chromatic
+Lantern grants every land you control a mana ability, and Bloodstained Mire's
+own `{T}, Sacrifice this, Pay 1 life:` sits at index 0 — so the fetch was not
+merely hard to reach, it was *not in the list at all*. Both cards are in the
+starter deck the lobby posts.
+
+An explicit offer wins now: `(source, index)` in `abilities` is the engine
+naming that ability, and index 0 is the CR 305.6 shortcut only when nothing
+else was offered there. That moved one thing downstream —
+`abilities::options` built the intrinsic tap by asking `activate(object, 0)`,
+which is exactly the guess that is no longer safe, so it builds
+`ActivateManaAbility` itself, guarded on membership like the branch beside it.
+`manasources` has already decided which tap a permanent's mana comes from, and
+asking `activate` to decide again could only disagree.
+
 The *drawing* is two more bits in the `glow` word — `ARMED` and `WILL_TAP`,
 bits 5 and 6, below `MARK_SHIFT` where three were free — and it is the same
 sentence in two halves: the armed card says what will happen, the lands the

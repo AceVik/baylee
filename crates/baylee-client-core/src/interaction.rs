@@ -1099,21 +1099,48 @@ impl Interaction {
         }
     }
 
+    /// Whether playing this card is a land drop and nothing else.
+    ///
+    /// The question the one-click rule turns on. A card the engine offers in
+    /// *both* lists is a modal double-faced card with a spell on the front and
+    /// a land on the back, and [`Self::play_card`] checks lands first — so a
+    /// one-click would resolve it to "play as land" every time and the front
+    /// face would be unreachable by mouse. Such a card is therefore not
+    /// one-click; it opens a chooser like anything else with two answers.
+    #[must_use]
+    pub fn plays_only_as_a_land(&self, card: ObjectId) -> bool {
+        self.legal_actions()
+            .is_some_and(|legal| legal.lands.contains(&card) && !legal.castable.contains(&card))
+    }
+
     /// Builds the action for activating an ability, rejecting anything not
     /// offered.
+    ///
+    /// The order of the two branches is the whole of it, and it used to be the
+    /// other way round: the mana branch fired on `ability_index == 0` for any
+    /// permanent named in `mana_abilities`, which reads the index's *numeric
+    /// value* rather than what was offered. A fetchland enters
+    /// `mana_abilities` the moment something grants it a mana ability — a
+    /// Chromatic Lantern grants every land you control one — and its real
+    /// `{T}, Sacrifice this: search` also sits at index 0, so a Flooded Strand
+    /// under a Lantern tapped for mana instead of searching. Both cards are in
+    /// the starter deck the lobby posts, which is why this was met in the
+    /// first game and not in an edge case.
+    ///
+    /// So an explicit offer wins: `(source, index)` in `abilities` is the
+    /// engine naming that ability, and index 0 is only the CR 305.6 shortcut
+    /// when the engine offered nothing else there.
     #[must_use]
     pub fn activate(&self, source: ObjectId, ability_index: u32) -> Option<PlayerAction> {
         let legal = self.legal_actions()?;
-        if legal.mana_abilities.contains(&source) && ability_index == 0 {
-            return Some(PlayerAction::ActivateManaAbility { source });
-        }
-        legal
-            .abilities
-            .contains(&(source, ability_index))
-            .then_some(PlayerAction::ActivateAbility {
+        if legal.abilities.contains(&(source, ability_index)) {
+            return Some(PlayerAction::ActivateAbility {
                 source,
                 ability_index,
-            })
+            });
+        }
+        (legal.mana_abilities.contains(&source) && ability_index == 0)
+            .then_some(PlayerAction::ActivateManaAbility { source })
     }
 }
 
@@ -1655,6 +1682,89 @@ mod tests {
         // A card the engine did not list is not playable, whatever the board
         // looks like.
         assert_eq!(i.play_card(obj(3)), None);
+    }
+
+    /// The bug that made a fetchland tap for mana instead of searching.
+    ///
+    /// Flooded Strand is authored correctly — one `activated!` at index 0 with
+    /// `SearchLibrary`, and no mana ability on it. Chromatic Lantern grants
+    /// every land a mana ability, which puts the Strand in `mana_abilities`,
+    /// and the old guard fired on the index's numeric value: index 0 plus a
+    /// name in `mana_abilities` meant "mana ability", whatever the engine had
+    /// actually offered at that index.
+    ///
+    /// Nothing in `abilities.rs` covered this shape, because nothing there put
+    /// index 0 and a populated `mana_abilities` on the same object.
+    #[test]
+    fn an_offered_ability_at_index_zero_beats_a_granted_mana_ability() {
+        let strand = obj(1);
+        let i = interaction(Pending::Priority {
+            player: me(),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                lands: vec![],
+                castable: vec![],
+                // Both, which is the whole situation: the grant names the
+                // land, and its own printed ability is offered at index 0.
+                mana_abilities: vec![strand],
+                abilities: vec![(strand, 0)],
+                suspendable: vec![],
+            }),
+        });
+        assert_eq!(
+            i.activate(strand, 0),
+            Some(PlayerAction::ActivateAbility {
+                source: strand,
+                ability_index: 0,
+            }),
+            "the fetchland tapped for mana instead of searching"
+        );
+    }
+
+    /// …and the shortcut still works when it is the only thing offered.
+    #[test]
+    fn index_zero_is_the_mana_shortcut_when_nothing_else_was_offered_there() {
+        let forest = obj(1);
+        let i = interaction(Pending::Priority {
+            player: me(),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                lands: vec![],
+                castable: vec![],
+                mana_abilities: vec![forest],
+                abilities: vec![],
+                suspendable: vec![],
+            }),
+        });
+        assert_eq!(
+            i.activate(forest, 0),
+            Some(PlayerAction::ActivateManaAbility { source: forest })
+        );
+    }
+
+    #[test]
+    fn a_card_offered_as_both_a_land_and_a_spell_is_not_a_one_click_land() {
+        let plains = obj(1);
+        let mdfc = obj(2);
+        let bolt = obj(3);
+        let i = interaction(Pending::Priority {
+            player: me(),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                lands: vec![plains, mdfc],
+                castable: vec![mdfc, bolt],
+                mana_abilities: vec![],
+                abilities: vec![],
+                suspendable: vec![],
+            }),
+        });
+        assert!(i.plays_only_as_a_land(plains));
+        // In both lists: `play_card` checks lands first, so a one-click here
+        // would make the spell face unreachable by mouse.
+        assert!(!i.plays_only_as_a_land(mdfc));
+        assert!(!i.plays_only_as_a_land(bolt));
+        // And a card the engine never listed is neither.
+        assert!(!i.plays_only_as_a_land(obj(9)));
     }
 
     #[test]

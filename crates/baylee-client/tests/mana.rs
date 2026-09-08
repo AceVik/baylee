@@ -733,3 +733,187 @@ fn an_armed_run_becomes_a_plain_cast_when_the_lands_are_tapped_by_hand() {
     assert!(duel.mana_run.is_none(), "nothing was tapped for it");
     assert!(duel.armed.is_none(), "sending disarms");
 }
+
+/// Chromatic Lantern — "Lands you control have `{T}: Add one mana of any
+/// color`". The card that turns a fetchland into a mana source in the eyes of
+/// `LegalActions`, and therefore the card that broke the click path.
+const LANTERN: &str = "539f5396-d99a-417d-a84c-dff7930b5900";
+
+/// Sea Gate Loremaster — `{T}: Draw a card for each Ally you control`. The
+/// shape the owner named: a cost paid entirely by tapping the permanent, and
+/// nothing else.
+const LOREMASTER: &str = "6eed122b-9760-47fd-8ba2-adeda8054e0d";
+
+/// The fetchland bug, end to end.
+///
+/// Reported from a live game: "Fetchland Effekt fügt irgendwas in den Manapool
+/// statt mich ein passendes Land aus der Bibliothek auswählen zu lassen."
+///
+/// The card was never the fault. `Interaction::activate` routed on the ability
+/// index's *numeric value* — a permanent named in `mana_abilities` plus an
+/// index of 0 meant "mana ability", whatever the engine had offered there. The
+/// Lantern grants every land a mana ability, and Bloodstained Mire's real
+/// ability sits at index 0. Both cards are in the starter deck the lobby
+/// posts, which is why this was met in the first game.
+///
+/// Driven through `activate_card` rather than through `Interaction`, because
+/// what is claimed is about a *click*: an assertion on the resolver would pass
+/// just as well if no click could reach it.
+#[test]
+fn a_fetchland_under_a_chromatic_lantern_still_searches() {
+    use baylee_client::Duel;
+    use baylee_client::input::{ability_menu_keys, activate_card, armed_keys};
+    use baylee_client::keys::Fired;
+    use baylee_client_core::interaction::Interaction;
+    use baylee_client_core::prefs::Action;
+
+    let mut preset = preset();
+    preset.seats[0].starting_battlefield.push(entry(MIRE));
+    preset.seats[0].starting_battlefield.push(entry(LANTERN));
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+
+    let mire = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Bloodstained Mire")
+        .expect("the fetchland is on the table")
+        .id;
+
+    // The precondition, so the test cannot pass by the grant never arriving:
+    // the engine must be naming the Mire in *both* lists at once.
+    let legal = match table.pending.as_ref().expect("priority") {
+        baylee_engine::choice::Pending::Priority { legal, .. } => legal.clone(),
+        other => panic!("not a priority window: {other:?}"),
+    };
+    assert!(
+        legal.mana_abilities.contains(&mire),
+        "the Lantern did not grant the fetchland a mana ability"
+    );
+    assert!(
+        legal.abilities.contains(&(mire, 0)),
+        "the fetchland's own ability is not at index 0"
+    );
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+
+    // The list is where the bug was visible: `Interaction::activate` turned
+    // index 0 into a mana ability, so the search was not in it at all.
+    let options = baylee_client::abilities::options(
+        baylee_client_core::Lang::En,
+        duel.view.as_ref().expect("a view"),
+        duel.interaction.as_ref().expect("a choice"),
+        mire,
+    );
+    let search = options
+        .iter()
+        .position(|o| {
+            o.action
+                == PlayerAction::ActivateAbility {
+                    source: mire,
+                    ability_index: 0,
+                }
+        })
+        .unwrap_or_else(|| panic!("the search is not on offer at all: {options:?}"));
+    assert!(
+        !options[search].mana,
+        "the fetch was read as a mana ability"
+    );
+    assert!(
+        !options[search].tap_only,
+        "a sacrifice and a life are not paid out of the card"
+    );
+
+    // And the click path reaches it. The Lantern gives the land a second,
+    // granted ability, so this is now honestly a menu of two — which is the
+    // right answer and was never the reported one: before this, the click
+    // silently tapped for mana.
+    activate_card(&mut duel, mire);
+    assert_eq!(
+        duel.ability_menu,
+        Some(mire),
+        "two abilities on one land are a menu"
+    );
+    for _ in 0..search {
+        assert!(ability_menu_keys(
+            Fired::of_actions(&[Action::CursorDown]),
+            &mut duel
+        ));
+    }
+    assert!(ability_menu_keys(
+        Fired::of_actions(&[Action::Confirm]),
+        &mut duel
+    ));
+    // Armed, not sent: sacrificing a land and paying a life is irreversible.
+    assert!(duel.outbox().is_empty(), "picking sacrificed the land");
+    assert!(armed_keys(Fired::of_actions(&[Action::Confirm]), &mut duel));
+    assert_eq!(
+        duel.outbox(),
+        [PlayerAction::ActivateAbility {
+            source: mire,
+            ability_index: 0,
+        }],
+        "the fetchland tapped for mana instead of searching"
+    );
+}
+
+/// A `{T}: …` ability with no other cost fires on one tap.
+///
+/// The owner's words: "Ich möchte z.B. tap zum ziehen sagen, die Karte, der
+/// Effekt und das wars." The line that lets it is not "mana abilities are
+/// special" but the reason mana abilities were special in the first place —
+/// the whole cost comes out of the card itself and the next untap step gives
+/// it back.
+#[test]
+fn a_tap_only_ability_fires_on_one_tap() {
+    use baylee_client::Duel;
+    use baylee_client::abilities;
+    use baylee_client::input::activate_card;
+    use baylee_client_core::interaction::Interaction;
+
+    let mut preset = preset();
+    preset.seats[0].starting_battlefield.push(entry(LOREMASTER));
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+
+    let loremaster = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Sea Gate Loremaster")
+        .expect("the Loremaster is on the table")
+        .id;
+
+    let interaction = Interaction::new(table.pending.clone().expect("priority"), PlayerId::new(0));
+    let options = abilities::options(
+        baylee_client_core::Lang::En,
+        table.view(),
+        &interaction,
+        loremaster,
+    );
+    assert_eq!(options.len(), 1, "{options:?}");
+    assert!(!options[0].mana, "drawing cards is not a mana ability");
+    assert!(options[0].tap_only, "{{T}} alone was not read as tap-only");
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(interaction);
+    activate_card(&mut duel, loremaster);
+    assert!(
+        duel.armed.is_none(),
+        "tapping to draw asked for a confirmation"
+    );
+    assert_eq!(
+        duel.outbox(),
+        [PlayerAction::ActivateAbility {
+            source: loremaster,
+            ability_index: 0,
+        }]
+    );
+}

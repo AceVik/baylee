@@ -102,13 +102,18 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
         return;
     }
     duel.armed = None;
-    if duel
-        .interaction
-        .as_ref()
-        .and_then(|i| i.play_card(object))
-        .is_some()
-    {
-        arm(duel, object, Deed::Play);
+    if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
+        // A land plays on the click. See `one_click_land` below for the line
+        // that lets it and for what stays on the far side of that line.
+        if duel
+            .interaction
+            .as_ref()
+            .is_some_and(|i| i.plays_only_as_a_land(object))
+        {
+            duel.submit(action);
+        } else {
+            arm(duel, object, Deed::Play);
+        }
         return;
     }
     if duel.reachable.contains(&object)
@@ -175,15 +180,29 @@ fn arm(duel: &mut Duel, object: ObjectId, deed: Deed) {
     duel.armed = Some(crate::Armed { object, deed });
 }
 
-/// One ability: sent outright when it makes mana, armed otherwise.
+/// One ability: sent outright when the whole cost is this permanent's own
+/// tap, armed otherwise.
 ///
-/// The exception is narrow on purpose (`docs/design.md` §2.5). Floating mana
-/// empties at end of step and a wrong colour is fixed by tapping another
-/// source, so it is the one cheap mistake in the game; everything else on a
-/// permanent — sacrificing it, paying life, a loyalty ability that can only
-/// be used once a turn — is not.
+/// # The one-click line
+///
+/// `docs/design.md` §2.5 had this as "mana abilities only", on the grounds
+/// that floating mana is the cheap mistake. Playing the client made the
+/// better statement of the same rule: an action is one click when **its whole
+/// cost comes out of the card itself and the next untap step undoes it**, and
+/// nothing else moves.
+///
+/// A mana ability passes that (and keeps its own CR 605.1 reason for being
+/// one tap). So does `{T}: Draw a card` — the permanent is tapped, and being
+/// tapped is over at the start of your next turn. Playing a land passes it
+/// too, which is why [`activate_card`] sends one on the click: the worst case
+/// is the wrong land in the one land drop.
+///
+/// What stays on the far side of the line is everything whose cost leaves the
+/// card: a sacrifice, a discard, an exile, life, mana, and a loyalty ability,
+/// whose counters no untap step gives back. Those are still arm-then-act,
+/// because there is no undo in the engine and never will be.
 fn arm_ability(duel: &mut Duel, object: ObjectId, option: &crate::abilities::AbilityOption) {
-    if option.mana {
+    if option.mana || option.tap_only {
         duel.submit(option.action.clone());
     } else {
         arm(duel, object, Deed::Ability(option.action.clone()));
@@ -1564,16 +1583,13 @@ mod tests {
             );
         }
 
-        // Twice, because playing a land is irreversible and therefore
-        // two-stage: the first press arms what the cursor is over and the
-        // second sends it. `reset_all` between them, or the key is still
-        // held and never fires again.
-        for _ in 0..2 {
+        // Once. Playing a land is the one-click case: its whole cost is the
+        // land drop and the worst it can go wrong is the wrong land in it.
+        {
             let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
-            keys.reset_all();
             keys.press(KeyCode::Enter);
-            app.update();
         }
+        app.update();
 
         assert_eq!(
             app.world().resource::<crate::Duel>().outbox(),
@@ -2239,6 +2255,45 @@ mod tests {
     /// The whole of arm-then-act: the first tap says nothing, the second
     /// sends, and cancel leaves the wire empty.
     ///
+    /// A window offering one land, one spell, and one card that is both.
+    ///
+    /// Synthetic rather than dealt, because what is under test is the click
+    /// path and a real deck cannot be relied on to hold a castable spell and a
+    /// modal double-faced land in the same opening hand.
+    fn window_with(lands: Vec<ObjectId>, castable: Vec<ObjectId>) -> crate::Duel {
+        crate::Duel {
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: PlayerId::new(0),
+                    legal: Box::new(LegalActions {
+                        can_pass: true,
+                        lands,
+                        castable,
+                        mana_abilities: vec![],
+                        abilities: vec![],
+                        suspendable: vec![],
+                    }),
+                },
+                PlayerId::new(0),
+            )),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_land_plays_on_the_click() {
+        let land = obj(3);
+        let mut duel = window_with(vec![land], vec![]);
+
+        super::activate_card(&mut duel, land);
+        assert_eq!(
+            duel.outbox(),
+            [PlayerAction::PlayLand { card: land }],
+            "the land did not play on the click"
+        );
+        assert!(duel.armed.is_none(), "a land asked for a confirmation");
+    }
+
     /// There is no undo in the engine and there should not be one, so the
     /// client owes a player the chance to take a tap back before it becomes a
     /// game action. Tested at this level and not on `Interaction`, because
@@ -2246,31 +2301,43 @@ mod tests {
     /// call to a resolver returns an action would pass just as well if the
     /// first one had already sent it.
     #[test]
-    fn a_tap_arms_a_card_and_a_second_tap_plays_it() {
-        let (mut duel, _host) = duel_in_main_phase();
-        let land = duel
-            .interaction
-            .as_ref()
-            .and_then(Interaction::legal_actions)
-            .and_then(|l| l.lands.first().copied())
-            .expect("the window offers a land");
+    fn a_spell_still_arms_and_a_second_tap_sends_it() {
+        let spell = obj(4);
+        let mut duel = window_with(vec![], vec![spell]);
 
-        super::activate_card(&mut duel, land);
+        super::activate_card(&mut duel, spell);
         assert!(
             duel.outbox().is_empty(),
-            "the first tap put a card on the wire"
+            "the first tap put a spell on the wire"
         );
         assert_eq!(
             duel.armed,
             Some(crate::Armed {
-                object: land,
+                object: spell,
                 deed: crate::Deed::Play
             })
         );
 
-        super::activate_card(&mut duel, land);
-        assert_eq!(duel.outbox(), [PlayerAction::PlayLand { card: land }]);
+        super::activate_card(&mut duel, spell);
+        assert_eq!(duel.outbox(), [PlayerAction::CastSpell { card: spell }]);
         assert!(duel.armed.is_none(), "firing left the deed armed");
+    }
+
+    /// The exception to the exception. A modal double-faced card with a spell
+    /// front and a land back is in *both* lists, and `play_card` checks lands
+    /// first — so one-clicking it would resolve it to "play as land" every
+    /// time and the front face would be unreachable by mouse.
+    #[test]
+    fn a_card_that_is_both_a_land_and_a_spell_does_not_one_click() {
+        let mdfc = obj(5);
+        let mut duel = window_with(vec![mdfc], vec![mdfc]);
+
+        super::activate_card(&mut duel, mdfc);
+        assert!(
+            duel.outbox().is_empty(),
+            "a card with two ways to play it fired one of them on the click"
+        );
+        assert!(duel.armed.is_some());
     }
 
     /// Cancel is the whole point of arming: it has to leave nothing behind.
@@ -2280,15 +2347,11 @@ mod tests {
         use baylee_client_core::prefs::{Action, Chord, Keymap};
         use bevy::prelude::KeyCode;
 
-        let (mut duel, _host) = duel_in_main_phase();
-        let land = duel
-            .interaction
-            .as_ref()
-            .and_then(Interaction::legal_actions)
-            .and_then(|l| l.lands.first().copied())
-            .expect("the window offers a land");
+        // A spell, because a land no longer arms at all.
+        let spell = obj(4);
+        let mut duel = window_with(vec![], vec![spell]);
 
-        super::activate_card(&mut duel, land);
+        super::activate_card(&mut duel, spell);
         assert!(duel.armed.is_some());
 
         let mut keymap = Keymap::standard();
@@ -2314,8 +2377,8 @@ mod tests {
             .expect("the window offers a land");
 
         // Put the land in play first — it is the only mana source this deck
-        // has, and a land in hand makes no mana.
-        super::activate_card(&mut duel, land);
+        // has, and a land in hand makes no mana. One call: a land plays on
+        // the click now, and a second would send `PlayLand` twice.
         super::activate_card(&mut duel, land);
         // `outbox` is private to `Duel` but declared in the crate root, so a
         // child module may drain it — which is what `flush_outbox` does in

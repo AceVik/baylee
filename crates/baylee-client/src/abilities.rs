@@ -38,6 +38,34 @@ pub struct AbilityOption {
     /// `{T}: Add {G}` — a mana dork would otherwise ask for a confirmation a
     /// basic land does not.
     pub mana: bool,
+    /// Whether the whole cost is tapping this permanent and nothing else.
+    ///
+    /// The other half of the one-tap exemption, and the same rule seen
+    /// plainly: a cost paid out of the card itself, which the next untap step
+    /// gives back. `{T}: Draw a card` is one tap for the reason a mana ability
+    /// is — the mistake costs a turn of that permanent and nothing more. A
+    /// sacrifice, a discard, life, mana or a loyalty cost is not paid out of
+    /// the card in that sense, and stays arm-then-act.
+    ///
+    /// `false` wherever the cost cannot be read: a granted ability is printed
+    /// on no card, and `PREPARED_CAST` is not an ability at all. Guessing
+    /// there would fire something unarmed, and an extra tap is the cheaper
+    /// way to be wrong.
+    pub tap_only: bool,
+}
+
+/// Whether an ability's whole cost is `{T}` on the permanent that has it.
+///
+/// Read off the printed `Cost` rather than off its label, because the label is
+/// a translated sentence and the question is a fact about the card.
+#[must_use]
+fn tap_only(view: &PlayerView, object: ObjectId, index: u32) -> bool {
+    matches!(
+        crate::manasources::ability_at(view, object, index),
+        Some(
+            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. }
+        ) if cost.mana == ManaCost::ZERO && cost.parts == [CostPart::TapSelf]
+    )
 }
 
 /// Everything `object` is offering right now, in a stable order.
@@ -75,7 +103,17 @@ pub fn options(
         // at index 0 makes *two* mana — would otherwise be sent the shortcut
         // and make one.
         let action = match source.tap {
-            Tap::Intrinsic => interaction.activate(object, 0),
+            // Built here rather than through `Interaction::activate`, which
+            // now prefers an *offered* ability at index 0 over the shortcut —
+            // it has to, or a fetchland under a Chromatic Lantern taps for
+            // mana instead of searching. `manasources` has already decided
+            // that this permanent's mana comes from the shortcut and not from
+            // a printed ability, so asking `activate` to guess again could
+            // only get a different answer, and a wrong one.
+            Tap::Intrinsic => legal
+                .mana_abilities
+                .contains(&object)
+                .then_some(PlayerAction::ActivateManaAbility { source: object }),
             Tap::Ability(index) => legal.abilities.contains(&(object, index)).then_some(
                 PlayerAction::ActivateAbility {
                     source: object,
@@ -89,6 +127,12 @@ pub fn options(
                 action,
                 label: mana_label(lang, &source),
                 mana: true,
+                // Already one tap because it is a mana ability; answered
+                // truthfully anyway, so the two reasons stay separable.
+                tap_only: match source.tap {
+                    Tap::Ability(index) => tap_only(view, object, index),
+                    Tap::Intrinsic => true,
+                },
             });
         }
     }
@@ -158,6 +202,11 @@ pub fn options(
             action,
             label,
             mana,
+            // Only a printed ability can answer this: a grant is on no card
+            // and a prepared cast is not an ability.
+            tap_only: baylee_engine::choice::granted_slot(index).is_none()
+                && index != baylee_engine::choice::PREPARED_CAST
+                && tap_only(view, object, index),
         });
     }
     out
