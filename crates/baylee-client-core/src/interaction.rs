@@ -179,7 +179,10 @@ impl Prompt {
                 }
             }
             Self::BottomCards { count } => Phrase::PutOnBottom.fill(lang, &[&count.to_string()]),
-            Self::Priority { .. } => Phrase::YouHavePriority.text(lang).to_string(),
+            // Not "You have priority". A priority window is an invitation, and
+            // stating the rules term for it — next to a button labelled OK —
+            // read as a modal that had to be dismissed before play could go on.
+            Self::Priority { .. } => Phrase::YourMove.text(lang).to_string(),
             Self::DeclareAttackers => Phrase::DeclareAttackers.text(lang).to_string(),
             Self::DeclareBlockers { .. } => Phrase::DeclareBlockers.text(lang).to_string(),
             Self::Discard { count } => Phrase::DiscardCards.fill(lang, &[&count.to_string()]),

@@ -620,7 +620,7 @@ pub struct BoardModel {
     pub pods: Vec<SeatPod>,
     /// The stack, index 0 resolves next.
     pub stack: Vec<StackItem>,
-    /// The local hand, sorted for play.
+    /// The local hand, in the order the cards arrived.
     pub hand: Vec<HandCard>,
 }
 
@@ -686,7 +686,17 @@ impl BoardModel {
             .rev()
             .collect();
 
-        let mut hand: Vec<HandCard> = view
+        // The hand is left in the order the view sends it, which is the order
+        // the cards arrived in: a zone is a `Vec<ObjectId>` the engine pushes
+        // onto, so a drawn card goes on the end and stays there.
+        //
+        // It used to be sorted playable → reachable → mana value → name, which
+        // re-ordered the whole hand at every priority: a card became playable
+        // the moment a land untapped and jumped to the left, so the card under
+        // the pointer was not the card that got clicked. Sorting was carrying
+        // information that `playable`/`reachable` already carry as light, and
+        // it was the one that could move a card out from under a click.
+        let hand: Vec<HandCard> = view
             .hand
             .iter()
             .map(|h| HandCard {
@@ -699,17 +709,6 @@ impl BoardModel {
                 commander: h.commander,
             })
             .collect();
-        // Playable first, then what a tap would reach, then cheapest, then by
-        // name: a stable order that puts what you can actually do at the left
-        // edge where the eye starts.
-        hand.sort_by(|a, b| {
-            b.playable
-                .cmp(&a.playable)
-                .then_with(|| b.reachable.cmp(&a.reachable))
-                .then_with(|| a.mana_value.cmp(&b.mana_value))
-                .then_with(|| a.name.cmp(&b.name))
-                .then_with(|| a.id.cmp(&b.id))
-        });
 
         Self {
             seq: view.seq,
@@ -1279,7 +1278,13 @@ mod tests {
     }
 
     #[test]
-    fn the_hand_puts_playable_cards_first() {
+    fn the_hand_keeps_the_order_the_cards_arrived_in() {
+        // The view's hand is the engine's zone list, which a drawn card is
+        // pushed onto — so "the order the view sends" is the order they were
+        // drawn, and the model must not touch it. This test used to assert the
+        // opposite (playable first, then cheapest); the sort it checked is
+        // what moved a card out from under the pointer every time a land
+        // untapped.
         let view = ViewBuilder::new(2)
             .with_hand(vec![
                 ("Expensive Thing", 7, 100),
@@ -1297,10 +1302,15 @@ mod tests {
             },
             WIDE,
         );
-        assert_eq!(m.hand[0].name, "Playable Thing");
-        assert!(m.hand[0].playable);
-        // The rest fall back to cheapest-first.
-        assert_eq!(m.hand[1].name, "Cheap Thing");
+        let names: Vec<&str> = m.hand.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["Expensive Thing", "Cheap Thing", "Playable Thing"],
+            "the hand was re-ordered"
+        );
+        // Playability is still reported — it is now carried by light alone.
+        assert!(m.hand[2].playable);
+        assert!(!m.hand[0].playable);
     }
 
     #[test]

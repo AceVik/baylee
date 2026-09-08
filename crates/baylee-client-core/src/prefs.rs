@@ -482,10 +482,12 @@ impl Keymap {
 /// How much the client answers on the player's behalf.
 ///
 /// Separate from the phase rail, which says *where* to stop; this says what
-/// to do about the questions that are not really questions. Every one of them
-/// defaults to off, for the reason the rail does: a client that answers
-/// without being asked loses games its player never agreed to lose.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// to do about the questions that are not really questions. Three of the four
+/// default to off, because a client that answers without being asked loses
+/// games its player never agreed to lose. The fourth,
+/// [`Self::pass_when_nothing_to_do`], is on, because the window it answers has
+/// only one legal action in it and answering is therefore not a decision.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 #[expect(
     clippy::struct_excessive_bools,
@@ -498,6 +500,13 @@ pub struct AutoRules {
     /// "Nothing" is literal: no land, no spell, no ability, nothing to
     /// suspend. It is the common case of a player pressing pass forty times
     /// a turn for want of anything else to press.
+    ///
+    /// The one rule here that is **on** by default, and the reason is that it
+    /// is not a decision: the window it answers has exactly one legal action
+    /// in it, the one being answered. Withholding the pass leaves a player
+    /// looking at a question whose only answer is the button they are being
+    /// made to press. Every field is written out whole (`AutoRules` skips
+    /// none of them), so turning it off stays turned off.
     pub pass_when_nothing_to_do: bool,
     /// Pass priority through your opponents' turns.
     ///
@@ -509,6 +518,17 @@ pub struct AutoRules {
     pub skip_empty_attacks: bool,
     /// Answer "no blockers" automatically when nothing you control can block.
     pub skip_empty_blocks: bool,
+}
+
+impl Default for AutoRules {
+    fn default() -> Self {
+        Self {
+            pass_when_nothing_to_do: true,
+            skip_opponent_turns: false,
+            skip_empty_attacks: false,
+            skip_empty_blocks: false,
+        }
+    }
 }
 
 /// One switch on the automation panel.
@@ -861,13 +881,35 @@ mod tests {
     }
 
     #[test]
-    fn everything_the_client_can_answer_for_you_starts_switched_off() {
+    fn every_real_decision_the_client_could_answer_for_you_starts_switched_off() {
         let auto = AutoRules::default();
-        assert!(!auto.pass_when_nothing_to_do);
         assert!(!auto.skip_opponent_turns);
         assert!(!auto.skip_empty_attacks);
         assert!(!auto.skip_empty_blocks);
         assert!(Preferences::default().is_default());
+    }
+
+    #[test]
+    fn the_one_that_is_not_a_decision_starts_switched_on() {
+        // A window whose only legal action is "pass" is not a question, and
+        // the whole complaint this default answers is being made to press the
+        // one button that was ever available.
+        assert!(AutoRules::default().pass_when_nothing_to_do);
+    }
+
+    #[test]
+    fn switching_the_pass_off_survives_a_round_trip() {
+        // The default being `true` is the case that could go wrong: a field
+        // omitted from the blob comes back as the default, so an "off" that
+        // was not written out would silently come back on. `AutoRules` skips
+        // no fields, and this is what says so.
+        let mut prefs = Preferences::default();
+        prefs.auto.pass_when_nothing_to_do = false;
+        let back = Preferences::from_json(&prefs.to_json());
+        assert!(
+            !back.auto.pass_when_nothing_to_do,
+            "the off did not survive"
+        );
     }
 
     #[test]
@@ -876,12 +918,19 @@ mod tests {
         // arm reads one field and writes another, and nothing ever notices.
         for rule in AutoRule::ALL {
             let mut rules = AutoRules::default();
-            assert!(!rule.get(&rules), "{rule:?} does not start off");
+            // Against the default's own value rather than against `false`:
+            // one of the four starts on, and a test that hard-codes which is
+            // a test about the defaults wearing the name of one about wiring.
+            let was = rule.get(&rules);
             rule.toggle(&mut rules);
-            assert!(rule.get(&rules), "{rule:?} did not turn on");
+            assert_eq!(rule.get(&rules), !was, "{rule:?} did not flip");
             for other in AutoRule::ALL {
                 if other != rule {
-                    assert!(!other.get(&rules), "{rule:?} also flipped {other:?}");
+                    assert_eq!(
+                        other.get(&rules),
+                        other.get(&AutoRules::default()),
+                        "{rule:?} also flipped {other:?}"
+                    );
                 }
             }
             rule.toggle(&mut rules);

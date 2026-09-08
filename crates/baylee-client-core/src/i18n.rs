@@ -394,6 +394,13 @@ messages! {
         en: "Ask me in every step of both turns.",
         de: "Frag mich in jedem Schritt beider Züge.",
     },
+    /// Skip the quiet steps
+    RailPresetQuietSteps { en: "Skip the quiet steps", de: "Stille Schritte überspringen" },
+    /// Not untap, upkeep, draw, damage or cleanup — nothing is decided there.
+    RailPresetQuietStepsDetail {
+        en: "Not untap, upkeep, draw, damage or cleanup — nothing is decided there.",
+        de: "Nicht Enttappen, Versorgung, Ziehen, Schaden oder Aufräumen — dort wird nichts entschieden.",
+    },
     /// Competitive stops
     RailPresetCompetitive { en: "Competitive stops", de: "Turnier-Stopps" },
     /// Both your main phases, both combat declarations, and their end step.
@@ -790,8 +797,6 @@ messages! {
     MulliganTaken { en: "Keep this hand? ({0} taken)", de: "Diese Hand behalten? ({0} genommen)" },
     /// Put {0} card(s) on the bottom
     PutOnBottom { en: "Put {0} card(s) on the bottom", de: "Lege {0} Karte(n) nach unten" },
-    /// You have priority
-    YouHavePriority { en: "You have priority", de: "Du hast Priorität" },
     /// Declare attackers
     DeclareAttackers { en: "Declare attackers", de: "Angreifer deklarieren" },
     /// Declare blockers
@@ -906,6 +911,10 @@ messages! {
     TakeMulligan { en: "Mulligan", de: "Mulligan" },
     /// OK
     ConfirmOk { en: "OK", de: "OK" },
+    /// Pass
+    PassPriority { en: "Pass", de: "Passen" },
+    /// Your move
+    YourMove { en: "Your move", de: "Du bist dran" },
     /// Stack
     StackTitle { en: "Stack", de: "Stapel" },
     /// Spell

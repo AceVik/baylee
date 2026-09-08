@@ -872,6 +872,37 @@ A preset is written as a button, not held as a mode. The chip is nonetheless
 lit while the rail still matches, which is the only honest answer to "am I on
 competitive stops right now"; the first hand correction puts both chips out.
 
+**Done — the default stopped being "stop everywhere".** Playing the client
+made the case the audit had not: green everywhere is the *safe* default and it
+was the wrong one, because five of the twelve rows are steps where nothing is
+decided. `RailPreset::QuietSteps` is now the default and reddens exactly those
+five on both sides — untap, upkeep, draw, combat damage and cleanup. Untap and
+cleanup are on the list because the rules hand out no priority in them (cleanup
+grants a round only when something triggered during it, and then repeats the
+step, CR 514.3), so a green button there was a stop that could all but never
+fire. The other three are on it because the window is real and empty. Every row
+where a decision is made stays green, and the two declaration rows stay green
+for the stronger reason above.
+
+It is a *preset* rather than a table inside `PhaseOrders::default` because
+`PhaseOrders::is` lights a chip on an exact match: a default no chip can name
+would draw a fresh account with nothing lit and nothing to click to get back
+to. `RailPreset::ALL` is three now, ordered from the rail that stops most to
+the one that stops least.
+
+`AutoRules::pass_when_nothing_to_do` flipped to **on** in the same change, and
+it is the only one of the four that did. The other three answer real decisions
+and stay off; this one answers a window whose only legal action is the one
+being answered, which is not a decision at all. `AutoRules` serialises every
+field, so an account that turns it off stays off — there is a test that says
+exactly that, because a `true` default is the case where an unwritten `false`
+would silently come back on.
+
+Two consequences stated rather than discovered later. Accounts that already
+have a stored `orders` table keep it — the new default reaches a fresh account
+and nobody else, so an existing player has to click the new chip once. And
+every flow test that counted priority stops changed count in the same commit.
+
 One bug in that area, found in the audit: `Situation` carries no stack depth,
 so a red rail row passes priority *with a spell on the stack*. Red should mean
 "nothing to do here when nothing is happening", never "let their sorcery

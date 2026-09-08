@@ -539,6 +539,13 @@ pub fn sync_overlay(
             (PromptAction::No, Phrase::ActAnswerNo.text(lang)),
         ];
         let ok_answer = [(PromptAction::Confirm, Phrase::ConfirmOk.text(lang))];
+        // Priority is not confirmed, it is *passed*, and the two words are not
+        // interchangeable on a button. "OK" acknowledges something that has
+        // already happened; a player reading it under "You have priority" was
+        // being told to dismiss a window rather than invited to act, and said
+        // so. `PromptAction::Confirm` still carries it — the action was always
+        // right, only its label was wrong.
+        let pass_answer = [(PromptAction::Confirm, Phrase::PassPriority.text(lang))];
         let answers: &[(PromptAction, &str)] = if waiting {
             &[]
         } else {
@@ -549,6 +556,7 @@ pub fn sync_overlay(
             {
                 Some(baylee_engine::choice::Pending::Mulligan { .. }) => &mulligan_answers,
                 Some(baylee_engine::choice::Pending::YesNo { .. }) => &yes_no_answers,
+                Some(baylee_engine::choice::Pending::Priority { .. }) => &pass_answer,
                 // Combat always offers all three, including with nothing
                 // declared: "none" is a real answer, and the step does not
                 // end until somebody gives one.
