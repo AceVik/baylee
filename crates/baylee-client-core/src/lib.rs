@@ -53,6 +53,7 @@ pub mod manaplan;
 pub mod manapool;
 pub mod prefs;
 pub mod reconnect;
+pub mod sky;
 pub mod tabletop;
 
 /// View builders for tests.

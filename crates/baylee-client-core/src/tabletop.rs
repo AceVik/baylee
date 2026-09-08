@@ -180,7 +180,7 @@ pub const APRON: [f32; 3] = [0.055, 0.038, 0.030];
 /// margin, and the ring between the two is this. So the rail is precisely the
 /// part of the table the camera keeps outside the play area, which is what a
 /// rail is.
-pub const RAIL_WIDTH: f32 = 2.0;
+pub const RAIL_WIDTH: f32 = 1.6;
 
 /// The corner radius of a table this size: a racetrack, not a rectangle.
 ///

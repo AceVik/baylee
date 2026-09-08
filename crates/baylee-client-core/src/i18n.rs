@@ -419,6 +419,19 @@ messages! {
         en: "Cards and the camera go straight there instead of moving.",
         de: "Karten und Kamera springen hin, statt sich zu bewegen.",
     },
+    /// Heading over the day/night picker.
+    Sky { en: "Sky", de: "Himmel" },
+    /// What the sky is for, in one line.
+    SkyWhy {
+        en: "Weather behind the table. It changes nothing in the game.",
+        de: "Wetter hinter dem Tisch. Am Spiel ändert es nichts.",
+    },
+    /// Follow the player's own clock.
+    SkyAuto { en: "Auto", de: "Automatisch" },
+    /// Always a clouded blue sky.
+    SkyDay { en: "Day", de: "Tag" },
+    /// Always stars and a crescent moon.
+    SkyNight { en: "Night", de: "Nacht" },
     /// Do the obvious thing
     ActPrimary { en: "Do the obvious thing", de: "Das Naheliegende tun" },
     /// Confirm / pass priority

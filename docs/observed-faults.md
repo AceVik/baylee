@@ -690,3 +690,40 @@ about the table itself rather than the rules, and both are fixed.
     anything *behind* the table can be seen through, which is what entry 43
     needed. `the_table_gives_up_its_corners_to_the_sky` measures exactly that,
     against the window and not against itself.
+
+43. **"Day and night, with clouds and a sun, then stars and a crescent moon —
+    both with animated shaders and glow."** *Built, and it needed the table to
+    move over first.* There was nowhere to draw it: the slab was cut wider
+    than the camera's frame, so the felt reached every edge of the window and
+    a backdrop would have been a layer nobody could ever see. Entry 42's
+    racetrack gives up the corners, and `AIR` went from 2.0 to 3.5 so there is
+    a band all the way round as well. That costs about nine per cent of a
+    card's drawn width, and it is the whole price of the feature.
+
+    The sky is **one quad parented to the camera**, painted in screen space.
+    Not a `Skybox` (that wants a cubemap), not a UI node (UI draws over the 3D
+    table), and emphatically not a plane in the world: this camera looks
+    *down*, so a sky placed in the scene would be under the table. Screen
+    space is also what lets the sun and the moon be put in the two upper
+    corners, which is where the visible sky actually is.
+
+    Day is a gradient with two drifting cloud decks — the upper one thinner
+    and faster, so there is a depth to it — lit on the side the sun is on by
+    sampling the same field a little way towards it. Night is stars as discs
+    on a jittered grid, twinkling in *brightness* rather than size (a star
+    that changes size crawls), with a crescent taken out of a disc by a second
+    disc and a halo that belongs to the whole body. Dawn and dusk add a warm
+    band low in the frame, scaled by `SkyPhase::glow` — its own number, not
+    something derived from `day`, because a sky that reddened in proportion to
+    how much night was in it would be reddest at midnight.
+
+    Two things it deliberately is not. It is **not** Magic's day/night
+    designation (CR 728): no card in the pool is daybound or nightbound,
+    `baylee-view` carries no such state, and a client inventing one would put
+    a rules claim on the table the engine never made. And the hour it follows
+    is **UTC**, not the player's zone — a timezone database is a large
+    dependency for one number and a browser will not hand one out — so a
+    player at the ends of the world sees a sky up to half a day out, which is
+    what `Day` and `Night` are for. Measured live, both ways: the sky strip
+    moves 22/16/8 per channel over two seconds while the felt beside it moves
+    0/1/1, and with `reduce_motion` on the two frames are byte-identical.

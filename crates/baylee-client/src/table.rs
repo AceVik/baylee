@@ -59,10 +59,14 @@ const MEDALLION_LIFT: f32 = 0.0015;
 /// [`TableLayout::extent`] reports, which changes with the seat count, the
 /// focus and the window.
 ///
-/// It is also, exactly, [`AIR`] plus [`tabletop::RAIL_WIDTH`]: the camera
-/// frames the layout plus `AIR`, so the ring of table outside the frame is
-/// the rail, and the felt inside it is the part that is played on.
-const SLAB_MARGIN: f32 = AIR + tabletop::RAIL_WIDTH;
+/// It is [`tabletop::RAIL_WIDTH`] of padded rail plus a unit of felt outside
+/// the play area, and it is deliberately **less** than [`AIR`]: the camera
+/// frames the layout plus `AIR`, so the difference between the two is a band
+/// of sky all the way round the table. A slab cut wider than the frame fills
+/// the window edge to edge, and then there is no point drawing anything
+/// behind it.
+const SLAB_MARGIN: f32 = tabletop::RAIL_WIDTH + 1.0;
+const _: () = assert!(SLAB_MARGIN < AIR);
 
 /// How thick the slab is, in table units — near enough one card width.
 ///
@@ -282,9 +286,12 @@ impl CameraRig {
     pub const MIN_LEAN: f32 = 0.176;
     /// As far over as the player may tilt: about 55° off plan.
     ///
-    /// Bounded because there is nothing behind the table. No sky is drawn and
-    /// none would be worth drawing, so a camera flat enough to bring the
-    /// horizon into frame is a camera pointed at the clear colour.
+    /// Bounded because a card table is read from above. There *is* a sky
+    /// behind it now (`crate::sky`), so the old reason — that a lean this
+    /// far pointed the camera at the clear colour — is gone; what is left is
+    /// that the cards themselves become unreadable long before the geometry
+    /// does, and a seat looking along its own board sees the backs of its
+    /// front row and nothing else.
     pub const MAX_LEAN: f32 = 1.428;
 
     /// Moves the rig so `pod` (a seat's table-space centre) fills the free
@@ -436,7 +443,12 @@ impl CameraRig {
 /// is what makes it look like a table being played at rather than a diagram
 /// being displayed. It is also roughly where [`GLOW_SPREAD`] fades out, so the
 /// halo under an active seat's mat stays in frame with it.
-const AIR: f32 = 2.0;
+///
+/// It went from 2.0 to this when the sky arrived, and the cost was measured
+/// rather than guessed: a card is drawn about nine per cent smaller, and what
+/// it buys is a table standing in a room instead of a surface filling the
+/// window. Everything past [`SLAB_MARGIN`] is sky.
+const AIR: f32 = 3.5;
 const _: () = assert!(AIR > ZONE_MARGIN);
 
 /// Half the camera's vertical field of view.
@@ -615,7 +627,7 @@ const CAMERA_LEAN: f32 = 0.24;
 /// depth and is drawn at nearly the same size. It is a longer lens than a
 /// room is normally seen through, and that is the point — a table is a thing
 /// a player reads, not a room they stand in.
-const FOV: f32 = 0.42;
+pub const FOV: f32 = 0.42;
 
 /// Where the camera actually is, as against where the rig says it should be.
 ///
@@ -2368,10 +2380,16 @@ mod camera_tests {
                 framed.y * 100.0
             );
             let table = fill(rig, &places(&layout));
+            // 0.7 before there was a sky. [`AIR`] now leaves a deliberate
+            // band outside the slab, and the play area gives up nine per
+            // cent of its width to it — which is a *decision*, so the bound
+            // moves with it rather than the decision being reverted to keep
+            // a number. What the bound still catches is the failure it was
+            // written for: a camera pushed out until the table is a coaster.
             assert!(
-                table.x.max(table.y) > 0.7,
+                table.x.max(table.y) > 0.6,
                 "{n} seats leaves the table filling {:.0}% across and {:.0}% along, \
-                 which is more felt than a table needs around it",
+                 which is more room than a table needs around it",
                 table.x * 100.0,
                 table.y * 100.0
             );

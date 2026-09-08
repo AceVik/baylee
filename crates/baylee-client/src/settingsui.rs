@@ -16,6 +16,7 @@ use crate::lobby::{Metrics, Press, button, chip, heading, panel, row};
 use baylee_client_core::automation::{RAIL_ROWS, RailPreset, RailSide};
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::prefs::{Action, AutoRule, Chord, Keymap, Preferences};
+use baylee_client_core::sky::SkyMode;
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
 
@@ -268,6 +269,8 @@ fn automation_panel(
 
     let motion = motion_row(commands, prefs, lang, fonts, metrics);
     commands.entity(column).add_child(motion);
+    let weather = sky_row(commands, prefs, lang, fonts, metrics);
+    commands.entity(column).add_child(weather);
 
     let rail = heading(commands, fonts, metrics, Phrase::WhereToStop.text(lang));
     commands.entity(column).add_child(rail);
@@ -461,6 +464,72 @@ fn motion_row(
     line
 }
 
+/// What is behind the table, and it is weather rather than a rule.
+///
+/// It sits beside the motion switch because it is the other setting on this
+/// screen that is about the *table* and not about the game. The line under it
+/// says so out loud: Magic has a day/night designation (CR 728) and this is
+/// emphatically not it, so a player must never look at a starfield and
+/// wonder whether something on the board has transformed.
+fn sky_row(
+    commands: &mut Commands,
+    prefs: &Preferences,
+    lang: Lang,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) -> Entity {
+    let line = row(commands, metrics, true);
+    let label = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new(Phrase::Sky.text(lang)),
+                    tf(fonts, metrics.text),
+                    TextColor(palette::INK),
+                ),
+                (
+                    Text::new(Phrase::SkyWhy.text(lang)),
+                    tf(fonts, metrics.small),
+                    TextColor(palette::MUTED),
+                )
+            ],
+        ))
+        .id();
+    commands.entity(line).add_child(label);
+    for offered in SkyMode::ALL {
+        let pick = chip(
+            commands,
+            fonts,
+            metrics,
+            sky_name(offered).text(lang),
+            Press::PickSky(offered),
+            offered == prefs.sky,
+        );
+        commands.entity(line).add_child(pick);
+    }
+    line
+}
+
+/// The label a sky mode is offered under.
+///
+/// A `match` rather than a method on `SkyMode`, because the enum lives in the
+/// renderer-free crate beside the arithmetic and `Phrase` is the interface's
+/// own vocabulary. The wire spelling stays `SkyMode::key`; only the label is
+/// translated, which is the same split `Lang` and the house AI names use.
+fn sky_name(mode: SkyMode) -> Phrase {
+    match mode {
+        SkyMode::Auto => Phrase::SkyAuto,
+        SkyMode::Day => Phrase::SkyDay,
+        SkyMode::Night => Phrase::SkyNight,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -476,6 +545,30 @@ mod tests {
         for lang in Lang::ALL {
             assert!(!lang.name().is_empty());
             assert!(!Phrase::Language.text(lang).is_empty());
+        }
+    }
+
+    /// One chip per sky, each with a label in every language.
+    ///
+    /// The same rule as the languages above, and the same failure: a mode
+    /// with no chip is a mode nobody can pick. Every language, because
+    /// `Phrase` makes a missing German a compile error only for phrases that
+    /// *exist* — a mode added without one would sail past that.
+    #[test]
+    fn every_sky_is_offered_and_named() {
+        let mut keys: Vec<&str> = SkyMode::ALL.iter().map(|m| m.key()).collect();
+        keys.sort_unstable();
+        keys.dedup();
+        assert_eq!(keys.len(), SkyMode::ALL.len(), "two skies share a key");
+        for mode in SkyMode::ALL {
+            for lang in Lang::ALL {
+                assert!(
+                    !sky_name(mode).text(lang).is_empty(),
+                    "{:?} has no name in {}",
+                    mode,
+                    lang.code()
+                );
+            }
         }
     }
 

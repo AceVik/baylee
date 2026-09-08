@@ -31,6 +31,8 @@ serde_json.workspace = true
 ehttp.workspace = true
 # The duel socket; see `net.rs`.
 ewebsock.workspace = true
+# The clock behind `sky.rs`, which has to work in a browser.
+web-time.workspace = true
 
 [dev-dependencies]
 # The same crate as above, with its view builders switched on. A test target

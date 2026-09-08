@@ -89,6 +89,10 @@ ewebsock = { version = "0.8", features = ["tls"] }
 # Lets the browser's WebSocket handle live in a Bevy resource, which must be
 # Send + Sync. Checked at run time (a panic, never UB) and wasm-only.
 send_wrapper = "0.6"
+# The wall clock the sky reads. `std::time::SystemTime::now` panics on
+# wasm32-unknown-unknown; this is `std::time` everywhere else and the
+# browser's own clock there. Already in the tree — bevy depends on it.
+web-time = "1.1"
 # The card shader is validated at build time. Without this it would compile
 # only when a real GPU pipeline is built — which in the browser means the one
 # environment that cannot be debugged by looking at a filesystem.

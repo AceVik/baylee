@@ -621,6 +621,11 @@ pub struct Preferences {
     /// the movement. It is stored the negative way round so the default stays
     /// `false` and an old settings blob keeps loading.
     pub reduce_motion: bool,
+    /// What is drawn behind the table.
+    ///
+    /// Weather, not rules: see [`crate::sky`] for why a client may decide
+    /// this on its own and why the default follows the player's own clock.
+    pub sky: crate::sky::SkyMode,
 }
 
 impl Preferences {

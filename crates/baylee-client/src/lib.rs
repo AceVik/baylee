@@ -61,6 +61,7 @@ pub mod net;
 pub mod prefs;
 pub mod settings;
 pub mod settingsui;
+pub mod sky;
 pub mod softkeys;
 pub mod table;
 pub mod textures;
@@ -515,6 +516,7 @@ impl Plugin for DuelPlugin {
         flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
+            .add_plugins(sky::SkyPlugin)
             // Without this nothing on the 3D table can be pointed at, ever.
             //
             // Bevy's UI picking backend is on by default and its *mesh* one is
@@ -611,6 +613,8 @@ impl Plugin for DuelPlugin {
                     table::sync_scene,
                     table::sync_zones,
                     table::sync_table,
+                    sky::hang_sky,
+                    sky::sync_sky,
                     table::glide,
                     // After the glide, and deliberately: a line is welded to
                     // where its two cards *are* this frame, so it has to be

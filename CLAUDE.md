@@ -615,7 +615,23 @@ this stage, so the wall reads as a wall only because `tabletop::APRON` is a
 darker colour than the rail above it. The slab is cut as a **racetrack**, and
 the corners it gives up are load-bearing: the camera frames the layout plus
 `AIR` and the slab is cut to the layout plus `SLAB_MARGIN`, so a rectangle
-fills the window edge to edge and nothing behind the table could ever be seen. Every seat plays on its own mat, sized from its `SeatSlot`, banded
+fills the window edge to edge and nothing behind the table could ever be seen.
+
+**Behind it is a sky**, and it is weather rather than rules.
+`baylee-client-core/src/sky.rs` decides which one — `SkyMode { Auto, Day,
+Night }` and a pure `phase(mode, hour)` with dawn and dusk ramps — and
+`baylee-client/src/sky.rs` draws it as one quad parented to the camera,
+painted in **screen space** by `shaders/sky.wgsl` so it holds still when the
+player orbits and so the sun and the moon can be put where the table is not.
+Magic's day/night designation (CR 728) is a different thing entirely and no
+card in the pool has it: nothing about this sky changes a legal action, which
+is exactly why a client may decide it alone and why the clock is the player's
+own. The hour comes from `web-time` in the shell, because
+`std::time::SystemTime::now` panics on `wasm32-unknown-unknown` and
+`baylee-client-core` compiles for it — and it is **UTC**, with `Day` and
+`Night` there for a player the offset bothers.
+
+Every seat plays on its own mat, sized from its `SeatSlot`, banded
 for the three lanes, with the rim carrying the seat's colour — gilt for the
 viewing seat, the pie in ring order for the rest — and its brightness
 carrying `Mood { local, Standing }`, so "whose turn" and "who is everyone
