@@ -616,14 +616,26 @@ pub fn frame_table(
 /// and the seats that gave nothing up are the two opposite ones: it is the
 /// player's own board that comes back to the size of theirs.
 ///
-/// It has been 0.40, then 0.24, and is 0.27 — a third position rather than a
-/// retreat. The owner asked for the camera to keep *an angle* on the table,
-/// and 0.24 had flattened it far enough that the slab's own wall drew as a
-/// line. At 0.30 the spread is 8.1% and
-/// `camera_tests::every_seat_is_drawn_a_board_of_the_same_width` fails, so
-/// 0.27 is as far back towards an angle as the equal-width promise allows —
-/// and that promise is not being given back to buy a nicer shot.
-const CAMERA_LEAN: f32 = 0.27;
+/// It has been 0.40, then 0.24, then 0.27, and is **0.36** — and this last
+/// step is the one that cost something, so it is written down rather than
+/// buried in a number. The owner has now asked three times for more angle on
+/// the table, having been told once what it trades against; that is a
+/// decision, not a misunderstanding, and it is theirs to make.
+///
+/// What it costs, measured rather than argued: at 0.36 the widest board on an
+/// eight-seat ring is 10.6% wider than the narrowest, against 6.3% at 0.27.
+/// The bound in `every_seat_is_drawn_a_board_of_the_same_width` moved from
+/// 1.08 to 1.12 to allow exactly that and no more. The number that matters is
+/// still the one the complaint was about — 18.9%, where a player reads their
+/// own board as a different format — and 10.6% is well under half of it.
+///
+/// The lens buys nothing here and was left alone. Tried both ways: 0.34 at a
+/// `FOV` of 0.36 spreads 8.2%, and so does 0.33 at 0.42 — the perspective
+/// term a longer lens shrinks is the smaller of the two, and the
+/// foreshortening term, which is the larger, does not care about the lens at
+/// all. So the angle is paid for in width and in nothing else, which is the
+/// honest way to sell it.
+const CAMERA_LEAN: f32 = 0.36;
 
 /// The camera's vertical field of view, in radians.
 ///
@@ -2316,6 +2328,15 @@ mod camera_tests {
     /// Bounded rather than equalised: the remaining few per cent is the
     /// foreshortening of a board turned away from the camera, and squeezing
     /// that out means a lean of zero, which is a table of decals.
+    ///
+    /// The bound was 1.08 and is 1.12, which is a promise being partly given
+    /// back and therefore says why. The owner asked a third time for more
+    /// angle on the table after being told what it trades against, so
+    /// [`CAMERA_LEAN`] went 0.27 → 0.36 and the widest board on an eight-seat
+    /// ring went 6.3% → 10.6%. The bound is that measurement plus a hair and
+    /// not a round number chosen to be safe: it still fails the shot this
+    /// test was written for, which drew one board 18.9% wider than its
+    /// neighbours.
     #[test]
     fn every_seat_is_drawn_a_board_of_the_same_width() {
         // A phone is allowed a little more. Its ring is nearly a column —
@@ -2323,9 +2344,9 @@ mod camera_tests {
         // fraction of the eye distance closer than it does on a ring that had
         // room to be round, and no lens shortens that.
         for (window, bound) in [
-            (WINDOW, 1.08),
-            (Vec2::new(1280.0, 800.0), 1.08),
-            (Vec2::new(430.0, 932.0), 1.13),
+            (WINDOW, 1.12),
+            (Vec2::new(1280.0, 800.0), 1.12),
+            (Vec2::new(430.0, 932.0), 1.18),
         ] {
             let canvas = Canvas::hud(window);
             for n in 2..=8u8 {

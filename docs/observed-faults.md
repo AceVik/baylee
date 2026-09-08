@@ -920,3 +920,62 @@ about the table itself rather than the rules, and both are fixed.
     would be a mat drawn underneath it. `Canvas.right` is zero now and stays
     as a field, because the next panel to take a side needs somewhere to say
     so.
+
+48. **The table: more angle, a narrower edge, and that edge turned inside
+    out.** *Done.* Four requests in one paragraph, and they pull in different
+    directions, so the trades are written down rather than split between a
+    constant and a screenshot.
+
+    - **"Neige den Kamera Winkel noch etwas mehr."** `CAMERA_LEAN` 0.27 →
+      0.36, and this one costs something. A lean is paid for by the seat
+      furthest from the camera and collected by the nearest, which is always
+      the player's own; the widest board on an eight-seat ring goes from 6.3%
+      to 10.6% wider than the narrowest, and
+      `every_seat_is_drawn_a_board_of_the_same_width`'s bound moved 1.08 →
+      1.12 to allow exactly that. It is the third time this angle has been
+      asked for after being told what it trades against, which is a decision;
+      the bound is the measurement plus a hair, and it still fails the shot it
+      was written for (18.9%). The lens was tried as a way out and buys
+      nothing: 0.34 at a `FOV` of 0.36 spreads the same 8.2% as 0.33 at 0.42,
+      because the larger of the two error terms is foreshortening and no lens
+      shortens that.
+    - **"Border schmal und den Border Radius noch etwas weniger."**
+      `RAIL_WIDTH` 0.9 → 0.55, `table_corner` 0.16 → 0.11 of the short side.
+      The sag check in `a_table_has_a_corner_and_not_a_chamfer` still holds:
+      an 0.84 sag across a 0.55 rail.
+    - **"Drehe es um ... wie ein Altar."** The felt fell into `FELT_DEEP`
+      over 1.8 units as it reached the rail and the rail crowned in its own
+      middle — between them, a surface sunk inside a frame, which is a tray.
+      An altar is the other way round: the top is the highest thing there is
+      and its edge is rounded over and away. So the cloth now keeps a crest of
+      light *at* its boundary (`ROLL`, `ROLL_LIGHT`) and the rail falls from
+      `RAIL_LIP` at the inner edge to `RAIL_HIDE` at the outer one on a
+      quarter circle's cosine rather than a ramp — a linear fall reads as a
+      chamfer cut at forty-five degrees.
+    - **"Der Tisch braucht vielleicht ein Spotlight."** `under_lamp`: an
+      elliptical pool that **darkens the ends** rather than lifting the
+      middle. That direction is forced — the cloth is already as bright as
+      `the_felt_is_dark_enough_to_read_cards_against` allows from both sides,
+      so a lamp that lifted the centre would be a table competing with its
+      own cards. Elliptical because the slab is much wider than it is deep and
+      a round pool would light the near and far seats while leaving the two at
+      the ends in the dark. A multiply on the table's own colour, like
+      `under_sky`, and for the same reason: there is no light in this scene
+      and there cannot be one.
+
+    **"Die Battlefield Linien rand animation ist zu schnell, sie soll wie ein
+    Atemfluss wirken und auch glühen."** The rim light was a short comet at
+    3.6 seconds a lap. It is three terms now: `TURN_BASE`, the light the whole
+    rim of the active seat carries all the time — which is the difference
+    between travelling and *glowing*; a swell that goes round once every 11
+    seconds covering more than half the rim at a time; and a breath the rim
+    takes together every 7. Two periods with no common multiple worth
+    noticing, so the rim never repeats a pose, which is what makes slow
+    movement read as alive rather than as a loop. `TURN_REACH` 0.45 → 0.85
+    spreads it across three times the width of border, which is the other half
+    of "glühen": the same light in one pixel is an outline.
+
+    Measured live over eight seconds, on the same table: the active seat's rim
+    swings `4.31 / 3.64 / 2.90` per channel, while the opponent's rim — same
+    shader, same material, `on_turn` at zero — moves `0.00 / 0.00 / 0.00` and
+    so does the bare felt between them.

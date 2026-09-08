@@ -590,16 +590,20 @@ socket that could not be opened.
 A card is a **slab**, not a decal: a rounded face with a thin wall around its
 edge (whose UVs borrow the face's, so the edge is the card's own border
 colour) and a contact-shadow child under it. Neither reads at a camera exactly
-overhead, which is what `table::CAMERA_LEAN` is for — about 15° off vertical,
+overhead, which is what `table::CAMERA_LEAN` is for — about 20° off vertical,
 enough for both. It was 22°, and a lean is paid for by the seat furthest from
 the camera and collected by the seat nearest it, which is always the player's
 own: three boards laid out at the same 12.0 units were drawn 450, 381 and 378
-pixels wide. Halving the lean and `FOV` together brings that to 6.3%, and
-`every_seat_is_drawn_a_board_of_the_same_width` holds it there — which is
-also the ceiling on the angle. 0.27 is a third position after 0.40 and 0.24,
-taken back because the flat shot drew the table's own wall as a line; 0.30
-spreads the boards 8.1% and fails that test, so the equal widths and the
-angle are traded against each other and the widths win.
+pixels wide, 18.9% apart. Halving the lean and `FOV` together brought that to
+6.3%, and `every_seat_is_drawn_a_board_of_the_same_width` is what holds it —
+so the angle and the equal widths are traded directly against each other.
+`CAMERA_LEAN` has been 0.40, 0.24, 0.27 and is **0.36**: the owner asked a
+third time for more angle after being told the trade, which is a decision, so
+the bound moved from 1.08 to 1.12 and the worst spread with it, 6.3% → 10.6%
+on an eight-seat ring. The bound is that measurement plus a hair, and still
+fails the 18.9% shot it was written for. The lens buys nothing — 0.34 at a
+`FOV` of 0.36 spreads the same 8.2% as 0.33 at 0.42, because the larger of
+the two error terms is foreshortening, which no lens shortens.
 
 The 3D table under the cards is **generated, not shipped**: no sprite, no
 photograph, no downloaded texture anywhere on it.
@@ -627,6 +631,20 @@ the corners it gives up are load-bearing: the camera frames the layout plus
 `AIR` and the slab is cut to the layout plus `SLAB_MARGIN`, so a rectangle
 fills the window edge to edge and nothing behind the table could ever be seen.
 
+The edge is an **altar's, not a tray's**, and that inversion is the whole of
+`felt.wgsl`'s edge shading. The cloth used to fall into `FELT_DEEP` over 1.8
+units as it reached the rail and the rail crowned in its own middle, which
+together read as a surface *sunk inside a frame*. Now the cloth keeps a crest
+of light at its own boundary and the rail falls from `RAIL_LIP` at the inner
+edge to `RAIL_HIDE` at the outer one on a quarter circle's cosine — so the
+top is the highest thing there is and its edge is rounded over and away.
+`RAIL_WIDTH` is 0.55 and `table_corner` 0.11 of the short side, both narrowed
+with it. The table also carries **its own lamp** (`under_lamp`): an
+elliptical pool that darkens the ends rather than lifting the middle, because
+the cloth is already as bright as `the_felt_is_dark_enough_to_read_cards_
+against` allows. It is a multiply on the table's colour for the same reason
+`under_sky` is — there is no light in this scene and there cannot be one.
+
 **Behind it is a sky**, and it is weather rather than rules.
 `baylee-client-core/src/sky.rs` decides which one — `SkyMode { Auto, Day,
 Night }` and a pure `phase(mode, hour)` with dawn and dusk ramps — and
@@ -652,11 +670,17 @@ which is light the table *emits* and carries a meaning of its own.
 Every seat plays on its own mat, sized from its `SeatSlot`, banded for the
 three lanes, with the rim carrying the seat's colour — gilt for the viewing
 seat, the pie in ring order for the rest — and its opacity carrying `Mood`, so
-"who is everyone waiting for" is answered on the felt while a light travelling
-round one rim answers "whose turn is it". Those are two questions and
+"who is everyone waiting for" is answered on the felt while a light on one rim
+answers "whose turn is it". Those are two questions and
 `Mood` carries two fields for them: `Standing` is a rank that collapses them,
 and a rim light driven off the rank would leave the active seat the moment an
-opponent responded to something. Everything down there is `unlit`
+opponent responded to something. That light was a short comet at 3.6 seconds a
+lap and is now a **breath**: the whole rim of the active seat glows
+(`TURN_BASE`), a wide swell travels it every 11 seconds and the rim rises and
+falls together every 7, two periods with no common multiple worth noticing, so
+it never repeats a pose. Measured live: the active rim swings 4.3/3.6/2.9 per
+channel over eight seconds while the opponent's — same shader, same material,
+`on_turn` at zero — and the bare felt beside it both move 0.0. Everything down there is `unlit`
 deliberately: scene lighting on card art would make colour identity
 unreadable. The stage therefore has no light in it at all, and the camera
 carries `Tonemapping::None` so a future Bevy default cannot quietly treat

@@ -180,7 +180,7 @@ pub const APRON: [f32; 3] = [0.055, 0.038, 0.030];
 /// margin, and the ring between the two is this. So the rail is precisely the
 /// part of the table the camera keeps outside the play area, which is what a
 /// rail is.
-pub const RAIL_WIDTH: f32 = 0.9;
+pub const RAIL_WIDTH: f32 = 0.55;
 
 /// The corner radius of a table this size: a racetrack, not a rectangle.
 ///
@@ -191,7 +191,7 @@ pub const RAIL_WIDTH: f32 = 0.9;
 /// edge, and a backdrop nothing ever shows is a backdrop worth nothing.
 #[must_use]
 pub fn table_corner(span: Vec2) -> f32 {
-    span.min_element() * 0.16
+    span.min_element() * 0.11
 }
 
 /// The felt: casino baize, rough and woven, worn lighter towards the middle

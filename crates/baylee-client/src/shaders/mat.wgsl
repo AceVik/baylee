@@ -80,27 +80,44 @@ const RIM_LIGHT: f32 = 0.62;
 const RIM_FALL: f32 = 1.3;
 const HUE_FALL: f32 = 0.55;
 
-/// The light that says whose turn it is: how bright it burns, how long it
-/// takes to travel once round the mat, and how much of the rim it covers at a
-/// time as a fraction of the way round.
+/// The light that says whose turn it is: how bright it burns, how long a
+/// swell takes to travel once round the mat, and how much of the rim that
+/// swell covers as a fraction of the way round.
 ///
-/// A short comet rather than a border that brightens and dims together. A
-/// whole rim pulsing is the shape every interface uses for *something is
-/// wrong*, and this says only "it is your turn" — a thing that is true for
-/// most of a game and must therefore be able to sit there without nagging.
-/// It travels, which reads at the edge of vision, and at any one moment four
-/// fifths of the rim is exactly the rim.
-const TURN_LIGHT: f32 = 0.55;
-const TURN_SECONDS: f32 = 3.6;
-const TURN_ARC: f32 = 0.22;
+/// It was a short comet at 3.6 seconds a lap, and the owner's word on it was
+/// that it is too fast and should read as a breath rather than a chase. So
+/// there are two clocks now and they are deliberately not in step: a swell
+/// that travels the rim once every eleven seconds, and a breath the whole rim
+/// takes together every seven. Two periods with no common multiple worth
+/// noticing means the rim never repeats a pose, which is what makes slow
+/// movement read as alive rather than as a loop.
+///
+/// The arc is more than half the way round now. A comet is a chase and asks
+/// to be followed; a swell this wide is a tide, and a player reading a card
+/// never catches it happening.
+const TURN_LIGHT: f32 = 0.72;
+const TURN_SECONDS: f32 = 11.0;
+const TURN_ARC: f32 = 0.55;
+const BREATH_SECONDS: f32 = 7.0;
 
-/// How much of the comet is left where the rim has already faded out.
+/// How much light the rim holds when the swell is elsewhere, and how far the
+/// breath takes it down at the bottom of one.
+///
+/// Neither is zero, and that is the difference between a light that *travels*
+/// and one that **glows**: the whole rim of the seat on turn is lit the whole
+/// time, and the swell and the breath move over a light that is already
+/// there. A rim that went dark between passes would be blinking.
+const TURN_BASE: f32 = 0.38;
+const BREATH_LOW: f32 = 0.55;
+
+/// How much of the light is left where the rim has already faded out.
 ///
 /// Not zero: `falloff` is 1 at the very edge and 0 an inch in, so tying the
-/// light to it alone puts the whole comet in the outermost pixel, where the
-/// coverage ramp is also eating it. This lifts it far enough inboard to be a
-/// light on the border rather than a light on the outline.
-const TURN_REACH: f32 = 0.45;
+/// light to it alone puts the whole of it in the outermost pixel, where the
+/// coverage ramp is also eating it. Raised from 0.45, which is the rest of
+/// "und auch glühen": the same light spread across three times the width of
+/// border is a glow, and in one pixel it is an outline.
+const TURN_REACH: f32 = 0.85;
 
 /// A rounded rectangle's signed distance: negative inside, positive outside.
 fn sd_round_box(p: vec2<f32>, half: vec2<f32>, r: f32) -> f32 {
@@ -150,11 +167,23 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // And the light that says whose turn it is, on the rim and nowhere else.
     // It is *added* to the rim rather than replacing it, so a seat's own
     // colour still says which seat this is while it runs.
+    //
+    // Three terms, and each answers a different half of "wie ein Atemfluss":
+    // `swell` is the flow, a wide soft tide going round once every eleven
+    // seconds; `breath` is the whole rim rising and falling together on its
+    // own seven-second clock; and `TURN_BASE` is the light both of them move
+    // over, which is what makes it a glow rather than a signal.
     let turn = atan2(p.y * half.x, p.x * half.y) / TAU + 0.5;
     let lead = fract(globals.time * params.motion / TURN_SECONDS);
-    let comet = pow(clamp(1.0 - fract(turn - lead) / TURN_ARC, 0.0, 1.0), 2.0);
+    let swell = pow(clamp(1.0 - fract(turn - lead) / TURN_ARC, 0.0, 1.0), 1.6);
+    let breath = mix(
+        BREATH_LOW,
+        1.0,
+        0.5 + 0.5 * sin(globals.time * params.motion * TAU / BREATH_SECONDS)
+    );
     let reach = smoothstep(0.0, TURN_REACH, falloff);
-    let running = params.on_turn * comet * reach * TURN_LIGHT;
+    let flow = TURN_BASE + (1.0 - TURN_BASE) * swell;
+    let running = params.on_turn * flow * breath * reach * TURN_LIGHT;
 
     // Brightness scales the alpha, not the colour, which is the one thing
     // that changed meaning when the mat stopped being a white texture under a

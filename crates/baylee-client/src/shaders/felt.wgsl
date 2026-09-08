@@ -96,22 +96,53 @@ fn under_sky(linear: vec3<f32>) -> vec3<f32> {
     return mix(linear, linear * params.ambient.rgb, params.ambient.a);
 }
 
+/// The lamp over the table: how far its pool reaches as a fraction of the
+/// slab's half-span, and how much light is left outside it.
+///
+/// A card room is lit from over the table and nowhere else, and this is the
+/// whole of that. It **darkens the ends** rather than brightening the middle,
+/// which is the only way to have it at all here: the cloth is already as
+/// bright as it is allowed to be (`the_felt_is_dark_enough_to_read_cards_
+/// against` bounds it from both sides), so a lamp that lifted the centre
+/// would be a table competing with the cards on it. Falling away at the edges
+/// costs nothing and says the same thing.
+///
+/// Like [`under_sky`] it is a multiply on the table's own colour, and for the
+/// same reason: there is no light in this scene and there cannot be one,
+/// because scene lighting on card art makes colour identity unreadable. The
+/// table carries its own lamp; the cards standing on it do not.
+const SPOT_REACH: f32 = 0.95;
+const SPOT_FLOOR: f32 = 0.62;
+
+/// The same surface under the lamp hanging over the table.
+///
+/// Elliptical rather than round — the slab is a good deal wider than it is
+/// deep, and a circular pool on it puts the near and far seats in the light
+/// while the two at the ends sit in the dark.
+fn under_lamp(linear: vec3<f32>, table: vec2<f32>) -> vec3<f32> {
+    let reach = max(params.span * 0.5 * SPOT_REACH, vec2<f32>(1e-3));
+    let r = length(table / reach);
+    return linear * mix(1.0, SPOT_FLOOR, smoothstep(0.0, 1.0, r));
+}
+
 /// Threads per table unit. A card is one unit wide, so this is how many
 /// threads cross a card: enough that the cloth has a tooth at reading
 /// distance, few enough that it never turns into stripes.
 const WEAVE: f32 = 5.5;
 
-/// How far the rail's shadow reaches onto the cloth, in table units.
+/// How far in from the cloth's edge the crest of the roll catches the light,
+/// in table units, and how much of a lift it gets there.
 ///
-/// The one thing that says the rail is *raised* rather than painted on. There
-/// is no light in this scene to cast it, so it is painted — which is the same
-/// argument the cards' contact shadows make, and the same reason.
-const RAIL_SHADOW: f32 = 1.8;
-
-/// How far along the rail the crown of the padding sits, as a fraction of its
-/// width. Not the middle: a rail is rolled over its inner edge, so the light
-/// on it sits inboard of centre.
-const CROWN: f32 = 0.42;
+/// This is the table turned inside out, and the inversion is the point. The
+/// cloth used to fall into `FELT_DEEP` over 1.8 units as it reached the rail,
+/// which is a *well*: the surface reads as sunk below the frame around it,
+/// like a snooker table or a tray. An altar is the other way round — the top
+/// is the highest thing there is and its edge is rounded over and away, so
+/// the light sits **on** the boundary rather than dying at it. There is no
+/// light in this scene to do that, so it is painted, which is the same
+/// argument the cards' contact shadows make.
+const ROLL: f32 = 0.9;
+const ROLL_LIGHT: f32 = 0.030;
 
 /// The light left in the rail when no step is calling for any.
 const RESTING: f32 = 0.010;
@@ -208,7 +239,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let grain = fbm2(vec2<f32>(table.x + table.y, in.world_position.y * 6.0) * 2.0);
         let shade = mix(1.15, 0.42, drop) * mix(0.78, 1.0, faces);
         let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012));
-        return vec4<f32>(under_sky(apron), 1.0);
+        return vec4<f32>(under_sky(under_lamp(apron, table)), 1.0);
     }
 
     // One field decides the whole top. `outer` is the mesh's own boundary
@@ -222,20 +253,30 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var lamp_here = 0.0;
 
     if (inset > 0.0) {
-        // The cloth, falling into the rail's shadow as it reaches the edge.
-        let lit = smoothstep(0.0, RAIL_SHADOW, inset);
-        colour = mix(FELT_DEEP, baize_at(table), lit);
+        // The cloth, and the crest of the roll it runs over at the edge:
+        // brighter towards the boundary, not darker. `FELT_DEEP` is still the
+        // shadow the middle of a big table falls into — that is the lamp
+        // below — and no longer a ring painted round the play area.
+        let crest = 1.0 - smoothstep(0.0, ROLL, inset);
+        colour = baize_at(table) + vec3<f32>(crest * ROLL_LIGHT);
         // A hair of the lamp spills off the rail onto the cloth beside it,
         // and no further. Without it the rail reads as a sticker.
-        lamp_here = (1.0 - lit) * 0.35;
+        lamp_here = crest * 0.35;
     } else {
-        // The rail: a padded roll, crowned inboard of its own middle.
+        // The roll: it leaves the cloth at the cloth's own height and turns
+        // down and outward to meet the apron, so the light on it sits at the
+        // **inner** edge and everything after that is falling away. A rail
+        // crowned in its own middle draws a bead all the way round, which is
+        // a picture frame with the felt inside it; a roll that only ever
+        // falls is an edge the felt runs over.
         let across = clamp(-inset / max(params.rail, 1e-3), 0.0, 1.0);
-        let crown = max(1.0 - abs(across - CROWN) / CROWN, 0.0);
+        // A quarter circle's cosine rather than a straight ramp: the surface
+        // is turning away from the eye, and a linear fall reads as a chamfer
+        // cut at forty-five degrees.
+        let turn = sqrt(max(1.0 - across * across, 0.0));
         let hide = fbm2(table * 7.0 + 41.3);
-        colour = mix(RAIL_HIDE, RAIL_LIP, smoothstep(0.0, 1.0, crown))
-            + vec3<f32>((hide - 0.5) * 0.022);
-        lamp_here = 0.35 + 0.65 * crown;
+        colour = mix(RAIL_HIDE, RAIL_LIP, turn) + vec3<f32>((hide - 0.5) * 0.022);
+        lamp_here = 0.35 + 0.65 * turn;
     }
 
     // The lamp. It enters at the active seat's own edge and runs round the
@@ -267,5 +308,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     );
 
     let glow = lamp * energy * params.gain * reach * lamp_here * (0.62 + 0.38 * pulse);
-    return vec4<f32>(under_sky(to_linear(colour)) + glow, 1.0);
+    // The lamp reaches the table.s own colour and stops there: the phase
+    // light is something the table *emits*, and a step that dimmed towards
+    // the ends of the slab would be saying something untrue about the turn.
+    return vec4<f32>(under_sky(under_lamp(to_linear(colour), table)) + glow, 1.0);
 }
