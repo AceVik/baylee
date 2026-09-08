@@ -85,7 +85,7 @@ impl BrowseZone {
             PileKind::Library => None,
             PileKind::Graveyard => Some(Self::Graveyard(player)),
             PileKind::Exile => Some(Self::Exile(player)),
-            PileKind::Command => Some(Self::Command(player)),
+            PileKind::Command | PileKind::Command2 => Some(Self::Command(player)),
         }
     }
 

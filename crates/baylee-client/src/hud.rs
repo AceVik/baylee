@@ -332,6 +332,13 @@ pub struct HandLayout {
     pub step: f32,
     /// Total width of the laid-out cards.
     pub content_width: f32,
+    /// How far in from the left edge the first card starts.
+    ///
+    /// Half of whatever the cards did not use, so a hand stands in the middle
+    /// of the bar rather than against its left edge. Zero as soon as the hand
+    /// fills the bar, which is also when it starts scrolling: a scroll offset
+    /// measured from a moving origin would drift.
+    pub lead: f32,
     /// Whether the content overflows and must scroll.
     pub scrollable: bool,
 }
@@ -345,20 +352,26 @@ pub fn hand_layout(count: usize, card_w: f32, available_w: f32) -> HandLayout {
         return HandLayout {
             step: card_w,
             content_width: 0.0,
+            lead: 0.0,
             scrollable: false,
         };
     }
     let natural = count as f32 * card_w;
     if natural <= available_w {
-        // Even spread: cards fully visible, spare space becomes gaps.
+        // Even spread: cards fully visible, spare space becomes gaps — up to
+        // a point. The step is capped at a card and a little air, because a
+        // two-card hand spread across a whole monitor is two cards a player
+        // has to look for. What the cap leaves over is what `lead` centres.
         let step = if count > 1 {
             ((available_w - card_w) / (count - 1) as f32).min(card_w + 8.0)
         } else {
             card_w
         };
+        let content_width = (count - 1) as f32 * step + card_w;
         return HandLayout {
             step,
-            content_width: (count - 1) as f32 * step + card_w,
+            content_width,
+            lead: (available_w - content_width).max(0.0) * 0.5,
             scrollable: false,
         };
     }
@@ -367,6 +380,10 @@ pub fn hand_layout(count: usize, card_w: f32, available_w: f32) -> HandLayout {
     HandLayout {
         step,
         content_width,
+        // A hand this wide has no spare room to share out, and a scroll
+        // offset measured from a moving origin would drift as cards are
+        // played.
+        lead: (available_w - content_width).max(0.0) * 0.5,
         scrollable: content_width > available_w,
     }
 }

@@ -36,6 +36,35 @@ mod layout {
         assert!(!layout.scrollable);
         assert!(layout.content_width.abs() < 1e-4);
     }
+
+    /// A hand stands in the middle of the bar.
+    ///
+    /// The spread is capped at a card and a little air — a two-card hand
+    /// stretched across a monitor is two cards a player has to look for — so
+    /// there is nearly always room left over, and it used to end up entirely
+    /// on the right while the cards sat against the left edge.
+    #[test]
+    fn a_hand_that_does_not_fill_the_bar_stands_in_the_middle_of_it() {
+        for count in 1..=8 {
+            let layout = hand_layout(count, 100.0, 1400.0);
+            let left = layout.lead;
+            let right = 1400.0 - (layout.lead + layout.content_width);
+            assert!(
+                (left - right).abs() < 1e-3,
+                "{count} cards left {left} on one side and {right} on the other"
+            );
+        }
+    }
+
+    /// And a hand that overflows starts at the very edge, because the scroll
+    /// offset is measured from there: a lead that moved as cards were played
+    /// would drag the whole strip sideways under the player's pointer.
+    #[test]
+    fn a_hand_wider_than_the_bar_is_not_centred() {
+        let layout = hand_layout(30, 100.0, 400.0);
+        assert!(layout.scrollable);
+        assert!(layout.lead.abs() < 1e-4, "it started {} in", layout.lead);
+    }
 }
 
 /// Where the preview panel opens.

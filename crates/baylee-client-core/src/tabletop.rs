@@ -646,16 +646,123 @@ pub fn card_shadow(width: u32, height: u32, spread: f32, radius: f32) -> Texture
     texture
 }
 
+/// The mark drawn in the middle of a pile's empty place.
+///
+/// A zone with nothing in it is a rounded hollow and nothing else, and four
+/// identical hollows around a mat say only "something goes here". These say
+/// *what*. They are covered the moment a card lies on the pile, which is the
+/// whole design: the mark is the empty state, and the card is the answer to
+/// it.
+///
+/// Arithmetic, like everything else on this table — `docs/legal.md` §2. A
+/// crown, a headstone, a stack of leaves and a barred ring are about as far
+/// from anyone's trade dress as a shape gets, and none of them is a glyph out
+/// of a font: the table is 3D and there is no text on it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ZoneMark {
+    /// The library: three leaves seen edge on.
+    Library,
+    /// The graveyard: a headstone.
+    Graveyard,
+    /// Exile: a ring with a bar across it.
+    Exile,
+    /// The command zone: a crown.
+    Command,
+}
+
+/// How much of the well's short side the mark spans, from the middle out.
+const MARK_HALF: f32 = 0.30;
+
+/// How much of the lip's colour the mark carries where it is solid.
+///
+/// Faint on purpose. It is a label on an empty place, not a thing on the
+/// table, and a mark that competed with a real card would make an empty
+/// graveyard louder than a full one.
+const MARK_ALPHA: f32 = 0.30;
+
+/// How many samples across each pixel the mark is measured with.
+///
+/// Three, so nine per pixel. The shapes are hard-edged rather than distance
+/// fields — a crown's zigzag has no closed-form distance worth writing — so
+/// the edge is smoothed by counting rather than by a ramp.
+const MARK_SAMPLES: u32 = 3;
+
+/// Whether the point `(x, y)` is inside `mark`, in mark space.
+///
+/// Mark space is `[-1, 1]` on both axes with `y` **down**, the way the
+/// texture is written, so a crown's points are at negative `y`.
+#[must_use]
+fn in_mark(mark: ZoneMark, x: f32, y: f32) -> bool {
+    match mark {
+        // Three leaves, edge on: the pile a card is drawn off the top of.
+        ZoneMark::Library => {
+            x.abs() <= 0.80
+                && [-0.50_f32, 0.0, 0.50]
+                    .iter()
+                    .any(|centre| (y - centre).abs() <= 0.13)
+        }
+        // A headstone: a rectangle with a half-round top.
+        ZoneMark::Graveyard => {
+            let shoulder = -0.20;
+            (x.abs() <= 0.50 && (shoulder..=0.78).contains(&y))
+                || (y < shoulder && x.hypot(y - shoulder) <= 0.50)
+        }
+        // A ring with a bar across it: gone, and not coming back.
+        ZoneMark::Exile => {
+            let ring = (x.hypot(y) - 0.62).abs() <= 0.135;
+            // The bar, in the ring's own diagonal. Rotated by hand rather
+            // than with a matrix: one angle, two constants.
+            let (s, c) = (
+                std::f32::consts::FRAC_1_SQRT_2,
+                std::f32::consts::FRAC_1_SQRT_2,
+            );
+            let across = x.mul_add(c, y * s);
+            let along = y.mul_add(c, -(x * s));
+            ring || (across.abs() <= 0.135 && along.abs() <= 0.755)
+        }
+        // A crown: a band with three points on it. The top edge is a
+        // triangle wave — zero at each point, one at each valley — which is
+        // the whole shape in one line.
+        ZoneMark::Command => {
+            if x.abs() > 0.75 || y > 0.62 {
+                return false;
+            }
+            let step = (x + 0.75) / 0.375;
+            let wave = 1.0 - (step.rem_euclid(2.0) - 1.0).abs();
+            y >= 0.55f32.mul_add(wave, -0.72)
+        }
+    }
+}
+
+/// How much of one texture pixel the mark covers, by counting samples.
+fn mark_coverage(mark: ZoneMark, px: f32, py: f32, half: f32, step: f32) -> f32 {
+    let mut hits = 0u32;
+    for sy in 0..MARK_SAMPLES {
+        for sx in 0..MARK_SAMPLES {
+            let ox = (f64::from(sx) + 0.5) as f32 / MARK_SAMPLES as f32 - 0.5;
+            let oy = (f64::from(sy) + 0.5) as f32 / MARK_SAMPLES as f32 - 0.5;
+            let x = px.mul_add(1.0, ox * step) / half;
+            let y = py.mul_add(1.0, oy * step) / half;
+            if x.abs() <= 1.0 && y.abs() <= 1.0 && in_mark(mark, x, y) {
+                hits += 1;
+            }
+        }
+    }
+    f32::from(u16::try_from(hits).unwrap_or(u16::MAX)) / (MARK_SAMPLES * MARK_SAMPLES) as f32
+}
+
 /// The place a pile stands when nothing is standing there.
 ///
 /// A card-shaped well cut into the table: a thin bright lip where light would
-/// catch the cut edge, and a shallow darkening inside it. Both are load-
-/// bearing, and the lip is the half that was missing. A darkening alone is
-/// what an empty zone used to be, and on this table it is invisible — the
-/// wood beside a mat measures `(22, 15, 11)` and the darkened patch on it
-/// measured `(15, 9, 6)`, a difference no eye finds at arm's length. Four
-/// zones a player cannot see are four zones a player does not know are
-/// clickable.
+/// catch the cut edge, a shallow darkening inside it, and the zone's own
+/// [`ZoneMark`] in the middle. All three are load-bearing, and the lip is the
+/// half that was missing first. A darkening alone is what an empty zone used
+/// to be, and on this table it is invisible — the wood beside a mat measures
+/// `(22, 15, 11)` and the darkened patch on it measured `(15, 9, 6)`, a
+/// difference no eye finds at arm's length. Zones a player cannot see are
+/// zones a player does not know are clickable; and four wells cut to the same
+/// shape are four zones a player has to count round the mat to tell apart,
+/// which is what the mark answers.
 ///
 /// The lip's colour stays *under* the seat rim's gilt on purpose. A rim says
 /// whose seat this is and which seat everyone is waiting for; a well says
@@ -665,7 +772,7 @@ pub fn card_shadow(width: u32, height: u32, spread: f32, radius: f32) -> Texture
 /// `radius` is the card's corner radius as a fraction of the short side, so
 /// the lip follows the same silhouette the card mesh is cut to.
 #[must_use]
-pub fn card_well(width: u32, height: u32, radius: f32) -> Texture {
+pub fn card_well(width: u32, height: u32, radius: f32, mark: ZoneMark) -> Texture {
     /// The lip, display-referred. Bone rather than gold: see above.
     const LIP: [f32; 3] = [120.0 / 255.0, 102.0 / 255.0, 78.0 / 255.0];
     /// How opaque the lip gets where it is brightest.
@@ -691,6 +798,7 @@ pub fn card_well(width: u32, height: u32, radius: f32) -> Texture {
     let corner = (radius * short).max(1.0);
     let (half_w, half_h) = (w * 0.5, h * 0.5);
     let lip_px = (LIP_WIDTH * short).max(1.0);
+    let mark_half = (MARK_HALF * short).max(1.0);
     for y in 0..height {
         for x in 0..width {
             let px = (x as f32 + 0.5) - half_w;
@@ -712,14 +820,19 @@ pub fn card_well(width: u32, height: u32, radius: f32) -> Texture {
             let reach = LIP_PEAK.max(1.0 - LIP_PEAK);
             let lip = (1.0 - (across - LIP_PEAK).abs() / reach).clamp(0.0, 1.0);
             let lip = lip * lip;
+            // The mark says which zone this place is. It is *added* to the
+            // lip's own reading rather than replacing it, so a mark can never
+            // eat the hollow it is drawn in — and it is measured against the
+            // short side, so the four wells all carry it at one size.
+            let ink = lip.max(mark_coverage(mark, px, py, mark_half, 1.0) * MARK_ALPHA);
             texture.put(
                 x,
                 y,
                 [
-                    LIP[0] * lip,
-                    LIP[1] * lip,
-                    LIP[2] * lip,
-                    (LIP_ALPHA - FILL_ALPHA).mul_add(lip, FILL_ALPHA),
+                    LIP[0] * ink,
+                    LIP[1] * ink,
+                    LIP[2] * ink,
+                    (LIP_ALPHA - FILL_ALPHA).mul_add(ink, FILL_ALPHA),
                 ],
             );
         }
@@ -995,12 +1108,12 @@ mod tests {
 
     /// The brightest texel of a well, and the one in the middle of its fill.
     fn well_lip_and_fill() -> ([f32; 4], [f32; 4]) {
-        let well = card_well(128, 179, CARD_CORNER_FRACTION);
+        let well = card_well(128, 179, CARD_CORNER_FRACTION, ZoneMark::Library);
         let lip = pixels(&well)
             .map(|(_, _, rgba)| rgba)
             .max_by(|a, b| a[0].total_cmp(&b[0]))
             .expect("a well has pixels");
-        (lip, well.pixel(64, 89))
+        (lip, well.pixel(64, 20))
     }
 
     /// A card's corner as a fraction of its short side; the renderer passes
@@ -1048,12 +1161,94 @@ mod tests {
         );
     }
 
+    /// Every zone's mark is in the middle of its well, inside the lip, and
+    /// unlike every other zone's.
+    ///
+    /// The last part is the one worth a test. A mark exists to answer "which
+    /// zone is this" at a glance from across a table, so four marks that
+    /// covered nearly the same texels would be four wells again with extra
+    /// arithmetic — and that is exactly what a small change to one of the
+    /// shapes could quietly produce.
+    /// A texel back as the bytes it is stored as, so two of them may be
+    /// compared for equality without comparing floats.
+    fn quantised(rgba: [f32; 4]) -> [u8; 4] {
+        rgba.map(|v| (v * 255.0 + 0.5) as u8)
+    }
+
+    #[test]
+    fn each_zone_wears_its_own_mark_and_wears_it_in_the_middle() {
+        let marks = [
+            ZoneMark::Library,
+            ZoneMark::Graveyard,
+            ZoneMark::Exile,
+            ZoneMark::Command,
+        ];
+        let wells: Vec<Texture> = marks
+            .iter()
+            .map(|&mark| card_well(128, 179, CARD_CORNER_FRACTION, mark))
+            .collect();
+        // The middle box the mark is allowed to reach: `MARK_HALF` of the
+        // short side either way, plus a texel for the samples' own edge.
+        let inside = |x: u32, y: u32| {
+            let half = MARK_HALF * 128.0 + 1.0;
+            (x as f32 - 63.5).abs() <= half && (y as f32 - 89.5).abs() <= half
+        };
+        // The alpha the well carries with nothing drawn on it, read where no
+        // lip reaches and no mark may: past the lip, above the box.
+        let plain = wells[0].pixel(64, 20)[3];
+
+        for (mark, well) in marks.iter().zip(&wells) {
+            let drawn = (0..179 * 128)
+                .filter(|i| {
+                    let (x, y) = (i % 128, i / 128);
+                    inside(x, y) && well.pixel(x, y)[3] > plain + 0.02
+                })
+                .count();
+            assert!(
+                drawn > 400,
+                "{mark:?} drew {drawn} texels, which is nothing"
+            );
+        }
+
+        // Outside that box every well is the same well. A mark that ran into
+        // the lip would fail here rather than merely look wrong.
+        for (mark, well) in marks.iter().zip(&wells).skip(1) {
+            for i in 0..179 * 128 {
+                let (x, y) = (i % 128, i / 128);
+                if inside(x, y) {
+                    continue;
+                }
+                assert_eq!(
+                    quantised(well.pixel(x, y)),
+                    quantised(wells[0].pixel(x, y)),
+                    "{mark:?} reached ({x}, {y}), outside its own box"
+                );
+            }
+        }
+
+        for (i, a) in marks.iter().enumerate() {
+            for (j, b) in marks.iter().enumerate().skip(i + 1) {
+                let differ = (0..179 * 128)
+                    .filter(|k| {
+                        let (x, y) = (k % 128, k / 128);
+                        inside(x, y)
+                            && quantised(wells[i].pixel(x, y)) != quantised(wells[j].pixel(x, y))
+                    })
+                    .count();
+                assert!(
+                    differ > 300,
+                    "{a:?} and {b:?} differ on only {differ} texels — they read as one shape"
+                );
+            }
+        }
+    }
+
     #[test]
     fn a_well_is_a_rim_and_not_a_disc() {
-        let well = card_well(128, 179, CARD_CORNER_FRACTION);
+        let well = card_well(128, 179, CARD_CORNER_FRACTION, ZoneMark::Library);
         // Across the middle: transparent outside, bright at the lip, and
         // back down to the fill in the centre. A disc would rise once.
-        let row: Vec<f32> = (0..128).map(|x| well.pixel(x, 89)[0]).collect();
+        let row: Vec<f32> = (0..128).map(|x| well.pixel(x, 30)[0]).collect();
         let brightest = |slice: &[f32]| {
             slice
                 .iter()

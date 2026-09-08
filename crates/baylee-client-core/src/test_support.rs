@@ -126,6 +126,22 @@ impl ViewBuilder {
         self
     }
 
+    /// Designates a seat's commanders, in the order they were designated
+    /// (CR 903.3) — which is the order the two command slots are drawn in.
+    #[must_use]
+    pub fn with_commanders(mut self, seat: u8, objects: &[&PublicObject]) -> Self {
+        self.view.seats[seat as usize].commanders = objects
+            .iter()
+            .map(|o| baylee_view::CommanderView {
+                object: o.id,
+                card: o.card,
+                name: o.name.clone(),
+                casts: 0,
+            })
+            .collect();
+        self
+    }
+
     /// Shows the viewing seat cards that live in no zone it can see — a
     /// library search, a scry, a revealed hand.
     #[must_use]

@@ -1037,3 +1037,62 @@ about the table itself rather than the rules, and both are fixed.
     "the animation was never wired". Hovering the same button's padding moved
     155/156/148. With the labels ignored, the pointer on the word moves
     140/141/134 and the neighbouring answer 2/0/1.
+
+51. **Every mat was drawn at the size the table had on its first frame.**
+    *Fixed.* A seat's zone is geometry — a mesh cut to the mat's width, a
+    glow quad under it, pile places at fixed points beside it — and none of
+    it is a uniform that can be rewritten, so `sync_zones` only ever built it
+    once. The layout is legitimately rebuilt more than once, though: the
+    first one is laid out against a *guessed* canvas aspect
+    (`canvas_aspect.unwrap_or(16.0 / 9.0)`, because the canvas is not known
+    until the HUD has been laid out), and focusing a seat widens it and
+    shrinks the rest. So the cards moved to the new layout and the mats,
+    glows and pile places stayed at the old one.
+
+    Traced rather than guessed, by printing both positions from the two
+    systems that draw them: the local seat's `half_extent.x` was **9.864**
+    when its zone was built and **12.841** when its commander was placed —
+    the commander stood two and a half card widths outside the mat it belongs
+    to, level with a pile place that was drawn somewhere else entirely. It
+    had been invisible because the only things that ever sat on a pile in a
+    fresh duel were the wells themselves, which were wrong *together*.
+
+    `Zone` carries the `SeatSlot` it was built for now, and a seat that has
+    moved or resized is torn down and built again.
+
+52. **The zones beside a mat: five slots, a mark in each, and a deck that
+    has a thickness.** *Done.*
+
+    - The command zone is drawn as one place per commander. `PileKind`
+      gains `Command2`, matched to the second commander by `ObjectId` —
+      which survives the moves that make a card a new object (CR 400.7), so
+      a partner that dies, goes home and comes back down lands on the slot
+      it left. A seat with one commander is drawn one slot and a seat with
+      none is drawn no command zone at all; nothing reflows around a hidden
+      one, because commanders are fixed before the first turn (CR 903.3) and
+      a player should learn once where their graveyard is.
+    - Exile moved up beside the graveyard, so the right-hand column reads
+      draw → die → gone with distance from the hand. It is level with the
+      creature row, which the old doc forbade: that row is where attackers
+      step *forward*, along the seat's `away`, while a pile stands
+      `PILE_REACH` out **sideways** on bare table. The guard was against a
+      pile touching the row, and at 1.45 units clear it does not.
+    - Every well carries its zone's mark — three leaves, a headstone, a
+      barred ring, a crown — as arithmetic in the texture rather than a glyph
+      out of a font, because the table is 3D and has no text on it
+      (`docs/legal.md` §2). It is covered the moment a card lies on the pile,
+      which is the whole design: the mark is the empty state and the card is
+      the answer to it.
+    - A pile is drawn as the deck it is: as tall as it has cards, capped at
+      thirty, built from at most fourteen slabs so the block stays solid
+      however many are in it, with a contact shadow that widens as it grows.
+    - **And the top card of a graveyard is face up again.** The backing slabs
+      used to be drawn *above* the card they belonged to, offset diagonally
+      by a fifth of a card, so the last card into a graveyard was covered by
+      a fan of card backs. They hang below it now, as children of the card so
+      they follow every glide and are despawned with it — as loose entities
+      they were never despawned at all, and every card that had ever lain on
+      a graveyard left its slabs standing there for the rest of the game.
+    - The hand bar's flat copy of the command zone is gone. It was the only
+      zone that existed twice, in two sizes, in two renderers, with the 3D
+      slot sitting empty underneath the copy.

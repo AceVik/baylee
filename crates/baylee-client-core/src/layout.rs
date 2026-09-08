@@ -121,13 +121,32 @@ pub enum PileKind {
     Graveyard,
     /// Public exile.
     Exile,
-    /// The command zone — commanders, emblems, companions.
+    /// The command zone — the first commander, plus emblems and companions.
     Command,
+    /// The second commander's slot (partners, CR 702.124a).
+    ///
+    /// A zone drawn as two places rather than one, which is a *drawing*
+    /// decision and not a rules one: the command zone is a single zone
+    /// (CR 408) and this is where its second commander is put down. Two
+    /// slots because a commander is the one thing in that zone a player
+    /// looks for by sight — a partner pair on one pile is two cards where
+    /// only the top one can be seen, and which of the two is under the other
+    /// carries no meaning at all.
+    ///
+    /// Hidden for every seat that has fewer than two commanders, which is
+    /// almost all of them.
+    Command2,
 }
 
 impl PileKind {
-    /// All four, in the order they are laid out.
-    pub const ALL: [Self; 4] = [Self::Library, Self::Graveyard, Self::Exile, Self::Command];
+    /// All five, in the order they are laid out.
+    pub const ALL: [Self; 5] = [
+        Self::Library,
+        Self::Graveyard,
+        Self::Exile,
+        Self::Command,
+        Self::Command2,
+    ];
 
     /// Which side of the mat this pile stands on: `1.0` the seat's right
     /// hand, `-1.0` their left.
@@ -139,22 +158,49 @@ impl PileKind {
     #[must_use]
     pub const fn side(self) -> f32 {
         match self {
-            Self::Library | Self::Graveyard => 1.0,
-            Self::Exile | Self::Command => -1.0,
+            Self::Library | Self::Graveyard | Self::Exile => 1.0,
+            Self::Command | Self::Command2 => -1.0,
         }
     }
 
     /// Which lane row the pile stands level with.
     ///
-    /// Never [`LaneKind::Creatures`]. That row is the one nearest the middle
-    /// of the table, where attackers step forward and blockers come to meet
-    /// them; a pile parked at the end of it would be standing in the only
-    /// part of the board that moves.
+    /// The right-hand column is a card's life in order of distance from the
+    /// hand: the library it is drawn from nearest the seat, the graveyard it
+    /// dies into next, and exile — the pile touched least often — furthest
+    /// away. The left-hand column is the command zone, one slot per
+    /// commander.
+    ///
+    /// Exile is level with [`LaneKind::Creatures`], and the doc that used to
+    /// stand here said no pile ever would: that row is where attackers step
+    /// forward and blockers come to meet them, and a pile parked *in* it
+    /// would be standing in the only part of the board that moves. It is not
+    /// in it. A pile stands `half_extent.x + PILE_REACH` out to the side, on
+    /// bare table past the mat's own border — a clearance
+    /// [`PILE_REACH`] exists precisely to keep — while a creature declaring
+    /// an attack moves *forward*, along the seat's `away`. The guard was
+    /// against a pile touching the row, and at this distance it does not.
     #[must_use]
     pub const fn row(self) -> LaneKind {
         match self {
             Self::Library | Self::Command => LaneKind::Lands,
-            Self::Graveyard | Self::Exile => LaneKind::Support,
+            Self::Graveyard | Self::Command2 => LaneKind::Support,
+            Self::Exile => LaneKind::Creatures,
+        }
+    }
+
+    /// The mark drawn in the middle of this pile's empty place.
+    ///
+    /// Both command slots carry the crown: they are two places in one zone,
+    /// and a second mark would be claiming they are two zones.
+    #[must_use]
+    pub const fn mark(self) -> crate::tabletop::ZoneMark {
+        use crate::tabletop::ZoneMark;
+        match self {
+            Self::Library => ZoneMark::Library,
+            Self::Graveyard => ZoneMark::Graveyard,
+            Self::Exile => ZoneMark::Exile,
+            Self::Command | Self::Command2 => ZoneMark::Command,
         }
     }
 
@@ -166,6 +212,7 @@ impl PileKind {
             Self::Graveyard => "Graveyard",
             Self::Exile => "Exile",
             Self::Command => "Command",
+            Self::Command2 => "Command 2",
         }
     }
 }

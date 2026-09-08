@@ -40,6 +40,12 @@ pub(super) fn spawn_hand_bar(
                 ..default()
             },
             BackgroundColor(palette::PANEL),
+            // The phase rail's shadow, thrown the other way. Both strips are
+            // pinned to an edge and stand at the same height over the same
+            // felt; the only thing that differs is which way the light falls
+            // past them, which is the whole argument `elevation_shadow` is
+            // one function rather than two constants.
+            elevation_shadow(-1.0),
             ZIndex(2),
             Pickable::IGNORE,
         ))
@@ -55,7 +61,7 @@ pub(super) fn spawn_hand_bar(
                 height: px(HAND_CARD_H),
                 // Spawn already at the current scroll offset — starting at
                 // zero and correcting next frame is the hand's flicker.
-                margin: UiRect::left(px(10.0 - scroll)),
+                margin: UiRect::left(px(10.0 + layout.lead - scroll)),
                 ..default()
             },
             Pickable::IGNORE,
@@ -179,109 +185,13 @@ pub(super) fn spawn_hand_bar(
     }
     commands.entity(bar).add_child(strip);
 
-    // ---- commander zone (right end): the command zone with the cast
-    // counter above the card. Commander format only — hidden otherwise.
-    let commanders = view
-        .command
-        .get(view.seat.get() as usize)
-        .map_or(&[][..], Vec::as_slice);
-    if !commanders.is_empty() {
-        // Matched to the card by object id, never by position. This used to
-        // index a seat-keyed vector with a command-zone slot, so every seat
-        // but the first showed seat 0's number, and a seat with partners
-        // showed one commander's tax against both.
-        let mine = view
-            .seat(view.seat)
-            .map_or(&[][..], |s| s.commanders.as_slice());
-        let zone = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    right: px(10),
-                    bottom: px(10),
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(6),
-                    padding: UiRect::all(px(6)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(palette::PANEL_LIT),
-                soft_shadow(),
-                Pickable::IGNORE,
-            ))
-            .id();
-        for cmd in commanders {
-            let times_cast = mine
-                .iter()
-                .find(|c| c.object == cmd.id)
-                .map_or(0, |c| c.casts);
-            let key = cmd
-                .card
-                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small));
-            let built = faces.object(cmd, textures, key);
-            let image = match key {
-                Some(key) => textures.get(key, statics, assets),
-                None => textures.card_back(),
-            };
-            let visual = spawn_card_art(
-                commands,
-                lang,
-                image,
-                built.as_ref(),
-                OVERLAY_CARD_W * 0.75,
-                OVERLAY_CARD_H * 0.75,
-                crate::face::Detail::Compact,
-                fonts,
-                // Through `glow_of` rather than `glow_bits`, so this card wears
-                // the crest that says what zone it is sitting in and why. Safe
-                // to hand it a whole `PublicObject`: `summoning_sick` is built
-                // for permanents only, and a card in the command zone is not
-                // one, so the only bit this adds over the keywords is the
-                // crest.
-                match key {
-                    Some(key) => CardLook::art(
-                        key,
-                        finish_of(statics, Some(key)),
-                        crate::cardmat::glow_of(Some(cmd), crate::cardmat::Offer::NONE),
-                    ),
-                    None => CardLook::back(FinishTreatment::Plain, 0),
-                },
-                cards.as_deref_mut(),
-            );
-            let card = commands
-                .spawn((
-                    HandCardVisual { object: cmd.id },
-                    Node {
-                        width: px(OVERLAY_CARD_W * 0.75),
-                        height: px(OVERLAY_CARD_H * 0.75),
-                        border_radius: card_radius(OVERLAY_CARD_W * 0.75),
-                        overflow: Overflow::clip(),
-                        ..default()
-                    },
-                    soft_shadow(),
-                    children![(
-                        // Cast counter, floating above the card's top.
-                        Text::new(format!("×{times_cast}")),
-                        tf(fonts, 12.0),
-                        TextColor(palette::ACCENT),
-                        Node {
-                            position_type: PositionType::Absolute,
-                            top: px(-6),
-                            left: percent(50),
-                            margin: UiRect::left(px(-10)),
-                            padding: UiRect::axes(px(4), px(1)),
-                            border_radius: btn_radius(),
-                            ..default()
-                        },
-                        BackgroundColor(palette::PANEL),
-                    ),],
-                ))
-                .id();
-            commands.entity(card).add_child(visual);
-            commands.entity(zone).add_child(card);
-        }
-        commands.entity(bar).add_child(zone);
-    }
+    // The command zone is *not* drawn here any more. It is a zone on the
+    // table like the graveyard and the exile pile, and it was the only one
+    // that had been copied into the hand bar as a flat 2D card — so a seat's
+    // commander existed twice, in two sizes, in two renderers, and the 3D
+    // slot beside the mat sat empty beneath the copy. `table::spawn_piles`
+    // and the pile placements draw it now, where a public zone belongs
+    // (CR 903.6), and the cast tax rides on the card itself.
     bar
 }
 
@@ -314,7 +224,7 @@ pub fn apply_hand_scroll(
     duel.hand_scroll = duel.hand_scroll.clamp(0.0, max_scroll);
 
     for mut node in &mut strips {
-        let wanted = UiRect::left(px(10.0 - duel.hand_scroll));
+        let wanted = UiRect::left(px(10.0 + layout.lead - duel.hand_scroll));
         if node.margin != wanted {
             node.margin = wanted;
         }

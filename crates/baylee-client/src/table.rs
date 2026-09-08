@@ -151,8 +151,53 @@ const _: () = assert!(LANE_RISE < CARD_LIFT);
 /// The back of a card: what a stack behind a counted group is made of, and
 /// what a card whose art never arrives falls back to.
 const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
-/// How many cards of a group are drawn behind the representative.
-const MAX_STACK_DEPTH: usize = 4;
+/// How many slabs a pile is ever built from.
+///
+/// Fourteen rather than four, and the number is about *continuity* rather
+/// than about counting: a card slab is [`CARD_THICKNESS`] thick and the
+/// layers are at most a fraction of that apart, so the pile reads as one
+/// solid block of cardboard however many are in it. Past this many the same
+/// fourteen slabs are simply spread further, which is what stops a
+/// ninety-nine-card library from costing a hundred entities per seat.
+const MAX_STACK_DEPTH: usize = 14;
+
+/// The tallest a pile is ever drawn, in table units.
+///
+/// Thirty cards' worth. A real library of ninety-nine is over half a card's
+/// width tall, and at this camera that is a tower standing where a player is
+/// trying to read the board behind it. The cap is what makes the height a
+/// *reading* rather than a measurement: a pile says thin, middling or thick,
+/// and the exact number is on the seat's tab where a number belongs.
+const MAX_STACK_RISE: f32 = STACK_LIFT * SHOWN_LIBRARY as f32;
+
+/// How much wider a pile's contact shadow grows per unit of its height.
+///
+/// A shadow that did not grow at all would leave a thick deck looking like
+/// a card hovering; one that grew with the full height would put a graveyard
+/// in a pool of its own. This is the difference between a card and a
+/// thirty-card pile being about a sixth of a card width of extra shadow.
+const DECK_SHADOW_SPREAD: f32 = 1.0;
+
+/// The largest library size the table draws a difference for.
+///
+/// Past it every deck is the same block of cardboard, so a draw changes
+/// nothing on screen and nothing has to be rebuilt. Below it a deck visibly
+/// thins, which is the whole reason a library has a height at all.
+const SHOWN_LIBRARY: u32 = 30;
+
+/// How tall a pile of `under` cards stands.
+fn stack_rise(under: usize) -> f32 {
+    (under as f32 * STACK_LIFT).min(MAX_STACK_RISE)
+}
+
+/// How many slabs that pile is built from.
+///
+/// One per card while there are few, so a graveyard of three is three cards;
+/// capped once the cap is reached, so the slabs spread and keep overlapping
+/// rather than multiplying.
+fn stack_layers(under: usize) -> usize {
+    under.min(MAX_STACK_DEPTH)
+}
 /// Lift and scale for the card under the cursor (subtle — a glance, not a jump).
 ///
 /// The two numbers are not independent, which is why they are written down
@@ -875,13 +920,33 @@ pub struct SceneIndex {
     /// rotation and the hover lift with nothing to keep in step.
     shadow_quad: Option<Handle<Mesh>>,
     shadow_material: Option<Handle<StandardMaterial>>,
-    /// The empty place a pile stands in: one material for the whole table,
-    /// because a well is table furniture and carries no seat's colour.
-    well: Option<Handle<StandardMaterial>>,
+    /// The empty place a pile stands in, one material per
+    /// [`baylee_client_core::PileKind`] in `ALL` order.
+    ///
+    /// Shared by the whole table, because a well is table furniture and
+    /// carries no seat's colour. One material per *kind* rather than one for
+    /// all of them because each carries its zone's own mark baked into the
+    /// texture — the table is 3D and has no text on it, so the mark is
+    /// arithmetic in the well rather than a label over it.
+    wells: Vec<Handle<StandardMaterial>>,
 }
 
 /// One seat's zone on the table.
 struct Zone {
+    /// The place this zone was built for.
+    ///
+    /// Everything below is *geometry*: a mesh cut to the mat's size, a glow
+    /// quad under it, and pile places at fixed points beside it. None of it
+    /// is a uniform that can be rewritten, so a seat whose slot has moved or
+    /// changed size has to be built again — and until this was here it never
+    /// was. The layout is legitimately rebuilt more than once (the first one
+    /// is drawn against a guessed canvas aspect, and focusing a seat widens
+    /// it and shrinks the rest), so a table laid out a second time drew every
+    /// mat at the first layout's size while the cards moved to the second.
+    /// Measured: the local seat's half width was `9.864` when its zone was
+    /// built and `12.841` when its commander was placed, which is a card
+    /// standing two and a half card widths outside the mat it belongs to.
+    slot: SeatSlot,
     /// The mat itself.
     mat: Entity,
     /// The pool of colour under it.
@@ -895,11 +960,17 @@ struct Zone {
     /// argument budget.
     mat_material: Handle<crate::matmat::MatMaterial>,
     glow_material: Handle<StandardMaterial>,
-    /// The four pile places beside it, and the face-down library on one of
-    /// them. Empty when the scene index has no card mesh yet.
+    /// The pile places beside it, and the face-down library standing on one
+    /// of them. Empty when the scene index has no card mesh yet.
     piles: Vec<Entity>,
-    /// Whether the library had run out when those were spawned.
-    library_empty: bool,
+    /// How tall the library was drawn, in cards.
+    ///
+    /// Capped at the height a pile is ever drawn to, so a deck that is
+    /// visibly shrinking is rebuilt as it shrinks and one that is far past
+    /// the cap is not rebuilt at all. It used to be "had the library run
+    /// out" alone, which is the one fact the *places* depend on and says
+    /// nothing about the deck standing on one of them.
+    library_shown: u32,
     /// What the mat was last drawn for.
     mood: Mood,
     /// The seat colour in the mat's rim.
@@ -1175,16 +1246,22 @@ pub fn spawn_stage(
     let well_px = (f32::from(u16::try_from(RECESS_PX).unwrap_or(u16::MAX)) * CARD_HEIGHT
         / CARD_WIDTH)
         .round() as u32;
-    index.well = Some(materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(image_of(&tabletop::card_well(
-            RECESS_PX,
-            well_px,
-            CARD_CORNER / CARD_WIDTH,
-        )))),
-        alpha_mode: AlphaMode::Blend,
-        unlit: true,
-        ..default()
-    }));
+    index.wells = baylee_client_core::PileKind::ALL
+        .into_iter()
+        .map(|pile| {
+            materials.add(StandardMaterial {
+                base_color_texture: Some(images.add(image_of(&tabletop::card_well(
+                    RECESS_PX,
+                    well_px,
+                    CARD_CORNER / CARD_WIDTH,
+                    pile.mark(),
+                )))),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            })
+        })
+        .collect();
     // The card back: no finish, no glow, and no picture *yet*. It is what a
     // library is drawn as, what the stack behind a counted group is made of,
     // and what a card this seat may not see wears. The printed back is
@@ -1383,21 +1460,28 @@ fn spawn_piles(
     commands: &mut Commands,
     index: &SceneIndex,
     slot: &SeatSlot,
+    piles: &[baylee_client_core::ZonePile],
     library: u32,
 ) -> Vec<Entity> {
-    let (Some(recess), Some(quad)) = (index.well.clone(), index.quad.clone()) else {
+    let Some(quad) = index.quad.clone() else {
         return Vec::new();
     };
 
     let mut out = Vec::new();
-    for pile in baylee_client_core::PileKind::ALL {
-        let at = slot.pile_center(pile);
+    for pile in piles {
+        // A kind with no well is a kind added to the model and not to the
+        // startup that builds their materials; skipping it draws no place
+        // rather than drawing the wrong one.
+        let Some(recess) = well_of(index, pile.kind) else {
+            continue;
+        };
+        let at = slot.pile_center(pile.kind);
         out.push(
             commands
                 .spawn((
                     DuelStage,
                     Mesh3d(quad.clone()),
-                    MeshMaterial3d(recess.clone()),
+                    MeshMaterial3d(recess),
                     card_transform(slot, at, false, RECESS_LIFT),
                     // A click near a pile's empty place means the table, the
                     // same as a click near the edge of a card does.
@@ -1407,21 +1491,30 @@ fn spawn_piles(
         );
     }
 
-    // The library, as a short face-down stack. Short on purpose: the exact
-    // count is on the seat's tab, and a physical library does not tell you
-    // how many cards are in it either. What this has to say is only whether
-    // there is one — a seat with an empty library loses on its next draw.
-    if library > 0 {
+    // The library, as the deck it is: face down, and as tall as it has cards
+    // in it up to [`MAX_STACK_RISE`]. The exact count is on the seat's tab —
+    // a physical library does not tell you how many cards are in it either —
+    // but its *thickness* is the one thing a real one does say across a
+    // table, and a seat playing down to nothing should be able to watch it
+    // happen.
+    if library > 0
+        && piles
+            .iter()
+            .any(|p| p.kind == baylee_client_core::PileKind::Library)
+    {
         let at = slot.pile_center(baylee_client_core::PileKind::Library);
-        let depth = (library as usize).min(MAX_STACK_DEPTH);
-        for i in 0..depth {
+        let under = library as usize;
+        let layers = stack_layers(under).max(1);
+        let rise = stack_rise(under);
+        for i in 0..layers {
+            let lift = rise * i as f32 / layers as f32;
             out.push(
                 commands
                     .spawn((
                         DuelStage,
                         Mesh3d(quad.clone()),
                         MeshMaterial3d(index.blank.clone().unwrap_or_default()),
-                        card_transform(slot, at, false, STACK_LIFT * i as f32),
+                        card_transform(slot, at, false, lift),
                         Pickable::IGNORE,
                     ))
                     .id(),
@@ -1429,6 +1522,17 @@ fn spawn_piles(
         }
     }
     out
+}
+
+/// The well material for one pile kind.
+fn well_of(
+    index: &SceneIndex,
+    kind: baylee_client_core::PileKind,
+) -> Option<Handle<StandardMaterial>> {
+    let at = baylee_client_core::PileKind::ALL
+        .iter()
+        .position(|k| *k == kind)?;
+    index.wells.get(at).cloned()
 }
 
 /// One seat's mat, as the handful of numbers its shader draws it from.
@@ -1695,9 +1799,22 @@ pub fn sync_zones(
         // library has run out loses on its next draw, and the table stops
         // showing a stack there — which is worth a rebuild; how many cards
         // are in a library that still has some is not, and is on the tab.
-        let library_empty = pod.library_count == 0;
+        let library_shown = pod.library_count.min(SHOWN_LIBRARY);
+        // A seat that has moved or changed size is rebuilt rather than
+        // updated: its mat is a mesh cut to a width, its glow is a quad and
+        // its piles stand at fixed points, and not one of those is something
+        // a uniform can carry. See [`Zone::slot`] for what this cost.
+        let moved = index
+            .zones
+            .get(&pod.player)
+            .is_some_and(|zone| zone.slot != *slot);
+        if moved && let Some(zone) = index.zones.remove(&pod.player) {
+            for entity in [zone.mat, zone.glow].into_iter().chain(zone.piles) {
+                commands.entity(entity).despawn();
+            }
+        }
         if let Some(zone) = index.zones.get(&pod.player) {
-            let stale_piles = zone.library_empty != library_empty;
+            let stale_piles = zone.library_shown != library_shown;
             if zone.mood == mood && zone.accent == accent && !stale_piles {
                 continue;
             }
@@ -1715,12 +1832,12 @@ pub fn sync_zones(
                 for entity in old_piles {
                     commands.entity(entity).despawn();
                 }
-                spawn_piles(&mut commands, &index, slot, pod.library_count)
+                spawn_piles(&mut commands, &index, slot, &pod.piles, pod.library_count)
             });
             index.zones.entry(pod.player).and_modify(|zone| {
                 zone.mood = mood;
                 zone.accent = accent;
-                zone.library_empty = library_empty;
+                zone.library_shown = library_shown;
                 if let Some(fresh) = fresh {
                     zone.piles = fresh;
                 }
@@ -1749,16 +1866,17 @@ pub fn sync_zones(
                 texture: glow_image.clone(),
             },
         );
-        let piles = spawn_piles(&mut commands, &index, slot, pod.library_count);
+        let piles = spawn_piles(&mut commands, &index, slot, &pod.piles, pod.library_count);
         index.zones.insert(
             pod.player,
             Zone {
+                slot: *slot,
                 mat,
                 glow,
                 mat_material,
                 glow_material,
                 piles,
-                library_empty,
+                library_shown,
                 mood,
                 accent,
             },
@@ -2098,11 +2216,16 @@ pub fn sync_scene(
             }
         };
 
+        // A pile stands on the cards under it. The top card is drawn at the
+        // deck's own height and the rest of the deck hangs below it as
+        // children, so what a player sees is one block of cardboard with a
+        // face on top rather than a card with a fan of cards behind it.
+        let deck = stack_rise(placement.count.saturating_sub(1));
         let mut transform = card_transform(
             &placement.slot,
             placement.position,
             placement.tapped,
-            placement.lift,
+            placement.lift + deck,
         );
         // Hover (cursor) lifts the card a touch; a chosen card stays raised
         // until the choice is answered, and so does an armed one — a deed
@@ -2161,29 +2284,35 @@ pub fn sync_scene(
                 commands.entity(entity).with_child((
                     Mesh3d(mesh),
                     MeshMaterial3d(material),
-                    Transform::from_xyz(0.0, 0.0, -CARD_LIFT * 0.5),
+                    // Under the whole deck rather than under the top card, and
+                    // wider the taller the deck is: a thick pile sits in more
+                    // shadow than a single card does, which is most of what
+                    // makes it read as thick at all.
+                    Transform::from_xyz(0.0, 0.0, -(CARD_LIFT * 0.5 + deck)).with_scale(Vec3::new(
+                        1.0 + deck * DECK_SHADOW_SPREAD,
+                        1.0 + deck * DECK_SHADOW_SPREAD,
+                        1.0,
+                    )),
                     Pickable::IGNORE,
                 ));
             }
 
-            // A counted group gets a few offset cards behind it so the stack
-            // reads as physical depth rather than as a number floating on one
-            // card.
-            let depth = placement.count.saturating_sub(1).min(MAX_STACK_DEPTH);
-            for i in 1..=depth {
-                let back = card_transform(
-                    &placement.slot,
-                    placement.position + Vec2::splat(0.02 * i as f32),
-                    placement.tapped,
-                    placement.lift + STACK_LIFT * i as f32,
-                );
-                commands.spawn((
-                    DuelStage,
+            // The rest of the deck, as children hanging below the face. They
+            // are children and not loose entities for two reasons: they
+            // follow the card through every glide, tap and lift with nothing
+            // to keep in step, and they are despawned with it — as loose
+            // entities they were never despawned at all, so every card that
+            // ever lay on a graveyard left its backing slabs standing there
+            // for the rest of the game.
+            let layers = stack_layers(placement.count.saturating_sub(1));
+            for i in 1..=layers {
+                let down = deck * i as f32 / layers as f32;
+                commands.entity(entity).with_child((
                     Mesh3d(quad.clone()),
                     MeshMaterial3d(blank.clone().unwrap_or_default()),
-                    back,
-                    // The stack behind a counted group is depth, not cards:
-                    // the group's own card is what a click has to reach.
+                    Transform::from_xyz(0.0, 0.0, -down),
+                    // The deck under a card is depth, not cards: the top
+                    // card is what a click has to reach.
                     Pickable::IGNORE,
                 ));
             }

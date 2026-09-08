@@ -408,13 +408,20 @@ pub struct SeatPod {
     pub has_priority: bool,
     /// Board rows.
     pub lanes: Vec<Lane>,
-    /// The four piles standing beside this seat's ground, always all four and
-    /// always in [`PileKind::ALL`] order.
+    /// The piles standing beside this seat's ground, in [`PileKind::ALL`]
+    /// order.
     ///
-    /// All four even when empty, because a pile is a *place* — a graveyard
+    /// Present even when empty, because a pile is a *place* — a graveyard
     /// that appeared the first time something died and moved the exile pile
     /// along would make the table rearrange itself mid-game. An empty one
     /// draws as the bare recess it is and answers no clicks.
+    ///
+    /// The two command slots are the exception, and they do not break that
+    /// rule: a seat's commanders are fixed before the first turn (CR 903.3),
+    /// so a seat that shows one slot, two, or none shows the same number for
+    /// the whole game. Nothing reflows around a missing one either — every
+    /// pile stands where its own kind stands, so a deck with no commander
+    /// simply leaves bare table on that side.
     pub piles: Vec<ZonePile>,
     /// Grouped tokens across the whole board, for the compact chip row.
     pub tokens: Vec<TokenChip>,
@@ -788,8 +795,7 @@ impl BoardModel {
     }
 }
 
-/// The four piles beside one seat, in [`PileKind::ALL`] order, always all
-/// four.
+/// The piles beside one seat, in [`PileKind::ALL`] order.
 ///
 /// The counts come from two different places, and that is not an
 /// inconsistency. A library is a *count* in the view and nothing else —
@@ -800,20 +806,55 @@ impl BoardModel {
 fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
     let i = player.get() as usize;
     let seat = view.seats.get(i);
+    // The command zone is one zone drawn as two places, one per commander
+    // (CR 903.3 fixes the set at the start of the game, so a seat's slots
+    // never appear or vanish mid-game). The second commander is matched by
+    // `ObjectId`, which survives the moves that make a card a new object
+    // (CR 400.7) — so a partner that dies, goes home and comes back down
+    // lands on the same slot it left. Everything else the zone holds —
+    // emblems, a companion — belongs to the first slot, which is the one a
+    // seat with a single commander has.
+    let commanders = seat.map_or(&[][..], |s| s.commanders.as_slice());
+    let second = commanders.get(1).map(|c| c.object);
     PileKind::ALL
         .iter()
-        .map(|&kind| {
+        .copied()
+        .filter(|kind| match kind {
+            // Hidden, and hidden is not the same as empty: an empty pile is a
+            // place with nothing on it and is still drawn, because a place
+            // that came and went as cards moved through it would make the
+            // table rearrange itself mid-game. A seat playing no commander
+            // has no command zone to draw at all, and one playing a single
+            // commander has one slot rather than two.
+            PileKind::Command => !commanders.is_empty(),
+            PileKind::Command2 => second.is_some(),
+            _ => true,
+        })
+        .map(|kind| {
+            let command: Option<Vec<&PublicObject>> =
+                matches!(kind, PileKind::Command | PileKind::Command2).then(|| {
+                    view.command
+                        .get(i)
+                        .map(Vec::as_slice)
+                        .unwrap_or_default()
+                        .iter()
+                        .filter(|o| (Some(o.id) == second) == (kind == PileKind::Command2))
+                        .collect()
+                });
             let list: Option<&[PublicObject]> = match kind {
-                PileKind::Library => None,
+                PileKind::Library | PileKind::Command | PileKind::Command2 => None,
                 PileKind::Graveyard => view.graveyards.get(i).map(Vec::as_slice),
                 PileKind::Exile => view.exile.get(i).map(Vec::as_slice),
-                PileKind::Command => view.command.get(i).map(Vec::as_slice),
             };
             // `ZonePosition::Top` pushes, so the object listed last is the
             // one lying on top of the pile — which is the one to draw.
-            let top = list.and_then(<[PublicObject]>::last);
-            let count = match kind {
-                PileKind::Library => seat.map_or(0, |s| s.library_count),
+            let top = match &command {
+                Some(objects) => objects.last().copied(),
+                None => list.and_then(<[PublicObject]>::last),
+            };
+            let count = match (kind, &command) {
+                (PileKind::Library, _) => seat.map_or(0, |s| s.library_count),
+                (_, Some(objects)) => u32::try_from(objects.len()).unwrap_or(u32::MAX),
                 _ => list.map_or(0, |l| u32::try_from(l.len()).unwrap_or(u32::MAX)),
             };
             ZonePile {
@@ -1113,6 +1154,139 @@ mod tests {
     /// test below that is about what stays apart when things merge uses this
     /// rather than [`WIDE`].
     const CROWDED: f32 = 2.0;
+
+    /// The command zone is one zone drawn as one place per commander, and a
+    /// seat that has none is drawn no place at all.
+    ///
+    /// Three claims, and the middle one is the only one a reader might not
+    /// expect: nothing *reflows*. A pile stands where its own kind stands, so
+    /// a seat with a single commander shows one slot and bare table where the
+    /// second would be, rather than sliding the graveyard over to close the
+    /// gap. Commanders are fixed before the first turn (CR 903.3), so a
+    /// seat's set of slots is the same on the last turn as on the first.
+    mod command_slots {
+        use super::*;
+
+        fn slots(view: &baylee_view::PlayerView) -> Vec<PileKind> {
+            zone_piles(view, PlayerId::new(0))
+                .into_iter()
+                .map(|p| p.kind)
+                .collect()
+        }
+
+        #[test]
+        fn a_seat_with_no_commander_is_drawn_no_command_zone() {
+            let view = ViewBuilder::new(2).build();
+            assert_eq!(
+                slots(&view),
+                vec![PileKind::Library, PileKind::Graveyard, PileKind::Exile],
+                "a deck with no commander has no zone to draw"
+            );
+        }
+
+        #[test]
+        fn one_commander_is_one_slot_and_two_are_two() {
+            let first = printed(1, 0, "Sidar Kondo", 11);
+            let second = printed(2, 0, "Tana", 12);
+            let one = ViewBuilder::new(2)
+                .with_commanders(0, &[&first])
+                .with_command(0, vec![first.clone()])
+                .build();
+            assert_eq!(
+                slots(&one),
+                vec![
+                    PileKind::Library,
+                    PileKind::Graveyard,
+                    PileKind::Exile,
+                    PileKind::Command
+                ]
+            );
+
+            let two = ViewBuilder::new(2)
+                .with_commanders(0, &[&first, &second])
+                .with_command(0, vec![first.clone(), second.clone()])
+                .build();
+            assert_eq!(
+                slots(&two),
+                vec![
+                    PileKind::Library,
+                    PileKind::Graveyard,
+                    PileKind::Exile,
+                    PileKind::Command,
+                    PileKind::Command2
+                ]
+            );
+        }
+
+        /// Each partner lies on its own slot, and the second one is matched
+        /// by handle rather than by position: an `ObjectId` survives the
+        /// moves that make a card a new object (CR 400.7), so a partner that
+        /// dies, goes home and comes back down lands on the slot it left.
+        #[test]
+        fn each_partner_lies_on_its_own_slot() {
+            let first = printed(1, 0, "Sidar Kondo", 11);
+            let second = printed(2, 0, "Tana", 12);
+            // Listed second-first, which is what a command zone looks like
+            // after the first one has been cast and has come back.
+            let view = ViewBuilder::new(2)
+                .with_commanders(0, &[&first, &second])
+                .with_command(0, vec![second.clone(), first.clone()])
+                .build();
+            let piles = zone_piles(&view, PlayerId::new(0));
+            let at = |kind| {
+                piles
+                    .iter()
+                    .find(|p| p.kind == kind)
+                    .expect("the slot is drawn")
+                    .clone()
+            };
+            assert_eq!(at(PileKind::Command).top, Some(first.id));
+            assert_eq!(at(PileKind::Command).count, 1);
+            assert_eq!(at(PileKind::Command2).top, Some(second.id));
+            assert_eq!(at(PileKind::Command2).count, 1);
+        }
+
+        /// A commander that is on the battlefield leaves its slot empty, and
+        /// the slot is still there: the zone exists whether or not a card is
+        /// in it, the commander can return to it (CR 903.9), and the
+        /// uncovered mark is exactly the signal "your commander is out".
+        #[test]
+        fn a_commander_on_the_battlefield_leaves_its_slot_standing_and_empty() {
+            let first = printed(1, 0, "Sidar Kondo", 11);
+            let view = ViewBuilder::new(2).with_commanders(0, &[&first]).build();
+            let piles = zone_piles(&view, PlayerId::new(0));
+            let command = piles
+                .iter()
+                .find(|p| p.kind == PileKind::Command)
+                .expect("the slot is still drawn");
+            assert_eq!(command.count, 0);
+            assert_eq!(command.top, None);
+        }
+
+        /// An emblem belongs to the first slot. It is in the command zone and
+        /// it is not a commander, so it goes where a seat with one commander
+        /// already looks.
+        #[test]
+        fn what_is_not_a_commander_lies_on_the_first_slot() {
+            let first = printed(1, 0, "Sidar Kondo", 11);
+            let second = printed(2, 0, "Tana", 12);
+            let emblem = token(3, 0, "Emblem", 0, 0);
+            let view = ViewBuilder::new(2)
+                .with_commanders(0, &[&first, &second])
+                .with_command(0, vec![first.clone(), emblem.clone(), second.clone()])
+                .build();
+            let piles = zone_piles(&view, PlayerId::new(0));
+            let count = |kind| {
+                piles
+                    .iter()
+                    .find(|p| p.kind == kind)
+                    .expect("the slot is drawn")
+                    .count
+            };
+            assert_eq!(count(PileKind::Command), 2, "the commander and the emblem");
+            assert_eq!(count(PileKind::Command2), 1);
+        }
+    }
 
     fn model(view: &PlayerView) -> BoardModel {
         BoardModel::from_view(view, Openings::none(), |_| WIDE)
