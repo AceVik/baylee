@@ -996,6 +996,7 @@ mod tests {
             player_options: vec![],
             min: 1,
             max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
         };
 
         let view = player_view(engine.state(), seat, None, 0, Some(&pending), false);

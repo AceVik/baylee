@@ -809,6 +809,10 @@ messages! {
     NounCards { en: "card(s)", de: "Karte(n)" },
     /// target(s)
     NounTargets { en: "target(s)", de: "Ziel(e)" },
+    /// Convoke: tap creatures or artifacts to help pay
+    ConvokeToHelpPay { en: "Tap creatures or artifacts to help pay — each pays for one", de: "Tippe Kreaturen oder Artefakte an, um mitzubezahlen — jedes zahlt eins" },
+    /// Delve: exile cards from your graveyard to help pay
+    DelveToHelpPay { en: "Exile cards from your graveyard to help pay — each pays for one", de: "Schicke Karten aus deinem Friedhof ins Exil, um mitzubezahlen — jede zahlt eine" },
     /// Choose up to {0} {1}
     ChooseUpTo { en: "Choose up to {0} {1}", de: "Wähle bis zu {0} {1}" },
     /// Choose {0} {1}

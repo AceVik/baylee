@@ -276,7 +276,11 @@ mod tests {
         assert!(options(&Prompt::OrderObjects, Lang::En, None, "").is_none());
         assert!(
             options(
-                &Prompt::ChooseTargets { min: 1, max: 1 },
+                &Prompt::ChooseTargets {
+                    min: 1,
+                    max: 1,
+                    reason: baylee_engine::choice::TargetPrompt::Targets,
+                },
                 Lang::En,
                 None,
                 ""

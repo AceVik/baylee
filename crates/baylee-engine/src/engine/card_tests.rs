@@ -493,6 +493,7 @@ fn an_enters_trigger_can_burn_target_opponent_but_never_its_controller() {
         player_options,
         min,
         max,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected a target choice, got {:?}", engine.pending())

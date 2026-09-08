@@ -4,6 +4,7 @@ use super::{
     Phase, PlanKind, PlayerId, Resolution, SmallVec, Status, TypeSet, Zone, ZoneLocation,
     ZonePosition, casting, eval, mana_pay, resolve,
 };
+use crate::choice::TargetPrompt;
 use baylee_cards_dsl::ActivationZone;
 
 impl<L: CardLookup> Engine<L> {
@@ -636,6 +637,7 @@ impl<L: CardLookup> Engine<L> {
                 player_options: Vec::new(),
                 min: 1,
                 max: 1,
+                reason: TargetPrompt::Targets,
             };
             self.awaiting_answer = true;
             return Ok(());
@@ -663,6 +665,7 @@ impl<L: CardLookup> Engine<L> {
                 player_options: Vec::new(),
                 min: 1,
                 max: 1,
+                reason: TargetPrompt::Targets,
             };
             self.awaiting_answer = true;
             return Ok(());
@@ -851,6 +854,7 @@ impl<L: CardLookup> Engine<L> {
                 player_options: Vec::new(),
                 min: 1,
                 max: 1,
+                reason: TargetPrompt::Targets,
             };
             self.awaiting_answer = true;
             return Ok(());

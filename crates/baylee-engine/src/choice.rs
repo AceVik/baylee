@@ -124,6 +124,8 @@ pub enum Pending {
         min: u8,
         /// Maximum to choose.
         max: u8,
+        /// Why (UI hint).
+        reason: TargetPrompt,
     },
     /// Choose a creature type ("the chosen type" as this enters).
     ChooseSubtype {
@@ -226,8 +228,31 @@ pub enum ChoicePrompt {
     PutBackOnTop,
     /// A wish: cards from outside the game, or face-up in your exile.
     Wish,
+    /// Delve: exile cards from your graveyard, each paying for {1}
+    /// (CR 702.66). Not a search and not a discard — the pile is offered so
+    /// the caster can spend it.
+    Delve,
     /// Generic selection.
     Generic,
+}
+
+/// Why a [`Pending::ChooseTargets`] is presented (UI hint).
+///
+/// The convoke question is not targeting, and the only thing that ever said
+/// so was the name of the variant it arrives in: a player casting a waterbend
+/// spell was asked for "up to 99 targets" when what was wanted was "tap what
+/// you like to help pay". Both are a bounded selection over permanents, which
+/// is why they share a variant; what they *mean* is this field.
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum TargetPrompt {
+    /// The targets of a spell or ability (CR 115).
+    #[default]
+    Targets,
+    /// Convoke: tap creatures and artifacts, each paying for {1}
+    /// (CR 702.51).
+    Convoke,
 }
 
 /// What a [`Pending::YesNo`] asks.

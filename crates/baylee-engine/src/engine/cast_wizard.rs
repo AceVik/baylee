@@ -10,7 +10,7 @@ use super::{
     PlayerId, SmallVec, ZoneLocation, ZonePosition, eval, mana_pay,
 };
 use crate::casting;
-use crate::choice::{CastModeDesc, CastModeKind, ChoicePrompt, YesNoPrompt};
+use crate::choice::{CastModeDesc, CastModeKind, ChoicePrompt, TargetPrompt, YesNoPrompt};
 use crate::object::GameObject;
 use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
 use baylee_core::ids::NameRef;
@@ -449,6 +449,7 @@ impl<L: CardLookup> Engine<L> {
                     player_options,
                     min,
                     max,
+                    reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
                 Ok(())
@@ -550,12 +551,13 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
+                let max = u8::try_from(graveyard.len()).unwrap_or(u8::MAX);
                 self.pending = Pending::ChooseCards {
                     player: wizard.player,
                     options: graveyard,
                     min: 0,
-                    max: 99,
-                    prompt: ChoicePrompt::Generic,
+                    max,
+                    prompt: ChoicePrompt::Delve,
                 };
                 self.awaiting_answer = true;
                 Ok(())
@@ -569,12 +571,18 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
+                // The bound is what is actually on the table, not a sentinel.
+                // `99` is what a player casting a waterbend spell was shown:
+                // "choose up to 99 targets", over two creatures, for a
+                // question that is not targeting at all.
+                let max = u8::try_from(untapped.len()).unwrap_or(u8::MAX);
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
                     options: untapped,
                     player_options: Vec::new(),
                     min: 0,
-                    max: 99,
+                    max,
+                    reason: TargetPrompt::Convoke,
                 };
                 self.awaiting_answer = true;
                 Ok(())

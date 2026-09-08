@@ -1530,6 +1530,7 @@ mod tests {
                 player_options: vec![],
                 min: 1,
                 max: 1,
+                reason: baylee_engine::choice::TargetPrompt::Targets,
             },
             PlayerId::new(0),
         );

@@ -717,6 +717,7 @@ mod tests {
             player_options: vec![PlayerId::new(0), PlayerId::new(1), PlayerId::new(2)],
             min: 1,
             max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
         };
 
         let PlayerAction::ChooseTargets { objects, .. } = agent.act(&v, &pending) else {
@@ -738,6 +739,7 @@ mod tests {
             player_options: vec![PlayerId::new(0), PlayerId::new(1), PlayerId::new(2)],
             min: 1,
             max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
         };
 
         let PlayerAction::ChooseTargets { players, .. } = agent.act(&v, &pending) else {

@@ -379,6 +379,7 @@ impl<L: CardLookup> Engine<L> {
                     player_options,
                     min,
                     max,
+                    ..
                 },
                 PlayerAction::ChooseTargets { objects, players },
             ) if *p == player => {

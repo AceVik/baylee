@@ -5,7 +5,8 @@ use super::{
     mana_pay, resolve, sba, trigger,
 };
 use crate::choice::{
-    CastModeDesc, CastModeKind, PlayerAction, PriorityHold, SeatAutomation, YesNoPrompt,
+    CastModeDesc, CastModeKind, PlayerAction, PriorityHold, SeatAutomation, TargetPrompt,
+    YesNoPrompt,
 };
 use crate::state::Side;
 use crate::win::Victor;
@@ -649,6 +650,7 @@ impl<L: CardLookup> Engine<L> {
             player_options: Vec::new(),
             min: 0,
             max: 1,
+            reason: TargetPrompt::Targets,
         };
         self.awaiting_answer = true;
         true
@@ -1073,6 +1075,7 @@ impl<L: CardLookup> Engine<L> {
                     player_options,
                     min: req.min,
                     max,
+                    reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
                 return;
@@ -1101,6 +1104,7 @@ impl<L: CardLookup> Engine<L> {
                     player_options: Vec::new(),
                     min: 1,
                     max: 1,
+                    reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
                 return;

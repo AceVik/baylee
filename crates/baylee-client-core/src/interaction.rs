@@ -33,7 +33,8 @@ use crate::i18n::{Lang, Phrase};
 use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
-    BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, YesNoPrompt,
+    BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, TargetPrompt,
+    YesNoPrompt,
 };
 use baylee_engine::win::{GameResult, Victor};
 
@@ -122,6 +123,8 @@ pub enum Prompt {
         min: u8,
         /// Maximum.
         max: u8,
+        /// Why.
+        reason: TargetPrompt,
     },
     /// Choose a creature type.
     ChooseSubtype {
@@ -187,8 +190,21 @@ impl Prompt {
             Self::DeclareBlockers { .. } => Phrase::DeclareBlockers.text(lang).to_string(),
             Self::Discard { count } => Phrase::DiscardCards.fill(lang, &[&count.to_string()]),
             Self::LegendRule => Phrase::LegendRule.text(lang).to_string(),
+            // Delve and convoke are not selections of cards or of targets:
+            // both are "spend what you have to help pay", and a line saying
+            // so is the difference between a question and a puzzle.
+            Self::ChooseCards {
+                reason: ChoicePrompt::Delve,
+                ..
+            } => Phrase::DelveToHelpPay.text(lang).to_string(),
             Self::ChooseCards { min, max, .. } => choose_line(lang, Phrase::NounCards, *min, *max),
-            Self::ChooseTargets { min, max } => choose_line(lang, Phrase::NounTargets, *min, *max),
+            Self::ChooseTargets {
+                reason: TargetPrompt::Convoke,
+                ..
+            } => Phrase::ConvokeToHelpPay.text(lang).to_string(),
+            Self::ChooseTargets { min, max, .. } => {
+                choose_line(lang, Phrase::NounTargets, *min, *max)
+            }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
             Self::ChooseNumber { min, max } => {
@@ -530,9 +546,12 @@ impl Interaction {
                 max: *max,
                 reason: *prompt,
             },
-            Pending::ChooseTargets { min, max, .. } => Prompt::ChooseTargets {
+            Pending::ChooseTargets {
+                min, max, reason, ..
+            } => Prompt::ChooseTargets {
                 min: *min,
                 max: *max,
+                reason: *reason,
             },
             Pending::ChooseSubtype { options, .. } => Prompt::ChooseSubtype {
                 options: options.clone(),
@@ -1206,6 +1225,7 @@ mod tests {
             player_options: vec![],
             min: 1,
             max: 1,
+            reason: TargetPrompt::Targets,
         });
         assert!(!i.is_mine());
         assert_eq!(i.toggle(obj(1)), SelectionOutcome::Rejected);
@@ -1221,6 +1241,7 @@ mod tests {
             player_options: vec![],
             min: 1,
             max: 1,
+            reason: TargetPrompt::Targets,
         });
         assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
         // Not in the offered set: the client refuses to even express it.
@@ -1274,6 +1295,7 @@ mod tests {
             player_options: vec![],
             min: 0,
             max: 1,
+            reason: TargetPrompt::Targets,
         });
         assert!(i.can_confirm());
         assert_eq!(
@@ -1856,6 +1878,7 @@ mod tests {
             player_options: vec![PlayerId::new(0), PlayerId::new(1)],
             min: 2,
             max: 2,
+            reason: TargetPrompt::Targets,
         });
         assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
         assert!(!i.can_confirm());
@@ -1881,6 +1904,7 @@ mod tests {
             player_options: vec![],
             min: 1,
             max: 1,
+            reason: TargetPrompt::Targets,
         });
         assert_eq!(
             i.toggle_player(PlayerId::new(1)),
@@ -1903,6 +1927,7 @@ mod tests {
             player_options: vec![],
             min: 0,
             max: 2,
+            reason: TargetPrompt::Targets,
         });
         assert_eq!(i.prompt().headline(Lang::En), "Choose up to 2 target(s)");
 
@@ -1976,6 +2001,7 @@ mod tests {
                 player_options: vec![],
                 min: 0,
                 max: 1,
+                reason: TargetPrompt::Targets,
             },
             Pending::ChooseSubtype {
                 player: me(),
@@ -2012,5 +2038,54 @@ mod tests {
             let i = interaction(pending);
             assert!(!i.prompt().headline(Lang::En).is_empty());
         }
+    }
+
+    /// Convoke and delve say what they are, in both languages.
+    ///
+    /// Reported from a live game: a waterbend spell "wollte von mir 99
+    /// Targets". Both halves of that were true — the engine published the
+    /// question in the targeting variant with a sentinel bound — and both are
+    /// fixed at the source. What is pinned here is the half a player reads:
+    /// the line must not be the "choose N targets" one, because tapping your
+    /// own creatures to help pay is not choosing a target for anything.
+    #[test]
+    fn helping_to_pay_is_not_asked_for_as_targeting() {
+        let convoke = interaction(Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 0,
+            max: 2,
+            reason: TargetPrompt::Convoke,
+        });
+        let delve = interaction(Pending::ChooseCards {
+            player: me(),
+            options: vec![obj(1)],
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::Delve,
+        });
+        let targeting = interaction(Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 0,
+            max: 2,
+            reason: TargetPrompt::Targets,
+        });
+        for lang in [Lang::En, Lang::De] {
+            let target_line = targeting.prompt().headline(lang);
+            for asking in [&convoke, &delve] {
+                let line = asking.prompt().headline(lang);
+                assert!(!line.is_empty());
+                assert_ne!(
+                    line, target_line,
+                    "helping to pay was asked for as targeting in {lang:?}"
+                );
+            }
+        }
+        // And the selection itself is unchanged: it is still a bounded pick
+        // over the offered permanents, answerable with none.
+        assert!(convoke.confirm().is_some(), "convoke may be declined");
     }
 }

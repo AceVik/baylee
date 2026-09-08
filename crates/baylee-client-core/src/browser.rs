@@ -488,7 +488,7 @@ mod tests {
     use super::*;
     use crate::board::{BoardModel, Openings};
     use crate::test_support::{ViewBuilder, printed};
-    use baylee_engine::choice::{ChoicePrompt, Pending};
+    use baylee_engine::choice::{ChoicePrompt, Pending, TargetPrompt};
 
     fn me() -> PlayerId {
         PlayerId::new(0)
@@ -566,6 +566,7 @@ mod tests {
                 player_options: Vec::new(),
                 min: 1,
                 max: 1,
+                reason: TargetPrompt::Targets,
             },
             Pending::ChooseCards {
                 player: me(),
@@ -619,6 +620,7 @@ mod tests {
                 player_options: Vec::new(),
                 min: 1,
                 max: 1,
+                reason: TargetPrompt::Targets,
             },
             me(),
         );

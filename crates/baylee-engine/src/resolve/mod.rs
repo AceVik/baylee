@@ -6,7 +6,7 @@
 //! answer. Everything runs through the normal event pipeline, so the
 //! journal stays complete.
 
-use crate::choice::{ChoicePrompt, Pending, YesNoPrompt};
+use crate::choice::{ChoicePrompt, Pending, TargetPrompt, YesNoPrompt};
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
 use crate::mana_pay;
@@ -1467,6 +1467,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     player_options: Vec::new(),
                     min: 1,
                     max: 1,
+                    reason: TargetPrompt::Targets,
                 });
             }
             None
@@ -1599,6 +1600,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                             player_options: Vec::new(),
                             min: picks,
                             max: picks,
+                            reason: TargetPrompt::Targets,
                         });
                     }
                 }

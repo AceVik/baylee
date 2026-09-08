@@ -212,3 +212,52 @@ fn a_waterbend_that_cannot_be_paid_gives_the_caster_their_turn_back() {
         "the caster was handed a turn with nothing left to do in it"
     );
 }
+
+/// The convoke question says what it is, and asks for what is there.
+///
+/// "Sie wollte von mir 99 Targets." It did: the stage published
+/// `Pending::ChooseTargets` with `max: 99`, a sentinel standing in for "as
+/// many as you like", over a board holding two. Convoke is not targeting and
+/// 99 is not a number on this table; both were read off the screen by the one
+/// person who could not check them against the source.
+#[test]
+fn the_convoke_question_is_named_and_bounded_by_the_board() {
+    let seat = PlayerId::new(0);
+    let mut engine = table();
+    tap_all_lands(&mut engine, seat);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority")
+    };
+    let card = *legal.castable.first().expect("castable");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("castable");
+    engine
+        .apply(seat, PlayerAction::YesNo(false))
+        .expect("the waterbend cost is optional");
+
+    let Pending::ChooseTargets {
+        options,
+        min,
+        max,
+        reason,
+        ..
+    } = engine.pending()
+    else {
+        panic!(
+            "the convoke stage asked something else: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        *reason,
+        crate::choice::TargetPrompt::Convoke,
+        "the convoke question arrived indistinguishable from targeting"
+    );
+    assert_eq!(*min, 0, "convoke is never compulsory");
+    assert_eq!(
+        (*max as usize, options.len()),
+        (2, 2),
+        "the bound is a sentinel, not the two bodies on the table"
+    );
+}
