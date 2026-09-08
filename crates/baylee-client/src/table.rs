@@ -1158,7 +1158,7 @@ pub fn spawn_stage(
 }
 
 /// Wraps a generated texture in an `Image` the renderer can bind.
-fn image_of(texture: &tabletop::Texture) -> Image {
+pub(crate) fn image_of(texture: &tabletop::Texture) -> Image {
     let mut image = Image::new(
         Extent3d {
             width: texture.width,

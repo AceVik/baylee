@@ -1382,6 +1382,7 @@ pub fn pointer_hover(
     mut last: Local<Option<ObjectId>>,
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
+    tray_cards: Query<&TrayCard>,
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
 ) {
@@ -1411,6 +1412,12 @@ pub fn pointer_hover(
         let alive = match *source {
             HoverSource::Hand => hand_cards.iter().any(|h| h.object == object),
             HoverSource::Table => cards.iter().any(|v| v.object == object),
+            // A tray row lives and dies with the panel: closing the browser,
+            // switching its tab or typing into its filter rebuilds the whole
+            // grid, and the row the pointer was over is gone without ever
+            // firing an `Out`. Held against the tray's own rows for exactly
+            // the reason the two above are held against theirs.
+            HoverSource::Tray => tray_cards.iter().any(|t| t.object == object),
             // Somebody else's write — the keyboard cursor, most often, and
             // the union is that cursor's own invariant rather than a
             // weakening of the two above. The two kinds of hover are valid
@@ -1466,13 +1473,24 @@ pub fn pointer_hover(
                 duel.hovered = Some(h.object);
                 duel.hovered_at = Some(at);
                 *source = HoverSource::Hand;
+            } else if let Some(t) = find_in_lineage(over.entity, &tray_cards, &parents) {
+                // A row in the zone browser. It is a card drawn 74 px across,
+                // which is enough to pick out and not enough to read, so it
+                // previews like every other card the pointer finds — the
+                // panel standing beside the pointer, because a tray row has
+                // no place of its own in the HUD's layout.
+                duel.hovered = Some(t.object);
+                duel.hovered_at = Some(at);
+                *source = HoverSource::Tray;
             }
         }
         for out in outs.read() {
             let is_current = find_in_lineage(out.entity, &cards, &parents)
                 .is_some_and(|v| duel.hovered == Some(v.object))
                 || find_in_lineage(out.entity, &hand_cards, &parents)
-                    .is_some_and(|h| duel.hovered == Some(h.object));
+                    .is_some_and(|h| duel.hovered == Some(h.object))
+                || find_in_lineage(out.entity, &tray_cards, &parents)
+                    .is_some_and(|t| duel.hovered == Some(t.object));
             if is_current {
                 duel.hovered = None;
                 duel.hovered_at = None;
@@ -1497,6 +1515,8 @@ pub enum HoverSource {
     Hand,
     /// A permanent on the table.
     Table,
+    /// A row in the zone browser.
+    Tray,
     /// The keyboard cursor, or nothing at all.
     #[default]
     Elsewhere,

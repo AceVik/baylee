@@ -84,6 +84,9 @@ pub fn sync_overlay(
     // second code path for it.
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
+    // Generated at startup, so a headless app that never ran `setup_sheets`
+    // simply draws the flat colour the sheet is grained around.
+    sheets: Option<Res<UiSheets>>,
 ) {
     let mut cards = match (ui_materials, material_assets) {
         (Some(cache), Some(assets)) => Some((cache, assets)),
@@ -363,26 +366,41 @@ pub fn sync_overlay(
     );
     commands.entity(root).add_child(rail);
 
-    // ---- prompt bar (choice headline + answer buttons), above the hand,
-    // padded clear of the phase rail ---------------------------------------
+    // ---- the prompt slip: the question, and the answers to it -------------
+    //
+    // Centred over the near edge of the player's own board, and a sheet of
+    // parchment rather than a panel. Both of those are the same argument. It
+    // used to sit in the bottom-right corner in 88%-black at 13 px — the one
+    // thing on screen that has to be answered, drawn as the least prominent
+    // thing on it, in the corner furthest from where a player's eyes are
+    // (their own hand, and the board above it). A question and the hand it is
+    // answered from are now the same place to look.
     if prompt.is_some() || error.is_some() || link_note.is_some() {
         let waiting = !duel.is_my_turn_to_act();
-        let bar = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    bottom: px(HAND_BAR_H + 10.0),
-                    right: px(RAIL_W + 12.0),
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(6),
-                    padding: UiRect::axes(px(14), px(8)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(palette::PANEL),
-                soft_shadow(),
-            ))
-            .id();
+        // The centring row spans the whole window and is ignored by the
+        // pointer, so it takes nothing away from the board it lies over; only
+        // the slip inside it is a surface.
+        let slip_row = commands.spawn((slip_row_node(), Pickable::IGNORE)).id();
+        let mut slip = commands.spawn((
+            Node {
+                max_width: px(620),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: px(7),
+                padding: UiRect::axes(px(22), px(13)),
+                border: UiRect::all(px(1)),
+                border_radius: sheet_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::PARCHMENT),
+            BorderColor::all(palette::PARCHMENT_EDGE),
+            sheet_shadow(),
+        ));
+        if let Some(sheets) = sheets.as_deref() {
+            slip.insert(sheet(sheets));
+        }
+        let bar = slip.id();
+        commands.entity(slip_row).add_child(bar);
         // Above the headline, because a table this client cannot reach makes
         // every other line in the bar moot: the question standing there was
         // asked before the socket went, and answering it will not arrive.
@@ -391,7 +409,7 @@ pub fn sync_overlay(
                 .spawn((
                     Text::new(phrase.text(lang).to_string()),
                     tf(&fonts, 15.0),
-                    TextColor(palette::DANGER),
+                    TextColor(palette::INK_DANGER),
                 ))
                 .id();
             commands.entity(bar).add_child(line);
@@ -403,9 +421,9 @@ pub fn sync_overlay(
                     Text::new(text),
                     tf(&fonts, 18.0),
                     TextColor(if waiting {
-                        palette::MUTED
+                        palette::PARCHMENT_SOFT
                     } else {
-                        palette::ACCENT
+                        palette::PARCHMENT_INK
                     }),
                 ))
                 .id();
@@ -422,7 +440,7 @@ pub fn sync_overlay(
                 .spawn((
                     Text::new(text),
                     tf(&fonts, 13.0),
-                    TextColor(palette::DANGER),
+                    TextColor(palette::INK_DANGER),
                 ))
                 .id();
             commands.entity(bar).add_child(line);
@@ -443,7 +461,7 @@ pub fn sync_overlay(
                 .spawn((
                     Text::new(hint.text(lang).to_string()),
                     tf(&fonts, 12.0),
-                    TextColor(palette::MUTED),
+                    TextColor(palette::PARCHMENT_SOFT),
                 ))
                 .id();
             commands.entity(bar).add_child(line);
@@ -462,7 +480,11 @@ pub fn sync_overlay(
             .and_then(|i| combat_line(i, view, duel.statics.as_ref(), lang))
         {
             let aim = commands
-                .spawn((Text::new(line), tf(&fonts, 13.0), TextColor(palette::MUTED)))
+                .spawn((
+                    Text::new(line),
+                    tf(&fonts, 13.0),
+                    TextColor(palette::PARCHMENT_SOFT),
+                ))
                 .id();
             commands.entity(bar).add_child(aim);
         }
@@ -481,9 +503,9 @@ pub fn sync_overlay(
                     Text::new(line),
                     tf(&fonts, 13.0),
                     TextColor(if threatened {
-                        palette::DANGER
+                        palette::INK_DANGER
                     } else {
-                        palette::MUTED
+                        palette::PARCHMENT_SOFT
                     }),
                 ))
                 .id();
@@ -512,7 +534,7 @@ pub fn sync_overlay(
                 .spawn((
                     Text::new(value.to_string()),
                     tf(&fonts, 20.0),
-                    TextColor(palette::INK),
+                    TextColor(palette::PARCHMENT_INK),
                 ))
                 .id();
             let plus = spawn_step(&mut commands, &fonts, 1, "+");
@@ -585,21 +607,36 @@ pub fn sync_overlay(
                     Pickable::IGNORE,
                 ))
                 .id();
-            for (action, label) in answers {
+            // The first answer is the one the question is asking for — keep,
+            // confirm, pass — and it is the only one drawn in brass. The rest
+            // are the same button with its fill taken away, because two
+            // equally loud answers make a player read both before finding out
+            // which one the sheet meant.
+            for (i, (action, label)) in answers.iter().enumerate() {
+                let lead = i == 0;
                 let button = commands
                     .spawn((
                         PromptButton { action: *action },
                         Node {
-                            padding: UiRect::axes(px(12), px(5)),
+                            padding: UiRect::axes(px(14), px(6)),
+                            border: UiRect::all(px(1)),
                             border_radius: btn_radius(),
                             ..default()
                         },
-                        BackgroundColor(palette::ACCENT),
-                        soft_shadow(),
+                        BackgroundColor(if lead { palette::BRASS } else { Color::NONE }),
+                        BorderColor::all(if lead {
+                            palette::BRASS
+                        } else {
+                            palette::PARCHMENT_EDGE
+                        }),
                         children![(
                             Text::new(*label),
                             tf(&fonts, 13.0),
-                            TextColor(palette::PANEL),
+                            TextColor(if lead {
+                                palette::PARCHMENT_INK
+                            } else {
+                                palette::PARCHMENT_SOFT
+                            }),
                         )],
                     ))
                     .id();
@@ -627,8 +664,8 @@ pub fn sync_overlay(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BackgroundColor(palette::PANEL),
-                    BorderColor::all(palette::ACTIVE),
+                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.06)),
+                    BorderColor::all(palette::BRASS),
                     Pickable::IGNORE,
                 ))
                 .id();
@@ -638,7 +675,7 @@ pub fn sync_overlay(
                 .spawn((
                     Text::new(format!("{}_", duel.subtype_filter)),
                     tf(&fonts, 14.0),
-                    TextColor(palette::INK),
+                    TextColor(palette::PARCHMENT_INK),
                     Pickable::IGNORE,
                 ))
                 .id();
@@ -695,12 +732,15 @@ pub fn sync_overlay(
                             ..default()
                         },
                         BackgroundColor(if on {
-                            palette::ACTIVE
+                            palette::BRASS
                         } else {
-                            palette::PANEL_LIT
+                            Color::srgba(0.0, 0.0, 0.0, 0.05)
                         }),
-                        BorderColor::all(if on { palette::ACTIVE } else { palette::MUTED }),
-                        soft_shadow(),
+                        BorderColor::all(if on {
+                            palette::BRASS
+                        } else {
+                            palette::PARCHMENT_EDGE
+                        }),
                     ))
                     .id();
                 if let Some(pip) = option.pip {
@@ -712,7 +752,7 @@ pub fn sync_overlay(
                         .spawn((
                             Text::new(option.label.clone()),
                             tf(&fonts, 13.0),
-                            TextColor(if on { palette::PANEL } else { palette::INK }),
+                            TextColor(palette::PARCHMENT_INK),
                             Pickable::IGNORE,
                         ))
                         .id();
@@ -787,20 +827,20 @@ pub fn sync_overlay(
                             ..default()
                         },
                         BackgroundColor(if picked {
-                            palette::ACTIVE
+                            palette::BRASS
                         } else {
-                            palette::PANEL_LIT
+                            Color::srgba(0.0, 0.0, 0.0, 0.05)
                         }),
                         BorderColor::all(if picked {
-                            palette::ACTIVE
+                            palette::BRASS
                         } else {
-                            palette::MUTED
+                            palette::PARCHMENT_EDGE
                         }),
                         soft_shadow(),
                         children![(
                             Text::new(option.label.clone()),
                             tf(&fonts, 13.0),
-                            TextColor(if picked { palette::PANEL } else { palette::INK }),
+                            TextColor(palette::PARCHMENT_INK),
                         )],
                     ))
                     .id();
@@ -808,7 +848,7 @@ pub fn sync_overlay(
             }
             commands.entity(bar).add_child(row);
         }
-        commands.entity(root).add_child(bar);
+        commands.entity(root).add_child(slip_row);
     }
 
     // ---- the mana pool, opposite the prompt bar --------------------------
@@ -1253,6 +1293,7 @@ pub fn sync_overlay(
             &assets,
             &fonts,
             &faces,
+            sheets.as_deref(),
             cards.as_mut(),
         );
         commands.entity(root).add_child(tray);
@@ -1292,18 +1333,20 @@ fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<String> 
 /// would be saying the same thing twice and leaving a player to work out
 /// which half was the button.
 fn spawn_armed(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity, label: &str) {
-    for (action, text, lit, ink) in [
+    for (action, text, lit, edge, ink) in [
         (
             MenuAction::SendArmed,
             label,
-            palette::ACTIVE,
-            palette::PANEL,
+            palette::BRASS,
+            palette::BRASS,
+            palette::PARCHMENT_INK,
         ),
         (
             MenuAction::CancelArmed,
             Phrase::ArmedCancel.text(lang),
-            palette::PANEL_LIT,
-            palette::INK,
+            Color::NONE,
+            palette::PARCHMENT_EDGE,
+            palette::PARCHMENT_SOFT,
         ),
     ] {
         let button = commands
@@ -1316,8 +1359,7 @@ fn spawn_armed(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity
                     ..default()
                 },
                 BackgroundColor(lit),
-                BorderColor::all(lit),
-                soft_shadow(),
+                BorderColor::all(edge),
                 children![(Text::new(text.to_string()), tf(fonts, 13.0), TextColor(ink))],
             ))
             .id();
@@ -1374,6 +1416,30 @@ fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity)
 }
 
 /// One arm of the number stepper.
+/// Where the prompt slip stands.
+///
+/// A full-width row that centres its one child, rather than a panel pinned to
+/// a corner. The slip is the one thing on screen that *must* be answered, and
+/// it used to sit in the bottom-right — the corner furthest from the two
+/// things a player is already looking at, their own board and the hand under
+/// it. Centred over the near edge of that board, the question and the cards
+/// that answer it are one place to look.
+///
+/// The row itself is `Pickable::IGNORE` and paints nothing: it spans the
+/// window so that its child can be centred in it, and takes no click away
+/// from the table it lies over.
+pub(super) fn slip_row_node() -> Node {
+    Node {
+        position_type: PositionType::Absolute,
+        bottom: px(HAND_BAR_H + 12.0),
+        left: px(0),
+        right: px(0),
+        flex_direction: FlexDirection::Row,
+        justify_content: JustifyContent::Center,
+        ..default()
+    }
+}
+
 fn spawn_step(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str) -> Entity {
     commands
         .spawn((
@@ -1388,12 +1454,11 @@ fn spawn_step(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str)
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(palette::ACCENT),
-            soft_shadow(),
+            BackgroundColor(palette::BRASS),
             children![(
                 Text::new(glyph.to_string()),
                 tf(fonts, 17.0),
-                TextColor(palette::PANEL),
+                TextColor(palette::PARCHMENT_INK),
             )],
         ))
         .id()

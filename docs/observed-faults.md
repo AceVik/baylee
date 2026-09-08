@@ -593,3 +593,57 @@ about the table itself rather than the rules, and both are fixed.
     `every_seat_is_drawn_a_board_of_the_same_width` is the bound, and it is a
     bound rather than an equality: the last few per cent is the foreshortening
     above, and the only lean that spends it is zero — a table of decals.
+
+40. **"I never draw lands."** *Measured, and the shuffle was not the
+    culprit.* `GameRng::shuffle` is a textbook Fisher–Yates over a seeded
+    ChaCha8 stream with Lemire's unbiased `below`, and the seed is 64 bits of
+    OS randomness per game (`auth::new_game_seed` for a table, `fresh_seed`
+    for an offline duel) — but the only thing asserted about any of it was
+    that it is *deterministic*, which a broken shuffle is too. Both of the
+    classic wrong loops (`1..len` instead of `(1..len).rev()`, `below(len)`
+    instead of `below(i + 1)`) pass that test and leave the deck biased.
+
+    `a_shuffle_puts_every_card_everywhere` is the property that was missing:
+    60 000 deals of a 60-card deck, chi-square over where the top card lands,
+    bounded on both sides — under 120 because a right algorithm passes it and
+    the two wrong ones fail by thousands, over 20 because a stream too even
+    for 60 000 random deals is not a random stream either.
+
+    What was actually wrong was the **deck**. `Allytifact` — the deck
+    `dev-table` and the client's offline duel both deal — held 31 lands in 99
+    cards, 31.3%, where a hundred-card singleton deck normally runs 36–38%.
+    That is 2.19 lands in an opening seven, and a landless hand one game in
+    fourteen, however well it is shuffled. Nine basics take it to 39 in 107,
+    36.4%. `an_opening_hand_holds_what_the_deck_holds` writes the arithmetic
+    down so the next person to feel unlucky can tell the two causes apart.
+
+    One real limit came out of it: the gateway caps **every** card at four
+    copies, basic lands included, and `the_starter_deck_is_one_the_gateway_
+    will_accept` enforces the same. Deck-construction rules exempt basics, so
+    a deck that wants twelve Islands cannot be saved today. Not fixed here —
+    the basics added stop at four.
+
+41. **The question you must answer was the smallest thing on screen.** *Fixed.*
+    The prompt bar sat in the bottom-right corner in 88%-black at 13 px — the
+    corner furthest from the two things a player is already looking at, their
+    own board and the hand under it — and the zone browser was a five-card
+    panel pinned to the top-left, over the seat tabs.
+
+    Both are **sheets** now: `tabletop::parchment`, generated the way the felt
+    is, centred where the thing they describe is. The prompt slip stands over
+    the near edge of the player's own board, so the question and the cards
+    that answer it are one place to look; the browser is a sheet laid in the
+    middle of the felt, eight cards across, which is the gesture of putting a
+    stack of cards down on a table. Felt is the ground, parchment is a sheet
+    you read, brass draws the lines and gold belongs to the local seat — one
+    material per job, which is what makes a panel say what kind of thing it
+    is before a word on it is read.
+
+    Two things came with it. A sheet is **opaque**, where the panels it
+    replaces were 88% black over the table — a question read through whatever
+    card happened to lie under it. And a browser row now **previews on
+    hover**: the tray draws cards 74 px across, enough to pick one out and
+    nowhere near enough to read one, so a library search was a wall of
+    thumbnails to be recognised by picture alone. `preview_anchor` answers any
+    object the view can resolve, which covers a graveyard card that is not the
+    top one, an exile pile, and the cards the engine is *showing* this seat.

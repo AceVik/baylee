@@ -205,6 +205,64 @@ pub fn felt(size: u32) -> Texture {
     texture
 }
 
+/// A sheet of parchment: the surface everything a player *reads* is written
+/// on.
+///
+/// Felt is the ground, parchment is a sheet, brass draws lines, and gold
+/// belongs to the local seat — four materials with one job each, so a panel
+/// says what kind of thing it is before a word on it has been read. A dialog
+/// is a place you work and a sheet is a thing you read, and the prompt is the
+/// second: it asks a question and offers the two or three answers to it.
+///
+/// Stretched rather than tiled, so it is drawn as **one sheet** whatever size
+/// the panel is: the blotches are soft enough to survive being pulled about,
+/// and a tiled grain would put a seam down the middle of a slip that is four
+/// hundred pixels wide and eighty tall.
+///
+/// Opaque, and that is the point of using a sheet at all. The panels this
+/// replaces were 88% black over the table, so a question was read through
+/// whatever card happened to be under it.
+#[must_use]
+pub fn parchment(size: u32) -> Texture {
+    /// The sheet where it has been handled least.
+    const SHEET: [f32; 3] = [0.929, 0.890, 0.800];
+    /// Where it has aged: warmer and a shade down.
+    const AGED: [f32; 3] = [0.839, 0.780, 0.655];
+    /// The rim, where a sheet lying on a table loses the light.
+    const EDGE: [f32; 3] = [0.706, 0.639, 0.502];
+
+    let mut texture = Texture::blank(size, size);
+    let extent = size as f32;
+    for y in 0..size {
+        for x in 0..size {
+            let (u, v) = (x as f32 / extent, y as f32 / extent);
+            // Two scales of age — broad staining, then the mottle inside it —
+            // and a fine tooth on top, which is what stops a flat fill from
+            // reading as a rectangle of paint.
+            let stain = fbm(u * 2.4, v * 2.4, 0x7c31, 4);
+            let mottle = fbm(u * 9.0, v * 9.0, 0x2ab9, 3);
+            let tooth = fbm(u * 190.0, v * 190.0, 0x64d5, 2);
+            // Fibres, drawn out along the sheet: the same noise sampled
+            // twenty times wider than it is tall.
+            let fibre = fbm(u * 3.0, v * 60.0, 0x1f08, 2);
+
+            let mut colour = mix(SHEET, AGED, (stain * 0.72 + mottle * 0.28).powf(1.4));
+            // Away from the middle on both axes, and squared so the fall is
+            // slow until it is near the edge. `max` rather than a radius: a
+            // slip is far wider than it is tall, and a round vignette
+            // stretched over one darkens its ends and nothing else.
+            let off = ((u - 0.5).abs().max((v - 0.5).abs()) * 2.0).clamp(0.0, 1.0);
+            colour = mix(colour, EDGE, off.powi(3) * 0.85);
+            let lift = (tooth - 0.5).mul_add(0.030, (fibre - 0.5) * 0.014);
+            for channel in &mut colour {
+                *channel = (*channel + lift).clamp(0.0, 1.0);
+            }
+            texture.put(x, y, [colour[0], colour[1], colour[2], 1.0]);
+        }
+    }
+    texture
+}
+
 /// The medallion inlaid at the centre of the table: a colour wheel of five
 /// glows on a ring of worn gold, transparent everywhere else.
 ///
@@ -1833,5 +1891,56 @@ mod tests {
         let dusk = phase_light(baylee_view::Step::End).rgb;
         let apart: f32 = (0..3).map(|i| (dawn[i] - dusk[i]).abs()).sum();
         assert!(apart > 0.3, "{dawn:?} and {dusk:?} are the same lamp");
+    }
+
+    /// Parchment is a sheet, not a rectangle of paint.
+    ///
+    /// Bounded on both sides, which is the lesson the felt taught: it was
+    /// authored four times too dark and a one-sided "dark enough" assertion
+    /// let it through. A sheet has to be light enough to take ink and not so
+    /// light that it glares beside the cards, it has to lose the light at its
+    /// rim, and the grain has to be there without being a pattern.
+    #[test]
+    fn a_sheet_of_parchment_is_warm_lit_and_grained() {
+        let sheet = parchment(256);
+        let middle = sheet.pixel(128, 128);
+        assert!(
+            (0.72..0.94).contains(&middle[0]),
+            "the middle of the sheet is {middle:?}, which is not parchment"
+        );
+        assert!(
+            middle[0] > middle[1] && middle[1] > middle[2],
+            "the sheet is {middle:?} — parchment is warm, and that is not"
+        );
+        assert!(
+            (middle[3] - 1.0).abs() < 1e-6,
+            "the sheet is {:.2} opaque, and a question read through a card is \
+             a question nobody answers",
+            middle[3]
+        );
+
+        let rim = sheet.pixel(2, 128);
+        assert!(
+            rim[0] < middle[0] - 0.05 && rim[0] > middle[0] - 0.30,
+            "the rim is {:.3} against the middle's {:.3} — a sheet loses the \
+             light at its edge, and only a little",
+            rim[0],
+            middle[0]
+        );
+
+        // Grain: neighbouring pixels differ, and never by so much that the
+        // sheet reads as noise.
+        let mut most: f32 = 0.0;
+        let mut moved = 0_u32;
+        for x in 100..156 {
+            let step = (sheet.pixel(x, 128)[0] - sheet.pixel(x + 1, 128)[0]).abs();
+            most = most.max(step);
+            moved += u32::from(step > 1.0 / 255.0);
+        }
+        assert!(
+            moved > 20,
+            "only {moved} of 56 steps across the sheet moved"
+        );
+        assert!(most < 0.06, "the grain jumps {most:.3} between neighbours");
     }
 }

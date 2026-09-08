@@ -567,7 +567,10 @@ impl Plugin for DuelPlugin {
                 Update,
                 (DuelSet::Sync, DuelSet::Input, DuelSet::Present).chain(),
             )
-            .add_systems(Startup, (textures::setup, hud::setup_fonts))
+            .add_systems(
+                Startup,
+                (textures::setup, hud::setup_fonts, hud::setup_sheets),
+            )
             .add_systems(
                 Update,
                 (

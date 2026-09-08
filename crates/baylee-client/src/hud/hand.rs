@@ -407,6 +407,26 @@ pub(super) fn preview_anchor(
             at,
         ));
     }
+    // Everything the zone browser lists and no arm above reaches: a graveyard
+    // card that is not the top one, anything in an exile pile, and the cards
+    // the engine is *showing* this seat, which live in no zone it can
+    // otherwise see. The tray draws them 74 px across — enough to tell a
+    // creature from a land and nowhere near enough to read one — so a search
+    // through a hundred-card library was a wall of thumbnails a player had to
+    // recognise by picture alone.
+    //
+    // Last, and deliberately: every arm above answers a card that is *also*
+    // drawn somewhere, and this one answers by zone membership alone, so
+    // putting it earlier would take the hand's tail and the pile's own place
+    // away from cards that have them.
+    if let Some(object) = view.object(h) {
+        return Some((
+            object
+                .card
+                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Normal)),
+            at,
+        ));
+    }
     None
 }
 

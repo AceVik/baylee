@@ -380,3 +380,32 @@ mod flip {
         assert_eq!(crate::hud::overlay::far_face(None, true), None);
     }
 }
+
+mod slip {
+    use super::*;
+
+    /// The one question a player must answer stands in the middle, not in a
+    /// corner.
+    ///
+    /// It shipped in the bottom-right at 13 px against 88% black — the least
+    /// prominent thing on screen, in the corner furthest from the hand it is
+    /// answered from. This is the claim that stops it drifting back there:
+    /// the row spans the window and centres what is in it, and it clears the
+    /// hand bar rather than sitting behind it.
+    #[test]
+    fn the_prompt_slip_stands_in_the_middle_above_the_hand() {
+        let node = super::super::overlay::slip_row_node();
+        assert_eq!(node.justify_content, JustifyContent::Center);
+        assert_eq!(node.position_type, PositionType::Absolute);
+        assert_eq!(node.left, px(0), "a row that does not span cannot centre");
+        assert_eq!(node.right, px(0));
+        let Val::Px(bottom) = node.bottom else {
+            panic!("the slip is placed in pixels, not {:?}", node.bottom);
+        };
+        assert!(
+            bottom > HAND_BAR_H && bottom < HAND_BAR_H + 60.0,
+            "the slip sits at {bottom}, and the hand bar is {HAND_BAR_H} tall — \
+             it has to clear it and stay next to it"
+        );
+    }
+}

@@ -21,10 +21,20 @@ use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser};
 const TRAY_CARD_W: f32 = 74.0;
 /// Height, keeping the 63:88 card aspect.
 const TRAY_CARD_H: f32 = TRAY_CARD_W * 88.0 / 63.0;
-/// Panel width: five cards, their gaps and the padding.
-const TRAY_PANEL_W: f32 = 5.0 * (TRAY_CARD_W + 6.0) + 18.0;
+/// Panel width: eight cards, their gaps and the padding.
+///
+/// It was five, and a five-wide grid pinned to the left edge is what made
+/// looking through a hundred-card library a chore: nine rows of five, most of
+/// them off the bottom of a panel that also sat over the seat tabs.
+const TRAY_PANEL_W: f32 = 8.0 * (TRAY_CARD_W + 8.0) + 34.0;
 
-/// The browser panel, pinned left below the seat tabs.
+/// The zone browser: a sheet laid on the felt, in the middle of the table.
+///
+/// Centred rather than pinned to a corner, and parchment rather than a black
+/// panel, for the same reason the prompt slip is: this is the surface a
+/// player *reads* — a graveyard they are looking through, a library the
+/// engine is showing them — and the middle of the screen is where a stack of
+/// cards goes when somebody puts one down on a real table.
 #[allow(clippy::too_many_arguments)] // a panel, a view, and the stores
 #[allow(clippy::too_many_lines)] // header, tabs, filter and grid are one build
 pub(super) fn spawn_tray(
@@ -38,30 +48,50 @@ pub(super) fn spawn_tray(
     assets: &AssetServer,
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
+    sheets: Option<&UiSheets>,
     mut cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let rows = browser.rows(view, interaction);
-    let panel = commands
+    // The centring frame: the whole band between the tab strip and the hand
+    // bar, painting nothing and answering no click, so that its one child can
+    // stand in the middle of it.
+    let frame = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: px(12),
-                top: px(TAB_H + 44.0),
-                width: px(TRAY_PANEL_W),
-                max_height: percent(70),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(8),
-                padding: UiRect::all(px(9)),
-                overflow: Overflow::clip(),
-                border_radius: BorderRadius::all(px(8)),
+                left: px(0),
+                right: px(0),
+                top: px(TAB_H),
+                bottom: px(HAND_BAR_H),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
             ZIndex(3),
-            overlay_shadow(),
             Pickable::IGNORE,
         ))
         .id();
+    let mut sheet_node = commands.spawn((
+        Node {
+            max_width: px(TRAY_PANEL_W),
+            max_height: percent(92),
+            flex_direction: FlexDirection::Column,
+            row_gap: px(10),
+            padding: UiRect::all(px(16)),
+            border: UiRect::all(px(1)),
+            overflow: Overflow::clip(),
+            border_radius: sheet_radius(),
+            ..default()
+        },
+        BackgroundColor(palette::PARCHMENT),
+        BorderColor::all(palette::PARCHMENT_EDGE),
+        sheet_shadow(),
+    ));
+    if let Some(sheets) = sheets {
+        sheet_node.insert(sheet(sheets));
+    }
+    let panel = sheet_node.id();
+    commands.entity(frame).add_child(panel);
 
     // ---- header: what this is, and the way out of it ----
     let header = commands
@@ -79,7 +109,7 @@ pub(super) fn spawn_tray(
         .spawn((
             Text::new(Phrase::BrowseTitle.text(lang)),
             tf(fonts, 13.0),
-            TextColor(palette::INK),
+            TextColor(palette::PARCHMENT_INK),
             Pickable::IGNORE,
         ))
         .id();
@@ -89,14 +119,18 @@ pub(super) fn spawn_tray(
             Button,
             Node {
                 padding: UiRect::axes(px(8), px(3)),
+                border: UiRect::all(px(1)),
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT),
+            BackgroundColor(Color::NONE),
+            BorderColor::all(palette::PARCHMENT_EDGE),
             children![(
-                Text::new("\u{2715}"),
-                tf(fonts, 12.0),
-                TextColor(palette::MUTED),
+                // The icon font's own cross. Inter has no U+2715, which is
+                // why the button drew as a thin bar for one build.
+                Text::new(glyph::CLOSE.to_string()),
+                icon_tf(fonts, 11.0),
+                TextColor(palette::PARCHMENT_SOFT),
                 Pickable::IGNORE,
             )],
         ))
@@ -175,17 +209,17 @@ pub(super) fn spawn_tray(
                 ..default()
             },
             BackgroundColor(if typing {
-                palette::PANEL_LIT
+                Color::srgba(0.0, 0.0, 0.0, 0.10)
             } else {
-                palette::PANEL
+                Color::NONE
             }),
             children![(
                 Text::new(hint),
                 tf(fonts, 11.0),
                 TextColor(if typing || !browser.filter().trim().is_empty() {
-                    palette::ACCENT
+                    palette::BRASS
                 } else {
-                    palette::MUTED
+                    palette::PARCHMENT_SOFT
                 }),
                 Pickable::IGNORE,
             )],
@@ -205,11 +239,11 @@ pub(super) fn spawn_tray(
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.10)),
             children![(
                 Text::new(browser.sort().label().text(lang)),
                 tf(fonts, 10.0),
-                TextColor(palette::INK),
+                TextColor(palette::PARCHMENT_INK),
                 Pickable::IGNORE,
             )],
         ))
@@ -223,7 +257,7 @@ pub(super) fn spawn_tray(
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.10)),
             children![(
                 Text::new(if browser.descending() {
                     "\u{2193}"
@@ -231,7 +265,7 @@ pub(super) fn spawn_tray(
                     "\u{2191}"
                 }),
                 tf(fonts, 10.0),
-                TextColor(palette::INK),
+                TextColor(palette::PARCHMENT_INK),
                 Pickable::IGNORE,
             )],
         ))
@@ -264,7 +298,7 @@ pub(super) fn spawn_tray(
             .spawn((
                 Text::new(Phrase::BrowseEmpty.text(lang)),
                 tf(fonts, 11.0),
-                TextColor(palette::MUTED),
+                TextColor(palette::PARCHMENT_SOFT),
                 Pickable::IGNORE,
             ))
             .id();
@@ -280,7 +314,7 @@ pub(super) fn spawn_tray(
     commands
         .entity(panel)
         .add_children(&[header, tabs, filter_row, grid]);
-    panel
+    frame
 }
 
 /// One zone tab.
@@ -301,17 +335,17 @@ fn spawn_tab(
                 ..default()
             },
             BackgroundColor(if current {
-                palette::PANEL_LIT
+                Color::srgba(0.0, 0.0, 0.0, 0.10)
             } else {
-                palette::PANEL
+                Color::NONE
             }),
             children![(
                 Text::new(label),
                 tf(fonts, 10.0),
                 TextColor(if current {
-                    palette::ACCENT
+                    palette::BRASS
                 } else {
-                    palette::MUTED
+                    palette::PARCHMENT_SOFT
                 }),
                 Pickable::IGNORE,
             )],
@@ -341,7 +375,7 @@ fn spawn_row(
     // chosen.
     let shadow = if row.selected {
         BoxShadow::new(
-            palette::ACCENT,
+            palette::BRASS,
             Val::Px(0.0),
             Val::Px(0.0),
             Val::Px(2.0),
@@ -349,7 +383,7 @@ fn spawn_row(
         )
     } else if row.selectable {
         BoxShadow::new(
-            palette::ACCENT,
+            palette::BRASS,
             Val::Px(0.0),
             Val::Px(0.0),
             Val::Px(0.0),
@@ -370,7 +404,7 @@ fn spawn_row(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.10)),
             shadow,
         ))
         .id();
@@ -411,7 +445,7 @@ fn spawn_row(
                 children![(
                     Text::new(row.name.clone()),
                     tf(fonts, 9.0),
-                    TextColor(palette::INK),
+                    TextColor(palette::PARCHMENT_INK),
                     Pickable::IGNORE,
                 )],
                 Pickable::IGNORE,
@@ -436,7 +470,7 @@ fn spawn_row(
                     border_radius: BorderRadius::all(px(8)),
                     ..default()
                 },
-                BackgroundColor(palette::ACCENT),
+                BackgroundColor(palette::BRASS),
                 children![(
                     Text::new(place.to_string()),
                     tf(fonts, 10.0),

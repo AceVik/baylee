@@ -96,6 +96,9 @@ mod glyph {
     pub const EXPAND: char = '\u{f065}';
     /// Crown (the command zone).
     pub const COMMAND: char = '\u{f521}';
+    /// Times (close a panel). The text font has no U+2715, so the cross has
+    /// to come from here or it draws as a missing glyph.
+    pub const CLOSE: char = '\u{f00d}';
 }
 
 /// Root of the overlay.
@@ -457,6 +460,82 @@ pub(crate) mod palette {
     pub const REACHABLE: Color = Color::srgb(0.50, 0.47, 0.84);
     /// Soft shadow under raised elements.
     pub const SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
+
+    /// Parchment, matching the middle of
+    /// [`tabletop::parchment`](baylee_client_core::tabletop::parchment).
+    ///
+    /// Felt is the ground, parchment is a sheet, brass draws the lines and
+    /// gold belongs to the local seat. A panel that is *read* is a sheet; a
+    /// panel that is *worked in* stays [`PANEL`]. That is the whole rule, and
+    /// it is why the prompt is parchment and the seat tabs are not.
+    pub const PARCHMENT: Color = Color::srgb(0.929, 0.890, 0.800);
+    /// Where a sheet lying on a table loses the light — its border, and the
+    /// rim of the generated sheet it has to meet.
+    pub const PARCHMENT_EDGE: Color = Color::srgb(0.706, 0.639, 0.502);
+    /// Ink.
+    pub const PARCHMENT_INK: Color = Color::srgb(0.098, 0.082, 0.062);
+    /// The quieter ink: hints, tallies, what a key does.
+    pub const PARCHMENT_SOFT: Color = Color::srgb(0.290, 0.251, 0.204);
+    /// Brass: the answer a sheet is asking for.
+    pub const BRASS: Color = Color::srgb(0.788, 0.635, 0.153);
+    /// Danger on parchment. [`DANGER`] is tuned to carry on 88% black and is
+    /// unreadable on a sheet; this is the same claim at the same weight.
+    pub const INK_DANGER: Color = Color::srgb(0.620, 0.200, 0.129);
+    /// The shadow a sheet lying above the table casts.
+    pub const SHEET_SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.66);
+}
+
+/// The generated surfaces the overlay is drawn on.
+#[derive(Resource, Clone)]
+pub struct UiSheets {
+    /// A sheet of parchment, stretched over whatever it is drawn on.
+    pub parchment: Handle<Image>,
+}
+
+/// Generates the overlay's own surfaces at startup.
+///
+/// Arithmetic rather than a picture, for the reason `docs/legal.md` §2 gives
+/// about the felt: ornament is the easiest thing to borrow by accident.
+pub fn setup_sheets(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    commands.insert_resource(UiSheets {
+        parchment: images.add(crate::table::image_of(
+            &baylee_client_core::tabletop::parchment(512),
+        )),
+    });
+}
+
+/// A sheet of parchment as a node's own surface.
+///
+/// Stretched, so a slip and a dialog are each *one* sheet rather than a wall
+/// of tiles — see [`tabletop::parchment`](baylee_client_core::tabletop::parchment).
+pub(crate) fn sheet(sheets: &UiSheets) -> ImageNode {
+    ImageNode {
+        // `Auto` is the default and it sizes the *node* to the image, which
+        // on a 512-pixel sheet drops a bright square into the middle of every
+        // panel it is put on. Stretch is what makes it a surface rather than
+        // a picture.
+        image_mode: NodeImageMode::Stretch,
+        ..ImageNode::new(sheets.parchment.clone())
+    }
+}
+
+/// What a sheet lying above the table casts: further out and much softer than
+/// [`soft_shadow`], because it is a physical thing over the board rather than
+/// a panel in the same plane as one.
+pub(crate) fn sheet_shadow() -> BoxShadow {
+    BoxShadow::new(
+        palette::SHEET_SHADOW,
+        Val::Px(0.0),
+        Val::Px(10.0),
+        Val::Px(2.0),
+        Val::Px(26.0),
+    )
+}
+
+/// The corner a sheet is cut with. Rounder than a button, because it is a
+/// larger object and a sheet with a button's radius reads as a big button.
+pub(crate) fn sheet_radius() -> BorderRadius {
+    BorderRadius::all(px(14))
 }
 
 /// The soft radius + shadow every button and panel shares.
