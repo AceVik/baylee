@@ -272,21 +272,37 @@ impl CameraRig {
         // Vertically this is exact: `ground` is linear in the eye distance,
         // so the distance at which the table's far edge lands on `top` and
         // its near edge on `bottom` is one division.
-        let deep = span.y / (ground(top) - ground(bottom)).max(1e-3);
-        // Horizontally the binding edge is the *near* one. A perspective
-        // camera sees less of the felt where the felt is closer, so the band
-        // measured at the look plane is not the band the front row has to fit
-        // in — measuring there put a four-seat table's outermost mat past the
-        // rail. The near edge sits at `min.y`, whose depth is
-        // `eye·(1 + k·g_top) − k·span.y` once the far edge is pinned, and
-        // that is linear in `eye` too, so requiring the span to fit *there*
-        // is still one division rather than a search.
         let g_top = ground(top);
+        let g_bottom = ground(bottom);
+        let deep = span.y / (g_top - g_bottom).max(1e-3);
+        // Horizontally, every corner is asked, and each one asks about its own
+        // depth. A perspective camera sees less of the felt where the felt is
+        // closer, so a mat at the near edge needs more room than the same mat
+        // across the table — and the corners of the *box* are not on the
+        // table at all, they are the bare felt a ring leaves in its corners.
+        // Fitting the box is what left a three-seat shot filling 86% of the
+        // width it was given and 81% of the height, binding on neither.
+        //
+        // With the look point centred (below), a corner's depth is
+        // `eye·(1 + k·ḡ) + k·(y − ȳ)` — linear in `eye`, which is what keeps
+        // this arithmetic. Two corners fit together when the near band holds
+        // both, so each *pair* gives a division and the widest pair wins.
+        let mean = f32::midpoint(g_top, g_bottom);
+        let middle = f32::midpoint(min.y, max.y);
         let k = CAMERA_LEAN / (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
-        let wide = k.mul_add(
-            span.y,
-            span.x / (half_fov().tan() * aspect * (1.0 + right)).max(1e-3),
-        ) / k.mul_add(g_top, 1.0);
+        let scale = (half_fov().tan() * aspect).max(1e-3);
+        let carry = k.mul_add(mean, 1.0);
+        let corners = layout.corners(AIR);
+        let mut wide: f32 = 0.0;
+        for a in &corners {
+            for b in &corners {
+                // `a` against the right edge of the band and `b` against the
+                // left: the room the two of them need between them, less what
+                // their own depths already give, over what a unit of eye buys.
+                let held = right * k * (a.y - middle) + k * (b.y - middle);
+                wide = wide.max(((a.x - b.x) / scale - held) / (carry * (1.0 + right)));
+            }
+        }
         // Clamped *before* the look point is derived from it. Aiming for a
         // camera the clamp then moves is the one way this can put the table
         // off screen while every number above is still right: the far edge
@@ -299,22 +315,40 @@ impl CameraRig {
             .max(wide)
             .clamp(Self::MIN_DISTANCE * lean, Self::MAX_DISTANCE * lean);
 
-        // The far edge is pinned under the tab strip. Any slack a wide table
-        // bought then opens up at the *bottom*, in front of the local seat,
-        // which is where a player would rather have it than behind the
-        // opponent they are looking at.
+        // The table is **centred** in the band, on both axes. Whichever of
+        // the two fits binds, the slack the other one has left over is split
+        // evenly instead of being pushed to one edge: the far edge used to be
+        // pinned under the tab strip and every spare unit opened up in front
+        // of the local seat, which on a duel was a fifth of the window of
+        // bare felt below the mats and the whole table riding high.
+        //
+        // Where a centred look point may stand is an interval — far enough
+        // back that the far edge clears `top`, far enough forward that the
+        // near edge clears `bottom` — and the middle of it is the shot. A
+        // table too big for `MAX_DISTANCE` has no such interval, and there
+        // the far edge is pinned again and the overflow goes out of the
+        // bottom, which is the graceful direction: a mat behind the tab strip
+        // is a mat nobody can see, and one under the hand bar is one the
+        // player can pull into view.
         //
         // Sideways the span is centred in the band as it stands at the near
-        // edge, for the same reason `wide` was measured there: centring on
-        // the look plane's band leaves the front row off-centre, and the rail
+        // edge, for the same reason `wide` is measured there: centring on the
+        // look plane's band leaves the front row off-centre, and the rail
         // makes the band asymmetric, so being off-centre costs a whole mat on
         // one side.
-        let near = k.mul_add(-span.y, eye * k.mul_add(g_top, 1.0)).max(1e-3);
-        let half_band = near * half_fov().tan() * aspect;
-        let look = Vec2::new(
-            (min.x + max.x).mul_add(0.5, -(half_band * (right - 1.0) * 0.5)),
-            max.y - eye * g_top,
-        );
+        let pinned = max.y - eye * g_top;
+        let forward = min.y - eye * g_bottom;
+        let along = pinned.max(f32::midpoint(pinned, forward));
+        // And sideways, the same interval read off the corners themselves:
+        // as far right as the leftmost corner allows, as far left as the
+        // rightmost one does, and the middle of that.
+        let (mut left, mut right_most) = (f32::NEG_INFINITY, f32::INFINITY);
+        for c in &corners {
+            let band = (eye + k * (c.y - along)).max(1e-3) * scale;
+            left = left.max(c.x - right * band);
+            right_most = right_most.min(c.x + band);
+        }
+        let look = Vec2::new(f32::midpoint(left, right_most), along);
         Self {
             // `ground` works from the eye's true distance; the rig stores the
             // height it stands at, which the lean makes shorter.
@@ -2122,6 +2156,70 @@ mod camera_tests {
             }
         }
         out
+    }
+
+    /// The shot is as close as the free band allows.
+    ///
+    /// A camera that fits the table with room to spare on *both* axes is a
+    /// camera that could have come in, and every card at the table is drawn
+    /// smaller for the felt around it. This used to be the case at every seat
+    /// count: the fit measured the corners of the box around the table, and
+    /// on a ring those corners are bare felt — at three seats it filled 86%
+    /// of the width it was given and 81% of the height, binding on neither.
+    #[test]
+    fn the_shot_is_as_close_as_the_band_allows() {
+        let canvas = Canvas::hud(WINDOW);
+        let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
+        let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
+        let right = 1.0 - 2.0 * canvas.right / canvas.window.x;
+        for n in 2..=8u8 {
+            let layout = TableLayout::new(&seats(n), 2.01, None);
+            let rig = CameraRig::home(&layout, canvas);
+            let (mut lo, mut hi) = (Vec2::splat(f32::INFINITY), Vec2::splat(f32::NEG_INFINITY));
+            for corner in places(&layout) {
+                let at = project(rig, canvas, corner);
+                lo = lo.min(at);
+                hi = hi.max(at);
+            }
+            let across = (hi.x - lo.x) / (right + 1.0);
+            let along = (hi.y - lo.y) / (top - bottom);
+            assert!(
+                across.max(along) > 0.93,
+                "{n} seats fills {:.0}% of the band across and {:.0}% along it, \
+                 so the camera could have come in",
+                across * 100.0,
+                along * 100.0
+            );
+        }
+    }
+
+    /// And what is left over is left over on both sides of it.
+    ///
+    /// The far edge used to be pinned under the tab strip and every spare
+    /// unit opened up in front of the local seat — on a duel a fifth of the
+    /// window of bare felt below the mats, with the whole table riding high.
+    /// Measured in table units rather than on screen, because perspective
+    /// makes the same span of felt a different height at each end.
+    #[test]
+    fn the_table_sits_in_the_middle_of_what_can_be_seen() {
+        let canvas = Canvas::hud(WINDOW);
+        let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
+        let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
+        for n in 2..=8u8 {
+            let layout = TableLayout::new(&seats(n), 2.01, None);
+            let rig = CameraRig::home(&layout, canvas);
+            let (min, max) = layout.extent().expect("a seated table has an extent");
+            let eye = rig.distance * (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+            // The rig stores world x/z; `+y` away from the local seat is `-z`.
+            let along = -rig.target.y;
+            let behind = eye * ground(top) - (max.y - along);
+            let ahead = (min.y - along) - eye * ground(bottom);
+            assert!(
+                (behind - ahead).abs() < 0.1,
+                "{n} seats: {behind:.2} units of felt behind the far seat \
+                 against {ahead:.2} in front of the near one"
+            );
+        }
     }
 
     /// The bug this whole framing exists for: the table shipped with a

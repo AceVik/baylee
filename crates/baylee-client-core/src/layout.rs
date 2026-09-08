@@ -730,19 +730,49 @@ impl TableLayout {
         }
     }
 
-    /// The rectangle every seat's ground and every seat's piles fit inside,
-    /// in table space, as `(min, max)`. `None` for a table with no seats.
-    ///
-    /// A pod's box is measured in its *own* frame — a seat on the left plays
-    /// across the table, not along it — so each one is rotated by its
-    /// `facing` before it is taken in. Without that a four-seat table reports
-    /// itself a third narrower than it is, and the camera framed from it cuts
-    /// the side seats' lands off at the screen edge.
+    /// Every corner of every seat's whole place — ground and piles — in table
+    /// space, each grown by `air` on all four sides.
     ///
     /// The box is [`SeatSlot::footprint`] rather than `half_extent`, because
     /// this is what the camera frames and the piles have to be inside it.
     /// They stand outside the playing surface by design, so framing the
     /// playing surface alone would put every graveyard off the screen.
+    ///
+    /// This and [`extent`](Self::extent) are the same measurement at two
+    /// tightnesses, and the difference is a shot. Seats sit on a ring, so the
+    /// corners of the *box around them* are bare felt — at three seats the
+    /// two that matter are a good four units outside anything anybody plays
+    /// on — and a camera that frames the box frames that felt too. It filled
+    /// 86% of the width it was given and 81% of the height, binding on
+    /// neither.
+    #[must_use]
+    pub fn corners(&self, air: f32) -> Vec<Vec2> {
+        let mut out = Vec::with_capacity(self.slots.len() * 4);
+        for slot in &self.slots {
+            let (sin, cos) = slot.facing.sin_cos();
+            let half = slot.footprint() + Vec2::splat(air);
+            for sx in [-1.0_f32, 1.0] {
+                for sy in [-1.0_f32, 1.0] {
+                    let local = half * Vec2::new(sx, sy);
+                    out.push(
+                        slot.center
+                            + Vec2::new(
+                                cos.mul_add(local.x, sin * local.y),
+                                (-sin).mul_add(local.x, cos * local.y),
+                            ),
+                    );
+                }
+            }
+        }
+        out
+    }
+
+    /// The rectangle every seat's ground and every seat's piles fit inside,
+    /// in table space, as `(min, max)`. `None` for a table with no seats.
+    ///
+    /// A pod's box is measured in its *own* frame — a seat on the left plays
+    /// across the table, not along it — so each one is rotated by its
+    /// `facing` before it is taken in.
     #[must_use]
     pub fn extent(&self) -> Option<(Vec2, Vec2)> {
         let mut bounds: Option<(Vec2, Vec2)> = None;

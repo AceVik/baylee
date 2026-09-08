@@ -435,3 +435,27 @@ about the table itself rather than the rules, and both are fixed.
     sat in the top half of the window, and the bottom half was bare felt.
     The busiest side's party divides the width now, and the team test asserts
     the span's shape as well as the seating.
+
+33. **The shot framed the box around the table, not the table.** *Fixed.*
+    Seats sit on a ring, so the corners of the rectangle around them are bare
+    felt — at three seats the two that matter are a good four units outside
+    anything anybody plays on — and the camera fitted those. It filled 86% of
+    the width it was given and 81% of the height, binding on neither, which
+    is a camera that could have come in and did not. Every card at the table
+    was drawn smaller for felt nobody uses.
+
+    `TableLayout::corners` is `extent` at the other tightness, and the
+    horizontal fit asks each corner about its own depth — a mat at the near
+    edge needs more room than the same mat across the table. Every pair of
+    corners gives one division and the widest wins, so it is still arithmetic
+    rather than a search. Measured at the duel HUD's aspect: three seats
+    30.7 → 27.8 units of camera distance, five 44.1 → 41.1, eight 41.3 →
+    39.2, and the width now fills 95–97%.
+
+    And the table is **centred** in the band on both axes. The far edge used
+    to be pinned under the tab strip with every spare unit opening up in
+    front of the local seat: on a duel that was a fifth of the window of bare
+    felt below the mats and the whole table riding high. A table too big for
+    `MAX_DISTANCE` still pins the far edge, because a mat behind the tab strip
+    is one nobody can see and a mat under the hand bar is one the player can
+    pull into view.
