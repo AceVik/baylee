@@ -51,7 +51,10 @@ const WIDEST: f32 = 4.0;
 /// Slow, and it has to be: a dawn takes two hours of the player's clock, so
 /// the only time this rate is visible at all is the moment a player changes
 /// the setting in `settingsui` — and that moment is now the one this number
-/// is chosen for. At 2.5 the crossfade was over inside a second and a half,
+/// is chosen for. That sentence is only true because [`hang_sky`] seeds the
+/// sky at the hour it is; a sky that started at noon would spend these six
+/// seconds every launch after dark correcting itself in front of the player.
+/// At 2.5 the crossfade was over inside a second and a half,
 /// which reads as a cut with a smear on it. At 0.55 it takes about six
 /// seconds: long enough that a player watches the stars come out over the
 /// table rather than finding that they have, and short enough that nobody
@@ -114,10 +117,19 @@ pub struct Sky {
 /// the same command batch that creates the parent works, and reads as if the
 /// order were an accident. This runs after, sees the camera, and is a no-op
 /// on every frame after the first.
+///
+/// It reads the clock itself rather than leaving that to [`sync_sky`],
+/// because the two would then disagree for six seconds. A sky hung at full
+/// day and left to ease towards the truth means a player opening the game at
+/// eleven at night watches a sunset they did not ask for — and a picture that
+/// visibly corrects itself on launch reads as a bug, not as weather.
+/// [`FADE_RATE`] is for a change of *setting*, and on the first frame there
+/// is nothing to change from.
 pub fn hang_sky(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<SkyMaterial>>,
+    prefs: Res<crate::prefs::Prefs>,
     cameras: Query<Entity, With<crate::table::TableCamera>>,
     hung: Query<(), With<Sky>>,
 ) {
@@ -132,19 +144,18 @@ pub fn hang_sky(
     // `WIDEST` sideways.
     let half = SKY_DISTANCE * (crate::table::FOV * 0.5).tan();
     let quad = meshes.add(Rectangle::new(half * 2.0 * WIDEST, half * 2.0));
+    // The hour it actually is, at the setting the player actually keeps —
+    // the same call `sync_sky` makes every frame, made once here so the first
+    // frame is already right.
+    let start = baylee_client_core::sky::phase(prefs.all().sky, local_hour());
     let sky = commands
         .spawn((
-            Sky {
-                shown: SkyPhase {
-                    day: 1.0,
-                    glow: 0.0,
-                },
-            },
+            Sky { shown: start },
             Mesh3d(quad),
             MeshMaterial3d(materials.add(SkyMaterial {
                 params: SkyParams {
-                    day: 1.0,
-                    glow: 0.0,
+                    day: start.day,
+                    glow: start.glow,
                     motion: crate::cardmat::MOVING,
                     pad: 0.0,
                 },

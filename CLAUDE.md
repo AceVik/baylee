@@ -590,12 +590,16 @@ socket that could not be opened.
 A card is a **slab**, not a decal: a rounded face with a thin wall around its
 edge (whose UVs borrow the face's, so the edge is the card's own border
 colour) and a contact-shadow child under it. Neither reads at a camera exactly
-overhead, which is what `table::CAMERA_LEAN` is for — about 14° off vertical,
+overhead, which is what `table::CAMERA_LEAN` is for — about 15° off vertical,
 enough for both. It was 22°, and a lean is paid for by the seat furthest from
 the camera and collected by the seat nearest it, which is always the player's
 own: three boards laid out at the same 12.0 units were drawn 450, 381 and 378
 pixels wide. Halving the lean and `FOV` together brings that to 6.3%, and
-`every_seat_is_drawn_a_board_of_the_same_width` holds it there.
+`every_seat_is_drawn_a_board_of_the_same_width` holds it there — which is
+also the ceiling on the angle. 0.27 is a third position after 0.40 and 0.24,
+taken back because the flat shot drew the table's own wall as a line; 0.30
+spreads the boards 8.1% and fails that test, so the equal widths and the
+angle are traded against each other and the widths win.
 
 The 3D table under the cards is **generated, not shipped**: no sprite, no
 photograph, no downloaded texture anywhere on it.

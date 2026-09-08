@@ -683,13 +683,26 @@ about the table itself rather than the rules, and both are fixed.
     only surface at this table no card is ever laid on, which is the property
     the resin channel was chosen for in the first place.
 
-    And the slab is cut as a **racetrack**, which is not only what a gaming
-    table looks like. The camera frames the layout plus `AIR` and the slab is
-    cut to the layout plus `SLAB_MARGIN`, so a rectangle fills the window edge
-    to edge — the corners the oval gives up are the only part of the screen
-    anything *behind* the table can be seen through, which is what entry 43
-    needed. `the_table_stops_before_the_window_does` measures exactly that,
+    And the slab does not reach the edges of the window. The camera frames the
+    layout plus `AIR` and the slab is cut to the layout plus `SLAB_MARGIN`, so
+    there is a band of something-else all the way round, which is what entry
+    43 needed. `the_table_stops_before_the_window_does` measures exactly that,
     against the window and not against itself.
+
+    **The corner and the rail were then both too much**, and the owner said
+    so: "the table should have less border corner and the table border is way
+    too thick". `table_corner` was `span.min_element() * 0.42` — a racetrack,
+    chosen back when the *corners* were the only place a sky could show
+    through, and made pointless the moment `AIR` opened a band round the whole
+    slab. It is `* 0.16` now, which is a table's corner rather than an oval's
+    end. `RAIL_WIDTH` went 2.0 → 1.6 → 0.9 over the same two passes: the rail
+    is padded leather round a playing surface, and at 1.6 it was reading as
+    the frame of a painting. `a_table_has_a_corner_and_not_a_chamfer` bounds
+    the corner from both sides — under 0.08 of the short span it is a bevel,
+    over 0.28 it is a racetrack again — and checks that the arc still sags
+    clear of its own chord by more than the rail is wide, because a rail that
+    follows a straight line round the bend is a chamfer whatever the radius
+    says.
 
 43. **"Day and night, with clouds and a sun, then stars and a crescent moon —
     both with animated shaders and glow."** *Built, and it needed the table to
@@ -804,3 +817,18 @@ about the table itself rather than the rules, and both are fixed.
     a cloud deck chosen so that a player reading a card never catches it
     moving had succeeded completely — the sky now moves 8/5/2 per pixel over
     three seconds while the felt beside it moves 0/0/0.
+
+    That measurement is also what found the fade's one wrong audience.
+    `hang_sky` seeded the sky at full day and left `sync_sky` to ease it
+    towards the truth, so the six seconds were being spent on *every launch
+    after dark* — a player opening the game at eleven at night watched a
+    sunset nobody had asked for, which reads as a picture correcting itself
+    rather than as weather. The sky is hung at the hour it is now, and the
+    rate is what it was chosen for: a change the player makes.
+
+    Measured at 22:00 UTC, screenshotting from the moment the table first
+    draws: the sky reads `(14.5, 15.6, 29.5)` on the earliest frame there is
+    one — frame 31, half a second after launch — and has not moved a tenth of
+    a channel a hundred frames later. The counter-test is the same patch with
+    `sky` pinned to `day`: `(100.1, 152.9, 208.9)`, seven times the blue.
+    That is what the first half-second used to be.
