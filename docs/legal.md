@@ -15,7 +15,12 @@ Urheber- und Medienrecht.
    assets.
 3. **Scryfall:** honor rate limits (≤ 10 req/s), cache card images
    (encouraged by their terms), "data and images provided by Scryfall"
-   attribution in clients. No card images are committed to the repo.
+   attribution in clients. No card images are committed to the repo — and
+   that includes the **card back**, which is fetched from Scryfall's own
+   shelf for it (`backs.scryfall.io`) exactly like a printing's front rather
+   than shipped as an asset. It is the same rule and it is worth spelling
+   out, because the back is the one card image a client would be tempted to
+   bundle: it never changes and every game needs it.
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint; no tracking. As a private, GitHub-hosted open-source project
    no Impressum is required (no commercial/public telemedia service).

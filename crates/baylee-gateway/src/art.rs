@@ -43,6 +43,12 @@ use crate::Shared;
 /// Where the originals come from.
 const ORIGIN: &str = "https://cards.scryfall.io";
 
+/// Where the printed card back comes from.
+///
+/// Its own host at the origin, and one shelf with no faces on it: a back
+/// belongs to no printing, so there is no front to put beside it.
+const BACKS_ORIGIN: &str = "https://backs.scryfall.io";
+
 /// The smallest gap between two requests leaving for Scryfall.
 ///
 /// `docs/legal.md` §3: no more than ten requests a second. One gateway holds
@@ -64,8 +70,18 @@ const MAX_AGE: &str = "public, max-age=31536000, immutable";
 /// see; `docs/protocol.md` §"Card art" is where the two are held to agree.
 const SIZES: [&str; 3] = ["small", "normal", "art_crop"];
 
-/// The faces, likewise.
-const FACES: [&str; 2] = ["front", "back"];
+/// The faces, likewise — plus the shelf the card back stands on.
+///
+/// `backs` is not a face and is in this list because the middle segment of
+/// the route has to say *something*: the client's
+/// `baylee_client_core::images::BACKS_SEGMENT` is the other half of that, and
+/// `docs/protocol.md` §"Card art" is where the two are held to agree. It is
+/// not `back`, which is the second side of a double-faced printing and comes
+/// off the ordinary shelf.
+const FACES: [&str; 3] = ["front", "back", BACKS_FACE];
+
+/// The middle segment that names the card back's shelf.
+const BACKS_FACE: &str = "backs";
 
 /// A disk mirror of the printing images this gateway's games use.
 pub struct ArtCache {
@@ -225,7 +241,13 @@ impl ArtCache {
 /// each side tests its half against what is written there. Written inline the
 /// first time, it lost the `.jpg` and would have 404ed every image.
 fn origin_url(size: &str, face: &str, id: &str) -> String {
-    format!("{ORIGIN}/{size}/{face}/{}/{}/{id}.jpg", &id[..1], &id[1..2])
+    let (a, b) = (&id[..1], &id[1..2]);
+    // The back's shelf has no face segment in it, which is the whole reason
+    // the mirror needs a name for the shelf at all.
+    if face == BACKS_FACE {
+        return format!("{BACKS_ORIGIN}/{size}/{a}/{b}/{id}.jpg");
+    }
+    format!("{ORIGIN}/{size}/{face}/{a}/{b}/{id}.jpg")
 }
 
 /// Why the origin did not hand over an image.
@@ -346,6 +368,29 @@ mod tests {
         assert_eq!(
             cache.path("small", "front", id).expect("enabled"),
             PathBuf::from("/tmp/art/small/front").join(id)
+        );
+    }
+
+    /// The card back is the one image whose origin is not the printing shelf:
+    /// Scryfall keeps backs on their own host, addressed by size and id with
+    /// no face between them. The mirror still needs a name for that shelf,
+    /// because its own route has a segment there — so `backs` goes in where a
+    /// face would, and is translated away here.
+    #[test]
+    fn the_card_back_is_fetched_from_the_shelf_backs_stand_on() {
+        let id = "0aeebaf5-8c7d-4636-9e82-8c27447861f7";
+        assert_eq!(
+            origin_url("normal", BACKS_FACE, id),
+            "https://backs.scryfall.io/normal/0/a/0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg"
+        );
+        // And `back` is still a printing's second side, on the ordinary shelf.
+        assert!(origin_url("normal", "back", id).starts_with(ORIGIN));
+        // It is cached beside the printings, under the name it was asked for,
+        // so nothing about the disk layout is special either.
+        let cache = ArtCache::new(Some(PathBuf::from("/tmp/art")));
+        assert_eq!(
+            cache.path("normal", BACKS_FACE, id).expect("enabled"),
+            PathBuf::from("/tmp/art/normal/backs").join(id)
         );
     }
 

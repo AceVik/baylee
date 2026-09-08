@@ -105,6 +105,12 @@ pub enum ImageSource {
     Print(PrintRef),
     /// A token, by its stable id in the compiled card registry's token list.
     Token(u16),
+    /// The printed back every card in the game shares.
+    ///
+    /// It carries nothing because there is nothing to carry: one back, one
+    /// picture, drawn for every library, every face-down permanent and every
+    /// card this seat is not entitled to see.
+    Back,
 }
 
 /// A compact, copyable cache key.
@@ -145,17 +151,30 @@ impl ImageKey {
         }
     }
 
+    /// Builds a key for the printed card back.
+    ///
+    /// Always the front: the back of a card has no back of its own.
+    #[must_use]
+    pub const fn card_back(size: ArtSize) -> Self {
+        Self {
+            source: ImageSource::Back,
+            face: Face::Front,
+            size,
+        }
+    }
+
     /// The printing this key names, if it names one.
     ///
     /// A token answers `None`, which is the right answer to every question
     /// the print table can be asked about it — its finish, whether this seat
     /// has earned it, whether it is worth preloading. A token is public, has
-    /// no finish and is in no deck.
+    /// no finish and is in no deck. So is the back, for the same three
+    /// reasons.
     #[must_use]
     pub const fn printing(self) -> Option<PrintRef> {
         match self.source {
             ImageSource::Print(print) => Some(print),
-            ImageSource::Token(_) => None,
+            ImageSource::Token(_) | ImageSource::Back => None,
         }
     }
 
@@ -210,6 +229,31 @@ pub struct ImageRequest {
 /// has to call the Scryfall API to render a board — which also means no rate
 /// limit applies to gameplay.
 pub const SCRYFALL_CDN: &str = "https://cards.scryfall.io";
+
+/// Base URL of the shelf Scryfall keeps *card backs* on.
+///
+/// A second host rather than a face of some printing, because that is what it
+/// is: the back is one picture belonging to no card in particular, and
+/// Scryfall serves it with no face segment in the path.
+pub const SCRYFALL_BACKS_CDN: &str = "https://backs.scryfall.io";
+
+/// Scryfall's id for the printed Magic card back.
+///
+/// The one their API hands back as `card_back_id` for every ordinary card.
+/// Drawing the real thing rather than something of ours is deliberate:
+/// `docs/legal.md` §3 lets this client *fetch and cache* card images and
+/// commit none of them, and a back that has to be fetched to be seen is a
+/// back that is never in the repository.
+pub const CARD_BACK_ID: &str = "0aeebaf5-8c7d-4636-9e82-8c27447861f7";
+
+/// The name the back's shelf goes by in the *mirror's* paths.
+///
+/// The gateway's route is `/art/{size}/{face}/{a}/{b}/{id}.jpg`, and a back
+/// has no face to put in the middle — so the middle says which shelf instead.
+/// Not one of [`Face`]'s two spellings on purpose: `back` there is the second
+/// side of a double-faced card, which is a printing like any other and comes
+/// off the ordinary shelf.
+pub const BACKS_SEGMENT: &str = "backs";
 
 /// Where card art is actually fetched from, when it is not the CDN.
 ///
@@ -293,6 +337,31 @@ pub fn art_url_at(base: &str, id: &str, face: Face, size: ArtSize) -> Option<Str
     ))
 }
 
+/// The URL of the printed card back, against the base in force.
+#[must_use]
+pub fn back_url(size: ArtSize) -> String {
+    back_url_at(art_base(), size)
+}
+
+/// The same, against a named base.
+///
+/// The two shapes differ, and they have to: Scryfall keeps backs on their own
+/// host with no face segment, while the gateway's mirror is one route whose
+/// middle segment names the shelf ([`BACKS_SEGMENT`]). Everything else — the
+/// size, the two sharded directories, the `.jpg` — is identical, so a mirror
+/// stores the back beside the printings rather than in a scheme of its own.
+#[must_use]
+pub fn back_url_at(base: &str, size: ArtSize) -> String {
+    let id = CARD_BACK_ID;
+    let (a, b) = (&id[..1], &id[1..2]);
+    let size = size.path_segment();
+    if base == SCRYFALL_CDN {
+        format!("{SCRYFALL_BACKS_CDN}/{size}/{a}/{b}/{id}.jpg")
+    } else {
+        format!("{base}/{size}/{BACKS_SEGMENT}/{a}/{b}/{id}.jpg")
+    }
+}
+
 /// Resolves a key against the game's print table into a fetchable request.
 ///
 /// `token_art` answers a token id with the Scryfall id of the printed token
@@ -324,6 +393,14 @@ pub fn resolve(
         ImageSource::Token(id) => Some(ImageRequest {
             key,
             url: art_url_at(art_base(), token_art(id)?, key.face, key.size)?,
+            treatment: FinishTreatment::Plain,
+        }),
+        // The back needs no table to be looked up in and can never fail to
+        // resolve: it is one known id, and the only card in the game that is
+        // the same picture for everybody.
+        ImageSource::Back => Some(ImageRequest {
+            key,
+            url: back_url(key.size),
             treatment: FinishTreatment::Plain,
         }),
     }
@@ -572,6 +649,45 @@ mod tests {
         // which is also what makes every other test in this file independent
         // of this one.
         assert_eq!(art_base(), SCRYFALL_CDN);
+    }
+
+    /// The printed back comes off a shelf of its own, and both halves of the
+    /// path are written out for the same reason the printing's are: a test
+    /// that rebuilt the string the way the code does would agree with a wrong
+    /// one. Scryfall's own shape has no face segment in it; the mirror's has
+    /// the shelf's name where a face would be, because the gateway's route is
+    /// one route and its middle segment has to say something.
+    #[test]
+    fn the_card_back_has_its_own_shelf_on_the_cdn_and_in_a_mirror() {
+        assert_eq!(
+            back_url_at(SCRYFALL_CDN, ArtSize::Normal),
+            "https://backs.scryfall.io/normal/0/a/0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg"
+        );
+        assert_eq!(
+            back_url_at(&gateway_art_base("http://127.0.0.1:28766"), ArtSize::Normal),
+            "http://127.0.0.1:28766/art/normal/backs/0/a/\
+             0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg"
+        );
+    }
+
+    /// A back is nobody's printing, and asking the print table about one is
+    /// the mistake worth making impossible: it has no finish to read, no seat
+    /// has to earn it, and it resolves in a game whose print table is empty —
+    /// which every game's is until the first `GameStatic` arrives.
+    #[test]
+    fn the_card_back_needs_no_print_table() {
+        let key = ImageKey::card_back(ArtSize::Normal);
+        assert_eq!(key.printing(), None);
+        let empty = GameStatic {
+            prints: vec![],
+            ..statics()
+        };
+        let req = resolve(&empty, key, no_token_art).expect("resolves");
+        assert_eq!(req.treatment, FinishTreatment::Plain);
+        assert!(
+            req.url
+                .ends_with("0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg")
+        );
     }
 
     #[test]

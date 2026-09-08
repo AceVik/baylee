@@ -84,6 +84,23 @@ pub enum Failure {
 /// without costing a missing printing more than three requests in a game.
 const LOAD_TRIES: u8 = 3;
 
+/// The size the printed card back is fetched at.
+///
+/// One size for every use of it — the table, the hand bar, the zone browser —
+/// because there is one back and it is the same picture at every scale a card
+/// is ever drawn. `Normal` is a whole card at 488×680, which is what the
+/// front of a card is drawn from too.
+const BACK_SIZE: ArtSize = ArtSize::Normal;
+
+/// The key the printed card back is held under.
+///
+/// Deliberately in the ordinary cache: arrival, failure and the retry sweep
+/// are the same machinery every other picture goes through, and the back
+/// failing to arrive is exactly as ordinary as a printing failing to. It is
+/// kept out of the *budget*, though — it is on screen whenever anything is,
+/// so it is the one texture that must never be evicted.
+const BACK_KEY: ImageKey = ImageKey::card_back(BACK_SIZE);
+
 /// How long a failed fetch is left alone before being tried again.
 ///
 /// Long enough that a network that is down stays cheap, short enough that a
@@ -253,10 +270,55 @@ impl CardTextures {
         self.epoch
     }
 
-    /// The placeholder texture.
+    /// What the back of a card looks like.
+    ///
+    /// Two answers, and which one comes out matters more than it sounds. The
+    /// printed back is a picture like every other, fetched from Scryfall's
+    /// own shelf for it (`docs/legal.md` §3: fetched and cached, never
+    /// committed) — so for the first moments of a game it is not here yet,
+    /// and a material bound to a texture whose bytes have not arrived does
+    /// not prepare at all, which draws *no card*. Until it lands, the flat
+    /// colour stands in.
     #[must_use]
     pub fn card_back(&self) -> Handle<Image> {
-        self.card_back.clone()
+        match self.handles.get(&BACK_KEY) {
+            Some(handle) if self.arrived.contains(&BACK_KEY) => handle.clone(),
+            _ => self.card_back.clone(),
+        }
+    }
+
+    /// Whether [`Self::card_back`] is the printed back yet.
+    #[must_use]
+    pub fn card_back_is_printed(&self) -> bool {
+        self.arrived.contains(&BACK_KEY)
+    }
+
+    /// Starts the one fetch this cache makes without being asked.
+    ///
+    /// Everything else here is pulled by something on screen; the back is
+    /// pushed, because the things that wear it — a library, a face-down
+    /// permanent, a card in a zone this seat may not read — draw it through a
+    /// material rather than through a key, and none of them would ever ask.
+    ///
+    /// It goes into the ordinary `handles` map so that arrival, failure and
+    /// the retry sweep all treat it like any other picture. It needs no print
+    /// table to resolve, which is why this does not go through
+    /// [`Self::get`]: the back belongs to no printing.
+    pub fn load_card_back(&mut self, assets: &AssetServer) {
+        if self.handles.contains_key(&BACK_KEY) {
+            return;
+        }
+        self.hold_card_back(assets.load(baylee_client_core::images::back_url(BACK_SIZE)));
+    }
+
+    /// Where the back is kept, which is the whole of the policy: in the
+    /// ordinary map, so arrival, failure and the retry sweep treat it like
+    /// any other picture — and in no budget, so nothing can evict the one
+    /// texture that is on screen whenever anything is. Split from the fetch
+    /// above so a test can exercise it without a network.
+    fn hold_card_back(&mut self, handle: Handle<Image>) {
+        self.handles.insert(BACK_KEY, handle);
+        self.issued += 1;
     }
 
     /// Bytes currently accounted for.
@@ -349,6 +411,15 @@ impl CardTextures {
             ArtSize::Small
         }
     }
+}
+
+/// Keeps the printed card back fetched.
+///
+/// Every frame rather than once at startup, because the retry sweep drops a
+/// handle to re-fetch it and something has to ask again — the same reason
+/// [`CardTextures::get`] is what re-issues a printing.
+pub fn load_the_card_back(mut textures: ResMut<CardTextures>, assets: Res<AssetServer>) {
+    textures.load_card_back(&assets);
 }
 
 /// Notes which loads have finished and which have failed, so the renderer
@@ -582,6 +653,52 @@ fn solid_texture(rgba: [u8; 4]) -> Image {
 mod tests {
     use super::*;
     use baylee_client_core::images::ArtSize;
+
+    /// The back of a card is a fetched picture like every other one, and the
+    /// order of the two answers is what keeps a face-down card on the table:
+    /// a material bound to a texture whose bytes have not arrived does not
+    /// prepare at all, so handing out the printed handle early would draw no
+    /// card rather than an early one.
+    ///
+    /// The handle goes in by hand rather than through
+    /// [`CardTextures::load_card_back`], which would issue a real request —
+    /// this suite reaches no network.
+    #[test]
+    fn the_card_back_is_a_flat_colour_until_the_printed_one_has_arrived() {
+        let mut images = Assets::<Image>::default();
+        let mut textures = CardTextures::new(&mut images, default_budget_bytes());
+        let flat = textures.card_back();
+        assert!(!textures.card_back_is_printed());
+
+        let printed = images.add(solid_texture([1, 2, 3, 255]));
+        textures.hold_card_back(printed.clone());
+        assert_eq!(
+            textures.card_back(),
+            flat,
+            "asked for is not arrived, and a card drawn from bytes that are \
+             not here is a card not drawn"
+        );
+
+        textures.mark_arrived(BACK_KEY);
+        assert!(textures.card_back_is_printed());
+        assert_eq!(textures.card_back(), printed);
+    }
+
+    /// It is on screen whenever anything is — every library, every face-down
+    /// permanent, every card in a zone this seat may not read — so it is the
+    /// one texture the budget must never be able to evict. It is kept out of
+    /// the budget entirely rather than touched every frame, because "touched
+    /// often enough" is a race and "not in the collection" is not.
+    #[test]
+    fn the_card_back_is_not_in_the_budget() {
+        let mut images = Assets::<Image>::default();
+        let mut textures = CardTextures::new(&mut images, default_budget_bytes());
+        textures.hold_card_back(images.add(solid_texture([0; 4])));
+        assert!(
+            !textures.budget.contains(BACK_KEY),
+            "the back is in the budget, so a big enough board can evict it"
+        );
+    }
 
     #[test]
     fn the_board_asks_for_cheap_art_and_only_focus_asks_for_readable_art() {

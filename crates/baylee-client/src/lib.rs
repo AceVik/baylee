@@ -611,6 +611,7 @@ impl Plugin for DuelPlugin {
                     hud::apply_hand_scroll,
                     hud::animate_overlay,
                     textures::drive_preloads,
+                    textures::load_the_card_back,
                     textures::note_load_states,
                     textures::retry_failed_loads,
                 )

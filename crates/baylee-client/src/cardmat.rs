@@ -663,9 +663,12 @@ pub fn finish_code(finish: FinishTreatment) -> u32 {
 
 /// Builds the material for a look.
 ///
-/// `has_art` follows the *handle*, not the key: the card back is a real
-/// texture the client owns rather than a printing it fetched, so it has no
-/// `ImageKey` and still has to be sampled rather than replaced by a tint.
+/// `has_art` follows the *handle*, not the key: a card wearing the printed
+/// back is drawn from a texture that belongs to no printing, and it still has
+/// to be sampled rather than replaced by a tint. The back is fetched like any
+/// other picture and arrives late, so the material that wears it is built
+/// without one and dressed afterwards — `table::dress_in_the_back` sets both
+/// halves, and there is a test that it produces this same material.
 #[must_use]
 pub fn material(
     look: CardLook,

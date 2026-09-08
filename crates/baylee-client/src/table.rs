@@ -681,6 +681,12 @@ pub struct SceneIndex {
     /// entity, so the discarded materials do not go anywhere — they are
     /// merely rebuilt, once each, on the next frame.
     still: bool,
+    /// Whether [`Self::blank`] is wearing the printed card back yet.
+    ///
+    /// `false` until the picture has arrived, which is also the right answer
+    /// for a client that never reaches Scryfall at all: the flat colour is
+    /// what it goes on drawing.
+    back_dressed: bool,
     /// A seat's zone: the mat and the glow under it, with the mood they were
     /// last drawn in. Held here for the same reason the cards are — so a
     /// frame in which nothing changed costs a lookup and no allocation.
@@ -963,16 +969,20 @@ pub fn spawn_stage(
         unlit: true,
         ..default()
     }));
-    // The card back: no art, no finish, no glow. It is what the stack behind
-    // a counted group is made of, and what a card whose art never arrives
-    // falls back to.
+    // The card back: no finish, no glow, and no picture *yet*. It is what a
+    // library is drawn as, what the stack behind a counted group is made of,
+    // and what a card this seat may not see wears. The printed back is
+    // fetched like any other image, so `sync_scene` dresses this material in
+    // it the frame it lands; until then it is the flat colour below.
     index.blank = Some(cards.add(material(
         CardLook::flat(BACK_COLOR, FinishTreatment::Plain, 0),
         None,
         BACK_COLOR,
-        // No finish, no glow and no art: there is nothing on this material
-        // for the clock to reach, so it is exempt from the cache the two
-        // below live in and never needs remaking.
+        // No finish and no glow: the clock drives the foil sheen and a card
+        // back is plain, so there is nothing on this material for it to
+        // reach even once the picture is on it. That is why this one is
+        // exempt from the cache the two below live in, and why dressing it
+        // in the back is a change to the material rather than a new one.
         MOVING,
     )));
 
@@ -1601,6 +1611,18 @@ pub fn despawn_stage(
     index.zones.clear();
 }
 
+/// Puts the printed back on a material that was built without one.
+///
+/// Both halves or neither: `has_art` is what the shader reads to decide
+/// between sampling the picture and filling with the tint, and it follows the
+/// *handle* rather than the look — so a material given a texture and not the
+/// flag draws exactly what it drew before, which is a fault that looks like
+/// the image never arriving.
+fn dress_in_the_back(material: &mut CardMaterial, back: Handle<Image>) {
+    material.art = Some(back);
+    material.params.has_art = 1.0;
+}
+
 /// Places table-space coordinates into the world.
 ///
 /// Table space has `+y` running away from the local seat; the world has the
@@ -1778,6 +1800,22 @@ pub fn sync_scene(
     };
     let blank = index.blank.clone();
     let shadow = index.shadow_quad.clone().zip(index.shadow_material.clone());
+
+    // The back is a picture and a picture arrives late, so the one material
+    // every hidden card wears is dressed in it here rather than built with it
+    // in `spawn_stage`. In place, and that is the point: a library stack, the
+    // depth behind a counted group and a card this seat may not see all hold
+    // *this* handle, some of them spawned once and never visited again, so
+    // handing them a new material would mean finding them all. Changing the
+    // one they share turns every card over at once.
+    if !index.back_dressed
+        && textures.card_back_is_printed()
+        && let Some(handle) = blank.as_ref()
+        && let Some(mut material) = card_materials.get_mut(handle)
+    {
+        dress_in_the_back(&mut material, textures.card_back());
+        index.back_dressed = true;
+    }
 
     // Reduce-motion reaches the cards through their material, so a change to
     // it has to reach every material already made. Compared rather than
@@ -2662,6 +2700,30 @@ mod tests {
         assert!(
             up.y.abs() < 1e-4,
             "long axis should now lie across the table"
+        );
+    }
+
+    /// The material every hidden card wears is built before the printed back
+    /// has been fetched and dressed in it afterwards, in place — so what
+    /// dressing produces has to be the material the picture would have been
+    /// built into. The half that is easy to forget is `has_art`: it follows
+    /// the handle and not the look, and a material carrying the back's
+    /// texture with the flag still at zero goes on drawing the flat colour.
+    #[test]
+    fn a_dressed_back_is_the_material_the_picture_would_have_built() {
+        let picture = Handle::<Image>::default();
+        let look = CardLook::flat(BACK_COLOR, FinishTreatment::Plain, 0);
+
+        let mut dressed = material(look, None, BACK_COLOR, MOVING);
+        assert!(dressed.art.is_none() && dressed.params.has_art == 0.0);
+        dress_in_the_back(&mut dressed, picture.clone());
+
+        let built = material(look, Some(picture), BACK_COLOR, MOVING);
+        assert_eq!(dressed.art, built.art);
+        assert_eq!(
+            format!("{:?}", dressed.params),
+            format!("{:?}", built.params),
+            "dressing changed something the builder would not have"
         );
     }
 

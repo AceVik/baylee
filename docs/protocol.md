@@ -46,13 +46,24 @@ else:
 ```
 GET /art/{size}/{face}/{a}/{b}/{scryfall_id}.jpg
         │      │      └──┴── the first two characters of the id
-        │      └── front | back
+        │      └── front | back | backs
         └── small | normal | art_crop
 ```
 
 `a` and `b` are redundant — they are derivable from the id — and are
 **checked** rather than ignored, so one printing cannot end up cached under two
 names. Anything else is a 404 before a request leaves for the origin.
+
+`backs` is the one value in the middle that is not a face, and it is there
+because the route has a segment there and a card **back** has no face. It is
+the *shelf* Scryfall keeps backs on — a separate host, `backs.scryfall.io`,
+addressed by size and id with nothing between them — so the mirror translates
+`/art/normal/backs/0/a/{id}.jpg` into `https://backs.scryfall.io/normal/0/a/{id}.jpg`
+and caches it beside the printings. Note that `back` and `backs` are different
+things and both are real: `back` is the second side of a double-faced
+*printing* and comes off the ordinary shelf. The client's half is
+`baylee_client_core::images::back_url_at` and `BACKS_SEGMENT`; when it talks to
+the CDN directly it uses Scryfall's own shape and skips the segment entirely.
 
 This is the contract between `baylee_client_core::images::image_url`, which
 builds these URLs, and `baylee-gateway`'s `art.rs`, which answers them. The two
