@@ -379,15 +379,50 @@ about the table itself rather than the rules, and both are fixed.
     separating-axis bound against the neighbours that side actually has,
     instead of one number for the whole table.
 
-    Measured at the duel HUD's aspect: three seats 14.1/10.0/10.0 (the near
-    seat keeps what nobody else can use), four 10.0 throughout, five 10.0
-    throughout where it was 7.9, six 9.5 where it was 4.8, eight 5.5–6.1
-    where it was 2.0–2.7. `no_two_seats_play_on_the_same_table` is the guard:
-    a separating-axis test over every pair of footprints at every seat count
-    and four aspects, which the old width rule — a bound on the distance
+    Measured at the duel HUD's aspect: four seats 10.0 → 12.0, five 7.9 →
+    12.0, six 4.8 → 9.9, eight 2.0–2.7 → 6.4.
+    `no_two_seats_play_on_the_same_table` is the guard: a separating-axis test
+    over every pair of footprints at every seat count, four aspects and with
+    an opponent focused, which the old width rule — a bound on the distance
     between two *centres*, which says nothing about two rectangles turned to
     face different seats — failed from three seats up on a portrait canvas.
 
     The floor is the one place mats may still meet: a board is never narrower
     than one card, and a table crowded past that overlaps rather than drawing
     a mat a card does not fit on. The answer there is to seat fewer players.
+
+30. **The bound was measured along the wrong line, and the boards paid for
+    it twice.** *Fixed.* Two rectangles miss each other as soon as *some*
+    line separates them, and for two rectangles four candidates suffice —
+    each one's lane axis and each one's depth axis. What entry 29 left behind
+    tried exactly one line, the one joining the two middles, which is sound
+    and far too careful: at four seats it held every board to 10.0 when the
+    near board could have been 13.7 without coming within a unit and a half
+    of the seat on its left, whose mat lies *across* the table and takes up
+    `half_depth` of the width rather than its own. The ring then grew to buy
+    back width that was already there — 12.70 × 6.05 where 10.55 × 4.98 would
+    have done, and four units of camera distance with it.
+
+    With the right axes, four seats at the duel HUD's aspect: 10.0 units at
+    23.7 of camera distance where it was 10.0 at 27.4. That headroom is what
+    `MIN_POD_WIDTH` then spent, 10 → 12: eight cards a row for everybody up
+    to five seats, 42% of the framed span against 38%, for two units of
+    distance. Thirteen was measured too and refused — five seats is the table
+    the camera has least room for, and it would have left it at 45.8 of a
+    `MAX_DISTANCE` of 46.
+
+    One board for the whole table, too. Widths had briefly been per side,
+    each side taking what its own neighbours allowed; a table where one
+    player's ground is wider than another's is a table where the wider ground
+    is the one being played on. What is per seat now is only the focus, and
+    it borrows from the other opponents rather than from the local seat,
+    which used to drop from 10.0 to 8.5 at four seats every time a player
+    looked at somebody else.
+
+31. **Every card in the preview was drawn at half width.** *Fixed.* Entry 28's
+    sibling: shift turning any card over meant the preview always builds both
+    faces, and the two of them sat in the frame's flow as two items in a row
+    one card wide — so taffy shrank each to half of it. `Visibility::Hidden`
+    does not give a node's place back; only `Display::None` does, and a face
+    that left the layout would resize the frame halfway through the turn. Both
+    faces are absolutely positioned now, one on top of the other.

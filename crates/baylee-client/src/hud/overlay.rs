@@ -1094,9 +1094,11 @@ pub fn sync_overlay(
                     Pickable::IGNORE,
                 ))
                 .id();
-            commands
-                .entity(visual)
-                .insert((crate::flip::Side::Front, Visibility::Inherited));
+            commands.entity(visual).insert((
+                crate::flip::Side::Front,
+                Visibility::Inherited,
+                face_node(img_w, img_h),
+            ));
             commands.entity(frame).add_child(visual);
             let (art, look) = match far_face(key, two_faced(view, hovered)) {
                 Some(back) => (
@@ -1128,6 +1130,7 @@ pub fn sync_overlay(
                 // Hidden until the turn passes the quarter, where the card is
                 // edge-on and the swap cannot be seen.
                 Visibility::Hidden,
+                face_node(img_w, img_h),
             ));
             commands.entity(frame).add_child(far);
             commands.entity(tooltip).add_child(frame);
@@ -1919,6 +1922,28 @@ pub(super) const fn far_face(key: Option<ImageKey>, two_faced: bool) -> Option<I
             ..key
         }),
         _ => None,
+    }
+}
+
+/// Where one face of the preview sits inside the frame that turns it.
+///
+/// Both faces stand in the same place, one on top of the other, and that is
+/// the whole of it — but it has to be said, because a UI node laid out in its
+/// parent's flow is an *item in a row*. Two of them in a frame one card wide
+/// and taffy shrinks each to half of it: every preview in the client drew its
+/// card squeezed into the left half of the panel, with the hidden face's
+/// empty slot beside it. `Visibility::Hidden` does not give a node's place
+/// back — only `Display::None` does, and a face that left the layout would
+/// resize the frame halfway through the turn.
+pub(super) fn face_node(width: f32, height: f32) -> Node {
+    Node {
+        position_type: PositionType::Absolute,
+        left: px(0),
+        top: px(0),
+        width: px(width),
+        height: px(height),
+        overflow: Overflow::clip(),
+        ..default()
     }
 }
 

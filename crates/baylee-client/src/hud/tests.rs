@@ -251,6 +251,23 @@ mod flip {
         assert_eq!(far.size, key.size);
     }
 
+    /// The two faces are one card seen from two sides, so they stand in the
+    /// same place. Laid out in the frame's flow they were two items in a row
+    /// instead, and taffy shrank each to half the frame: the preview drew a
+    /// card squeezed into its left half with the hidden face's empty slot
+    /// beside it, on every card in the client.
+    #[test]
+    fn both_faces_of_the_preview_stand_in_the_same_place() {
+        let node = crate::hud::overlay::face_node(190.0, 265.0);
+        assert_eq!(
+            node.position_type,
+            bevy::ui::PositionType::Absolute,
+            "a face in the frame's flow is an item in a row, and two of them share the width"
+        );
+        assert_eq!(node.width, bevy::ui::Val::Px(190.0));
+        assert_eq!(node.height, bevy::ui::Val::Px(265.0));
+    }
+
     /// A card this seat may not read has no printing to ask about — and it is
     /// precisely the card whose back is the interesting side, because the
     /// back is all anyone else at the table can see of it.
