@@ -190,9 +190,21 @@ not by the order they were told, and nothing here is fixed yet.
     again, the summary key carrying the tap; untapping put them back together.
     Nothing was ever miscounted, which is exactly why the count stayed right
     while the card was gone. The collapse is gated on the row actually running
-    out of space now. Its one visible cost: playing the fourteenth land on a
-    duel's row snaps thirteen cards into one stack in a single frame, which
-    `Motion` glides.
+    out of space now. Its one visible cost is at the threshold: playing the
+    fourteenth land on a duel's row snaps thirteen cards into one stack in a
+    single frame, which `Motion` glides — and a board sitting *at* thirteen
+    flips between the two every time a token dies and comes back, which is
+    the version a player will actually notice.
+
+    The gate made `pod_width` load-bearing, and it was wrong: one number for
+    the whole table, read off the *first opponent's* row. That is only ever
+    right on a table nobody has focused, where seats divide the ring evenly.
+    Focusing an opponent widens that seat and shrinks the others — measured
+    at two seats: 14.70 units for the local pod against 23.71 for the focused
+    one — so the local board was being gated against a row half again its
+    size, and at three seats or more every unfocused pod was gated against
+    whichever seat happened to sit at ring index 1. `BoardModel::from_view`
+    takes a width *per seat* now.
 
 20. **Target selection needs a real design.** Attacking and every other
     "choose a target" step.

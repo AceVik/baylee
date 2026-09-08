@@ -637,10 +637,22 @@ impl BoardModel {
     /// Builds the render model from a view.
     ///
     /// `openings` says what the hand can do; the client marks it but never
-    /// decides legality itself. `pod_width` is the lane width available to an
-    /// opponent pod, which decides when a lane reports overflow.
+    /// decides legality itself. `lane_width` answers how much room *that
+    /// seat's* rows have, which is what decides both when a lane collapses
+    /// identical cards and when it reports overflow.
+    ///
+    /// It is a function per seat rather than one number because seats do not
+    /// get equal space: [`crate::layout::TableLayout`] always makes the local
+    /// pod the largest, and focusing an opponent widens that one at the
+    /// others' expense. One number read off the first opponent is right only
+    /// in the one case where every pod is the same size — an unfocused
+    /// table — and gates every other board against a seat it is not.
     #[must_use]
-    pub fn from_view(view: &PlayerView, openings: Openings<'_>, pod_width: f32) -> Self {
+    pub fn from_view(
+        view: &PlayerView,
+        openings: Openings<'_>,
+        lane_width: impl Fn(PlayerId) -> f32,
+    ) -> Self {
         let individual = individual_objects(view);
 
         let ring = std::iter::once(view.seat)
@@ -649,7 +661,15 @@ impl BoardModel {
 
         let pods = ring
             .iter()
-            .map(|&player| build_pod(view, player, &individual, openings.activatable, pod_width))
+            .map(|&player| {
+                build_pod(
+                    view,
+                    player,
+                    &individual,
+                    openings.activatable,
+                    lane_width(player),
+                )
+            })
             .collect();
 
         let depth_base = view.stack.len();
@@ -1089,11 +1109,11 @@ mod tests {
     const CROWDED: f32 = 2.0;
 
     fn model(view: &PlayerView) -> BoardModel {
-        BoardModel::from_view(view, Openings::none(), WIDE)
+        BoardModel::from_view(view, Openings::none(), |_| WIDE)
     }
 
     fn crowded_model(view: &PlayerView) -> BoardModel {
-        BoardModel::from_view(view, Openings::none(), CROWDED)
+        BoardModel::from_view(view, Openings::none(), |_| CROWDED)
     }
 
     #[test]
@@ -1358,7 +1378,7 @@ mod tests {
                 reachable: &HashSet::new(),
                 activatable: &HashSet::new(),
             },
-            WIDE,
+            |_| WIDE,
         );
         let names: Vec<&str> = m.hand.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(
@@ -1449,7 +1469,7 @@ mod tests {
                 b.status = ObjectStatus::TAPPED;
             }
             let view = ViewBuilder::new(2).with_battlefield(0, vec![a, b]).build();
-            let m = BoardModel::from_view(&view, Openings::none(), roomy);
+            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy);
             m.pod(PlayerId::new(0))
                 .and_then(|p| p.lane(LaneKind::Lands))
                 .expect("lane")
@@ -1470,7 +1490,7 @@ mod tests {
             let view = ViewBuilder::new(2)
                 .with_battlefield(0, (1..=n).map(forest).collect::<Vec<_>>())
                 .build();
-            let m = BoardModel::from_view(&view, Openings::none(), roomy);
+            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy);
             let lane = m
                 .pod(PlayerId::new(0))
                 .and_then(|p| p.lane(LaneKind::Lands))
@@ -1482,6 +1502,45 @@ mod tests {
     }
 
     #[test]
+    fn each_pod_is_measured_against_its_own_row() {
+        // Seats do not get equal space, so the collapse cannot be decided by
+        // one width for the whole table: the same four Soldiers are four
+        // cards on a roomy pod and one counted card on a cramped one, in the
+        // *same* board. Before this, the width was read off the first
+        // opponent and every other seat — the local one included — was gated
+        // against a row it was not standing on.
+        let squad = |seat: u8| -> Vec<PublicObject> {
+            (0..4)
+                .map(|i| token(u32::from(seat) * 10 + i, seat, "Soldier", 1, 1))
+                .collect()
+        };
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, squad(0))
+            .with_battlefield(1, squad(1))
+            .build();
+        let groups = |m: &BoardModel, seat: u8| {
+            m.pod(PlayerId::new(seat))
+                .and_then(|p| p.lane(LaneKind::Creatures))
+                .expect("lane")
+                .groups
+                .len()
+        };
+
+        let m = BoardModel::from_view(&view, Openings::none(), |p| {
+            if p == PlayerId::new(0) { WIDE } else { CROWDED }
+        });
+        assert_eq!(groups(&m, 0), 4, "the roomy pod kept its cards apart");
+        assert_eq!(groups(&m, 1), 1, "the cramped pod collapsed its own row");
+
+        // The counter-test: the widths are what decide it, not the seat.
+        let m = BoardModel::from_view(&view, Openings::none(), |p| {
+            if p == PlayerId::new(0) { CROWDED } else { WIDE }
+        });
+        assert_eq!(groups(&m, 0), 1);
+        assert_eq!(groups(&m, 1), 4);
+    }
+
+    #[test]
     fn a_narrow_pod_reports_overflow_after_grouping() {
         // Forty *distinct* permanents cannot be grouped, so a small pod has to
         // scroll rather than fan.
@@ -1489,7 +1548,7 @@ mod tests {
             .map(|i| token(i, 0, &format!("Creature {i}"), 1, 1))
             .collect();
         let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-        let m = BoardModel::from_view(&view, Openings::none(), 5.0);
+        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -1503,7 +1562,7 @@ mod tests {
         // The same forty permanents, all identical: one group, no overflow.
         let objs: Vec<PublicObject> = (0..40).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
         let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-        let m = BoardModel::from_view(&view, Openings::none(), 5.0);
+        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -1671,17 +1730,17 @@ mod tests {
             activatable: set,
         };
 
-        let lit = BoardModel::from_view(&view, openings(&both), CROWDED);
+        let lit = BoardModel::from_view(&view, openings(&both), |_| CROWDED);
         let group = &lit.pods[0].lanes[0].groups[0];
         assert_eq!(group.count(), 2, "identical permanents still merge");
         assert!(group.activatable);
 
         // One of the two cannot be tapped, so the card standing for both must
         // not claim it can — the player would click it and be told no.
-        let half = BoardModel::from_view(&view, openings(&one), CROWDED);
+        let half = BoardModel::from_view(&view, openings(&one), |_| CROWDED);
         assert!(!half.pods[0].lanes[0].groups[0].activatable);
 
-        let dark = BoardModel::from_view(&view, openings(&empty), CROWDED);
+        let dark = BoardModel::from_view(&view, openings(&empty), |_| CROWDED);
         assert!(!dark.pods[0].lanes[0].groups[0].activatable);
     }
 

@@ -299,7 +299,7 @@ impl Client {
             match message {
                 HostMessage::Static(s) => self.statics = Some(*s),
                 HostMessage::View(v) => {
-                    self.board = Some(BoardModel::from_view(&v, Openings::none(), 12.0));
+                    self.board = Some(BoardModel::from_view(&v, Openings::none(), |_| 12.0));
                     self.view = Some(*v);
                 }
                 HostMessage::Choice(p) => self.pending = Some(*p),
@@ -969,7 +969,7 @@ fn smallest_legal_pick(pending: &Pending) -> usize {
 /// (the board model) or in the zone browser (every zone the table cannot
 /// show). The client's one real claim about answering a choice about objects.
 fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids::ObjectId) -> bool {
-    let board = BoardModel::from_view(view, Openings::none(), 12.0);
+    let board = BoardModel::from_view(view, Openings::none(), |_| 12.0);
     let on_table = board
         .pods
         .iter()

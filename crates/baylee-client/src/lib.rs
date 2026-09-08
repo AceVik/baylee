@@ -1002,11 +1002,6 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
         .chain(view.opponents_in_turn_order())
         .collect();
     let layout = TableLayout::new(&seats, duel.canvas_aspect.unwrap_or(16.0 / 9.0), duel.focus);
-    let pod_width = layout
-        .slots
-        .iter()
-        .find(|s| !s.is_local)
-        .map_or(12.0, baylee_client_core::layout::SeatSlot::lane_width);
 
     duel.board = Some(BoardModel::from_view(
         view,
@@ -1015,7 +1010,16 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
             reachable: &duel.reachable,
             activatable: &duel.activatable,
         },
-        pod_width,
+        // Each pod is measured against its own row. This used to be one
+        // number taken off the first opponent, which is only ever right on a
+        // table nobody has focused: a focus widens the seat it is on and
+        // shrinks the rest, so the local board was being gated against a
+        // 23.7-unit row while standing on a 14.7-unit one.
+        |player| {
+            layout
+                .slot(player)
+                .map_or(12.0, baylee_client_core::layout::SeatSlot::lane_width)
+        },
     ));
     duel.layout = Some(layout);
 }
