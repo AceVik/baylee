@@ -139,7 +139,7 @@ pub(super) fn softkeys(
                 }
                 // Nothing to submit: a deck is saved from the bar, and
                 // closing the keyboard is what "done" means here.
-                SoftKey::Submit => keys.close(),
+                SoftKey::Submit | SoftKey::Dismiss => keys.close(),
             }
         }
         return;
@@ -186,6 +186,10 @@ pub(super) fn softkeys(
                 };
                 dispatch(&state, &mailbox, request);
             }
+            // Escape is "put the keyboard away", never "send the form": a
+            // password field that signed you in on the key you pressed to
+            // back out of it would be the worst possible reading.
+            SoftKey::Dismiss => keys.close(),
         }
     }
 }

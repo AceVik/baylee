@@ -470,6 +470,20 @@ pub fn browser_softkeys(
                 duel.browser.stop_typing();
                 keys.close();
             }
+            // Escape, arriving the long way round because the `<input>` has
+            // the focus and the canvas never sees the key. Same two steps as
+            // the native path in `browser_keys`: empty the box first, let go
+            // of it second — `clear_filter` bumps the epoch, so the next
+            // frame points the field at the emptied value rather than
+            // leaving the old letters on screen.
+            crate::softkeys::SoftKey::Dismiss => {
+                if duel.browser.filter().is_empty() {
+                    duel.browser.stop_typing();
+                    keys.close();
+                } else {
+                    duel.browser.clear_filter();
+                }
+            }
         }
     }
 }
@@ -489,18 +503,25 @@ fn browser_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &m
     if !duel.browser.is_typing() {
         return false;
     }
-    // The box still owns the keyboard where the platform does the typing —
-    // `browser_softkeys` has already read the value — but the client must not
-    // read the raw keys as well, or every character is entered twice.
-    if crate::softkeys::SoftKeyboard::owns_typing() {
-        return true;
-    }
+    // `Cancel` is read *before* the platform bail below, and that ordering is
+    // the whole of it: where the browser does the typing every raw key
+    // belongs to its `<input>`, so returning first would leave Escape doing
+    // nothing at all on a page — not emptying the box, not letting go of it,
+    // with only the soft keyboard's own action key as a way out. `fired`
+    // carries actions rather than raw keys, so reading it here cannot type a
+    // character the `<input>` has already taken.
     if fired.has(Action::Cancel) {
         if duel.browser.filter().is_empty() {
             duel.browser.stop_typing();
         } else {
-            duel.browser.set_filter("");
+            duel.browser.clear_filter();
         }
+        return true;
+    }
+    // The box still owns the keyboard where the platform does the typing —
+    // `browser_softkeys` has already read the value — but the client must not
+    // read the raw keys as well, or every character is entered twice.
+    if crate::softkeys::SoftKeyboard::owns_typing() {
         return true;
     }
     for event in typed.read() {
@@ -2157,9 +2178,17 @@ mod tests {
             .add_systems(Update, super::keyboard);
         let window = app.world_mut().spawn_empty().id();
 
-        let type_letter = |app: &mut App, c: char| {
+        // A letter is two things at once — a character for a text box and a
+        // bound action for the game — and a real press sends both, so the
+        // helper does too. Nothing here clears `ButtonInput` between frames
+        // (that is `bevy_input`'s own system, and this `App` has none), so a
+        // press has to be released by hand or every later frame sees it held.
+        let type_letter = |app: &mut App, code: KeyCode, c: char| {
+            app.world_mut()
+                .resource_mut::<ButtonInput<KeyCode>>()
+                .press(code);
             app.world_mut().write_message(KeyboardInput {
-                key_code: KeyCode::KeyM,
+                key_code: code,
                 logical_key: Key::Character(c.to_string().into()),
                 state: bevy::input::ButtonState::Pressed,
                 text: Some(c.to_string().into()),
@@ -2167,7 +2196,11 @@ mod tests {
                 window,
             });
             app.update();
+            app.world_mut()
+                .resource_mut::<ButtonInput<KeyCode>>()
+                .clear();
         };
+        let overlay = |app: &App| app.world().resource::<crate::Duel>().overlay_open;
         let filter = |app: &App| {
             app.world()
                 .resource::<crate::Duel>()
@@ -2177,15 +2210,33 @@ mod tests {
         };
 
         // An open panel is not a focused box: the letters belong to the game.
-        type_letter(&mut app, 'm');
+        // `X` is `ToggleOverlay`, so the claim is not merely that the filter
+        // stayed empty — a key that went nowhere at all would satisfy that,
+        // and a panel that swallowed the keyboard for as long as it stood
+        // open is the bug this bargain exists to prevent. The action has to
+        // have *fired*.
+        let was = overlay(&app);
+        type_letter(&mut app, KeyCode::KeyX, 'x');
         assert_eq!(filter(&app), "", "the box typed without being asked to");
+        assert_ne!(overlay(&app), was, "the open panel ate a bound key");
 
         app.world_mut()
             .resource_mut::<crate::Duel>()
             .browser
             .start_typing();
-        type_letter(&mut app, 'm');
-        type_letter(&mut app, 'o');
+        // And now the other way round: the same key is a letter, and the
+        // overlay must not move under the player's typing.
+        let was = overlay(&app);
+        type_letter(&mut app, KeyCode::KeyX, 'x');
+        assert_eq!(filter(&app), "x");
+        assert_eq!(overlay(&app), was, "typing a letter reached the game");
+
+        app.world_mut()
+            .resource_mut::<crate::Duel>()
+            .browser
+            .clear_filter();
+        type_letter(&mut app, KeyCode::KeyM, 'm');
+        type_letter(&mut app, KeyCode::KeyO, 'o');
         assert_eq!(filter(&app), "mo");
 
         app.world_mut().write_message(KeyboardInput {

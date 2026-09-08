@@ -976,6 +976,21 @@ over a tray whose scrolling and 44-pixel targets were sized for one. Where
 that path runs, `browser_keys` reads no raw keys at all, or every character
 would be entered twice.
 
+Escape is the exception, and it needs one because it cannot travel the
+ordinary road: the `<input>` is where the focus is, so the canvas never sees
+the key and `Action::Cancel` never fires. It comes back as `SoftKey::Dismiss`
+from the element's own `keydown` listener instead — which the lobby's fields
+had been missing for as long as they have existed, and where it deliberately
+means "put the keyboard away" and never "send the form": a password field that
+signed you in on the key you pressed to back out of it would be the worst
+possible reading. Emptying the box is `Browser::clear_filter` rather than
+`set_filter("")` because the platform's field holds its own copy of the text;
+bumping the epoch is how it is told to point at the emptied value instead of
+leaving the old letters on screen and putting them back on the next keystroke.
+`set_filter` also strips control characters, which `push_filter` already did —
+it is the path that needs it more, being where a whole pasted or autofilled
+value arrives.
+
 ### 2.5 Undo, and its absence
 
 There is no undo in the engine and there should not be one: a journaled,

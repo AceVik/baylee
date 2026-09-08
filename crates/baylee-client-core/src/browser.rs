@@ -259,8 +259,30 @@ impl Browser {
     }
 
     /// Narrows the list to cards whose name contains `text`.
+    ///
+    /// Control characters are dropped here for the same reason
+    /// [`Self::push_filter`] drops them, and this is the path that needs it
+    /// more: a keystroke is one character a player meant, while this is where
+    /// a whole value arrives from autofill or a paste — which is exactly
+    /// where a stray newline or tab comes from.
     pub fn set_filter(&mut self, text: impl Into<String>) {
         self.filter = text.into();
+        self.filter.retain(|c| !c.is_control());
+    }
+
+    /// Empties the box, and asks for the platform's own field to be re-seeded.
+    ///
+    /// A field the *browser* owns holds its own copy of the text, so emptying
+    /// ours behind its back would leave the old letters on screen and put
+    /// them straight back on the next keystroke. Bumping the epoch is how
+    /// `browser_softkeys` is told to point the `<input>` at the new value;
+    /// where the client does its own typing nothing reads it and the bump
+    /// costs nothing.
+    pub fn clear_filter(&mut self) {
+        self.filter.clear();
+        if self.typing {
+            self.typing_epoch += 1;
+        }
     }
 
     /// Whether the filter box has the keyboard.
@@ -972,11 +994,30 @@ mod tests {
         assert!(b.pop_filter());
         assert_eq!(b.filter(), "El");
 
+        // The same rule on the path that needs it more. A keystroke is one
+        // character a player meant; `set_filter` is a whole value arriving
+        // from autofill or a paste, which is where a newline actually comes
+        // from — and a filter holding one matches nothing at all.
+        b.set_filter("Ll\tanowar\n");
+        assert_eq!(
+            b.filter(),
+            "Llanowar",
+            "a pasted value kept its control codes"
+        );
+
         // Focusing again while already focused is not a new focus: a platform
         // input pointed at the box on every frame would fight the player for
         // the caret.
         b.start_typing();
         assert_eq!(b.typing_epoch(), focused);
+
+        // Emptying the box, on the other hand, *is* one — the platform's own
+        // field is still holding the old letters until something points it at
+        // the new value.
+        b.clear_filter();
+        assert_eq!(b.filter(), "");
+        assert!(b.typing_epoch() > focused, "the field was not re-seeded");
+        b.set_filter("El");
 
         b.stop_typing();
         assert!(!b.is_typing());

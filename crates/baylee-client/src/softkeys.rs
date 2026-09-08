@@ -24,6 +24,13 @@ pub enum SoftKey {
     Text(String),
     /// The keyboard's action key ("go", "return") was pressed.
     Submit,
+    /// Escape was pressed while the field held the keyboard.
+    ///
+    /// It has to travel this way because it cannot travel the other: the
+    /// `<input>` is where the focus is, so the canvas never sees the key and
+    /// the client's own `Action::Cancel` never fires. Without this, the only
+    /// way out of a field in a browser is the keyboard's own action key.
+    Dismiss,
 }
 
 /// The platform's text input, when it has one.
@@ -94,6 +101,8 @@ struct Element {
     input: web_sys::HtmlInputElement,
     /// Set by the `keydown` listener when the action key is pressed.
     submitted: std::rc::Rc<std::cell::Cell<bool>>,
+    /// Set by the same listener when Escape is pressed.
+    dismissed: std::rc::Rc<std::cell::Cell<bool>>,
     /// Dropping this detaches the callback, so it is kept for exactly as long
     /// as the element is.
     _keydown: wasm_bindgen::closure::Closure<dyn FnMut(web_sys::KeyboardEvent)>,
@@ -135,14 +144,27 @@ impl Inner {
                 }
             };
             let submitted = std::rc::Rc::new(std::cell::Cell::new(false));
+            let dismissed = std::rc::Rc::new(std::cell::Cell::new(false));
             let flag = std::rc::Rc::clone(&submitted);
+            let away = std::rc::Rc::clone(&dismissed);
             let keydown = wasm_bindgen::closure::Closure::<dyn FnMut(web_sys::KeyboardEvent)>::new(
                 move |event: web_sys::KeyboardEvent| {
-                    if event.key() == "Enter" {
-                        // Otherwise the browser tries to submit a form that
-                        // does not exist, which on iOS reloads the page.
-                        event.prevent_default();
-                        flag.set(true);
+                    match event.key().as_str() {
+                        "Enter" => {
+                            // Otherwise the browser tries to submit a form
+                            // that does not exist, which on iOS reloads the
+                            // page.
+                            event.prevent_default();
+                            flag.set(true);
+                        }
+                        // Some browsers answer Escape in a text field by
+                        // reverting it to the value it was opened with, which
+                        // would fight whoever reads this.
+                        "Escape" => {
+                            event.prevent_default();
+                            away.set(true);
+                        }
+                        _ => {}
                     }
                 },
             );
@@ -151,6 +173,7 @@ impl Inner {
             self.element = Some(send_wrapper::SendWrapper::new(Element {
                 input,
                 submitted,
+                dismissed,
                 _keydown: keydown,
             }));
         }
@@ -175,6 +198,7 @@ impl Inner {
         let _ = element.input.set_attribute("enterkeyhint", "go");
         element.input.set_value(value);
         element.submitted.set(false);
+        element.dismissed.set(false);
         let _ = element.input.focus();
         self.open = true;
     }
@@ -199,10 +223,13 @@ impl Inner {
         }
         // Read everything out before touching `self` again: the element is
         // borrowed from it.
-        let Some((value, submitted)) = self
-            .element()
-            .map(|e| (e.input.value(), e.submitted.replace(false)))
-        else {
+        let Some((value, submitted, dismissed)) = self.element().map(|e| {
+            (
+                e.input.value(),
+                e.submitted.replace(false),
+                e.dismissed.replace(false),
+            )
+        }) else {
             return Vec::new();
         };
         let mut out = Vec::new();
@@ -212,6 +239,11 @@ impl Inner {
         }
         if submitted {
             out.push(SoftKey::Submit);
+        }
+        // Last, and after the text: Escape means "undo what I typed and let
+        // go", so whoever handles it has to have been told what was typed.
+        if dismissed {
+            out.push(SoftKey::Dismiss);
         }
         out
     }
