@@ -657,3 +657,36 @@ about the table itself rather than the rules, and both are fixed.
     thumbnails to be recognised by picture alone. `preview_anchor` answers any
     object the view can resolve, which covers a graveyard card that is not the
     top one, an exile pile, and the cards the engine is *showing* this seat.
+
+42. **The table was a plank with a river in it.** *Replaced.* Two complaints
+    in one sentence — "the table is not nice, try a rough material and more of
+    a casino-mat green", and "give it some height, not just a flat 1 px plane"
+    — and the second is the one that says what was really wrong: the slab was
+    a `Rectangle`, a mathematical plane with a picture on it, so no camera
+    angle in the range the player can dial found an edge to it.
+
+    It is a **slab** now, in the same sense a card is: `rounded_slab_mesh`
+    builds both, a rounded top face with a wall around its edge, and the table
+    passes `(0.0, -TABLE_THICKNESS)` where a card passes
+    `(CARD_THICKNESS, 0.0)` — the body hangs below the plane everything else
+    on the stage is placed against, which is the half that would have broken
+    the board silently. Nothing lights this stage, so the wall reads as a wall
+    only because `APRON` is a *darker colour* than the rail above it. That is
+    an assertion, not a taste: `the_baize_is_a_casino_green` fails if it stops
+    being true.
+
+    The surface is casino baize inside a padded leather rail, and the epoxy
+    river is gone with the timber it ran through. What the river carried is
+    kept: the phase lamp — `phase_light` graded by the step, energy to the
+    fourth so combat blooms while a main phase stays a quiet line — runs round
+    the **rail** now, entering at the active seat's own edge. The rail is the
+    only surface at this table no card is ever laid on, which is the property
+    the resin channel was chosen for in the first place.
+
+    And the slab is cut as a **racetrack**, which is not only what a gaming
+    table looks like. The camera frames the layout plus `AIR` and the slab is
+    cut to the layout plus `SLAB_MARGIN`, so a rectangle fills the window edge
+    to edge — the corners the oval gives up are the only part of the screen
+    anything *behind* the table can be seen through, which is what entry 43
+    needed. `the_table_gives_up_its_corners_to_the_sky` measures exactly that,
+    against the window and not against itself.

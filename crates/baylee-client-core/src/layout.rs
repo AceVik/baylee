@@ -106,7 +106,7 @@ impl LaneKind {
 /// One of the four piles that stand beside a seat's ground.
 ///
 /// These are the zones that are *not* the battlefield, and they are drawn
-/// where a player would really have them: on the bare timber beside the mat
+/// where a player would really have them: on the bare table beside the mat
 /// rather than on it. A pile lying on the mat would read as a permanent in
 /// play, and whether a creature is in the graveyard or on the battlefield is
 /// the one thing about a graveyard that may never be ambiguous.
@@ -173,8 +173,8 @@ impl PileKind {
 /// How far the centre of a pile stands out past the edge of the ground it
 /// serves.
 ///
-/// Half a card, the mat's printed border, and bare timber between the two.
-/// The timber is the whole point of the number: a pile touching the mat reads
+/// Half a card, the mat printed border, and bare table between the two.
+/// The bare table is the point of the number: a pile touching the mat reads
 /// as part of the board. The border being cleared is the client's own
 /// `ZONE_MARGIN`, and `a_pile_stands_clear_of_the_mat_it_serves` over there
 /// fails if the two ever drift apart.
@@ -1279,7 +1279,7 @@ mod tests {
                 let at_ceiling =
                     layout.radius.x >= MAX_RING_X - 1e-3 || layout.radius.y >= MAX_RING_Y - 1e-3;
                 // A duel's ring never grows: two seats have nothing to be
-                // crowded by, so their mats sit against the channel and take
+                // crowded by, so their mats sit against the middle and take
                 // whatever the canvas leaves. On a square one that is under
                 // the minimum, and pushing them apart to reach it would buy
                 // width with empty table.
@@ -1529,11 +1529,11 @@ mod tests {
     }
 
     #[test]
-    fn the_middle_stays_clear_for_the_channel() {
-        // The resin channel is the negative form of this layout: it is
-        // whatever the mats leave. If the mats close in, there is no channel
-        // to draw and the medallion has nowhere to float; if they drift apart,
-        // every card is drawn smaller for the empty table between them. Both
+    fn the_middle_stays_clear_for_the_table() {
+        // The open middle is the negative form of this layout: it is whatever
+        // the mats leave. If the mats close in, the medallion has nowhere to
+        // sit and a table stops reading as a table; if they drift apart,
+        // every card is drawn smaller for the empty felt between them. Both
         // bounds, because the second is the mistake that was actually made.
         for n in 2..=8 {
             let layout = TableLayout::new(&seats(n), 2.0, None);
@@ -1552,7 +1552,7 @@ mod tests {
             // reasons the ring may stand where it does and the mats be as
             // wide as they are, so one of them has to be tight:
             //
-            // - the mats are as close to the middle as the channel allows;
+            // - the mats are as close to the middle as the open gap allows;
             // - the crowding solve stopped there, a pod being exactly the
             //   board's worth `MIN_POD_WIDTH` promises and one step further
             //   out therefore more than a seat needs;
@@ -1589,7 +1589,7 @@ mod tests {
                     || (narrowest - MIN_POD_WIDTH).abs() < 1e-2
                     || at_ceiling,
                 "{n} seats: mats stop {inner} out and are {narrowest} wide on a ring \
-                 {:?} that could still have grown — none of the channel, the \
+                 {:?} that could still have grown — none of the middle, the \
                  crowding or the ceiling put them there",
                 layout.radius
             );

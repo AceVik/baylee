@@ -597,12 +597,25 @@ own: three boards laid out at the same 12.0 units were drawn 450, 381 and 378
 pixels wide. Halving the lean and `FOV` together brings that to 6.3%, and
 `every_seat_is_drawn_a_board_of_the_same_width` holds it there.
 
-The 3D table under the cards is **generated, not shipped**:
-`baylee-client-core/src/tabletop.rs` computes the felt, the centre medallion
-and a seat's mat into RGBA8 buffers with a seeded value-noise fbm (no `rand`,
-no clock — every player sees the same grain). `docs/legal.md` §2 decided it:
-ornament is the easiest thing to borrow by accident, and arithmetic borrows
-nothing. Every seat plays on its own mat, sized from its `SeatSlot`, banded
+The 3D table under the cards is **generated, not shipped**: no sprite, no
+photograph, no downloaded texture anywhere on it.
+`baylee-client-core/src/tabletop.rs` computes the centre medallion and a
+seat's mat into RGBA8 buffers with a seeded value-noise fbm (no `rand`, no
+clock — every player sees the same grain), and the surface itself is drawn by
+`baylee-client/src/shaders/felt.wgsl`, which is the same arithmetic in WGSL
+because a slab thirty-five units across would want four thousand texels to
+stay sharp at this camera. `docs/legal.md` §2 decided it: ornament is the
+easiest thing to borrow by accident, and arithmetic borrows nothing.
+
+What it draws is **casino baize inside a padded rail, on a slab with a real
+thickness**: `rounded_slab_mesh` builds the table and the card both, a rounded
+top face with a wall around its edge, and the table hangs below the plane
+everything else is placed against while a card stands on it. Nothing lights
+this stage, so the wall reads as a wall only because `tabletop::APRON` is a
+darker colour than the rail above it. The slab is cut as a **racetrack**, and
+the corners it gives up are load-bearing: the camera frames the layout plus
+`AIR` and the slab is cut to the layout plus `SLAB_MARGIN`, so a rectangle
+fills the window edge to edge and nothing behind the table could ever be seen. Every seat plays on its own mat, sized from its `SeatSlot`, banded
 for the three lanes, with the rim carrying the seat's colour — gilt for the
 viewing seat, the pie in ring order for the rest — and its brightness
 carrying `Mood { local, Standing }`, so "whose turn" and "who is everyone

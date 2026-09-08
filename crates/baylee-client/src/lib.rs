@@ -47,6 +47,7 @@ pub mod combatlines;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub mod devctl;
 pub mod face;
+pub mod feltmat;
 pub mod flip;
 pub mod host;
 pub mod hud;
@@ -58,7 +59,6 @@ pub mod manasources;
 pub mod manaui;
 pub mod net;
 pub mod prefs;
-pub mod rivermat;
 pub mod settings;
 pub mod settingsui;
 pub mod softkeys;
@@ -514,7 +514,7 @@ impl Plugin for DuelPlugin {
         loading::install(app);
         flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
-            .add_plugins(rivermat::RiverMaterialPlugin)
+            .add_plugins(feltmat::FeltMaterialPlugin)
             // Without this nothing on the 3D table can be pointed at, ever.
             //
             // Bevy's UI picking backend is on by default and its *mesh* one is
@@ -610,7 +610,7 @@ impl Plugin for DuelPlugin {
                     table::track_canvas,
                     table::sync_scene,
                     table::sync_zones,
-                    table::sync_river,
+                    table::sync_table,
                     table::glide,
                     // After the glide, and deliberately: a line is welded to
                     // where its two cards *are* this frame, so it has to be

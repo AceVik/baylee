@@ -1,0 +1,131 @@
+//! The table's surface: casino baize inside a padded rail, on a slab with a
+//! thickness to it.
+//!
+//! A material of its own rather than a [`StandardMaterial`] with a texture on
+//! it, for one reason: the table is thirty-five units across and a card is
+//! about 114 physical pixels at this camera, so cloth sharp enough to read
+//! would want four thousand texels — and generating 2048 already costs 1.6
+//! seconds in a debug build every time the table is re-cut. Arithmetic has no
+//! resolution.
+//!
+//! It is also **unlit**, like the cards and unlike a `StandardMaterial`. The
+//! stage carries no light at all — scene lighting on card art would make
+//! colour identity unreadable, which is the one thing this table may not do —
+//! so a lit slab would mean introducing a lamp for the benefit of one object
+//! and then keeping every other object out of its way. The rail's roll and
+//! the apron's fall-off are painted instead, which is the honest way to do it
+//! at a camera this close to overhead: a real specular lobe would track the
+//! viewer and drag along behind the cards every time the table was turned.
+//!
+//! Everything else under the cards stays a `StandardMaterial` — the mats, the
+//! medallion, the glow — because none of it moves.
+//!
+//! # What this replaced
+//!
+//! A slab of dark timber with a channel of resin poured through it, and the
+//! reason it is gone is not that it was badly drawn: it was ornament that
+//! nobody at a card table expects to find, and it put a bright moving surface
+//! down the middle of the board. The phase lamp it carried is the part worth
+//! keeping, and it is kept — it runs round the rail now, which is the one
+//! part of the table no card is ever laid on.
+
+use baylee_client_core::tabletop;
+use bevy::asset::embedded_asset;
+use bevy::prelude::*;
+use bevy::render::render_resource::{AsBindGroup, ShaderType};
+use bevy::shader::ShaderRef;
+
+/// Everything the felt shader needs.
+#[derive(Clone, Copy, ShaderType, Debug)]
+pub struct FeltParams {
+    /// The phase lamp: `rgb` its colour, `w` how much of it there is.
+    ///
+    /// Straight out of [`tabletop::phase_light`], eased rather than snapped —
+    /// the rail runs all the way round the table and a step boundary that
+    /// changed it in one frame would read as a flash.
+    pub wash: Vec4,
+    /// Where that light enters the rail: `xy` a point on the active seat's
+    /// own edge in table space, `zw` the direction it travels from there.
+    ///
+    /// This is what keeps the signal honest at more than two seats. "Warm at
+    /// one end, cool at the other" cannot be a property of a *ring*; it is a
+    /// property of whose turn it is, and it moves.
+    pub source: Vec4,
+    /// The slab's world size, which is how the shader turns a point on the
+    /// table into a point in the cloth.
+    ///
+    /// The shader works from the world position and this, rather than from
+    /// the mesh's own uv: a uv origin is a convention of whichever builder
+    /// made the mesh, and guessing it wrong mirrors the whole field — which a
+    /// duel, symmetric about both axes, would not show.
+    pub span: Vec2,
+    /// The corner radius the mesh was cut with, so the rail follows the same
+    /// racetrack the slab does.
+    pub corner: f32,
+    /// How wide the padded rail runs, in table units.
+    pub rail: f32,
+    /// The clock the pulse runs on: [`MOVING`](crate::cardmat::MOVING) or
+    /// [`STILL`](crate::cardmat::STILL).
+    ///
+    /// The same two values the cards use, and deliberately the same
+    /// constants: a table that kept moving while every card on it held still
+    /// would make the setting look broken.
+    pub motion: f32,
+    /// How hard the lamp burns at full energy.
+    pub gain: f32,
+    /// How thick the slab is, so the apron can be shaded down its height.
+    pub thickness: f32,
+}
+
+/// How bright the rail burns at the top of combat.
+///
+/// Above 1.0 deliberately: the tone mapper is off and the camera is HDR, so a
+/// value past white blooms. That is safe here in a way it would not be
+/// anywhere else on this table — the cards use their own unlit shader and
+/// take no light from the scene, so the glow spreads over the felt and stops
+/// at the cardboard.
+pub const WASH_GAIN: f32 = 1.80;
+
+/// The slab.
+#[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
+pub struct FeltMaterial {
+    /// Everything the shader reads. No textures at all — see the module
+    /// header for why the cloth is arithmetic.
+    #[uniform(0)]
+    pub params: FeltParams,
+}
+
+impl Material for FeltMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "embedded://baylee_client/shaders/felt.wgsl".into()
+    }
+
+    /// The slab is the floor of the scene: opaque, and the only thing under
+    /// the cards that is. Everything painted on top of it — the mats, the
+    /// medallion, the glows — blends over it, which is what makes them read
+    /// as lying on a table rather than as being the table.
+    ///
+    /// It is opaque *and* cut to shape, which is the point of the mesh being
+    /// a racetrack: what shows outside the table is the sky, and it shows
+    /// because there is no table there, not because the table is see-through.
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Opaque
+    }
+}
+
+/// The lamp a step calls for, packed for the shader.
+#[must_use]
+pub fn wash_of(step: baylee_view::Step) -> Vec4 {
+    let light = tabletop::phase_light(step);
+    Vec4::new(light.rgb[0], light.rgb[1], light.rgb[2], light.energy)
+}
+
+/// Installs the felt material and its shader.
+pub struct FeltMaterialPlugin;
+
+impl Plugin for FeltMaterialPlugin {
+    fn build(&self, app: &mut App) {
+        embedded_asset!(app, "shaders/felt.wgsl");
+        app.add_plugins(MaterialPlugin::<FeltMaterial>::default());
+    }
+}

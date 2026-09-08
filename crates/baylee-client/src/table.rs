@@ -23,7 +23,7 @@
 use crate::Duel;
 use crate::cardmat::{CardLook, CardMaterial, MOVING, material, motion_of};
 use crate::face;
-use crate::rivermat::RiverMaterial;
+use crate::feltmat::FeltMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
@@ -50,8 +50,7 @@ const ZONE_LIFT: f32 = 0.002;
 const GLOW_LIFT: f32 = 0.001;
 /// Where the centre medallion is inlaid.
 const MEDALLION_LIFT: f32 = 0.0015;
-/// Bare timber kept around the table, so no camera angle finds the slab's
-/// edge.
+/// Table kept around the play area, so no camera angle finds the slab's edge.
 ///
 /// The slab used to be a fixed 60 × 44 whoever was sitting at it — about four
 /// times a duel's table, which was harmless while the camera was 29 units up
@@ -59,22 +58,46 @@ const MEDALLION_LIFT: f32 = 0.0015;
 /// the table is no longer one shape: it is cut to whatever
 /// [`TableLayout::extent`] reports, which changes with the seat count, the
 /// focus and the window.
-const SLAB_MARGIN: f32 = 4.0;
+///
+/// It is also, exactly, [`AIR`] plus [`tabletop::RAIL_WIDTH`]: the camera
+/// frames the layout plus `AIR`, so the ring of table outside the frame is
+/// the rail, and the felt inside it is the part that is played on.
+const SLAB_MARGIN: f32 = AIR + tabletop::RAIL_WIDTH;
+
+/// How thick the slab is, in table units — near enough one card width.
+///
+/// A card at this scale is a twentieth of this, and that ratio is roughly
+/// right: a gaming table's edge is a couple of inches of timber and a card is
+/// two and a half wide. What the thickness is *for* is that the table reads
+/// as an object standing in a room rather than as a plane the cards were
+/// printed onto — the same argument [`CARD_THICKNESS`] makes one scale down.
+/// It is visible from about a third of the way through the lean the player
+/// can dial, and `camera_tests::the_table_is_a_slab_and_not_a_sheet` is the
+/// bound that keeps it so.
+const TABLE_THICKNESS: f32 = 0.9;
+/// A card is the reference: a table thinner than the cards lying on it is a
+/// sheet of paper, so the claim is worth failing a build for.
+const _: () = assert!(TABLE_THICKNESS > CARD_THICKNESS * 4.0);
+
+/// How many segments each of the slab's four corner arcs is drawn with.
+///
+/// A card gets four; this is a racetrack whose corners are several units
+/// across and read as a chamfer at anything under about a dozen.
+const SLAB_SEGMENTS: usize = 24;
 /// How wide the medallion is inlaid, in table units.
 ///
-/// A written number again, and small enough to float in the channel with
-/// resin visible on both sides of it —
-/// `camera_tests::the_medallion_floats_in_the_channel_it_is_set_in` is that
-/// bound. It used to be derived from the lamplight ring, which no longer
-/// exists: the channel *is* the light pool now, and a 4.5-unit ring across a
-/// 3.4-unit channel would have been the roulette wheel all over again, this
-/// time lying across both players' mats.
+/// A written number again, and small enough to sit in the open middle with
+/// felt showing on both sides of it —
+/// `camera_tests::the_medallion_floats_in_the_open_middle` is that bound. It
+/// used to be derived from the lamplight ring, which no longer exists, and a
+/// 4.5-unit ring across a 3.4-unit gap would have been the roulette wheel all
+/// over again, this time lying across both players' mats.
 const MEDALLION_SIZE: f32 = 2.2;
-/// How fast the channel follows a phase change, per second.
+/// How fast the rail follows a phase change, per second.
 ///
 /// Slower than a card moves. A step boundary is not an event a player has to
 /// catch — it is a condition they should notice having changed — and a
-/// channel that snapped would flicker through the four steps of combat.
+/// rail that snapped would flicker through the four steps of combat.
 const WASH_RATE: f32 = 3.0;
 /// Margin around a seat's pod, so its mat is a table the cards sit on rather
 /// than a box drawn tight around them.
@@ -85,8 +108,8 @@ const GLOW_SPREAD: f32 = 2.4;
 ///
 /// It was `0.30`, and that was tuned when a mat was a fifth of the screen and
 /// the table under it was a felt of about its own brightness. Both ends of
-/// that moved: the mats now fill the screen, and the timber under them is a
-/// dark wood. Measured on the same frame, the timber came out `(35, 24, 18)`
+/// that moved: the mats now fill the screen, and the table under them is a
+/// dark cloth. Measured on the same frame, the table came out `(35, 24, 18)`
 /// and a mat `(52, 77, 58)` — the mat is a nearly transparent sheet, so what
 /// was actually being read was this lamp, twice as bright as the table and
 /// warm or green depending on whose seat it was.
@@ -176,24 +199,21 @@ const _: () = assert!(
 #[derive(Component)]
 pub struct DuelStage;
 
-/// The table itself: one slab of timber with the resin channel poured
-/// through it.
+/// The table itself: one slab of baize inside a padded rail.
 ///
 /// It carries the two things that have to survive a frame. `cut` is the size
-/// the slab was last made at, so re-cutting only happens when the table
-/// actually changes shape — the channel is computed from the seating, and
-/// recomputing it every frame would be a megapixel of arithmetic for a table
-/// that has not moved. `shown` is the *eased* phase lamp, because easing
+/// the slab was last made at, so a mesh is only rebuilt when the table
+/// actually changes shape. `shown` is the *eased* phase lamp, because easing
 /// towards a target needs somewhere to keep where it started.
 #[derive(Component)]
 pub struct Slab {
-    /// The world size the timber was cut to.
+    /// The world size the slab was cut to.
     cut: Vec2,
-    /// The lamp currently in the resin: `rgb` its colour, `w` its energy.
+    /// The lamp currently on the rail: `rgb` its colour, `w` its energy.
     shown: Vec4,
-    /// Where the lamp was last entering the channel from.
+    /// Where the lamp was last entering the rail from.
     source: Vec4,
-    /// The motion setting the current was last running at.
+    /// The motion setting the pulse was last running at.
     motion: f32,
 }
 
@@ -933,9 +953,32 @@ const SHADOW_SPREAD: f32 = 0.22;
 /// thing. There is no bottom face: the camera rig never goes below the table,
 /// and two hundred cards is four hundred triangles worth saving.
 fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
-    const SEGMENTS: usize = 4; // per corner — plenty at card scale
-    let (hw, hh, r) = (width / 2.0, height / 2.0, radius);
-    let top = CARD_THICKNESS;
+    rounded_slab_mesh(width, height, radius, CARD_THICKNESS, 0.0, 4)
+}
+
+/// The same slab at any thickness, and with any number of corner segments.
+///
+/// The table is built by this too, and the two want opposite things from it:
+/// a card is 63 mm with a 3 mm corner and four segments is more than the eye
+/// can find, while the table is a **racetrack** whose corners are metres
+/// across and would read as a chamfer at four. `top` and `bottom` are the two
+/// heights the wall runs between, so a card sits *on* the plane it is placed
+/// at (`CARD_THICKNESS` to 0) and the table hangs *below* it (0 to
+/// `-TABLE_THICKNESS`) — which is what keeps the table's surface exactly
+/// where every other thing on the stage is positioned against.
+fn rounded_slab_mesh(
+    width: f32,
+    height: f32,
+    radius: f32,
+    top: f32,
+    bottom: f32,
+    segments: usize,
+) -> Mesh {
+    let segments = segments.max(1);
+    let (hw, hh) = (width / 2.0, height / 2.0);
+    // A radius past half the short side has no shape left to describe, and
+    // would fold the outline through itself exactly the way the bowtie did.
+    let r = radius.clamp(0.0, hw.min(hh));
     // Corner arc centres in CCW order with the quarter turn each one sweeps,
     // angles measured the usual way (0° = +x, 90° = +y).
     //
@@ -956,8 +999,9 @@ fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
     let mut outline: Vec<([f32; 2], [f32; 2])> = Vec::new();
     for ([cx, cy], end_deg) in corners {
         let start_deg = end_deg - 90.0;
-        for i in 0..=SEGMENTS {
-            let a = (start_deg + (end_deg - start_deg) * i as f32 / SEGMENTS as f32).to_radians();
+        for i in 0..=segments {
+            #[expect(clippy::cast_precision_loss)] // a handful of segments
+            let a = (start_deg + (end_deg - start_deg) * i as f32 / segments as f32).to_radians();
             let (dx, dy) = (a.cos(), a.sin());
             outline.push(([cx + r * dx, cy + r * dy], [dx, dy]));
         }
@@ -1006,7 +1050,7 @@ fn rounded_card_mesh(width: f32, height: f32, radius: f32) -> Mesh {
         uvs.push(uv_of(*x, *y));
     }
     for ([x, y], [nx, ny]) in &outline {
-        positions.push([*x, *y, 0.0]);
+        positions.push([*x, *y, bottom]);
         normals.push([*nx, *ny, 0.0]);
         uvs.push(uv_of(*x, *y));
     }
@@ -1134,10 +1178,10 @@ pub fn spawn_stage(
     // and why this stage has no light in it at all.
     index.glow_image = Some(images.add(image_of(&tabletop::glow(128))));
 
-    // The slab itself — timber with the resin channel poured through it —
-    // is not spawned here. It is cut to the layout, and at this point there
-    // may not be one: `sync_slab` makes it the first time a board arrives and
-    // re-cuts it whenever the seating or the window changes.
+    // The slab itself — the baize and the rail around it — is not spawned
+    // here. It is cut to the layout, and at this point there may not be one:
+    // `sync_table` makes it the first time a board arrives and re-cuts it
+    // whenever the seating or the window changes.
 
     // The medallion inlaid at the centre — the colour wheel every player
     // already has in their head, which is what makes it orientation rather
@@ -1174,29 +1218,6 @@ pub(crate) fn image_of(texture: &tabletop::Texture) -> Image {
     );
     // The mat and the medallion are stretched over quads much larger than
     // they are; without a linear filter their soft edges come out as stairs.
-    image.sampler = bevy::image::ImageSampler::linear();
-    image
-}
-
-/// Wraps a generated *field* the same way, but in a linear format.
-///
-/// [`tabletop::channel`] does not write colours. Its channels are a depth, a
-/// direction and a coverage, and running those through an sRGB decode would
-/// bend every one of them — a flow vector would stop being a unit vector, and
-/// the shore would move. The two functions differ in exactly that one line,
-/// which is why they are two functions and not a boolean.
-fn field_of(texture: &tabletop::Texture) -> Image {
-    let mut image = Image::new(
-        Extent3d {
-            width: texture.width,
-            height: texture.height,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        texture.rgba.clone(),
-        TextureFormat::Rgba8Unorm,
-        RenderAssetUsages::RENDER_WORLD,
-    );
     image.sampler = bevy::image::ImageSampler::linear();
     image
 }
@@ -1384,18 +1405,19 @@ fn zone_brightness(mood: Mood) -> f32 {
 /// is `zone_tests::a_standing_always_outranks_being_the_local_seat`.
 const LOCAL_LIFT: f32 = 1.10;
 
-/// Cuts the slab to the table and keeps the resin lit by the turn.
+/// Cuts the slab to the table and keeps the rail lit by the turn.
 ///
 /// Two jobs in one system because they need the same three things — the
 /// layout, the board and the slab entity — and because the second is
 /// meaningless without the first having run.
 ///
 /// **Cutting.** The table is no longer a fixed quad. It is made to whatever
-/// [`TableLayout::extent`] reports plus [`SLAB_MARGIN`] of bare timber, which
-/// changes with the seat count, the focused pod and the window; and the
-/// channel is recomputed with it, because the channel is the negative form of
-/// exactly that layout. Both are guarded on the cut size, so a table that has
-/// not changed shape costs nothing.
+/// [`TableLayout::extent`] reports plus [`SLAB_MARGIN`] of table, which
+/// changes with the seat count, the focused pod and the window, and it is cut
+/// as a **racetrack** with a real thickness rather than as a rectangle one
+/// pixel deep — see [`tabletop::table_corner`] for what the corners are for.
+/// The cut is guarded on the size, so a table that has not changed shape
+/// costs nothing.
 ///
 /// **Lighting.** The step is on the board model, so this needs no engine and
 /// no view of its own; the arithmetic — which colour a step is worth — lives
@@ -1404,16 +1426,14 @@ const LOCAL_LIFT: f32 = 1.10;
 /// moves: a lamp that reached its target and kept writing would touch a
 /// material every frame for the rest of the game, which is exactly the
 /// garbage [`sync_zones`] exists to avoid.
-#[allow(clippy::too_many_arguments)] // one surface: three asset stores and the slab
-pub fn sync_river(
+pub fn sync_table(
     mut commands: Commands,
     time: Res<Time>,
     duel: Res<Duel>,
     prefs: Res<crate::prefs::Prefs>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
-    mut materials: ResMut<Assets<RiverMaterial>>,
-    mut slabs: Query<(&mut Slab, &mut Mesh3d, &MeshMaterial3d<RiverMaterial>)>,
+    mut materials: ResMut<Assets<FeltMaterial>>,
+    mut slabs: Query<(&mut Slab, &mut Mesh3d, &MeshMaterial3d<FeltMaterial>)>,
 ) {
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return;
@@ -1436,10 +1456,10 @@ pub fn sync_river(
     };
 
     // Where the light enters: the active seat's own shore, running inward
-    // across the channel. At two seats that is the reference photograph —
+    // round the rail. At two seats that is the reference photograph —
     // cool at one bank, molten at the other — and at six it is a pool lit
     // from whoever's turn it is, which is the same statement without needing
-    // a river to have ends.
+    // the table to have ends.
     let source = board
         .pods
         .iter()
@@ -1450,7 +1470,7 @@ pub fn sync_river(
             Vec4::new(slot.center.x, slot.center.y, inward.x, inward.y)
         });
 
-    let want = crate::rivermat::wash_of(board.step);
+    let want = crate::feltmat::wash_of(board.step);
     let ease = if prefs.all().reduce_motion {
         1.0
     } else {
@@ -1459,7 +1479,6 @@ pub fn sync_river(
 
     let Ok((mut slab, mut mesh, handle)) = slabs.single_mut() else {
         // No slab yet. Cut one, and let the next frame light it.
-        let channel = cut(span, layout, &mut images);
         commands.spawn((
             DuelStage,
             Slab {
@@ -1469,17 +1488,19 @@ pub fn sync_river(
                 motion,
             },
             // The floor of the scene answers no clicks: a pointer on bare
-            // timber means the table, not the thing under it.
+            // cloth means the table, not the thing under it.
             Pickable::IGNORE,
-            Mesh3d(meshes.add(Rectangle::new(span.x, span.y))),
-            MeshMaterial3d(materials.add(RiverMaterial {
-                channel,
-                params: crate::rivermat::RiverParams {
+            Mesh3d(meshes.add(slab_mesh(span))),
+            MeshMaterial3d(materials.add(FeltMaterial {
+                params: crate::feltmat::FeltParams {
                     wash: Vec4::ZERO,
                     source,
                     span,
+                    corner: tabletop::table_corner(span),
+                    rail: tabletop::RAIL_WIDTH,
                     motion,
-                    gain: crate::rivermat::WASH_GAIN,
+                    gain: crate::feltmat::WASH_GAIN,
+                    thickness: TABLE_THICKNESS,
                 },
             })),
             Transform::from_xyz(0.0, TABLE_Y, 0.0)
@@ -1505,73 +1526,35 @@ pub fn sync_river(
 
     if recut {
         slab.cut = span;
-        *mesh = Mesh3d(meshes.add(Rectangle::new(span.x, span.y)));
+        *mesh = Mesh3d(meshes.add(slab_mesh(span)));
     }
     if let Some(mut material) = materials.get_mut(&handle.0) {
         if recut {
-            material.channel = cut(span, layout, &mut images);
+            material.params.span = span;
+            material.params.corner = tabletop::table_corner(span);
         }
         material.params.wash = next;
         material.params.source = source;
-        material.params.span = span;
         material.params.motion = motion;
     }
 }
 
-/// Generates the channel field a slab of this size needs.
+/// The slab of a table this size: a racetrack with a real thickness, whose
+/// **top face lies exactly at the plane every other thing on the stage is
+/// placed against**.
 ///
-/// Cut in **world** units, so the shore keeps its real size however large the
-/// table is or however coarsely the image is sampled. The resolution follows
-/// the slab's shape rather than being square, because a square texture on a
-/// table twice as wide as it is deep spends half its detail on the axis that
-/// has least of it.
-fn cut(span: Vec2, layout: &TableLayout, images: &mut Assets<Image>) -> Handle<Image> {
-    /// Texels across the slab. Measured, not guessed: in a debug build this
-    /// size costs about 160 ms and 2048 costs 630 ms, and a re-cut happens on
-    /// every window resize. The field varies over a unit and a half, so this
-    /// is far more resolution than its content needs — what it buys is a
-    /// shore that is a line rather than a staircase.
-    const ACROSS: u32 = 1024;
-
-    #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-    let down = ((ACROSS as f32 * span.y / span.x).round() as u32).clamp(64, ACROSS);
-
-    let banks: Vec<tabletop::Bank> = layout
-        .slots
-        .iter()
-        .map(|slot| tabletop::Bank {
-            center: slot.center,
-            half_extent: slot.half_extent,
-            facing: slot.facing,
-        })
-        .collect();
-
-    // The water reaches the *open middle*, not the whole table.
-    //
-    // It used to be the table's whole extent with the mats cut out of it,
-    // which is a faithful reading of "the resin is wherever a card never
-    // lies" and looked nothing like a river: at a duel the leftover is a
-    // band across the middle plus a bulge at each end where the ellipse runs
-    // wider than the mats, and the two bulges read as arrowheads pointing at
-    // the players. What a poured channel actually is, is the hollow the
-    // boards are set around — the ring, less the depth of a seat's ground —
-    // and the mats then cut into it wherever one of them reaches in. At two
-    // seats that is a lens the width of the boards and the height of the gap
-    // between them; at eight it is the middle of the table.
-    let half_depth = baylee_client_core::layout::POD_DEPTH * 0.5;
-    let pool = Vec2::new(
-        layout.radius.x + half_depth,
-        (layout.radius.y - half_depth).max(baylee_client_core::layout::CENTRE_GAP * 0.5),
-    );
-
-    images.add(field_of(&tabletop::channel(
-        ACROSS,
-        down,
-        span,
-        pool,
-        &banks,
-        ZONE_MARGIN,
-    )))
+/// The body hangs below that plane rather than standing on it, which is the
+/// one thing that has to be got right: raise the surface by the thickness and
+/// every mat, glow, medallion and card is buried inside the table.
+fn slab_mesh(span: Vec2) -> Mesh {
+    rounded_slab_mesh(
+        span.x,
+        span.y,
+        tabletop::table_corner(span),
+        0.0,
+        -TABLE_THICKNESS,
+        SLAB_SEGMENTS,
+    )
 }
 
 /// Keeps one mat and one glow per seat in step with the table.
@@ -2532,7 +2515,7 @@ mod camera_tests {
     /// both ways.
     ///
     /// This replaces the lamplight ring's version of the same rule, which the
-    /// resin channel has taken over from. That test is worth remembering
+    /// felt's own open middle has taken over from. That test is worth remembering
     /// twice: it first compared the ring against `SeatSlot::lane_width`, the
     /// mat's *long* edge, which a ring two and a half times the mat's depth
     /// passes comfortably — the hearth dominated four straight screenshots
@@ -2541,35 +2524,29 @@ mod camera_tests {
     /// the reason `docs/client.md` gives about the felt's own brightness: a
     /// one-sided assertion only stops the mistake it was written after, and
     /// the opposite mistake ships next.
-    /// The wood is written twice — once in Rust, where a test can block the
-    /// image at card size and measure that the grain survives, and once in
-    /// WGSL, where the GPU actually draws it. Nothing in either compiler can
-    /// notice that they have drifted apart, and the drawing is the one nobody
-    /// can assert about directly.
+    /// The cloth is written twice — once in Rust, where a test can block the
+    /// image at card size and measure that the tooth survives and that the
+    /// baize stays dark enough to read a card against, and once in WGSL,
+    /// where the GPU actually draws it. Nothing in either compiler can notice
+    /// that they have drifted apart, and the drawing is the one nobody can
+    /// assert about directly.
     ///
     /// The two are not pixel-identical and are not meant to be: a lattice
     /// hash on the CPU and a `sin`-based one on the GPU give the same kind of
-    /// noise and not the same noise. What has to agree is everything a test
-    /// or a person reasoned about — the three colours the wood is mixed from,
-    /// and the period and wander of the grain.
+    /// noise and not the same noise, and the shader works in table units
+    /// where the generator works in texels. What has to agree is every colour
+    /// a test or a person reasoned about — the three the cloth is mixed from,
+    /// and the three the rail and its apron are.
     #[test]
-    fn the_shader_and_the_generator_agree_about_the_wood() {
-        use crate::cardmat::tests::wgsl_const;
-        let src = include_str!("shaders/river.wgsl");
+    fn the_shader_and_the_generator_agree_about_the_cloth() {
+        let src = include_str!("shaders/felt.wgsl");
         for (name, ours) in [
-            ("GRAIN_LINES", tabletop::GRAIN_LINES),
-            ("GRAIN_WANDER", tabletop::GRAIN_WANDER),
-        ] {
-            let theirs = wgsl_const(src, name);
-            assert!(
-                (ours - theirs).abs() < 1e-6,
-                "{name}: {ours} here, {theirs} in the shader"
-            );
-        }
-        for (name, ours) in [
-            ("WOOD_DEEP", tabletop::WOOD_DEEP),
-            ("WOOD_BASE", tabletop::WOOD_BASE),
-            ("WOOD_PALE", tabletop::WOOD_PALE),
+            ("FELT_DEEP", tabletop::FELT_DEEP),
+            ("FELT_CLOTH", tabletop::FELT_CLOTH),
+            ("FELT_WORN", tabletop::FELT_WORN),
+            ("RAIL_HIDE", tabletop::RAIL_HIDE),
+            ("RAIL_LIP", tabletop::RAIL_LIP),
+            ("APRON", tabletop::APRON),
         ] {
             let line = src
                 .lines()
@@ -2600,29 +2577,29 @@ mod camera_tests {
     /// two of them being made to agree.
     #[test]
     fn a_pile_stands_clear_of_the_mat_it_serves() {
-        let timber = baylee_client_core::layout::PILE_REACH - CARD_WIDTH * 0.5 - ZONE_MARGIN;
+        let spare = baylee_client_core::layout::PILE_REACH - CARD_WIDTH * 0.5 - ZONE_MARGIN;
         assert!(
-            timber > 0.0,
+            spare > 0.0,
             "a pile's near edge falls {} inside the mat's own border — it \
              would be lying on the board it stands beside, not on the table",
-            -timber
+            -spare
         );
     }
 
     #[test]
-    fn the_medallion_floats_in_the_channel_it_is_set_in() {
+    fn the_medallion_floats_in_the_open_middle() {
         let gap = baylee_client_core::layout::CENTRE_GAP;
         assert!(
             MEDALLION_SIZE < gap,
-            "the colour wheel is {MEDALLION_SIZE} across a channel of {gap} — it \
+            "the colour wheel is {MEDALLION_SIZE} across a gap of {gap} — it \
              would be lying on both players' mats"
         );
-        // And with resin visible on both sides of it, or it is not inlaid in
+        // And with felt visible on both sides of it, or it is not inlaid in
         // anything: it is a lid.
-        let resin = (gap - MEDALLION_SIZE) * 0.5;
+        let bare = (gap - MEDALLION_SIZE) * 0.5;
         assert!(
-            resin > 0.4,
-            "only {resin} of resin shows beside the medallion"
+            bare > 0.4,
+            "only {bare} of table shows beside the medallion"
         );
 
         for n in [2, 4, 6] {
@@ -2924,6 +2901,63 @@ mod tests {
         assert!(
             points.iter().any(|p| p.2.abs() < 1e-6),
             "nothing touches the table, so the card floats"
+        );
+    }
+
+    /// The table is a slab with a thickness, and its surface is the plane
+    /// everything on the stage is placed against.
+    ///
+    /// Both halves matter and the second is the one that would break the
+    /// board silently: the body hangs *below* zero. Build it standing on zero
+    /// instead and every mat, glow, medallion and card is inside the table,
+    /// which no test about transforms would notice — the transforms would all
+    /// still be right.
+    #[test]
+    fn the_table_is_a_slab_and_not_a_sheet() {
+        let span = Vec2::new(34.0, 26.0);
+        let mesh = slab_mesh(span);
+        let points = points(&mesh);
+        let high = points.iter().fold(f32::NEG_INFINITY, |a, p| a.max(p.2));
+        let low = points.iter().fold(f32::INFINITY, |a, p| a.min(p.2));
+        assert!(
+            high.abs() < 1e-6,
+            "the table's surface is not at zero: {high}"
+        );
+        assert!(
+            (low + TABLE_THICKNESS).abs() < 1e-6,
+            "the table is {} deep, not {TABLE_THICKNESS}",
+            -low
+        );
+    }
+
+    /// And it is a racetrack: the corners it gives up are where the sky is.
+    ///
+    /// Measured against the window rather than against itself. The camera
+    /// frames the layout plus [`AIR`] and the slab is cut to the layout plus
+    /// [`SLAB_MARGIN`], so the corner of the framed box stands
+    /// `(SLAB_MARGIN − AIR)·√2` inside the slab's own corner — and unless the
+    /// oval reaches further in than that, the felt still fills the window and
+    /// the sky behind it is never seen by anybody.
+    #[test]
+    fn the_table_gives_up_its_corners_to_the_sky() {
+        let span = Vec2::new(34.0, 26.0);
+        let rim = rim(&slab_mesh(span));
+        let half = span * 0.5;
+        // The framed box's corner, in the same space the rim is in.
+        let framed = half - Vec2::splat(SLAB_MARGIN - AIR);
+        let inside = rim.iter().any(|&(x, y)| {
+            x.abs() >= framed.x && y.abs() >= framed.y && Vec2::new(x, y).length() > framed.length()
+        });
+        assert!(
+            !inside,
+            "the table still reaches the window's corner at {framed:?}"
+        );
+        // The other side of it: an oval that ate the play area would take the
+        // seats' own mats with it.
+        let bite = tabletop::table_corner(span) * (1.0 - std::f32::consts::FRAC_1_SQRT_2);
+        assert!(
+            bite < SLAB_MARGIN * 2.0,
+            "the oval takes {bite} out of each corner, which is play area"
         );
     }
 
