@@ -1077,10 +1077,12 @@ pub fn sync_overlay(
                     ),],
                 ))
                 .id();
-            // A card printed on both sides can be turned over with shift.
-            // The frame holds both faces and the turn; a single-faced card
-            // gets the frame too, and simply has nothing on its far side, so
-            // the shape of the tree does not depend on the card.
+            // Every card can be turned over with shift. The frame holds both
+            // sides and the turn, so the shape of the tree does not depend on
+            // the card — what differs is only what is *on* the far side: the
+            // second face of a double-faced printing, or the printed back,
+            // which is what a card looks like from behind and what everyone
+            // else at the table is looking at while you hold it.
             let frame = commands
                 .spawn((
                     crate::flip::Flip::default(),
@@ -1096,34 +1098,38 @@ pub fn sync_overlay(
                 .entity(visual)
                 .insert((crate::flip::Side::Front, Visibility::Inherited));
             commands.entity(frame).add_child(visual);
-            if let Some(back) = key
-                .filter(|_| two_faced(view, hovered))
-                .map(|key| ImageKey {
-                    face: baylee_client_core::images::Face::Back,
-                    ..key
-                })
-            {
-                let art = textures.get(back, statics, &assets);
-                let far = spawn_card_art(
-                    &mut commands,
-                    lang,
-                    art,
-                    None,
-                    img_w,
-                    img_h,
-                    crate::face::Detail::Full,
-                    &fonts,
+            let (art, look) = match far_face(key, two_faced(view, hovered)) {
+                Some(back) => (
+                    textures.get(back, statics, &assets),
                     CardLook::art(back, finish_of(statics, Some(back)), 0),
-                    cards.as_mut(),
-                );
-                commands.entity(far).insert((
-                    crate::flip::Side::Back,
-                    // Hidden until the turn passes the quarter, where the
-                    // card is edge-on and the swap cannot be seen.
-                    Visibility::Hidden,
-                ));
-                commands.entity(frame).add_child(far);
-            }
+                ),
+                // No corner on the back: power, toughness and counters are
+                // printed on the face and a card lying face down shows none
+                // of them.
+                None => (
+                    textures.card_back(),
+                    CardLook::back(FinishTreatment::Plain, 0),
+                ),
+            };
+            let far = spawn_card_art(
+                &mut commands,
+                lang,
+                art,
+                None,
+                img_w,
+                img_h,
+                crate::face::Detail::Full,
+                &fonts,
+                look,
+                cards.as_mut(),
+            );
+            commands.entity(far).insert((
+                crate::flip::Side::Back,
+                // Hidden until the turn passes the quarter, where the card is
+                // edge-on and the swap cannot be seen.
+                Visibility::Hidden,
+            ));
+            commands.entity(frame).add_child(far);
             commands.entity(tooltip).add_child(frame);
             // The preview is a *description of* the hovered card, so it must
             // never take the pointer from it. The frame above already ignores
@@ -1890,6 +1896,28 @@ const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
             Some(Phrase::HintClickBoard)
         }
         Prompt::ChooseSubtype { .. } => Some(Phrase::HintTypeToFilter),
+        _ => None,
+    }
+}
+
+/// What the preview shows once it has been turned over.
+///
+/// `Some` is the printing's second face; `None` means the printed back —
+/// which is the answer for every ordinary card, and the reason shift now
+/// turns anything at all. It used to turn only a double-faced card, so the
+/// gesture did nothing on nine cards out of ten and read as broken rather
+/// than as inapplicable.
+///
+/// `two_faced` is asked separately because having a *key* says nothing about
+/// how many faces the card has: every printing has one, and a card the seat
+/// may not see has none while still being turnable — over to the back, which
+/// is exactly what everyone else at the table is looking at.
+pub(super) const fn far_face(key: Option<ImageKey>, two_faced: bool) -> Option<ImageKey> {
+    match key {
+        Some(key) if two_faced => Some(ImageKey {
+            face: baylee_client_core::images::Face::Back,
+            ..key
+        }),
         _ => None,
     }
 }

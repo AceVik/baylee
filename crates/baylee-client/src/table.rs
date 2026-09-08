@@ -974,6 +974,10 @@ pub fn spawn_stage(
     // and what a card this seat may not see wears. The printed back is
     // fetched like any other image, so `sync_scene` dresses this material in
     // it the frame it lands; until then it is the flat colour below.
+    // A second duel in one session gets a second material, and the flag is
+    // about *this* one: left standing, the new material would never be
+    // dressed and every hidden card would go back to being a dark rectangle.
+    index.back_dressed = false;
     index.blank = Some(cards.add(material(
         CardLook::flat(BACK_COLOR, FinishTreatment::Plain, 0),
         None,

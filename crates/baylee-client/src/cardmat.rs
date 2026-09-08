@@ -397,6 +397,13 @@ pub struct UiCardMaterials {
     /// keyed by CDN url and finish because it has no `PrintRef` to key on.
     previewed:
         bevy::platform::collections::HashMap<(String, FinishTreatment), Handle<CardUiMaterial>>,
+    /// Whether the materials made for a card's back have been given the
+    /// printed picture yet — see [`Self::dress_the_backs`].
+    ///
+    /// It only ever goes one way. Once the picture has arrived, everything
+    /// made afterwards is built with it, because the handle comes from
+    /// `CardTextures::card_back`.
+    back_dressed: bool,
     /// Whether what is cached was made to hold still.
     ///
     /// A `bool` and not the `f32` the shader wants, so that `Default` is the
@@ -459,6 +466,38 @@ impl UiCardMaterials {
         });
         self.made.insert(look, handle.clone());
         handle
+    }
+
+    /// Puts the printed card back on every material made for one.
+    ///
+    /// The same move [`Self::set_still`] makes, for the same reason: this
+    /// cache hands out one material per look and never looks at the handle
+    /// again, so a back drawn before the picture arrived would stay a flat
+    /// colour for the rest of the session however many times the hand is
+    /// rebuilt. Rewriting in place also reaches every node already holding
+    /// one.
+    ///
+    /// Both halves, as everywhere else the back is dressed: `has_art` follows
+    /// the handle, and a material given the texture without the flag draws
+    /// exactly what it drew before.
+    pub fn dress_the_backs(&mut self, art: &Handle<Image>, assets: &mut Assets<CardUiMaterial>) {
+        self.back_dressed = true;
+        for (look, handle) in &self.made {
+            if !look.is_back() {
+                continue;
+            }
+            if let Some(mut material) = assets.get_mut(handle) {
+                material.art = Some(art.clone());
+                material.params.has_art = 1.0;
+            }
+        }
+    }
+
+    /// Whether the printed back has already been put on what was made
+    /// without it.
+    #[must_use]
+    pub const fn backs_are_dressed(&self) -> bool {
+        self.back_dressed
     }
 
     /// Forgets every material, when the duel closes.
@@ -624,9 +663,12 @@ impl CardLook {
 
     /// A card showing the back.
     ///
-    /// No `ImageKey`, because the back is one texture the client owns rather
-    /// than a printing it fetched — and no tint, which is what separates it
-    /// from [`CardLook::flat`]: both have no `ImageKey`, and a back that
+    /// No `ImageKey`, because the back belongs to no printing: it is one
+    /// picture the whole game shares, held under a key of its own
+    /// ([`baylee_client_core::images::ImageKey::card_back`]) and handed out
+    /// by [`crate::textures::CardTextures::card_back`], which answers with a
+    /// flat colour until it has arrived. And no tint, which is what separates
+    /// it from [`CardLook::flat`]: both have no `ImageKey`, and a back that
     /// collided with a constructed face would draw one as the other.
     #[must_use]
     pub fn back(finish: FinishTreatment, glow: u32) -> Self {
@@ -638,6 +680,16 @@ impl CardLook {
             chips: [0; 2],
             tint: 0,
         }
+    }
+
+    /// Whether this look is a card seen from behind.
+    ///
+    /// Read off the key rather than carried as a flag, because the key
+    /// already says it: no art and no tint is what [`CardLook::back`] means
+    /// and the one thing no other constructor produces.
+    #[must_use]
+    pub const fn is_back(&self) -> bool {
+        self.art.is_none() && self.tint == 0
     }
 }
 
@@ -712,7 +764,7 @@ impl Plugin for CardMaterialPlugin {
         app.add_plugins(MaterialPlugin::<CardMaterial>::default())
             .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
             .init_resource::<UiCardMaterials>()
-            .add_systems(Update, track_motion);
+            .add_systems(Update, (track_motion, dress_the_card_backs));
     }
 }
 
@@ -737,6 +789,32 @@ fn track_motion(
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     if cache.still != still {
         cache.set_still(still, &mut assets);
+    }
+}
+
+/// Carries the printed card back to the UI cards, once it has arrived.
+///
+/// The table does the same to its own back material in `table::sync_scene`.
+/// Both are needed and neither covers the other: the two caches are a
+/// `Resource` and a field of another one, and the 3D and 2D materials are
+/// different assets.
+///
+/// The texture cache is optional for the same reason the preferences are
+/// above: this plugin is installed by the deck builder too, which draws
+/// cardboard and has no duel behind it.
+fn dress_the_card_backs(
+    textures: Option<Res<crate::textures::CardTextures>>,
+    mut cache: ResMut<UiCardMaterials>,
+    mut assets: ResMut<Assets<CardUiMaterial>>,
+) {
+    if cache.backs_are_dressed() {
+        return;
+    }
+    let Some(textures) = textures else {
+        return;
+    };
+    if textures.card_back_is_printed() {
+        cache.dress_the_backs(&textures.card_back(), &mut assets);
     }
 }
 
@@ -1548,6 +1626,64 @@ struct Globals { time: f32 };
         check_wgsl(
             include_str!("shaders/card_ui.wgsl"),
             &format!("{prelude}{}", include_str!("shaders/card_common.wgsl")),
+        );
+    }
+
+    /// This cache hands out one material per look and never looks at the
+    /// handle again, so a card back drawn before the picture arrived would
+    /// stay a flat colour for the rest of the session — the hand can be
+    /// rebuilt a hundred times and get the same material every time. The
+    /// picture is therefore written into what is already hanging there.
+    #[test]
+    fn a_back_made_before_the_picture_arrived_is_dressed_where_it_hangs() {
+        let mut images = Assets::<Image>::default();
+        let mut assets = Assets::<CardUiMaterial>::default();
+        let mut cache = UiCardMaterials::default();
+
+        // Two shapes, both legitimate: the hand builds a back around the
+        // stand-in texture, and a caller with nothing to hand it builds one
+        // around no picture at all. The second is the one that needs the
+        // flag as well as the handle.
+        let flat = images.add(Image::default());
+        let back = cache.get(
+            CardLook::back(FinishTreatment::Plain, 0),
+            Some(flat.clone()),
+            Color::BLACK,
+            &mut assets,
+        );
+        let bare = cache.get(
+            CardLook::back(FinishTreatment::Plain, 1),
+            None,
+            Color::BLACK,
+            &mut assets,
+        );
+        // A card drawing its own text is not a back, and must not be given
+        // the picture: both have no `ImageKey`, and the tint is what tells
+        // them apart.
+        let face = cache.get(
+            CardLook::flat(Color::srgb(0.2, 0.3, 0.4), FinishTreatment::Plain, 0),
+            None,
+            Color::srgb(0.2, 0.3, 0.4),
+            &mut assets,
+        );
+
+        let printed = images.add(Image::default());
+        assert!(!cache.backs_are_dressed());
+        cache.dress_the_backs(&printed, &mut assets);
+        assert!(cache.backs_are_dressed());
+
+        let dressed = assets.get(&back).expect("the back material");
+        assert_eq!(dressed.art.as_ref(), Some(&printed), "still the stand-in");
+        let bare = assets.get(&bare).expect("the bare back material");
+        assert_eq!(bare.art.as_ref(), Some(&printed));
+        assert!(
+            (bare.params.has_art - 1.0).abs() < f32::EPSILON,
+            "given the picture and not the flag, it draws the tint as before"
+        );
+        assert_ne!(
+            assets.get(&face).expect("the face material").art.as_ref(),
+            Some(&printed),
+            "a constructed face was dressed as a card back"
         );
     }
 }
