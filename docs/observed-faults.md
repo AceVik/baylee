@@ -287,3 +287,52 @@ not by the order they were told, and nothing here is fixed yet.
 
 25. **Manual taps must stay possible** alongside the auto-tap that already
     works well.
+
+## Third pass, 2026-09-08 — from the screenshots
+
+Two faults seen in a four-player table photographed for a friend. Both are
+about the table itself rather than the rules, and both are fixed.
+
+26. **Cards on the battlefield z-fight.** *Fixed.* Not precision: the two
+    quads were at *exactly* the same height. Every card on a lane was placed
+    with a lift of `0.0`, so a fanned row — which is overlap by definition —
+    left the depth test deciding per pixel, on the last bit of an
+    interpolated float, and it decided differently as the camera moved. The
+    covered card's art came through the one on top in bands. A row now rises
+    by `LANE_RISE` from its first card to its last, shared out over however
+    many cards are on it so a long lane cannot ramp; the whole rise is
+    smaller than the gap a card already floats above the felt, and the order
+    it imposes is the one a fan wants anyway — each card over the one before
+    it.
+
+    Why a four-player table is where it showed: a lane fans as soon as it
+    holds more than it has room for, and that was about *six* permanents at
+    four seats, because of entry 27.
+
+27. **A seat's board is too narrow at four players.** *Fixed.* The ring was
+    sized by inverting the arc formula for `MIN_POD_WIDTH` — a closed form
+    for a quantity no seat is ever handed. What a seat actually gets is
+    `pod_half_width`: the tighter of that arc and the true distance to its
+    nearest neighbour (the ring is an *ellipse*, and the seats on the flanks
+    sit far closer than a circle of the same mean radius puts them), less a
+    pile strip on each side. So the solve aimed at 10.0 and delivered 6.10 at
+    four seats, 4.01 at five and 3.31 at six — four cards on a row whose
+    constant promises seven, and five seats came out narrower than six.
+
+    The ring is now solved by bisection over `pod_half_width` itself, which
+    is the property that was missing: the search asks the same function the
+    width is read from. Measured at the duel HUD's aspect, four seats go from
+    6.10 to the full 10.00 and five from 4.01 to 7.86. Two ceilings bound it
+    (`MAX_RING_X`, `MAX_RING_Y`), because past them `CameraRig::home` runs
+    into `MAX_DISTANCE` and the near mats slide under the hand bar — which
+    the old layout was already doing at five, six and eight seats on a
+    portrait canvas. Crowded tables stop there and fan, which is what fanning
+    is for.
+
+    *Open, and new:* on a canvas taller than it is wide the ceiling now binds
+    from three seats up, and a pod there comes out about two units — a fifth
+    of the promise. It is not a regression (the old layout clamped the camera
+    at exactly `MAX_DISTANCE` in the same cases, which is the failure the
+    ceilings exist to stop), but a portrait table is a fanned table, and the
+    answer for it is probably a different arrangement of seats rather than a
+    bigger ring.

@@ -281,6 +281,62 @@ pub struct TableLayout {
     pub radius: Vec2,
 }
 
+/// The ring radii for a given `y`, in the shape the canvas asks for.
+///
+/// `x` is whatever makes the whole footprint — ground and piles together,
+/// which is what [`TableLayout::extent`] reports and the camera frames — the
+/// same shape as the canvas. A span taller than the canvas wastes its width,
+/// a span wider wastes its height, and only a span of the same shape wastes
+/// neither.
+fn ring_for(ry: f32, aspect: f32, half_depth: f32) -> Vec2 {
+    let rx = aspect
+        .mul_add(ry + half_depth, -half_depth - PILE_STRIP)
+        .max(half_depth);
+    Vec2::new(rx, ry)
+}
+
+/// Where each seat sits on a given ring, in turn order from the local seat.
+fn ring_centers(n: usize, radius: Vec2) -> Vec<Vec2> {
+    (0..n)
+        .map(|i| {
+            let (sin, cos) = (core::f32::consts::TAU * (i as f32) / (n as f32)).sin_cos();
+            Vec2::new(radius.x * sin, -radius.y * cos)
+        })
+        .collect()
+}
+
+/// How wide half a seat's ground comes out on a given ring.
+///
+/// Two seats face each other across the middle and neither has a neighbour to
+/// bump into, so each may have the whole table; three or more share the ring.
+/// For those, two bounds, and the tighter one wins.
+///
+/// The first is the arc: a seat's share of a ring of mean radius. The second
+/// is not a refinement of it — the ring is an **ellipse**, and on an ellipse
+/// the seats out on the flanks sit far closer together than a circle of the
+/// same mean radius would put them. Measured, at six seats the nearest pair
+/// is a third closer than the arc estimate says, and their mats overlapped
+/// ever since a table could seat six. The strip comes off both, because the
+/// arc a seat gets has to hold its piles as well as its board.
+///
+/// This is the number [`TableLayout::new`] sizes the ring *against*, and the
+/// number it then hands out. Those used to be two different functions, which
+/// is how `MIN_POD_WIDTH` came to mean an arc nobody plays on.
+fn pod_half_width(n: usize, radius: Vec2, half_depth: f32) -> f32 {
+    let across = radius.x + half_depth;
+    if n < 3 {
+        return across;
+    }
+    let centers = ring_centers(n, radius);
+    let mean = f32::midpoint(radius.x, radius.y);
+    let by_arc = mean * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE;
+    let closest = (0..n)
+        .map(|i| centers[i].distance(centers[(i + 1) % n]))
+        .fold(f32::INFINITY, f32::min);
+    let by_neighbour = closest * 0.5 * ARC_SHARE;
+    (by_arc.min(by_neighbour) - PILE_STRIP).clamp(CARD_WIDTH, across)
+}
+
 impl TableLayout {
     /// Lays out `seats` (in turn order starting with the local seat) on a ring
     /// sized for the canvas it will be seen through.
@@ -315,43 +371,56 @@ impl TableLayout {
         // have to clear the middle of the table, and — from three seats up —
         // each seat's share of the ring has to be wide enough to play on.
         let clear = half_depth + CENTRE_GAP * 0.5;
-        let crowded = if n < 3 {
-            0.0
+        // The second of those is a *search*, and that is the whole fix here.
+        //
+        // It used to be one division: invert `2·r·sin(π/n)·ARC_SHARE` for the
+        // ring whose arc is `MIN_POD_WIDTH`, and stop. But the arc is not
+        // what a pod gets. [`pod_half_width`] takes the tighter of that arc
+        // and the real distance to the nearest neighbour — the ring is an
+        // *ellipse*, where the seats on the flanks sit far closer than a
+        // circle of the same mean radius puts them — and then takes a pile
+        // strip off each side. So the closed form was a closed form for a
+        // quantity nobody is given, and at four seats it solved a ring whose
+        // arc was the promised 10.0 and whose pods came out **6.10**: four
+        // cards where the name says seven. At six it was 3.31, and a row of
+        // lands was a fan of slivers before the fourth one was played.
+        //
+        // The delivered width rises with the ring and the ring is bounded, so
+        // bisection answers it in a fixed twenty-four steps of arithmetic —
+        // and, unlike an inversion, it asks *the same function the width is
+        // read from*, which is the property that was missing.
+        let ry = if n < 3 {
+            clear
         } else {
-            // A seat's ground is a chord of the ring: `2·r·sin(π/n)` of it,
-            // less the gap that keeps neighbours apart. Solved for the ring
-            // that makes that chord `MIN_POD_WIDTH` wide, with `x` written in
-            // terms of `y` by the aspect below — so this is one division and
-            // not a search.
-            //
-            // The pile strips are deliberately **not** in here, and that is
-            // the whole difference between a table and a table nobody can
-            // see. Widening this to cover them grows the ring by half at
-            // seven seats, past `CameraRig::MAX_DISTANCE`, so the camera
-            // clamps and the near mats slide under the hand bar — and the
-            // pods do not even get the width, because on an ellipse it is the
-            // distance to the nearest neighbour that limits them and not this
-            // estimate. The strips come off the *width* below, where they
-            // cost a narrower board at a crowded table and nothing else.
-            //
-            // The `PILE_STRIP` in the inversion is a different thing from the
-            // one left out above, and both are needed: `x` below is a strip
-            // shorter than it used to be, so the `y` that produces a given
-            // mean radius has to be a strip's share taller. Without it this
-            // solve aims at a ring it no longer builds.
-            let mean = MIN_POD_WIDTH
-                / (2.0 * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE).max(1e-3);
-            (2.0f32.mul_add(mean, PILE_STRIP - (aspect - 1.0) * half_depth) / (aspect + 1.0))
-                .max(0.0)
+            let wide_enough =
+                |ry: f32| pod_half_width(n, ring_for(ry, aspect, half_depth), half_depth) * 2.0;
+            // The ceiling, in whichever of the two radii binds first on this
+            // canvas: `x` is derived from `y` by the aspect, so a cap on `x`
+            // is a cap on `y` once it is read back through the same division.
+            let by_x = (MAX_RING_X + half_depth + PILE_STRIP) / aspect - half_depth;
+            let (mut lo, mut hi) = (clear, MAX_RING_Y.min(by_x).max(clear));
+            if wide_enough(hi) < MIN_POD_WIDTH {
+                // Past the cap the camera would have to pull back further
+                // than `CameraRig::MAX_DISTANCE`, and a table it cannot frame
+                // slides its near mats under the hand bar. Eight seats live
+                // here: they get the biggest ring that can still be seen, and
+                // their lanes fan. That is what fanning is for.
+                hi
+            } else if wide_enough(lo) >= MIN_POD_WIDTH {
+                lo
+            } else {
+                for _ in 0..24 {
+                    let mid = f32::midpoint(lo, hi);
+                    if wide_enough(mid) >= MIN_POD_WIDTH {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                    }
+                }
+                hi
+            }
         };
-        let ry = clear.max(crowded);
-        // The strip comes off `x` here, so what ends up the shape of the
-        // canvas is the *footprint* — ground and piles together, which is
-        // what `extent` reports and the camera frames.
-        let rx = aspect
-            .mul_add(ry + half_depth, -half_depth - PILE_STRIP)
-            .max(half_depth);
-        let radius = Vec2::new(rx, ry);
+        let radius = ring_for(ry, aspect, half_depth);
         if n == 0 {
             return Self {
                 slots: Vec::new(),
@@ -359,44 +428,11 @@ impl TableLayout {
             };
         }
 
-        // How wide a seat's ground may be. Two seats face each other across
-        // the middle and neither has a neighbour to bump into, so each may
-        // have the whole table; three or more share the ring and may have
-        // their arc of it and no more.
-        let across = rx + half_depth;
-        // Where each seat will sit, needed before the widths because a seat's
-        // room is decided by how far away its nearest neighbour actually is.
-        let centers: Vec<Vec2> = (0..n)
-            .map(|i| {
-                let (sin, cos) = (core::f32::consts::TAU * (i as f32) / (n as f32)).sin_cos();
-                Vec2::new(radius.x * sin, -radius.y * cos)
-            })
-            .collect();
-        let pod_half_width = if n < 3 {
-            across
-        } else {
-            // Two bounds, and the tighter one wins.
-            //
-            // The first is the arc: a seat's share of a ring of mean radius.
-            // The second is the one that was missing, and it is not a
-            // refinement — the ring is an **ellipse**, and on an ellipse the
-            // seats out on the flanks sit far closer together than a circle
-            // of the same mean radius would put them. Measured, at six seats,
-            // the nearest pair is a third closer than the arc estimate says,
-            // and their mats have been overlapping ever since a table could
-            // seat six. Adding the pile strips is what made it visible: two
-            // seats' piles met in the middle of the gap.
-            //
-            // The strip comes off both, because the arc a seat gets has to
-            // hold its piles as well as its board.
-            let mean = f32::midpoint(rx, ry);
-            let by_arc = mean * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE;
-            let closest = (0..n)
-                .map(|i| centers[i].distance(centers[(i + 1) % n]))
-                .fold(f32::INFINITY, f32::min);
-            let by_neighbour = closest * 0.5 * ARC_SHARE;
-            (by_arc.min(by_neighbour) - PILE_STRIP).clamp(CARD_WIDTH, across)
-        };
+        // Where each seat sits, and how much room it gets — both read off the
+        // ring the search above settled on, through the same two functions
+        // the search itself asked.
+        let centers = ring_centers(n, radius);
+        let pod_half_width = pod_half_width(n, radius, half_depth);
 
         // Even shares, with a focus bonus borrowed from everyone else.
         let weights: Vec<f32> = seats
@@ -505,11 +541,35 @@ pub const POD_DEPTH: f32 = CARD_HEIGHT * 3.0 * 1.18;
 pub const CENTRE_GAP: f32 = 3.4;
 
 /// The narrowest a seat's lane is allowed to get before the ring grows to
-/// make room — about nine cards.
+/// make room — about seven cards laid side by side.
 ///
-/// This is what stops a big table from solving itself by squeezing: eight
-/// seats get a bigger ring, not a strip of ground too narrow to read.
+/// This is what stops a big table from solving itself by squeezing: more
+/// seats get a bigger ring, not a strip of ground too narrow to read. It is
+/// the width a pod is *handed*, which is a correction: it used to size the
+/// arc, and a pod was then given that arc less a pile strip on each side, so
+/// what the name promised and what a player got were four units apart.
 const MIN_POD_WIDTH: f32 = 10.0;
+
+/// The furthest out the ring may stand, whatever the seat count asks for.
+///
+/// The camera frames whatever [`TableLayout::extent`] reports and clamps at
+/// `CameraRig::MAX_DISTANCE`; past that the far edge stays pinned and the
+/// near mats slide under the hand bar. So the search that grows the ring
+/// needs a ceiling, and it takes **two**, because the two radii are what the
+/// camera sees and only one of them is being searched over.
+///
+/// Measured through `CameraRig::home` on a 1728×1052 window with the duel
+/// HUD, whose free area is about 2.01 wide to 1 tall: the camera runs a
+/// little under 1.8 units of distance per unit of `x`, so a ring at `x` 23.1
+/// needs 46 — exactly the clamp — while 21.0 asks about 42 and leaves the
+/// margin standing. `y` binds instead at a narrow canvas, where `x` is small
+/// and the table is deep rather than wide.
+///
+/// A table that wants more room than this does not get it — it gets fanned
+/// lanes, which is what fanning is for. Six seats and up live here.
+const MAX_RING_X: f32 = 21.0;
+/// The same ceiling on the other radius; see [`MAX_RING_X`].
+const MAX_RING_Y: f32 = 11.2;
 
 /// How much of the arc between two neighbours a mat may claim. The rest is
 /// the gap that keeps them from touching.
@@ -1023,36 +1083,37 @@ mod tests {
             // wide as they are, so one of them has to be tight:
             //
             // - the mats are as close to the middle as the channel allows;
-            // - the ring stands exactly where the crowding solve put it, so a
-            //   seat's share of the arc is exactly a board's worth;
-            // - or the ellipse is what limits them — its flanks bring two
-            //   seats closer together than any circle of the same mean radius
-            //   would, and a place wider than half that gap would be lying on
-            //   the neighbour's.
+            // - the crowding solve stopped there, a pod being exactly the
+            //   board's worth `MIN_POD_WIDTH` promises and one step further
+            //   out therefore more than a seat needs;
+            // - or the ring is at the ceiling the camera can still frame, and
+            //   the pods are narrower than the minimum only because there is
+            //   nowhere left to grow.
             //
             // A ring that satisfies none of the three is empty table, and
             // empty table is what every card on it is drawn smaller for.
+            //
+            // The ellipse used to stand here as a fourth reason — its flanks
+            // bring two seats closer together than any circle of the same
+            // mean radius would. It is not a separate reason any more: that
+            // bound lives inside `pod_half_width`, and the solve now inverts
+            // *that* function rather than the arc, so it comes out as the
+            // second bullet like every other way a pod can be limited.
             let widest = layout
                 .slots
                 .iter()
                 .map(|slot| slot.half_extent.x * 2.0)
                 .fold(0.0_f32, f32::max);
-            let mean = f32::midpoint(layout.radius.x, layout.radius.y);
-            let by_arc = mean * (core::f32::consts::PI / f32::from(n)).sin() * ARC_SHARE;
-            let closest = (0..usize::from(n))
-                .map(|i| {
-                    let next = (i + 1) % usize::from(n);
-                    layout.slots[i].center.distance(layout.slots[next].center)
-                })
-                .fold(f32::INFINITY, f32::min);
-            let by_neighbour = closest * 0.5 * ARC_SHARE;
+            let at_ceiling =
+                layout.radius.x >= MAX_RING_X - 1e-3 || layout.radius.y >= MAX_RING_Y - 1e-3;
             assert!(
                 (inner - CENTRE_GAP * 0.5).abs() < 1e-3
-                    || (by_arc - MIN_POD_WIDTH * 0.5).abs() < 1e-2
-                    || (widest * 0.5 - (by_neighbour - PILE_STRIP)).abs() < 1e-2,
-                "{n} seats: mats stop {inner} out and are {widest} wide; the arc \
-                 offers {by_arc} and the nearest neighbour {by_neighbour} — none \
-                 of the channel, the crowding or the ellipse put them there"
+                    || (widest - MIN_POD_WIDTH).abs() < 1e-2
+                    || at_ceiling,
+                "{n} seats: mats stop {inner} out and are {widest} wide on a ring \
+                 {:?} that could still have grown — none of the channel, the \
+                 crowding or the ceiling put them there",
+                layout.radius
             );
         }
     }
@@ -1073,6 +1134,83 @@ mod tests {
                 (got - aspect).abs() < 0.05,
                 "canvas {aspect}: the table came out {got} ({span:?})"
             );
+        }
+    }
+
+    /// The shape of the space the duel HUD leaves on a laptop window — what
+    /// the layout is actually built against, and nothing like the window's.
+    const HUD_ASPECT: f32 = 2.01;
+
+    // `MIN_POD_WIDTH` is the width a seat is *handed*, and for a long time it
+    // was the width of an arc a seat was then charged two pile strips out of.
+    // Measured at the aspect above: four seats were solved for an arc of 10.0
+    // and given 6.10 — four cards on a row the name promises seven to.
+    #[test]
+    fn a_pod_gets_the_width_its_minimum_promises_or_the_ring_is_at_its_ceiling() {
+        for n in [3u8, 4, 5, 6, 8] {
+            for aspect in [HUD_ASPECT, 16.0 / 9.0, 1.0] {
+                let layout = TableLayout::new(&seats(n), aspect, None);
+                let width = layout.slots[0].lane_width();
+                let at_ceiling =
+                    layout.radius.x >= MAX_RING_X - 0.01 || layout.radius.y >= MAX_RING_Y - 0.01;
+                assert!(
+                    width >= MIN_POD_WIDTH - 0.01 || at_ceiling,
+                    "{n} seats at aspect {aspect:.2}: {width:.2} wide on a ring \
+                     ({:.2}, {:.2}) that could still have grown",
+                    layout.radius.x,
+                    layout.radius.y,
+                );
+            }
+        }
+    }
+
+    // The complaint this closes, in the terms it was made in: at four players
+    // a seat's row was too narrow. Six cards is an ordinary mid-game board of
+    // lands, and they used to overlap on it.
+    #[test]
+    fn six_cards_lie_side_by_side_at_a_four_seat_table() {
+        let layout = TableLayout::new(&seats(4), HUD_ASPECT, None);
+        for slot in &layout.slots {
+            let packing = pack_lane(6, slot.lane_width());
+            assert!(
+                !packing.fanned,
+                "six cards fan on a {:.2}-wide row",
+                slot.lane_width()
+            );
+        }
+    }
+
+    // Growing the ring is only free while the camera can still frame it, so
+    // the ceiling exists — and a ceiling that no seat count ever reaches is a
+    // ceiling nobody has checked. Six seats and up sit on it.
+    #[test]
+    fn a_crowded_table_stops_growing_at_the_ceiling() {
+        let layout = TableLayout::new(&seats(8), HUD_ASPECT, None);
+        assert!(
+            layout.radius.x <= MAX_RING_X + 0.01 && layout.radius.y <= MAX_RING_Y + 0.01,
+            "the ring outgrew what the camera can frame: {:?}",
+            layout.radius
+        );
+        assert!(
+            layout.slots[0].lane_width() < MIN_POD_WIDTH,
+            "eight seats reaching the minimum would mean the ceiling is never tested"
+        );
+    }
+
+    // Seats sharing a ring evenly should get less room as more of them
+    // arrive, and the old solve did not: five seats came out *narrower* than
+    // six, because the ring was sized against one bound and the width read
+    // off another.
+    #[test]
+    fn more_seats_never_means_a_wider_pod() {
+        let mut last = f32::INFINITY;
+        for n in [3u8, 4, 5, 6, 8] {
+            let width = TableLayout::new(&seats(n), HUD_ASPECT, None).slots[0].lane_width();
+            assert!(
+                width <= last + 0.01,
+                "{n} seats got {width:.2}, wider than the {last:.2} of fewer seats"
+            );
+            last = width;
         }
     }
 }

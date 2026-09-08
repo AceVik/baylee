@@ -99,6 +99,28 @@ const GLOW_STRENGTH: f32 = 0.085;
 
 /// Extra lift per card in a counted stack, so a stack reads as a stack.
 const STACK_LIFT: f32 = 0.006;
+/// How far the last card in a row stands above the first.
+///
+/// Not depth: a row of permanents is meant to read as flat, and the whole
+/// rise is smaller than the gap a card already floats above the felt. It is
+/// here because two quads at exactly the same height have no order at all —
+/// the depth test then decides per pixel, on the last bit of an interpolated
+/// float, and the answer changes as the camera moves. A lane fans as soon as
+/// it holds more than it has room for, which at a four-seat table is about
+/// ten permanents, and from there every card lies partly under its
+/// neighbour. What it looked like was bands of the covered card's art
+/// crossing the one on top.
+///
+/// Spread across the row rather than added per card, so a long lane cannot
+/// ramp: the step shrinks as the row grows, and the shrinking is what bounds
+/// it. A reverse-`z` depth buffer resolves a few millionths of a unit at
+/// [`CameraRig::MAX_DISTANCE`]; an ordinary fan of a dozen puts its cards a
+/// hundred times that apart, and a lane packed all the way to
+/// `MIN_VISIBLE_FRACTION` — a hundred and more cards, which the model groups
+/// long before — still keeps an order of magnitude of it.
+const LANE_RISE: f32 = 0.004;
+// A row that rose further than a card floats would be a staircase, not a row.
+const _: () = assert!(LANE_RISE < CARD_LIFT);
 /// The back of a card: what a stack behind a counted group is made of, and
 /// what a card whose art never arrives falls back to.
 const BACK_COLOR: Color = Color::srgb(0.12, 0.14, 0.18);
@@ -1609,6 +1631,8 @@ struct Placement {
     object: ObjectId,
     slot: SeatSlot,
     position: Vec2,
+    /// Where this card stands in its row, as a height — see [`LANE_RISE`].
+    lift: f32,
     tapped: bool,
     count: usize,
     art: Option<ImageKey>,
@@ -1634,12 +1658,18 @@ fn placements(duel: &Duel) -> Vec<Placement> {
         for lane in &pod.lanes {
             let center = slot.lane_center(lane.kind);
             let packing = pack_lane(lane.groups.len(), slot.lane_width());
-            for (group, offset) in lane.groups.iter().zip(packing.offsets.iter()) {
+            // The row's rise, shared out over however many cards are on it.
+            let steps = lane.groups.len().saturating_sub(1).max(1) as f32;
+            for (i, (group, offset)) in lane.groups.iter().zip(packing.offsets.iter()).enumerate() {
                 let along = Vec2::new(slot.facing.cos(), -slot.facing.sin());
                 out.push(Placement {
                     object: group.representative,
                     slot: *slot,
                     position: center + along * *offset,
+                    // Later in the row is higher, so a fanned lane shingles
+                    // the way a hand of cards does — each card over the one
+                    // before it, and never in bands of both.
+                    lift: LANE_RISE * i as f32 / steps,
                     tapped: group.status.is_tapped(),
                     count: group.count(),
                     art: group.art,
@@ -1695,6 +1725,10 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 object: top,
                 slot: *slot,
                 position: slot.pile_center(pile.kind),
+                // A pile stands beside the ground and overlaps nothing, so
+                // there is nothing here for the row's rise to separate it
+                // from.
+                lift: 0.0,
                 // A card in a graveyard is not a permanent and has no tap
                 // state to draw; the same goes for its power and toughness,
                 // which is why the corner is the empty one rather than
@@ -1842,8 +1876,12 @@ pub fn sync_scene(
             }
         };
 
-        let mut transform =
-            card_transform(&placement.slot, placement.position, placement.tapped, 0.0);
+        let mut transform = card_transform(
+            &placement.slot,
+            placement.position,
+            placement.tapped,
+            placement.lift,
+        );
         // Hover (cursor) lifts the card a touch; a chosen card stays raised
         // until the choice is answered, and so does an armed one — a deed
         // waiting on a second tap is a commitment the player has already
@@ -1915,7 +1953,7 @@ pub fn sync_scene(
                     &placement.slot,
                     placement.position + Vec2::splat(0.02 * i as f32),
                     placement.tapped,
-                    STACK_LIFT * i as f32,
+                    placement.lift + STACK_LIFT * i as f32,
                 );
                 commands.spawn((
                     DuelStage,
@@ -2889,6 +2927,52 @@ mod combat_tests {
         assert!(
             placements(&duel)[0].selected,
             "the stack was targeted and the card drawn for it sits flat"
+        );
+    }
+
+    /// Reported from a four-player game: the cards on the table flickered
+    /// against each other in bands.
+    ///
+    /// A lane fans once it holds more than fits, and a fan is overlap by
+    /// definition — so the two quads sharing a patch of felt were at exactly
+    /// the same height, and which of them a pixel belongs to was decided by
+    /// the last bit of an interpolated depth. Every card on a lane got
+    /// `0.0`.
+    #[test]
+    fn cards_that_overlap_in_a_row_do_not_lie_at_the_same_height() {
+        let seats: Vec<_> = (0..4).map(PlayerId::new).collect();
+        let duel = Duel {
+            board: Some(board((1..=12).map(creature).collect())),
+            layout: Some(TableLayout::new(&seats, 2.01, None)),
+            ..Duel::default()
+        };
+        let placed = placements(&duel);
+
+        let mut overlaps = 0;
+        for pair in placed.windows(2) {
+            if pair[0].position.distance(pair[1].position) >= CARD_WIDTH {
+                continue;
+            }
+            overlaps += 1;
+            assert!(
+                pair[1].lift > pair[0].lift,
+                "two cards {} apart — closer than a card is wide — both sit at {}",
+                pair[0].position.distance(pair[1].position),
+                pair[0].lift
+            );
+        }
+        assert!(
+            overlaps > 0,
+            "the row did not fan, so nothing about overlapping cards was tested"
+        );
+
+        // And it stays a row: the whole rise is smaller than the gap a card
+        // already floats above the felt, so this is order for the depth
+        // buffer and not a staircase for the eye.
+        let top = placed.iter().map(|p| p.lift).fold(0.0_f32, f32::max);
+        assert!(
+            top < CARD_LIFT,
+            "a row of twelve climbs {top} off the table"
         );
     }
 }
