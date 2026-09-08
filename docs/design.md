@@ -1081,9 +1081,10 @@ from `Motion::target` would arrive before its attacker did — and the focus
 ring breathes on the shader's own `BEAT`, held still by `reduce_motion`. The
 tally in the prompt bar is the one piece of arithmetic §6 allows, and it
 counts a block this seat has only *proposed*, because "what still reaches me
-if I block here" is the question being asked. What is *not* covered: the model
-and the geometry have tests, the two Bevy systems have none — `duel_flow.rs`
-builds no `App`, so neither has ever run outside a window. ~~`motion` wired to
+if I block here" is the question being asked. Both systems are run headless in
+`combatlines::running`, asserting on outcomes rather than on `update()` having
+returned, and the harness is checked by the reverse: deleting one resource
+from it fails six of them. ~~`motion` wired to
 `reduce_motion`~~ (done — §1.3); the palette
 unified; the keyword
 dominance table and the off-pie films; flying as elevation.

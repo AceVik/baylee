@@ -671,10 +671,12 @@ snaps to the destination while the card it belongs to is still gliding there.
 `Combat::tally` is the one arithmetic §6 of `docs/design.md` allows, and it
 counts a block this seat has only *proposed* — the number answers "what still
 reaches me if I block here", so a block that has not been sent has to count.
-The model and the geometry are tested; the two systems themselves are not.
-`duel_flow.rs` builds no `App`, so nothing in the suite has ever run
-`sync_combat_lines` — the same "declared but never wired" shape that hid the
-combat input gap.
+Both systems are *run* in `combatlines::running` — an `App` with the resources
+they ask for and two creatures on the table — because "declared but never
+wired" is a bug this client has shipped before. Every assertion there is on an
+outcome (entities that exist, a transform that moved, a ring at a named
+point) and never on `update()` having returned, and the harness is checked by
+the reverse: deleting one resource from it fails six tests.
 
 A spell whose mana is not floating yet is **not** a card with nothing to do.
 `baylee-client-core/src/manaplan.rs` decides which lands to tap for it —

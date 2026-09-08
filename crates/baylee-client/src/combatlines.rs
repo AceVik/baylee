@@ -421,3 +421,264 @@ mod tests {
         );
     }
 }
+
+/// The two systems, actually run.
+///
+/// The tests above are about arithmetic and geometry, which is the half of
+/// this file that can be wrong quietly. The other half is whether the systems
+/// do anything at all, and this client has shipped the answer "no" before:
+/// `Interaction::activate` was written and nothing ever called it. So every
+/// assertion here is on an *outcome* — entities that exist, a transform that
+/// moved, a ring at a named point — and never on `update()` having returned.
+///
+/// Measured rather than assumed: deleting `Prefs` from the harness fails six
+/// of these. Bevy 0.19 is loud about a missing resource — the default error
+/// handler panics with "Parameter … failed validation: Resource does not
+/// exist" — but it panics on whichever task-pool thread ran the system, so
+/// half of those six reported their own assertion failing instead. Either
+/// way it is the outcome assertions that catch it.
+#[cfg(test)]
+mod running {
+    use super::*;
+    use crate::prefs::Prefs;
+    use baylee_client_core::layout::TableLayout;
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    use baylee_core::ids::{Defender, ObjectId, PlayerId};
+    use baylee_view::{AttackerView, BlockerView, PlayerView};
+
+    fn obj(slot: u32) -> ObjectId {
+        ObjectId::new(slot, 0)
+    }
+
+    /// Seat 1 attacks seat 0 with a Bear; seat 0 blocks it with an Ogre.
+    ///
+    /// Both come out of `view.combat`, so both are standing — the case a
+    /// client cannot reach through its own `Interaction` at all, because the
+    /// declaring seat is not this one.
+    fn a_fight() -> PlayerView {
+        ViewBuilder::new(2)
+            .with_battlefield(1, vec![token(1, 1, "Bear", 2, 2)])
+            .with_battlefield(0, vec![token(2, 0, "Ogre", 3, 3)])
+            .with_combat(
+                vec![AttackerView {
+                    creature: obj(1),
+                    defending: Defender::Player(PlayerId::new(0)),
+                }],
+                vec![BlockerView {
+                    blocker: obj(2),
+                    attacker: obj(1),
+                }],
+            )
+            .build()
+    }
+
+    /// An app with both systems, the resources they ask for, and the two
+    /// creatures standing on the table where the glide left them.
+    fn harness(view: PlayerView) -> App {
+        let mut app = App::new();
+        app.insert_resource(Duel {
+            view: Some(view),
+            layout: Some(TableLayout::new(
+                &[PlayerId::new(0), PlayerId::new(1)],
+                16.0 / 9.0,
+                None,
+            )),
+            ..Duel::default()
+        })
+        .init_resource::<LineAssets>()
+        .init_resource::<FocusAssets>()
+        .init_resource::<Time>()
+        .init_resource::<Prefs>()
+        .insert_resource(Assets::<Mesh>::default())
+        .insert_resource(Assets::<StandardMaterial>::default())
+        .add_systems(Update, (sync_combat_lines, sync_focus_ring));
+
+        for (index, slot) in [1_u32, 2].into_iter().enumerate() {
+            let x = index as f32 * 2.0;
+            app.world_mut().spawn((
+                CardVisual {
+                    object: obj(slot),
+                    count: 1,
+                },
+                Transform::from_xyz(x, LINE_Y, 0.0),
+            ));
+        }
+        app
+    }
+
+    fn lines(app: &mut App) -> Vec<(Line, Transform)> {
+        let mut q = app.world_mut().query::<(&CombatLine, &Transform)>();
+        let mut found: Vec<_> = q
+            .iter(app.world())
+            .map(|(line, at)| (line.line, *at))
+            .collect();
+        found.sort_by_key(|(line, _)| (line.from, line.kind == LineKind::Block));
+        found
+    }
+
+    #[test]
+    fn both_declarations_reach_the_table() {
+        let mut app = harness(a_fight());
+        app.update();
+
+        let drawn = lines(&mut app);
+        assert_eq!(drawn.len(), 2, "one attack and one block, drawn: {drawn:?}");
+        assert!(
+            drawn.iter().all(|(line, _)| line.standing),
+            "the engine has accepted both, so neither is a proposal"
+        );
+        assert!(
+            drawn.iter().any(|(line, _)| line.kind == LineKind::Attack)
+                && drawn.iter().any(|(line, _)| line.kind == LineKind::Block),
+            "one of each kind: {drawn:?}"
+        );
+    }
+
+    #[test]
+    fn a_second_frame_reuses_what_the_first_one_built() {
+        // The failure this is aimed at is a line spawned per frame: the table
+        // looks right and the entity count climbs forever. The mesh and the
+        // materials are cached in `LineAssets`, so those must not grow either.
+        let mut app = harness(a_fight());
+        app.update();
+        let after_one = app.world().resource::<Assets<Mesh>>().len();
+
+        for _ in 0..5 {
+            app.update();
+        }
+
+        assert_eq!(lines(&mut app).len(), 2, "still two lines, not twelve");
+        assert_eq!(
+            app.world().resource::<Assets<Mesh>>().len(),
+            after_one,
+            "the unit quad is built once and reused"
+        );
+    }
+
+    #[test]
+    fn a_line_follows_the_card_it_is_welded_to() {
+        // The whole reason the lines are recomputed from live `Transform`s
+        // rather than from `Motion::target`: mid-glide, the line has to be
+        // where the card is, not where it is going.
+        let mut app = harness(a_fight());
+        app.update();
+        let before = lines(&mut app)[0].1.translation;
+
+        let mut cards = app
+            .world_mut()
+            .query_filtered::<&mut Transform, With<CardVisual>>();
+        let mut moved = false;
+        for mut at in cards.iter_mut(app.world_mut()) {
+            at.translation.x += 5.0;
+            moved = true;
+        }
+        assert!(moved, "the harness put creatures on the table");
+        app.update();
+
+        let after = lines(&mut app)[0].1.translation;
+        assert!(
+            before.distance(after) > 1.0,
+            "the line moved with its ends: {before:?} -> {after:?}"
+        );
+    }
+
+    #[test]
+    fn combat_ending_takes_the_lines_with_it() {
+        let mut app = harness(a_fight());
+        app.update();
+        assert_eq!(lines(&mut app).len(), 2);
+
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .view
+            .as_mut()
+            .expect("the harness put a view in")
+            .combat = baylee_view::CombatView::default();
+        app.update();
+
+        assert!(
+            lines(&mut app).is_empty(),
+            "nothing is fighting, so nothing is drawn"
+        );
+    }
+
+    /// The focus ring is the second system, and it is the one that draws
+    /// nothing when there is nothing to point at — which is exactly how a
+    /// skipped system looks. So it is given something to point at.
+    #[test]
+    fn the_ring_is_drawn_where_the_next_line_would_go() {
+        use baylee_client_core::interaction::Interaction;
+        use baylee_engine::choice::Pending;
+
+        let mut app = harness(a_fight());
+        app.world_mut().resource_mut::<Duel>().interaction = Some(Interaction::new(
+            Pending::ChooseAttackers {
+                player: PlayerId::new(0),
+                attackers: vec![obj(2)],
+                defenders: vec![Defender::Player(PlayerId::new(1))],
+            },
+            PlayerId::new(0),
+        ));
+        app.update();
+
+        let mut rings = app
+            .world_mut()
+            .query_filtered::<&Transform, With<FocusRing>>();
+        let at: Vec<_> = rings.iter(app.world()).map(|t| t.translation).collect();
+        assert_eq!(at.len(), 1, "one ring, on the seat being aimed at");
+
+        let layout = TableLayout::new(&[PlayerId::new(0), PlayerId::new(1)], 16.0 / 9.0, None);
+        let slot = layout.slot(PlayerId::new(1)).expect("the opposing seat");
+        let want = to_world(seat_anchor(slot), LINE_Y);
+        assert!(
+            at[0].distance(want) < 1e-4,
+            "the ring sits at the seat's near edge: {:?} vs {want:?}",
+            at[0]
+        );
+    }
+
+    /// A quarter of the way through a beat the swell is at its peak, which is
+    /// a number this test can name exactly rather than a wobble it has to
+    /// sample. Holding still is the same claim with the preference set.
+    #[test]
+    fn the_ring_swells_on_the_beat_unless_asked_to_hold_still() {
+        use baylee_client_core::interaction::Interaction;
+        use baylee_engine::choice::Pending;
+
+        let aiming = || {
+            Some(Interaction::new(
+                Pending::ChooseAttackers {
+                    player: PlayerId::new(0),
+                    attackers: vec![obj(2)],
+                    defenders: vec![Defender::Player(PlayerId::new(1))],
+                },
+                PlayerId::new(0),
+            ))
+        };
+        let quarter_beat = std::time::Duration::from_secs_f32(1.0 / (4.0 * BEAT));
+
+        for (reduce_motion, want) in [(false, 1.0 + RING_SWELL), (true, 1.0)] {
+            let mut app = harness(a_fight());
+            app.world_mut().resource_mut::<Duel>().interaction = aiming();
+            app.world_mut().resource_mut::<Prefs>().edit().reduce_motion = reduce_motion;
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(quarter_beat);
+            app.update();
+
+            let mut rings = app
+                .world_mut()
+                .query_filtered::<&Transform, With<FocusRing>>();
+            let scale = rings
+                .iter(app.world())
+                .next()
+                .expect("the ring is drawn")
+                .scale
+                .x;
+            assert!(
+                (scale - want).abs() < 1e-3,
+                "reduce_motion = {reduce_motion}: swelled to {scale}, not {want}"
+            );
+        }
+    }
+}
