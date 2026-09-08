@@ -916,6 +916,48 @@ mysteriously not play. **Space becomes `Confirm` (pass / OK) and Enter becomes
 `Primary` (act on the cursor card)**, which is also the MTGO and Arena
 convention. It is a swap of two rows in `Keymap::standard()` and no new action.
 
+**Done — the zone browser learned to sort, scroll and say "token".** Reported
+from the same session: "Karten auf dem Friedhof und Exile immer sichtbar. Wenn
+der entsprechende Stapel angeklickt wird, wird die entsprechende Zone angezeigt
+(sortierbar, durchsuchbar, scrollbar)." Two of the four already existed — a
+pile chip opens its zone, and `Browser::set_filter` narrows by name — so what
+was actually missing was sorting, scrolling, and a reason to trust the order.
+
+`SortKey` is `Place`, `Name`, `ManaValue`, `Type`, and every one of them reads
+a field the view already projects, so none of it is a rules decision. Three
+things about it are deliberate:
+
+- **`Place` is the default and is not a sort.** A graveyard is a stack of cards
+  in the order they arrived, and that order is information — it is what "the
+  top card of your graveyard" means. Losing it by default would be answering a
+  question nobody asked.
+- **Zone always wins, whatever the key.** The tabs are the panel's first
+  structure; a list that interleaved a graveyard with an exile because both
+  hold a two-drop would have thrown it away. `BrowseZone` is `Ord` in tab
+  order and the sort leans on that.
+- **Every key falls back to the pile's own order**, captured before anything
+  moves. `sort_by` is stable, but the descending pass reverses within a key and
+  would otherwise turn "the order they arrived in" upside down as a side effect
+  of asking for Z–A. `Place` is the one key where the place *is* the key rather
+  than the tie-break, or reversing it would compare equal and do nothing.
+
+The grid scrolls rather than the panel, so the tabs, the filter line and the
+sort control stay put while a hundred-card library goes past them — and the
+grid is `Pickable` rather than `Pickable::IGNORE`, because the picking backend
+is what turns a wheel into the `Pointer<Scroll>` a scrolling node listens for.
+
+`BrowseRow` gained `mana_value`, `types` and `token`. The last is drawn: a
+graveyard holds cards and tokens together and they are not the same thing — a
+token there ceases to exist at the next state-based check (CR 111.7), so a row
+that looked like a card was inviting a player to plan around something already
+gone. The mark sits along the bottom edge, because the top-left corner belongs
+to the ordering badge and two marks fighting for one corner is how a player
+learns to read neither.
+
+Still open here, and named so it is not mistaken for done: the filter has no
+text field in the tray, so `set_filter` still has no caller a player can reach.
+That is the same soft-keys work the lobby's fields need.
+
 ### 2.5 Undo, and its absence
 
 There is no undo in the engine and there should not be one: a journaled,

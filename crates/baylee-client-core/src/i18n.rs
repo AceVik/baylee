@@ -913,6 +913,16 @@ messages! {
     ConfirmOk { en: "OK", de: "OK" },
     /// Pass
     PassPriority { en: "Pass", de: "Passen" },
+    /// In order
+    SortByPlace { en: "In order", de: "Nach Lage" },
+    /// By name
+    SortByName { en: "By name", de: "Nach Name" },
+    /// By cost
+    SortByCost { en: "By cost", de: "Nach Kosten" },
+    /// By type
+    SortByType { en: "By type", de: "Nach Typ" },
+    /// Token
+    IsToken { en: "Token", de: "Spielstein" },
     /// Your move
     YourMove { en: "Your move", de: "Du bist dran" },
     /// Stack

@@ -260,6 +260,17 @@ pub struct TrayTab {
 #[derive(Component)]
 pub struct TrayClose;
 
+/// The browser's sort control.
+///
+/// One button rather than a menu, because four keys and a direction is not a
+/// menu's worth: a click steps to the next key, and the arrow beside it turns
+/// the current one round.
+#[derive(Component)]
+pub struct TraySort {
+    /// `true` for the arrow that reverses, `false` for the key itself.
+    pub reverse: bool,
+}
+
 /// A zone count that opens the browser on that pile when clicked.
 ///
 /// The counts were already drawn — in the seat tabs and in the own-board

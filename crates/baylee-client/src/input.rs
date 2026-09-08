@@ -19,7 +19,7 @@
 use crate::hud::{
     AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, OverlayKnob, PhaseButton,
     PileChip, PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton, TrayCard,
-    TrayClose, TrayTab,
+    TrayClose, TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -44,6 +44,7 @@ pub struct TrayWidgets<'w, 's> {
     cards: Query<'w, 's, &'static TrayCard>,
     tabs: Query<'w, 's, &'static TrayTab>,
     close: Query<'w, 's, &'static TrayClose>,
+    sort: Query<'w, 's, &'static TraySort>,
     chips: Query<'w, 's, &'static PileChip>,
 }
 
@@ -1035,6 +1036,14 @@ fn browser_click(
     }
     if find_in_lineage(entity, &tray.close, parents).is_some() {
         duel.browser.close();
+        return true;
+    }
+    if let Some(sort) = find_in_lineage(entity, &tray.sort, parents) {
+        if sort.reverse {
+            duel.browser.reverse();
+        } else {
+            duel.browser.cycle_sort();
+        }
         return true;
     }
     if let Some(chip) = find_in_lineage(entity, &tray.chips, parents) {

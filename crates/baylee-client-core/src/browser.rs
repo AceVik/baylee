@@ -30,7 +30,9 @@
 //! copies of a selection cannot disagree if there is only one.
 
 use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::types::TypeSet;
 use baylee_view::PlayerView;
+use std::collections::HashMap;
 
 use crate::i18n::Phrase;
 use crate::images::{ArtSize, ImageKey};
@@ -39,8 +41,12 @@ use crate::interaction::Interaction;
 /// A zone the browser can show.
 ///
 /// Ordered as the tabs are: what the engine is showing first, because a
-/// choice that opens the tray is nearly always about those cards.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+/// choice that opens the tray is nearly always about those cards. `Ord` is
+/// that same tab order and the sort relies on it: whatever the rows are sorted
+/// by, they stay grouped by zone, because the tabs are the panel's first
+/// structure and a list that interleaved a graveyard with an exile would have
+/// thrown it away.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub enum BrowseZone {
     /// Cards the engine is showing this seat — a search, a scry, a reveal.
     /// They belong to no zone the seat can otherwise see.
@@ -116,6 +122,81 @@ pub struct BrowseRow {
     /// `None` for every other choice: a number beside a card in a plain
     /// "choose two" would be claiming the order matters when it does not.
     pub place: Option<usize>,
+    /// Its projected mana value — what [`SortKey::ManaValue`] sorts on, and
+    /// what the row shows beside the name.
+    pub mana_value: u32,
+    /// Its projected types, for [`SortKey::Type`] and the row's type line.
+    pub types: TypeSet,
+    /// Whether it is a token rather than a card.
+    ///
+    /// A graveyard holds both, and they are not the same thing: a token
+    /// ceases to exist the next time state-based actions are checked (CR
+    /// 111.7), so a row that looked like a card there would be inviting a
+    /// player to plan around something that is about to be gone.
+    pub token: bool,
+}
+
+/// What the browser sorts its rows by.
+///
+/// Every one of these reads a field the view already projects, so none of it
+/// is a rules decision — arithmetic on projected numbers, which is the line
+/// `docs/design.md` §6 draws around what the client may compute for itself.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub enum SortKey {
+    /// The zone's own order, which is the order the cards are in.
+    ///
+    /// The default, and the only one of the four that is not a sort at all: a
+    /// graveyard is a stack of cards in the order they arrived, and that order
+    /// is information — it is what "the top card of your graveyard" means.
+    #[default]
+    Place,
+    /// By name.
+    Name,
+    /// By mana value.
+    ManaValue,
+    /// By type, in the order a permanent is usually read: creatures, then
+    /// other nonland permanents, then lands, then instants and sorceries.
+    Type,
+}
+
+impl SortKey {
+    /// All four, in the order a control should offer them.
+    pub const ALL: [Self; 4] = [Self::Place, Self::Name, Self::ManaValue, Self::Type];
+
+    /// The button's label.
+    #[must_use]
+    pub const fn label(self) -> Phrase {
+        match self {
+            Self::Place => Phrase::SortByPlace,
+            Self::Name => Phrase::SortByName,
+            Self::ManaValue => Phrase::SortByCost,
+            Self::Type => Phrase::SortByType,
+        }
+    }
+
+    /// The next key round the ring — one button rather than a menu, which is
+    /// what four options deserve.
+    #[must_use]
+    pub fn next(self) -> Self {
+        let at = Self::ALL.iter().position(|k| *k == self).unwrap_or(0);
+        Self::ALL[(at + 1) % Self::ALL.len()]
+    }
+}
+
+/// Where a type line sits in [`SortKey::Type`]'s order.
+///
+/// A permanent is several types at once, so this is a precedence and not a
+/// lookup — the same shape as `board::lane_of`, and for the same reason.
+fn type_rank(types: TypeSet) -> u8 {
+    if types.contains(TypeSet::CREATURE) {
+        0
+    } else if types.contains(TypeSet::LAND) {
+        3
+    } else if types.contains(TypeSet::INSTANT) || types.contains(TypeSet::SORCERY) {
+        4
+    } else {
+        1
+    }
 }
 
 /// The panel's own state — what the player has said about it, nothing more.
@@ -124,6 +205,8 @@ pub struct Browser {
     open: bool,
     tab: Option<BrowseZone>,
     filter: String,
+    sort: SortKey,
+    descending: bool,
 }
 
 impl Browser {
@@ -175,6 +258,38 @@ impl Browser {
     /// Narrows the list to cards whose name contains `text`.
     pub fn set_filter(&mut self, text: impl Into<String>) {
         self.filter = text.into();
+    }
+
+    /// What the rows are sorted by.
+    #[must_use]
+    pub const fn sort(&self) -> SortKey {
+        self.sort
+    }
+
+    /// Whether the sort runs backwards.
+    #[must_use]
+    pub const fn descending(&self) -> bool {
+        self.descending
+    }
+
+    /// Sets the key, leaving the direction alone.
+    pub const fn sort_by(&mut self, key: SortKey) {
+        self.sort = key;
+    }
+
+    /// One button's worth: the next key, and back to ascending with it.
+    ///
+    /// The direction resets because a key and a direction are one control
+    /// here, and carrying "descending" from mana value into name would answer
+    /// a question the player did not ask again.
+    pub fn cycle_sort(&mut self) {
+        self.sort = self.sort.next();
+        self.descending = false;
+    }
+
+    /// Turns the current sort round.
+    pub const fn reverse(&mut self) {
+        self.descending = !self.descending;
     }
 
     /// Reacts to the choice changing.
@@ -282,10 +397,58 @@ impl Browser {
                         })
                         .flatten()
                         .map(|p| p + 1),
+                    mana_value: object.mana_value,
+                    types: object.types,
+                    token: object.token.is_some(),
                 });
             }
         }
+        self.arrange(&mut out);
         out
+    }
+
+    /// Puts the rows in the order the sort control asks for.
+    ///
+    /// Zone always wins, whatever the key: the tabs are the panel's first
+    /// structure, and a list that interleaved a graveyard with an exile
+    /// because both hold a two-drop would have thrown that away. Within a
+    /// zone, the key decides, and every key falls back to the zone's own
+    /// order — so the sort is total and two runs of it agree, which a sort on
+    /// a `Vec` of equal keys does not otherwise guarantee.
+    fn arrange(&self, rows: &mut [BrowseRow]) {
+        if self.sort == SortKey::Place && !self.descending {
+            return;
+        }
+        // The zone's own order, captured before anything moves: `sort_by` is
+        // stable, but the descending pass reverses within a key and would
+        // otherwise turn "the order they arrived in" upside down as a side
+        // effect of asking for Z–A.
+        let places: HashMap<ObjectId, usize> = rows
+            .iter()
+            .enumerate()
+            .map(|(at, row)| (row.id, at))
+            .collect();
+        let place = |row: &BrowseRow| places.get(&row.id).copied().unwrap_or(0);
+        rows.sort_by(|a, b| {
+            let zone = a.zone.cmp(&b.zone);
+            if zone != std::cmp::Ordering::Equal {
+                return zone;
+            }
+            let within = match self.sort {
+                // The place *is* the key here, not the tie-break, or asking
+                // for the pile upside down would compare equal and do nothing.
+                SortKey::Place => place(a).cmp(&place(b)),
+                SortKey::Name => a.name.cmp(&b.name),
+                SortKey::ManaValue => a.mana_value.cmp(&b.mana_value),
+                SortKey::Type => type_rank(a.types).cmp(&type_rank(b.types)),
+            };
+            let within = if self.descending {
+                within.reverse()
+            } else {
+                within
+            };
+            within.then_with(|| place(a).cmp(&place(b)))
+        });
     }
 }
 
@@ -543,6 +706,126 @@ mod tests {
 
         b.show(None);
         assert_eq!(b.rows(&view, None).len(), 2, "both piles, unfiltered");
+    }
+
+    /// The graveyard's own order is the default and is information: it is
+    /// what "the top card of your graveyard" means.
+    #[test]
+    fn the_default_order_is_the_pile_s_own_and_survives_being_reversed() {
+        let view = ViewBuilder::new(2)
+            .with_graveyard(
+                0,
+                vec![
+                    printed(4, 0, "Zealous Persecution", 3),
+                    printed(5, 0, "Ancestral Vision", 4),
+                    printed(6, 0, "Mox Diamond", 5),
+                ],
+            )
+            .build();
+        let mut b = Browser::new();
+        assert_eq!(b.sort(), SortKey::Place);
+        let names = |b: &Browser| -> Vec<String> {
+            b.rows(&view, None).into_iter().map(|r| r.name).collect()
+        };
+        assert_eq!(
+            names(&b),
+            [
+                "Zealous Persecution".to_string(),
+                "Ancestral Vision".to_string(),
+                "Mox Diamond".to_string()
+            ],
+            "the pile was re-ordered with no sort asked for"
+        );
+
+        b.reverse();
+        assert_eq!(
+            names(&b),
+            [
+                "Mox Diamond".to_string(),
+                "Ancestral Vision".to_string(),
+                "Zealous Persecution".to_string()
+            ],
+            "reversing the pile order did not reverse it"
+        );
+    }
+
+    #[test]
+    fn sorting_by_name_and_by_cost_are_both_stable_and_reversible() {
+        let mut cheap = printed(4, 0, "Zealous Persecution", 3);
+        cheap.mana_value = 2;
+        let mut dear = printed(5, 0, "Ancestral Vision", 4);
+        dear.mana_value = 9;
+        let mut also_cheap = printed(6, 0, "Mox Diamond", 5);
+        also_cheap.mana_value = 2;
+        let view = ViewBuilder::new(2)
+            .with_graveyard(0, vec![cheap, dear, also_cheap])
+            .build();
+        let mut b = Browser::new();
+        let names = |b: &Browser| -> Vec<String> {
+            b.rows(&view, None).into_iter().map(|r| r.name).collect()
+        };
+
+        b.sort_by(SortKey::Name);
+        assert_eq!(
+            names(&b),
+            [
+                "Ancestral Vision".to_string(),
+                "Mox Diamond".to_string(),
+                "Zealous Persecution".to_string()
+            ]
+        );
+
+        b.sort_by(SortKey::ManaValue);
+        assert_eq!(
+            names(&b),
+            [
+                // Two twos, and the tie is broken by the pile's own order —
+                // never by whatever the previous sort happened to leave.
+                "Zealous Persecution".to_string(),
+                "Mox Diamond".to_string(),
+                "Ancestral Vision".to_string()
+            ]
+        );
+        b.reverse();
+        assert_eq!(
+            names(&b),
+            [
+                "Ancestral Vision".to_string(),
+                "Zealous Persecution".to_string(),
+                "Mox Diamond".to_string()
+            ],
+            "descending reversed the tie-break as well as the key"
+        );
+    }
+
+    /// Whatever the key, the tabs are the panel's first structure.
+    #[test]
+    fn a_sort_never_interleaves_two_zones() {
+        let view = ViewBuilder::new(2)
+            .with_graveyard(0, vec![printed(4, 0, "Mox Diamond", 3)])
+            .with_exile(0, vec![printed(5, 0, "Ancestral Vision", 4)])
+            .build();
+        let mut b = Browser::new();
+        b.sort_by(SortKey::Name);
+        let rows = b.rows(&view, None);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(
+            rows[0].zone,
+            BrowseZone::Graveyard(PlayerId::new(0)),
+            "the exile card sorted ahead of the graveyard it is not in"
+        );
+        assert_eq!(rows[1].zone, BrowseZone::Exile(PlayerId::new(0)));
+    }
+
+    /// The cycle is one control, so a direction must not survive a key change.
+    #[test]
+    fn cycling_the_sort_key_starts_it_the_right_way_up() {
+        let mut b = Browser::new();
+        b.reverse();
+        assert!(b.descending());
+        b.cycle_sort();
+        assert_eq!(b.sort(), SortKey::Name);
+        assert!(!b.descending(), "descending carried into a new key");
     }
 
     #[test]

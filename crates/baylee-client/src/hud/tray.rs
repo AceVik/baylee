@@ -142,6 +142,18 @@ pub(super) fn spawn_tray(
     } else {
         format!("\u{201c}{}\u{201d}", browser.filter())
     };
+    let filter_row = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: px(6),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     let filter_line = commands
         .spawn((
             Text::new(hint),
@@ -154,19 +166,73 @@ pub(super) fn spawn_tray(
             Pickable::IGNORE,
         ))
         .id();
-
-    // ---- the cards ----
-    let grid = commands
+    // A library is a hundred cards and a long graveyard is thirty, so "look
+    // through this pile" is not a question the pile's own order answers on
+    // its own. The key and the direction are two buttons because they are two
+    // questions, and the arrow says which way the current one runs rather
+    // than being a third state of the key.
+    let sort_key = commands
         .spawn((
+            TraySort { reverse: false },
+            Button,
             Node {
-                flex_direction: FlexDirection::Row,
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: px(6),
-                row_gap: px(6),
+                padding: UiRect::axes(px(7), px(3)),
+                border_radius: btn_radius(),
                 ..default()
             },
-            Pickable::IGNORE,
+            BackgroundColor(palette::PANEL_LIT),
+            children![(
+                Text::new(browser.sort().label().text(lang)),
+                tf(fonts, 10.0),
+                TextColor(palette::INK),
+                Pickable::IGNORE,
+            )],
         ))
+        .id();
+    let sort_dir = commands
+        .spawn((
+            TraySort { reverse: true },
+            Button,
+            Node {
+                padding: UiRect::axes(px(6), px(3)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            children![(
+                Text::new(if browser.descending() {
+                    "\u{2193}"
+                } else {
+                    "\u{2191}"
+                }),
+                tf(fonts, 10.0),
+                TextColor(palette::INK),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id();
+    commands
+        .entity(filter_row)
+        .add_children(&[filter_line, sort_key, sort_dir]);
+
+    // ---- the cards ----
+    //
+    // The grid scrolls, and it is the grid rather than the panel: the tabs,
+    // the filter and the sort control have to stay where they are while a
+    // hundred-card library is scrolled past them. `Pickable` and not
+    // `Pickable::IGNORE`, because the picking backend is what turns a wheel
+    // into the `Pointer<Scroll>` a scrolling node listens for — the same
+    // reason `dev-control` has to put the pointer over a list before it can
+    // send one.
+    let grid = commands
+        .spawn((Node {
+            flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::Wrap,
+            column_gap: px(6),
+            row_gap: px(6),
+            overflow: Overflow::scroll_y(),
+            ..default()
+        },))
         .id();
     if rows.is_empty() {
         let empty = commands
@@ -188,7 +254,7 @@ pub(super) fn spawn_tray(
 
     commands
         .entity(panel)
-        .add_children(&[header, tabs, filter_line, grid]);
+        .add_children(&[header, tabs, filter_row, grid]);
     panel
 }
 
@@ -356,6 +422,39 @@ fn spawn_row(
             ))
             .id();
         commands.entity(slot).add_child(badge);
+    }
+
+    // A token says so. A graveyard holds cards and tokens together and they
+    // are not the same thing — a token there ceases to exist the next time
+    // state-based actions are checked (CR 111.7), so a row that looked like a
+    // card would be inviting a player to plan around something already gone.
+    // Along the bottom edge rather than in a corner, because the top-left
+    // corner is the ordering badge's and two marks fighting for one corner is
+    // how a player learns to read neither.
+    if row.token {
+        let mark = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    right: px(0),
+                    bottom: px(0),
+                    height: px(13),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(palette::PANEL),
+                children![(
+                    Text::new(Phrase::IsToken.text(lang)),
+                    tf(fonts, 8.0),
+                    TextColor(palette::MUTED),
+                    Pickable::IGNORE,
+                )],
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(slot).add_child(mark);
     }
     slot
 }
