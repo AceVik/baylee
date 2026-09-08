@@ -6,8 +6,17 @@
 //! A token deck can put sixty identical creatures on the table. Drawing sixty
 //! cards is unreadable and slow; drawing one card with a `×60` badge is both
 //! readable and cheap. The whole risk of that trade is *hiding a difference
-//! that mattered*, so grouping here is conservative in two independent ways:
+//! that mattered*, so grouping here is conservative in three independent
+//! ways:
 //!
+//! - It only happens at all once the row cannot hold its cards — when
+//!   [`crate::layout::pack_lane`] reports a fan. A fan exists so that cards
+//!   stay visible, and identical cards are the one case where that is not
+//!   worth doing: spreading them out says nothing their count does not. Two
+//!   Forests on a duel's row are two Forests, and a fourteenth is what turns
+//!   them into one card saying fourteen. Collapsing unconditionally is what
+//!   made the second land played swallow the first, and tapping one for mana
+//!   spit it back out — observed fault 19.
 //! - Objects only merge when every visible property matches — the same name,
 //!   power, toughness, damage, counters, tap state, and controller
 //!   ([`baylee_view::PublicObject::summary_key`]).
@@ -864,7 +873,32 @@ fn build_pod(
                 .copied()
                 .filter(|o| lane_of(o.types) == kind)
                 .collect();
-            let groups = group_objects(&members, individual, activatable);
+            // Cards first; counted stacks only once the cards would have to
+            // overlap. The collapse used to run on every board, so a second
+            // Forest made the first one *disappear* into a count — and
+            // tapping one for mana brought it back, the summary key carrying
+            // the tap, and untapping hid it again. That is entry 19 of
+            // `docs/observed-faults.md`, and it was this line rather than
+            // anything in the renderer.
+            //
+            // The threshold is the *fan*, not the overflow, and the rule that
+            // picks it is what a fan is for: spreading cards out so each one
+            // stays visible. Distinct cards are worth that; identical ones
+            // are not, because a fan of them shows nothing their count does
+            // not already say. So two Forests on a roomy row are two Forests,
+            // and the moment a fourteenth would have to overlap them they are
+            // one card saying fourteen. Gating on `overflowing` instead would
+            // fix the Forests and break the forty tokens `docs/design.md`
+            // wrote the collapse for: a duel's row only overflows past
+            // seventy cards, so forty Soldiers would fan at a third of a card
+            // apiece.
+            let crowded = pack_lane(members.len(), pod_width).fanned;
+            let groups = group_objects(&members, individual, activatable, crowded);
+            // Measured again on what is actually drawn, and against the
+            // harder bound: forty Soldiers collapse to one card and the row
+            // is no longer overflowing, while forty *distinct* creatures
+            // collapse to nothing and it still is — which is the case that
+            // has to scroll rather than fan.
             let overflowing = pack_lane(groups.len(), pod_width).overflowing;
             Lane {
                 kind,
@@ -894,10 +928,16 @@ fn build_pod(
 }
 
 /// Merges identical permanents, preserving anything individually significant.
+///
+/// `collapse` is the caller's answer to "is there room to draw them all?".
+/// Without it every board was a collapsed board, which is right for forty
+/// tokens and wrong for two Forests: a counted stack is what a player falls
+/// back to when the cards will not fit, not what a table looks like.
 fn group_objects(
     objects: &[&PublicObject],
     individual: &HashMap<ObjectId, Individual>,
     activatable: &HashSet<ObjectId>,
+    collapse: bool,
 ) -> Vec<CardGroup> {
     let mut groups: Vec<CardGroup> = Vec::new();
     let mut index: HashMap<baylee_view::ObjectSummaryKey, usize> = HashMap::new();
@@ -911,7 +951,12 @@ fn group_objects(
     for obj in sorted {
         let can_act = activatable.contains(&obj.id);
         let reason = individual.get(&obj.id).copied();
-        if reason.is_some() {
+        // A card stands alone either because the row has room for it or
+        // because something about this particular permanent makes it not
+        // interchangeable — an aura on it, a spell pointed at it. The reason
+        // travels either way: it is why a card is drawn on its own, and a
+        // roomy row does not make an aura stop mattering.
+        if !collapse || reason.is_some() {
             groups.push(card_group(obj, reason, can_act));
             continue;
         }
@@ -1034,8 +1079,21 @@ mod tests {
 
     const WIDE: f32 = 40.0;
 
+    /// A row barely wider than one card, which is where merging lives.
+    ///
+    /// Identical permanents merge only once they would have to overlap, so a
+    /// test *about* merging has to be given a row that cannot hold its cards
+    /// — otherwise it draws them all separately and asserts nothing. Every
+    /// test below that is about what stays apart when things merge uses this
+    /// rather than [`WIDE`].
+    const CROWDED: f32 = 2.0;
+
     fn model(view: &PlayerView) -> BoardModel {
         BoardModel::from_view(view, Openings::none(), WIDE)
+    }
+
+    fn crowded_model(view: &PlayerView) -> BoardModel {
+        BoardModel::from_view(view, Openings::none(), CROWDED)
     }
 
     #[test]
@@ -1056,7 +1114,7 @@ mod tests {
         let view = ViewBuilder::new(2)
             .with_battlefield(0, (0..12).map(|i| token(i, 0, "Soldier", 1, 1)))
             .build();
-        let m = model(&view);
+        let m = crowded_model(&view);
         let pod = m.pod(PlayerId::new(0)).expect("pod");
         let lane = pod.lane(LaneKind::Creatures).expect("creature lane");
 
@@ -1071,7 +1129,7 @@ mod tests {
         let mut objs: Vec<PublicObject> = (0..5).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
         objs[3].status = ObjectStatus::TAPPED;
         let view = ViewBuilder::new(2).with_battlefield(0, objs).build();
-        let m = model(&view);
+        let m = crowded_model(&view);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -1099,7 +1157,7 @@ mod tests {
                 vec![BlockerView { blocker, attacker }],
             )
             .build();
-        let m = model(&view);
+        let m = crowded_model(&view);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -1123,7 +1181,7 @@ mod tests {
         aura.attached_to = Some(host);
         objs.push(aura);
         let view = ViewBuilder::new(2).with_battlefield(0, objs).build();
-        let m = model(&view);
+        let m = crowded_model(&view);
         let pod = m.pod(PlayerId::new(0)).expect("pod");
 
         let creatures = pod.lane(LaneKind::Creatures).expect("creatures");
@@ -1152,7 +1210,7 @@ mod tests {
             .with_battlefield(0, objs)
             .with_stack(vec![bolt])
             .build();
-        let m = model(&view);
+        let m = crowded_model(&view);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -1360,6 +1418,69 @@ mod tests {
         assert!(m.required_images().is_empty());
     }
 
+    /// The vanishing land, stated as arithmetic.
+    ///
+    /// Observed fault 19: the first land played "vanished, reappeared and
+    /// vanished again — while still being counted". Three observations, one
+    /// cause. The collapse ran on every board, so a second Forest swallowed
+    /// the first into a count of two; tapping one for mana split them apart
+    /// again, because the summary key carries the tap; and untapping put them
+    /// back together. Nothing was ever miscounted, which is exactly why the
+    /// count went on being right while the card was not there.
+    ///
+    /// Both ends of the threshold are pinned, because the collapse still has
+    /// to happen: it is what forty tokens are for.
+    #[test]
+    fn a_second_copy_of_a_land_does_not_swallow_the_first() {
+        // A duel's own row. Thirteen cards fit in it at a tap-sized pitch;
+        // the fourteenth is where they would have to overlap.
+        let roomy = 19.7;
+        let forest = |slot: u32| {
+            let mut o = printed(slot, 0, "Forest", 7);
+            o.types = TypeSet::LAND;
+            o.power = None;
+            o.toughness = None;
+            o
+        };
+        let two = |tapped: bool| {
+            let a = forest(1);
+            let mut b = forest(2);
+            if tapped {
+                b.status = ObjectStatus::TAPPED;
+            }
+            let view = ViewBuilder::new(2).with_battlefield(0, vec![a, b]).build();
+            let m = BoardModel::from_view(&view, Openings::none(), roomy);
+            m.pod(PlayerId::new(0))
+                .and_then(|p| p.lane(LaneKind::Lands))
+                .expect("lane")
+                .groups
+                .len()
+        };
+        assert_eq!(two(false), 2, "the second land hid the first");
+        // And the number does not change when one of them taps, which is the
+        // half the owner actually noticed: a board that rearranges itself
+        // every time a land pays for something cannot be read.
+        assert_eq!(two(true), 2, "tapping one land redrew the row");
+
+        // The other end. Once the cards would have to overlap, spreading
+        // identical ones out shows nothing their count does not, so they
+        // become one card again — which is the behaviour forty tokens need
+        // and this change must not have thrown away.
+        let many = |n: u32| {
+            let view = ViewBuilder::new(2)
+                .with_battlefield(0, (1..=n).map(forest).collect::<Vec<_>>())
+                .build();
+            let m = BoardModel::from_view(&view, Openings::none(), roomy);
+            let lane = m
+                .pod(PlayerId::new(0))
+                .and_then(|p| p.lane(LaneKind::Lands))
+                .expect("lane");
+            (lane.groups.len(), lane.permanent_count())
+        };
+        assert_eq!(many(13), (13, 13), "a row that fits still draws cards");
+        assert_eq!(many(14), (1, 14), "a row that cannot fit still collapses");
+    }
+
     #[test]
     fn a_narrow_pod_reports_overflow_after_grouping() {
         // Forty *distinct* permanents cannot be grouped, so a small pod has to
@@ -1550,17 +1671,17 @@ mod tests {
             activatable: set,
         };
 
-        let lit = BoardModel::from_view(&view, openings(&both), WIDE);
+        let lit = BoardModel::from_view(&view, openings(&both), CROWDED);
         let group = &lit.pods[0].lanes[0].groups[0];
         assert_eq!(group.count(), 2, "identical permanents still merge");
         assert!(group.activatable);
 
         // One of the two cannot be tapped, so the card standing for both must
         // not claim it can — the player would click it and be told no.
-        let half = BoardModel::from_view(&view, openings(&one), WIDE);
+        let half = BoardModel::from_view(&view, openings(&one), CROWDED);
         assert!(!half.pods[0].lanes[0].groups[0].activatable);
 
-        let dark = BoardModel::from_view(&view, openings(&empty), WIDE);
+        let dark = BoardModel::from_view(&view, openings(&empty), CROWDED);
         assert!(!dark.pods[0].lanes[0].groups[0].activatable);
     }
 

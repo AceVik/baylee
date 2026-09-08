@@ -810,8 +810,28 @@ which is correct for *drawing* — a damaged Soldier is no longer interchangeabl
 mid-declaration. A coarser `combat_key` for declaration, plus
 `toggle_group(members, want)` and a count stepper, turns "attack with 30 of 40"
 into one gesture. Which thirty is the engine's problem and no player cares.
-`Lane.overflowing` is already computed and ignored; honouring it with a
-collapse chip is the rule that a card never leaves the mat.
+
+**Done: a collapse is what a full row falls back to, not what a board looks
+like.** The grouping above used to run on every board, and the cost of that was
+observed fault 19 — the second land played swallowed the first into a count of
+two, tapping one for mana split them apart again (the summary key carries the
+tap), and untapping put them back. Nothing was ever miscounted, which is
+exactly why the count went on being right while the card was not there.
+
+The threshold is `LanePacking::fanned`, and the rule that picks it is what a
+fan is *for*: spreading cards out so each stays visible. Distinct cards are
+worth that; identical ones are not, because a fan of one card shows nothing its
+count does not already say. So two Forests on a duel's row are two Forests, and
+the fourteenth — the first that would have to overlap — turns them into one
+card saying fourteen. `overflowing` is the harder bound and stays what it was:
+even a fan cannot keep these legible, so the row has to scroll. Gating the
+collapse on *it* instead would have fixed the Forests and broken the forty
+tokens, since a duel's row only overflows past seventy cards.
+
+The trade is visible at exactly one moment: playing that fourteenth land snaps
+thirteen cards into one stack in a single frame. `Motion` glides it, and the
+alternative — a row that is a stack from the second card on — is the fault this
+replaced.
 
 **A hand of eighteen.** The hand currently re-sorts by playability on every
 priority change, which moves cards under the pointer. Draw order is the stable

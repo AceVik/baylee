@@ -161,6 +161,14 @@ not by the order they were told, and nothing here is fixed yet.
 14. **Creatures lay out badly, and tokens make it worse.** Overlaps that
     should not happen once tokens are on the table.
 
+    *Fixed.* A card taps by turning a quarter of the way round, so it claims
+    its long side of a row and not its width — and `pack_lane` packed to the
+    width, so every tapped land and every attacking creature sat 0.14 units
+    inside each of its neighbours on a row with seventeen units to spare.
+    Tokens only made it louder: more cards, tighter pitch, the same fault.
+    Every cell is `CARD_SPAN` wide now, so nothing overlaps and tapping moves
+    nothing — the cell was always the right size and the card turns inside it.
+
 15. **Tokens render ugly.** They should carry pictures the way Forge's do.
 
 16. **A copy has no provenance.** A permanent that entered as a copy of
@@ -175,6 +183,16 @@ not by the order they were told, and nothing here is fixed yet.
 
 19. **The first land played vanished, reappeared and vanished again** — while
     still being counted. A rendering or lane-packing fault, not a rules one.
+
+    *Fixed, and it was the lane packing.* Identical permanents collapsed into
+    a counted card on every board rather than only on a full one, so the
+    second Forest swallowed the first; tapping one for mana split them apart
+    again, the summary key carrying the tap; untapping put them back together.
+    Nothing was ever miscounted, which is exactly why the count stayed right
+    while the card was gone. The collapse is gated on the row actually running
+    out of space now. Its one visible cost: playing the fourteenth land on a
+    duel's row snaps thirteen cards into one stack in a single frame, which
+    `Motion` glides.
 
 20. **Target selection needs a real design.** Attacking and every other
     "choose a target" step.

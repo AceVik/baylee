@@ -15,10 +15,17 @@
 //! 2. **Pods get unequal space.** Your own board is where you act, so it is
 //!    always the largest. Focusing an opponent borrows space from the others
 //!    rather than from you.
-//! 3. **Lanes fan when they overflow.** A row that runs out of width overlaps
-//!    its cards like a physical fan instead of shrinking them past legibility,
-//!    and reports when even fanning is not enough so the board model can
-//!    collapse identical cards into a counted stack instead.
+//! 3. **Lanes fan when they run out of room, and report two thresholds.** A
+//!    row that no longer fits overlaps its cards like a physical fan instead
+//!    of shrinking them past legibility. [`LanePacking`] names the two points
+//!    at which that happens, because they call for different answers:
+//!    `fanned` is "the cards would have to overlap", which is the moment
+//!    *identical* cards stop being worth drawing separately and the board
+//!    model collapses them into a counted stack — a fan of the same card
+//!    shows nothing its count does not. `overflowing` is the harder bound,
+//!    "even a fan cannot keep them legible", which distinct cards can still
+//!    reach after any collapsing is done and which the row has to answer by
+//!    scrolling rather than by packing.
 //!
 //! All coordinates are table-space: `+x` right, `+y` away from the local seat.
 //! The renderer maps this onto whatever plane it draws.
