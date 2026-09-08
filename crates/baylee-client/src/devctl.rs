@@ -690,8 +690,8 @@ fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>) -> String 
             let pending = serde_json::to_string(i.pending()).unwrap_or_else(|_| "null".to_string());
             format!(
                 "{{\"pending\":{pending},\"selected\":{selected},\"selected_players\":{seats}}}",
-                selected = i.selected().len(),
-                seats = i.selected_players().len(),
+                selected = i.selected().count(),
+                seats = i.selected_players().count(),
             )
         },
     );

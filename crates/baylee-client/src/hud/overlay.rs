@@ -134,7 +134,7 @@ pub fn sync_overlay(
     let selected: Vec<ObjectId> = duel
         .interaction
         .as_ref()
-        .map(|i| i.selected().to_vec())
+        .map(|i| i.selected().collect::<Vec<_>>())
         .unwrap_or_default();
     let orders = prefs.orders().clone();
     let autopilot = duel.autopilot;
@@ -436,7 +436,7 @@ pub fn sync_overlay(
         if let Some(hint) = duel
             .interaction
             .as_ref()
-            .filter(|i| !waiting && i.selected().is_empty())
+            .filter(|i| !waiting && i.selected().next().is_none())
             .and_then(|i| pick_hint(&i.prompt()))
         {
             let line = commands

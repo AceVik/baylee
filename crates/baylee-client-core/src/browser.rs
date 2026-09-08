@@ -468,9 +468,7 @@ impl Browser {
                     selectable,
                     selected: mine.is_some_and(|it| it.is_selected(object.id)),
                     place: ordering
-                        .then(|| {
-                            mine.and_then(|it| it.selected().iter().position(|o| *o == object.id))
-                        })
+                        .then(|| mine.and_then(|it| it.selected().position(|o| o == object.id)))
                         .flatten()
                         .map(|p| p + 1),
                     mana_value: object.mana_value,

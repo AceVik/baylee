@@ -315,6 +315,15 @@ enum Mode {
         player_options: Vec<PlayerId>,
         min: usize,
         max: usize,
+        /// Which candidate the aim keys stand on, indexing `options`
+        /// followed by `player_options`.
+        ///
+        /// The same field combat has, for the same reason: a pointer can tap
+        /// the thing it means and a keyboard cannot. It aims at the *first*
+        /// half here rather than the second — the spell being cast is the
+        /// second half and is already fixed — so walking it moves the cursor
+        /// to what a click would pick.
+        focus: usize,
     },
     /// An ordered list; every offered object must appear exactly once.
     Order { options: Vec<ObjectId> },
@@ -364,14 +373,32 @@ enum Mode {
     GameOver,
 }
 
+/// One thing the question can be pointed at.
+///
+/// A seat is a target like a permanent is ("any target", CR 115.4), and the
+/// two used to live in two lists. They are one list now because `Esc` takes
+/// back *the last* pick and "the last" has no answer across two of them —
+/// and because `min` and `max` were already counted across both, so the
+/// bounds were being read off a pair of lists that recorded no order between
+/// them.
+///
+/// It doubles as what the aim keys stand on, which is the same vocabulary
+/// one step earlier: a click on the aimed candidate makes exactly this pick.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Pick {
+    /// A permanent, a card in a zone, or a spell on the stack.
+    Object(ObjectId),
+    /// A seat, by its face.
+    Seat(PlayerId),
+}
+
 /// The interaction state for one pending choice.
 pub struct Interaction {
     pending: Pending,
     seat: PlayerId,
     mode: Mode,
-    selected: Vec<ObjectId>,
-    /// Seats picked as targets, the other half of an "any target" answer.
-    selected_players: Vec<PlayerId>,
+    /// The answer being built, in the order it was made.
+    picks: Vec<Pick>,
     number: u32,
     choice_index: Option<usize>,
 }
@@ -394,8 +421,7 @@ impl Interaction {
             pending,
             seat,
             mode,
-            selected: Vec::new(),
-            selected_players: Vec::new(),
+            picks: Vec::new(),
             number,
             choice_index: None,
         }
@@ -417,6 +443,7 @@ impl Interaction {
                     player_options: Vec::new(),
                     min: *count as usize,
                     max: *count as usize,
+                    focus: 0,
                 }
             }
             Pending::Priority { legal, .. } => Mode::Priority {
@@ -448,6 +475,7 @@ impl Interaction {
                 player_options: Vec::new(),
                 min: 1,
                 max: 1,
+                focus: 0,
             },
             Pending::ChooseCards {
                 options, min, max, ..
@@ -456,6 +484,7 @@ impl Interaction {
                 player_options: Vec::new(),
                 min: *min as usize,
                 max: *max as usize,
+                focus: 0,
             },
             Pending::ChooseTargets {
                 options,
@@ -468,6 +497,7 @@ impl Interaction {
                 player_options: player_options.clone(),
                 min: *min as usize,
                 max: *max as usize,
+                focus: 0,
             },
             Pending::OrderObjects { objects, .. } => Mode::Order {
                 options: objects.clone(),
@@ -617,19 +647,52 @@ impl Interaction {
                 defenders,
                 ..
             } => candidates.contains(&id) || defenders.contains(&Defender::Planeswalker(id)),
+            // Blocking is the one case where aiming changes what is offered.
+            // `BlockOption` is per blocker, so a flier in the focus leaves the
+            // ground unable to answer, and lighting every candidate there
+            // invites a click `toggle` then refuses. Re-read from the focus,
+            // it costs one lookup and never lies.
             Mode::Blockers {
-                candidates,
+                options,
                 attackers,
+                focus,
                 ..
-            } => candidates.contains(&id) || attackers.contains(&id),
+            } => {
+                attackers.contains(&id)
+                    || attackers.get(*focus).is_some_and(|at| {
+                        options
+                            .iter()
+                            .any(|o| o.blocker == id && o.attackers.contains(at))
+                    })
+            }
             _ => false,
         }
     }
 
     /// The current selection, in the order it was made.
+    ///
+    /// Objects only; [`Self::selected_players`] is the other half and
+    /// [`Self::picks`] is both in one order.
+    pub fn selected(&self) -> impl Iterator<Item = ObjectId> + '_ {
+        self.picks.iter().filter_map(|p| match p {
+            Pick::Object(id) => Some(*id),
+            Pick::Seat(_) => None,
+        })
+    }
+
+    /// Every pick, objects and seats together, in the order they were made.
     #[must_use]
-    pub fn selected(&self) -> &[ObjectId] {
-        &self.selected
+    pub fn picks(&self) -> &[Pick] {
+        &self.picks
+    }
+
+    /// How many picks stand, counting seats.
+    ///
+    /// The number `min` and `max` are compared against, and the one the slip
+    /// says "2 of 3" with.
+    #[must_use]
+    pub fn pick_count(&self) -> usize {
+        self.picks.len()
     }
 
     /// Whether an object is part of the answer being built.
@@ -641,8 +704,14 @@ impl Interaction {
         match &self.mode {
             Mode::Attackers { pairs, .. } => pairs.iter().any(|(a, _)| *a == id),
             Mode::Blockers { pairs, .. } => pairs.iter().any(|(b, _)| *b == id),
-            _ => self.selected.contains(&id),
+            _ => self.picks.contains(&Pick::Object(id)),
         }
+    }
+
+    /// Whether a seat is part of the answer being built.
+    #[must_use]
+    pub fn is_seat_selected(&self, player: PlayerId) -> bool {
+        self.picks.contains(&Pick::Seat(player))
     }
 
     /// Adds or removes an object from the answer.
@@ -723,22 +792,74 @@ impl Interaction {
                 if !self.is_selectable(id) {
                     return SelectionOutcome::Rejected;
                 }
-                if let Some(pos) = self.selected.iter().position(|o| *o == id) {
-                    self.selected.remove(pos);
+                if let Some(pos) = self.picks.iter().position(|p| *p == Pick::Object(id)) {
+                    self.picks.remove(pos);
                     return SelectionOutcome::Removed;
                 }
-                let max = match &self.mode {
-                    Mode::Objects { max, .. } => *max,
-                    Mode::Order { options } => options.len(),
-                    _ => 0,
-                };
-                if self.selected.len() >= max {
+                if self.picks.len() >= self.capacity() {
                     return SelectionOutcome::Full;
                 }
-                self.selected.push(id);
+                self.picks.push(Pick::Object(id));
                 SelectionOutcome::Added
             }
         }
+    }
+
+    /// How many picks this choice will take.
+    fn capacity(&self) -> usize {
+        match &self.mode {
+            Mode::Objects { max, .. } => *max,
+            Mode::Order { options } => options.len(),
+            _ => 0,
+        }
+    }
+
+    /// Answers a click on a card that stands for several identical ones.
+    ///
+    /// A counted stack takes clicks the way a card takes one: each click
+    /// picks the next member that has not been picked, and once none is left
+    /// the click takes the last one back — which on a stack of one is exactly
+    /// the toggle it always was. There is no count stepper anywhere in the
+    /// client, and this is why there needs not to be.
+    ///
+    /// Which four of the forty Soldiers is the engine's question, not the
+    /// player's: they are identical, so the only thing a player can mean by
+    /// clicking the stack four times is "four of these".
+    pub fn toggle_group(&mut self, members: &[ObjectId]) -> SelectionOutcome {
+        if let Some(next) = members
+            .iter()
+            .find(|id| self.is_selectable(**id) && !self.is_selected(**id))
+        {
+            return self.toggle(*next);
+        }
+        // Nothing left to pick, so the click takes one back — the newest pick
+        // this stack made, so an over-shot click is undone where it was made
+        // rather than wherever `Esc` happens to reach.
+        if let Some(at) = self
+            .picks
+            .iter()
+            .rposition(|p| matches!(p, Pick::Object(id) if members.contains(id)))
+        {
+            self.picks.remove(at);
+            return SelectionOutcome::Removed;
+        }
+        // Combat keeps its declarations as pairs rather than picks, so it
+        // takes one back through the same door it made it with.
+        match members.iter().rev().find(|id| self.is_selected(**id)) {
+            Some(id) => self.toggle(*id),
+            None => SelectionOutcome::Rejected,
+        }
+    }
+
+    /// Takes back the last pick, leaving the rest of the answer standing.
+    ///
+    /// `Esc` used to be [`Self::cancel`] here, which wipes a half-built
+    /// answer whole — expensive for a mis-click on the third of five targets
+    /// and, with no `PlayerAction::Cancel` to send, not even a way out of the
+    /// question. One pick at a time is what a player means by "no, not that
+    /// one". Returns what was taken back, or `None` when nothing was picked.
+    pub fn take_back(&mut self) -> Option<Pick> {
+        self.picks.pop()
     }
 
     /// What a declaration made right now would be pointed at.
@@ -766,7 +887,7 @@ impl Interaction {
     /// A pointer can tap the defender it means; a keyboard needs this, and a
     /// two-player game with no planeswalkers never needs either — there is
     /// exactly one thing to attack and the focus starts on it.
-    pub fn cycle_focus(&mut self, delta: i32) -> CombatFocus {
+    pub fn cycle_focus(&mut self, delta: i32) -> Option<Pick> {
         let (len, focus) = match &mut self.mode {
             Mode::Attackers {
                 defenders, focus, ..
@@ -774,23 +895,65 @@ impl Interaction {
             Mode::Blockers {
                 attackers, focus, ..
             } => (attackers.len(), focus),
-            _ => return CombatFocus::None,
+            // A target prompt walks the offer itself. Same keys, because to
+            // a player it is the same gesture — "the next one" — and the
+            // keymap stores a chord per action, not per question.
+            Mode::Objects {
+                options,
+                player_options,
+                focus,
+                ..
+            } => (options.len() + player_options.len(), focus),
+            _ => return None,
         };
         if len > 0 {
             let len = i64::try_from(len).unwrap_or(1);
             let next = (i64::try_from(*focus).unwrap_or(0) + i64::from(delta)).rem_euclid(len);
             *focus = usize::try_from(next).unwrap_or(0);
         }
-        self.combat_focus()
+        self.aim()
     }
 
-    /// Where the combat focus sits, as `(position, count)`.
+    /// What the aim keys are standing on.
     ///
-    /// `None` outside combat. The overlay uses it to say "2 of 3" so a player
-    /// cycling with one key can tell there is more to cycle to; with a count
-    /// of one there is nothing to aim and the hint is worth hiding.
+    /// Combat aims at the *second* half of the pair — the defender an attack
+    /// would go at, the attacker a block would go in front of — and a target
+    /// prompt at the first, because there the second half is the spell and is
+    /// already fixed. Both are "what the next click means", which is the only
+    /// thing a highlight can say.
     #[must_use]
-    pub const fn focus_position(&self) -> Option<(usize, usize)> {
+    pub fn aim(&self) -> Option<Pick> {
+        match &self.mode {
+            Mode::Attackers { .. } | Mode::Blockers { .. } => match self.combat_focus() {
+                CombatFocus::Defender(Defender::Player(p)) => Some(Pick::Seat(p)),
+                CombatFocus::Defender(Defender::Planeswalker(id)) | CombatFocus::Attacker(id) => {
+                    Some(Pick::Object(id))
+                }
+                CombatFocus::None => None,
+            },
+            Mode::Objects {
+                options,
+                player_options,
+                focus,
+                ..
+            } => options.get(*focus).copied().map(Pick::Object).or_else(|| {
+                player_options
+                    .get(focus.saturating_sub(options.len()))
+                    .copied()
+                    .map(Pick::Seat)
+            }),
+            _ => None,
+        }
+    }
+
+    /// Where the aim sits, as `(position, count)`.
+    ///
+    /// `None` for a choice with nothing to aim. The overlay uses it to say
+    /// "2 of 3" so a player cycling with one key can tell there is more to
+    /// cycle to; with a count of one there is nothing to aim and the hint is
+    /// worth hiding.
+    #[must_use]
+    pub fn focus_position(&self) -> Option<(usize, usize)> {
         match &self.mode {
             Mode::Attackers {
                 defenders, focus, ..
@@ -798,6 +961,12 @@ impl Interaction {
             Mode::Blockers {
                 attackers, focus, ..
             } => Some((*focus, attackers.len())),
+            Mode::Objects {
+                options,
+                player_options,
+                focus,
+                ..
+            } => Some((*focus, options.len() + player_options.len())),
             _ => None,
         }
     }
@@ -855,13 +1024,17 @@ impl Interaction {
         match &self.mode {
             Mode::Attackers { pairs, .. } => pairs.len(),
             Mode::Blockers { pairs, .. } => pairs.len(),
-            _ => self.selected.len(),
+            _ => self.picks.len(),
         }
     }
 
     /// Clears the answer being built without sending anything.
+    ///
+    /// Wholesale, and still the right word for combat, where `O` means "no
+    /// attacks" and is a real answer. For a target prompt [`Self::take_back`]
+    /// is what `Esc` reaches instead.
     pub fn cancel(&mut self) {
-        self.selected.clear();
+        self.picks.clear();
         self.choice_index = None;
         match &mut self.mode {
             Mode::Attackers { pairs, focus, .. } => {
@@ -953,21 +1126,24 @@ impl Interaction {
         if !player_options.contains(&player) {
             return SelectionOutcome::Rejected;
         }
-        if let Some(at) = self.selected_players.iter().position(|p| *p == player) {
-            self.selected_players.remove(at);
+        let max = *max;
+        if let Some(at) = self.picks.iter().position(|p| *p == Pick::Seat(player)) {
+            self.picks.remove(at);
             return SelectionOutcome::Removed;
         }
-        if self.selected.len() + self.selected_players.len() >= *max {
-            return SelectionOutcome::Rejected;
+        if self.picks.len() >= max {
+            return SelectionOutcome::Full;
         }
-        self.selected_players.push(player);
+        self.picks.push(Pick::Seat(player));
         SelectionOutcome::Added
     }
 
-    /// The seats currently chosen as targets.
-    #[must_use]
-    pub fn selected_players(&self) -> &[PlayerId] {
-        &self.selected_players
+    /// The seats currently chosen as targets, in the order they were picked.
+    pub fn selected_players(&self) -> impl Iterator<Item = PlayerId> + '_ {
+        self.picks.iter().filter_map(|p| match p {
+            Pick::Object(_) => None,
+            Pick::Seat(id) => Some(*id),
+        })
     }
 
     /// Picks an indexed option (a cast mode, a colour, or a seat).
@@ -1002,8 +1178,8 @@ impl Interaction {
     #[must_use]
     pub fn can_confirm(&self) -> bool {
         match &self.mode {
-            Mode::Objects { min, .. } => self.selected.len() + self.selected_players.len() >= *min,
-            Mode::Order { options } => self.selected.len() == options.len(),
+            Mode::Objects { min, .. } => self.picks.len() >= *min,
+            Mode::Order { options } => self.picks.len() == options.len(),
             // Declaring nothing is always legal (no attacks, no blocks), a
             // number always has its clamped value, and priority can always be
             // passed — all four are answerable the moment they are asked.
@@ -1026,27 +1202,22 @@ impl Interaction {
             return None;
         }
         match &self.mode {
-            Mode::Objects { min, .. }
-                if self.selected.len() + self.selected_players.len() >= *min =>
-            {
+            Mode::Objects { min, .. } if self.picks.len() >= *min => {
+                let objects: Vec<ObjectId> = self.selected().collect();
+                let players: Vec<PlayerId> = self.selected_players().collect();
                 // `Mode::Objects` also answers mulligan bottoming, a
                 // discard and the legend rule, none of which is a
                 // `Pending::ChooseTargets` — so the richer action is sent
                 // only when a seat was actually picked.
-                if self.selected_players.is_empty() {
-                    Some(PlayerAction::ChooseObjects {
-                        objects: self.selected.clone(),
-                    })
+                if players.is_empty() {
+                    Some(PlayerAction::ChooseObjects { objects })
                 } else {
-                    Some(PlayerAction::ChooseTargets {
-                        objects: self.selected.clone(),
-                        players: self.selected_players.clone(),
-                    })
+                    Some(PlayerAction::ChooseTargets { objects, players })
                 }
             }
-            Mode::Order { options } if self.selected.len() == options.len() => {
+            Mode::Order { options } if self.picks.len() == options.len() => {
                 Some(PlayerAction::OrderObjects {
-                    objects: self.selected.clone(),
+                    objects: self.selected().collect(),
                 })
             }
             Mode::Attackers { pairs, .. } => Some(PlayerAction::DeclareAttackers {
@@ -1246,7 +1417,7 @@ mod tests {
         assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
         // Not in the offered set: the client refuses to even express it.
         assert_eq!(i.toggle(obj(99)), SelectionOutcome::Rejected);
-        assert_eq!(i.selected(), &[obj(1)]);
+        assert_eq!(i.selected().collect::<Vec<_>>(), vec![obj(1)]);
     }
 
     #[test]
@@ -1550,7 +1721,7 @@ mod tests {
             vec![seat(1), seat(2), Defender::Planeswalker(obj(50))],
         ));
         i.toggle(obj(1));
-        assert_eq!(i.cycle_focus(1), CombatFocus::Defender(seat(2)));
+        assert_eq!(i.cycle_focus(1), Some(Pick::Seat(PlayerId::new(2))));
         i.toggle(obj(2));
         assert_eq!(
             i.confirm(),
@@ -1561,10 +1732,10 @@ mod tests {
         );
         // And it wraps in both directions, so one key is enough to reach
         // every defender at a four-player table.
-        assert_eq!(i.cycle_focus(-1), CombatFocus::Defender(seat(1)));
+        assert_eq!(i.cycle_focus(-1), Some(Pick::Seat(PlayerId::new(1))));
         assert_eq!(
             i.cycle_focus(-1),
-            CombatFocus::Defender(Defender::Planeswalker(obj(50))),
+            Some(Pick::Object(obj(50))),
             "stepping back past the start wraps round"
         );
     }
@@ -1883,7 +2054,10 @@ mod tests {
         assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
         assert!(!i.can_confirm());
         assert_eq!(i.toggle_player(PlayerId::new(1)), SelectionOutcome::Added);
-        assert_eq!(i.selected_players(), &[PlayerId::new(1)]);
+        assert_eq!(
+            i.selected_players().collect::<Vec<_>>(),
+            vec![PlayerId::new(1)]
+        );
         assert!(i.can_confirm());
         assert_eq!(
             i.confirm(),
@@ -2087,5 +2261,132 @@ mod tests {
         // And the selection itself is unchanged: it is still a bounded pick
         // over the offered permanents, answerable with none.
         assert!(convoke.confirm().is_some(), "convoke may be declined");
+    }
+
+    /// A target prompt over objects and seats.
+    fn target_choice(
+        options: Vec<ObjectId>,
+        player_options: Vec<PlayerId>,
+        min: u8,
+        max: u8,
+    ) -> Pending {
+        Pending::ChooseTargets {
+            player: me(),
+            options,
+            player_options,
+            min,
+            max,
+            reason: TargetPrompt::Targets,
+        }
+    }
+
+    // Forty Soldiers are one card on the table, and the question "which four
+    // of them" has no answer a player could mean differently: they are
+    // identical. So the stack takes clicks the way a card takes one.
+    #[test]
+    fn a_counted_stack_takes_one_click_per_member() {
+        let members = [obj(1), obj(2), obj(3), obj(4)];
+        let mut i = interaction(target_choice(members.to_vec(), vec![], 1, 2));
+        assert_eq!(i.toggle_group(&members), SelectionOutcome::Added);
+        assert_eq!(i.toggle_group(&members), SelectionOutcome::Added);
+        assert_eq!(i.pick_count(), 2);
+        assert_eq!(
+            i.picks(),
+            [Pick::Object(obj(1)), Pick::Object(obj(2))],
+            "two clicks pick two different Soldiers, not the same one twice"
+        );
+        assert_eq!(
+            i.toggle_group(&members),
+            SelectionOutcome::Full,
+            "a third pick past `max` is refused, not silently swapped in"
+        );
+        assert_eq!(i.pick_count(), 2);
+    }
+
+    #[test]
+    fn a_stack_with_nothing_left_to_pick_takes_the_last_one_back() {
+        let members = [obj(1), obj(2)];
+        let mut i = interaction(target_choice(members.to_vec(), vec![], 0, 4));
+        i.toggle_group(&members);
+        i.toggle_group(&members);
+        assert_eq!(i.pick_count(), 2);
+        // Every member is picked and `max` is not reached, so the click can
+        // only mean "one fewer" — which on a stack of one is the toggle it
+        // has always been.
+        assert_eq!(i.toggle_group(&members), SelectionOutcome::Removed);
+        assert_eq!(i.picks(), [Pick::Object(obj(1))]);
+    }
+
+    #[test]
+    fn the_aim_walks_the_offer_and_reaches_a_seat() {
+        let mut i = interaction(target_choice(
+            vec![obj(1), obj(2)],
+            vec![PlayerId::new(1)],
+            1,
+            1,
+        ));
+        assert_eq!(i.aim(), Some(Pick::Object(obj(1))));
+        assert_eq!(i.focus_position(), Some((0, 3)));
+        assert_eq!(i.cycle_focus(1), Some(Pick::Object(obj(2))));
+        assert_eq!(
+            i.cycle_focus(1),
+            Some(Pick::Seat(PlayerId::new(1))),
+            "a face is a target like a permanent is (CR 115.4), so the aim \
+             reaches it without a second key"
+        );
+        assert_eq!(
+            i.cycle_focus(1),
+            Some(Pick::Object(obj(1))),
+            "and it wraps, so one key covers the whole offer"
+        );
+    }
+
+    #[test]
+    fn a_pick_is_taken_back_one_at_a_time() {
+        let mut i = interaction(target_choice(
+            vec![obj(1), obj(2)],
+            vec![PlayerId::new(1)],
+            0,
+            3,
+        ));
+        i.toggle(obj(1));
+        i.toggle_player(PlayerId::new(1));
+        i.toggle(obj(2));
+        assert_eq!(i.take_back(), Some(Pick::Object(obj(2))));
+        assert_eq!(
+            i.take_back(),
+            Some(Pick::Seat(PlayerId::new(1))),
+            "objects and seats are one order, or `the last pick` means nothing"
+        );
+        assert_eq!(i.picks(), [Pick::Object(obj(1))]);
+        assert_eq!(i.take_back(), Some(Pick::Object(obj(1))));
+        assert_eq!(i.take_back(), None, "and it stops at empty");
+    }
+
+    #[test]
+    fn a_creature_that_cannot_block_the_aimed_attacker_is_not_offered() {
+        // The one place aiming changes what is *offered*: `BlockOption` is
+        // per blocker, so a flier in the focus leaves the ground with nothing
+        // to answer. Lighting it anyway invites a click `toggle` then refuses.
+        let mut i = interaction(block_choice(vec![
+            BlockOption {
+                blocker: obj(10),
+                attackers: vec![obj(1)],
+            },
+            BlockOption {
+                blocker: obj(11),
+                attackers: vec![obj(2)],
+            },
+        ]));
+        assert_eq!(i.combat_focus(), CombatFocus::Attacker(obj(1)));
+        assert!(i.is_selectable(obj(10)));
+        assert!(
+            !i.is_selectable(obj(11)),
+            "obj(11) may only block obj(2), which is not what is aimed at"
+        );
+        assert!(i.is_selectable(obj(2)), "an attacker is always aimable");
+        i.cycle_focus(1);
+        assert!(i.is_selectable(obj(11)));
+        assert!(!i.is_selectable(obj(10)));
     }
 }

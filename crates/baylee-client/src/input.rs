@@ -1676,7 +1676,7 @@ mod tests {
             PlayerId::new(0),
         );
         i.toggle(obj(99));
-        assert!(i.selected().is_empty());
+        assert!(i.selected().next().is_none());
         assert!(!i.can_confirm());
     }
 

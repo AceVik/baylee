@@ -413,7 +413,7 @@ impl Client {
                 let view = self.view.as_ref()?;
                 let wanted = smallest_legal_pick(pending);
                 for id in interaction.selectable().to_vec() {
-                    if interaction.selected().len() >= wanted {
+                    if interaction.selected().count() >= wanted {
                         break;
                     }
                     assert!(
