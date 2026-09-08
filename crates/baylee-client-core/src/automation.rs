@@ -97,6 +97,29 @@ impl RailRow {
         }
     }
 
+    /// Whether a player can ever be asked for anything in this step.
+    ///
+    /// False for the untap step and nothing else: *"No player receives
+    /// priority during the untap step, so no spells can be cast or resolve
+    /// and no abilities can be activated or resolve"* (CR 502.4). A rail
+    /// button there is a stop that can never fire, whichever way it is set,
+    /// so the row is dead — always skipped, not togglable, and not reachable
+    /// by the pointer or the keyboard.
+    ///
+    /// The cleanup step is deliberately **not** on this list. Priority there
+    /// is rare rather than impossible: *"Normally, no player receives
+    /// priority during the cleanup step... However, this rule is subject to
+    /// the following exception"* — an ability that triggers during it gives
+    /// the active player priority and they may cast spells (CR 514.3,
+    /// 514.3a). Declining a window the rules grant and declining one nobody
+    /// can use are different things, and only the second is the client's to
+    /// decide. Cleanup is red by default instead
+    /// ([`RailPreset::QuietSteps`]), which a player can change.
+    #[must_use]
+    pub const fn grants_priority(self) -> bool {
+        !matches!(self, Self::Untap)
+    }
+
     /// Index in [`RAIL_ROWS`].
     ///
     /// # Panics
@@ -175,15 +198,27 @@ impl Default for PhaseOrders {
 
 impl PhaseOrders {
     /// Toggles a button between green (priority) and red (skip).
+    ///
+    /// A row the rules hand no priority in has nothing to toggle, and this
+    /// is where that is enforced rather than in the drawing: a rail that
+    /// merely *drew* the untap row as unclickable would still turn green
+    /// under a keyboard, a preset, or a stored blob from a client that had
+    /// the button. See [`RailRow::grants_priority`].
     pub fn toggle(&mut self, side: RailSide, row: RailRow) {
+        if !row.grants_priority() {
+            return;
+        }
         let i = row.index();
         self.skip[side.index()][i] = !self.skip[side.index()][i];
     }
 
     /// Whether a button is red (skip).
+    ///
+    /// Always true for a step no player receives priority in, whatever the
+    /// stored table says — there is no window there to stop in.
     #[must_use]
     pub fn is_skipped(&self, side: RailSide, row: RailRow) -> bool {
-        self.skip[side.index()][row.index()]
+        !row.grants_priority() || self.skip[side.index()][row.index()]
     }
 
     /// Whether the given (phase, step) falls on a red row, given whose
@@ -211,25 +246,47 @@ impl PhaseOrders {
 
     /// Moves the keyboard selection by `delta` buttons over the flattened
     /// rail (theirs' twelve rows first, then yours), wrapping; with no
-    /// selection yet, starts at the first row of your rail.
+    /// selection yet, starts at the first live row of your rail.
+    ///
+    /// Rows the rules grant no priority in are stepped straight over rather
+    /// than landed on: they cannot be toggled, so resting the focus on one is
+    /// a press that does nothing and reads as a broken key.
     pub fn move_selection(&mut self, delta: i32) {
+        let span = (RAIL_ROWS.len() * 2) as i32;
+        let at = |flat: i32| {
+            let i = flat as usize;
+            if flat < RAIL_ROWS.len() as i32 {
+                (RailSide::Theirs, RAIL_ROWS[i])
+            } else {
+                (RailSide::Mine, RAIL_ROWS[i - RAIL_ROWS.len()])
+            }
+        };
         let Some((side, row)) = self.selected else {
-            // No selection yet: start at the first row of your rail.
-            self.selected = Some((RailSide::Mine, RailRow::Untap));
+            // No selection yet: start at the first live row of your rail.
+            self.selected = RAIL_ROWS
+                .into_iter()
+                .find(|r| r.grants_priority())
+                .map(|r| (RailSide::Mine, r));
             return;
         };
         let base = match side {
             RailSide::Theirs => 0,
             RailSide::Mine => RAIL_ROWS.len() as i32,
         };
-        let flat = base + row.index() as i32;
-        let next = (flat + delta).rem_euclid((RAIL_ROWS.len() * 2) as i32);
-        let (side, row) = if next < RAIL_ROWS.len() as i32 {
-            (RailSide::Theirs, RAIL_ROWS[next as usize])
-        } else {
-            (RailSide::Mine, RAIL_ROWS[next as usize - RAIL_ROWS.len()])
-        };
-        self.selected = Some((side, row));
+        // Never zero, so the walk below always leaves where it started; a
+        // `delta` that is a multiple of the rail's length is a request to go
+        // exactly nowhere and would otherwise loop the whole way round.
+        let step = if delta >= 0 { 1 } else { -1 };
+        let mut flat = (base + row.index() as i32 + delta).rem_euclid(span);
+        // Bounded by the rail's own length: one full lap and the search is
+        // over, whatever the rows say.
+        for _ in 0..span {
+            if at(flat).1.grants_priority() {
+                break;
+            }
+            flat = (flat + step).rem_euclid(span);
+        }
+        self.selected = Some(at(flat));
     }
 
     /// One rail as (row, skipped) pairs, for drawing.
@@ -1076,24 +1133,63 @@ mod tests {
         orders.move_selection(-1);
         assert_eq!(
             orders.selected(),
-            Some((RailSide::Mine, RailRow::Untap)),
-            "starts at your rail's first row"
+            Some((RailSide::Mine, RailRow::Upkeep)),
+            "starts at your rail's first row that can be stopped in"
         );
         orders.move_selection(-1);
         assert_eq!(
             orders.selected(),
             Some((RailSide::Theirs, RailRow::Cleanup)),
-            "wraps upward into the opponent rail"
+            "wraps upward into the opponent rail, over the dead untap row"
         );
         orders.move_selection(1);
-        assert_eq!(orders.selected(), Some((RailSide::Mine, RailRow::Untap)));
+        assert_eq!(orders.selected(), Some((RailSide::Mine, RailRow::Upkeep)));
         orders.move_selection(4);
         assert_eq!(
             orders.selected(),
-            Some((RailSide::Mine, RailRow::CombatBegin))
+            Some((RailSide::Mine, RailRow::Attackers))
         );
         orders.clear_selection();
         assert_eq!(orders.selected(), None);
+    }
+
+    /// The untap row is dead, and it is dead in the *model* rather than in
+    /// the drawing.
+    ///
+    /// No player receives priority during the untap step (CR 502.4), so a
+    /// button there is a stop that can never fire whichever colour it is. A
+    /// rail that only drew it unclickable would still turn it green under a
+    /// preset, a stored blob from a client that had the button, or a keyboard
+    /// walking onto it — and each of those is a green light that means
+    /// nothing.
+    ///
+    /// Cleanup is the row this test is careful *not* to include. Priority
+    /// there is rare, not impossible (CR 514.3a), so it stays a real window a
+    /// player may ask to stop in.
+    #[test]
+    fn the_step_nobody_gets_priority_in_cannot_be_switched_on() {
+        let mut orders = PhaseOrders::default();
+        for side in RailSide::BOTH {
+            assert!(orders.is_skipped(side, RailRow::Untap));
+            orders.toggle(side, RailRow::Untap);
+            assert!(
+                orders.is_skipped(side, RailRow::Untap),
+                "{side:?} untap took a toggle it has no window for"
+            );
+        }
+        // The all-green preset is the other way in, and it must not find one.
+        orders.set_to(RailPreset::EveryStep);
+        for side in RailSide::BOTH {
+            assert!(orders.is_skipped(side, RailRow::Untap));
+            assert!(
+                !orders.is_skipped(side, RailRow::Cleanup),
+                "{side:?} cleanup is a window the rules do grant"
+            );
+        }
+        assert!(!RailRow::Untap.grants_priority());
+        for row in RAIL_ROWS.into_iter().filter(|r| *r != RailRow::Untap) {
+            assert!(row.grants_priority(), "{row:?} lost its priority window");
+        }
     }
 
     #[test]

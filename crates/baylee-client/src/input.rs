@@ -18,8 +18,8 @@
 
 use crate::hud::{
     AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PhaseButton, PileChip,
-    PlayerTab, PreviewResize, PromptAction, PromptButton, RailButton, TrayCard, TrayClose,
-    TrayFilter, TraySort, TrayTab,
+    PlayerTab, PreviewResize, PromptAction, PromptButton, TrayCard, TrayClose, TrayFilter,
+    TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -1222,7 +1222,6 @@ pub fn pointer(
     hand_cards: Query<&HandCardVisual>,
     tabs: Query<&PlayerTab>,
     phase_buttons: Query<&PhaseButton>,
-    rail_buttons: Query<&RailButton>,
     menu_buttons: Query<&MenuButton>,
     prompt_buttons: Query<&PromptButton>,
     ability_buttons: Query<&AbilityButton>,
@@ -1317,6 +1316,16 @@ pub fn pointer(
                     declare_nothing(&mut duel);
                     None
                 }
+                // Engaging the autopilot is not an answer either: it is a
+                // standing instruction, and the pass it makes goes through
+                // the same re-check against the current `LegalActions` that
+                // the key does.
+                PromptAction::SkipTurn => {
+                    if let Some(turn) = duel.view.as_ref().map(|v| v.turn) {
+                        duel.autopilot = Some(AutoPilot::ToNextTurn { from_turn: turn });
+                    }
+                    None
+                }
                 // Stepping changes nothing the engine can hear either: the
                 // number is not an answer until Confirm sends it.
                 PromptAction::Step(delta) => {
@@ -1327,18 +1336,6 @@ pub fn pointer(
             if let Some(action) = action {
                 duel.submit(action);
             }
-            continue;
-        }
-        if let Some(button) = find_in_lineage(e, &rail_buttons, &parents) {
-            let Some(view) = duel.view.as_ref() else {
-                continue;
-            };
-            duel.autopilot = Some(match button {
-                RailButton::NextPhase => AutoPilot::ToNextPhase { from: view.phase },
-                RailButton::EndTurn => AutoPilot::ToNextTurn {
-                    from_turn: view.turn,
-                },
-            });
             continue;
         }
         // A click on nothing interactive closes the card preview.

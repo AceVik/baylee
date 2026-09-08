@@ -929,6 +929,8 @@ messages! {
     ConfirmOk { en: "OK", de: "OK" },
     /// Pass
     PassPriority { en: "Pass", de: "Passen" },
+    /// Skip the rest of the turn
+    SkipTheTurn { en: "Skip turn", de: "Zug überspringen" },
     /// In order
     SortByPlace { en: "In order", de: "Nach Lage" },
     /// By name

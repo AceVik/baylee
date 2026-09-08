@@ -705,13 +705,15 @@ fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>) -> String 
     );
     format!(
         "{{\"view\":{view},\"interaction\":{interaction},\"hovered\":{hovered},\
-         \"overlay_open\":{overlay},\"last_error\":{error},\"lang\":{lang},\
+         \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
          \"reachable\":{reachable},\"activatable\":{activatable},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu}}}",
         hovered = duel
             .hovered
             .map_or_else(|| "null".to_string(), |h| format!("\"{h:?}\"")),
-        overlay = duel.overlay_open,
+        autopilot = duel
+            .autopilot
+            .map_or_else(|| "null".to_string(), |a| format!("\"{a:?}\"")),
         reachable = duel.reachable.len(),
         activatable = duel.activatable.len(),
         // Three states that answer silently and are invisible in a

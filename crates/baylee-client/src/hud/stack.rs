@@ -44,8 +44,8 @@ pub(super) fn spawn_stack_panel(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                right: px(RAIL_W + 12.0),
-                top: px(TAB_H + 12.0),
+                right: px(12),
+                top: px(TAB_H + RAIL_H + 12.0),
                 width: px(STACK_PANEL_W),
                 max_height: percent(62),
                 flex_direction: FlexDirection::Column,

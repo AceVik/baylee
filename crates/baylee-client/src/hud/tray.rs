@@ -52,7 +52,7 @@ pub(super) fn spawn_tray(
     mut cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let rows = browser.rows(view, interaction);
-    // The centring frame: the whole band between the tab strip and the hand
+    // The centring frame: the whole band between the phase rail and the hand
     // bar, painting nothing and answering no click, so that its one child can
     // stand in the middle of it.
     let frame = commands
@@ -61,7 +61,7 @@ pub(super) fn spawn_tray(
                 position_type: PositionType::Absolute,
                 left: px(0),
                 right: px(0),
-                top: px(TAB_H),
+                top: px(TAB_H + RAIL_H),
                 bottom: px(HAND_BAR_H),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -556,7 +556,7 @@ pub(super) fn spawn_pile_strip(
             Node {
                 position_type: PositionType::Absolute,
                 left: px(12),
-                top: px(TAB_H + 10.0),
+                top: px(TAB_H + RAIL_H + 10.0),
                 flex_direction: FlexDirection::Row,
                 column_gap: px(4),
                 ..default()

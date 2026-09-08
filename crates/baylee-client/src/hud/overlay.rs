@@ -328,16 +328,13 @@ pub fn sync_overlay(
     commands.entity(tabs).add_child(menu_row);
     commands.entity(root).add_child(tabs);
 
-    // ---- right: the phase rail (opponents' phases top, yours bottom) ---
-    let window_h = windows.single().map_or(800.0, Window::height);
+    // ---- under the seats: the phase rail, twelve steps left to right ---
     let rail = spawn_phase_rail(
         &mut commands,
         lang,
         view,
         &orders,
-        autopilot,
         &fonts,
-        window_h,
         duel.statics.as_ref(),
     );
     commands.entity(root).add_child(rail);
@@ -544,7 +541,15 @@ pub fn sync_overlay(
         // being told to dismiss a window rather than invited to act, and said
         // so. `PromptAction::Confirm` still carries it — the action was always
         // right, only its label was wrong.
-        let pass_answer = [(PromptAction::Confirm, Phrase::PassPriority.text(lang))];
+        // Two sizes of the same decision. "Skip turn" is where the rail.s
+        // fast-forward button went: it is the answer to this window and to
+        // every window until this turn is over, and a player deciding to sit
+        // one out should find it under the question rather than on a strip in
+        // the corner.
+        let pass_answer = [
+            (PromptAction::Confirm, Phrase::PassPriority.text(lang)),
+            (PromptAction::SkipTurn, Phrase::SkipTheTurn.text(lang)),
+        ];
         let answers: &[(PromptAction, &str)] = if waiting {
             &[]
         } else {

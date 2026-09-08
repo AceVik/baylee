@@ -86,8 +86,10 @@ thing the next declaration will be pointed at.
 
 Two independent things, both stored per account:
 
-- **The phase rail** — one button per step of the turn, per side of the table.
-  Green means "ask me here", red means "skip". Nothing is red by default: a
+- **The phase rail** — one button per step of the turn, per side of the
+  table, laid out left to right across the top of the screen under the seats.
+  Green means "ask me here", red means "skip"; the untap row is grey and
+  answers nothing, because no player receives priority there (CR 502.4). Nothing is red by default: a
   client that auto-passes without being asked loses games its player never
   agreed to lose. Two **presets** write the whole rail at once —
   `Stop everywhere`, which is that default said out loud, and

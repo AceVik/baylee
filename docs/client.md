@@ -163,8 +163,8 @@ a mat — for the same reason the felt's brightness assertion goes both ways.
 
 **The camera frames the table against the window it is seen through, not
 against the window.** The HUD is not beside the battlefield, it is on top of
-it: the tab strip, the hand bar and the phase rail are overlays on the same
-full-window camera and cover about a quarter of it. The rig used to be a
+it: the tab strip, the phase rail under it and the hand bar are overlays on
+the same full-window camera and cover about a fifth of it. The rig used to be a
 hard-coded twenty units aimed at the middle of the felt, and the result was
 that the local seat's own mat projected *below* the hand bar — a player could
 not see their own creatures, which makes every other piece of board legibility

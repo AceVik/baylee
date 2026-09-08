@@ -684,9 +684,18 @@ retired row. An unknown name is now dropped and the rest of the map kept, in
 both directions of an upgrade.
 
 The **camera frames the table against the part of the window it is seen
-through**, which is not the window: the tab strip, the hand bar and the phase
-rail are overlays on the same full-window camera and cover about a quarter of
-it. A hard-coded 20-unit rig aimed at the middle of the felt put the local
+through**, which is not the window: the tab strip, the phase rail under it and
+the hand bar are overlays on the same full-window camera and cover about a
+fifth of it. The rail is a horizontal strip now — twelve steps left to right,
+two rows (opponents' turns above your own), the step the game is in lit by
+`hud::rail::light_the_current_step` rather than by a colour written at build
+time, since the HUD tree is rebuilt on every step change and a light that
+eased from zero at spawn *is* the transition. The untap row is dead in the
+model, not merely drawn grey: `RailRow::grants_priority` is false there and
+`PhaseOrders::toggle` refuses it, because no player receives priority during
+the untap step (CR 502.4) and a green button there would be a stop that could
+never fire. Cleanup stays live — priority there is rare, not impossible (CR
+514.3a). A hard-coded 20-unit rig aimed at the middle of the felt put the local
 seat's own mat *underneath the hand bar* on every screen.
 `table::CameraRig::home(layout, canvas)` computes it instead, from
 `TableLayout::extent` (each pod's box rotated by its `facing`, because a seat

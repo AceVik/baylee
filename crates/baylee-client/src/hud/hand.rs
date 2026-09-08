@@ -445,12 +445,13 @@ const PREVIEW_INSET: f32 = 8.0;
 /// Pure arithmetic on purpose — it is the whole of the placement, and the
 /// alternative is reading it off a photograph.
 pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
-    // The band the panel may stand in: the tab strip above, the hand bar
-    // below, the phase rail to the right. Clamped so that a panel too tall
-    // for the band still starts at the top of it rather than below its
-    // bottom, which is what a naive clamp with crossed bounds does.
+    // The band the panel may stand in: the tab strip and the phase rail
+    // above, the hand bar below, and the window on both sides -- the rail
+    // used to take the right-hand edge and no longer does. Clamped so that a
+    // panel too tall for the band still starts at the top of it rather than
+    // below its bottom, which is what a naive clamp with crossed bounds does.
     let low = Vec2::splat(PREVIEW_INSET);
-    let high = (window - panel - Vec2::new(RAIL_W + PREVIEW_INSET, PREVIEW_INSET)).max(low);
+    let high = (window - panel - Vec2::splat(PREVIEW_INSET)).max(low);
     let banded = |v: Vec2| v.clamp(low, high);
     match at {
         PreviewAt::Hand(x) => banded(Vec2::new(
@@ -477,7 +478,7 @@ pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
             // strip and the hand bar.
             let y = p.y - panel.y / 2.0;
             Vec2::new(x, y).clamp(
-                Vec2::new(low.x, TAB_H + PREVIEW_INSET),
+                Vec2::new(low.x, TAB_H + RAIL_H + PREVIEW_INSET),
                 Vec2::new(
                     high.x,
                     (window.y - HAND_BAR_H - PREVIEW_INSET - panel.y).max(low.y),

@@ -482,18 +482,20 @@ fn ground(q: f32) -> f32 {
 /// The part of the window the table is actually seen through.
 ///
 /// The HUD is not beside the battlefield, it is on top of it: the tab strip,
-/// the hand bar and the phase rail are overlays on the same full-window
-/// camera. Framing the table against the *window* therefore frames it against
-/// a rectangle whose bottom sixth nobody can see.
+/// the phase rail under it and the hand bar are overlays on the same
+/// full-window camera. Framing the table against the *window* therefore
+/// frames it against a rectangle a fifth of which nobody can see.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Canvas {
     /// The window, in logical pixels.
     pub window: Vec2,
-    /// Covered at the top: the tab strip.
+    /// Covered at the top: the tab strip and the phase rail under it.
     pub top: f32,
     /// Covered at the bottom: the hand bar.
     pub bottom: f32,
-    /// Covered on the right: the phase rail.
+    /// Covered on the right. Nothing, since the phase rail went across the
+    /// top -- kept because a window is not always the whole canvas and the
+    /// next panel that takes a side should have somewhere to say so.
     pub right: f32,
 }
 
@@ -503,9 +505,9 @@ impl Canvas {
     pub fn hud(window: Vec2) -> Self {
         Self {
             window,
-            top: crate::hud::TAB_H,
+            top: crate::hud::TAB_H + crate::hud::rail::RAIL_H,
             bottom: crate::hud::HAND_BAR_H,
-            right: crate::hud::rail::RAIL_W,
+            right: 0.0,
         }
     }
 

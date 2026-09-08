@@ -620,6 +620,7 @@ impl Plugin for DuelPlugin {
                     table::apply_camera_rig,
                     hud::sync_overlay,
                     hud::apply_hand_scroll,
+                    hud::light_the_current_step,
                     textures::drive_preloads,
                     textures::load_the_card_back,
                     textures::note_load_states,

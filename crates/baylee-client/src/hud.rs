@@ -5,9 +5,10 @@
 //! - **Top** — the player tabs: every *other* seat with life and zone
 //!   counts, the active seat highlighted, lost seats grayed out, teams
 //!   sharing a color. Click or `Shift+1..9` inspects a seat's board.
-//! - **Left** — the phase rail: the five phases, current one highlighted,
-//!   per-phase standing orders (green = take priority, red = skip), plus
-//!   the "next phase" and "end turn" autopilot buttons.
+//! - **Under them** — the phase rail: the twelve steps of a turn left to
+//!   right, the one the game is in lit, per-step standing orders (green =
+//!   take priority, red = skip) on two rows, opponents' turns above your
+//!   own. A turn is a sequence and the rail is now the shape of one.
 //! - **Bottom** — the hand bar: card images, overlapping but never less
 //!   than 30% visible, horizontally scrollable when even that overflows,
 //!   with a large hover tooltip for reading a card.
@@ -18,6 +19,7 @@
 use baylee_client_core::i18n::{Lang, Phrase};
 
 use crate::Duel;
+use crate::ambience::Feel;
 use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of};
 use crate::textures::CardTextures;
 use baylee_client_core::automation::{AutoPilot, RailRow};
@@ -82,10 +84,6 @@ mod glyph {
     pub const SKULL: char = '\u{f54c}';
     /// Ban (exile).
     pub const EXILE: char = '\u{f05e}';
-    /// Forward one step (next phase).
-    pub const STEP: char = '\u{f051}';
-    /// Fast-forward (end turn).
-    pub const FAST: char = '\u{f050}';
     /// Skull and crossbones (poison counters).
     pub const POISON: char = '\u{f714}';
     /// Bolt (energy counters).
@@ -129,13 +127,16 @@ pub struct PhaseButton {
     pub row: RailRow,
 }
 
-/// One of the two autopilot buttons at the rail's foot.
-#[derive(Component)]
-pub enum RailButton {
-    /// Pass priority until the phase changes.
-    NextPhase,
-    /// Fast-forward to the next turn.
-    EndTurn,
+/// The button for the step the game is in, and how far it has lit up.
+///
+/// Zero at spawn and eased to one by [`rail::light_the_current_step`]. The
+/// HUD tree is rebuilt whenever the step changes, so the button carrying this
+/// is always a *new* entity — which is what makes a value that only ever
+/// climbs from zero the whole transition.
+#[derive(Component, Default)]
+pub struct PhaseNow {
+    /// How far the light has come, 0 to 1.
+    pub lit: f32,
 }
 
 /// A game-menu button at the tab bar's right end.
@@ -223,6 +224,14 @@ pub enum PromptAction {
     DeclareNothing,
     /// Aim the next declaration at the next defender (or attacker).
     AimNext,
+    /// Hand the rest of this turn to the autopilot.
+    ///
+    /// The other half of the arrow buttons the rail lost. It belongs here
+    /// rather than on a strip of its own for the reason the slip exists at
+    /// all: "pass this window" and "pass every window until my next turn" are
+    /// the same decision at two sizes, and a player who has just been offered
+    /// the first should not have to look somewhere else for the second.
+    SkipTurn,
     /// One arm of the number stepper: `+1` or `-1`.
     ///
     /// A prompt button rather than a component of its own, because that is
@@ -539,6 +548,24 @@ pub(crate) fn soft_shadow() -> BoxShadow {
     )
 }
 
+/// The elevation shadow the two fixed strips cast onto the table.
+///
+/// `down` is `1.0` for the phase rail, which is pinned under the player bar,
+/// and `-1.0` for the hand bar at the bottom edge — one function rather than
+/// two constants because it is one fact said twice: both strips stand at the
+/// same height over the same felt, and the only thing that differs is which
+/// way the light falls past them. Written out separately they drifted apart
+/// the first time either was tuned.
+pub(crate) fn elevation_shadow(down: f32) -> BoxShadow {
+    BoxShadow::new(
+        palette::SHADOW,
+        Val::Px(0.0),
+        Val::Px(6.0 * down),
+        Val::Px(0.0),
+        Val::Px(16.0),
+    )
+}
+
 /// An upward shadow for a panel standing over the table.
 fn upward_shadow() -> BoxShadow {
     BoxShadow::new(
@@ -617,5 +644,5 @@ use stack::spawn_stack_panel;
 pub use hand::apply_hand_scroll;
 pub use hand::{HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W, TAB_H};
 pub use overlay::{despawn_overlay, sync_overlay};
-pub use rail::RAIL_W;
 pub use rail::same_team;
+pub use rail::{RAIL_H, light_the_current_step};

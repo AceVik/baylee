@@ -499,7 +499,7 @@ about the table itself rather than the rules, and both are fixed.
     (which names a card without standing anywhere) keeps the middle, and
     everything the pointer found stands beside the pointer. `preview_place` is
     the arithmetic — beside, never under, flipping to whichever side it fits,
-    clear of the tab strip, the hand bar and the phase rail — and it is a pure
+    clear of the tab strip, the phase rail and the hand bar — and it is a pure
     function with four tests, because the alternative is reading it off a
     photograph. Stack entries and their targets now carry `HandCardVisual`,
     which is what `pointer_hover` looks for.
@@ -855,3 +855,68 @@ about the table itself rather than the rules, and both are fixed.
     upgrade. `the_shipped_keymap_is_still_recognised` reads a literal blob
     that names `toggle-overlay`, so the day the reader stops being tolerant
     is the day that test goes red.
+
+47. **"Packe die vertikale Phasenleiste horizontal nach oben unter die
+    players Leiste."** *Done, and it changed more than the position.* A turn
+    is a **sequence**; a column of twelve buttons made the eye read it as a
+    list of settings. Laid out left to right under the seats — two rows,
+    opponents' turns above your own, the turn number at the left where the
+    eye starts — the rail is the shape of the thing it describes, and the
+    step the game is in travels along it. Every button is the same width
+    (`flex_grow`, `flex_basis: 0`), because they are twelve equal parts of
+    one turn and a rail that sized them by their labels would be claiming
+    the draw step is smaller than declare-attackers.
+
+    Four of the request's five clauses are drawn rather than said:
+
+    - **The elevation shadow.** `hud::elevation_shadow(down)` casts it, and
+      takes a direction because the hand bar wants the mirror of it — one
+      function rather than two constants, since both strips stand at the same
+      height over the same felt and hand-written pairs drift the first time
+      either is tuned.
+    - **The transition.** The HUD tree is rebuilt whenever anything in
+      `HudRevision` changes, and a step change is one of those — so the
+      button that is current was *born* current and the one before it no
+      longer exists. `PhaseNow.lit` therefore starts at zero on a fresh
+      entity and is eased to one by `light_the_current_step`, which makes a
+      value that only ever climbs the whole of the animation. It writes the
+      border and the light and leaves the background alone, because `Feel`
+      owns that one and two systems writing one component is a fight the
+      schedule decides. The system is *run* in a test, not merely declared.
+    - **Hover, focus and press.** `ambience::Feel` already did this for every
+      button in the lobby, driven by `PickingInteraction`, and the duel had
+      none of it. A live rail button now carries one; the keyboard focus
+      keeps its accent border.
+    - **The dead phases.** This is the one that had to go in the *model*.
+      `RailRow::grants_priority` is false for untap and nothing else — "No
+      player receives priority during the untap step, so no spells can be
+      cast or resolve and no abilities can be activated or resolve" (CR
+      502.4) — and `PhaseOrders::toggle` refuses it, `is_skipped` answers
+      true whatever the stored table says, and `move_selection` steps over
+      it. A rail that only *drew* it unclickable would still turn it green
+      under a preset, a keyboard, or a blob stored by a client that had the
+      button.
+
+    **Cleanup is deliberately not dead**, which is a narrowing of what was
+    asked for and worth saying out loud. Priority there is rare rather than
+    impossible: an ability that triggers during the cleanup step gives the
+    active player priority and they may cast spells (CR 514.3, 514.3a).
+    Declining a window the rules grant and declining one nobody can use are
+    different things, and only the second is the client's to decide on a
+    player's behalf. Cleanup is red by default instead, which is a preference
+    and can be changed. That closes the second half of entry 10.
+
+    The two arrow buttons at the rail's foot are gone, and the fast-forward
+    came back where the request said it should: `PromptAction::SkipTurn`
+    stands beside Pass on the prompt slip. "Pass this window" and "pass every
+    window until my next turn" are the same decision at two sizes, and a
+    player who has just been offered the first should not have to look in a
+    corner for the second.
+
+    Everything anchored to the tab strip moved down with it — the zone chips,
+    the browser's centring frame, the stack panel, the preview's band, and
+    `Canvas::hud`, which is the one that matters: the camera frames the table
+    against what the HUD covers, so a rail the framing did not know about
+    would be a mat drawn underneath it. `Canvas.right` is zero now and stays
+    as a field, because the next panel to take a side needs somewhere to say
+    so.
