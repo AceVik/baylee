@@ -467,6 +467,112 @@ fn compartment_half(sides: &[Side], party: &[f32], radius: Vec2, half_depth: f32
     held
 }
 
+/// The ring a table of these sides sits on: the tightest one that still hands
+/// every seat the standard board, in the shape that suits the format.
+///
+/// `even` is what each side asks for, one entry per side, so its length is
+/// the number of sides. `alone` says nobody at the table has an ally, which
+/// is what makes a round ring worth offering — see [`ROUND_COST`].
+fn ring_that_seats(
+    even: &[f32],
+    aspect: f32,
+    half_depth: f32,
+    spread: f32,
+    clear: f32,
+    alone: bool,
+) -> Vec2 {
+    let t = even.len();
+    // What a ring of this shape hands out: where the sides sit on it, and
+    // half of one seat's ground inside the compartment it owns.
+    let cut_for = |radius: Vec2| {
+        let sides = sides_on(t, radius);
+        let held = compartment_half(&sides, even, radius, half_depth);
+        (sides, pod_half_width(held, radius.x + half_depth))
+    };
+    let narrowest = |radius: Vec2| cut_for(radius).1 * 2.0;
+    // The smallest ring *of a given shape* that still hands every seat the
+    // standard board. The shape is a parameter because there are two
+    // candidates and they have to be compared on the same terms — each at the
+    // tightest it can be, since a ring one unit wider than it needs to be is a
+    // unit every card is drawn smaller for.
+    let settle = |shape: &dyn Fn(f32) -> Vec2, ceiling: f32| -> Vec2 {
+        let (mut lo, mut hi) = (clear, ceiling.max(clear));
+        if narrowest(shape(hi)) < MIN_POD_WIDTH {
+            // Past the cap the camera would have to pull back further than
+            // `CameraRig::MAX_DISTANCE`, and a table it cannot frame slides
+            // its near mats under the hand bar. Crowded tables live here:
+            // they get the biggest ring that can still be seen, and their
+            // lanes fan. That is what fanning is for.
+            return shape(hi);
+        }
+        if narrowest(shape(lo)) >= MIN_POD_WIDTH {
+            return shape(lo);
+        }
+        for _ in 0..24 {
+            let mid = f32::midpoint(lo, hi);
+            if narrowest(shape(mid)) >= MIN_POD_WIDTH {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        shape(hi)
+    };
+
+    let canvas = |ry: f32| ring_for(ry, aspect, half_depth, spread);
+    if t < 3 && alone {
+        return canvas(clear);
+    }
+    // The ceiling, in whichever of the two radii binds first on this canvas:
+    // `x` is derived from `y` by the aspect, so a cap on `x` is a cap on `y`
+    // once it is read back through the same division.
+    let by_x = (MAX_RING_X + half_depth + PILE_STRIP) * spread / aspect - half_depth;
+    let shaped = settle(&canvas, MAX_RING_Y.min(by_x));
+    // Nobody at this table has an ally, so there is a round ring to compare
+    // against: it is taken if it still seats everybody at the standard width
+    // and the camera can afford to stand where it puts them.
+    alone
+        .then(|| settle(&|ry: f32| Vec2::splat(ry), MAX_RING_Y.min(MAX_RING_X)))
+        .filter(|&round| narrowest(round) >= MIN_POD_WIDTH)
+        .filter(|&round| {
+            let (round, shaped) = (cut_for(round), cut_for(shaped));
+            reach_of(&round.0, round.1, half_depth, aspect)
+                <= reach_of(&shaped.0, shaped.1, half_depth, aspect) * ROUND_COST
+        })
+        .unwrap_or(shaped)
+}
+
+/// What the camera has to swallow to frame a table cut like this, measured in
+/// units of canvas *height*.
+///
+/// The same box [`TableLayout::extent`] reports, read through the canvas so
+/// two candidate rings can be compared by the one number that decides how big
+/// a card is drawn: a shot is fitted by whichever of the two axes binds, so a
+/// span twice as wide as the canvas costs exactly what a span twice as tall
+/// does. Written here rather than off a built layout because it is asked
+/// *during* the search, before there are any slots to measure.
+fn reach_of(sides: &[Side], half_width: f32, half_depth: f32, aspect: f32) -> f32 {
+    let mut lo = Vec2::splat(f32::INFINITY);
+    let mut hi = Vec2::splat(f32::NEG_INFINITY);
+    for side in sides {
+        let (sin, cos) = side.angle.sin_cos();
+        let (sin, cos) = (sin.abs(), cos.abs());
+        let foot = Vec2::new(half_width + PILE_STRIP, half_depth);
+        let half = Vec2::new(
+            cos.mul_add(foot.x, sin * foot.y),
+            sin.mul_add(foot.x, cos * foot.y),
+        );
+        lo = lo.min(side.center - half);
+        hi = hi.max(side.center + half);
+    }
+    let span = hi - lo;
+    if span.x.is_finite() {
+        (span.x / aspect).max(span.y)
+    } else {
+        0.0
+    }
+}
+
 /// How wide half of one seat's ground is, inside the compartment it owns.
 ///
 /// [`ARC_SHARE`] of the compartment is board and pile strips; the rest is the
@@ -556,7 +662,10 @@ impl TableLayout {
     /// span taller than the canvas wastes its width, a span wider wastes its
     /// height, and only a span of the same shape wastes neither. The camera
     /// fits whatever comes out of here, so a unit of empty table is a unit
-    /// every card is drawn smaller for.
+    /// every card is drawn smaller for. The one thing worth wasting a unit on
+    /// is a table nobody has an ally at: a **free-for-all** is offered a
+    /// circle instead, and takes it if it can still be afforded — see
+    /// [`ROUND_COST`].
     ///
     /// What divides the ring is a **side**, not a seat: allies share one and
     /// sit along it facing the same way, which is where they sit at a real
@@ -641,47 +750,12 @@ impl TableLayout {
         // the sides there are. It shapes the ring, because a side of two is
         // twice as wide as a side of one on the same table.
         let spread = n.max(1) as f32 / t.max(1) as f32;
-        let narrowest = |ry: f32| {
-            let radius = ring_for(ry, aspect, half_depth, spread);
-            let sides = sides_on(t, radius);
-            let held = compartment_half(&sides, &even, radius, half_depth);
-            pod_half_width(held, radius.x + half_depth) * 2.0
-        };
         // Two sides of one seat each are a duel, and a duel has nothing to be
         // crowded by: both seats already have the whole table across, and
         // growing the ring would only push the camera back. Sharing a side is
         // crowding, though, so a two-headed table searches like any other.
         let alone = parties.iter().all(|party| party.len() == 1);
-        let ry = if t < 3 && alone {
-            clear
-        } else {
-            // The ceiling, in whichever of the two radii binds first on this
-            // canvas: `x` is derived from `y` by the aspect, so a cap on `x`
-            // is a cap on `y` once it is read back through the same division.
-            let by_x = (MAX_RING_X + half_depth + PILE_STRIP) * spread / aspect - half_depth;
-            let (mut lo, mut hi) = (clear, MAX_RING_Y.min(by_x).max(clear));
-            if narrowest(hi) < MIN_POD_WIDTH {
-                // Past the cap the camera would have to pull back further
-                // than `CameraRig::MAX_DISTANCE`, and a table it cannot frame
-                // slides its near mats under the hand bar. Crowded tables
-                // live here: they get the biggest ring that can still be
-                // seen, and their lanes fan. That is what fanning is for.
-                hi
-            } else if narrowest(lo) >= MIN_POD_WIDTH {
-                lo
-            } else {
-                for _ in 0..24 {
-                    let mid = f32::midpoint(lo, hi);
-                    if narrowest(mid) >= MIN_POD_WIDTH {
-                        hi = mid;
-                    } else {
-                        lo = mid;
-                    }
-                }
-                hi
-            }
-        };
-        let radius = ring_for(ry, aspect, half_depth, spread);
+        let radius = ring_that_seats(&even, aspect, half_depth, spread, clear, alone);
         if n == 0 {
             return Self {
                 slots: Vec::new(),
@@ -883,6 +957,29 @@ const MIN_POD_WIDTH: f32 = 12.0;
 const MAX_RING_X: f32 = 21.0;
 /// The same ceiling on the other radius; see [`MAX_RING_X`].
 const MAX_RING_Y: f32 = 11.2;
+
+/// How much further back the camera may be pushed to seat a free-for-all
+/// round, as a multiple of what the same table costs on a ring shaped to the
+/// canvas.
+///
+/// A ring shaped to the canvas wastes nothing, and for two sides or four it
+/// also seats them where anyone would sit: opposite each other, or on the
+/// four points of a diamond. **Three** is where it comes apart. Equal
+/// distances along a 12.0 × 5.7 ellipse put the two opponents at 150° and
+/// 210°, which is a mat's width apart at the top of the table with their
+/// inner corners nearly touching — a gable, and the same silhouette a 2v1
+/// draws, where two allies really do sit shoulder to shoulder. A format is
+/// not something a player should have to read off the life totals.
+///
+/// So a free-for-all is offered a circle, and takes it if the camera can
+/// afford it. At three seats it costs a quarter: 22.3 units of reach against
+/// 17.9, every card a quarter smaller, and about two fifths of the screen's
+/// width left bare — which is what a round table is worth. At four it costs
+/// four fifths, for an arrangement that was already a diamond, and at five
+/// and six the circle is past [`MAX_RING_Y`] before it has handed anybody a
+/// board. This is the line between those, and it is deliberately nearer the
+/// first: 1.25 is bought, 1.43 is not.
+const ROUND_COST: f32 = 1.3;
 
 /// How much of the arc between two neighbours a mat may claim. The rest is
 /// the gap that keeps them from touching.
@@ -1829,6 +1926,169 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    /// The tightest ring of a given shape that hands every seat the standard
+    /// board, and what the camera pays to frame it — found by walking
+    /// outwards rather than by bisecting.
+    ///
+    /// Written out a second time on purpose: a test that asked
+    /// [`TableLayout::seated`]'s own search would agree with it however wrong
+    /// both were.
+    fn tightest(count: usize, aspect: f32, shape: impl Fn(f32) -> Vec2) -> Option<(Vec2, f32)> {
+        let half_depth = POD_DEPTH * 0.5;
+        let even = vec![1.0; count];
+        let floor = half_depth + CENTRE_GAP * 0.5;
+        for step in 0..=800_u16 {
+            let ry = floor + (MAX_RING_Y - floor) * f32::from(step) / 800.0;
+            let radius = shape(ry);
+            if radius.x > MAX_RING_X + 1e-3 {
+                break;
+            }
+            let sides = sides_on(count, radius);
+            let held = compartment_half(&sides, &even, radius, half_depth);
+            let half = pod_half_width(held, radius.x + half_depth);
+            if half * 2.0 >= MIN_POD_WIDTH {
+                return Some((radius, reach_of(&sides, half, half_depth, aspect)));
+            }
+        }
+        None
+    }
+
+    /// What the camera has to swallow to frame a table that was built.
+    fn reach_of_layout(layout: &TableLayout, aspect: f32) -> f32 {
+        let (lo, hi) = layout.extent().expect("a seated table has an extent");
+        let span = hi - lo;
+        (span.x / aspect).max(span.y)
+    }
+
+    #[test]
+    fn three_seats_playing_for_themselves_sit_round_the_table() {
+        // A ring shaped to the canvas seats two and four where anybody would
+        // sit — opposite each other, or on the four points of a diamond — and
+        // three in a gable: the two opponents at 150° and 210°, side by side
+        // across the top with their inner corners nearly touching, which is
+        // the silhouette a 2v1 draws. Three seats each playing for themselves
+        // are a circle, and only a circle says so.
+        for aspect in [2.014_f32, 16.0 / 9.0, 1.6, 1.0] {
+            let layout = TableLayout::new(&seats(3), aspect, None);
+            assert!(
+                (layout.radius.x - layout.radius.y).abs() < 1e-3,
+                "aspect {aspect:.2}: the ring came out {:?}, which is not round",
+                layout.radius
+            );
+            for (i, slot) in layout.slots.iter().enumerate() {
+                let want = core::f32::consts::TAU * i as f32 / 3.0;
+                assert!(
+                    (slot.facing - want).abs() < 0.01,
+                    "aspect {aspect:.2}: seat {i} faces {:.1}°, not the {:.1}° \
+                     that would put it a third of the way round",
+                    slot.facing.to_degrees(),
+                    want.to_degrees()
+                );
+                assert!(
+                    (slot.lane_width() - MIN_POD_WIDTH).abs() < 1e-2,
+                    "aspect {aspect:.2}: seat {i} plays on {:.2} units, and the \
+                     standard board is {MIN_POD_WIDTH}",
+                    slot.lane_width()
+                );
+            }
+            // Taken because it is affordable, and the bound is the one the
+            // constant names.
+            let shaped = tightest(3, aspect, |ry| ring_for(ry, aspect, POD_DEPTH * 0.5, 1.0))
+                .expect("three seats fit on a ring shaped to the canvas");
+            assert!(
+                reach_of_layout(&layout, aspect) <= shaped.1 * ROUND_COST,
+                "aspect {aspect:.2}: sitting round costs {:.1} units of reach \
+                 against {:.1} shaped to the canvas, which is past {ROUND_COST}",
+                reach_of_layout(&layout, aspect),
+                shaped.1
+            );
+        }
+    }
+
+    #[test]
+    fn a_table_of_teams_of_one_is_a_free_for_all() {
+        // A format that hands every seat a team of its own is not a format
+        // with teams in it, and must not be laid out as one.
+        for aspect in [2.014_f32, 1.6] {
+            let alone = TableLayout::new(&seats(3), aspect, None);
+            let labelled = TableLayout::seated(
+                &[
+                    Seat::on(PlayerId::new(0), Some(1)),
+                    Seat::on(PlayerId::new(1), Some(2)),
+                    Seat::on(PlayerId::new(2), Some(3)),
+                ],
+                aspect,
+                None,
+            );
+            assert!(
+                (alone.radius - labelled.radius).abs().max_element() < 1e-3,
+                "aspect {aspect:.2}: three teams of one came out on {:?}, three \
+                 seats alone on {:?}",
+                labelled.radius,
+                alone.radius
+            );
+        }
+    }
+
+    #[test]
+    fn a_bigger_free_for_all_stays_shaped_to_the_canvas() {
+        // And it is refused for a reason, not by accident: at four seats and
+        // up a round table costs more than [`ROUND_COST`] of what the same
+        // seats cost on a ring shaped to the canvas — or it runs past the
+        // ring's own ceiling before it has handed anybody a board.
+        for n in [4u8, 5, 6, 8] {
+            for aspect in [2.014_f32, 16.0 / 9.0, 1.0] {
+                let layout = TableLayout::new(&seats(n), aspect, None);
+                assert!(
+                    (layout.radius.x - layout.radius.y).abs() > 1e-3,
+                    "{n} seats at {aspect:.2}: the ring came out round, at {:?}",
+                    layout.radius
+                );
+                let shaped = reach_of_layout(&layout, aspect);
+                if let Some((radius, cost)) = tightest(n as usize, aspect, Vec2::splat) {
+                    assert!(
+                        cost > shaped * ROUND_COST,
+                        "{n} seats at {aspect:.2}: a circle of {:.2} would have \
+                         cost {cost:.1} units of reach against {shaped:.1}, which \
+                         is inside {ROUND_COST} — it should have been taken",
+                        radius.x
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_narrow_canvas_cannot_afford_a_round_table() {
+        // The rule is a price and not a seat count, so it answers differently
+        // on a canvas taller than it is wide — where a circle is the one
+        // shape the camera cannot pay for. A phone held upright is 0.46, the
+        // narrowest frame `Metrics::of` draws and the clamp in
+        // [`TableLayout::seated`]: a circle wide enough to seat three would
+        // cost 56 units of reach against the 22 the table is laid out on. It
+        // stays refused all the way up to a canvas nearly square, and three
+        // seats on a phone go on sitting where they fit rather than where
+        // they would like to.
+        for aspect in [0.46_f32, 0.6, 0.75] {
+            let layout = TableLayout::new(&seats(3), aspect, None);
+            assert!(
+                (layout.radius.x - layout.radius.y).abs() > 1e-3,
+                "aspect {aspect:.2}: the ring came out round, at {:?}",
+                layout.radius
+            );
+            let shaped = reach_of_layout(&layout, aspect);
+            let (radius, cost) =
+                tightest(3, aspect, Vec2::splat).expect("a circle seats three at any aspect");
+            assert!(
+                cost > shaped * ROUND_COST,
+                "aspect {aspect:.2}: a circle of {:.2} would have cost {cost:.1} \
+                 units of reach against {shaped:.1}, which is inside \
+                 {ROUND_COST} — it should have been taken",
+                radius.x
+            );
         }
     }
 }

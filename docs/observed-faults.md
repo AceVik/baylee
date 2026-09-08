@@ -543,3 +543,28 @@ about the table itself rather than the rules, and both are fixed.
     (`MAX_LEAN`, about 55°). `CameraRig::home` still solves at `CAMERA_LEAN`
     and says so — a tilted shot is one the player has taken over, and
     `frame_table` has stopped writing to the rig by then.
+
+38. **A three-player free-for-all sat down as a 2v1.** *Fixed.* The ring is
+    shaped to the canvas, and equal distances along a 12.0 × 5.7 ellipse put
+    the two opponents at 150° and 210° — side by side across the top of the
+    table with their inner corners nearly touching, which is exactly the
+    silhouette two allies draw when they really are sharing a side. Three
+    seats each playing for themselves read as a team game, and the only way to
+    tell was the life totals.
+
+    A free-for-all is offered a **circle** now, and takes it if it can still
+    seat everybody at the standard board and the camera can afford to stand
+    where it puts them (`ROUND_COST`, 1.3). At three seats that is 0°, 120°
+    and 240°, boards still 12.0 wide, and 22.3 units of reach against 17.9 —
+    every card about a quarter smaller, which is what a table that reads as a
+    table is worth. At four the arrangement was already a diamond and a circle
+    would cost four fifths; at five and six the circle runs past `MAX_RING_Y`
+    before it has handed anybody a board. Those all keep the canvas shape, and
+    `a_bigger_free_for_all_stays_shaped_to_the_canvas` checks they were
+    refused for that reason rather than by accident, by walking the circles
+    itself and pricing them.
+
+    The channel poured between the boards follows the ring, so it came out of
+    this too: a flat lens 29 units across with two tilted mats slicing into it
+    read as a pit in the middle of the table, and on the round ring it is the
+    hollow the three boards are set around.

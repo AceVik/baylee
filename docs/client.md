@@ -246,9 +246,19 @@ only ever bounded the bright end. It bounds both now.
 ## Eight seats
 
 - Seats sit on a ring, local seat at the near edge, opponents clockwise **in
-  turn order** — the player on your left acts after you.
-- Pods get unequal space; the local pod is always largest, and focusing an
-  opponent borrows from the other opponents, never from you.
+  turn order** — the player on your left acts after you. Allies share a side
+  and face the same way; everybody else has a side to themselves.
+- The ring is shaped to the canvas, so a wide screen is actually used — except
+  where that would seat a **free-for-all** as something it is not. Three seats
+  each playing for themselves sit on a circle at 0°, 120° and 240°, because on
+  a canvas-shaped ellipse they come out side by side across the top, which is
+  the silhouette a 2v1 draws. It is offered to any table with no allies at it
+  and taken only when the camera can afford it (`layout::ROUND_COST`); four
+  seats and up keep the canvas shape, and so does a canvas narrower than about
+  4:5 — a phone held upright would pay more than twice the reach for a circle,
+  so three seats there go on sitting where they fit.
+- Every seat plays on a board of the same width, and focusing an opponent
+  widens that one at the other opponents' expense, never at yours.
 - Lanes fan when crowded and report overflow when even fanning stops being
   legible.
 - A seat's tab carries a **second life total** when one applies. Twenty-one
