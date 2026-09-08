@@ -51,6 +51,15 @@ pub struct FeltParams {
     /// one end, cool at the other" cannot be a property of a *ring*; it is a
     /// property of whose turn it is, and it moves.
     pub source: Vec4,
+    /// The light the room is in: `rgb` a multiplier on the table's own
+    /// colour, `w` how much of it arrives.
+    ///
+    /// Written by [`crate::sky::light_the_table`] out of the same eased
+    /// [`SkyPhase`](baylee_client_core::sky::SkyPhase) the sky itself is
+    /// drawn from, which is what makes the day/night change one movement:
+    /// nothing here knows a transition is happening, and the table follows
+    /// the sky because both read the same number.
+    pub ambient: Vec4,
     /// The slab's world size, which is how the shader turns a point on the
     /// table into a point in the cloth.
     ///

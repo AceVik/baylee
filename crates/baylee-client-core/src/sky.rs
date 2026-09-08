@@ -112,6 +112,79 @@ fn ramp(x: f32, from: f32, to: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// What the sky puts on the table, as a colour and how much of it there is.
+///
+/// The table is drawn **unlit** — the stage carries no light source at all,
+/// because scene lighting on card art would make colour identity unreadable,
+/// and that is the one thing this table may not do. So this is not a lamp. It
+/// is a tint the cloth multiplies itself by, which is what a real table under
+/// a window does to its own colour and nothing more: the cards on it keep
+/// every channel they were printed with.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct TableLight {
+    /// The colour the cloth is pulled towards, in linear RGB.
+    pub rgb: [f32; 3],
+    /// How far towards it, from 0 (the cloth's own colour) to 1.
+    pub strength: f32,
+}
+
+/// Daylight on the baize: warm, and a little brighter than the cloth's own
+/// colour.
+///
+/// Past 1 in the red, which is the reason this is a multiplier and not a mix
+/// towards a colour: a light that could only ever be ≤ 1 can darken a table
+/// and can never sun it, and a "sunny" table that is dimmer than the same
+/// table at midnight is the wrong way round.
+const SUNLIGHT: [f32; 3] = [1.25, 1.05, 0.72];
+
+/// Moonlight on the same cloth: blue, and allowed to be stronger.
+///
+/// Stronger because it is doing more work. A night table has to *read* as
+/// being in the dark, and the way anything says dark without going black is
+/// to lose its warm end — which is also why this can be as strong as it is
+/// without the baize stopping being green: blue over green is still green.
+const MOONLIGHT: [f32; 3] = [0.38, 0.58, 1.05];
+
+/// The low sun of a dawn or a dusk, which is neither of the above.
+const EMBERLIGHT: [f32; 3] = [1.15, 0.55, 0.28];
+
+/// How much of each reaches the cloth at full strength.
+const SUN_REACH: f32 = 0.22;
+const MOON_REACH: f32 = 0.38;
+const EMBER_REACH: f32 = 0.28;
+
+/// The light the table stands in, given the sky behind it.
+///
+/// Continuous in `phase`, which is what makes the day/night transition one
+/// thing rather than two: the sky crossfades because the shader mixes on
+/// `day`, and the table follows because this does, so nothing has to be told
+/// that a change is happening.
+#[must_use]
+pub fn table_light(phase: SkyPhase) -> TableLight {
+    let day = phase.day.clamp(0.0, 1.0);
+    let glow = phase.glow.clamp(0.0, 1.0);
+    // Night to day first, then the low sun laid over the result. Two mixes
+    // rather than three weights, because the ember is a *thing that happens
+    // during* the change and not a third time of day: at glow = 1 the sky is
+    // half in the sun and the table is fully in the ember, which is what a
+    // sunset does to a room.
+    let base = mix(MOONLIGHT, SUNLIGHT, day);
+    let reach = MOON_REACH + (SUN_REACH - MOON_REACH) * day;
+    TableLight {
+        rgb: mix(base, EMBERLIGHT, glow),
+        strength: reach + (EMBER_REACH - reach) * glow,
+    }
+}
+
+/// Channel-wise linear interpolation.
+fn mix(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] {
+    [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,6 +273,92 @@ mod tests {
         // before, and 30 is six in the morning the day after.
         assert_eq!(phase(SkyMode::Auto, -6.0), phase(SkyMode::Auto, 18.0));
         assert_eq!(phase(SkyMode::Auto, 30.0), phase(SkyMode::Auto, 6.0));
+    }
+
+    /// Night is blue on the table, day is warm, and neither is a spotlight.
+    ///
+    /// Both ends bounded on both sides, which is the lesson the felt itself
+    /// taught: a one-sided "blue enough" assertion stops the mistake it was
+    /// written after and lets the opposite one ship. A table lit hard enough
+    /// to stop being green is as wrong as a table that never changes.
+    #[test]
+    fn the_table_stands_in_the_light_of_its_own_sky() {
+        let night = table_light(phase(SkyMode::Night, 0.0));
+        assert!(
+            night.rgb[2] > night.rgb[0] * 1.5,
+            "moonlight is {:?}, which is not blue",
+            night.rgb
+        );
+        let day = table_light(phase(SkyMode::Day, 0.0));
+        assert!(
+            day.rgb[0] > day.rgb[2] * 1.2,
+            "sunlight is {:?}, which is not warm",
+            day.rgb
+        );
+        for (name, light) in [("night", night), ("day", day)] {
+            assert!(
+                light.strength > 0.05,
+                "{name} puts {} on the table, which nobody can see",
+                light.strength
+            );
+            assert!(
+                light.strength < 0.45,
+                "{name} puts {} on the table, which is a coloured filter over \
+                 the baize and not a light in the room",
+                light.strength
+            );
+        }
+        // And the night is the stronger of the two: it is the one doing the
+        // work of saying "this room is dark".
+        assert!(night.strength > day.strength);
+    }
+
+    /// The change from one to the other is a flow, not a switch.
+    ///
+    /// Asserted as a *shape* rather than as a magnitude: the biggest step
+    /// across the dawn is no more than twice the average one. A bound on the
+    /// absolute size would have to be retuned every time the light is graded
+    /// — it was, once, and failed the first time the colours were made
+    /// stronger — and it would have been measuring how bright the light is
+    /// rather than whether it arrives evenly, which is the thing that reads
+    /// as a glitch when it goes wrong.
+    #[test]
+    fn the_light_flows_from_one_sky_into_the_other() {
+        // The dawn itself. Walking the flat hours either side would halve the
+        // average and make the ratio below say something about where the ramp
+        // was placed instead of about its shape.
+        let mut last = table_light(phase(SkyMode::Auto, DAWN.0));
+        let mut steps = Vec::new();
+        for i in 1_u8..=80 {
+            let hour = (DAWN.1 - DAWN.0).mul_add(f32::from(i) / 80.0, DAWN.0);
+            let now = table_light(phase(SkyMode::Auto, hour));
+            steps.push(
+                now.rgb
+                    .iter()
+                    .zip(&last.rgb)
+                    .map(|(a, b)| (a - b).abs())
+                    .fold((now.strength - last.strength).abs(), f32::max),
+            );
+            last = now;
+        }
+        let mean = steps.iter().sum::<f32>() / steps.len() as f32;
+        let worst = steps.iter().copied().fold(0.0_f32, f32::max);
+        assert!(mean > 1e-4, "the light never moves across a whole dawn");
+        assert!(
+            worst < mean * 2.0,
+            "the light moves {worst} in its worst step against an average of \
+             {mean} — that is a switch with a ramp drawn on it"
+        );
+        // It got somewhere: a flow that never arrives is a light that does
+        // not change at all, which this test would otherwise pass.
+        let dawn = table_light(phase(SkyMode::Auto, 8.0));
+        let night = table_light(phase(SkyMode::Auto, 3.0));
+        assert!(
+            (dawn.rgb[2] - night.rgb[2]).abs() > 0.2,
+            "morning is {:?} and the small hours are {:?}",
+            dawn.rgb,
+            night.rgb
+        );
     }
 
     #[test]

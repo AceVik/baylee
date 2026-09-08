@@ -82,9 +82,15 @@ const MOON_R: f32 = 0.032;
 /// How far the shadow disc is pushed off the moon to leave a crescent.
 const MOON_BITE: vec2<f32> = vec2<f32>(0.017, -0.011);
 
-/// How fast the cloud deck drifts, in screen widths per second. Slow enough
-/// that a player reading a card never catches it moving.
-const DRIFT: f32 = 0.0065;
+/// How fast the cloud deck drifts, in screen widths per second.
+///
+/// Raised from 0.0065, where it was chosen so that a player reading a card
+/// never caught it moving — and succeeded so completely that the owner asked
+/// for clouds that move. A screen width every forty seconds is the compromise:
+/// look at the sky and it is going somewhere, look at a card and the sky is
+/// not what you notice. The two decks and the sun's rim are all scaled off
+/// this, so the deck, its veil and the lit edges stay in step.
+const DRIFT: f32 = 0.025;
 /// How fast a star finishes one twinkle.
 const TWINKLE: f32 = 1.7;
 

@@ -688,7 +688,7 @@ about the table itself rather than the rules, and both are fixed.
     cut to the layout plus `SLAB_MARGIN`, so a rectangle fills the window edge
     to edge — the corners the oval gives up are the only part of the screen
     anything *behind* the table can be seen through, which is what entry 43
-    needed. `the_table_gives_up_its_corners_to_the_sky` measures exactly that,
+    needed. `the_table_stops_before_the_window_does` measures exactly that,
     against the window and not against itself.
 
 43. **"Day and night, with clouds and a sun, then stars and a crescent moon —
@@ -727,3 +727,80 @@ about the table itself rather than the rules, and both are fixed.
     what `Day` and `Night` are for. Measured live, both ways: the sky strip
     moves 22/16/8 per channel over two seconds while the felt beside it moves
     0/1/1, and with `reduce_motion` on the two frames are byte-identical.
+
+44. **"The table and the battlefield lines are unsharp."** *Drawn instead of
+    stretched.* A seat's mat was a 512 × 256 image laid over a board about
+    thirteen units wide, which at this camera is four texels to the physical
+    pixel: every edge on it — the rim, the lane seams, the corners — was a
+    soft ramp four or five pixels across, and no filtering setting fixes that,
+    because a stretched image has no idea how large it is being drawn.
+
+    `matmat.rs` and `shaders/mat.wgsl` draw it. A signed distance with
+    `fwidth` gives an edge one pixel wide from any distance, and three of the
+    owner's complaints turn out to be the same change:
+
+    - **Sharpness.** The rim is now an antialiased edge rather than a
+      resampled one.
+    - **"The battlefield lines field should have less border radius."** The
+      corner is `tabletop::MAT_CORNER`, a length in **table units**. It could
+      not have been asked for before: `seat_mat` took a fraction of the
+      shorter side of a texture, so the only way to know how round a mat came
+      out was to work back through the image's size — 6% of 256 texels over a
+      6.05-unit-deep board is about 0.37 units. It is 0.18 now.
+    - **"Make the battlefield lines border glow for the current player."** A
+      short comet travels the rim of the active seat's mat, once every 3.6
+      seconds. A *travelling* light rather than a border that brightens and
+      dims together, because a pulsing outline is the shape every interface
+      uses for something is wrong, and this says only "it is your turn" — a
+      thing that is true for most of a game and has to be able to sit there
+      without nagging. It could not have been a texture at all without
+      regenerating an image every frame.
+
+    It is driven by `Mood::on_turn`, which had to be added: `Standing` is a
+    *rank* and collapses the two questions, so a seat holding priority reads
+    as `Priority` whether or not the turn is theirs. Brightness answers "who
+    is everybody waiting for" and the rim light answers "whose turn is it",
+    and on any turn where an opponent responds to something those have
+    different answers — a light driven off the rank would leave the active
+    seat and follow the response.
+
+    `seat_mat` stays as the arithmetic's readable form and its test bench:
+    every number both it and the shader use is a `tabletop::MAT_*` constant,
+    and `the_shader_and_the_generator_agree_about_the_mat` fails if the two
+    drift. One meaning did change with the move — the mood's brightness now
+    scales the mat's **alpha** rather than a white tint, so a seat that has
+    lost fades into the felt instead of drawing a dark rim over it, which is
+    the reading `zone_brightness`'s own doc already claimed.
+
+    Measured live: over one second the active seat's mat moves 84/70/63 per
+    channel while the opponent's — same shader, same material, `on_turn` at
+    zero — moves 3/2/2 and the bare felt moves 2/2/1.
+
+45. **"Both need atmo lights on table — night moon blue, day sunny."** *Done
+    as a tint, not a lamp.* The stage carries no light source at all and may
+    not: scene lighting on card art would make colour identity unreadable,
+    which is the one thing this table is not allowed to do. So
+    `sky::table_light` hands the felt shader a multiplier on the table's own
+    colour, and `under_sky` applies it to the cloth, the rail and the apron
+    and to nothing else. A multiply rather than a mix towards a colour,
+    because a warm sky over green baize has to be able to lift the red end
+    without touching the green — a mix drags every channel towards the light's
+    hue and turns the cloth grey at both ends of the day. The phase lamp is
+    exempt: it is light the *table* emits and carries a meaning, and a wash
+    that went blue after sunset would be saying something untrue about the
+    turn.
+
+    Measured, both ways, on the same patch of bare felt: `(23.8, 65.8, 43.3)`
+    by day against `(19.6, 59.9, 45.1)` by night — warmer and brighter under a
+    sun, cooler and darker under a moon.
+
+    **The switch between them is one movement, not two.** `sync_sky` eases the
+    phase and both the sky and the table read the eased number on the same
+    frame, so nothing has to be told a transition is happening. `FADE_RATE`
+    went from 2.5 to 0.55, which turns a second-and-a-half smear into about
+    six seconds: caught at startup with the sky pinned to `Night`, the sky's
+    blue channel walks 113 → 84 → 69 → 63 → 59 → 58 while the felt walks with
+    it, 22.2 → 19.6 in the red. And `DRIFT` went from 0.0065 to 0.025, because
+    a cloud deck chosen so that a player reading a card never catches it
+    moving had succeeded completely — the sky now moves 8/5/2 per pixel over
+    three seconds while the felt beside it moves 0/0/0.

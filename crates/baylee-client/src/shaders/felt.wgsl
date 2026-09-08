@@ -43,6 +43,15 @@ struct FeltParams {
     /// Where the light enters the rail — `xy` a point on the active seat's
     /// own edge in table space, `zw` the direction it travels from there.
     source: vec4<f32>,
+    /// The light the room is in: `rgb` a multiplier on the table's own
+    /// colour, `a` how much of it arrives. `tabletop`'s colours are the
+    /// cloth at `a = 0`.
+    ///
+    /// It reaches the felt, the rail and the apron and stops at the phase
+    /// lamp, which is a light the *table* emits and carries a meaning of its
+    /// own — a wash that went blue after sunset would be saying something
+    /// about the turn that was not true.
+    ambient: vec4<f32>,
     /// The slab's world size, which is what turns a world position into a
     /// point in the fields below.
     span: vec2<f32>,
@@ -76,6 +85,16 @@ const RAIL_LIP: vec3<f32> = vec3<f32>(0.196, 0.130, 0.100);
 const APRON: vec3<f32> = vec3<f32>(0.055, 0.038, 0.030);
 
 const TAU: f32 = 6.2831855;
+
+/// The table under whatever sky is behind it.
+///
+/// A multiply, not a mix towards a colour: light is what a surface reflects,
+/// so a warm sky over green cloth has to be able to lift the red end without
+/// touching the green, and a mix would drag every channel towards the light's
+/// own hue and turn the baize grey at both ends of the day.
+fn under_sky(linear: vec3<f32>) -> vec3<f32> {
+    return mix(linear, linear * params.ambient.rgb, params.ambient.a);
+}
 
 /// Threads per table unit. A card is one unit wide, so this is how many
 /// threads cross a card: enough that the cloth has a tooth at reading
@@ -188,7 +207,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let faces = clamp(in.world_normal.z * 0.5 + 0.5, 0.0, 1.0);
         let grain = fbm2(vec2<f32>(table.x + table.y, in.world_position.y * 6.0) * 2.0);
         let shade = mix(1.15, 0.42, drop) * mix(0.78, 1.0, faces);
-        return vec4<f32>(to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012)), 1.0);
+        let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012));
+        return vec4<f32>(under_sky(apron), 1.0);
     }
 
     // One field decides the whole top. `outer` is the mesh's own boundary
@@ -247,5 +267,5 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     );
 
     let glow = lamp * energy * params.gain * reach * lamp_here * (0.62 + 0.38 * pulse);
-    return vec4<f32>(to_linear(colour) + glow, 1.0);
+    return vec4<f32>(under_sky(to_linear(colour)) + glow, 1.0);
 }

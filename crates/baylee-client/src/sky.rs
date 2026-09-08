@@ -50,9 +50,17 @@ const WIDEST: f32 = 4.0;
 ///
 /// Slow, and it has to be: a dawn takes two hours of the player's clock, so
 /// the only time this rate is visible at all is the moment a player changes
-/// the setting — where a snap between a blue sky and a starfield would be a
-/// flash, and this is a fade.
-const FADE_RATE: f32 = 2.5;
+/// the setting in `settingsui` — and that moment is now the one this number
+/// is chosen for. At 2.5 the crossfade was over inside a second and a half,
+/// which reads as a cut with a smear on it. At 0.55 it takes about six
+/// seconds: long enough that a player watches the stars come out over the
+/// table rather than finding that they have, and short enough that nobody
+/// waits for the setting they just chose.
+///
+/// It costs nothing when nobody is watching. The rate only applies while the
+/// phase is actually moving, and [`sync_sky`] stops writing the moment it
+/// arrives.
+const FADE_RATE: f32 = 0.55;
 
 /// Everything the sky shader reads.
 #[derive(Clone, Copy, ShaderType, Debug)]
@@ -151,6 +159,53 @@ pub fn hang_sky(
     commands.entity(camera).add_child(sky);
 }
 
+/// The light the table stands in, as the felt shader wants it: `xyz` a
+/// multiplier on the table's own colour, `w` how much of it arrives.
+///
+/// A resource rather than a second read of the clock, because the light has
+/// to follow the sky through the *eased* phase and not the one the clock
+/// asks for. That is what makes the change from day to night one movement:
+/// the sky crossfades, and the table crossfades with it because both are
+/// driven from the same number on the same frame.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct TableLight(pub Vec4);
+
+impl Default for TableLight {
+    /// The table's own colour, unlit — what it looks like before a clock has
+    /// been read.
+    fn default() -> Self {
+        Self(Vec4::new(1.0, 1.0, 1.0, 0.0))
+    }
+}
+
+/// Puts the sky's light on the table.
+///
+/// Split from [`sync_sky`] because it writes a different asset, and kept out
+/// of `table::sync_table` because that system is already at clippy's argument
+/// budget and this needs neither the layout nor the board. What it does need
+/// is to run *after* the phase has been eased, which the system order in
+/// `lib.rs` gives it.
+///
+/// Writes only when the light moves, for the reason the whole file keeps
+/// repeating: a material touched every frame is a uniform uploaded every
+/// frame for a table that has not changed.
+pub fn light_the_table(
+    light: Res<TableLight>,
+    mut materials: ResMut<Assets<crate::feltmat::FeltMaterial>>,
+    slabs: Query<&MeshMaterial3d<crate::feltmat::FeltMaterial>>,
+) {
+    let Ok(handle) = slabs.single() else {
+        return;
+    };
+    let Some(mut material) = materials.get_mut(&handle.0) else {
+        return;
+    };
+    if (material.params.ambient - light.0).abs().max_element() <= 1e-4 {
+        return;
+    }
+    material.params.ambient = light.0;
+}
+
 /// Keeps the sky at the hour it is, and at the setting the player asked for.
 ///
 /// Writes only when the phase actually moves. A sky that reached its target
@@ -160,6 +215,7 @@ pub fn hang_sky(
 pub fn sync_sky(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
+    mut light: ResMut<TableLight>,
     mut materials: ResMut<Assets<SkyMaterial>>,
     mut sky: Query<(&mut Sky, &MeshMaterial3d<SkyMaterial>)>,
 ) {
@@ -183,6 +239,12 @@ pub fn sync_sky(
         day: sky.shown.day + (want.day - sky.shown.day) * ease,
         glow: sky.shown.glow + (want.glow - sky.shown.glow) * ease,
     };
+    // The table's light comes off the *eased* phase, and is written before
+    // the early return below rather than after it: the sky stops writing when
+    // it arrives, and the table has to have arrived with it.
+    let lit = baylee_client_core::sky::table_light(next);
+    light.0 = Vec4::new(lit.rgb[0], lit.rgb[1], lit.rgb[2], lit.strength);
+
     let Some(mut material) = materials.get_mut(&handle.0) else {
         return;
     };
@@ -228,6 +290,7 @@ pub struct SkyPlugin;
 impl Plugin for SkyPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/sky.wgsl");
-        app.add_plugins(MaterialPlugin::<SkyMaterial>::default());
+        app.init_resource::<TableLight>()
+            .add_plugins(MaterialPlugin::<SkyMaterial>::default());
     }
 }

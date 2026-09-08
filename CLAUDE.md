@@ -599,13 +599,19 @@ pixels wide. Halving the lean and `FOV` together brings that to 6.3%, and
 
 The 3D table under the cards is **generated, not shipped**: no sprite, no
 photograph, no downloaded texture anywhere on it.
-`baylee-client-core/src/tabletop.rs` computes the centre medallion and a
-seat's mat into RGBA8 buffers with a seeded value-noise fbm (no `rand`, no
-clock — every player sees the same grain), and the surface itself is drawn by
-`baylee-client/src/shaders/felt.wgsl`, which is the same arithmetic in WGSL
-because a slab thirty-five units across would want four thousand texels to
-stay sharp at this camera. `docs/legal.md` §2 decided it: ornament is the
-easiest thing to borrow by accident, and arithmetic borrows nothing.
+`baylee-client-core/src/tabletop.rs` computes the centre medallion and the
+glow under a mat into RGBA8 buffers with a seeded value-noise fbm (no `rand`,
+no clock — every player sees the same grain), and the two surfaces a player
+actually reads are drawn in WGSL: `shaders/felt.wgsl` for the slab and
+`shaders/mat.wgsl` for a seat's mat. Both moved out of a texture for the same
+arithmetic — a slab thirty-five units across wants four thousand texels to
+stay sharp at this camera, and a mat thirteen units across wants two thousand
+and had five hundred. `docs/legal.md` §2 decided the whole approach: ornament
+is the easiest thing to borrow by accident, and arithmetic borrows nothing.
+`tabletop::felt` and `tabletop::seat_mat` remain as the same arithmetic in
+Rust, where a test can measure it, and `table::camera_tests`'
+`the_shader_and_the_generator_agree_about_the_{cloth,mat}` read the constants
+back out of the WGSL so the pair cannot drift.
 
 What it draws is **casino baize inside a padded rail, on a slab with a real
 thickness**: `rounded_slab_mesh` builds the table and the card both, a rounded
@@ -631,11 +637,22 @@ own. The hour comes from `web-time` in the shell, because
 `baylee-client-core` compiles for it — and it is **UTC**, with `Day` and
 `Night` there for a player the offset bothers.
 
-Every seat plays on its own mat, sized from its `SeatSlot`, banded
-for the three lanes, with the rim carrying the seat's colour — gilt for the
-viewing seat, the pie in ring order for the rest — and its brightness
-carrying `Mood { local, Standing }`, so "whose turn" and "who is everyone
-waiting for" are answered on the felt. Everything down there is `unlit`
+The sky also **lights the table**, and the two are one movement rather than
+two: `sky::sync_sky` eases the phase, `sky::table_light` turns the eased phase
+into a multiplier on the table's own colour, and the felt shader's `under_sky`
+applies it — so a dusk crossfades the sky and cools the baize on the same
+frame with nothing told that a transition is happening. It is a tint and not a
+lamp, for the reason the next paragraph gives, and it stops at the phase lamp,
+which is light the table *emits* and carries a meaning of its own.
+
+Every seat plays on its own mat, sized from its `SeatSlot`, banded for the
+three lanes, with the rim carrying the seat's colour — gilt for the viewing
+seat, the pie in ring order for the rest — and its opacity carrying `Mood`, so
+"who is everyone waiting for" is answered on the felt while a light travelling
+round one rim answers "whose turn is it". Those are two questions and
+`Mood` carries two fields for them: `Standing` is a rank that collapses them,
+and a rim light driven off the rank would leave the active seat the moment an
+opponent responded to something. Everything down there is `unlit`
 deliberately: scene lighting on card art would make colour identity
 unreadable. The stage therefore has no light in it at all, and the camera
 carries `Tonemapping::None` so a future Bevy default cannot quietly treat
