@@ -11,7 +11,10 @@
 //! 1. **Seats sit on a ring**, with the local seat always at the near edge, and
 //!    opponents going clockwise in *turn order* — the player on your left is
 //!    the one who acts after you, which is the association a player already has
-//!    from a physical table.
+//!    from a physical table. What divides the ring is a **side** and not a
+//!    seat: allies share one and sit along it shoulder to shoulder, because a
+//!    partner's board is read as often as one's own and across the table it
+//!    is upside down.
 //! 2. **Pods get unequal space.** Your own board is where you act, so it is
 //!    always the largest. Focusing an opponent borrows space from the others
 //!    rather than from you.
@@ -295,51 +298,223 @@ fn ring_for(ry: f32, aspect: f32, half_depth: f32) -> Vec2 {
     Vec2::new(rx, ry)
 }
 
-/// Where each seat sits on a given ring, in turn order from the local seat.
-fn ring_centers(n: usize, radius: Vec2) -> Vec<Vec2> {
-    (0..n)
+/// One side of the table: where a seat, or a team of them, sits on the ring.
+#[derive(Clone, Copy, Debug)]
+struct Side {
+    /// Angle on the ring, measured from the near edge.
+    angle: f32,
+    /// Where that angle puts the side's middle.
+    center: Vec2,
+}
+
+/// How finely the ring is walked to place sides at equal distances.
+///
+/// The perimeter of an ellipse has no closed form, so it is summed off a
+/// polyline. At this many steps the error is under a thousandth of the
+/// perimeter — a fiftieth of a millimetre on a card — and the whole walk is
+/// a few hundred multiplications inside a solve that runs when a seat joins,
+/// not every frame.
+const RING_STEPS: usize = 256;
+
+/// The sides of a table, in ring order starting at the local seat's own.
+///
+/// Spaced by **distance along the ring**, not by the angle that parameterises
+/// it. Those are the same thing on a circle and nothing like it on a wide
+/// ellipse: at six sides on a 19.9 × 11.2 ring the two flank sides sat 11.2
+/// apart while the near one had 18.1 to its neighbour, so a table sized to
+/// give the flanks a board gave the near seat half again as much and pushed
+/// the camera back to frame the result. Equal distances make every side's
+/// neighbourhood the same, which is what lets one ring answer for all of
+/// them.
+///
+/// A side's `angle` is then the ring's **inward normal** there, which on an
+/// ellipse is not the direction of its own centre: `(sin θ / rx, cos θ / ry)`
+/// is perpendicular to the curve, and a mat laid square to anything else is a
+/// mat sitting at a slight angle to the table it is drawn on.
+fn sides_on(count: usize, radius: Vec2) -> Vec<Side> {
+    let point = |t: f32| {
+        let (sin, cos) = t.sin_cos();
+        Vec2::new(-radius.x * sin, -radius.y * cos)
+    };
+    let mut arc = [0.0_f32; RING_STEPS + 1];
+    let mut previous = point(0.0);
+    for k in 1..=RING_STEPS {
+        let here = point(core::f32::consts::TAU * k as f32 / RING_STEPS as f32);
+        arc[k] = arc[k - 1] + here.distance(previous);
+        previous = here;
+    }
+
+    let mut sides = Vec::with_capacity(count);
+    let mut k = 0;
+    for i in 0..count {
+        // The walk only ever goes forwards, so the whole ring is read once
+        // however many sides ask for a place on it.
+        let want = arc[RING_STEPS] * i as f32 / count as f32;
+        while k + 1 < RING_STEPS && arc[k + 1] < want {
+            k += 1;
+        }
+        let step = arc[k + 1] - arc[k];
+        let part = if step > 1e-6 {
+            (want - arc[k]) / step
+        } else {
+            0.0
+        };
+        let t = core::f32::consts::TAU * (k as f32 + part) / RING_STEPS as f32;
+        let (sin, cos) = t.sin_cos();
+        sides.push(Side {
+            angle: (sin / radius.x)
+                .atan2(cos / radius.y)
+                .rem_euclid(core::f32::consts::TAU),
+            center: point(t),
+        });
+    }
+    sides
+}
+
+/// The lane axis of a side, and the axis across it.
+///
+/// The same two vectors [`SeatSlot::pile_center`] and [`SeatSlot::lane_center`]
+/// are built from, so what is measured here is the box that is drawn there.
+fn axes(angle: f32) -> (Vec2, Vec2) {
+    let (sin, cos) = angle.sin_cos();
+    (Vec2::new(cos, -sin), Vec2::new(sin, cos))
+}
+
+/// How much of the table each side may take, from its middle out along its
+/// own lane — mats *and* the pile strips beside them.
+///
+/// One side against the next is the whole question, and it is a question
+/// about two **rectangles**, not two points. Along the line joining two
+/// sides' middles, a side reaches `half_depth·|u·away| + F·|u·along|`, and
+/// the two reaches together may not exceed the distance between them — that
+/// is the separating-axis test, and satisfying it on one axis is enough to
+/// prove two boxes do not meet. The depth is the same at every seat, so it
+/// comes off the top; what is left is divided by the two sides' reaches
+/// together, so a side lying square across the line pays more of it than one
+/// pointing along it, and [`ARC_SHARE`] of the result is used so mats stop
+/// short of touching.
+///
+/// Written this way it answers *per side*, and that is the point. On an
+/// ellipse the sides on the flanks sit far closer together than the ones at
+/// the near and far ends, so a single answer for the whole table has to be
+/// the flanks' answer — which is how the local seat came to play on a board
+/// as narrow as the tightest pair anywhere on the ring, at the one place on
+/// the table with room to spare.
+///
+/// A side turned edge-on to its neighbour (`|u·along|` near zero) is not
+/// bounded by it at all: growing it moves its ends *along* the gap rather
+/// than into it, and the depth term has already paid for the meeting. Such a
+/// side gets the whole table, which is what a duel's two seats each get.
+fn side_half_widths(sides: &[Side], radius: Vec2, half_depth: f32) -> Vec<f32> {
+    let whole = radius.x + half_depth + PILE_STRIP;
+    let t = sides.len();
+    if t < 3 {
+        return vec![whole; t];
+    }
+    (0..t)
         .map(|i| {
-            let (sin, cos) = (core::f32::consts::TAU * (i as f32) / (n as f32)).sin_cos();
-            Vec2::new(radius.x * sin, -radius.y * cos)
+            let bound = |j: usize| {
+                let delta = sides[j].center - sides[i].center;
+                let d = delta.length();
+                if d < 1e-3 {
+                    return CARD_WIDTH;
+                }
+                let u = delta / d;
+                let (along_i, away_i) = axes(sides[i].angle);
+                let (along_j, away_j) = axes(sides[j].angle);
+                let depth = half_depth * (u.dot(away_i).abs() + u.dot(away_j).abs());
+                let slack = ((d - depth) * ARC_SHARE).max(0.0);
+                let reach = u.dot(along_i).abs() + u.dot(along_j).abs();
+                if reach < 1e-3 { whole } else { slack / reach }
+            };
+            bound((i + t - 1) % t).min(bound((i + 1) % t)).min(whole)
         })
         .collect()
 }
 
-/// How wide half a seat's ground comes out on a given ring.
+/// How wide half of one seat's ground is, on a side `party` seats share.
 ///
-/// Two seats face each other across the middle and neither has a neighbour to
-/// bump into, so each may have the whole table; three or more share the ring.
-/// For those, two bounds, and the tighter one wins.
+/// Allies sit side by side on one side of the table, so what the geometry
+/// hands out is the side's width and what a seat gets is its share of it —
+/// less a pile strip, because every seat keeps its own graveyard and library
+/// beside its own mat.
 ///
-/// The first is the arc: a seat's share of a ring of mean radius. The second
-/// is not a refinement of it — the ring is an **ellipse**, and on an ellipse
-/// the seats out on the flanks sit far closer together than a circle of the
-/// same mean radius would put them. Measured, at six seats the nearest pair
-/// is a third closer than the arc estimate says, and their mats overlapped
-/// ever since a table could seat six. The strip comes off both, because the
-/// arc a seat gets has to hold its piles as well as its board.
-///
-/// This is the number [`TableLayout::new`] sizes the ring *against*, and the
-/// number it then hands out. Those used to be two different functions, which
-/// is how `MIN_POD_WIDTH` came to mean an arc nobody plays on.
-fn pod_half_width(n: usize, radius: Vec2, half_depth: f32) -> f32 {
-    let across = radius.x + half_depth;
-    if n < 3 {
-        return across;
+/// The share is [`ARC_SHARE`] of the compartment when there is somebody to
+/// share with, for the same reason a side stops short of its neighbour: two
+/// boards that meet exactly read as one board, and a partner's graveyard
+/// standing against one's own is the pair of piles most easily confused.
+/// A seat with a side to itself needs no such margin — `side_half_widths`
+/// has already left it.
+fn pod_half_width(side_half_width: f32, party: usize, across: f32) -> f32 {
+    let slice = side_half_width / party as f32;
+    let air = if party > 1 { ARC_SHARE } else { 1.0 };
+    (slice * air - PILE_STRIP).clamp(CARD_WIDTH, across)
+}
+
+/// A seat at the table, and who it is allied with.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Seat {
+    /// Which seat.
+    pub player: PlayerId,
+    /// The team it plays for, in formats that have one. Seats sharing a team
+    /// share a side of the table.
+    pub team: Option<u8>,
+}
+
+impl Seat {
+    /// A seat playing for itself.
+    #[must_use]
+    pub const fn alone(player: PlayerId) -> Self {
+        Self { player, team: None }
     }
-    let centers = ring_centers(n, radius);
-    let mean = f32::midpoint(radius.x, radius.y);
-    let by_arc = mean * (core::f32::consts::PI / n as f32).sin() * ARC_SHARE;
-    let closest = (0..n)
-        .map(|i| centers[i].distance(centers[(i + 1) % n]))
-        .fold(f32::INFINITY, f32::min);
-    let by_neighbour = closest * 0.5 * ARC_SHARE;
-    (by_arc.min(by_neighbour) - PILE_STRIP).clamp(CARD_WIDTH, across)
+
+    /// A seat playing for a team, if there is one.
+    #[must_use]
+    pub const fn on(player: PlayerId, team: Option<u8>) -> Self {
+        Self { player, team }
+    }
+}
+
+/// Groups seats into the sides of the table they sit on, as indices into
+/// `seats`.
+///
+/// Allies share a side and everyone else has one to themselves. Turn order
+/// decides the rest: the local seat's side is built first and is therefore
+/// the one at the near edge, and the others follow in the order their first
+/// member takes a turn. So a team ends up together without any seat moving
+/// further round the table than it has to.
+fn sides_of(seats: &[Seat]) -> Vec<Vec<usize>> {
+    let mut out: Vec<Vec<usize>> = Vec::new();
+    for (i, seat) in seats.iter().enumerate() {
+        let ally = seat.team.and_then(|team| {
+            out.iter()
+                .position(|side| seats[side[0]].team == Some(team))
+        });
+        match ally {
+            Some(side) => out[side].push(i),
+            None => out.push(vec![i]),
+        }
+    }
+    out
 }
 
 impl TableLayout {
     /// Lays out `seats` (in turn order starting with the local seat) on a ring
     /// sized for the canvas it will be seen through.
+    ///
+    /// Everybody plays for themselves here: each seat is a side of the table
+    /// to itself. [`TableLayout::seated`] is the same thing for a format
+    /// where seats are allied, and carries the rest of the documentation.
+    ///
+    /// # Panics
+    /// Never — an empty seat list produces an empty layout.
+    #[must_use]
+    pub fn new(seats: &[PlayerId], aspect: f32, focus: Option<PlayerId>) -> Self {
+        let alone: Vec<Seat> = seats.iter().copied().map(Seat::alone).collect();
+        Self::seated(&alone, aspect, focus)
+    }
+
+    /// The same, for a table where some of the seats are allied.
     ///
     /// `aspect` is the aspect ratio of the part of the window the table is
     /// actually visible in — **not** the window's. The HUD is on top of the
@@ -355,63 +530,79 @@ impl TableLayout {
     /// fits whatever comes out of here, so a unit of empty table is a unit
     /// every card is drawn smaller for.
     ///
-    /// Seats then divide the ring **evenly**, local included. `focus`
-    /// optionally names an opponent whose board is being inspected; that pod
-    /// is enlarged at the expense of the other seats, never of the local one.
+    /// What divides the ring is a **side**, not a seat: allies share one and
+    /// sit along it facing the same way, which is where they sit at a real
+    /// table and what a two-headed giant game is unplayable without — your
+    /// partner's board is something you read as often as your own, and it was
+    /// upside down across the table from you. A table of singles has as many
+    /// sides as seats.
+    ///
+    /// `focus` optionally names an opponent whose board is being inspected;
+    /// that pod is enlarged at the expense of the other seats, never of the
+    /// local one.
     ///
     /// # Panics
     /// Never — an empty seat list produces an empty layout.
     #[must_use]
-    pub fn new(seats: &[PlayerId], aspect: f32, focus: Option<PlayerId>) -> Self {
+    pub fn seated(seats: &[Seat], aspect: f32, focus: Option<PlayerId>) -> Self {
         let n = seats.len();
         let aspect = aspect.clamp(0.6, 2.8);
         let half_depth = POD_DEPTH * 0.5;
+        let parties = sides_of(seats);
+        let t = parties.len();
 
         // How far out the ring has to stand. Two things push it: the mats
-        // have to clear the middle of the table, and — from three seats up —
-        // each seat's share of the ring has to be wide enough to play on.
+        // have to clear the middle of the table, and each seat's share of its
+        // side has to be wide enough to play on.
         let clear = half_depth + CENTRE_GAP * 0.5;
-        // The second of those is a *search*, and that is the whole fix here.
-        //
-        // It used to be one division: invert `2·r·sin(π/n)·ARC_SHARE` for the
-        // ring whose arc is `MIN_POD_WIDTH`, and stop. But the arc is not
-        // what a pod gets. [`pod_half_width`] takes the tighter of that arc
-        // and the real distance to the nearest neighbour — the ring is an
-        // *ellipse*, where the seats on the flanks sit far closer than a
-        // circle of the same mean radius puts them — and then takes a pile
-        // strip off each side. So the closed form was a closed form for a
-        // quantity nobody is given, and at four seats it solved a ring whose
-        // arc was the promised 10.0 and whose pods came out **6.10**: four
-        // cards where the name says seven. At six it was 3.31, and a row of
-        // lands was a fan of slivers before the fourth one was played.
+        // The second of those is a *search*, and that is why the closed form
+        // this used to be is gone. It inverted `2·r·sin(π/n)·ARC_SHARE` for
+        // the ring whose *arc* is `MIN_POD_WIDTH` — a closed form for a
+        // quantity no seat is ever handed, since what a seat gets is measured
+        // between two rectangles and then shared with its allies. It solved a
+        // four-seat ring whose arc was the promised 10.0 and whose pods came
+        // out 6.10: four cards where the name says seven.
         //
         // The delivered width rises with the ring and the ring is bounded, so
         // bisection answers it in a fixed twenty-four steps of arithmetic —
         // and, unlike an inversion, it asks *the same function the width is
         // read from*, which is the property that was missing.
-        let ry = if n < 3 {
+        let narrowest = |ry: f32| {
+            let radius = ring_for(ry, aspect, half_depth);
+            let across = radius.x + half_depth;
+            let sides = sides_on(t, radius);
+            side_half_widths(&sides, radius, half_depth)
+                .iter()
+                .zip(&parties)
+                .map(|(held, party)| pod_half_width(*held, party.len(), across) * 2.0)
+                .fold(f32::INFINITY, f32::min)
+        };
+        // Two sides of one seat each are a duel, and a duel has nothing to be
+        // crowded by: both seats already have the whole table across, and
+        // growing the ring would only push the camera back. Sharing a side is
+        // crowding, though, so a two-headed table searches like any other.
+        let alone = parties.iter().all(|party| party.len() == 1);
+        let ry = if t < 3 && alone {
             clear
         } else {
-            let wide_enough =
-                |ry: f32| pod_half_width(n, ring_for(ry, aspect, half_depth), half_depth) * 2.0;
             // The ceiling, in whichever of the two radii binds first on this
             // canvas: `x` is derived from `y` by the aspect, so a cap on `x`
             // is a cap on `y` once it is read back through the same division.
             let by_x = (MAX_RING_X + half_depth + PILE_STRIP) / aspect - half_depth;
             let (mut lo, mut hi) = (clear, MAX_RING_Y.min(by_x).max(clear));
-            if wide_enough(hi) < MIN_POD_WIDTH {
+            if narrowest(hi) < MIN_POD_WIDTH {
                 // Past the cap the camera would have to pull back further
                 // than `CameraRig::MAX_DISTANCE`, and a table it cannot frame
-                // slides its near mats under the hand bar. Eight seats live
-                // here: they get the biggest ring that can still be seen, and
-                // their lanes fan. That is what fanning is for.
+                // slides its near mats under the hand bar. Crowded tables
+                // live here: they get the biggest ring that can still be
+                // seen, and their lanes fan. That is what fanning is for.
                 hi
-            } else if wide_enough(lo) >= MIN_POD_WIDTH {
+            } else if narrowest(lo) >= MIN_POD_WIDTH {
                 lo
             } else {
                 for _ in 0..24 {
                     let mid = f32::midpoint(lo, hi);
-                    if wide_enough(mid) >= MIN_POD_WIDTH {
+                    if narrowest(mid) >= MIN_POD_WIDTH {
                         hi = mid;
                     } else {
                         lo = mid;
@@ -428,53 +619,63 @@ impl TableLayout {
             };
         }
 
-        // Where each seat sits, and how much room it gets — both read off the
-        // ring the search above settled on, through the same two functions
-        // the search itself asked.
-        let centers = ring_centers(n, radius);
-        let pod_half_width = pod_half_width(n, radius, half_depth);
+        // Where each side sits and how much of the table it holds — read off
+        // the ring the search settled on, through the same functions the
+        // search itself asked.
+        let across = radius.x + half_depth;
+        let sides = sides_on(t, radius);
+        let held = side_half_widths(&sides, radius, half_depth);
 
         // Even shares, with a focus bonus borrowed from everyone else.
         let weights: Vec<f32> = seats
             .iter()
-            .map(|p| if focus == Some(*p) { FOCUS_WEIGHT } else { 1.0 })
-            .collect();
-        let total: f32 = weights.iter().sum();
-
-        let slots = seats
-            .iter()
-            .enumerate()
-            .map(|(i, &player)| {
-                let angle = core::f32::consts::TAU * (i as f32) / (n as f32);
-                // Angle 0 is the near edge; y grows away from the local seat.
-                // Taken from the list the widths were measured against, so
-                // the two cannot disagree about where a seat is.
-                let center = centers[i];
-
-                let share = weights[i] / total * n as f32;
-                SeatSlot {
-                    player,
-                    ring_index: i,
-                    angle,
-                    center,
-                    // Cards face their owner: the local seat is upright, the
-                    // seat opposite is rotated a half turn.
-                    facing: angle,
-                    // Width answers to the focus; depth never does. A mat is
-                    // as deep as three lanes of cards and no focus makes a
-                    // card taller.
-                    half_extent: Vec2::new(
-                        pod_half_width * share.clamp(0.55, 2.0).sqrt(),
-                        half_depth,
-                    ),
-                    is_local: i == 0,
+            .map(|seat| {
+                if focus == Some(seat.player) {
+                    FOCUS_WEIGHT
+                } else {
+                    1.0
                 }
             })
             .collect();
+        let total: f32 = weights.iter().sum();
 
-        Self { slots, radius }
+        // Built into the seats' own order, not the ring's: the local seat is
+        // `slots[0]` wherever the sides put it, and `ring_index` is what a
+        // seat's colour on the felt comes from.
+        let mut slots: Vec<Option<SeatSlot>> = vec![None; n];
+        for (g, (side, party)) in sides.iter().zip(&parties).enumerate() {
+            let half = pod_half_width(held[g], party.len(), across);
+            let (along, _) = axes(side.angle);
+            for (place, &i) in party.iter().enumerate() {
+                // Allies stand shoulder to shoulder about the side's middle,
+                // one compartment each — mat, pile strips and the air between
+                // them — so neither their boards nor their graveyards meet.
+                let step = held[g] / party.len() as f32;
+                let offset = (2 * place + 1) as f32 - party.len() as f32;
+                let share = weights[i] / total * n as f32;
+                slots[i] = Some(SeatSlot {
+                    player: seats[i].player,
+                    ring_index: i,
+                    angle: side.angle,
+                    center: along.mul_add(Vec2::splat(offset * step), side.center),
+                    // Cards face their owner: the local seat is upright, the
+                    // seat opposite is rotated a half turn, and allies on one
+                    // side read theirs the same way up.
+                    facing: side.angle,
+                    // Width answers to the focus; depth never does. A mat is
+                    // as deep as three lanes of cards and no focus makes a
+                    // card taller.
+                    half_extent: Vec2::new(half * share.clamp(0.55, 2.0).sqrt(), half_depth),
+                    is_local: i == 0,
+                });
+            }
+        }
+
+        Self {
+            slots: slots.into_iter().flatten().collect(),
+            radius,
+        }
     }
-
     /// The rectangle every seat's ground and every seat's piles fit inside,
     /// in table space, as `(min, max)`. `None` for a table with no seats.
     ///
@@ -836,10 +1037,16 @@ mod tests {
     #[test]
     fn seats_are_ordered_clockwise_in_turn_order() {
         let layout = TableLayout::new(&seats(4), 1.78, None);
-        // Ring index 1 is the next player in turn order and sits to the right.
-        assert!(layout.slots[1].center.x > 0.0);
-        // Ring index 3 is the previous player and sits to the left.
-        assert!(layout.slots[3].center.x < 0.0);
+        // Ring index 1 is the next player in turn order and sits to the left.
+        // Clockwise from the near edge of a table *is* the left hand — six
+        // o'clock to seven — and it is where Magic's turn order goes, which
+        // is the association a player brings with them. This used to read
+        // `> 0.0`: seats were laid out anticlockwise while every frame built
+        // from `facing` assumed the other way round, so a flank seat's lands
+        // stood between it and the middle and its creatures behind its back.
+        assert!(layout.slots[1].center.x < 0.0);
+        // Ring index 3 is the previous player and sits to the right.
+        assert!(layout.slots[3].center.x > 0.0);
         // Angles increase monotonically.
         for w in layout.slots.windows(2) {
             assert!(w[1].angle > w[0].angle);
@@ -847,14 +1054,34 @@ mod tests {
     }
 
     #[test]
-    fn the_ellipse_is_divided_evenly_across_all_seats() {
+    fn every_seat_gets_a_board_it_can_play_on() {
+        // This used to assert one width for the whole table, the ring having
+        // been divided into equal sectors. It cannot any more, and should
+        // not: what a side may take is measured against the neighbours it
+        // actually has, so a table of three leaves the near seat half the
+        // ring to itself rather than shrinking it to the tightest pair's
+        // share. What every seat is owed is the minimum, and the depth —
+        // which no crowding ever touches, because a card is as tall as it is.
         for n in 2..=8u8 {
             let layout = TableLayout::new(&seats(n), 1.78, None);
-            let expected = layout.slots[0].half_extent;
-            for slot in &layout.slots[1..] {
-                assert_eq!(
-                    slot.half_extent, expected,
-                    "every seat gets the same sector at {n} seats"
+            let at_ceiling =
+                layout.radius.x >= MAX_RING_X - 1e-3 || layout.radius.y >= MAX_RING_Y - 1e-3;
+            let local = layout.slots[0].lane_width();
+            for slot in &layout.slots {
+                assert!(
+                    (slot.half_extent.y - layout.slots[0].half_extent.y).abs() < 1e-4,
+                    "every mat is the same depth at {n} seats"
+                );
+                assert!(
+                    at_ceiling || slot.lane_width() >= MIN_POD_WIDTH - 1e-2,
+                    "{n} seats: a seat plays on {} on a ring that could still have grown",
+                    slot.lane_width()
+                );
+                // And the seat doing the playing is never the one squeezed.
+                assert!(
+                    local >= slot.lane_width() - 1e-3,
+                    "{n} seats: the local board is {local} against a seat's {}",
+                    slot.lane_width()
                 );
             }
         }
@@ -1037,6 +1264,28 @@ mod tests {
             creatures.y > lands.y,
             "creatures {creatures:?} should sit closer to the table centre than lands {lands:?}"
         );
+
+        // At every other seat too, which is the half this test used to miss.
+        // Only the near seat was ever asked, and only in a duel — so a flank
+        // seat kept its lands towards the middle and its creatures out behind
+        // its own back, on every table of three or more, for as long as one
+        // could be sat down. `facing` was right and the ring ran the other
+        // way, and neither is visible from a seat that sits at angle zero.
+        for n in 2..=8u8 {
+            for aspect in [1.78_f32, 1.0] {
+                for slot in &TableLayout::new(&seats(n), aspect, None).slots {
+                    let out = slot.center.length();
+                    let creatures = slot.lane_center(LaneKind::Creatures).length();
+                    let lands = slot.lane_center(LaneKind::Lands).length();
+                    assert!(
+                        creatures < out && out < lands,
+                        "{n} seats at {aspect}: seat {} has its creatures {creatures:.2} \
+                         and its lands {lands:.2} from the middle, sitting at {out:.2}",
+                        slot.ring_index
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -1095,22 +1344,30 @@ mod tests {
             //
             // The ellipse used to stand here as a fourth reason — its flanks
             // bring two seats closer together than any circle of the same
-            // mean radius would. It is not a separate reason any more: that
-            // bound lives inside `pod_half_width`, and the solve now inverts
-            // *that* function rather than the arc, so it comes out as the
-            // second bullet like every other way a pod can be limited.
-            let widest = layout
+            // mean radius would. It is not a separate reason any more, and
+            // twice over: `sides_on` spaces sides by distance rather than by
+            // angle, so no part of the ring is tighter than another, and what
+            // is left of it lives inside `side_half_widths`, which is the
+            // function the solve asks. So it comes out as the second bullet
+            // like every other way a pod can be limited.
+            //
+            // It is the *narrowest* pod that has to be tight, because that is
+            // what the solve grows the ring for. Some seats then get more
+            // than the minimum — a table of three leaves the near seat half
+            // the ring to itself — and a wider board than promised is not a
+            // reason to push everyone further out.
+            let narrowest = layout
                 .slots
                 .iter()
                 .map(|slot| slot.half_extent.x * 2.0)
-                .fold(0.0_f32, f32::max);
+                .fold(f32::INFINITY, f32::min);
             let at_ceiling =
                 layout.radius.x >= MAX_RING_X - 1e-3 || layout.radius.y >= MAX_RING_Y - 1e-3;
             assert!(
                 (inner - CENTRE_GAP * 0.5).abs() < 1e-3
-                    || (widest - MIN_POD_WIDTH).abs() < 1e-2
+                    || (narrowest - MIN_POD_WIDTH).abs() < 1e-2
                     || at_ceiling,
-                "{n} seats: mats stop {inner} out and are {widest} wide on a ring \
+                "{n} seats: mats stop {inner} out and are {narrowest} wide on a ring \
                  {:?} that could still have grown — none of the channel, the \
                  crowding or the ceiling put them there",
                 layout.radius
@@ -1211,6 +1468,151 @@ mod tests {
                 "{n} seats got {width:.2}, wider than the {last:.2} of fewer seats"
             );
             last = width;
+        }
+    }
+
+    /// Whether two seats' grounds — their mats *and* the pile strips beside
+    /// them, which is what [`SeatSlot::footprint`] is — share any table at
+    /// all.
+    ///
+    /// The separating-axis test over the two boxes' own four axes, which is
+    /// exact for rectangles: two convex shapes are disjoint exactly when some
+    /// axis separates their projections, and for boxes the only candidates
+    /// are their edge normals. Written out here because the layout has never
+    /// had a way to *ask* — every bound it applies is a bound on the distance
+    /// between two centres, and a centre distance says nothing on its own
+    /// about two rectangles turned to face different seats.
+    fn grounds_overlap(a: &SeatSlot, b: &SeatSlot) -> bool {
+        let axes = |s: &SeatSlot| {
+            let (sin, cos) = s.facing.sin_cos();
+            [Vec2::new(cos, -sin), Vec2::new(sin, cos)]
+        };
+        let reach = |s: &SeatSlot, u: Vec2| {
+            let [along, away] = axes(s);
+            let f = s.footprint();
+            f.x.mul_add(u.dot(along).abs(), f.y * u.dot(away).abs())
+        };
+        for u in axes(a).into_iter().chain(axes(b)) {
+            if (b.center - a.center).dot(u).abs() > reach(a, u) + reach(b, u) + 1e-4 {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Nobody plays on anybody else's table.
+    ///
+    /// The bound the layout actually applies is on the distance between two
+    /// seats' *centres*, which is not the same question: a mat is a rectangle
+    /// turned to face its own seat, and two rectangles at a given distance
+    /// may or may not meet depending on how they are turned. This asks the
+    /// real question of every pair, at every seat count, on three shapes of
+    /// canvas.
+    #[test]
+    fn a_team_sits_along_one_side_of_the_table() {
+        // Two-headed giant, seated both ways round: partners next to each
+        // other in turn order, and partners alternating with the opposition.
+        // Either way a team is one side of the table — a partner's board is
+        // read as often as one's own, and across the table it was upside
+        // down.
+        for order in [[1u8, 1, 2, 2], [1, 2, 1, 2]] {
+            let table: Vec<Seat> = order
+                .iter()
+                .enumerate()
+                .map(|(i, &t)| Seat::on(PlayerId::new(i as u8), Some(t)))
+                .collect();
+            let layout = TableLayout::seated(&table, 1.78, None);
+            assert_eq!(layout.slots.len(), 4);
+
+            for (i, slot) in layout.slots.iter().enumerate() {
+                let ally = layout
+                    .slots
+                    .iter()
+                    .enumerate()
+                    .find(|(j, _)| *j != i && order[*j] == order[i])
+                    .expect("a partner")
+                    .1;
+                assert!(
+                    (slot.facing - ally.facing).abs() < 1e-4,
+                    "{order:?}: seat {i} faces {} and its partner {}",
+                    slot.facing,
+                    ally.facing
+                );
+                // Shoulder to shoulder: one step apart along their own side,
+                // and neither of them any nearer the middle than the other.
+                let step = (ally.center - slot.center).length();
+                let footprint = (slot.half_extent.x + PILE_STRIP) * 2.0;
+                assert!(
+                    (footprint..footprint * 1.25).contains(&step),
+                    "{order:?}: partners stand {step} apart, against a {footprint} board"
+                );
+                assert!(
+                    (slot.center.length() - ally.center.length()).abs() < 1e-3,
+                    "{order:?}: one partner sits further out than the other"
+                );
+                assert!(
+                    slot.lane_width() >= MIN_POD_WIDTH - 1e-2,
+                    "{order:?}: seat {i} plays on {}",
+                    slot.lane_width()
+                );
+            }
+
+            for i in 0..layout.slots.len() {
+                for j in (i + 1)..layout.slots.len() {
+                    assert!(
+                        !grounds_overlap(&layout.slots[i], &layout.slots[j]),
+                        "{order:?}: seats {i} and {j} overlap"
+                    );
+                }
+            }
+
+            // And the whole point of it: a table of two sides is a smaller
+            // table than one of four, so the camera comes in rather than
+            // pulling back to frame a ring nobody is sitting on.
+            let apart = TableLayout::new(&seats(4), 1.78, None);
+            assert!(
+                layout.radius.x < apart.radius.x && layout.radius.y < apart.radius.y,
+                "{order:?}: two sides want a ring of {:?}, four wanted {:?}",
+                layout.radius,
+                apart.radius
+            );
+        }
+    }
+
+    #[test]
+    fn no_two_seats_play_on_the_same_table() {
+        for n in 2..=8u8 {
+            for aspect in [2.01_f32, 16.0 / 9.0, 1.0, 0.6] {
+                let layout = TableLayout::new(&seats(n), aspect, None);
+                for i in 0..layout.slots.len() {
+                    for j in (i + 1)..layout.slots.len() {
+                        let (a, b) = (&layout.slots[i], &layout.slots[j]);
+                        // A mat is never narrower than one card, whatever the
+                        // geometry says — a board that cannot hold a single
+                        // permanent is not a board. Eight seats on a portrait
+                        // canvas reach that floor, and there the mats do meet;
+                        // the table has already stopped working by then, and
+                        // the honest answer is to seat fewer players, not to
+                        // draw a board a card does not fit on.
+                        let floored = |s: &SeatSlot| s.lane_width() <= CARD_WIDTH * 2.0 + 1e-3;
+                        if floored(a) || floored(b) {
+                            continue;
+                        }
+                        assert!(
+                            !grounds_overlap(a, b),
+                            "{n} seats at aspect {aspect:.2}: seats {i} and {j} \
+                             overlap — {:.2} wide at {:?} facing {:.2} against \
+                             {:.2} wide at {:?} facing {:.2}",
+                            a.lane_width(),
+                            a.center,
+                            a.facing,
+                            b.lane_width(),
+                            b.center,
+                            b.facing,
+                        );
+                    }
+                }
+            }
         }
     }
 }

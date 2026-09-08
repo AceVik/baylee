@@ -336,3 +336,58 @@ about the table itself rather than the rules, and both are fixed.
     ceilings exist to stop), but a portrait table is a fanned table, and the
     answer for it is probably a different arrangement of seats rather than a
     bigger ring.
+
+    Entry 29 then took five seats the rest of the way, to the full 10.00, and
+    moved the portrait bound out with it: at aspect 0.60 a table of three now
+    gets 9.8 where it got 2.0, and four gets 7.9. Five and more still fan.
+
+28. **Every seat but the near and far ones had its board back to front.**
+    *Fixed.* At four players, seat 1 sat at `(12.53, 0)` with its creature
+    lane at `(14.17, 0)` — *further* from the middle than the seat itself —
+    and its lands at `(10.88, 0)`, facing the channel. Its library stood on
+    its left hand. The whole board was mirrored, and combat happened behind
+    the player's back.
+
+    The ring placed a seat at `(rx·sin θ, −ry·cos θ)`, which walks
+    anticlockwise from the near edge, while every frame built out of
+    `facing` — `away = (sin f, cos f)` in `lane_center`, `side = (cos f,
+    −sin f)` in `pile_center` — is a *clockwise* rotation. The two agree
+    exactly where `sin θ = 0`, which is to say at the near seat and the seat
+    opposite: a duel is right, and nothing else is. The one test on lane
+    order asked the local seat of a two-player table.
+
+    The centre formula is negated now, which fixes the frame and the seating
+    order together: the next player in turn order sits on the **left**, as
+    the module doc always said and as Magic's clockwise turn order means at a
+    real table. `seats_are_ordered_clockwise_in_turn_order` used to assert
+    the opposite; `lanes_stack_from_the_table_centre_towards_the_seat` now
+    asks every seat of every table from two to eight, at two aspects.
+
+29. **The flanks of the ellipse were far tighter than the rest of the ring.**
+    *Fixed.* Sides were spaced by the angle that parameterises the ellipse,
+    not by distance along it, and on a wide ring those are nothing like the
+    same thing: at six seats on a 19.9 × 11.2 ring the two flank seats sat
+    11.2 apart while the near seat had 18.1 to its neighbour. Every seat then
+    got the tightest pair's answer — 4.8 units, three cards — including the
+    seats with room to spare.
+
+    Two changes, and they only work together. `sides_on` now walks the ring
+    and places sides at equal *distances* (a 256-step polyline; the perimeter
+    of an ellipse has no closed form), and each side's angle is the ellipse's
+    inward normal rather than the parameter angle, so a mat is square to the
+    table it is drawn on. And `side_half_widths` answers per side, from a
+    separating-axis bound against the neighbours that side actually has,
+    instead of one number for the whole table.
+
+    Measured at the duel HUD's aspect: three seats 14.1/10.0/10.0 (the near
+    seat keeps what nobody else can use), four 10.0 throughout, five 10.0
+    throughout where it was 7.9, six 9.5 where it was 4.8, eight 5.5–6.1
+    where it was 2.0–2.7. `no_two_seats_play_on_the_same_table` is the guard:
+    a separating-axis test over every pair of footprints at every seat count
+    and four aspects, which the old width rule — a bound on the distance
+    between two *centres*, which says nothing about two rectangles turned to
+    face different seats — failed from three seats up on a portrait canvas.
+
+    The floor is the one place mats may still meet: a board is never narrower
+    than one card, and a table crowded past that overlaps rather than drawing
+    a mat a card does not fit on. The answer there is to seat fewer players.

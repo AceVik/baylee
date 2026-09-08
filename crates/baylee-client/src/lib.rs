@@ -70,7 +70,7 @@ use baylee_client_core::automation::{self, AutoPilot, Situation};
 use baylee_client_core::board::BoardModel;
 use baylee_client_core::i18n::Phrase;
 use baylee_client_core::interaction::Interaction;
-use baylee_client_core::layout::TableLayout;
+use baylee_client_core::layout::{Seat, TableLayout};
 use baylee_client_core::reconnect::Retry;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -1000,10 +1000,22 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
         .unwrap_or_default();
     let playable: std::collections::HashSet<ObjectId> = playable.into_iter().collect();
 
-    let seats: Vec<PlayerId> = std::iter::once(view.seat)
+    // Allies sit on one side of the table, so the roster is part of the
+    // geometry: a partner's board is read as often as one's own, and across
+    // the table it is upside down. The team travels in `GameStatic`, which a
+    // seat is sent once — before any view — so a table that has a roster has
+    // it by the time it is first laid out.
+    let team_of = |player: PlayerId| {
+        duel.statics
+            .as_ref()
+            .and_then(|statics| statics.seats.iter().find(|seat| seat.player == player))
+            .and_then(|seat| seat.team)
+    };
+    let seats: Vec<Seat> = std::iter::once(view.seat)
         .chain(view.opponents_in_turn_order())
+        .map(|player| Seat::on(player, team_of(player)))
         .collect();
-    let layout = TableLayout::new(&seats, duel.canvas_aspect.unwrap_or(16.0 / 9.0), duel.focus);
+    let layout = TableLayout::seated(&seats, duel.canvas_aspect.unwrap_or(16.0 / 9.0), duel.focus);
 
     duel.board = Some(BoardModel::from_view(
         view,
