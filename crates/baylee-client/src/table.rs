@@ -613,7 +613,15 @@ pub fn frame_table(
 /// halving the field of view together take a free-for-all from 18.9% to 6.3%,
 /// and the seats that gave nothing up are the two opposite ones: it is the
 /// player's own board that comes back to the size of theirs.
-const CAMERA_LEAN: f32 = 0.24;
+///
+/// It has been 0.40, then 0.24, and is 0.27 — a third position rather than a
+/// retreat. The owner asked for the camera to keep *an angle* on the table,
+/// and 0.24 had flattened it far enough that the slab's own wall drew as a
+/// line. At 0.30 the spread is 8.1% and
+/// `camera_tests::every_seat_is_drawn_a_board_of_the_same_width` fails, so
+/// 0.27 is as far back towards an angle as the equal-width promise allows —
+/// and that promise is not being given back to buy a nicer shot.
+const CAMERA_LEAN: f32 = 0.27;
 
 /// The camera's vertical field of view, in radians.
 ///
@@ -864,21 +872,30 @@ struct Zone {
     mat: Entity,
     /// The pool of colour under it.
     glow: Entity,
+    /// Their materials, held rather than looked back up off the entities.
+    ///
+    /// The two used to be found with a `Query<&MeshMaterial3d<_>>`, which was
+    /// a system parameter for something this already knows: it spawned both
+    /// of them. Now that they are two *different* material types that query
+    /// would have had to be two queries, and `sync_zones` is at clippy's
+    /// argument budget.
+    mat_material: Handle<crate::matmat::MatMaterial>,
+    glow_material: Handle<StandardMaterial>,
     /// The four pile places beside it, and the face-down library on one of
     /// them. Empty when the scene index has no card mesh yet.
     piles: Vec<Entity>,
     /// Whether the library had run out when those were spawned.
     library_empty: bool,
-    /// What the mat was last tinted for.
+    /// What the mat was last drawn for.
     mood: Mood,
-    /// The seat colour baked into the mat's rim.
+    /// The seat colour in the mat's rim.
     ///
-    /// Kept so a seat whose accent changes gets a new texture rather than
-    /// keeping the one it was born with. [`seat_accent`] reads `is_local`
-    /// and `ring_index`, both of which are stable while a seat is at the
-    /// table — but "stable in practice" is exactly the assumption that put
-    /// a stale hover and an over-tall panel on screen this week, and a
-    /// comparison is cheaper than being right about it.
+    /// Kept so a seat whose accent changes is redrawn rather than keeping the
+    /// colour it was born with. [`seat_accent`] reads `is_local` and
+    /// `ring_index`, both of which are stable while a seat is at the table —
+    /// but "stable in practice" is exactly the assumption that put a stale
+    /// hover and an over-tall panel on screen this week, and a comparison is
+    /// cheaper than being right about it.
     accent: Color,
 }
 
@@ -893,6 +910,17 @@ struct Mood {
     local: bool,
     /// Where the seat stands in the turn.
     standing: Standing,
+    /// Whether the turn is this seat's, which is a different question from
+    /// [`standing`](Self::standing) and has to be kept beside it.
+    ///
+    /// `Standing` is a rank and collapses the two: a seat holding priority
+    /// reads as `Priority` whether or not the turn is theirs, because what
+    /// the *brightness* answers is "who is everybody waiting for". The light
+    /// running round a mat's rim answers "whose turn is it", and on every
+    /// turn where an opponent responds to something the two have different
+    /// answers — so a rim light driven off the rank would leave the active
+    /// seat and follow the response, which is precisely backwards.
+    on_turn: bool,
 }
 
 /// What a seat is doing, in the order the zone cares about it.
@@ -926,6 +954,9 @@ impl Mood {
             } else {
                 Standing::Waiting
             },
+            // A seat that is out of the game is not taking a turn, whatever
+            // the view last said about the active player.
+            on_turn: pod.is_active && !pod.has_lost,
         }
     }
 }
@@ -1248,10 +1279,15 @@ fn seat_accent(slot: &SeatSlot) -> Color {
     Color::srgb(hue[0], hue[1], hue[2])
 }
 
-/// One flat thing lying on the table: what tells the mat from the glow.
+/// One flat thing lying on the table.
 ///
-/// A struct rather than four more parameters, because the pair already needs
-/// a seat and three asset stores and clippy's argument budget is seven.
+/// A struct rather than four more parameters, because it already needs a seat
+/// and two asset stores and clippy's argument budget is seven.
+///
+/// It used to describe both halves of a zone. The mat is drawn by its own
+/// material now — see [`crate::matmat`] — so what still comes through here is
+/// the glow underneath, which is a soft round falloff with no edge in it and
+/// therefore the one case a stretched image is actually good at.
 struct TableQuad {
     /// Extent on the felt, in table units.
     size: Vec2,
@@ -1266,39 +1302,51 @@ struct TableQuad {
 
 /// Spawns one of them, lying flat and facing its seat.
 ///
-/// Both halves of a zone go through here. They differ in size, height, tint
-/// and texture and in nothing else, and writing the pair out separately is
-/// what pushed `sync_zones` past its line budget once the two tints stopped
-/// being the same colour.
+/// Returns the material beside the entity, because the caller keeps it: a
+/// zone re-tints what it spawned rather than looking it back up through a
+/// query on an entity it already has in hand.
 fn spawn_table_quad(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     slot: &SeatSlot,
     quad: TableQuad,
-) -> Entity {
-    commands
+) -> (Entity, Handle<StandardMaterial>) {
+    let material = materials.add(StandardMaterial {
+        base_color: Color::LinearRgba(quad.tint),
+        base_color_texture: Some(quad.texture),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    });
+    let entity = commands
         .spawn((
             DuelStage,
             Mesh3d(meshes.add(Rectangle::new(quad.size.x, quad.size.y))),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: Color::LinearRgba(quad.tint),
-                base_color_texture: Some(quad.texture),
-                alpha_mode: AlphaMode::Blend,
-                unlit: true,
-                ..default()
-            })),
+            MeshMaterial3d(material.clone()),
             // Ground, glow and medallion are all scenery. Only cards are
             // pointed at, so only cards are pickable.
             Pickable::IGNORE,
-            Transform {
-                translation: to_world(slot.center, TABLE_Y + quad.lift),
-                rotation: Quat::from_rotation_y(-slot.facing)
-                    * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
-                scale: Vec3::ONE,
-            },
+            lying_flat(slot, quad.lift),
         ))
-        .id()
+        .id();
+    (entity, material)
+}
+
+/// Where a flat thing lying on a seat's ground stands: on the seat's centre,
+/// turned to face it, `lift` above the table.
+///
+/// One function because the mat and the glow are drawn by two different
+/// materials now and would otherwise write the same transform twice — and a
+/// mat and the pool of light under it that disagreed by a rotation would be
+/// very hard to see and impossible to miss.
+fn lying_flat(slot: &SeatSlot, lift: f32) -> Transform {
+    Transform {
+        translation: to_world(slot.center, TABLE_Y + lift),
+        rotation: Quat::from_rotation_y(-slot.facing)
+            * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+        scale: Vec3::ONE,
+    }
 }
 
 /// How wide the texture of a pile's empty place is drawn.
@@ -1369,13 +1417,25 @@ fn spawn_piles(
     out
 }
 
-/// One seat's mat, with that seat's colour baked into its rim.
+/// One seat's mat, as the handful of numbers its shader draws it from.
 ///
-/// The size is the texture's, not the mat's: every seat's quad is scaled from
-/// its own `half_extent`, and the image is stretched over it.
-fn mat_of(accent: Color) -> tabletop::Texture {
+/// The size is the mat's own, in table units, and that is the difference the
+/// whole material exists for: the corner and the rim are lengths on this
+/// board rather than fractions of an image that was then stretched over it.
+fn mat_params(accent: Color, size: Vec2, mood: Mood, moving: bool) -> crate::matmat::MatParams {
     let rgb = accent.to_linear();
-    tabletop::seat_mat(512, 256, 0.06, 0.018, [rgb.red, rgb.green, rgb.blue])
+    crate::matmat::MatParams {
+        accent: Vec4::new(rgb.red, rgb.green, rgb.blue, zone_brightness(mood)),
+        size,
+        corner: tabletop::MAT_CORNER,
+        rim: tabletop::MAT_RIM,
+        on_turn: if mood.on_turn { 1.0 } else { 0.0 },
+        motion: if moving {
+            crate::cardmat::MOVING
+        } else {
+            crate::cardmat::STILL
+        },
+    }
 }
 
 /// How bright a zone's mat is drawn, given what it is saying.
@@ -1385,15 +1445,17 @@ fn mat_of(accent: Color) -> tabletop::Texture {
 /// priority is the brightest thing on the felt, because that is the seat
 /// everyone else is waiting for.
 fn zone_brightness(mood: Mood) -> f32 {
-    // Every value here is a multiplier on **white**, so 1.0 is the ceiling
-    // and anything past it is not brighter, it is clipped. That is new: the
-    // tint used to be the seat's accent scaled by this number, and an
-    // accent's linear channels are all well under 1, so the old 1.311 for a
-    // local seat holding priority was safe. With the accent moved into the
-    // rim's texture and the tint gone neutral, 1.311 and 1.0925 would both
-    // land on flat white — a local seat holding priority and a local seat
-    // merely taking its turn would be drawn identically, which is precisely
-    // the distinction the mat exists to draw.
+    // Every value here is a multiplier on the mat's **opacity**, so 1.0 is
+    // the ceiling and anything past it is not brighter, it is clipped. It has
+    // been the ceiling since the accent moved off the material's tint and
+    // into the mat itself: at 1.311 and 1.0925 a local seat holding priority
+    // and a local seat merely taking its turn would be drawn identically,
+    // which is precisely the distinction the mat exists to draw.
+    //
+    // Opacity rather than colour is what the shader does with it, and that
+    // reading is the one the numbers were chosen for anyway: a seat that has
+    // lost fades *into* the felt at 0.22, where scaling a colour would have
+    // left it drawing a dark grey rim just as visible as everybody else's.
     let standing = match mood.standing {
         Standing::Lost => 0.22,
         Standing::Waiting => 0.62,
@@ -1507,6 +1569,10 @@ pub fn sync_table(
                 params: crate::feltmat::FeltParams {
                     wash: Vec4::ZERO,
                     source,
+                    // No light until the sky has read a clock. The cloth's
+                    // own colour is what `a = 0` means, so a table that is
+                    // cut before the first `sync_sky` is simply the table.
+                    ambient: Vec4::new(1.0, 1.0, 1.0, 0.0),
                     span,
                     corner: tabletop::table_corner(span),
                     rail: tabletop::RAIL_WIDTH,
@@ -1579,11 +1645,11 @@ fn slab_mesh(span: Vec2) -> Mesh {
 pub fn sync_zones(
     mut commands: Commands,
     duel: Res<Duel>,
+    prefs: Res<crate::prefs::Prefs>,
     mut index: ResMut<SceneIndex>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<crate::matmat::MatMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    mats: Query<&MeshMaterial3d<StandardMaterial>>,
 ) {
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return;
@@ -1591,6 +1657,7 @@ pub fn sync_zones(
     let Some(glow_image) = index.glow_image.clone() else {
         return;
     };
+    let moving = !prefs.all().reduce_motion;
 
     let mut seen: HashSet<PlayerId> = HashSet::new();
     for pod in &board.pods {
@@ -1600,15 +1667,15 @@ pub fn sync_zones(
         seen.insert(pod.player);
         let mood = Mood::of(pod);
         let accent = seat_accent(slot);
-        let brightness = zone_brightness(mood);
-        // Two different colours, not one with a dimmer on it. The mat's rim
-        // is already the seat's colour in its own texture, so tinting the
-        // material would apply it twice and put it on the felt as well; what
-        // the mat wants from the mood is brightness alone. The glow beneath
-        // is the opposite case — it is a white falloff whose entire job is
-        // to spill the seat's colour onto the felt, so it takes the accent.
-        let mat_tint = LinearRgba::rgb(brightness, brightness, brightness);
-        let glow_tint = accent.to_linear() * brightness * GLOW_STRENGTH;
+        let size = slot.half_extent * 2.0 + Vec2::splat(ZONE_MARGIN * 2.0);
+        let params = mat_params(accent, size, mood, moving);
+        // Two different colours, not one with a dimmer on it. The mat carries
+        // the seat's colour in its own rim and nowhere else, so a tint over
+        // the whole thing would put the accent on the felt as well; what the
+        // mat takes from the mood is brightness alone, and it takes it as an
+        // alpha. The glow beneath is the opposite case — a white falloff
+        // whose entire job is to spill the seat's colour onto the table.
+        let glow_tint = accent.to_linear() * zone_brightness(mood) * GLOW_STRENGTH;
 
         // The one fact about a pile the *places* depend on. A seat whose
         // library has run out loses on its next draw, and the table stops
@@ -1621,24 +1688,14 @@ pub fn sync_zones(
                 continue;
             }
             let old_piles = zone.piles.clone();
-            // Only the colour changes, so only the colour is written: the
-            // mesh, the transform and the texture all still hold — unless
-            // the accent itself moved, which the rim is baked with and so
-            // needs a new one.
-            for (entity, tint) in [(zone.mat, mat_tint), (zone.glow, glow_tint)] {
-                if let Ok(handle) = mats.get(entity)
-                    && let Some(mut material) = materials.get_mut(&handle.0)
-                {
-                    material.base_color = Color::LinearRgba(tint);
-                }
+            // Only the numbers change; the mesh and the transform still hold.
+            // The accent moved through here too — it is a uniform now rather
+            // than a texture that would have to be generated again.
+            if let Some(mut material) = mats.get_mut(&zone.mat_material) {
+                material.params = params;
             }
-            if zone.accent != accent {
-                let image = images.add(image_of(&mat_of(accent)));
-                if let Ok(handle) = mats.get(zone.mat)
-                    && let Some(mut material) = materials.get_mut(&handle.0)
-                {
-                    material.base_color_texture = Some(image);
-                }
+            if let Some(mut material) = materials.get_mut(&zone.glow_material) {
+                material.base_color = Color::LinearRgba(glow_tint);
             }
             let fresh = stale_piles.then(|| {
                 for entity in old_piles {
@@ -1656,20 +1713,17 @@ pub fn sync_zones(
             });
             continue;
         }
-        let size = slot.half_extent * 2.0 + Vec2::splat(ZONE_MARGIN * 2.0);
-        let mat = spawn_table_quad(
-            &mut commands,
-            &mut meshes,
-            &mut materials,
-            slot,
-            TableQuad {
-                size,
-                lift: ZONE_LIFT,
-                tint: mat_tint,
-                texture: images.add(image_of(&mat_of(accent))),
-            },
-        );
-        let glow = spawn_table_quad(
+        let mat_material = mats.add(crate::matmat::MatMaterial { params });
+        let mat = commands
+            .spawn((
+                DuelStage,
+                Mesh3d(meshes.add(Rectangle::new(size.x, size.y))),
+                MeshMaterial3d(mat_material.clone()),
+                Pickable::IGNORE,
+                lying_flat(slot, ZONE_LIFT),
+            ))
+            .id();
+        let (glow, glow_material) = spawn_table_quad(
             &mut commands,
             &mut meshes,
             &mut materials,
@@ -1687,6 +1741,8 @@ pub fn sync_zones(
             Zone {
                 mat,
                 glow,
+                mat_material,
+                glow_material,
                 piles,
                 library_empty,
                 mood,
@@ -2590,6 +2646,40 @@ mod camera_tests {
         }
     }
 
+    /// The mat is written twice for the same reason the cloth is: once in
+    /// Rust, where `tabletop::seat_mat`'s tests can measure that only the rim
+    /// carries the seat's colour and that the seam falls between two lanes,
+    /// and once in WGSL, where the GPU actually draws it. Nothing in either
+    /// compiler can notice that they have drifted apart.
+    ///
+    /// Every number here is a shading decision that was argued somewhere —
+    /// the lanes are a quarter of what they first were, the rim's hue and its
+    /// opacity ride two different exponents on purpose — so a copy of one of
+    /// them in the shader that no longer matched would silently undo the
+    /// argument. The lengths (`MAT_CORNER`, `MAT_RIM`) are not here: they
+    /// travel to the GPU as uniforms, so there is only ever one of each.
+    #[test]
+    fn the_shader_and_the_generator_agree_about_the_mat() {
+        let src = include_str!("shaders/mat.wgsl");
+        let read = |name: &str| crate::cardmat::tests::wgsl_const(src, name);
+        for (name, ours) in [
+            ("LANE_NEAR", tabletop::MAT_LANES[0]),
+            ("LANE_MID", tabletop::MAT_LANES[1]),
+            ("LANE_FAR", tabletop::MAT_LANES[2]),
+            ("SEAM", tabletop::MAT_SEAM),
+            ("SEAM_W", tabletop::MAT_SEAM_WIDTH),
+            ("RIM_LIGHT", tabletop::MAT_RIM_LIGHT),
+            ("RIM_FALL", tabletop::MAT_RIM_FALL),
+            ("HUE_FALL", tabletop::MAT_HUE_FALL),
+        ] {
+            let theirs = read(name);
+            assert!(
+                (ours - theirs).abs() < 1e-6,
+                "{name} is {ours} here and {theirs} in the shader"
+            );
+        }
+    }
+
     /// `PILE_REACH` is chosen in the model crate, which cannot see the mat's
     /// printed border — that is `ZONE_MARGIN`, and it lives here. This is the
     /// two of them being made to agree.
@@ -2655,7 +2745,14 @@ mod zone_tests {
     ];
 
     fn mood(local: bool, standing: Standing) -> Mood {
-        Mood { local, standing }
+        Mood {
+            local,
+            standing,
+            // These tests are about brightness, which `on_turn` does not
+            // touch: it drives the rim light and nothing else. A fixed
+            // `false` keeps them measuring the one thing they measure.
+            on_turn: false,
+        }
     }
 
     /// The mat's tint is neutral, so this multiplies white and 1.0 is the
@@ -2948,34 +3045,36 @@ mod tests {
         );
     }
 
-    /// And it is a racetrack: the corners it gives up are where the sky is.
+    /// And the table stops before the window does, so there is a sky to see.
     ///
-    /// Measured against the window rather than against itself. The camera
+    /// Measured against the window rather than against the table. The camera
     /// frames the layout plus [`AIR`] and the slab is cut to the layout plus
-    /// [`SLAB_MARGIN`], so the corner of the framed box stands
-    /// `(SLAB_MARGIN − AIR)·√2` inside the slab's own corner — and unless the
-    /// oval reaches further in than that, the felt still fills the window and
-    /// the sky behind it is never seen by anybody.
+    /// [`SLAB_MARGIN`], so every point of the table's rim has to stand inside
+    /// the framed box by the difference. This is the whole reason anything
+    /// behind the table is ever visible, and it is one subtraction away from
+    /// being false again — `SLAB_MARGIN` is derived from a rail width that a
+    /// later change to the table's look could quietly grow.
     #[test]
-    fn the_table_gives_up_its_corners_to_the_sky() {
+    fn the_table_stops_before_the_window_does() {
         let span = Vec2::new(34.0, 26.0);
         let rim = rim(&slab_mesh(span));
-        let half = span * 0.5;
-        // The framed box's corner, in the same space the rim is in.
-        let framed = half - Vec2::splat(SLAB_MARGIN - AIR);
-        let inside = rim.iter().any(|&(x, y)| {
-            x.abs() >= framed.x && y.abs() >= framed.y && Vec2::new(x, y).length() > framed.length()
-        });
+        let framed = span * 0.5 + Vec2::splat(AIR - SLAB_MARGIN);
+        let band = AIR - SLAB_MARGIN;
         assert!(
-            !inside,
-            "the table still reaches the window's corner at {framed:?}"
+            band > 0.0,
+            "the slab is cut wider than the shot that frames it"
         );
-        // The other side of it: an oval that ate the play area would take the
-        // seats' own mats with it.
+        for &(x, y) in &rim {
+            assert!(
+                x.abs() <= framed.x - band + 1e-3 && y.abs() <= framed.y - band + 1e-3,
+                "the table reaches ({x}, {y}), inside a frame of {framed:?}"
+            );
+        }
+        // And the corner is a corner rather than a bite out of the play area.
         let bite = tabletop::table_corner(span) * (1.0 - std::f32::consts::FRAC_1_SQRT_2);
         assert!(
-            bite < SLAB_MARGIN * 2.0,
-            "the oval takes {bite} out of each corner, which is play area"
+            bite < SLAB_MARGIN,
+            "the corner takes {bite} out of each end, which is play area"
         );
     }
 

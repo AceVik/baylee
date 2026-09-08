@@ -57,6 +57,7 @@ pub mod loading;
 pub mod lobby;
 pub mod manasources;
 pub mod manaui;
+pub mod matmat;
 pub mod net;
 pub mod prefs;
 pub mod settings;
@@ -516,6 +517,7 @@ impl Plugin for DuelPlugin {
         flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
+            .add_plugins(matmat::MatMaterialPlugin)
             .add_plugins(sky::SkyPlugin)
             // Without this nothing on the 3D table can be pointed at, ever.
             //
@@ -615,6 +617,10 @@ impl Plugin for DuelPlugin {
                     table::sync_table,
                     sky::hang_sky,
                     sky::sync_sky,
+                    // After the sky has eased its phase, so the table is lit
+                    // by the light that is actually behind it this frame and
+                    // not by last frame's.
+                    sky::light_the_table.after(sky::sync_sky),
                     table::glide,
                     // After the glide, and deliberately: a line is welded to
                     // where its two cards *are* this frame, so it has to be

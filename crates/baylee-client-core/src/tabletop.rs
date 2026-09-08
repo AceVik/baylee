@@ -173,14 +173,14 @@ pub const RAIL_LIP: [f32; 3] = [0.196, 0.130, 0.100];
 /// is that its wall is a *different, darker* colour than its top.
 pub const APRON: [f32; 3] = [0.055, 0.038, 0.030];
 
-/// How wide the padded rail runs, in table units — two card widths.
+/// How wide the padded rail runs, in table units — under a card width.
 ///
 /// It is exactly `SLAB_MARGIN - AIR` in the client's camera: the framing fits
 /// the layout plus `AIR` of table, the slab is cut to the layout plus its own
 /// margin, and the ring between the two is this. So the rail is precisely the
 /// part of the table the camera keeps outside the play area, which is what a
 /// rail is.
-pub const RAIL_WIDTH: f32 = 1.6;
+pub const RAIL_WIDTH: f32 = 0.9;
 
 /// The corner radius of a table this size: a racetrack, not a rectangle.
 ///
@@ -191,7 +191,7 @@ pub const RAIL_WIDTH: f32 = 1.6;
 /// edge, and a backdrop nothing ever shows is a backdrop worth nothing.
 #[must_use]
 pub fn table_corner(span: Vec2) -> f32 {
-    span.min_element() * 0.42
+    span.min_element() * 0.16
 }
 
 /// The felt: casino baize, rough and woven, worn lighter towards the middle
@@ -388,7 +388,78 @@ pub fn medallion(size: u32) -> Texture {
     texture
 }
 
+/// A seat's mat: how round its corners are, in **table units**.
+///
+/// A length rather than a fraction, which is what makes it answerable at all.
+/// [`seat_mat`] took `radius` as a fraction of the shorter side of a *texture*
+/// that was then stretched over a mat, so the only way to say how round a
+/// corner came out was to work back through the image's size: 6% of 256
+/// texels over a board 13.1 units wide and 6.05 deep is about **0.37 units**.
+/// Nobody reading the call could have told you that, and the number the owner
+/// was looking at is the one nobody could see.
+///
+/// Half of it, because a mat is a *playing surface*: the more radius a
+/// rectangle carries the more it reads as a control rather than as ground.
+/// Enough curve that a corner is not a spike, and no more.
+pub const MAT_CORNER: f32 = 0.18;
+
+/// How far in from a mat's edge its coloured rim runs, in table units.
+///
+/// Held at what it was — the old 1.8% of 256 texels came out at about 0.11
+/// units — because the rim is not what was too thick. That was the table's
+/// rail, and it is [`RAIL_WIDTH`]. This is the one part of a mat meant to be
+/// read from the far side of the table, and it is already a hairline there.
+pub const MAT_RIM: f32 = 0.11;
+
+/// The corner has to be wider than the rim, or the rim turns back on itself
+/// at every corner and the mat grows four bright blobs.
+const _: () = assert!(MAT_CORNER > MAT_RIM);
+/// And the rim has to be thick enough to have a colour at all: it is how a
+/// seat is named from across the table, and below about a tenth of a unit it
+/// is a single pixel at this camera and reads as an artefact.
+const _: () = assert!(MAT_RIM > 0.08);
+
+/// How much of white each of a mat's three lanes is veiled with, from the
+/// lane nearest the middle of the table outwards.
+///
+/// An alpha over the felt, and therefore linear light — which is the whole
+/// reason these are as small as they are. See the long note inside
+/// [`seat_mat`] about the quarter they were cut to.
+pub const MAT_LANES: [f32; 3] = [0.0135, 0.0105, 0.0080];
+
+/// How bright the hairline between two lanes is, on the same scale as
+/// [`MAT_LANES`].
+pub const MAT_SEAM: f32 = 0.036;
+
+/// How wide that hairline runs, as a fraction of the mat's depth.
+pub const MAT_SEAM_WIDTH: f32 = 0.014;
+
+/// How much of white a mat's rim carries at its brightest.
+pub const MAT_RIM_LIGHT: f32 = 0.62;
+
+/// How hard the rim's opacity falls off across [`MAT_RIM`].
+pub const MAT_RIM_FALL: f32 = 1.3;
+
+/// How hard the rim's *hue* falls off across the same distance.
+///
+/// Shallower than [`MAT_RIM_FALL`] deliberately, so the accent reaches
+/// further in than the ink does; the note at the bottom of [`seat_mat`] is
+/// where that argument is made and what it looks like when the two are tied
+/// together instead.
+pub const MAT_HUE_FALL: f32 = 0.55;
+
 /// A seat's mat: the rounded rectangle its permanents are played on.
+///
+/// **Nothing draws with this any more.** The renderer stopped stretching an
+/// image over a mat and started drawing one — `baylee-client`'s
+/// `shaders/mat.wgsl`, where the corner is a distance in table units and an
+/// edge is one pixel wide however close the camera comes. What this is now is
+/// that arithmetic in its readable form and its test bench: every number it
+/// works from is a `MAT_*` constant above, and `table::shader_tests` fails if
+/// the shader and these drift apart. The three tests below are the ones that
+/// say what a mat *means* — only the rim carries the seat's colour, the
+/// corners are cut, the seam sits between two lanes and not through one —
+/// and none of them can be written against a GPU.
 ///
 /// White, so the renderer can tint one texture per seat; the shape lives in
 /// the alpha channel. Three bands run across it, one per lane, brightest at
@@ -464,26 +535,26 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]
             // veil is cut to about a quarter, which lands the field just above
             // the wood — the mat says where a seat's ground is without being
             // the brightest thing in the room.
-            let base = [0.0135, 0.0105, 0.0080][lane];
+            let base = MAT_LANES[lane];
             // A hairline *between* lanes, so the rows separate without a
             // border drawn around each one. Measured in pixels from the two
             // boundaries: expressed as a fraction of a lane it comes out
             // under a pixel wide on a mat this shallow and never appears.
-            let seam_width = (h * 0.014).max(1.0);
+            let seam_width = (h * MAT_SEAM_WIDTH).max(1.0);
             let seam = [h / 3.0, h * 2.0 / 3.0]
                 .iter()
                 .map(|edge| (py - edge).abs())
                 .fold(f32::MAX, f32::min);
-            let seam = (1.0 - seam / seam_width).clamp(0.0, 1.0) * 0.036;
+            let seam = (1.0 - seam / seam_width).clamp(0.0, 1.0) * MAT_SEAM;
 
             // The rim: the one part that is meant to be seen from across the
             // table, since it is what carries the seat's colour.
             let falloff = (1.0 - inset / edge).clamp(0.0, 1.0);
-            let border = falloff.powf(1.3);
+            let border = falloff.powf(MAT_RIM_FALL);
             // And a soft feather so the mat has no jaggies.
             let coverage = (0.5 - outside).clamp(0.0, 1.0);
 
-            let value = base + seam + border * 0.62;
+            let value = base + seam + border * MAT_RIM_LIGHT;
             // White where the mat is felt, the seat's colour where it is rim.
             //
             // The crossfade is deliberately *not* `border`. Reusing the
@@ -495,7 +566,7 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]
             // distinguishable places reduced back to one. A shallower
             // exponent spreads the hue across the whole rim while the
             // opacity keeps its own edge, and the seat colours separate.
-            let hue = falloff.powf(0.55);
+            let hue = falloff.powf(MAT_HUE_FALL);
             let rgb = [
                 (1.0 - hue).mul_add(1.0, hue * accent[0]),
                 (1.0 - hue).mul_add(1.0, hue * accent[1]),
@@ -1140,29 +1211,63 @@ mod tests {
         );
     }
 
-    /// A table is a racetrack, and the corners it gives up are the sky.
+    /// A table has rounded corners, and neither a chamfer nor a stadium.
+    ///
+    /// It was a racetrack at 0.42, chosen when the corners were the *only*
+    /// place the sky could be seen. `AIR` now leaves a band all the way
+    /// round, so the corner is free to be what a table's corner is — and the
+    /// owner's word on the racetrack was "less border corner". Both bounds
+    /// are here because both failures are real: a corner too small is a
+    /// rectangle with the edges filed off, and one too large eats the play
+    /// area at the ends of the mats.
     #[test]
-    fn a_table_is_an_oval_and_not_a_rectangle() {
+    fn a_table_has_a_corner_and_not_a_chamfer() {
         let span = Vec2::new(34.0, 26.0);
         let r = table_corner(span);
         assert!(
-            r > span.min_element() * 0.35,
-            "a {r} corner on a {span:?} table is a rounded rectangle, not an oval"
+            r > span.min_element() * 0.08,
+            "a {r} corner on a {span:?} table reads as a bevel, not a corner"
         );
         assert!(
-            r <= span.min_element() * 0.5,
-            "a corner past half the short side is not a shape at all ({r})"
+            r < span.min_element() * 0.28,
+            "a {r} corner is a racetrack again"
         );
-        // The camera frames the layout plus `AIR` and cuts the slab at the
-        // layout plus `SLAB_MARGIN`, so the window's corner sits
-        // `(SLAB_MARGIN - AIR)·√2` inside the slab's. The oval has to take
-        // more than that, or the sky behind the table is never seen.
-        let taken = r * (1.0 - std::f32::consts::FRAC_1_SQRT_2);
+        // And it is drawn as a curve, not as one flat cut: the deepest point
+        // of the arc has to sit clear of the chord across it by more than the
+        // rail is wide, or the rail follows a straight line round the bend.
+        let sag = r * (1.0 - std::f32::consts::FRAC_1_SQRT_2);
         assert!(
-            taken > RAIL_WIDTH * std::f32::consts::SQRT_2,
-            "the oval only reaches {taken} into a corner the window keeps \
-             {} of — nothing would ever show through it",
-            RAIL_WIDTH * std::f32::consts::SQRT_2
+            sag > RAIL_WIDTH * 0.5,
+            "the arc sags {sag} across a {RAIL_WIDTH} rail — that is a chamfer"
+        );
+    }
+
+    /// A mat's corner and rim are lengths now, so they can be checked against
+    /// the mat the layout actually hands out.
+    ///
+    /// The shallowest one there is: [`crate::layout::POD_DEPTH`] plus the
+    /// printed border on both sides, which is the client's `ZONE_MARGIN` and
+    /// is not visible from here — so the border is left out and the bound is
+    /// the stricter for it. Both sides again, and each is a mistake that has
+    /// been made on this table: too round and a board reads as a button, too
+    /// square and the mat has spikes at the corners where the rim doubles
+    /// back on itself.
+    #[test]
+    fn a_mat_is_a_playing_surface_and_not_a_button() {
+        let depth = crate::layout::POD_DEPTH;
+        assert!(
+            MAT_CORNER < depth * 0.05,
+            "a {MAT_CORNER} corner on a mat {depth} deep is a lozenge"
+        );
+        // The rim has to survive a lane: a border as deep as the row of
+        // creatures behind it is a frame, not an edge. The two bounds that
+        // need no layout at all — a corner wider than the rim, a rim thick
+        // enough to carry a hue — are `const _` assertions beside the
+        // constants themselves, where they fail at compile time.
+        assert!(
+            MAT_RIM < depth / 3.0 * 0.15,
+            "a {MAT_RIM} rim against a {} lane is a frame",
+            depth / 3.0
         );
     }
 
