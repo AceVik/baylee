@@ -67,9 +67,9 @@ const HEAD_H: f32 = 22.0;
 /// sized them by their labels would be claiming the draw step is smaller than
 /// the declare-attackers step.
 ///
-/// Three things are drawn rather than said. A **dead** row is one the rules
-/// grant no priority in ([`RailRow::grants_priority`] — untap, and only
-/// untap): it is grey, carries no [`PhaseButton`], is `Pickable::IGNORE` and
+/// Three things are drawn rather than said. A **dead** row is one no stop can
+/// be arranged in ([`RailRow::grants_priority`] — untap and cleanup): it is
+/// grey, carries no [`PhaseButton`], is `Pickable::IGNORE` and
 /// is stepped over by the keyboard, because a control that cannot change
 /// anything should not be able to take a press. The step the game is **in**
 /// carries a [`PhaseNow`], which lights up over a few frames rather than

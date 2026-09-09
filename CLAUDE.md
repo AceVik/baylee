@@ -774,12 +774,16 @@ fifth of it. The rail is a horizontal strip now — twelve steps left to right,
 two rows (opponents' turns above your own), the step the game is in lit by
 `hud::rail::light_the_current_step` rather than by a colour written at build
 time, since the HUD tree is rebuilt on every step change and a light that
-eased from zero at spawn *is* the transition. The untap row is dead in the
-model, not merely drawn grey: `RailRow::grants_priority` is false there and
-`PhaseOrders::toggle` refuses it, because no player receives priority during
-the untap step (CR 502.4) and a green button there would be a stop that could
-never fire. Cleanup stays live — priority there is rare, not impossible (CR
-514.3a). A hard-coded 20-unit rig aimed at the middle of the felt put the local
+eased from zero at spawn *is* the transition. The untap and cleanup rows are
+dead in the model, not merely drawn grey: `RailRow::grants_priority` is false
+there and `PhaseOrders::toggle` refuses both. The predicate is about a
+*standing order*, not about the rules, which is what puts cleanup on the list:
+untap grants no priority at all (CR 502.4), and cleanup grants a round only
+*because* a state-based action was performed or an ability triggered (CR
+514.3, 514.3a) — a window the engine opens on its own and asks about when it
+opens. A green button in either is a stop that can never fire. The one thing
+greying cleanup costs is a speculative hold there, arranged in advance against
+a trigger that may not come. A hard-coded 20-unit rig aimed at the middle of the felt put the local
 seat's own mat *underneath the hand bar* on every screen.
 `table::CameraRig::home(layout, canvas)` computes it instead, from
 `TableLayout::extent` (each pod's box rotated by its `facing`, because a seat

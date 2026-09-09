@@ -97,27 +97,33 @@ impl RailRow {
         }
     }
 
-    /// Whether a player can ever be asked for anything in this step.
+    /// Whether a player can ever *ask in advance* to be stopped in this step.
     ///
-    /// False for the untap step and nothing else: *"No player receives
-    /// priority during the untap step, so no spells can be cast or resolve
-    /// and no abilities can be activated or resolve"* (CR 502.4). A rail
-    /// button there is a stop that can never fire, whichever way it is set,
-    /// so the row is dead — always skipped, not togglable, and not reachable
-    /// by the pointer or the keyboard.
+    /// False for untap and for cleanup, and a rail button in either is a
+    /// stop that can never fire whichever way it is set — so both rows are
+    /// dead: always skipped, not togglable, and not reachable by the pointer
+    /// or the keyboard.
     ///
-    /// The cleanup step is deliberately **not** on this list. Priority there
-    /// is rare rather than impossible: *"Normally, no player receives
-    /// priority during the cleanup step... However, this rule is subject to
-    /// the following exception"* — an ability that triggers during it gives
-    /// the active player priority and they may cast spells (CR 514.3,
-    /// 514.3a). Declining a window the rules grant and declining one nobody
-    /// can use are different things, and only the second is the client's to
-    /// decide. Cleanup is red by default instead
-    /// ([`RailPreset::QuietSteps`]), which a player can change.
+    /// Untap is the unconditional half: *"No player receives priority during
+    /// the untap step, so no spells can be cast or resolve and no abilities
+    /// can be activated or resolve"* (CR 502.4).
+    ///
+    /// Cleanup is the conditional half, and the reason this predicate is
+    /// about a *standing order* rather than about the rules. Normally no
+    /// player receives priority there (CR 514.3); the exception is CR 514.3a
+    /// — if a state-based action is performed or an ability triggers during
+    /// the step, the active player gets priority and another cleanup step
+    /// follows. But that window exists only *because* something happened,
+    /// and the engine asks for it when it does. A green button here would
+    /// therefore be a stop nobody can arrange in advance: on the ordinary
+    /// cleanup there is nothing to stop in, and on the exceptional one the
+    /// question arrives whether the button was set or not. The cost of
+    /// greying it is exactly one thing — a player who wanted to hold up an
+    /// instant *speculatively*, in case a cleanup trigger opens the window,
+    /// can no longer arm that in the rail.
     #[must_use]
     pub const fn grants_priority(self) -> bool {
-        !matches!(self, Self::Untap)
+        !matches!(self, Self::Untap | Self::Cleanup)
     }
 
     /// Index in [`RAIL_ROWS`].
@@ -390,12 +396,9 @@ impl RailPreset {
 
 /// The five rows [`RailPreset::QuietSteps`] turns red, on both sides.
 ///
-/// Untap and cleanup are on the list because the rules hand out no priority in
-/// them — the untap step grants none at all, and cleanup grants a round only
-/// when something triggered during it, after which the step repeats (CR
-/// 514.3). A green button in either was a stop that could all but never fire,
-/// and a red one declines nothing. The other three are on it because the
-/// window is real
+/// Untap and cleanup are on the list for completeness rather than for effect:
+/// both are dead rows ([`RailRow::grants_priority`]) and read as red whatever
+/// any preset writes. The other three are on it because the window is real
 /// and empty: at upkeep and at draw nothing has changed since the end step
 /// before, and combat damage is resolved before priority is handed back, so
 /// the window after it is the one the end-of-combat row already covers.
@@ -1139,8 +1142,9 @@ mod tests {
         orders.move_selection(-1);
         assert_eq!(
             orders.selected(),
-            Some((RailSide::Theirs, RailRow::Cleanup)),
-            "wraps upward into the opponent rail, over the dead untap row"
+            Some((RailSide::Theirs, RailRow::EndStep)),
+            "wraps upward into the opponent rail, over the dead cleanup and \
+             untap rows"
         );
         orders.move_selection(1);
         assert_eq!(orders.selected(), Some((RailSide::Mine, RailRow::Upkeep)));
@@ -1153,41 +1157,42 @@ mod tests {
         assert_eq!(orders.selected(), None);
     }
 
-    /// The untap row is dead, and it is dead in the *model* rather than in
-    /// the drawing.
+    /// The untap and cleanup rows are dead, and they are dead in the *model*
+    /// rather than in the drawing.
     ///
-    /// No player receives priority during the untap step (CR 502.4), so a
-    /// button there is a stop that can never fire whichever colour it is. A
-    /// rail that only drew it unclickable would still turn it green under a
-    /// preset, a stored blob from a client that had the button, or a keyboard
-    /// walking onto it — and each of those is a green light that means
-    /// nothing.
-    ///
-    /// Cleanup is the row this test is careful *not* to include. Priority
-    /// there is rare, not impossible (CR 514.3a), so it stays a real window a
-    /// player may ask to stop in.
+    /// No player receives priority during the untap step (CR 502.4), and in
+    /// the cleanup step none does either unless something happened that made
+    /// one (CR 514.3, 514.3a) — a window the engine opens on its own and
+    /// which no button arranged in advance. So a rail button in either is a
+    /// stop that can never fire whichever colour it is. A rail that only drew
+    /// them unclickable would still turn one green under a preset, a stored
+    /// blob from a client that had the button, or a keyboard walking onto it
+    /// — and each of those is a green light that means nothing.
     #[test]
-    fn the_step_nobody_gets_priority_in_cannot_be_switched_on() {
+    fn the_steps_nobody_can_arrange_a_stop_in_cannot_be_switched_on() {
+        let dead = [RailRow::Untap, RailRow::Cleanup];
         let mut orders = PhaseOrders::default();
         for side in RailSide::BOTH {
-            assert!(orders.is_skipped(side, RailRow::Untap));
-            orders.toggle(side, RailRow::Untap);
-            assert!(
-                orders.is_skipped(side, RailRow::Untap),
-                "{side:?} untap took a toggle it has no window for"
-            );
+            for row in dead {
+                assert!(orders.is_skipped(side, row));
+                orders.toggle(side, row);
+                assert!(
+                    orders.is_skipped(side, row),
+                    "{side:?} {row:?} took a toggle it has no window for"
+                );
+            }
         }
         // The all-green preset is the other way in, and it must not find one.
         orders.set_to(RailPreset::EveryStep);
         for side in RailSide::BOTH {
-            assert!(orders.is_skipped(side, RailRow::Untap));
-            assert!(
-                !orders.is_skipped(side, RailRow::Cleanup),
-                "{side:?} cleanup is a window the rules do grant"
-            );
+            for row in dead {
+                assert!(orders.is_skipped(side, row));
+            }
         }
-        assert!(!RailRow::Untap.grants_priority());
-        for row in RAIL_ROWS.into_iter().filter(|r| *r != RailRow::Untap) {
+        for row in dead {
+            assert!(!row.grants_priority());
+        }
+        for row in RAIL_ROWS.into_iter().filter(|r| !dead.contains(r)) {
             assert!(row.grants_priority(), "{row:?} lost its priority window");
         }
     }
