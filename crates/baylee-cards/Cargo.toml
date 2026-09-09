@@ -11,4 +11,5 @@ workspace = true
 [dependencies]
 baylee-core.workspace = true
 baylee-cards-dsl.workspace = true
+serde.workspace = true
 uuid.workspace = true

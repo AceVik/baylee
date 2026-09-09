@@ -558,6 +558,7 @@ version = "0.1.0"
 dependencies = [
  "baylee-cards-dsl",
  "baylee-core",
+ "serde",
  "uuid",
 ]
 

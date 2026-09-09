@@ -20,6 +20,8 @@ pub mod generated;
 /// Pool-wide lints over the card data (tests only).
 #[cfg(test)]
 mod lints;
+/// The registry as deck-builder rows — what a deck may be built from.
+pub mod pool;
 /// Central named token definitions (referenced by card files).
 pub mod tokens;
 
