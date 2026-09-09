@@ -384,6 +384,16 @@ eases into the full row instead of cutting to it. Departure is not animated at
 all, and deliberately: the object that resolved is gone from the view, and
 drawing a ghost of it would be drawing something the view no longer carries.
 
+The *other* direction of that key change is carried across instead of eased,
+which is the case the panel is most often in. A spell landing on a stack that
+already had one demotes yesterday's top to a queued row — a new key for an
+object that has been there all along — and seeded like an arrival it would
+fade in beside the newcomer, so the player would watch two spells land when
+one did. `ease_the_stack_in` therefore seeds a new `Entry(id, false)` at
+rest whenever `Entry(id, true)` was being tracked in the frame before;
+`a_row_that_steps_down_does_not_announce_itself` holds it, and
+`a_row_that_is_promoted_still_arrives` holds the asymmetry.
+
 The card picture is faded by a **veil**, not by an alpha. The art is a
 `MaterialNode` on a material shared with every card that looks the same
 (`a_look_is_shared_by_exactly_what_looks_the_same`), so an alpha written there

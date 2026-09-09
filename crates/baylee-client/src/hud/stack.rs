@@ -259,6 +259,30 @@ pub fn ease_the_stack_in(
             live.push(arriving.key);
         }
     }
+    // A row that steps *down* is not an arrival. When a spell lands on a
+    // stack that already had one, yesterday's top is drawn queued from this
+    // frame on — a different key for the same object, which would otherwise
+    // be seeded at nothing and fade in beside the newcomer, so two rows would
+    // announce themselves and only one of them would be new. Carrying the
+    // progress across the key change leaves it standing where it was.
+    //
+    // The other direction is deliberately not carried: a queued row becoming
+    // full is what a resolution looks like from the panel, and that is the
+    // movement the player is meant to see.
+    for &key in &live {
+        let StackKey::Entry(id, false) = key else {
+            continue;
+        };
+        let known = motion.rows.iter().any(|(k, _)| *k == key);
+        let stepped_down = motion
+            .rows
+            .iter()
+            .any(|(k, _)| *k == StackKey::Entry(id, true));
+        if !known && stepped_down {
+            motion.rows.push((key, 1.0));
+        }
+    }
+
     motion.rows.retain(|(key, _)| live.contains(key));
     for key in live {
         if !motion.rows.iter().any(|(k, _)| *k == key) {
@@ -1124,6 +1148,63 @@ mod tests {
         assert!(
             alpha_of(&app, again) > midway,
             "the rebuild continued the arrival rather than restarting it"
+        );
+    }
+
+    /// A row that steps down holds still.
+    ///
+    /// This is the headline case — a spell lands on a stack that already had
+    /// one — and the key carries the row's shape, so the object that was on
+    /// top is under a *new* key the moment it is drawn queued. Seeded like an
+    /// arrival it would fade in beside the newcomer and the player would see
+    /// two spells land where one did.
+    #[test]
+    fn a_row_that_steps_down_does_not_announce_itself() {
+        let mut app = harness();
+        let old = ObjectId::new(8, 0);
+        let (top, top_ink) = a_row(&mut app, StackKey::Entry(old, true));
+        for _ in 0..40 {
+            a_frame(&mut app);
+        }
+
+        // A spell lands: the panel is rebuilt, the old top in the queued
+        // shape and the newcomer full above it.
+        app.world_mut().entity_mut(top).despawn();
+        app.world_mut().entity_mut(top_ink).despawn();
+        let (stepped, _) = a_row(&mut app, StackKey::Entry(old, false));
+        let (landed, _) = a_row(&mut app, StackKey::Entry(ObjectId::new(9, 0), true));
+        a_frame(&mut app);
+
+        assert!(
+            (alpha_of(&app, stepped) - palette::PANEL_LIT.alpha()).abs() < 1e-4,
+            "the demoted row stood where it was"
+        );
+        assert!(lift_of(&app, stepped).abs() < 1e-4, "and did not drop in");
+        let arriving = alpha_of(&app, landed);
+        assert!(
+            arriving > 0.0 && arriving < palette::PANEL_LIT.alpha(),
+            "while the spell that did land is still arriving: {arriving}"
+        );
+    }
+
+    /// The other direction is not carried, and that is the point: a queued
+    /// row becoming full is what a resolution looks like from the panel.
+    #[test]
+    fn a_row_that_is_promoted_still_arrives() {
+        let mut app = harness();
+        let id = ObjectId::new(10, 0);
+        let (queued, queued_ink) = a_row(&mut app, StackKey::Entry(id, false));
+        for _ in 0..40 {
+            a_frame(&mut app);
+        }
+        app.world_mut().entity_mut(queued).despawn();
+        app.world_mut().entity_mut(queued_ink).despawn();
+        let (full, _) = a_row(&mut app, StackKey::Entry(id, true));
+        a_frame(&mut app);
+        let part = alpha_of(&app, full);
+        assert!(
+            part > 0.0 && part < palette::PANEL_LIT.alpha(),
+            "a resolution is meant to be seen: {part}"
         );
     }
 
