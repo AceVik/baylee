@@ -23,10 +23,27 @@
 //! - **A `mv_` level ends every branch but lands**, with `{X}` counting 0 —
 //!   which is what [`ManaCost::cmc`] already answers (CR 202.3).
 //! - **Lands take a semantic level instead**, because a land's type line says
-//!   almost nothing: 888 of the 1124 in the pool print no subtype at all. A
-//!   hand-kept cycle map ([`LandCycles`]) names what players name — fetch,
-//!   shock, triome, pathway — and what it does not cover falls back to the
-//!   printed subtype, then to `lands/` itself.
+//!   almost nothing: 888 of the 1124 in the pool print no subtype at all.
+//!   Six sources are asked in order, most trustworthy first, and the first
+//!   one that answers wins:
+//!
+//!   | # | source | example door |
+//!   |---|--------|--------------|
+//!   | 0 | the `Basic` supertype | `lands/basic` |
+//!   | 1 | a second card type or defining subtype | `lands/creatures` |
+//!   | 2 | the hand-kept cycle map ([`LandCycles`]) | `lands/fetch` |
+//!   | 3 | a printed nonbasic land subtype (CR 305.6) | `lands/deserts` |
+//!   | 4 | what the printed text *does* (`land_role`) | `lands/utility` |
+//!   | 5 | how many basic land types it prints | `lands/dual` |
+//!
+//!   Steps 2 and 4 are the two halves of "semantic". A cycle is an assertion
+//!   no card prints — nothing about Scalding Tarn's text says "fetchland" —
+//!   so it is hand-kept and additive: a land missing from the map is filed
+//!   one level shallower, never misfiled. A *role* is the opposite; it is
+//!   read straight off the card, because "enters tapped unless you control
+//!   two or fewer other lands" is a fastland whoever printed it. The map is
+//!   asked first so a shockland stays a shockland rather than becoming one
+//!   more conditional tapland.
 //!
 //! The path is a *file* location and never a module path: `cards/mod.rs`
 //! declares every card with `#[path = …]`, so `cards::baleful_strix` resolves
@@ -112,9 +129,17 @@ impl LandCycles {
     }
 
     /// The cycle this card belongs to, if the map names one.
+    ///
+    /// A double-faced card arrives here under its joined name — Scryfall
+    /// calls a pathway `Barkchannel Pathway // Tidechannel Pathway` — so the
+    /// front face is tried as well, which is the rule the rest of this module
+    /// already follows. Ten pathways sat unfiled for exactly that reason.
     #[must_use]
     pub fn of(&self, name: &str) -> Option<&str> {
-        self.0.get(name).map(String::as_str)
+        self.0
+            .get(name)
+            .or_else(|| self.0.get(name.split(" // ").next().unwrap_or(name)))
+            .map(String::as_str)
     }
 
     /// Every card name the map claims, for the check that none has gone stale.
@@ -127,7 +152,7 @@ impl LandCycles {
 /// `creatures/artifacts/mv_2/baleful_strix.rs`.
 #[must_use]
 pub fn path_for(card: &ScryfallCard, slug: &str, cycles: &LandCycles) -> String {
-    let (type_line, mana_cost) = front_face(card);
+    let (type_line, mana_cost, oracle_text) = front_face(card);
     let (left, right) = split_type_line(&type_line);
     let doors = doors_of(left);
 
@@ -145,12 +170,17 @@ pub fn path_for(card: &ScryfallCard, slug: &str, cycles: &LandCycles) -> String 
         .map(str::to_string);
 
     if *top == "lands" {
-        // A land's own level, in the order the information is trustworthy:
-        // a second card type is printed, a cycle is asserted by hand, a
-        // subtype is printed but says less.
-        let level = second
-            .or_else(|| cycles.of(&card.name).map(str::to_string))
-            .or_else(|| land_shape(left, right).map(str::to_string));
+        // A land's own level, asking the six sources of the module header in
+        // order and taking the first that answers.
+        let level = if has_word(left, "Basic") {
+            Some("basic".to_string())
+        } else {
+            second
+                .or_else(|| cycles.of(&card.name).map(str::to_string))
+                .or_else(|| land_subtype(right).map(str::to_string))
+                .or_else(|| land_role(&oracle_text).map(str::to_string))
+                .or_else(|| land_shape(right).map(str::to_string))
+        };
         return match level {
             Some(level) => format!("lands/{level}/{slug}.rs"),
             None => format!("lands/{slug}.rs"),
@@ -164,9 +194,9 @@ pub fn path_for(card: &ScryfallCard, slug: &str, cycles: &LandCycles) -> String 
     }
 }
 
-/// The front face's type line and mana cost — the only face that places a
-/// card, whichever layout it was printed in.
-fn front_face(card: &ScryfallCard) -> (String, String) {
+/// The front face's type line, mana cost and printed text — the only face
+/// that places a card, whichever layout it was printed in.
+fn front_face(card: &ScryfallCard) -> (String, String, String) {
     if let Some(faces) = &card.card_faces
         && let Some(front) = faces.first()
         && faces.len() >= 2
@@ -174,11 +204,13 @@ fn front_face(card: &ScryfallCard) -> (String, String) {
         return (
             front.type_line.clone().unwrap_or_default(),
             front.mana_cost.clone().unwrap_or_default(),
+            front.oracle_text.clone().unwrap_or_default(),
         );
     }
     (
         card.type_line.clone().unwrap_or_default(),
         card.mana_cost.clone().unwrap_or_default(),
+        card.oracle_text.clone().unwrap_or_default(),
     )
 }
 
@@ -211,23 +243,14 @@ fn defining_subtype(right: &str) -> Option<&'static str> {
         .map(|(_, dir)| *dir)
 }
 
-/// A land's level when no cycle claims it: what its own type line says.
-fn land_shape(left: &str, right: &str) -> Option<&'static str> {
-    if has_word(left, "Basic") {
-        return Some("basic");
-    }
-    match right
-        .split_whitespace()
-        .filter(|w| BASIC_LAND_TYPES.contains(w))
-        .count()
-    {
-        2 => return Some("dual"),
-        n if n >= 3 => return Some("triple"),
-        _ => {}
-    }
-    // A printed non-basic subtype, and only one the table names. An unknown
-    // one stays flat rather than opening an `other/` door, which would be a
-    // bucket that says nothing — the thing this taxonomy exists to avoid.
+/// A printed nonbasic land subtype that earns a door, and only one the table
+/// names.
+///
+/// An unknown subtype stays flat rather than opening an `other/` door, which
+/// would be a bucket that says nothing — the thing this taxonomy exists to
+/// avoid. This is asked before [`land_role`] because a Gate or a Locus is an
+/// identity a deck is built around, while a role is only what the card does.
+fn land_subtype(right: &str) -> Option<&'static str> {
     right
         .split_whitespace()
         .find_map(|w| {
@@ -236,6 +259,187 @@ fn land_shape(left: &str, right: &str) -> Option<&'static str> {
                 .find(|(sub, _)| sub.eq_ignore_ascii_case(w))
         })
         .map(|(_, dir)| *dir)
+}
+
+/// A land's last resort: how many basic land types it prints (CR 305.6).
+fn land_shape(right: &str) -> Option<&'static str> {
+    match right
+        .split_whitespace()
+        .filter(|w| BASIC_LAND_TYPES.contains(w))
+        .count()
+    {
+        2 => Some("dual"),
+        n if n >= 3 => Some("triple"),
+        _ => None,
+    }
+}
+
+/// What a land *does*, read from its printed text.
+///
+/// Every door here is a cycle players already have a word for, which is what
+/// makes the reader worth having: 729 of the 872 lands that had no cycle, no
+/// second type and no printed subtype answer one of these. The order is the
+/// whole design — the first pattern that fires wins, so Barren Moor is a
+/// cycling land rather than one more tapland, and Bojuka Bog is a utility
+/// land rather than one more land that enters tapped.
+///
+/// The last two doors are the shapes that are left when no named cycle
+/// claims the card: `utility` for a land that does something other than make
+/// mana, `tapland` for one whose only text is that it comes in tapped. A land
+/// whose text says nothing but "add mana" answers `None` and stays flat in
+/// `lands/`, which is the honest place for it.
+fn land_role(text: &str) -> Option<&'static str> {
+    let t = text.to_lowercase();
+
+    // Named cycles, in the order a more specific reading beats a vaguer one.
+    if t.contains("search your library for a") && t.contains("land") && t.contains("sacrifice") {
+        return Some("fetch");
+    }
+    // `manlands`, not `creature`: `lands/creatures` already means a land that
+    // *is* one on the type line (Dryad Arbor), and two doors a letter apart
+    // would be a browsing trap.
+    if t.contains("becomes a") && t.contains("creature") && t.contains("until end of turn") {
+        return Some("manlands");
+    }
+    if t.contains("cycling") {
+        return Some("cycling");
+    }
+    if t.contains("return a land you control to its owner's hand") {
+        return Some("bounce");
+    }
+    if t.contains("storage counter") {
+        return Some("storage");
+    }
+    if t.contains("pay 1 life") && t.contains("sacrifice") && t.contains("draw a card") {
+        return Some("horizon");
+    }
+    if is_filter(&t) {
+        return Some("filter");
+    }
+    if t.contains("damage to you") && t.contains("}: add") {
+        return Some("pain");
+    }
+    if t.contains("you may pay 2 life") && t.contains("enters tapped") {
+        return Some("shock");
+    }
+
+    // The `enters tapped unless …` family, which is one printed sentence and
+    // a dozen different cycles hanging off its condition.
+    if let Some(cond) = between(&t, "enters tapped unless ", ".") {
+        if let Some(role) = conditional_role(cond) {
+            return Some(role);
+        }
+    } else if t.contains("enters tapped") {
+        // A tapland with a rider is named after the rider.
+        for (mark, role) in [
+            ("scry 1", "scry"),
+            ("surveil 1", "surveil"),
+            ("gain 2 life", "refuge"),
+            ("gain 1 life", "gain"),
+        ] {
+            if t.contains(mark) {
+                return Some(role);
+            }
+        }
+    }
+
+    // Two families of pure mana land that a player still picks out by name.
+    // Both are named after what they print rather than after a nickname:
+    // "slow land" already means the Innistrad cycle above, and "verge" is
+    // only six of the sixteen lands whose mana has a condition on it.
+    if t.contains("doesn't untap during your next untap step") {
+        return Some("no_untap");
+    }
+    if t.contains("activate only if") {
+        return Some("restricted");
+    }
+
+    if does_more_than_make_mana(&t) {
+        return Some("utility");
+    }
+    t.contains("enters tapped").then_some("tapland")
+}
+
+/// The cycle a conditional tapland belongs to, read from its condition.
+///
+/// The community names are the doors, because they are what a person types
+/// into a search box; `unlucky` is the Duskmourn cycle, `crowd` the Battlebond
+/// one, `saddle` the Aetherdrift one. A condition none of these claims falls
+/// through to the rules after it rather than opening a `conditional/` door.
+fn conditional_role(cond: &str) -> Option<&'static str> {
+    if cond.contains("two or fewer other lands") {
+        return Some("fast");
+    }
+    if cond.contains("two or more other lands") {
+        return Some("slow");
+    }
+    if cond.contains("two or more basic lands") {
+        return Some("battle");
+    }
+    if cond.contains("two or more opponents") {
+        return Some("crowd");
+    }
+    if cond.contains("13 or less life") {
+        return Some("unlucky");
+    }
+    if cond.contains("legendary creature") {
+        return Some("legendary");
+    }
+    if cond.contains("mount or vehicle") {
+        return Some("saddle");
+    }
+    if cond.contains("reveal") {
+        return Some("reveal");
+    }
+    if cond.contains("basic land")
+        || BASIC_LAND_TYPES
+            .iter()
+            .any(|b| has_word(cond, &b.to_lowercase()))
+    {
+        return Some("check");
+    }
+    None
+}
+
+/// Whether a filter land's activation is printed here: a tap cost paid with a
+/// hybrid or generic pip that answers with two or more coloured symbols.
+///
+/// The two coloured symbols are what separates Graven Cairns from a land that
+/// taps for one mana of any colour, which prints the same shape of line.
+fn is_filter(text: &str) -> bool {
+    text.lines().any(|line| {
+        let Some((cost, gives)) = line.split_once(':') else {
+            return false;
+        };
+        let gives = gives.trim();
+        cost.contains("{t}")
+            && (cost.contains('/') || cost.contains("{1}"))
+            && gives.starts_with("add")
+            && gives.matches('{').count() >= 2
+            && !gives.contains("any color")
+    })
+}
+
+/// Whether the card has an ability that is not a mana ability — an activated
+/// one whose answer is not `Add`, or any trigger at all.
+///
+/// A trigger counts because the classic utility land is Bojuka Bog, whose
+/// whole text is that it enters tapped and exiles a graveyard.
+fn does_more_than_make_mana(text: &str) -> bool {
+    text.lines().any(|line| {
+        let line = line.trim();
+        if let Some((cost, gives)) = line.split_once(':') {
+            return !cost.is_empty() && !gives.trim_start().starts_with("add");
+        }
+        line.starts_with("when ") || line.starts_with("whenever ") || line.starts_with("at the ")
+    })
+}
+
+/// The text between a marker and the next occurrence of `end`, if both are
+/// there.
+fn between<'a>(text: &'a str, start: &str, end: &str) -> Option<&'a str> {
+    let rest = &text[text.find(start)? + start.len()..];
+    Some(&rest[..rest.find(end).unwrap_or(rest.len())])
 }
 
 /// Land subtypes that earn a door of their own, and the door's name.
@@ -484,5 +688,132 @@ mod tests {
         assert!(has_word("Basic Land", "Land"));
         assert!(!has_word("Island Sanctuary", "Land"));
         assert!(!has_word("Enchantment \u{2014} Classic", "Class"));
+    }
+
+    /// The printed text carries every land cycle nobody has to assert by
+    /// hand, which is what keeps `data/land-cycles.tsv` down to the four
+    /// things a card genuinely does not print.
+    #[test]
+    fn a_land_cycle_is_read_off_the_card_when_the_card_says_it() {
+        let cases = [
+            (
+                "Blackcleave Cliffs enters tapped unless you control two or fewer other lands.",
+                "fast",
+            ),
+            (
+                "Deserted Beach enters tapped unless you control two or more other lands.",
+                "slow",
+            ),
+            (
+                "Glacial Fortress enters tapped unless you control a Plains or an Island.",
+                "check",
+            ),
+            (
+                "Sea of Clouds enters tapped unless you have two or more opponents.",
+                "crowd",
+            ),
+            (
+                "Etched Cornfield enters tapped unless a player has 13 or less life.",
+                "unlucky",
+            ),
+            (
+                "Minas Tirith enters tapped unless you control a legendary creature.",
+                "legendary",
+            ),
+            (
+                "Country Roads enters tapped unless you control a Mount or Vehicle.",
+                "saddle",
+            ),
+            (
+                "Temple of Enlightenment enters tapped.\nWhen this land enters, scry 1.",
+                "scry",
+            ),
+            (
+                "Akoum Refuge enters tapped.\nWhen this land enters, you gain 1 life.",
+                "gain",
+            ),
+            (
+                "{4}{G}{W}: Stirring Wildwood becomes a 3/4 green and white Elemental \
+                 creature with reach until end of turn. It's still a land.",
+                "manlands",
+            ),
+            (
+                "{T}: Add {C}.\n{W/U}, {T}: Add {W}{W}, {W}{U}, or {U}{U}.",
+                "filter",
+            ),
+            (
+                "{T}: Add {C}.\n{T}: Add {W} or {U}. This land deals 1 damage to you.",
+                "pain",
+            ),
+            (
+                "Bojuka Bog enters tapped.\nWhen Bojuka Bog enters, exile target player's \
+                 graveyard.",
+                "utility",
+            ),
+            (
+                "{T}: Add {B}.\n{T}: Add {R}. Activate only if you control a Swamp.",
+                "restricted",
+            ),
+            (
+                "{T}: Add {C}.\n{T}: Add {B} or {R}. This land doesn't untap during your \
+                 next untap step.",
+                "no_untap",
+            ),
+            (
+                "Jungle Hollow enters tapped.\n{T}: Add {B} or {G}.",
+                "tapland",
+            ),
+        ];
+        for (text, role) in cases {
+            assert_eq!(land_role(text), Some(role), "reading {text:?}");
+        }
+    }
+
+    /// A land whose whole text is a mana ability has no role, and a role that
+    /// is not read is a level the card simply does not get — never a wrong
+    /// one, and never an `other/` bucket.
+    #[test]
+    fn a_plain_mana_land_has_no_role_and_stays_flat() {
+        assert_eq!(
+            land_role("{T}: Add one mana of any color in your commander's color identity."),
+            None
+        );
+        assert_eq!(
+            land_role("{T}: Add {G} for each creature you control."),
+            None
+        );
+    }
+
+    /// The map is asked before the reader, so an assertion nobody prints wins
+    /// over a sentence everybody does. A triome prints cycling and the reader
+    /// would file it with the cycling lands, which is true and not what a
+    /// player is looking for.
+    #[test]
+    fn the_cycle_map_outranks_what_the_card_prints() {
+        let cycles = LandCycles::parse("triome\tIndatha Triome\n");
+        let mut card = card("Indatha Triome", "Land \u{2014} Plains Swamp Forest", "");
+        card.oracle_text = Some("Indatha Triome enters tapped.\nCycling {3}".to_string());
+        assert_eq!(
+            path_for(&card, "indatha_triome", &cycles),
+            "lands/triome/indatha_triome.rs"
+        );
+        // Without the map it is still filed, by what it prints — the map is
+        // additive, so a stale one costs browsing and never correctness.
+        assert_eq!(
+            path_for(&card, "indatha_triome", &LandCycles::default()),
+            "lands/cycling/indatha_triome.rs"
+        );
+    }
+
+    /// Scryfall names a double-faced card with both faces joined, and the map
+    /// is keyed on the printed front. Ten pathways went unfiled for a whole
+    /// commit because this lookup only tried the joined name.
+    #[test]
+    fn the_cycle_map_finds_a_double_faced_card_by_its_front() {
+        let cycles = LandCycles::parse("pathway\tBarkchannel Pathway\n");
+        assert_eq!(
+            cycles.of("Barkchannel Pathway // Tidechannel Pathway"),
+            Some("pathway")
+        );
     }
 }

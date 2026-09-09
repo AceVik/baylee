@@ -232,10 +232,21 @@ taxonomy rather than a flat list of slugs —
 `<card type>/<second type or defining subtype>/mv_<mana value>/<slug>.rs`,
 with a total order over card types picking the door (Land first, Kindred
 last), the **front face** deciding whatever the layout, and lands taking a
-semantic level from `data/land-cycles.tsv` instead of an `mv_` one because
-888 of the 1124 in the pool print no subtype at all. The rule and its reasons
-are `baylee-cards-codegen/src/layout.rs`; `docs/card-dsl.md` §"Where a card's
+semantic level instead of an `mv_` one because 888 of the 1124 in the pool
+print no subtype at all. The rule and its reasons are
+`baylee-cards-codegen/src/layout.rs`; `docs/card-dsl.md` §"Where a card's
 file lives" is normative.
+
+A land's level comes from **two** sources that must not be confused.
+`data/land-cycles.tsv` is what no card prints — "fetchland", "shockland" —
+so it is hand-kept and additive, and an entry naming a card the pool does not
+have is a bail rather than a land quietly filed one level shallower.
+`layout::land_role` is the opposite half and reads the printed text: about
+thirty cycles by their own sentence (fast, slow, check, crowd, unlucky,
+filter, pain, bounce, manlands, cycling, …), then `utility` for a land that
+does something other than make mana and `tapland` for one that only comes in
+tapped. It is why `lands/` holds 73 files instead of 872, and why growing the
+map is a browsing improvement rather than a correctness fix.
 
 Two properties are what make it safe to arrange 1365 files this way, and both
 would be easy to lose. The **file moves and the module path never does** —
@@ -244,8 +255,11 @@ would be easy to lose. The **file moves and the module path never does** —
 re-filed card costs one `git mv` and one generated line, leaving
 `generated.rs`, the ledger and every path in the workspace alone. And
 **placement is a reconciliation**: codegen finds each card wherever it is,
-moves what has drifted, and then fails on any `.rs` under `cards/` that no
-card claims — an orphan left behind by a move compiles, is declared by
+fails on any `.rs` under `cards/` that no card claims, and only then moves
+what has drifted. The refusal comes first because the slug a card claims is
+known without fetching anything, and a bail halfway through a re-filing would
+leave every card moved and `mod.rs` naming the old paths. An orphan left
+behind by a move compiles, is declared by
 nothing and is read by nobody, which is exactly how an empty
 `lightning_bolt.rs` once sat in the tree unnoticed. Anything that reads card
 files goes through `card_files` in `xtask` for the same reason the rules gate

@@ -381,6 +381,21 @@ fn cards(
     );
     let mut found = card_files(&cards_dir)?;
 
+    // Refuse an orphan *before* the first rename, not after the last one. The
+    // slug a card claims is known without fetching anything, and a bail in
+    // the middle of a re-filing would leave every card moved and `mod.rs`
+    // still pointing at the old paths — a tree that does not build, for a
+    // stray file someone could have deleted in a second.
+    let claimed: BTreeSet<String> = names.iter().map(|n| front_face_slug(n)).collect();
+    refuse_orphans(
+        found
+            .iter()
+            .filter(|(slug, _)| !claimed.contains(*slug))
+            .map(|(_, path)| path),
+        &cards_dir,
+    )?;
+    refuse_stale_cycles(&cycles, &claimed)?;
+
     let mut stubs = Vec::with_capacity(names.len());
     for name in &names {
         let card = scryfall::fetch_named(name, agent, cache)?;
@@ -428,25 +443,11 @@ fn cards(
         stubs.push(info);
     }
 
-    // Whatever is left in `found` is a file no card in the registry claims.
-    // It compiles, `cargo test` is green, and nothing reads it — which is
-    // exactly how an empty `lightning_bolt.rs` sat in the tree unnoticed.
-    if !found.is_empty() {
-        let orphans: Vec<String> = found
-            .values()
-            .map(|p| {
-                p.strip_prefix(&cards_dir)
-                    .unwrap_or(p)
-                    .display()
-                    .to_string()
-            })
-            .collect();
-        anyhow::bail!(
-            "{} card file(s) under cards/ that no card claims: {}",
-            orphans.len(),
-            orphans.join(", ")
-        );
-    }
+    // The same refusal once more, now that every slug is the one the reader
+    // actually produced rather than the one `front_face_slug` predicted. The
+    // early check above is what keeps a re-filing atomic; this one is what
+    // makes the guarantee true.
+    refuse_orphans(found.values(), &cards_dir)?;
     write_or_check(
         check,
         &root.join("crates/baylee-cards/src/cards/mod.rs"),
@@ -899,6 +900,61 @@ fn shape_of(line: &str) -> String {
 /// them: "Zof Consumption // Zof Bloodbog" is one file called
 /// `zof_consumption`. Slugging the whole printed name instead produces a path
 /// that does not exist, so the card is read as implemented and skipped.
+/// Refuses every card file under `cards/` that no card in the pool claims.
+///
+/// Such a file compiles, `cargo test` is green and nothing reads it, which is
+/// exactly how an empty `lightning_bolt.rs` sat in the tree unnoticed. It is
+/// asked twice: once before the first rename, on the slugs the pool's names
+/// predict, so that a re-filing is atomic rather than half-applied over a
+/// stray somebody could have deleted in a second; and once after the last
+/// one, on the slugs the reader actually produced.
+fn refuse_orphans<'a>(
+    strays: impl Iterator<Item = &'a PathBuf>,
+    cards_dir: &Path,
+) -> anyhow::Result<()> {
+    let strays: Vec<String> = strays.map(|p| relative(p, cards_dir)).collect();
+    if strays.is_empty() {
+        return Ok(());
+    }
+    anyhow::bail!(
+        "{} card file(s) under cards/ that no card claims: {}",
+        strays.len(),
+        strays.join(", ")
+    )
+}
+
+/// Refuses a cycle-map entry naming a card the pool does not have.
+///
+/// The failure it catches is silent by construction: the map is additive, so
+/// a name that matches nothing simply leaves its land filed one level
+/// shallower. Ten pathways sat unfiled for a whole commit that way, the map
+/// holding front-face names while Scryfall hands over `A // B`.
+fn refuse_stale_cycles(
+    cycles: &layout::LandCycles,
+    claimed: &BTreeSet<String>,
+) -> anyhow::Result<()> {
+    let stale: Vec<&str> = cycles
+        .names()
+        .filter(|n| !claimed.contains(&front_face_slug(n)))
+        .collect();
+    if stale.is_empty() {
+        return Ok(());
+    }
+    anyhow::bail!(
+        "data/land-cycles.tsv names {} card(s) the pool does not have: {}",
+        stale.len(),
+        stale.join(", ")
+    )
+}
+
+/// A card file's path as it reads in a message: relative to `cards/`.
+fn relative(path: &Path, cards_dir: &Path) -> String {
+    path.strip_prefix(cards_dir)
+        .unwrap_or(path)
+        .display()
+        .to_string()
+}
+
 fn front_face_slug(name: &str) -> String {
     baylee_cards_codegen::stubgen::slug(name.split(" // ").next().unwrap_or(name))
 }

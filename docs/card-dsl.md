@@ -65,7 +65,10 @@ instants/kindred/mv_3/crib_swap.rs             Kindred Instant
 sorceries/mv_2/curse_of_the_swine.rs           {X}{U}{U} — X counts 0
 planeswalkers/mv_4/jace_the_mind_sculptor.rs
 lands/fetch/arid_mesa.rs                       from data/land-cycles.tsv
-lands/dual/taiga.rs                            two basic land types
+lands/check/glacial_fortress.rs                read off "unless you control a Plains"
+lands/manlands/celestial_colonnade.rs          "becomes a … creature until end of turn"
+lands/utility/bojuka_bog.rs                    does something other than make mana
+lands/dual/taiga.rs                            two basic land types, and no text
 lands/enchantments/urza_s_saga.rs              Enchantment Land
 lands/wasteland.rs                             nothing to say about it yet
 ```
@@ -85,12 +88,34 @@ Four rules, all of them in `baylee-cards-codegen/src/layout.rs`:
   (CR 712.2), so filing by either would give Westvale Abbey two homes.
 - **A `mv_` level ends every branch but lands**, `{X}` counting 0 (CR 202.3).
 - **Lands take a semantic level instead**, because a land's type line says
-  almost nothing — 888 of the 1124 in the pool print no subtype at all.
-  `data/land-cycles.tsv` names what players name (fetch, shock, triome,
-  pathway); it is **additive**, so a land missing from it falls back to its
-  printed subtype and then to `lands/` itself, and no entry can ever misfile
-  a card. Add to it freely; nothing derives it, because "fetchland" is
-  printed nowhere.
+  almost nothing — 888 of the 1124 in the pool print no subtype at all. Six
+  sources are asked in order and the first that answers wins: the `Basic`
+  supertype, a second card type, the hand-kept cycle map, a printed nonbasic
+  land subtype (CR 305.6), what the printed text *does*, and finally how many
+  basic land types it prints.
+
+  The two middle sources are the two halves of "semantic", and they are
+  opposites. `data/land-cycles.tsv` is an **assertion no card prints** —
+  nothing about Scalding Tarn's text says "fetchland" — so it is kept by hand
+  and is **additive**: a land missing from it is filed one level shallower,
+  never misfiled, so a stale map costs browsing and never correctness. Add to
+  it freely. `layout::land_role` is the opposite: it **reads the card**,
+  because "enters tapped unless you control two or fewer other lands" is a
+  fastland whoever printed it. It knows about thirty cycles by their printed
+  sentence — fast, slow, check, crowd, unlucky, legendary, saddle, battle,
+  reveal, scry, surveil, gain, refuge, filter, pain, shock, bounce, storage,
+  horizon, cycling, fetch, manlands, no_untap, restricted — and ends in the
+  two shapes that are left: `utility` for a land that does something other
+  than make mana, `tapland` for one whose only text is that it comes in
+  tapped. A land whose whole text is a mana ability stays flat in `lands/`,
+  which is the honest place for it. That reader is what took `lands/` from
+  872 files in one directory to 73.
+
+  The map's own failure mode is silent, so it is made loud: an entry naming a
+  card the pool does not have is a **bail**, because the land it meant to file
+  would otherwise just sit one level shallower with nobody the wiser — ten
+  pathways did exactly that for a commit, the map holding their front-face
+  names while Scryfall hands over `A // B`.
 
 Two things keep the tree honest, and both are `codegen`'s:
 
@@ -100,8 +125,13 @@ Two things keep the tree honest, and both are `codegen`'s:
   path in the workspace are untouched by a re-filing, which costs one
   `git mv` and one generated line.
 - **Placement is a reconciliation, not a write.** `codegen` finds every card
-  file wherever it is, moves the misplaced ones, and then **fails on any
-  `.rs` under `cards/` that no card in the registry claims**. An orphan left
+  file wherever it is, **fails on any `.rs` under `cards/` that no card in the
+  registry claims**, and only then moves the misplaced ones. The refusal comes
+  first because the slug a card claims is known without fetching anything, and
+  a bail halfway through a re-filing would leave every card moved and `mod.rs`
+  still naming the old paths — a tree that does not build, over a stray file
+  someone could have deleted in a second. It is checked again after the moves,
+  against the slugs the reader actually produced. An orphan left
   behind by a move would still compile, be declared by nothing and be read by
   nobody — which is exactly how an empty `lightning_bolt.rs` sat in the tree
   unnoticed. Two files claiming one slug fails for the same reason: `mod.rs`

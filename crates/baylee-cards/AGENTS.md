@@ -26,10 +26,12 @@ contract in `docs/card-dsl.md` exactly. Your task per card:
 4. Use the existing vocabulary (see `docs/card-dsl.md`). Do NOT invent
    new `Effect`/`Modifier`/`Filter` variants — if you need one, stop and
    flag the card instead.
-5. Write `#[cfg(test)] mod tests` per card per the DSL contract. Tests go
-   in the card file as unit tests for data correctness (cost, types,
-   subtypes, color identity) and reference engine-level group tests for
-   behavior (name them in a comment if they belong elsewhere).
+5. **Write no tests in the card file.** None of the 1365 card files has a
+   `#[cfg(test)]` module and none should: `xtask validate` already checks the
+   data (cost, types, subtypes, colour identity) against the `//!` header for
+   every card at once, and behaviour is tested where it can actually be
+   played, in `crates/baylee-engine/src/engine/*_tests.rs`. If your card needs
+   a behaviour test, name the engine test module it belongs in, in a comment.
 6. Compile clean: `cargo check -p baylee-cards` must pass. Clippy
    pedantic must pass on your file (the `#![allow(unused_imports,
    missing_docs)]` header covers most lints — keep it).
@@ -51,8 +53,8 @@ contract in `docs/card-dsl.md` exactly. Your task per card:
 ## Verification loop
 
 1. `cargo check -p baylee-cards` — must pass.
-2. `cargo test -p baylee-cards <slug>` — your tests must pass.
-3. `cargo run -p xtask -- validate` — header/coverage conventions must pass.
+2. `cargo run -p xtask -- validate` — header/coverage conventions must pass.
+3. `cargo test -p baylee-cards` — the pool-wide invariants must stay green.
 
 If a check fails twice, stop and report the card as blocked with the
 compiler/test output. Do not guess.
