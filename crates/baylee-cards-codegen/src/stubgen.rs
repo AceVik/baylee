@@ -655,6 +655,7 @@ pub fn render_registry(stubs: &[StubInfo], slots: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::LandCycles;
 
     /// A retired index leaves a hole, and the hole must reach the generated
     /// table as a `None` rather than closing up — closing it would slide every
@@ -711,6 +712,7 @@ mod tests {
                 slug: "only".into(),
                 oracle_id: "oracle-a".into(),
                 index,
+                path: "only.rs".into(),
             }]
         };
         let hash_of = |s: &str| {
