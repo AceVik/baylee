@@ -180,7 +180,7 @@ pub struct LoyaltyParts {
     /// What it does.
     pub effects: &'static [Effect],
     /// What it targets, if anything.
-    pub target: Option<TargetSpec>,
+    pub targets: Option<crate::effect::TargetReq>,
 }
 
 impl LoyaltyParts {
@@ -190,7 +190,7 @@ impl LoyaltyParts {
         Self {
             cost,
             effects,
-            target: None,
+            targets: None,
         }
     }
 
@@ -200,7 +200,7 @@ impl LoyaltyParts {
         AbilityDef::Loyalty {
             cost: self.cost,
             effects: self.effects,
-            target: self.target,
+            targets: self.targets,
         }
     }
 }
@@ -358,7 +358,8 @@ macro_rules! spell {
 ///
 /// ```ignore
 /// loyalty!(1, EFFECTS)
-/// loyalty!(-3, EFFECTS, target: Some(TargetSpec::Object(&ANY_CREATURE)))
+/// loyalty!(-3, EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&ANY_CREATURE))))
+/// loyalty!(1, EFFECTS, targets: Some(TargetReq::up_to_one(TargetSpec::Object(&ANY_ARTIFACT))))
 /// ```
 #[macro_export]
 macro_rules! loyalty {

@@ -11,7 +11,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     match op {
         Effect::AddCounter { kind, amount } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
-            let target_id = res.targets.first().copied().unwrap_or(res.source);
+            // No subject: the ability said "target" and got none.
+            let target_id = this_object(res)?;
             crate::replacement::put_counters(state, target_id, kind, n);
             None
         }
@@ -76,6 +77,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     v
                 }
             };
+            // Read before anything is registered: an ability that said
+            // "target" and got none sets the power and toughness of nobody.
+            let this = if matches!(filter, baylee_cards_dsl::Filter::This) {
+                this_object(res)?
+            } else {
+                res.source
+            };
             let p = signed(&power);
             let t = signed(&toughness);
             let ts = state.next_timestamp();
@@ -98,9 +106,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 // every noncreature artifact in the game became a 0/0 and
                 // was put into a graveyard by the next state-based check.
                 filter: if matches!(filter, baylee_cards_dsl::Filter::This) {
-                    crate::effects::EffectFilter::ObjectIs(
-                        res.targets.first().copied().unwrap_or(res.source),
-                    )
+                    crate::effects::EffectFilter::ObjectIs(this)
                 } else {
                     crate::effects::EffectFilter::Dsl(filter)
                 },

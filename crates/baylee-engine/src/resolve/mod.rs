@@ -56,11 +56,38 @@ pub struct Resolution {
     pub event_object: Option<ObjectId>,
     /// The suspended choice, if any.
     pub awaiting: Option<AwaitingOp>,
+    /// Whether the thing being resolved said "target" at all.
+    ///
+    /// [`Filter::This`](baylee_cards_dsl::Filter::This) names two different
+    /// objects and this is what tells them apart: the *source* for an ability
+    /// that never targeted ("this creature gets +2/+2 until end of turn") and
+    /// the *target* for one that did. An empty `targets` used to mean the
+    /// first of those unconditionally, which was safe only for as long as a
+    /// targeted ability could never resolve without a target. "Up to one
+    /// target" makes that reachable, and Karn, the Great Creator's `+1`
+    /// activated with nothing to point at animated *Karn*, set his power and
+    /// toughness to a mana value nobody had chosen, and the next state-based
+    /// check swept the walker into the graveyard.
+    pub targeted: bool,
     /// Whether this is a mana ability resolving off the stack (CR 605.3b).
     ///
     /// It changes what happens when the resolution *finishes*: there is no
     /// stack object to finalize, and its controller keeps priority.
     pub mana_ability: bool,
+}
+
+/// What [`Filter::This`](baylee_cards_dsl::Filter::This) names right now.
+///
+/// The target if one was chosen; the source if the ability never asked for
+/// one; and `None` — nothing at all — if it asked and got none, which is
+/// what "up to one target" allows. A caller that gets `None` registers no
+/// effect: there is nothing for it to apply to. See [`Resolution::targeted`].
+pub(crate) fn this_object(res: &Resolution) -> Option<ObjectId> {
+    match res.targets.first().copied() {
+        Some(target) => Some(target),
+        None if res.targeted => None,
+        None => Some(res.source),
+    }
 }
 
 /// The one destination Path to Exile's basic-land search uses.
@@ -492,6 +519,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
         x: res.x,
         chosen_player: res.chosen_player,
         target_players: res.target_players,
+        targeted: res.targeted,
         awaiting: None,
         mana_ability: false,
     };
@@ -1114,6 +1142,7 @@ fn run_nested_with(
         x: res.x,
         chosen_player: res.chosen_player,
         target_players: res.target_players,
+        targeted: res.targeted,
         awaiting: None,
         mana_ability: false,
     };
@@ -1365,9 +1394,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             duration,
         } => {
             let filter = if matches!(filter, baylee_cards_dsl::Filter::This) {
-                crate::effects::EffectFilter::ObjectIs(
-                    res.targets.first().copied().unwrap_or(res.source),
-                )
+                // Nothing to become anything: the ability said "target" and
+                // was activated with none, so this half of its sentence has
+                // no subject and registers nothing.
+                let this = this_object(res)?;
+                crate::effects::EffectFilter::ObjectIs(this)
             } else {
                 crate::effects::EffectFilter::Dsl(filter)
             };

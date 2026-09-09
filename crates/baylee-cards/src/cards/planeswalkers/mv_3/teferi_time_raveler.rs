@@ -46,6 +46,6 @@ card! {
                 Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 },
-            ], target: Some(TargetSpec::Object(&BOUNCE_TARGET))),
+            ], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&BOUNCE_TARGET)))),
     ],
 }

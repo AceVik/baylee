@@ -1264,6 +1264,22 @@ impl<L: CardLookup> Engine<L> {
                     ),
                 }
             };
+            // Whether this ability said "target" at all, which is what tells
+            // `Filter::This` apart from itself — see `Resolution::targeted`.
+            let targeted = match abilities.get(loc.index as usize) {
+                Some(
+                    AbilityDef::Activated { target, .. }
+                    | AbilityDef::ActivatedConditional { target, .. }
+                    | AbilityDef::SagaChapter { target, .. },
+                ) => target.is_some(),
+                Some(
+                    AbilityDef::Loyalty { targets, .. } | AbilityDef::Triggered { targets, .. },
+                ) => targets.is_some(),
+                Some(AbilityDef::ModalTriggered { modes, .. }) => modes
+                    .get(obj.mode_index.map_or(0, |i| i as usize))
+                    .is_some_and(|m| m.target.is_some()),
+                _ => false,
+            };
             if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 // Synthetic keyword trigger (prowess & co.): effects live in
                 // the side map instead of the card definition.
@@ -1282,6 +1298,8 @@ impl<L: CardLookup> Engine<L> {
                     chosen_player: obj.chosen_player,
                     target_players: obj.target_players,
                     event_object: obj.event_object,
+                    // A synthetic keyword trigger has no printed target.
+                    targeted: false,
                     awaiting: None,
                     mana_ability: false,
                 };
@@ -1306,6 +1324,7 @@ impl<L: CardLookup> Engine<L> {
                 chosen_player: obj.chosen_player,
                 target_players: obj.target_players,
                 event_object: obj.event_object,
+                targeted,
                 awaiting: None,
                 mana_ability: false,
             };
@@ -1332,7 +1351,9 @@ impl<L: CardLookup> Engine<L> {
             })
             .and_then(|abilities| {
                 abilities.iter().find_map(|a| match a {
-                    AbilityDef::Spell { effects, .. } if !effects.is_empty() => Some(*effects),
+                    AbilityDef::Spell { effects, targets } if !effects.is_empty() => {
+                        Some((*effects, targets.is_some()))
+                    }
                     _ => None,
                 })
             })
@@ -1345,13 +1366,13 @@ impl<L: CardLookup> Engine<L> {
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))?;
                 def.abilities_for_face(face).iter().find_map(|a| match a {
-                    AbilityDef::ModalSpell { modes } => {
-                        modes.get(mode_index as usize).map(|m| m.effects)
-                    }
+                    AbilityDef::ModalSpell { modes } => modes
+                        .get(mode_index as usize)
+                        .map(|m| (m.effects, m.target.is_some())),
                     _ => None,
                 })
             });
-        if let Some(fx) = spell_fx {
+        if let Some((fx, targeted)) = spell_fx {
             let obj = self.state.object(top).expect("stack object exists");
             let mut res = Resolution {
                 source: top,
@@ -1364,6 +1385,7 @@ impl<L: CardLookup> Engine<L> {
                 chosen_player: obj.chosen_player,
                 target_players: obj.target_players,
                 event_object: None,
+                targeted,
                 awaiting: None,
                 mana_ability: false,
             };

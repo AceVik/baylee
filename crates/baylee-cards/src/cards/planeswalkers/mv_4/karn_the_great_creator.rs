@@ -55,7 +55,7 @@ card! {
                     toughness: Amount::TargetCmc,
                     duration: Duration::UntilYourNextTurn,
                 },
-            ], target: Some(TargetSpec::Object(&NONCREATURE_ARTIFACT))),
+            ], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&NONCREATURE_ARTIFACT)))),
         loyalty!(-2, &[Effect::WishToHand {
                 filter: &ARTIFACT_YOU_OWN,
             }]),

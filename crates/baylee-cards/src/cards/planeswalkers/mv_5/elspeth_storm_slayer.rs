@@ -53,6 +53,6 @@ card! {
             ]),
         loyalty!(-3, &[Effect::Destroy {
                 target: TargetSpec::Object(&BIG_ENEMY_CREATURE),
-            }], target: Some(TargetSpec::Object(&BIG_ENEMY_CREATURE))),
+            }], targets: Some(TargetReq::one(TargetSpec::Object(&BIG_ENEMY_CREATURE)))),
     ],
 }

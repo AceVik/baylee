@@ -85,11 +85,17 @@ fn branches(ability: &AbilityDef) -> Vec<Branch> {
         }
         | AbilityDef::SagaChapter {
             effects, target, ..
-        }
-        | AbilityDef::Loyalty {
-            effects, target, ..
         } => vec![Branch {
             target: *target,
+            effects,
+        }],
+        // A loyalty ability states a count as well as a filter, and only the
+        // filter is a branch's business: these lints ask what an effect list
+        // is *pointed* at, not how many of them it may point at.
+        AbilityDef::Loyalty {
+            effects, targets, ..
+        } => vec![Branch {
+            target: targets.map(|req| req.spec),
             effects,
         }],
         AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => modal(modes),
@@ -442,7 +448,9 @@ mod tests {
         let broken = AbilityDef::Loyalty {
             cost: 1,
             effects: &SWEEP,
-            target: Some(TargetSpec::Object(&NONCREATURE_ARTIFACT)),
+            targets: Some(TargetReq::up_to_one(TargetSpec::Object(
+                &NONCREATURE_ARTIFACT,
+            ))),
         };
         assert!(
             target_reuse(&broken).is_some(),
@@ -453,7 +461,9 @@ mod tests {
         let fixed = AbilityDef::Loyalty {
             cost: 1,
             effects: &ON_THE_TARGET,
-            target: Some(TargetSpec::Object(&NONCREATURE_ARTIFACT)),
+            targets: Some(TargetReq::up_to_one(TargetSpec::Object(
+                &NONCREATURE_ARTIFACT,
+            ))),
         };
         assert!(
             target_reuse(&fixed).is_none(),
