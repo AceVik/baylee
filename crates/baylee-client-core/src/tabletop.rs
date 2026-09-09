@@ -427,9 +427,56 @@ const _: () = assert!(MAT_RIM > 0.08);
 /// [`seat_mat`] about the quarter they were cut to.
 pub const MAT_LANES: [f32; 3] = [0.0135, 0.0105, 0.0080];
 
+/// The shelf at a mat's centre-facing edge that the seat's bar is written
+/// on, in table units — 0.61 of a card's height.
+///
+/// It is a fourth band on the mat rather than a panel floating over the
+/// felt, and that is the whole of the design: the mat's rim runs round the
+/// ledge and the lanes together, so the seat's colour and the on-turn breath
+/// frame the bar on three sides without a single extra pixel being drawn,
+/// and a bar written on a seat's own ground cannot be mistaken for a bar
+/// belonging to the table.
+///
+/// It is added to [`crate::layout::POD_DEPTH`] rather than taken out of it:
+/// three lanes are still exactly a card tall each, because the ledge is
+/// furniture and a lane is where a card stands.
+pub const MAT_LEDGE: f32 = 0.85;
+
+/// The shelf has to clear the rim on both sides with something left in the
+/// middle, or the bar is written on its own border.
+const _: () = assert!(MAT_LEDGE > MAT_RIM * 4.0);
+
+/// How much of white the ledge is veiled with, on the same scale as
+/// [`MAT_LANES`].
+///
+/// One shade *below* `MAT_LANES[2]`, the quietest lane, and deliberately: the
+/// ink written on the ledge is the brightest thing on a mat, and a shelf that
+/// competed with it would be a panel. `table::shader_tests` has the contrast
+/// this leaves, bounded on both sides.
+pub const MAT_LEDGE_VALUE: f32 = 0.0060;
+
+/// A shelf brighter than the quietest lane is a panel, and one at zero is a
+/// strip of bare table with a rim round it.
+const _: () = assert!(MAT_LEDGE_VALUE < MAT_LANES[2] && MAT_LEDGE_VALUE > 0.0);
+
+/// Where the ledge ends, as a fraction of a mat's depth from its
+/// centre-facing edge.
+///
+/// Derived rather than written down, so the shelf cannot end up a different
+/// size in the shader than in the geometry that reserved room for it.
+pub const LEDGE_FRAC: f32 = MAT_LEDGE / crate::layout::POD_DEPTH;
+
 /// How bright the hairline between two lanes is, on the same scale as
 /// [`MAT_LANES`].
 pub const MAT_SEAM: f32 = 0.036;
+
+/// How much brighter the seam between the ledge and the creature lane is
+/// than the seams between two lanes.
+///
+/// The lanes are three readings of one surface; the ledge is a different
+/// kind of thing standing at its edge, and a seam of the same weight would
+/// say it was a fourth lane.
+pub const MAT_LEDGE_SEAM: f32 = 1.5;
 
 /// How wide that hairline runs, as a fraction of the mat's depth.
 pub const MAT_SEAM_WIDTH: f32 = 0.014;
@@ -508,11 +555,14 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]
             // How far in from the rim, in pixels.
             let inset = -outside;
 
-            // Three lanes across the mat's depth. The band nearest the table
-            // centre (v = 0) is the creature row.
+            // The ledge, then three lanes across what is left of the mat's
+            // depth. `v = 0` is the edge nearest the table centre, which is
+            // where the seat's bar is written; the band after it is the
+            // creature row.
             let v = py / h;
+            let below = ((v - LEDGE_FRAC) / (1.0 - LEDGE_FRAC)).clamp(0.0, 1.0);
             #[expect(clippy::cast_possible_truncation, reason = "three lanes")]
-            let lane = (v * 3.0).floor().clamp(0.0, 2.0) as usize;
+            let lane = (below * 3.0).floor().clamp(0.0, 2.0) as usize;
             // Quiet, not absent. The mat's job is to say where a seat's
             // ground ends: everything on it — cards, rims, the glow — has to
             // stay louder, and a mat nobody can see is not quiet, it is
@@ -535,17 +585,30 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]
             // veil is cut to about a quarter, which lands the field just above
             // the wood — the mat says where a seat's ground is without being
             // the brightest thing in the room.
-            let base = MAT_LANES[lane];
+            let base = if v < LEDGE_FRAC {
+                MAT_LEDGE_VALUE
+            } else {
+                MAT_LANES[lane]
+            };
             // A hairline *between* lanes, so the rows separate without a
             // border drawn around each one. Measured in pixels from the two
             // boundaries: expressed as a fraction of a lane it comes out
             // under a pixel wide on a mat this shallow and never appears.
+            //
+            // The ledge's own boundary is a seam too, and a brighter one:
+            // it is where the seat's ground stops being a place cards stand
+            // and starts being a shelf they are described on.
             let seam_width = (h * MAT_SEAM_WIDTH).max(1.0);
-            let seam = [h / 3.0, h * 2.0 / 3.0]
+            let lanes = h * LEDGE_FRAC;
+            let step = (h - lanes) / 3.0;
+            let seam = [lanes + step, lanes + step * 2.0]
                 .iter()
                 .map(|edge| (py - edge).abs())
                 .fold(f32::MAX, f32::min);
             let seam = (1.0 - seam / seam_width).clamp(0.0, 1.0) * MAT_SEAM;
+            let ledge_seam =
+                (1.0 - (py - lanes).abs() / seam_width).clamp(0.0, 1.0) * MAT_SEAM * MAT_LEDGE_SEAM;
+            let seam = seam.max(ledge_seam);
 
             // The rim: the one part that is meant to be seen from across the
             // table, since it is what carries the seat's colour.
@@ -1459,11 +1522,79 @@ mod tests {
         // need no layout at all — a corner wider than the rim, a rim thick
         // enough to carry a hue — are `const _` assertions beside the
         // constants themselves, where they fail at compile time.
+        // The rim has to survive a **lane**, and a lane is what the mat has
+        // left once the ledge has taken its share — measuring against the
+        // whole depth would let the rim grow every time the shelf did.
+        let lane = (depth - MAT_LEDGE) / 3.0;
         assert!(
-            MAT_RIM < depth / 3.0 * 0.15,
-            "a {MAT_RIM} rim against a {} lane is a frame",
-            depth / 3.0
+            MAT_RIM < lane * 0.15,
+            "a {MAT_RIM} rim against a {lane} lane is a frame"
         );
+        // And the ledge has to be a shelf rather than a fourth lane. That it
+        // clears the rim is a `const _` beside the constant itself; this is
+        // the half that needs a lane to compare against.
+        assert!(
+            MAT_LEDGE < lane * 0.75,
+            "a {MAT_LEDGE} ledge against a {lane} lane reads as a fourth row"
+        );
+    }
+
+    /// The ink on the ledge has to be readable *as composited*, which is a
+    /// different question from how bright the veil is.
+    ///
+    /// The veil is an alpha on white and the felt underneath it is not the
+    /// `FELT_CLOTH` constant — the shader's lamp and the sky's tint are both
+    /// multiplies this module cannot see. So the ground is the same one every
+    /// other composited bound here uses: a **screenshot**, read off a live
+    /// duel. Reasoning about the constant instead gives a felt three times
+    /// too bright and a contrast that agrees with nothing on screen.
+    ///
+    /// Bounded on both sides for the reason
+    /// `the_felt_is_dark_enough_to_read_cards_against` is: a one-sided check
+    /// only stops the mistake it was written after. Too dark and the bar's
+    /// secondary glyphs go under 4.5:1; too bright and the shelf has become
+    /// the loudest band on a seat's ground, which is a panel, which is what
+    /// the ledge exists not to be.
+    #[test]
+    fn the_ledge_is_dark_enough_to_read_ink_against() {
+        // Bare felt beside a mat, measured off `off_a.png` at a duel framing.
+        const FELT_ON_SCREEN: [f32; 3] = [21.0, 63.0, 40.0];
+        // `PARCHMENT` #EDE3CC and `PARCHMENT_EDGE` #B4A380 — the bar's
+        // numerals and its glyphs, the second being the worst case.
+        const PARCHMENT: [f32; 3] = [237.0, 227.0, 204.0];
+        const PARCHMENT_EDGE: [f32; 3] = [180.0, 163.0, 128.0];
+
+        let ledge = over([1.0, 1.0, 1.0, MAT_LEDGE_VALUE], FELT_ON_SCREEN);
+        // Two floors, because the bar writes two kinds of thing on this
+        // shelf. Its numerals and its name are text and take WCAG's 4.5:1
+        // for text, with room to spare; its glyphs are 10 px marks, which is
+        // a graphical object and takes 3:1. They measure 8.7 and 4.5, so the
+        // bounds are where the *categories* put them rather than a hair under
+        // what today's numbers happen to be.
+        for (what, ink, floor) in [
+            ("parchment", PARCHMENT, 7.0),
+            ("its glyphs", PARCHMENT_EDGE, 3.0),
+        ] {
+            let ratio = contrast(display_luma(ink), display_luma(ledge));
+            assert!(
+                ratio >= floor,
+                "{what} on the ledge is {ratio:.2}:1 — the seat bar is not \
+                 readable on its own shelf"
+            );
+        }
+        // That the shelf is quieter than the quietest lane and louder than
+        // bare felt — one shade below the mat rather than a hole cut through
+        // it — needs no compositing and is a `const _` beside the constant.
+    }
+
+    /// WCAG contrast between two colours given as 0–255 display triples.
+    fn display_luma(rgb: [f32; 3]) -> f32 {
+        luma([to_linear(rgb[0]), to_linear(rgb[1]), to_linear(rgb[2]), 1.0])
+    }
+
+    fn contrast(a: f32, b: f32) -> f32 {
+        let (hi, lo) = if a > b { (a, b) } else { (b, a) };
+        (hi + 0.05) / (lo + 0.05)
     }
 
     #[test]
@@ -1698,22 +1829,47 @@ mod tests {
 
     #[test]
     fn a_seat_mat_shows_where_its_lanes_are() {
-        let mat = seat_mat(256, 96, 0.1, 0.03, ACCENT);
-        // The seam belongs *on* the boundary between two lanes (a third of
-        // the way down), not in the middle of one. Drawn mid-lane it splits
-        // every row down its own centre and tells a player the opposite of
-        // the truth about where their creatures end.
-        let seam = mat.pixel(128, 32)[3];
-        let mid_lane = mat.pixel(128, 16)[3];
+        const H: u32 = 96;
+        let mat = seat_mat(256, H, 0.1, 0.03, ACCENT);
+        // The seam belongs *on* the boundary between two lanes, not in the
+        // middle of one. Drawn mid-lane it splits every row down its own
+        // centre and tells a player the opposite of the truth about where
+        // their creatures end.
+        //
+        // The boundaries are computed rather than written down, because the
+        // ledge moved them: three lanes share what the shelf leaves, so a
+        // test that sampled thirds was reading the middle of the near lane
+        // and passing on a mat with no seams drawn at all.
+        #[expect(clippy::cast_possible_truncation, reason = "a row of a texture")]
+        let row = |v: f32| (v * H as f32) as u32;
+        let lanes = LEDGE_FRAC;
+        let step = (1.0 - lanes) / 3.0;
+        let seam = mat.pixel(128, row(lanes + step))[3];
+        let mid_lane = mat.pixel(128, row(lanes + step * 0.5))[3];
         assert!(
             seam > mid_lane,
             "the lane seam should be visible: {seam} vs {mid_lane}"
         );
-        // And it is a hairline: two rows apart it is already gone.
-        let past = mat.pixel(128, 40)[3];
+        // And it is a hairline: a few rows apart it is already gone.
+        let past = mat.pixel(128, row(lanes + step) + 4)[3];
         assert!(
             past < seam,
             "the seam should be a line, not a band: {seam} then {past}"
+        );
+        // The ledge is a band of its own at the centre-facing edge, quieter
+        // than every lane behind it and fenced off by the brightest seam on
+        // the mat.
+        let ledge = mat.pixel(128, row(lanes * 0.5))[3];
+        assert!(
+            ledge < mid_lane,
+            "the ledge should be dimmer than the creature lane: {ledge} vs \
+             {mid_lane}"
+        );
+        let fence = mat.pixel(128, row(lanes))[3];
+        assert!(
+            fence > seam,
+            "the ledge's own seam should be the plainer of the two: {fence} \
+             vs {seam}"
         );
     }
 

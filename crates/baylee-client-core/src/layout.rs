@@ -277,9 +277,12 @@ impl SeatSlot {
     }
 
     /// Height available to a single lane.
+    ///
+    /// What the mat has left once the ledge has taken its share, so a lane is
+    /// a card tall at every table however the shelf is sized.
     #[must_use]
     pub fn lane_height(&self) -> f32 {
-        self.mat_depth() / LaneKind::ALL.len() as f32
+        (self.mat_depth() - crate::tabletop::MAT_LEDGE) / LaneKind::ALL.len() as f32
     }
 
     /// Centre of a lane in table space.
@@ -290,10 +293,39 @@ impl SeatSlot {
             .position(|l| *l == lane)
             .unwrap_or_default() as f32;
         let h = self.lane_height();
-        // Lane 0 (creatures) sits towards the table centre, lands at the back.
-        let offset_from_front = (index + 0.5) * h - self.half_extent.y;
+        // Lane 0 (creatures) sits towards the table centre, lands at the
+        // back — and the ledge is nearer the centre still, so every lane is
+        // pushed one shelf's depth away from the edge it is measured from.
+        let offset_from_front = crate::tabletop::MAT_LEDGE + (index + 0.5) * h - self.half_extent.y;
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
         self.center - away * offset_from_front
+    }
+
+    /// The four corners of this seat's ledge, in table space.
+    ///
+    /// The band at the mat's centre-facing edge that the seat's bar is
+    /// written on. This is what the renderer projects to find where the ink
+    /// goes, and it is the *only* thing it needs: the bar is one screen-space
+    /// node pinned to this rectangle's projection, never a world-space
+    /// object, because there is no text on the 3D table.
+    ///
+    /// The centre-facing edge for **every** seat, which is above your own
+    /// creatures and below the creatures of the seat across from you. A
+    /// player's bar faces the middle of the table, so every bar at the table
+    /// stands between its owner's board and the hearth rather than behind it;
+    /// "the top of the screen" is not a place a side seat has.
+    ///
+    /// Ordered as the seat itself would read them: the two centre-facing
+    /// corners first, left then right in the *seat's* frame, then the two
+    /// that meet the creature lane, right then left. So the four are a loop.
+    #[must_use]
+    pub fn ledge_corners(&self) -> [Vec2; 4] {
+        let away = Vec2::new(self.facing.sin(), self.facing.cos());
+        let side = Vec2::new(self.facing.cos(), -self.facing.sin());
+        let near = self.center + away * self.half_extent.y;
+        let far = self.center + away * (self.half_extent.y - crate::tabletop::MAT_LEDGE);
+        let out = side * self.half_extent.x;
+        [near - out, near + out, far + out, far - out]
     }
 
     /// Centre of one of the four piles, in table space.
@@ -939,8 +971,13 @@ impl TableLayout {
     }
 }
 
-/// How deep one seat's ground is: three lanes with a card standing in each,
-/// and enough air that a lifted card does not overlap the row behind it.
+/// How deep one seat's ground is: the seat's ledge, then three lanes with a
+/// card standing in each, and enough air that a lifted card does not overlap
+/// the row behind it.
+///
+/// [`crate::tabletop::MAT_LEDGE`] is *added* rather than taken out of the
+/// three lanes, so a lane is exactly as tall as it was before the seat bar
+/// existed — the shelf is furniture and a lane is where a card stands.
 ///
 /// A **constant**, and that is the change that made the board fill the
 /// screen. While the depth came off `radius.y`, it grew with the ring — so a
@@ -948,7 +985,7 @@ impl TableLayout {
 /// duel did, and a duel, which is what almost every game actually is, got the
 /// shallowest board of the lot. A card is the same size at every table, so
 /// the ground a card stands on is too.
-pub const POD_DEPTH: f32 = CARD_HEIGHT * 3.0 * 1.18;
+pub const POD_DEPTH: f32 = CARD_HEIGHT * 3.0 * 1.18 + crate::tabletop::MAT_LEDGE;
 
 /// Clear table kept between the mats, for the medallion and the light pool.
 ///

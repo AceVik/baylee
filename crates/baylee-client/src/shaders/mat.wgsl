@@ -59,10 +59,23 @@ const LANE_NEAR: f32 = 0.0135;
 const LANE_MID: f32 = 0.0105;
 const LANE_FAR: f32 = 0.0080;
 
+/// The shelf at the mat's centre-facing edge that the seat's bar is written
+/// on: how much of white it carries, and where it ends as a fraction of the
+/// mat's depth. `tabletop::MAT_LEDGE_VALUE`, `tabletop::LEDGE_FRAC`.
+///
+/// Dimmer than the quietest lane, because the ink on it is meant to be the
+/// brightest thing on a seat's ground.
+const LANE_LEDGE: f32 = 0.0060;
+const LEDGE_FRAC: f32 = 0.14666855;
+
 /// The hairline between two lanes, and how wide it runs as a fraction of the
 /// mat's depth. `tabletop::MAT_SEAM`, `tabletop::MAT_SEAM_WIDTH`.
 const SEAM: f32 = 0.036;
 const SEAM_W: f32 = 0.014;
+
+/// How much brighter the ledge's own seam is than a seam between two lanes.
+/// `tabletop::MAT_LEDGE_SEAM`.
+const LEDGE_SEAM: f32 = 1.5;
 
 /// How much of white the rim carries at its brightest.
 /// `tabletop::MAT_RIM_LIGHT`.
@@ -142,20 +155,29 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    // Three lanes down the mat's depth, brightest at the front where the
-    // creatures stand, and a hairline between them so the rows separate
-    // without a border drawn round each one. `uv.y = 0` is the edge nearest
-    // the middle of the table, which is the same end `seat_mat` paints
-    // `MAT_LANES[0]` at.
+    // The seat's ledge, then three lanes down what is left of the mat's
+    // depth, brightest at the front where the creatures stand, and a hairline
+    // between them so the rows separate without a border drawn round each
+    // one. `uv.y = 0` is the edge nearest the middle of the table, which is
+    // the same end `seat_mat` paints the ledge at.
     let v = in.uv.y;
+    let a = LEDGE_FRAC + (1.0 - LEDGE_FRAC) / 3.0;
+    let b = LEDGE_FRAC + (1.0 - LEDGE_FRAC) * 2.0 / 3.0;
     var lane = LANE_FAR;
-    if v < 1.0 / 3.0 {
+    if v < LEDGE_FRAC {
+        lane = LANE_LEDGE;
+    } else if v < a {
         lane = LANE_NEAR;
-    } else if v < 2.0 / 3.0 {
+    } else if v < b {
         lane = LANE_MID;
     }
-    let to_seam = min(abs(v - 1.0 / 3.0), abs(v - 2.0 / 3.0));
-    let seam = clamp(1.0 - to_seam / SEAM_W, 0.0, 1.0) * SEAM;
+    let to_seam = min(abs(v - a), abs(v - b));
+    let lane_seam = clamp(1.0 - to_seam / SEAM_W, 0.0, 1.0) * SEAM;
+    // The ledge's own boundary is a seam too, and a brighter one: it is where
+    // a seat's ground stops being a place cards stand on and becomes a shelf
+    // they are described on.
+    let ledge_seam = clamp(1.0 - abs(v - LEDGE_FRAC) / SEAM_W, 0.0, 1.0) * SEAM * LEDGE_SEAM;
+    let seam = max(lane_seam, ledge_seam);
 
     // The rim: the one part meant to be read from across the table, since it
     // is what carries the seat's colour.
