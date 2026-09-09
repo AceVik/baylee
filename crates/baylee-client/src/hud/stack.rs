@@ -264,7 +264,10 @@ pub fn ease_the_stack_in(
     // frame on — a different key for the same object, which would otherwise
     // be seeded at nothing and fade in beside the newcomer, so two rows would
     // announce themselves and only one of them would be new. Carrying the
-    // progress across the key change leaves it standing where it was.
+    // progress across the key change leaves it standing where it was. It is
+    // the *current* progress and not 1.0, because the house AI answers within
+    // a frame or two of priority: the common case is a spell demoted while it
+    // is still arriving, and seeding that at rest would snap it to full.
     //
     // The other direction is deliberately not carried: a queued row becoming
     // full is what a resolution looks like from the panel, and that is the
@@ -277,9 +280,10 @@ pub fn ease_the_stack_in(
         let stepped_down = motion
             .rows
             .iter()
-            .any(|(k, _)| *k == StackKey::Entry(id, true));
-        if !known && stepped_down {
-            motion.rows.push((key, 1.0));
+            .find(|(k, _)| *k == StackKey::Entry(id, true))
+            .map(|(_, p)| *p);
+        if !known && let Some(progress) = stepped_down {
+            motion.rows.push((key, progress));
         }
     }
 
@@ -1184,6 +1188,37 @@ mod tests {
         assert!(
             arriving > 0.0 && arriving < palette::PANEL_LIT.alpha(),
             "while the spell that did land is still arriving: {arriving}"
+        );
+    }
+
+    /// And it is carried at the progress it had, not at rest. The house AI
+    /// answers within a frame or two of priority, so the common demotion is
+    /// of a row that is still arriving; seeding that at 1.0 would snap a
+    /// half-faded spell to full on the frame the counter landed.
+    #[test]
+    fn a_row_demoted_mid_arrival_keeps_its_place_in_the_fade() {
+        let mut app = harness();
+        let old = ObjectId::new(11, 0);
+        let (top, top_ink) = a_row(&mut app, StackKey::Entry(old, true));
+        a_frame(&mut app);
+        a_frame(&mut app);
+        let partway = alpha_of(&app, top);
+        assert!(
+            partway > 0.0 && partway < palette::PANEL_LIT.alpha() * 0.9,
+            "the row under test has to still be arriving: {partway}"
+        );
+
+        // The answer lands before the first spell has finished arriving.
+        app.world_mut().entity_mut(top).despawn();
+        app.world_mut().entity_mut(top_ink).despawn();
+        let (stepped, _) = a_row(&mut app, StackKey::Entry(old, false));
+        a_row(&mut app, StackKey::Entry(ObjectId::new(12, 0), true));
+        a_frame(&mut app);
+
+        let carried = alpha_of(&app, stepped);
+        assert!(
+            carried > partway && carried < palette::PANEL_LIT.alpha() * 0.95,
+            "it continues from {partway}, it does not jump to full: {carried}"
         );
     }
 

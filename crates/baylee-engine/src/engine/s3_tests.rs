@@ -40,6 +40,11 @@ fn harabaz_druid() -> CardIndex {
 fn irrigated_farmland() -> CardIndex {
     card_index("406eabe2-df62-49e2-bb39-c0227509d875")
 }
+/// A shockland: the same fetch target, but its replacement *asks* rather
+/// than writing a status.
+fn hallowed_fountain() -> CardIndex {
+    card_index("f1750962-a87c-49f6-b731-02ae971ac6ea")
+}
 
 fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {
@@ -301,6 +306,103 @@ fn a_fetched_tapland_still_enters_tapped() {
     assert!(
         obj.status.contains(crate::object::Status::TAPPED),
         "the land brought its own \"enters tapped\" with it"
+    );
+}
+
+/// The third case, and the one with a real seam in it: a fetched *shockland*.
+///
+/// `EnterModifier::Tapped` writes a status and returns; `TappedOrPayLife` is
+/// the one arm that publishes a `Pending` and returns *mid-scan*, so it has to
+/// survive being raised while a search is finishing resolving — `apply` sets
+/// the priority pending first and `apply_enter_modifiers` overrides it. If
+/// that override lost, a Hallowed Fountain fetched with a Delta would slide
+/// onto the battlefield untapped with no question asked, which is exactly the
+/// shape of "das gefatchte Land kommt nicht getappt rein". Both halves of the
+/// answer are driven here, because a question that is asked and then ignored
+/// is the same bug one step later.
+#[test]
+fn a_fetched_shockland_still_asks_the_question() {
+    let mut engine = Engine::new(
+        &preset_with_library(13, vec![polluted_delta()], vec![forest()], |_| {
+            hallowed_fountain()
+        }),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    pass_to_main(&mut engine, p0);
+
+    let delta = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Hand(p0))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == polluted_delta())
+        })
+        .expect("the fetchland is in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: delta })
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: delta,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority for opponent, got {:?}", engine.pending());
+    };
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected search choice, got {:?}", engine.pending());
+    };
+    let fountain = *options.first().expect("the library is all Fountain");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fountain],
+            },
+        )
+        .unwrap();
+
+    // The question survives the search's own resolution.
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        panic!(
+            "the shockland never asked; pending is {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        prompt,
+        crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 2 }
+    );
+
+    // Declining taps it, which is the half the player reported missing.
+    let life = engine.state().players[0].life;
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    let obj = engine.state().object(fountain).unwrap();
+    assert_eq!(obj.zone, Zone::Battlefield);
+    assert!(
+        obj.status.contains(crate::object::Status::TAPPED),
+        "declining to pay is what taps a shockland"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life,
+        "and it costs no life to decline"
     );
 }
 

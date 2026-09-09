@@ -1187,6 +1187,20 @@ about the table itself rather than the rules, and both are fixed.
     fetches an Irrigated Farmland with a Polluted Delta and reads the status
     back, so that is now a test rather than a reading of the code.
 
+    A **shockland** is the same question with a seam in it, and it is the one
+    reading of the report that would still have been a live bug.
+    `EnterModifier::Tapped` writes a status and returns; `TappedOrPayLife` is
+    the only arm that publishes a `Pending` and returns *mid-scan*, so it has
+    to survive being raised while a search is finishing resolving — `apply`
+    publishes the priority pending and `apply_enter_modifiers` overrides it a
+    line later. If that override lost, a Hallowed Fountain fetched with a
+    Delta would arrive untapped with no question asked, which is precisely
+    "das gefatchte Land kommt nicht getappt rein". It does not lose:
+    `a_fetched_shockland_still_asks_the_question` drives the fetch, reads the
+    `PayLifeOrEnterTapped` prompt back off `pending`, declines it, and finds
+    the Fountain tapped and the life total untouched. Both halves, because a
+    question that is asked and then ignored is the same bug one step later.
+
     *And the check that would have caught it.* `xtask validate` compares the
     header against the `CardDef` — it just had nothing to say about this
     word. It does now: every `finds:` list is read against the printed
