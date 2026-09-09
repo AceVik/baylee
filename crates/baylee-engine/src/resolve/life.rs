@@ -69,7 +69,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         deal_to_player(state, res.source, player, n);
                     }
                 }
-                _ => {
+                // A chosen player is a player. The choice landed in
+                // `target_players`, so reading `targets` here would deal to
+                // whatever object the spell also happened to point at — or,
+                // far more often, to nothing at all. No card in the pool
+                // says this yet; they all spell "target opponent" as
+                // `Player(Chosen)` with the choice on the ability's
+                // `TargetReq`, which is why the catch-all that used to be
+                // here could hold this and stay green.
+                TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => {
+                    for player in res.target_players.iter() {
+                        deal_to_player(state, res.source, player, n);
+                    }
+                }
+                // Everything else names an object, and the damage goes to
+                // the one that was chosen. Spelled out rather than left to
+                // a `_` arm: a new player-flavoured `TargetSpec` would land
+                // in a catch-all silently and be dealt to as an object.
+                TargetSpec::Object(_)
+                | TargetSpec::Spell(_)
+                | TargetSpec::StackOrBattlefield(_)
+                | TargetSpec::CardInGraveyard(..)
+                | TargetSpec::ThisObject
+                | TargetSpec::AbilityOnStack(_)
+                | TargetSpec::SpellOrAbility(_)
+                | TargetSpec::EventObject => {
                     if let Some(&target_id) = res.targets.first() {
                         deal_to_object_with_loyalty(state, target_id, n, res.source);
                     }

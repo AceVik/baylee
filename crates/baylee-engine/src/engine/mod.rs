@@ -529,6 +529,8 @@ mod tests;
 #[cfg(test)]
 mod token_tests;
 #[cfg(test)]
+mod vocabulary_tests;
+#[cfg(test)]
 mod w1_tests;
 #[cfg(test)]
 mod walker_tests;

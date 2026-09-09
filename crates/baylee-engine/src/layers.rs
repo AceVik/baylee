@@ -295,22 +295,44 @@ fn depends_on(dependent: &ContinuousEffect, depended: &ContinuousEffect) -> bool
 
 /// Conservative dependency test: does `modifier` change anything `filter`
 /// reads?
+///
+/// Exhaustive over [`Filter`] deliberately. It used to end in `_ => false`,
+/// which is the quiet direction: a filter the table did not name was
+/// declared independent of every modifier, CR 613.8 never reordered the
+/// pair, and the later effect read a characteristic the earlier one was
+/// about to change. Four filters were sitting in that arm — the two that
+/// read an object's subtypes without writing one down, and both control
+/// predicates against `GainControl` — and the compiler had nothing to say.
+/// A filter added from here on has to answer.
 fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
     match filter {
-        Filter::HasType(_) | Filter::LacksType(_) | Filter::HasSubtype(_) => matches!(
+        // The last two read the object's subtypes as well; what differs is
+        // where the subtype they are compared against comes from.
+        Filter::HasType(_)
+        | Filter::LacksType(_)
+        | Filter::HasSubtype(_)
+        | Filter::MatchesChosenTypeOfSource
+        | Filter::SharesSubtypeWithCommander => matches!(
             modifier,
             Modifier::AddType(_)
                 | Modifier::RemoveType(_)
                 | Modifier::AddSubtype(_)
                 | Modifier::AllCreatureTypes
                 | Modifier::AllBasicLandTypes
+                | Modifier::AddTypeIfCountersAtLeast { .. }
+                | Modifier::BecomeCopyOf(_)
         ),
-        Filter::HasColor(_) | Filter::IsColorless | Filter::Monocolored => {
-            matches!(modifier, Modifier::AddColor(_) | Modifier::SetColor(_))
-        }
+        Filter::HasColor(_) | Filter::IsColorless | Filter::Monocolored => matches!(
+            modifier,
+            Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
+        ),
         Filter::HasKeyword(_) => matches!(
             modifier,
-            Modifier::AddKeyword(_) | Modifier::RemoveKeyword(_) | Modifier::LoseKeywords
+            Modifier::AddKeyword(_)
+                | Modifier::RemoveKeyword(_)
+                | Modifier::LoseKeywords
+                | Modifier::AddKeywordIfCountersAtLeast { .. }
+                | Modifier::BecomeCopyOf(_)
         ),
         Filter::ToughnessAtMost(_) => matches!(
             modifier,
@@ -318,12 +340,37 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::SetPT(..)
                 | Modifier::SwitchPT
                 | Modifier::ModifyPTPerCount { .. }
+                | Modifier::BecomeCopyOf(_)
         ),
+        // Layer 2 moves a permanent from one side of the table to the
+        // other, which is the whole of what these two read.
+        Filter::ControlledByYou | Filter::ControlledByOpponent => {
+            matches!(modifier, Modifier::GainControl)
+        }
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| could_change_match(modifier, f))
         }
         Filter::Not(f) => could_change_match(modifier, f),
-        _ => false,
+        // Nothing in the modifier vocabulary changes any of these. Ownership
+        // and tokenhood are fixed for as long as the object exists (CR
+        // 108.3, CR 111.1); tapped, attacking, attachment and zone are game
+        // state rather than a characteristic a continuous effect writes; no
+        // modifier grants a supertype; and mana value comes off the printed
+        // cost, which only copying rewrites — and a copy effect's own filter
+        // names an object rather than reading one of these.
+        Filter::Any
+        | Filter::This
+        | Filter::Another
+        | Filter::HasSupertype(_)
+        | Filter::IsToken
+        | Filter::OwnedByYou
+        | Filter::Tapped
+        | Filter::Untapped
+        | Filter::Attacking
+        | Filter::AttachedToBySource
+        | Filter::CmcAtMost(_)
+        | Filter::CmcAtLeast(_)
+        | Filter::InZone(_) => false,
     }
 }
 
