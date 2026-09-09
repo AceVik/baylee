@@ -1357,6 +1357,64 @@ The answers underneath share the sheet's width: `flex_grow: 1.0` with a
 after the labels and three answers with three different words would still
 come out three different widths.
 
+### The zone browser is the same sheet, in a different voice
+
+Four decisions make the slip's prose what it is, and only one of them is
+about the slip. Ink with a little parchment showing through, the faint warm
+shadow a letter lying on a sheet casts, and a grey for whatever the line says
+in brackets are all about the *parchment*; the slant is the slip's own voice,
+which is that of a question being asked. So `slip_line` is
+`slip_text(.., italic)` with one caller passing `true` and the browser
+passing `false` — a graveyard is listed on the sheet, not asked on it — and
+there is one treatment rather than two that drift apart the first time either
+is adjusted.
+
+Brass does not appear as **text** on parchment anywhere: measured, it carries
+1.9:1 against `PARCHMENT` (`SLIP_ASIDE` carries 4.9, `PARCHMENT_INK` 13.7),
+which is why the browser's current zone tab read fainter than the ones beside
+it. It keeps its job as a *light* — the card glow, the ordering badge — where
+it sits on its own fill. `the_sheet_writes_no_letters_in_brass` holds it.
+
+Every zone tab says how many cards are in it, in brackets, which is not
+decoration: `bracketed` is what greys a run, so `Graveyard (12)` draws as a
+name with a grey aside and reads as one. It is also the only thing the
+deleted pile-chip strip said that nothing else on the sheet did.
+
+**The sheet moves and resizes, and remembers where it was put.**
+`browser::Placement` is a rectangle inside the *band* — the strip between the
+phase rail and the hand bar — in logical pixels rather than fractions of it,
+because the grid inside is cards at a fixed size and a sheet that scaled with
+the window would show a different number of columns on every screen. `fit`
+shrinks before it moves (a sheet moved first can be pushed off the far edge
+by its own width) and never writes itself back, so a window briefly dragged
+narrow does not overwrite where the player put it. The geometry lives in
+`ClientSettings` and not `Preferences`: it is a fact about this screen, not
+about the account.
+
+Two things about the mechanics are worth knowing before touching them. The
+drag is a `Pointer<Press>` that records *what* is held plus a per-frame read
+of `Window::cursor_position`, **not** `Pointer<Drag>` — the duel HUD is a
+retained tree rebuilt on every snapshot, hover and selection, so a drag chain
+bound to the header entity dies when that entity is despawned mid-gesture
+(the lobby can use the gesture because its tree is not rebuilt per hover).
+And the geometry is kept *out* of `HudRevision` for the same reason from the
+other side: a rebuild per pixel of a drag would make the sheet unusable. The
+system writes the sheet's own `Node` and the in-memory settings; only the
+release touches disk.
+
+`HudRevision` did gain the window's logical size, which nothing in it
+followed before — a HUD built for one size simply stayed that way through a
+resize, latent everywhere the overlay reads `windows` and not latent at all
+once the sheet is placed from a band whose height is the window's.
+
+A drag cannot be proved through `dev-control`: `/pointer` presses and
+releases in one call, so there is no frame in the middle with the cursor
+somewhere else. `input::dragging` proves it headlessly on the sheet's own
+`Node` instead. That test also found the reason `ClientSettings::save` is a
+no-op under `cfg(test)`: releasing the pointer wrote the developer's real
+`~/.config/baylee/client-settings.json`, moving the sheet in their own client
+by the delta the test had invented.
+
 The diagnosis is the part worth keeping. Reading the HUD for a full-screen
 node that might be swallowing the ray found nothing — `HudRoot` has carried
 `Pickable::IGNORE` since it was written. A temporary probe over `PointerHits`

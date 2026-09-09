@@ -1207,3 +1207,84 @@ about the table itself rather than the rules, and both are fixed.
     "onto the battlefield tapped", and only a *put* counts, so a land whose
     own text taps it as it enters is not mistaken for one that taps what it
     finds. Re-introducing the bug in one card fails the command by name.
+
+55. **"Entferne die aktuelle Zonendarstellung und ersetze sie komplett durch
+    die neue. Repariere das schließen Icon … Mach diesen Dialog resizeable und
+    verschiebbar."** *Done, in four parts.*
+
+    *The old display was a second renderer for three zones.* A strip of pile
+    chips sat above the board drawing the local seat's graveyard, exile and
+    command zone as counts that opened the browser. Those three piles now
+    stand on the felt with their real top card lying on them (entry 52), a
+    pile's top card is a `Placement` like any other, and `input.rs`'s
+    `open_pile` already turned a tap on one into `Browser::open_at`. So the
+    strip was deleted and the pile *is* the button — which is what the chips
+    themselves said the mat corners should have been all along, and could not
+    be at the time only because the counts they replaced were `TextSpan`s
+    inside one text entity with no layout node to click.
+
+    `open_pile` was wired and nothing had ever clicked it, which is the shape
+    of the `client-input-gap` lesson, so the deletion needed a witness rather
+    than a reading. `a_tap_on_a_pile_opens_it` goes through `activate_card` —
+    the function the pointer calls — and fails by name when that last branch
+    is removed; `a_tap_on_a_library_opens_nothing` holds CR 401.2. Live, a tap
+    on the opponent's command-zone card opens the sheet on
+    `Command · House AI (1)`.
+
+    *One thing the chips did that the felt cannot.* Cards in `looking_at` are
+    *shown* to a seat without being asked about — a reveal, a turned-over top
+    card — and they live in no zone the table draws. `Browser::follow` only
+    runs when a **choice** arrives, so before this the "Zones" chip was the
+    only way to see them. `Browser::saw_reveal` opens the sheet on them,
+    edge-triggered on the *ids*: per-frame would make the panel impossible to
+    close, and a length comparison would merge "one reveal ends, another
+    begins" into no opening at all.
+
+    *The close icon.* Measured in the live shot it was a 26.5 × 21.5 pill
+    with a 6.5 px cross adrift inside it, `Color::NONE` behind it, and no
+    `Feel` — a stray mark on the sheet rather than a control. It is 24 × 24
+    now with a 13 px glyph, a `SLIP_GHOST` fill (not `NONE`: a fill-less node
+    under a drop shadow renders as a hole) and a `Feel`, which the tabs, the
+    sort key, the direction arrow and the filter box also gained. They were
+    the only buttons in the client that did not answer the pointer.
+
+    *Bigger, shadowed, translucent, with grey brackets — which already
+    existed.* All four were built for the prompt slip in milestone 5, and a
+    second treatment of the same parchment is how two halves of one interface
+    start disagreeing. `slip_line` split into `slip_text(.., italic)`: the
+    slant is the slip's own voice (a question being asked), everything else
+    belongs to the sheet. The browser passes `false` and gets the rest.
+    Sizes went 13 → 16 for the title and 10/11 → 12 for the controls, and the
+    bracketed run the treatment greys is new — every zone tab now says how
+    many cards are in it, which is the one thing the deleted chips carried
+    that nothing else did. `BRASS` also came off the sheet as *text*: it is
+    1.9:1 on parchment, which is why the current tab read fainter than the
+    ones beside it.
+
+    *Draggable, resizable, remembered.* `browser::Placement` is a rectangle
+    inside the band between the phase rail and the hand bar, in logical
+    pixels — the grid inside is cards at a fixed size, so a sheet that scaled
+    with the window would show a different number of columns on every screen.
+    It lives in `baylee-client-core` because all of it is arithmetic, and
+    arithmetic with a window in front of it is arithmetic nobody tests.
+    `fit` shrinks before it moves and never writes itself back. The geometry
+    is in `ClientSettings` (the owner said *clientseitig*) and not
+    `Preferences`, which travels with the account.
+
+    Two mechanics worth not re-deriving. The drag is a `Pointer<Press>` plus a
+    per-frame cursor read rather than `Pointer<Drag>`, because the duel HUD is
+    a retained tree rebuilt on every snapshot and hover — a chain bound to the
+    header entity dies when that entity is despawned mid-gesture. And the
+    geometry stays out of `HudRevision`, or a rebuild would run per pixel.
+    `HudRevision` *did* gain the window size, which nothing in it followed
+    before: a HUD built for one size stayed that way through a resize, latent
+    everywhere the overlay reads `windows`.
+
+    *And a defect the test found in itself.* `/pointer` presses and releases
+    in one call, so a drag cannot be proved through `dev-control`;
+    `input::dragging` proves it headlessly on the sheet's `Node`. Its release
+    then wrote the developer's real `~/.config/baylee/client-settings.json`,
+    moving the sheet in their own client by the delta the test had invented.
+    `ClientSettings::save` is a no-op under `cfg(test)` now — the in-memory
+    write is what a test has business asserting, and the encoding is proved by
+    `settings_round_trip_through_json` without touching a file.

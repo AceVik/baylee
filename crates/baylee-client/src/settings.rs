@@ -152,7 +152,19 @@ impl ClientSettings {
 
     /// Persists the settings (best-effort; neither a read-only home dir nor a
     /// browser with site data blocked is worth a crash).
+    ///
+    /// **Not under test.** This writes to the player's real config directory,
+    /// and a test that reached it would edit the settings of whoever ran
+    /// `cargo test` — which is exactly what the zone browser's drag test did
+    /// the first time it released the pointer, moving the sheet in the
+    /// developer's own client by the delta the test had invented. The
+    /// in-memory half is what a test has business asserting; the file is the
+    /// platform's, and `settings_round_trip_through_json` proves the encoding
+    /// without one.
     pub fn save(&self) {
+        if cfg!(test) {
+            return;
+        }
         if let Ok(text) = serde_json::to_string_pretty(self) {
             store::write(&text);
         }

@@ -23,7 +23,7 @@ Two consequences worth knowing before changing anything here:
 |---|---|---|
 | The click (card under cursor → phase toggle → pass) | `Enter` | implemented |
 | Confirm / pass (never toggles anything else) | `Space` | implemented |
-| Cancel: armed deed, then preview, then phase selection, then half-built answer | `Esc` | implemented |
+| Cancel: armed deed, then preview, then the zone browser, then phase selection, then half-built answer | `Esc` | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select) | `E` | implemented |
@@ -34,6 +34,7 @@ Two consequences worth knowing before changing anything here:
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
 | Open the zone browser (graveyards, exile, the stack) | `G`, or a tap on the top card of a pile | implemented |
+| Move the zone browser / resize it (remembered per client) | drag its title row / its bottom-right corner | implemented |
 | Battlefield camera: pan | arrows (not while choosing a number), right- or middle-drag, touch-drag | implemented |
 | Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
 | Battlefield camera: rotate | `Shift+←/→`, left-drag, rotate gesture | implemented |
