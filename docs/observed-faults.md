@@ -1329,11 +1329,19 @@ about the table itself rather than the rules, and both are fixed.
     once a commander has connected, so no ordinary game shows it. Forced on
     and measured: the tab stood 58.5 tall, its top border cut off by the
     window's edge and its bottom border drawn over the phase rail. It sits
-    beside the life total now, where it costs width — which the strip has —
-    and where a second life total belongs anyway.
-    `nothing_new_is_stacked_into_a_seat_tab` counts the calls that stack a
-    row into a tab and expects two; the layout that would prove it directly
-    exists only inside a running renderer.
+    beside the life total now, where it costs width instead — the cheaper of
+    the two on a strip that states its height and not its width, and where a
+    second life total belongs anyway. Not free either: the bar neither wraps
+    nor clips, so eight seats all carrying a track widen every tab by about
+    ninety pixels. `nothing_new_is_stacked_into_a_seat_tab` counts the calls
+    that stack a row into a tab and expects two; the layout that would prove
+    it directly exists only inside a running renderer.
+
+    *And every node of the track is `Pickable::IGNORE` now,* which on the
+    life line is load-bearing and not tidiness: anything pickable in front of
+    a control stops `PickingInteraction` at itself, so `Feel` would have gone
+    dead across the whole track — the label finding a third time, invisible
+    in an ordinary game for exactly the reason the overflow was.
 
     *And the one the pass was not looking for.* `HudRevision` never compared
     `chosen_index`, so the answer chooser's brass highlight followed the

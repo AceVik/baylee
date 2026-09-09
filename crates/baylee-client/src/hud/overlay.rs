@@ -1839,6 +1839,12 @@ pub(super) fn spawn_player_tab(
         } else {
             counts_color
         };
+        // Every node of the track is `Pickable::IGNORE`, and now that it
+        // stands on the tab's own life line that is load-bearing rather than
+        // tidy: anything pickable in front of a control stops
+        // `PickingInteraction` at itself, so `Feel` would go dead across the
+        // whole track — the label finding again, and invisible in an ordinary
+        // game for the same reason the overflow was.
         let row = commands
             .spawn((
                 Node {
@@ -1847,10 +1853,12 @@ pub(super) fn spawn_player_tab(
                     column_gap: px(4.0),
                     ..default()
                 },
+                Pickable::IGNORE,
                 children![(
                     Text::new(glyph::COMMAND.to_string()),
                     icon_tf(fonts, 10.0),
                     TextColor(color),
+                    Pickable::IGNORE,
                 )],
             ))
             .id();
@@ -1869,6 +1877,7 @@ pub(super) fn spawn_player_tab(
                     ..default()
                 },
                 BackgroundColor(palette::PANEL_LIT),
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(row).add_child(bar);
@@ -1885,6 +1894,7 @@ pub(super) fn spawn_player_tab(
                     ..default()
                 },
                 BackgroundColor(color),
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(bar).add_child(fill);
@@ -1905,6 +1915,7 @@ pub(super) fn spawn_player_tab(
                         ..default()
                     },
                     BackgroundColor(palette::MUTED),
+                    Pickable::IGNORE,
                 ))
                 .id();
             commands.entity(bar).add_child(tick);
@@ -1915,6 +1926,7 @@ pub(super) fn spawn_player_tab(
                 Text::new(track.worst.to_string()),
                 tf(fonts, 11.0),
                 TextColor(color),
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(row).add_child(worst);

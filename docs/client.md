@@ -1376,10 +1376,14 @@ either.** The commander-damage track (CR 903.10a) was one, and it appears
 only once a commander has connected — so no ordinary game showed it. Forced
 on and measured, the tab stood 58.5 tall, its top border cut off by the
 window's edge and its bottom border drawn over the phase rail. It sits beside
-the life total now, on the same row, where it costs width instead: which is
-also where a *second life total* belongs. `nothing_new_is_stacked_into_a_
-seat_tab` counts the calls that stack a row into a tab and expects two,
-because the layout that would prove it exists only inside a running renderer.
+the life total now, on the same row, where it costs width instead — the
+cheaper of the two on a strip that states its height and does not state its
+width, and where a *second life total* belongs anyway. That is not free
+either: the bar neither wraps nor clips, so eight seats all carrying a track
+widen every tab by about ninety pixels, which is a thing to measure when a
+table that size is playable. `nothing_new_is_stacked_into_a_seat_tab` counts
+the calls that stack a row into a tab and expects two, because the layout
+that would prove it exists only inside a running renderer.
 
 **`Feel` owns `BackgroundColor` every frame, so a fill it does not know about
 is a fill that lasts one frame.** That is why the answer chooser's brass
