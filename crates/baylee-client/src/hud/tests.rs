@@ -66,29 +66,27 @@ mod layout {
         assert!(layout.lead.abs() < 1e-4, "it started {} in", layout.lead);
     }
 
-    /// The commander zone costs the hand the same width whoever is asking.
+    /// The hand gets the whole bar, and both readers of that number agree.
     ///
-    /// The rebuild took it off and the per-frame scroll system did not, so a
-    /// seat with a commander had its row spawned centred in one width and
-    /// re-centred in a wider one on the very next frame — half the zone,
-    /// sideways and back, on every rebuild. The hover is part of
-    /// `HudRevision`, so a pointer crossing the hand rebuilt it continuously
-    /// and the row shook.
+    /// The rebuild took 110 pixels off the right-hand end for a commander
+    /// zone and the per-frame scroll system did not, so a seat with a
+    /// commander had its row spawned centred in one width and re-centred in
+    /// a wider one on the very next frame — half the zone, sideways and
+    /// back, on every rebuild. The hover is part of `HudRevision`, so a
+    /// pointer crossing the hand rebuilt it continuously and the row shook.
+    ///
+    /// Neither should have subtracted it: the commander zone is drawn on the
+    /// table beside the mat and has been for some time, so what the
+    /// reservation held open was a hole.
     #[test]
-    fn the_commander_zone_costs_the_hand_the_same_width_from_either_side() {
+    fn the_hand_is_laid_out_in_the_whole_bar() {
         let window = 1920.0;
         assert!(
-            (hand_available(window, 0) - hand_available(window, 1)) > 0.0,
-            "a commander has to cost the hand something, or the zone is \
-             drawn over the cards"
+            (hand_available(window) - (window - 2.0 * HAND_BAR_PAD)).abs() < 1e-3,
+            "the hand gets everything but the bar's own padding, and it \
+             answered {}",
+            hand_available(window)
         );
-        for commanders in [0, 1, 2] {
-            let width = hand_available(window, commanders);
-            assert!(
-                (width - hand_available(window, commanders)).abs() < f32::EPSILON,
-                "{commanders} commanders answered two different widths"
-            );
-        }
     }
 
     /// And the preview points at the card, not at where the row would have
@@ -99,7 +97,7 @@ mod layout {
     /// stood.
     #[test]
     fn the_preview_stands_on_the_card_it_describes() {
-        let available = hand_available(1920.0, 1);
+        let available = hand_available(1920.0);
         let layout = hand_layout(7, HAND_CARD_W, available);
         assert!(layout.lead > 100.0, "this window has room to centre in");
         for index in 0..7 {

@@ -948,15 +948,11 @@ pub fn sync_overlay(
         }
     }
 
-    // ---- bottom: the hand bar (always on top) + commander zone ----------
+    // ---- bottom: the hand bar (always on top) ---------------------------
     if let Some(statics) = duel.statics.as_ref() {
-        let commanders = view
-            .command
-            .get(view.seat.get() as usize)
-            .map_or(&[][..], Vec::as_slice);
         let available = windows
             .single()
-            .map_or(1200.0, |w| hand_available(w.width(), commanders.len()));
+            .map_or(1200.0, |w| hand_available(w.width()));
         let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
         let hand_bar = spawn_hand_bar(
             &mut commands,

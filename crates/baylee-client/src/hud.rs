@@ -380,9 +380,6 @@ pub const HAND_CARD_H: f32 = HAND_CARD_W * 88.0 / 63.0;
 /// The fraction of a card that must stay visible when cards overlap.
 const MIN_VISIBLE: f32 = 0.3;
 
-/// The strip the commander zone takes at the right-hand end of the hand bar.
-pub const COMMAND_ZONE_W: f32 = 110.0;
-
 /// The bar's own padding, which every card in it starts after.
 ///
 /// The strip is an absolutely-positioned child, so it is measured against
@@ -399,20 +396,26 @@ pub const HAND_BAR_PAD: f32 = 10.0;
 /// two of them.
 pub const HAND_STRIP_INSET: f32 = 10.0;
 
-/// How wide the hand may lay itself out.
+/// How wide the hand may lay itself out: the window less the bar's padding.
 ///
 /// One function because two callers answered it differently, and the
-/// disagreement was visible: the overlay took the commander zone off the
-/// window and the per-frame scroll system did not, so a hand with a
-/// commander was spawned centred in one width and re-centred in a wider one
-/// on the very next frame. Every rebuild moved the whole row
-/// `COMMAND_ZONE_W / 2` sideways and back — and because the hover is part of
-/// [`HudRevision`], a pointer crossing the hand rebuilt it continuously.
-/// That is the flicker.
+/// disagreement was visible. The overlay took 110 pixels off the right-hand
+/// end for a commander zone and the per-frame scroll system did not, so a
+/// seat with a commander had its row spawned centred in one width and
+/// re-centred in a wider one on the very next frame — half the zone,
+/// sideways and back, on every rebuild. The hover is part of
+/// [`HudRevision`], so a pointer crossing the hand rebuilt it continuously
+/// and the row shook rather than jumped.
+///
+/// Neither of them should have been subtracting it. The commander zone was
+/// drawn in this bar once and is not any more: it is a public zone (CR
+/// 903.6) and it stands beside the mat on the table with the graveyard and
+/// the exile pile. The reservation outlived the thing it was reserving for,
+/// which is why the hand of a commander deck was laid out around a hole
+/// nothing has occupied for some time.
 #[must_use]
-pub fn hand_available(window_w: f32, commanders: usize) -> f32 {
-    let zone = if commanders == 0 { 0.0 } else { COMMAND_ZONE_W };
-    (window_w - 2.0 * HAND_BAR_PAD - zone).max(0.0)
+pub fn hand_available(window_w: f32) -> f32 {
+    (window_w - 2.0 * HAND_BAR_PAD).max(0.0)
 }
 
 /// How the hand bar lays out `count` cards of `card_w` width in

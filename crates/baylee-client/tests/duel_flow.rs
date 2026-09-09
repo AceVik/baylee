@@ -145,8 +145,17 @@ fn blocking_preset(seed: u64) -> GamePreset {
     };
     preset.seats[1].starting_battlefield = squad_of(6);
     // Something to block *with*, but fewer of them: a house AI looking at an
-    // equal wall of 1/2s has no profitable attack and simply does not come.
+    // equal wall has no profitable attack and simply does not come.
     preset.seats[0].starting_battlefield = squad_of(2);
+    // Life enough to still be alive when the two runs are compared. The claim
+    // is about *how much* damage got through, and a seat that is dead in both
+    // runs reports the same overshot life total in both — which is a pass
+    // turning into a failure the moment the squad's power goes up, and is
+    // exactly what happened when Great Divide Guide was corrected from the
+    // 1/2 it was written as to the 2/3 it is printed as.
+    for seat in &mut preset.seats {
+        seat.starting_life = Some(400);
+    }
     preset
 }
 

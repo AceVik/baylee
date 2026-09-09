@@ -256,15 +256,9 @@ pub fn apply_hand_scroll(
     let (Some(board), Ok(window)) = (duel.board.as_ref(), windows.single()) else {
         return;
     };
-    // The same width the rebuild laid the row out in, commander zone and
-    // all: this used to be `width - 20` alone, and the two answers differing
-    // is what moved the row sideways on every rebuild.
-    let commanders = duel.view.as_ref().map_or(0, |view| {
-        view.command
-            .get(view.seat.get() as usize)
-            .map_or(0, Vec::len)
-    });
-    let available = hand_available(window.width(), commanders);
+    // The same width the rebuild lays the row out in. The two used to
+    // differ, and that is what moved the row sideways on every rebuild.
+    let available = hand_available(window.width());
     let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
     let max_scroll = (layout.content_width - available).max(0.0);
 

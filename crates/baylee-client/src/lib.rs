@@ -991,8 +991,21 @@ fn tap_action(
 pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manaplan::Plan> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    let hand_card = view.hand.iter().find(|c| c.id == card)?;
-    let cost = manasources::hand_cost(hand_card)?;
+    // A hand card, or a commander standing in the command zone. The two are
+    // the only places this client offers to tap lands *for*, and they have to
+    // be the same two [`reachable`] admits — a card in one set and not the
+    // other is a card that lights up and then does nothing when it is
+    // clicked.
+    let cost = if let Some(hand_card) = view.hand.iter().find(|c| c.id == card) {
+        manasources::hand_cost(hand_card)?
+    } else {
+        let commander = view
+            .seat(view.seat)?
+            .commanders
+            .iter()
+            .find(|c| c.object == card)?;
+        commander_cost(commander)?.with_more_generic(2 * commander.casts)
+    };
     let pool = view.seat(view.seat)?.mana_pool;
     baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
 }
@@ -1186,16 +1199,61 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     let Some(pool) = view.seat(view.seat).map(|s| s.mana_pool) else {
         return std::collections::HashSet::new();
     };
+    let affordable = |cost: baylee_core::mana::ManaCost| {
+        baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
+    };
     view.hand
         .iter()
         .filter(|card| !legal.castable.contains(&card.id) && !legal.lands.contains(&card.id))
-        .filter(|card| {
-            manasources::hand_cost(card)
-                .and_then(|cost| baylee_client_core::manaplan::plan(&cost, &pool, &sources))
-                .is_some()
-        })
+        .filter(|card| manasources::hand_cost(card).is_some_and(&affordable))
         .map(|card| card.id)
+        // The command zone is castable from too (CR 903.8), and leaving it
+        // out is why a commander could not be played. A card the engine has
+        // not offered yet — because the mana is not floating — is reached
+        // for by tapping lands, and this set is the whole of what the client
+        // will offer to do that for. It only ever read the hand, so the one
+        // card a commander deck is built around answered no click at all:
+        // not `castable`, not `reachable`, no ability to activate, so the
+        // tap fell through to the last branch and opened the zone browser.
+        //
+        // The tax is part of the cost and has to be added here rather than
+        // read off the card: CR 903.8 is `{2}` more generic for each previous
+        // cast *of that commander*, which is why `CommanderView::casts` is
+        // per commander and not per seat.
+        .chain(
+            view.seat(view.seat)
+                .into_iter()
+                .flat_map(|seat| seat.commanders.iter())
+                .filter(|c| !legal.castable.contains(&c.object))
+                // Still *in* the zone. A commander on the battlefield or in a
+                // graveyard is named by the same `CommanderView` — the handle
+                // follows the card through every move (CR 400.7) — and only
+                // the one standing in the command zone is castable from it.
+                .filter(|c| {
+                    view.command
+                        .get(view.seat.get() as usize)
+                        .is_some_and(|zone| zone.iter().any(|o| o.id == c.object))
+                })
+                .filter(|c| {
+                    commander_cost(c)
+                        .map(|cost| cost.with_more_generic(2 * c.casts))
+                        .is_some_and(&affordable)
+                })
+                .map(|c| c.object),
+        )
         .collect()
+}
+
+/// A commander's printed cost, before CR 903.8's tax.
+///
+/// The card is named on the [`baylee_view::CommanderView`] itself rather than
+/// looked up through the object, because a commander is public in every zone
+/// (CR 903.3) and the view says so there whatever zone it is sitting in.
+fn commander_cost(c: &baylee_view::CommanderView) -> Option<baylee_core::mana::ManaCost> {
+    let card = c.card?;
+    let def = baylee_cards::by_index(card.index)?;
+    let face = def.faces.get(card.face as usize).or(def.faces.first())?;
+    Some(face.mana_cost)
 }
 
 #[cfg(test)]
@@ -1381,6 +1439,117 @@ mod reconnect_tests {
             *dials.lock().unwrap(),
             during + 1,
             "the next drop starts the schedule over"
+        );
+    }
+}
+
+#[cfg(test)]
+mod commander_reach_tests {
+    use super::*;
+    use baylee_client_core::test_support::{ViewBuilder, printed, token};
+    use baylee_core::mana::ManaColor;
+    use baylee_engine::choice::GRANTED_ABILITY;
+
+    /// Katara, the Fearless — `{G}{W}{U}`, three coloured pips and no
+    /// generic, so the tax is visible in the count of lands it takes.
+    const KATARA: u16 = 82;
+
+    /// `n` lands that each make one mana of any colour, and the engine
+    /// offering every one of them.
+    ///
+    /// Any-colour sources on purpose: what is under test is whether the
+    /// command zone is *looked at*, and a test that also had to get the
+    /// colours right would fail for two reasons and say one.
+    fn table_with(lands: usize, commander_casts: u32) -> Duel {
+        let mut objects = Vec::new();
+        for slot in 0..lands {
+            let mut land = token(100 + slot as u32, 0, "Wastes", 0, 0);
+            land.types = baylee_core::types::TypeSet::LAND;
+            land.power = None;
+            land.toughness = None;
+            land.granted_mana = Some(baylee_view::GrantedMana {
+                slot: 0,
+                colors: vec![
+                    ManaColor::White,
+                    ManaColor::Blue,
+                    ManaColor::Black,
+                    ManaColor::Red,
+                    ManaColor::Green,
+                ],
+                amount: 1,
+            });
+            objects.push(land);
+        }
+        let ids: Vec<_> = objects.iter().map(|o| o.id).collect();
+        let mut commander = printed(7, 0, "Katara, the Fearless", KATARA);
+        commander.commander = true;
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, objects)
+            .with_command(0, vec![commander.clone()])
+            .with_commanders(0, &[&commander])
+            .build();
+        view.seats[0].commanders[0].casts = commander_casts;
+        let legal = baylee_engine::choice::LegalActions {
+            can_pass: true,
+            abilities: ids.iter().map(|id| (*id, GRANTED_ABILITY)).collect(),
+            mana_abilities: ids,
+            ..baylee_engine::choice::LegalActions::default()
+        };
+        Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                baylee_engine::choice::Pending::Priority {
+                    player: PlayerId::new(0),
+                    legal: Box::new(legal),
+                },
+                PlayerId::new(0),
+            )),
+            view: Some(view),
+            ..Default::default()
+        }
+    }
+
+    /// The commander is a card this client will tap lands for.
+    ///
+    /// It was not, and that is the whole of "I cannot play my commander":
+    /// `reachable` read `view.hand` and nothing else, so the one card a
+    /// commander deck is built around was never in it. With the mana not
+    /// already floating the engine has not offered the card either, so a
+    /// click found no action, no ability and no selection — and fell through
+    /// to the last branch of `activate_card`, which opens the zone browser.
+    /// Pressing the commander opened a panel about the commander.
+    #[test]
+    fn a_commander_in_the_command_zone_is_reachable() {
+        let duel = table_with(3, 0);
+        let reach = reachable(&duel);
+        let commander = duel.view.as_ref().unwrap().seats[0].commanders[0].object;
+        assert!(
+            reach.contains(&commander),
+            "three lands pay {{G}}{{W}}{{U}} and the commander was not offered: {reach:?}"
+        );
+        assert!(
+            mana_for(&duel, commander).is_some(),
+            "and the plan that click would run has to exist too, or the card \
+             lights up and then does nothing"
+        );
+    }
+
+    /// And CR 903.8's tax is part of what it costs.
+    ///
+    /// A commander cast once already needs `{2}` more. Three lands paid for
+    /// it the first time and must not the second, or the client offers a
+    /// plan the engine refuses — which is the failure mode the mana planner
+    /// exists to avoid, not one to introduce at a new door.
+    #[test]
+    fn the_commander_tax_is_part_of_what_the_client_plans_for() {
+        let once = table_with(3, 1);
+        let commander = once.view.as_ref().unwrap().seats[0].commanders[0].object;
+        assert!(
+            !reachable(&once).contains(&commander),
+            "three lands do not pay {{G}}{{W}}{{U}} plus the {{2}} tax"
+        );
+        assert!(
+            reachable(&table_with(5, 1)).contains(&commander),
+            "and five do"
         );
     }
 }
