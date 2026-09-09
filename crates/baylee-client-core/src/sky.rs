@@ -7,7 +7,7 @@
 //!
 //! # There is no day and night in the rules
 //!
-//! Magic has a day/night designation (CR 728), and this is **not** it. No card
+//! Magic has a day/night designation (CR 731), and this is **not** it. No card
 //! in the pool is daybound or nightbound, `baylee-view` carries no such state,
 //! and inventing one in the client would put a rules claim on the table that
 //! the engine never made. This is weather: it says what the room looks like,

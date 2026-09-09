@@ -468,7 +468,7 @@ fn motion_row(
 ///
 /// It sits beside the motion switch because it is the other setting on this
 /// screen that is about the *table* and not about the game. The line under it
-/// says so out loud: Magic has a day/night designation (CR 728) and this is
+/// says so out loud: Magic has a day/night designation (CR 731) and this is
 /// emphatically not it, so a player must never look at a starfield and
 /// wonder whether something on the board has transformed.
 fn sky_row(

@@ -731,7 +731,7 @@ about the table itself rather than the rules, and both are fixed.
     how much night was in it would be reddest at midnight.
 
     Two things it deliberately is not. It is **not** Magic's day/night
-    designation (CR 728): no card in the pool is daybound or nightbound,
+    designation (CR 731): no card in the pool is daybound or nightbound,
     `baylee-view` carries no such state, and a client inventing one would put
     a rules claim on the table the engine never made. And the hour it follows
     is **UTC**, not the player's zone — a timezone database is a large

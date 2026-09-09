@@ -651,7 +651,7 @@ Night }` and a pure `phase(mode, hour)` with dawn and dusk ramps — and
 `baylee-client/src/sky.rs` draws it as one quad parented to the camera,
 painted in **screen space** by `shaders/sky.wgsl` so it holds still when the
 player orbits and so the sun and the moon can be put where the table is not.
-Magic's day/night designation (CR 728) is a different thing entirely and no
+Magic's day/night designation (CR 731) is a different thing entirely and no
 card in the pool has it: nothing about this sky changes a legal action, which
 is exactly why a client may decide it alone and why the clock is the player's
 own. The hour comes from `web-time` in the shell, because
