@@ -254,6 +254,12 @@ messages! {
         en: "your table {0} is open — waiting for an opponent",
         de: "dein Tisch {0} ist offen — warte auf Gegner",
     },
+    /// The same banner offline, where the table carries no id worth reading
+    /// and nobody is on their way to it.
+    TableOpenHouseWaiting {
+        en: "your table is open — arrange the chairs and start",
+        de: "dein Tisch ist offen — richte die Plätze ein und starte",
+    },
     /// The veil over the moment between a granted seat and the duel.
     TakingYourSeat { en: "taking your seat…", de: "nehme deinen Platz ein…" },
     /// Back to the lobby from a finished game.
@@ -325,6 +331,11 @@ messages! {
     TableOpen {
         en: "table open — waiting for an opponent",
         de: "Tisch offen — warte auf Gegner",
+    },
+    /// The same offline, where the rest of the chairs are the house.
+    TableOpenHouse {
+        en: "table open — arrange the chairs and start",
+        de: "Tisch offen — richte die Plätze ein und starte",
     },
     /// Somebody joined it.
     OpponentSatDown { en: "an opponent sat down", de: "ein Gegner hat sich gesetzt" },
@@ -1068,6 +1079,8 @@ messages! {
         en: "Talking to the gateway",
         de: "Spreche mit dem Gateway",
     },
+    /// The same veil offline, where there is nobody to talk to.
+    VeilWorking { en: "One moment", de: "Einen Moment" },
     /// Check your e-mail — a confirmation link is on its way.
     ConfirmYourEmail {
         en: "account created — check your e-mail for the confirmation link",

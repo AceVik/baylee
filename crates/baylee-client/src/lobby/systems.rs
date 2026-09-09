@@ -1041,6 +1041,12 @@ pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading
     let lang = state.lobby.lang();
     match state.lobby.screen() {
         Screen::Seated(_) => loading.show(Phrase::VeilTakingSeat.text(lang)),
+        // Offline the wait is this process building a deck, a room or an
+        // engine, and a veil claiming a conversation with a gateway would
+        // be naming a machine that was never dialled.
+        _ if state.lobby.busy() && state.lobby.offline() => {
+            loading.show(Phrase::VeilWorking.text(lang));
+        }
         _ if state.lobby.busy() => loading.show(Phrase::VeilTalking.text(lang)),
         _ => loading.clear(),
     }

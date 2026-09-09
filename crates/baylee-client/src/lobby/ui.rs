@@ -528,8 +528,9 @@ fn table(
         .id();
     commands.entity(bar).add_child(brand);
     // The gateway address is reassurance, not information, and the first thing
-    // a narrow screen can do without.
-    if !phone {
+    // a narrow screen can do without — and offline it is not even that: the
+    // address is printed from settings and nothing has been dialled.
+    if !phone && !lobby.offline() {
         let host = commands
             .spawn((
                 Text::new(state.gateway.clone()),
@@ -586,12 +587,19 @@ fn table(
                 Pickable::IGNORE,
             ))
             .id();
+        // Written as a phrase and not a `format!`, which is what it was:
+        // a hand-typed English sentence renders a German screen half in
+        // English, and it does it silently — the compile error that a
+        // missing translation is arrives only for text that goes through
+        // `Phrase`.
+        let words = if lobby.offline() {
+            Phrase::TableOpenHouseWaiting.text(lang).to_string()
+        } else {
+            Phrase::TableOpenWaiting.fill(lang, &[&short_id(&handover.game_id)])
+        };
         let line = commands
             .spawn((
-                Text::new(format!(
-                    "your table {} is open — waiting for an opponent",
-                    short_id(&handover.game_id)
-                )),
+                Text::new(words),
                 tf(fonts, metrics.small),
                 TextColor(palette::ACTIVE),
                 Pickable::IGNORE,
@@ -739,43 +747,57 @@ fn table(
     // The search box sits with the buttons rather than over the list,
     // because on a phone the list is the screen and a bar above it is the
     // only place a control can be without pushing a table off the bottom.
-    let hunt = commands
-        .spawn((
-            Node {
-                width: px(metrics.tap * 4.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let box_ = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::Search.text(lang),
-        lobby.field(Field::Search),
-        lobby.focus() == Field::Search,
-        Field::Search,
-    );
-    commands.entity(hunt).add_child(box_);
-    commands.entity(head_row).add_child(hunt);
-    for (label, press, tone) in [
-        (
-            Phrase::DoSearch.text(lang),
-            Press::Search,
-            palette::PANEL_LIT,
-        ),
-        (
-            Phrase::Refresh.text(lang),
-            Press::Refresh,
-            palette::PANEL_LIT,
-        ),
-        (
-            Phrase::PlayTheHouse.text(lang),
-            Press::Host(GameMode::Ai),
-            palette::ACCENT,
-        ),
-    ] {
+    //
+    // Offline there is nothing to search: the only table that can exist is
+    // the one this process is holding, and it is already on the screen. The
+    // same goes for the refresh beside it and the password below — see
+    // [`Lobby::offline`].
+    let alone = lobby.offline();
+    if !alone {
+        let hunt = commands
+            .spawn((
+                Node {
+                    width: px(metrics.tap * 4.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let box_ = text_field(
+            commands,
+            fonts,
+            metrics,
+            Phrase::Search.text(lang),
+            lobby.field(Field::Search),
+            lobby.focus() == Field::Search,
+            Field::Search,
+        );
+        commands.entity(hunt).add_child(box_);
+        commands.entity(head_row).add_child(hunt);
+    }
+    let mut controls = vec![(
+        Phrase::PlayTheHouse.text(lang),
+        Press::Host(GameMode::Ai),
+        palette::ACCENT,
+    )];
+    if !alone {
+        controls.splice(
+            ..0,
+            [
+                (
+                    Phrase::DoSearch.text(lang),
+                    Press::Search,
+                    palette::PANEL_LIT,
+                ),
+                (
+                    Phrase::Refresh.text(lang),
+                    Press::Refresh,
+                    palette::PANEL_LIT,
+                ),
+            ],
+        );
+    }
+    for (label, press, tone) in controls {
         let b = button(commands, fonts, metrics, label, press, tone, !lobby.busy());
         commands.entity(head_row).add_child(b);
     }
@@ -783,27 +805,29 @@ fn table(
     // what a locked room is joined with. They are never both wanted at once,
     // and two boxes a player has to tell apart would be worse than one that
     // says what it is for.
-    let secret = "\u{2022}".repeat(lobby.room_password().chars().count());
-    let lock = commands
-        .spawn((
-            Node {
-                width: px(metrics.tap * 4.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let box_ = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::RoomPassword.text(lang),
-        &secret,
-        lobby.focus() == Field::RoomPassword,
-        Field::RoomPassword,
-    );
-    commands.entity(lock).add_child(box_);
-    commands.entity(head_row).add_child(lock);
+    if !alone {
+        let secret = "\u{2022}".repeat(lobby.room_password().chars().count());
+        let lock = commands
+            .spawn((
+                Node {
+                    width: px(metrics.tap * 4.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let box_ = text_field(
+            commands,
+            fonts,
+            metrics,
+            Phrase::RoomPassword.text(lang),
+            &secret,
+            lobby.focus() == Field::RoomPassword,
+            Field::RoomPassword,
+        );
+        commands.entity(lock).add_child(box_);
+        commands.entity(head_row).add_child(lock);
+    }
     // How many chairs is the one thing that cannot be changed after the
     // table exists, so it is asked before it does. One label and a row of
     // numbers rather than a button per size: at two to eight, seven buttons

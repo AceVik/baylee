@@ -711,6 +711,18 @@ impl Lobby {
         }
     }
 
+    /// Whether the requests this lobby produces are performed in this
+    /// process.
+    ///
+    /// The screen asks because several of its controls are questions only a
+    /// gateway can answer — a search over other people's tables, a room
+    /// password, the address being dialled. Offline they are not merely
+    /// inert, they are untrue, so the shell leaves them out.
+    #[must_use]
+    pub fn offline(&self) -> bool {
+        matches!(self.performer, Performer::Offline)
+    }
+
     /// Whether a request is in flight.
     #[must_use]
     pub fn busy(&self) -> bool {
@@ -1523,8 +1535,17 @@ impl Lobby {
             LobbyEvent::Seated(handover) => {
                 if self.asked_for.take() == Some(GameMode::Open) {
                     // Ours, but not playable yet: the gateway builds the
-                    // session when the second seat is filled.
-                    self.note(Phrase::TableOpen);
+                    // session when the second seat is filled. Offline
+                    // nobody is coming — every other chair is the house
+                    // already — so what the table waits for is the player
+                    // arranging it, and saying "waiting for an opponent"
+                    // there would be a sentence about a person who does
+                    // not exist.
+                    self.note(if self.offline() {
+                        Phrase::TableOpenHouse
+                    } else {
+                        Phrase::TableOpen
+                    });
                     self.awaiting = Some(handover);
                     return self.list();
                 }
@@ -1646,6 +1667,41 @@ mod tests {
             lobby.open_room(GameMode::Open, 4, "Kitchen".to_string()),
             Some(LobbyRequest::CreateGame { chairs: 4, .. })
         ));
+    }
+
+    /// An offline table is not waiting for anybody who could arrive.
+    ///
+    /// It is the same event as the gateway's open table and a different
+    /// fact: every other chair here is the house already, so a note reading
+    /// "waiting for an opponent" is a sentence about a player who cannot
+    /// come. What this table waits for is the person at the keyboard.
+    #[test]
+    fn an_offline_table_says_what_it_is_actually_waiting_for() {
+        let mut lobby = offline_lobby();
+        assert!(lobby.offline(), "this is the performer we came in with");
+        lobby.open_room(GameMode::Open, 4, "Kitchen".to_string());
+        lobby.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "offline".to_string(),
+            seat: 0,
+            seat_token: "st".to_string(),
+            local: true,
+        }));
+        assert_eq!(lobby.status(), "table open — arrange the chairs and start");
+    }
+
+    /// And the gateway's own table keeps the sentence it had.
+    #[test]
+    fn a_gateways_open_table_is_still_waiting_for_an_opponent() {
+        let mut lobby = seated_lobby();
+        assert!(!lobby.offline(), "there is an account behind this one");
+        lobby.host(GameMode::Open);
+        lobby.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "g1".to_string(),
+            seat: 0,
+            seat_token: "st".to_string(),
+            local: false,
+        }));
+        assert_eq!(lobby.status(), "table open — waiting for an opponent");
     }
 
     /// Signing out of offline play puts the sign-in screen back in charge.

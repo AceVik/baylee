@@ -676,6 +676,44 @@ fn labels(app: &mut App) -> Vec<String> {
     query.iter(app.world()).map(|t| t.0.clone()).collect()
 }
 
+/// Offline, the screen asks nothing that only a gateway could answer.
+///
+/// A search over open tables, the refresh beside it and a room password are
+/// three questions about other people, and offline there are none: the only
+/// table that can exist is the one this process is holding, and it is on the
+/// screen already. They were drawn anyway, and pressing either button sent a
+/// request the performer answered with "that needs a gateway" — a control
+/// whose whole behaviour is a refusal.
+#[test]
+fn the_offline_lobby_draws_none_of_the_gateways_controls() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+
+    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    let presses: Vec<Press> = {
+        let mut query = app.world_mut().query::<&Press>();
+        query.iter(app.world()).copied().collect()
+    };
+    assert!(
+        presses.contains(&Press::OpenRoom(4)),
+        "the table's own controls stay: {presses:?}"
+    );
+    assert!(
+        !presses.contains(&Press::Search),
+        "nothing to search: {presses:?}"
+    );
+    assert!(
+        !presses.contains(&Press::Refresh),
+        "nothing to refresh: {presses:?}"
+    );
+    let words = labels(&mut app);
+    assert!(
+        !words.iter().any(|l| l.contains("ROOM PASSWORD")),
+        "and no lock on a room nobody else can reach: {words:?}"
+    );
+}
+
 #[test]
 fn a_table_we_are_waiting_at_is_announced_and_not_sat_at() {
     let mut app = headless();
