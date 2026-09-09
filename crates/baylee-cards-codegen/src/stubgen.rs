@@ -287,6 +287,7 @@ fn render_face(
     f: &FaceData,
     cats: &SubtypeCatalogs,
     enter_modifiers: &[String],
+    is_back: bool,
 ) -> Result<String, CodegenError> {
     let (types, supers, subtype_paths, unknown) = type_expr(&f.type_line, cats);
     let subtypes = if subtype_paths.is_empty() {
@@ -322,6 +323,15 @@ fn render_face(
             "enter_modifiers: &[{}]",
             enter_modifiers.join(", ")
         ));
+    }
+    // CR 712.2 vs. 712.4a: an MDFC's back is castable, a transforming DFC's
+    // back is not — and nothing in a `CardDef` says which layout a card is,
+    // so the *printed cost* is what tells them apart. Every castable back
+    // prints one (MDFC, disturb, adventure); a transform back prints none.
+    // Left to the default, a back face with no cost is a spell the cast
+    // wizard offers for `{0}` — which it did, for a 9/7 Demon.
+    if is_back && !types.contains("TypeSet::LAND") && f.mana_cost.is_empty() {
+        fields.push("castable_from_hand: false".to_string());
     }
 
     let mut out = String::from("    face! {\n");
@@ -496,7 +506,7 @@ pub fn render_stub(
             (Some(body), 0) => body.enter_modifiers.as_slice(),
             _ => &[],
         };
-        face_defs.push_str(&render_face(&card.name, f, cats, enters)?);
+        face_defs.push_str(&render_face(&card.name, f, cats, enters, i > 0)?);
     }
     let literal = render_card_literal(card, index, &oracle_id, &faces, &face_defs, land.as_ref());
     let statics = land.as_ref().map_or("", |b| b.statics.as_str());
@@ -757,6 +767,49 @@ mod tests {
         }
         assert!(text.contains("    types: TypeSet::LAND,\n"));
         assert!(text.contains("    index: 7,\n"));
+    }
+
+    /// A back face with no printed cost is a transformed back (CR 712.2), and
+    /// left to the default it is a spell the cast wizard offers for `{0}` —
+    /// which it did, for a 9/7 Demon and two other cards, until the stub
+    /// wrote the refusal itself. A back that prints a cost is an MDFC's, a
+    /// disturb back or an adventure and stays castable; a land back is
+    /// already refused by the wizard, which plays it rather than casting it.
+    #[test]
+    fn a_back_face_with_no_printed_cost_says_it_cannot_be_cast() {
+        let cats = SubtypeCatalogs::default();
+        let mut card = bare_card("Front // Back", "Land // Creature — Demon");
+        let back = |type_line: &str, cost: Option<&str>| ScryfallFace {
+            name: "Back".to_string(),
+            mana_cost: cost.map(str::to_string),
+            type_line: Some(type_line.to_string()),
+            oracle_text: Some(String::new()),
+            power: None,
+            toughness: None,
+            loyalty: None,
+        };
+        let front = back("Land", None);
+
+        card.card_faces = Some(vec![front.clone(), back("Creature — Demon", None)]);
+        let (_, text) = render_stub(&card, 0, &cats, None).unwrap();
+        assert!(text.contains("castable_from_hand: false"), "{text}");
+
+        // The front face is turned over, never cast as a mode — it is what
+        // the card *is*, so the line would be a lie there.
+        assert_eq!(text.matches("castable_from_hand").count(), 1, "{text}");
+
+        // A cost on the back is an MDFC's, and that back is castable.
+        card.card_faces = Some(vec![
+            front.clone(),
+            back("Creature — Demon", Some("{2}{B}")),
+        ]);
+        let (_, text) = render_stub(&card, 0, &cats, None).unwrap();
+        assert!(!text.contains("castable_from_hand"), "{text}");
+
+        // A land back is played, not cast; the wizard skips it on its own.
+        card.card_faces = Some(vec![front, back("Land", None)]);
+        let (_, text) = render_stub(&card, 0, &cats, None).unwrap();
+        assert!(!text.contains("castable_from_hand"), "{text}");
     }
 
     /// `coverage` is never emitted: `CardDef::DEFAULT` is

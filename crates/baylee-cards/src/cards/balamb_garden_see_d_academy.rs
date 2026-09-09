@@ -25,6 +25,7 @@ card! {
         subtypes: &[subtypes::artifact::VEHICLE],
         power: Some(5),
         toughness: Some(4),
+        castable_from_hand: false,
     },
     ],
 }

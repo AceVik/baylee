@@ -1365,3 +1365,62 @@ about the table itself rather than the rules, and both are fixed.
     pixels to its left — two lines of one tab that no longer shared an edge.
     It stands in its own column now, which costs nothing vertically (the
     marker is shorter than the stack beside it) and fixes the edge.
+
+57. **"Implementiere den Tag/Nacht Zyklus mit Mechanik in die Engine.
+    Implementiere auch einige dazugehörige Karten."** *Done — and on the way
+    it found a 9/7 Demon that anybody could cast for {0}.*
+
+    The designation is CR 731: one game-level `Option<DayNight>` that starts
+    as neither and, once set, never returns to neither. The check is the
+    untap step's *second* turn-based action (CR 502.2), and it reads the turn
+    that just ended — day becomes night when that player cast no spells,
+    night becomes day when they cast two or more, one spell holds either way
+    in both directions. That reading is why `GameState::previous_turn` had to
+    exist: `PerTurn::reset()` runs at the top of `begin_turn` and the active
+    player swaps in the same breath, so the top of `begin_turn` is the single
+    instant at which both the seat that just played and its spell count are
+    still true. `the_check_reads_the_turn_that_just_ended_and_not_this_one`
+    is what fails if that snapshot moves a line.
+
+    *Daybound and nightbound had to become per-face keywords first.* CR
+    702.145g says "no permanents with daybound", and 702.145c fires on a
+    front face; a card-level keyword makes the first unsatisfiable and the
+    second fire on a permanent that has already transformed. `FaceDef` owns
+    `keywords` now, with face 0 inheriting the card's when it states none —
+    so all 1360 other cards keep writing one line. The delta that a pool dump
+    would have shown is one card: **Twining Twins** put its flying and
+    vigilance at card level, and its Adventure back, Swift Spiral, is an
+    Instant. It had been casting a flying, vigilant instant. The test that
+    was written to catch the family caught it instead, and is narrowed to
+    what it can actually assert —
+    `daybound_and_nightbound_are_printed_on_the_face_that_has_them`.
+
+    *The free spell.* `cast_wizard.rs` offers every non-front face as a cast
+    *mode*, skipping only lands and `!castable_from_hand` — and a transformed
+    back prints no mana cost, so it was offered for `{0}`. Nothing in a
+    `CardDef` says which layout a card was printed in (CR 712.2 vs. 712.4a),
+    so `castable_from_hand` is the whole difference, and every card in the
+    pool had left it at the default. It had never fired only because every
+    transforming DFC there had a *land* back. Three did not: Westvale
+    Abbey's Ormendahl, Profane Prince (9/7), Hostile Hostel's Creeping Inn
+    (3/7) and Balamb Garden, Airborne. All three are stubs, so the fix is in
+    the generator rather than in the files — `stubgen::render_face` writes
+    the refusal for any back face that prints no cost and is not a land,
+    which is the rule that tells the two layouts apart: an MDFC's back, a
+    disturb back and an adventure all print one.
+    `a_back_face_with_no_printed_cost_is_never_castable_from_the_hand` reads
+    it back out of the compiled pool. The first version of that test read
+    *nightbound* instead, which would have guarded the five new werewolves
+    and let the next Delver of Secrets straight through.
+
+    *Two layout defects, both found by photographing the running client and
+    neither by reading the code.* The rail's head now says which turn it is
+    and what the game is, and the designation block was first laid out as a
+    column: measured 30.5 logical tall beside the turn number's 19.5, on a
+    strip where the two sit side by side. Both are Rows of a stated
+    `HEAD_H = 22.0` now, the turn block carrying a transparent 1px border so
+    it is measured the same way, and both read logical 73.0–92.5 after.
+    Then night: the pill was `PANEL` on a `PANEL` rail and measured (13, 15,
+    21) against (12, 14, 20) — a pill by day and a bare floating glyph by
+    night. Both fills are `PANEL_LIT`; what changes with the designation is
+    the sun in `PARCHMENT` against the moon in `INK`.

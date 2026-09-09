@@ -24,6 +24,7 @@ card! {
         subtypes: &[subtypes::creature::DEMON],
         power: Some(9),
         toughness: Some(7),
+        castable_from_hand: false,
     },
     ],
 }

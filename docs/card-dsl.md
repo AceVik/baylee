@@ -106,9 +106,18 @@ which layout a card was printed in: an MDFC's back is a face a player may
 cast, a werewolf's back is only ever reached by turning the card over (CR
 712.2), and this flag is the whole of the difference. Leave it `true` on a
 transformed back and the cast wizard offers that face as a *mode* at the
-cost it prints — which is nothing, so Tavern Smasher was a 6/5 for {0}.
-`a_nightbound_face_is_never_castable_from_the_hand` in `baylee-cards` is
-what turns that into a build failure.
+cost it prints — which is nothing, so Tavern Smasher was a 6/5 for {0} and
+Ormendahl, Profane Prince a 9/7.
+
+A **stub writes the line itself**, so this is only ever hand-written on a
+card a reader could not finish: `stubgen::render_face` emits
+`castable_from_hand: false` for any back face that prints no mana cost and
+is not a land, that being what separates the two layouts — an MDFC's back, a
+disturb back and an adventure all print one.
+`a_back_face_with_no_printed_cost_is_never_castable_from_the_hand` in
+`baylee-cards` reads the rule back out of the compiled pool and turns a
+missing line into a build failure. Reading *nightbound* instead, which is
+where that test started, guards the werewolves and nothing else.
 
 ### Two faces that disagree
 

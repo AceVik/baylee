@@ -134,19 +134,26 @@ mod tests {
     /// back a player may cast and a transformed back they may not. Get it
     /// wrong and the cast wizard offers the back face as a *mode*, at the
     /// mana cost that face prints — which for a transformed back is nothing
-    /// at all. Tavern Smasher was on offer for {0} until this test existed.
+    /// at all. Tavern Smasher was on offer for {0} until this test existed,
+    /// and so were Ormendahl, Creeping Inn and an airborne school.
     ///
-    /// Nightbound is the marker because it is the only thing in the DSL
-    /// that identifies a transformed back as one (CR 702.145e).
+    /// The marker is the **printed cost**, not nightbound: every back a
+    /// player may cast prints one — an MDFC's (CR 712.2), a disturb back's,
+    /// an adventure's — and a transformed back prints none. Reading
+    /// nightbound instead would have guarded the five werewolves and let the
+    /// next Delver of Secrets through, which is what happened: three cards in
+    /// the pool were already free spells when it was written that way.
     #[test]
-    fn a_nightbound_face_is_never_castable_from_the_hand() {
+    fn a_back_face_with_no_printed_cost_is_never_castable_from_the_hand() {
+        use baylee_core::types::TypeSet;
         for (oracle_id, def) in generated::ALL {
-            for face in def.faces {
+            for face in def.faces.iter().skip(1) {
                 assert!(
-                    !(face.keywords.contains(dsl::KeywordSet::NIGHTBOUND)
+                    !(face.mana_cost == baylee_core::mana::ManaCost::ZERO
+                        && !face.types.contains(TypeSet::LAND)
                         && face.castable_from_hand),
-                    "{} ({oracle_id}): {} is a transformed back face and may not be cast \
-                     (CR 712.2) — set castable_from_hand: false",
+                    "{} ({oracle_id}): {} is a back face with no printed cost and may not be \
+                     cast (CR 712.2) — set castable_from_hand: false",
                     def.name(),
                     face.name,
                 );

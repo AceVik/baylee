@@ -23,6 +23,7 @@ card! {
         subtypes: &[subtypes::creature::HORROR, subtypes::creature::CONSTRUCT],
         power: Some(3),
         toughness: Some(7),
+        castable_from_hand: false,
     },
     ],
 }
