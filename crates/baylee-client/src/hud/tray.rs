@@ -28,18 +28,20 @@ use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser};
 const TRAY_CARD_W: f32 = 74.0;
 /// Height, keeping the 63:88 card aspect.
 const TRAY_CARD_H: f32 = TRAY_CARD_W * 88.0 / 63.0;
-/// Panel width: eight cards, their gaps and the padding.
+/// Panel width: ten cards, their gaps and the padding.
 ///
 /// It was five, and a five-wide grid pinned to the left edge is what made
 /// looking through a hundred-card library a chore: nine rows of five, most of
-/// them off the bottom of a panel that also sat over the seat tabs.
+/// them off the bottom of a panel that also sat over the seat tabs. Eight
+/// fixed the pinning; ten is the owner asking for a *bigger* sheet, and a
+/// search is what it is for — forty cards at once instead of twenty-four.
 ///
 /// The sheet takes its width from [`Placement`] now, because a player can
 /// resize it. This stays as the *derivation* of that default — the arithmetic
-/// that says why eight columns is 690 and not a round number somebody liked —
-/// and `the_default_width_is_still_eight_columns` holds the two together.
+/// that says why ten columns is 854 and not a round number somebody liked —
+/// and `the_default_width_is_still_ten_columns` holds the two together.
 #[cfg(test)]
-const TRAY_PANEL_W: f32 = 8.0 * (TRAY_CARD_W + TRAY_GAP) + 34.0;
+const TRAY_PANEL_W: f32 = 10.0 * (TRAY_CARD_W + TRAY_GAP) + 34.0;
 
 /// The air between two cards in the grid, in both directions.
 ///
@@ -705,42 +707,42 @@ mod tests {
         }
     }
 
-    /// The sheet a player has never moved is still eight card columns wide.
+    /// The sheet a player has never moved is still ten card columns wide.
     ///
     /// `Placement::DEFAULT_W` is a number in the renderer-free half, where it
     /// can be tested but where `TRAY_CARD_W` does not exist; the arithmetic
     /// that produced it lives here. This is the seam between them, so a card
-    /// resized on one side cannot silently leave the other showing seven
+    /// resized on one side cannot silently leave the other showing nine
     /// columns and a gap.
     #[test]
-    fn the_default_width_is_still_eight_columns() {
+    fn the_default_width_is_still_ten_columns() {
         assert!(
             (Placement::DEFAULT_W - TRAY_PANEL_W).abs() < f32::EPSILON,
-            "eight columns is {TRAY_PANEL_W}, the sheet opens at {}",
+            "ten columns is {TRAY_PANEL_W}, the sheet opens at {}",
             Placement::DEFAULT_W
         );
     }
 
-    /// And it opens three whole rows tall.
+    /// And it opens four whole rows tall.
     ///
     /// The same seam one axis over, and the one that had gone wrong: 520 is
     /// three rows plus sixty-five pixels, so the sheet always showed most of
-    /// a fourth row that nothing could ever be put in. The tolerance is a
+    /// a further row that nothing could ever be put in. The tolerance is a
     /// pixel because [`TRAY_CHROME_H`] is a measurement and
     /// [`Placement::DEFAULT_H`] is a whole number.
     #[test]
-    fn the_default_height_is_three_whole_rows() {
-        let rows = 3.0;
+    fn the_default_height_is_four_whole_rows() {
+        let rows = 4.0;
         let want = TRAY_CHROME_H + rows * TRAY_CARD_H + (rows - 1.0) * TRAY_GAP;
         let off = (Placement::DEFAULT_H - want).abs();
         assert!(
             off <= 1.0,
-            "three rows is {want}, the sheet opens at {} ({off} out)",
+            "four rows is {want}, the sheet opens at {} ({off} out)",
             Placement::DEFAULT_H
         );
-        // And it is genuinely short of a fourth, which is the whole point.
-        let four = want + TRAY_CARD_H + TRAY_GAP;
-        assert!(Placement::DEFAULT_H < four - TRAY_CARD_H / 2.0);
+        // And it is genuinely short of a fifth, which is the whole point.
+        let five = want + TRAY_CARD_H + TRAY_GAP;
+        assert!(Placement::DEFAULT_H < five - TRAY_CARD_H / 2.0);
     }
 
     /// The band never claims more room than the window has.

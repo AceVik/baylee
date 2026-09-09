@@ -992,7 +992,13 @@ pub fn tray_drag(
     mut duel: ResMut<Duel>,
     mut settings: ResMut<ClientSettings>,
 ) {
-    use crate::hud::TrayDragKind;
+    use crate::hud::{TrayDrag, TrayDragKind};
+
+    /// How far the pointer may wander and still have *clicked* the corner.
+    ///
+    /// A hand on a button moves a pixel or two between the press and the
+    /// release; a resize that only moved four is a resize nobody meant.
+    const TAP_SLOP: f32 = 4.0;
 
     let cursor = windows.single().ok().and_then(Window::cursor_position);
     for down in downs.read() {
@@ -1014,39 +1020,74 @@ pub fn tray_drag(
         // one; starting a drag from it would take the first real cursor
         // position as a delta and throw the sheet across the band.
         if let (Some(kind), Some(at)) = (kind, cursor) {
-            duel.tray_drag = Some((kind, at));
+            duel.tray_drag = Some(TrayDrag {
+                kind,
+                origin: at,
+                last: at,
+            });
         }
     }
-    let mut ended = false;
+    let mut released = None;
     for _up in ups.read() {
-        ended |= duel.tray_drag.is_some();
+        released = released.or_else(|| duel.tray_drag.take());
         duel.tray_drag = None;
     }
 
-    if let (Some((kind, last)), Some(at)) = (duel.tray_drag, cursor) {
+    if let (Some(drag), Some(at)) = (duel.tray_drag, cursor) {
         let band = crate::hud::band_of(&windows);
-        let delta = at - last;
+        let delta = at - drag.last;
         if delta != Vec2::ZERO {
             let place = settings
                 .zone_browser
                 .map_or_else(|| Placement::centred(band), |p| p.fit(band));
-            let moved = match kind {
+            let moved = match drag.kind {
                 TrayDragKind::Move => place.moved_by((delta.x, delta.y), band),
                 TrayDragKind::Resize => place.resized_by((delta.x, delta.y), band),
             };
             settings.zone_browser = Some(moved);
-            for mut node in &mut panels {
-                node.left = px(moved.left);
-                node.top = px(moved.top);
-                node.width = px(moved.width);
-                node.height = px(moved.height);
-            }
+            write_placement(&mut panels, moved);
         }
-        duel.tray_drag = Some((kind, at));
+        duel.tray_drag = Some(TrayDrag { last: at, ..drag });
     }
 
-    if ended {
+    // A press and a release on the corner with nothing between them is a
+    // *click*, and the corner draws a ⤢ — so it is read as a maximise button
+    // and has to be one. It could not be found by asking Bevy for a
+    // `Pointer<Click>`: a resize ends over the corner too, because the corner
+    // travels under the hand, so every drag would fire it.
+    if let Some(drag) = released {
+        if drag.kind == TrayDragKind::Resize && drag.last.distance(drag.origin) < TAP_SLOP {
+            let band = crate::hud::band_of(&windows);
+            let now = settings
+                .zone_browser
+                .map_or_else(|| Placement::centred(band), |p| p.fit(band));
+            let next = if now.is_maximised(band) {
+                duel.tray_restore
+                    .take()
+                    .map_or_else(|| Placement::centred(band), |p| p.fit(band))
+            } else {
+                duel.tray_restore = Some(now);
+                Placement::maximised(band)
+            };
+            settings.zone_browser = Some(next);
+            write_placement(&mut panels, next);
+        }
         settings.save();
+    }
+}
+
+/// Puts a placement on whatever sheet is currently drawn.
+///
+/// The renderer would get there on its own at the next rebuild — the sheet is
+/// built from `settings.zone_browser` — but only at the next rebuild, and a
+/// drag deliberately does not cause one. See [`tray_drag`]'s own docs for why
+/// the geometry is kept out of the revision.
+fn write_placement(panels: &mut Query<&mut Node, With<crate::hud::TrayPanel>>, place: Placement) {
+    for mut node in panels {
+        node.left = px(place.left);
+        node.top = px(place.top);
+        node.width = px(place.width);
+        node.height = px(place.height);
     }
 }
 
@@ -3280,6 +3321,60 @@ mod dragging {
         let after = node_of(&app, panel);
         assert_ne!(after.width, before.width, "the corner did not stretch it");
         assert_eq!(after.left, before.left, "the corner moved the sheet");
+    }
+
+    /// Clicking the corner fills the band, and clicking it again puts the
+    /// sheet back where it was.
+    ///
+    /// The corner draws a ⤢ and is read as a maximise button, and it was a
+    /// drag handle and nothing else — a click on it did nothing at all, which
+    /// is what the owner reported. The two gestures share one control, so the
+    /// third case is the one that matters: a *drag* must not maximise.
+    #[test]
+    fn clicking_the_corner_maximises_and_restores_the_sheet() {
+        let (mut app, panel, _, corner) = harness();
+        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_BAR_H);
+        let home = node_of(&app, panel);
+
+        press(&mut app, corner);
+        app.update();
+        release(&mut app, corner);
+        app.update();
+        let full = node_of(&app, panel);
+        assert_ne!(full.width, home.width, "the click did nothing");
+        assert_eq!(full.width, px(Placement::maximised(band).width));
+        assert_eq!(full.height, px(Placement::maximised(band).height));
+
+        press(&mut app, corner);
+        app.update();
+        release(&mut app, corner);
+        app.update();
+        let back = node_of(&app, panel);
+        assert_eq!(back.width, home.width, "it did not go back");
+        assert_eq!(back.left, home.left, "it went back somewhere else");
+    }
+
+    /// And a drag on the corner is a resize, never a maximise.
+    #[test]
+    fn dragging_the_corner_does_not_maximise_it() {
+        let (mut app, panel, _, corner) = harness();
+        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_BAR_H);
+        press(&mut app, corner);
+        app.update();
+        cursor_to(&mut app, Vec2::new(900.0, 500.0));
+        let stretched = node_of(&app, panel);
+        release(&mut app, corner);
+        app.update();
+
+        assert_eq!(
+            node_of(&app, panel).width,
+            stretched.width,
+            "letting go of a resize maximised the sheet"
+        );
+        assert_ne!(
+            node_of(&app, panel).width,
+            px(Placement::maximised(band).width)
+        );
     }
 
     /// The ✕ stands *on* the header, and pressing it must not start a move.

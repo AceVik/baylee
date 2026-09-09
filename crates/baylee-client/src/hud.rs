@@ -350,6 +350,23 @@ pub enum TrayDragKind {
     Resize,
 }
 
+/// A pointer holding the sheet: what it took hold of, where it started and
+/// where it was on the frame before.
+///
+/// `origin` is what separates a *drag* on the corner from a *click* on it,
+/// and it has to be recorded rather than derived: a resize ends with the
+/// pointer still over the corner, because the corner travelled with the hand,
+/// so the release alone says nothing about whether anything moved.
+#[derive(Clone, Copy, Debug)]
+pub struct TrayDrag {
+    /// The control under the press.
+    pub kind: TrayDragKind,
+    /// Where the pointer went down.
+    pub origin: Vec2,
+    /// Where it was on the frame before this one.
+    pub last: Vec2,
+}
+
 /// The browser's filter box.
 ///
 /// A `Button` because it is a field a player *gives* the keyboard to: a box

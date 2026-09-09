@@ -71,6 +71,7 @@ pub mod tokenart;
 
 use baylee_client_core::automation::{self, AutoPilot, Situation};
 use baylee_client_core::board::BoardModel;
+use baylee_client_core::browser::Placement;
 use baylee_client_core::i18n::Phrase;
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::{Seat, TableLayout};
@@ -267,7 +268,15 @@ pub struct Duel {
     /// preview's resize gets away with the raw ones only because it multiplies
     /// them by an arbitrary constant and clamps; a sheet that has to end up
     /// under the pointer cannot.
-    pub tray_drag: Option<(crate::hud::TrayDragKind, Vec2)>,
+    pub tray_drag: Option<crate::hud::TrayDrag>,
+    /// Where the sheet stood before it was maximised, so the ⤢ corner can put
+    /// it back.
+    ///
+    /// In memory and not in `ClientSettings`, deliberately: what is worth
+    /// carrying to the next session is where the player *left* the sheet, and
+    /// that is what `zone_browser` already holds. A restore target is a fact
+    /// about this click and the one that undoes it.
+    pub tray_restore: Option<Placement>,
     /// The taps the client is making on the player's behalf, if any.
     pub mana_run: Option<ManaRun>,
     /// Cards in hand that are not castable yet and would be after tapping.

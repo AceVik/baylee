@@ -248,15 +248,19 @@ impl Placement {
     pub const MIN_W: f32 = 300.0;
     /// One card row under the header, the tabs and the filter.
     pub const MIN_H: f32 = 260.0;
-    /// Eight columns — what the sheet was fixed at before it could be
-    /// resized, and what `TRAY_PANEL_W` in the renderer still computes.
-    pub const DEFAULT_W: f32 = 690.0;
-    /// Three whole rows of cards, and not a pixel of parchment more.
+    /// Ten columns — what `TRAY_PANEL_W` in the renderer computes.
+    ///
+    /// It was eight, which is what the sheet was fixed at before it could be
+    /// resized at all. A search is the reason it grew: a fetchland offers
+    /// the whole library, and a sheet that shows twenty-four of a hundred
+    /// cards is a sheet the player scrolls rather than reads.
+    pub const DEFAULT_W: f32 = 854.0;
+    /// Four whole rows of cards, and not a pixel of parchment more.
     ///
     /// It was 520, which is three rows plus sixty-five pixels of nothing —
     /// so a sheet with two cards in it read as *mostly empty* rather than as
     /// a place, which is what the owner saw. A sheet is allowed to have room
-    /// left in it; it is not allowed to have most of a fourth row that can
+    /// left in it; it is not allowed to have most of a further row that can
     /// never hold anything.
     ///
     /// The chrome it is derived from cannot be computed here: the header, the
@@ -264,9 +268,9 @@ impl Placement {
     /// metrics rather than constants. It was **measured** on the running
     /// client instead — 112 logical pixels from the sheet's top edge to the
     /// first card's, and 17 more to close it underneath — and
-    /// `the_default_height_is_three_whole_rows` in the renderer holds this
+    /// `the_default_height_is_four_whole_rows` in the renderer holds this
     /// number to that arithmetic.
-    pub const DEFAULT_H: f32 = 455.0;
+    pub const DEFAULT_H: f32 = 566.0;
     /// The clear the sheet keeps between itself and the band's edge.
     const MARGIN: f32 = 12.0;
 
@@ -312,6 +316,38 @@ impl Placement {
         }
     }
 
+    /// The whole band, less the margin every other placement keeps.
+    ///
+    /// It is deliberately *exactly* [`Self::fit`]'s ceiling rather than a
+    /// larger rectangle trusting the clamp, so that a maximised sheet is a
+    /// fixed point: fitting it again on a window that has not changed leaves
+    /// it alone, and [`Self::is_maximised`] can therefore be an equality.
+    #[must_use]
+    pub fn maximised(band: (f32, f32)) -> Self {
+        Self {
+            left: Self::MARGIN,
+            top: Self::MARGIN,
+            width: band.0 - 2.0 * Self::MARGIN,
+            height: band.1 - 2.0 * Self::MARGIN,
+        }
+        .fit(band)
+    }
+
+    /// Whether this is the band filled.
+    ///
+    /// A tolerance and not an equality, because the sheet is written to a
+    /// `Node` in logical pixels and read back through a band that a resized
+    /// window recomputes: a maximised sheet on a window dragged one pixel
+    /// wider must still restore rather than maximise a second time.
+    #[must_use]
+    pub fn is_maximised(self, band: (f32, f32)) -> bool {
+        let full = Self::maximised(band);
+        (self.left - full.left).abs() < 2.0
+            && (self.top - full.top).abs() < 2.0
+            && (self.width - full.width).abs() < 2.0
+            && (self.height - full.height).abs() < 2.0
+    }
+
     /// The same rectangle moved by a pointer delta, still inside the band.
     #[must_use]
     pub fn moved_by(self, delta: (f32, f32), band: (f32, f32)) -> Self {
@@ -335,10 +371,32 @@ impl Placement {
     }
 }
 
+/// Whether the sheet is showing, and — while it is — *whose doing* that is.
+///
+/// The second half is what lets the sheet shut itself when the search that
+/// opened it is answered: a fetchland puts the library on screen, the player
+/// picks a land, and the sheet has nothing left to say. A panel the player
+/// opened by hand is never closed by anything but their hand.
+///
+/// Three states rather than two flags, and not only because clippy counts
+/// bools: "shut but opened for a choice" is not a state, and a pair of
+/// booleans is a type that can spell it.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+enum Opening {
+    /// Not showing.
+    #[default]
+    Shut,
+    /// The player opened it and the player closes it.
+    ByHand,
+    /// The client opened it for a question, and takes it away with the
+    /// question.
+    ForChoice,
+}
+
 /// The panel's own state — what the player has said about it, nothing more.
 #[derive(Clone, Default, Debug)]
 pub struct Browser {
-    open: bool,
+    open: Opening,
     tab: Option<BrowseZone>,
     filter: String,
     sort: SortKey,
@@ -363,7 +421,7 @@ impl Browser {
     /// Whether the panel is showing.
     #[must_use]
     pub fn is_open(&self) -> bool {
-        self.open
+        self.open != Opening::Shut
     }
 
     /// The zone tab in force, or `None` for "every zone at once".
@@ -380,18 +438,18 @@ impl Browser {
 
     /// Opens the panel on every zone.
     pub fn open(&mut self) {
-        self.open = true;
+        self.open = Opening::ByHand;
     }
 
     /// Opens the panel on one zone — what a tap on a pile does.
     pub fn open_at(&mut self, zone: BrowseZone) {
-        self.open = true;
+        self.open = Opening::ByHand;
         self.tab = Some(zone);
     }
 
     /// Closes the panel, keeping the tab and filter for the next time.
     pub fn close(&mut self) {
-        self.open = false;
+        self.open = Opening::Shut;
         self.typing = false;
     }
 
@@ -450,7 +508,7 @@ impl Browser {
 
     /// Gives the filter box the keyboard, opening the panel if it was shut.
     pub fn start_typing(&mut self) {
-        self.open = true;
+        self.open = Opening::ByHand;
         if !self.typing {
             self.typing = true;
             self.typing_epoch += 1;
@@ -513,13 +571,19 @@ impl Browser {
     /// closed. A choice that wants the tray opens it; a choice that does not
     /// leaves it exactly as the player left it, and clears the tab so the
     /// next question is not answered through last question's filter.
+    ///
+    /// The one exception to "leaves it alone" is a sheet this method opened
+    /// itself: the question it was opened for has been answered, so it shuts
+    /// again. That is the whole of the fetchland's round trip — the search
+    /// puts the library on screen, the pick sends, the next question wants
+    /// nothing from the sheet and the sheet gets out of the way.
     pub fn follow(&mut self, view: &PlayerView, interaction: Option<&Interaction>) {
-        if let Some(it) = interaction
-            && Self::wanted(view, it)
-        {
-            self.open = true;
+        if interaction.is_some_and(|it| Self::wanted(view, it)) {
+            self.open = Opening::ForChoice;
             self.tab = None;
             self.filter.clear();
+        } else if self.open == Opening::ForChoice {
+            self.close();
         }
     }
 
@@ -547,8 +611,15 @@ impl Browser {
         let mut now: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
         now.sort_unstable();
         if now != self.looking_seen {
-            if !now.is_empty() {
-                self.open = true;
+            if now.is_empty() {
+                // The reveal is over. A sheet that opened itself for it has
+                // nothing left to draw — `BrowseZone::Looking` is not even a
+                // tab any more — so it shuts, on the same edge it opened on.
+                if self.open == Opening::ForChoice {
+                    self.close();
+                }
+            } else {
+                self.open = Opening::ForChoice;
                 self.tab = Some(BrowseZone::Looking);
             }
             self.looking_seen = now;
@@ -1037,6 +1108,99 @@ mod tests {
             !b.is_open(),
             "a target on the board is clicked on the board"
         );
+    }
+
+    /// A search that opened the sheet closes it again when it is answered.
+    ///
+    /// The fetchland's round trip, which is what the owner asked for: the
+    /// library goes on screen, a land is picked, and the next question wants
+    /// nothing from the sheet — so the sheet gets out of the way instead of
+    /// standing over the board until somebody closes it.
+    #[test]
+    fn a_sheet_opened_for_a_search_shuts_when_the_search_is_answered() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![printed(1, 0, "Grizzly Bears", 1)])
+            .with_graveyard(0, vec![printed(4, 0, "Llanowar Elves", 3)])
+            .build();
+        let search = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: vec![obj(4)],
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            },
+            me(),
+        );
+        let mut b = Browser::new();
+        b.follow(&view, Some(&search));
+        assert!(b.is_open(), "the search did not open it");
+
+        // The answer went in; the engine's next question is about the board.
+        let after = Interaction::new(
+            Pending::ChooseTargets {
+                player: me(),
+                options: vec![obj(1)],
+                player_options: Vec::new(),
+                min: 1,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            },
+            me(),
+        );
+        b.follow(&view, Some(&after));
+        assert!(!b.is_open(), "the sheet stayed open with nothing to say");
+    }
+
+    /// But a sheet the *player* opened is never closed behind their back.
+    #[test]
+    fn a_sheet_opened_by_hand_survives_the_next_question() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![printed(1, 0, "Grizzly Bears", 1)])
+            .with_graveyard(0, vec![printed(4, 0, "Llanowar Elves", 3)])
+            .build();
+        let mut b = Browser::new();
+        b.open_at(BrowseZone::Graveyard(me()));
+        let it = Interaction::new(
+            Pending::ChooseTargets {
+                player: me(),
+                options: vec![obj(1)],
+                player_options: Vec::new(),
+                min: 1,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            },
+            me(),
+        );
+        b.follow(&view, Some(&it));
+        assert!(b.is_open(), "the player's own sheet was closed for them");
+    }
+
+    /// A reveal opens the sheet and the reveal ending closes it.
+    #[test]
+    fn a_reveal_takes_its_sheet_away_with_it() {
+        let shown = ViewBuilder::new(2)
+            .with_looking_at(vec![printed(7, 0, "Ponder", 6)])
+            .build();
+        let done = ViewBuilder::new(2).build();
+        let mut b = Browser::new();
+        b.saw_reveal(&shown);
+        assert!(b.is_open(), "the reveal did not open it");
+        b.saw_reveal(&done);
+        assert!(!b.is_open(), "the sheet outlived what it was showing");
+    }
+
+    /// The maximised sheet is the band filled, and it is a fixed point.
+    #[test]
+    fn a_maximised_sheet_fills_the_band_and_says_so() {
+        let band = (1728.0, 866.0);
+        let full = Placement::maximised(band);
+        assert!(full.is_maximised(band));
+        assert!(full.fit(band).is_maximised(band), "fitting it moved it");
+        assert!(!Placement::centred(band).is_maximised(band));
+        // And it stays inside: the margin is kept on all four sides.
+        assert!(full.left + full.width <= band.0);
+        assert!(full.top + full.height <= band.1);
     }
 
     #[test]
