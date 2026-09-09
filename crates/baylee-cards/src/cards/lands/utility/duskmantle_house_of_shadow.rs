@@ -20,6 +20,6 @@ card! {
     ],
     abilities: &[
         mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: baylee_core::mana!("{U}{B}"), parts: &[CostPart::TapSelf] }, &[Effect::Mill { amount: Amount::Fixed(1), target: PlayerRel::You }], target: Some(TargetSpec::AnyPlayer)),
+        activated!(Cost { mana: baylee_core::mana!("{U}{B}"), parts: &[CostPart::TapSelf] }, &[Effect::Mill { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], target: Some(TargetSpec::AnyPlayer)),
     ],
 }
