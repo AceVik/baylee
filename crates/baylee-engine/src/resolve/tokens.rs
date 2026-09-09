@@ -296,16 +296,55 @@ pub(super) fn create_token_copies(
             if let Some((card, face)) = face {
                 state.pending_copied_faces.push((id, card, face));
             }
-            state
-                .zones
-                .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);
-            if let Some(obj) = state.object_mut(id) {
-                obj.zone = crate::zone::Zone::Battlefield;
-            }
-            state.invalidate_projections();
+            arrive(state, id);
             id
         })
         .collect()
+}
+
+/// Puts a freshly created token onto the battlefield, which is a permanent
+/// **entering** it (CR 111.1).
+///
+/// The journal entry is the point. A token is not moved between zones — it
+/// is created where it lands, which is why this is not
+/// [`GameState::move_object`], the one other place a `ZoneChanged` is
+/// recorded: that one begins by removing the object from the zone it was in,
+/// and a token has never been in one. But CR 603.6a asks whether a permanent
+/// entered the battlefield and not how it got there, and the engine reads
+/// that question off exactly this event — so a battlefield full of tokens
+/// was arriving without anything on the board being told. Nesting Dovehawk
+/// watches for a creature token entering and had never once seen one.
+///
+/// `from` is [`crate::zone::Zone::OutsideGame`], the only variant that means *no zone at
+/// all* (CR 400.1). That side of the event is read by the leaves-, dies- and
+/// exiled-from-battlefield triggers, every one of which wants
+/// `Zone::Battlefield` there, so naming a zone the token was never in would
+/// be both a lie and a trigger.
+///
+/// The other reader is [`Engine::apply_enter_modifiers`], which scans the
+/// same entries: a token now takes the as-it-enters half of its own rules
+/// text too. Nothing in the pool's token definitions has any — no `TokenDef`
+/// carries a triggered ability at all — so today that reaches only a token
+/// **copy**, which is handed the original's list.
+///
+/// [`Engine::apply_enter_modifiers`]: crate::Engine::apply_enter_modifiers
+fn arrive(state: &mut GameState, id: ObjectId) {
+    state
+        .zones
+        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);
+    if let Some(obj) = state.object_mut(id) {
+        obj.zone = crate::zone::Zone::Battlefield;
+    }
+    // A permanent that just arrived has never been projected: the anthem it
+    // is standing under, and any counter about to be placed on it, are both
+    // invisible until something asks for the pass.
+    state.invalidate_projections();
+    state.journal.record(crate::event::GameEvent::ZoneChanged {
+        object: id,
+        from: crate::zone::Zone::OutsideGame,
+        to: crate::zone::Zone::Battlefield,
+        cause: crate::event::Cause::Effect,
+    });
 }
 
 fn create_token(
@@ -328,15 +367,6 @@ fn create_token(
         obj.token = Some(token);
         obj
     });
-    state
-        .zones
-        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);
-    if let Some(obj) = state.object_mut(id) {
-        obj.zone = crate::zone::Zone::Battlefield;
-    }
-    // A permanent that just arrived has never been projected: the anthem it
-    // is standing under, and any counter about to be placed on it, are both
-    // invisible until something asks for the pass.
-    state.invalidate_projections();
+    arrive(state, id);
     id
 }

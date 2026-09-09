@@ -1742,6 +1742,118 @@ fn the_copy_on(engine: &Engine<RegistryLookup>, seat: PlayerId) -> baylee_core::
     found.pop().expect("the copy")
 }
 
+fn nesting_dovehawk() -> baylee_core::ids::CardIndex {
+    card_index("fe8fc442-ed17-40b2-8624-69f2eed3f9be")
+}
+
+/// The `+1/+1` counters on the Nesting Dovehawk seat `seat` controls.
+///
+/// Both seats have one in the tests below, and the pair is the whole
+/// measurement: "a creature token you control enters" is two claims, and a
+/// scan that read the wrong seat's control would still put a counter
+/// somewhere.
+#[track_caller]
+fn counters_on_the_dovehawk(engine: &Engine<RegistryLookup>, seat: PlayerId) -> u16 {
+    let bird = on_battlefield(engine, seat, nesting_dovehawk()).expect("that seat's Dovehawk");
+    engine
+        .state()
+        .object(bird)
+        .expect("the Dovehawk is an object")
+        .counters
+        .get(baylee_cards_dsl::CounterKind::P1P1)
+}
+
+/// A token arriving on the battlefield is a permanent *entering* it
+/// (CR 111.1, CR 603.6a), and Nesting Dovehawk is the card in the pool whose
+/// only job is to notice.
+///
+/// Crib Swap hands the Shapeshifter to the exiled creature's controller, so
+/// the token and the two watchers are arranged across the table from each
+/// other: their Dovehawk sees a token of theirs enter, mine sees nothing —
+/// one card read twice, which is what makes the number mean "you control"
+/// rather than "one entered somewhere". This is the plain token path,
+/// [`crate::resolve::tokens::create_token`], with no copying anywhere in it.
+#[test]
+fn a_token_arriving_is_a_permanent_entering_the_battlefield() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(94, forest())
+        .battlefield(0, &[plains(), plains(), plains(), nesting_dovehawk()])
+        .hand(0, &[crib_swap()])
+        .battlefield(1, &[llanowar_elves(), forest(), nesting_dovehawk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        counters_on_the_dovehawk(&engine, p0),
+        0,
+        "neither bird has grown before the spell is cast"
+    );
+    assert_eq!(counters_on_the_dovehawk(&engine, p1), 0);
+
+    aim_at_their_elf(&mut engine, crib_swap(), false);
+
+    assert_eq!(
+        tokens_controlled(&engine, p1),
+        1,
+        "the Shapeshifter is created under the exiled creature's controller"
+    );
+    assert_eq!(
+        counters_on_the_dovehawk(&engine, p1),
+        1,
+        "and their Dovehawk saw a creature token of theirs enter — once"
+    );
+    assert_eq!(
+        counters_on_the_dovehawk(&engine, p0),
+        0,
+        "mine watches my own side of the table and nothing entered it"
+    );
+}
+
+/// The other door tokens come through: a **copy**, which is created by
+/// [`crate::resolve::tokens::create_token_copies`] and never touches the
+/// factory the test above exercises.
+///
+/// The seats are the other way round for the same reason they were that way
+/// round there. Rite of Replication creates the copy under the caster's
+/// control however far away the creature it copies is, so the counter has to
+/// land on *my* bird while theirs — the one standing beside the creature
+/// being copied — stays a 2/2.
+#[test]
+fn the_copy_a_rite_makes_enters_the_battlefield_too() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(95, forest())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), nesting_dovehawk()],
+        )
+        .hand(0, &[rite_of_replication()])
+        .battlefield(1, &[llanowar_elves(), forest(), nesting_dovehawk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    aim_at_their_elf(&mut engine, rite_of_replication(), false);
+    let copy = the_copy_on(&engine, p0);
+
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .is_some_and(|o| o.controller == p0),
+        "the copy is mine"
+    );
+    assert_eq!(
+        counters_on_the_dovehawk(&engine, p0),
+        1,
+        "and my Dovehawk saw it enter"
+    );
+    assert_eq!(
+        counters_on_the_dovehawk(&engine, p1),
+        0,
+        "the copy entered under my control, not next to the creature it copies"
+    );
+}
+
 fn esper_sentinel() -> baylee_core::ids::CardIndex {
     card_index("5def9f38-0a0b-4e8d-9f9d-29dcb46520b4")
 }
