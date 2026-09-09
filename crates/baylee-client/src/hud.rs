@@ -1,20 +1,28 @@
 //! The 2D overlay: everything a player reads rather than manipulates.
 //!
-//! Three regions, always in the same place:
+//! It used to open with two bands across the top of the window — a strip of
+//! seat tabs and a twelve-step phase rail under it, a hundred and ten pixels
+//! of every screen, in every game. Both are gone. What they said is drawn on
+//! the table now, once per seat, on the shelf at the front of that seat's own
+//! mat: [`seatbar`] is the whole of it, and `docs/client.md` §"Every seat's
+//! bar" is normative. The camera got those hundred and ten pixels back, which
+//! is what [`crate::table::Canvas`] spends on cards.
 //!
-//! - **Top** — the player tabs: every *other* seat with life and zone
-//!   counts, the active seat highlighted, lost seats grayed out, teams
-//!   sharing a color. Click or `Shift+1..9` inspects a seat's board.
-//! - **Under them** — the phase rail: the twelve steps of a turn left to
-//!   right, the one the game is in lit, per-step standing orders (green =
-//!   take priority, red = skip) on two rows, opponents' turns above your
-//!   own. A turn is a sequence and the rail is now the shape of one.
+//! What is left up here belongs to the window rather than to a seat:
+//!
+//! - **Top right** — the two controls that end a game, offer a draw and
+//!   concede, as a row of pills over the felt rather than a band across it.
+//! - **Right** — the stack, drawn as cards, under those pills.
+//! - **The middle** — the prompt slip, the zone browser, the hover preview.
 //! - **Bottom** — the hand bar: card images, overlapping but never less
 //!   than 30% visible, horizontally scrollable when even that overflows,
 //!   with a large hover tooltip for reading a card.
 //!
 //! The overlay is retained-UI: it is rebuilt only when something it shows
-//! actually changed (snapshot, prompt, hover, selection, orders).
+//! actually changed (snapshot, prompt, hover, selection, orders). The seat
+//! bars are a **second** retained tree with a revision of their own, because
+//! [`HudRevision`] counts the hover and a bar that was rebuilt on every
+//! pointer move would be rebuilt some hundreds of times a turn.
 
 use baylee_client_core::i18n::{Lang, Phrase};
 
@@ -104,14 +112,22 @@ mod glyph {
     /// Ban (exile).
     pub const EXILE: char = '\u{f05e}';
     /// Skull and crossbones (poison counters).
+    ///
+    /// Drawn by nothing between the commit that took the seat tab off the top
+    /// of the window and the one that gives the seat sheet its body: poison
+    /// and energy are two of the things the sheet says and the bar has no
+    /// room for.
+    #[expect(dead_code, reason = "the seat sheet says it next")]
     pub const POISON: char = '\u{f714}';
-    /// Bolt (energy counters).
+    /// Bolt (energy counters). See [`POISON`].
+    #[expect(dead_code, reason = "the seat sheet says it next")]
     pub const ENERGY: char = '\u{f0e7}';
     /// Caret down (speech-bubble tail).
     pub const CARET_DOWN: char = '\u{f0d7}';
     /// Expand (resize handle).
     pub const EXPAND: char = '\u{f065}';
-    /// Crown (the command zone).
+    /// Crown (the command zone). See [`POISON`].
+    #[expect(dead_code, reason = "the seat sheet says it next")]
     pub const COMMAND: char = '\u{f521}';
     /// Times (close a panel). The text font has no U+2715, so the cross has
     /// to come from here or it draws as a missing glyph.
@@ -130,20 +146,17 @@ pub struct HandCardVisual {
     pub object: ObjectId,
 }
 
-/// A player tab at the top: click inspects that seat's board.
+/// A seat's bar: click inspects that seat's board.
+///
+/// It was a tab in a strip along the top of the window and is the bar on that
+/// seat's own mat now. The component outlived the tab because what it says is
+/// "this is seat N, and a click here is about seat N" — which is true of a
+/// bar written on a seat's ground more plainly than it ever was of a tab in a
+/// row of tabs.
 #[derive(Component)]
 pub struct PlayerTab {
-    /// The seat this tab represents.
+    /// The seat this bar represents.
     pub player: PlayerId,
-}
-
-/// A phase/step button on the rail: click toggles its standing order.
-#[derive(Component)]
-pub struct PhaseButton {
-    /// Which rail (opponents' / your phases) this button belongs to.
-    pub side: baylee_client_core::automation::RailSide,
-    /// The rail row (step) this button controls.
-    pub row: RailRow,
 }
 
 /// The button for the step the game is in, and how far it has lit up.
@@ -152,14 +165,23 @@ pub struct PhaseButton {
 /// HUD tree is rebuilt whenever the step changes, so the button carrying this
 /// is always a *new* entity — which is what makes a value that only ever
 /// climbs from zero the whole transition.
+///
+/// Nothing spawns one at the moment: the rail that did is gone, and the seat
+/// bar draws its now-light as two rings rather than as a border and a shadow.
+/// The system and this marker are kept for the commit that gives the bar its
+/// baton — see the note at the top of [`rail`].
 #[derive(Component, Default)]
 pub struct PhaseNow {
     /// How far the light has come, 0 to 1.
     pub lit: f32,
 }
 
-/// The block in the rail's head that says whether it is day or night, and
-/// which designation it was built for.
+/// The block that says whether it is day or night, and which designation it
+/// was built for.
+///
+/// Nothing spawns one at the moment, for [`PhaseNow`]'s reason: it stood in
+/// the rail's head, and the seat bar carries the designation on its hinge
+/// instead.
 ///
 /// The value is carried on the component rather than read back out of the
 /// view, because the flash that marks a change has to be anchored to the
@@ -170,7 +192,7 @@ pub struct PhaseNow {
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub struct Designation(pub baylee_view::DayNight);
 
-/// A game-menu button at the tab bar's right end.
+/// One of the pills in the window's top-right corner.
 #[derive(Component)]
 pub struct MenuButton {
     /// What the button does.
@@ -542,10 +564,6 @@ pub(crate) mod palette {
     pub const DANGER: Color = Color::srgb(0.91, 0.47, 0.42);
     /// The active seat's marker.
     pub const ACTIVE: Color = Color::srgb(0.84, 0.64, 0.31);
-    /// Standing order "take priority" (green).
-    pub const ORDER_GO: Color = Color::srgba(0.16, 0.35, 0.22, 0.95);
-    /// Standing order "skip" (red).
-    pub const ORDER_SKIP: Color = Color::srgba(0.40, 0.15, 0.15, 0.95);
     /// A card the client is offering to tap lands for: an offer, not a
     /// legal action, and drawn as the weaker claim it is.
     pub const REACHABLE: Color = Color::srgb(0.50, 0.47, 0.84);
@@ -709,24 +727,6 @@ pub(crate) fn soft_shadow() -> BoxShadow {
     )
 }
 
-/// The elevation shadow the two fixed strips cast onto the table.
-///
-/// `down` is `1.0` for the phase rail, which is pinned under the player bar,
-/// and `-1.0` for the hand bar at the bottom edge — one function rather than
-/// two constants because it is one fact said twice: both strips stand at the
-/// same height over the same felt, and the only thing that differs is which
-/// way the light falls past them. Written out separately they drifted apart
-/// the first time either was tuned.
-pub(crate) fn elevation_shadow(down: f32) -> BoxShadow {
-    BoxShadow::new(
-        palette::SHADOW,
-        Val::Px(0.0),
-        Val::Px(6.0 * down),
-        Val::Px(0.0),
-        Val::Px(16.0),
-    )
-}
-
 /// An upward shadow for a panel standing over the table.
 fn upward_shadow() -> BoxShadow {
     BoxShadow::new(
@@ -745,17 +745,39 @@ pub(crate) fn btn_radius() -> BorderRadius {
 
 /// How far anything fixed to the edge of the window stands off it.
 ///
-/// One number, because the seat bar, the phase rail under it, the mana chip
-/// and the zone browser's own margin are a single column of things down the
-/// left of the screen and were standing at 8, 10, 12 and 12. Nothing about
-/// the difference meant anything — it was three people picking a number —
-/// and an eye reading down that edge sees the disagreement long before it
-/// can name it.
+/// One number, because the seat-tab strip, the phase rail under it, the mana
+/// chip and the zone browser's own margin were a single column of things down
+/// the left of the screen standing at 8, 10, 12 and 12. Nothing about the
+/// difference meant anything — it was three people picking a number — and an
+/// eye reading down that edge sees the disagreement long before it can name
+/// it. Two of those four are gone now (the seat bars are on the table), and
+/// the number outlived them: it is what the menu pills, the stack, the tray
+/// and the browser all stand off by.
 ///
 /// The hand bar keeps its own ten: its edge is never seen (it is full-width
 /// and its cards are centred), and the number is load-bearing arithmetic in
 /// [`hand`]'s spread rather than an inset.
 pub(crate) const EDGE: f32 = 12.0;
+
+/// How tall the two controls in the top-right corner are drawn.
+///
+/// They are the whole of what is left of a strip that was fifty-six pixels
+/// tall with a fifty-four pixel rail under it, and they no longer sit on a
+/// band at all: a pill over the felt is as tall as the finger that presses it
+/// and no taller. Thirty-two is small for a *touch* target — the lobby's
+/// phone frame asks forty-four — and these two are a desktop control apiece,
+/// with a second press behind the dangerous one.
+pub(crate) const MENU_H: f32 = 32.0;
+
+/// Where the top of the free window begins for anything pinned to the
+/// **right**, which is the one column the menu pills stand in.
+///
+/// The rest of the window's top edge is `EDGE` and nothing more: the strip
+/// that used to run across it is on the table now. This is the exception, and
+/// it is stated rather than measured because a stack panel that discovered
+/// the pills by overlapping them would do so only in the games that have a
+/// stack at all.
+pub(crate) const MENU_BAND: f32 = EDGE + MENU_H + EDGE;
 
 /// How far the two things that float above the hand bar — the prompt slip
 /// and the mana chip — stand off it.
@@ -821,14 +843,14 @@ mod tests;
 
 use card::{FaceCtx, spawn_card_art};
 use hand::{PreviewAt, preview_anchor, preview_face, preview_place, spawn_hand_bar};
-use rail::{combat_line, incoming_line, spawn_phase_rail};
+use rail::{combat_line, incoming_line};
 use stack::spawn_stack_panel;
 
 pub use hand::apply_hand_scroll;
-pub use hand::{HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W, TAB_H};
+pub use hand::{HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
-pub use rail::{DesignationFlash, RAIL_H, flash_the_designation, light_the_current_step};
+pub use rail::{DesignationFlash, flash_the_designation, light_the_current_step};
 pub use seatbar::{
     BarRevision, SeatBar, SeatBarRoot, SeatInk, SeatStep, Shelf, Shelves, measure_shelves,
     place_seat_bars, sync_seat_bars,

@@ -1,8 +1,13 @@
-//! The retained HUD tree: the seat tabs, the prompt slip, the stack, and
-//! the one system that rebuilds all of it.
+//! The retained HUD tree: the prompt slip, the stack, the tray, and the one
+//! system that rebuilds all of it.
 //!
 //! Rebuilt only when [`HudRevision`] says something it draws has changed —
 //! a rebuild per frame would cost more than the whole table does.
+//!
+//! What a seat *is* — its name, its life, its zones, the turn it is taking —
+//! is no longer drawn here. That is [`super::seatbar`], written on each
+//! seat's own mat, and the tab strip and the phase rail this module used to
+//! open with are gone with it.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
@@ -11,10 +16,11 @@ use baylee_client_core::interaction::Prompt;
 
 /// How wide the commander-damage track is drawn, in logical pixels.
 ///
-/// The same in every seat's tab, whatever that seat's worst source is,
-/// because the bar's whole job is to be comparable: it stands for twenty-one
+/// The same for every seat, whatever that seat's worst source is, because the
+/// bar's whole job is to be comparable: it stands for twenty-one
 /// (`commanderdamage::LETHAL`) and nothing else, so a half-full bar means the
 /// same thing under every name at the table.
+#[expect(dead_code, reason = "the seat sheet draws the track next")]
 const TRACK_W: f32 = 52.0;
 
 /// The gap between two answers on the prompt slip, in logical pixels.
@@ -256,56 +262,25 @@ pub fn sync_overlay(
         ))
         .id();
 
-    // ---- top: the full-width tab bar — ALL players left, menu right ----
-    let tabs = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(0),
-                left: px(0),
-                right: px(0),
-                // Stated, not inferred: the rail is pinned at `TAB_H` and a
-                // bar that grew past it was drawn under the rail from there
-                // down — including the active tab's own gold border.
-                height: px(TAB_H),
-                flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::Center,
-                padding: UiRect::axes(px(EDGE), px(6)),
-                ..default()
-            },
-            BackgroundColor(palette::PANEL),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let players_row = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: px(8),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    for seat in &view.seats {
-        let tab = spawn_player_tab(
-            &mut commands,
-            lang,
-            view,
-            duel.statics.as_ref(),
-            seat,
-            focus,
-            &fonts,
-        );
-        commands.entity(players_row).add_child(tab);
-    }
-    commands.entity(tabs).add_child(players_row);
-
+    // ---- top right: the two things that end a game -----------------------
+    //
+    // What used to be here was a full-width strip of seat tabs with this menu
+    // on the end of it, and a twelve-step phase rail under that: two bands
+    // that between them took a hundred and ten pixels off the top of every
+    // window, on every screen, for the whole game. Both are on the table now
+    // — each seat's own bar, written on its mat's ledge — which is where the
+    // information was about in the first place. What is left up here is the
+    // pair of controls that belong to *no* seat, and they are a row of pills
+    // over the felt rather than a band across it.
     let menu_row = commands
         .spawn((
             Node {
+                position_type: PositionType::Absolute,
+                top: px(EDGE),
+                right: px(EDGE),
+                height: px(MENU_H),
                 flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
                 column_gap: px(8),
                 ..default()
             },
@@ -351,7 +326,10 @@ pub fn sync_overlay(
             .spawn((
                 MenuButton { action },
                 Node {
-                    padding: UiRect::axes(px(12), px(6)),
+                    height: px(MENU_H),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    padding: UiRect::axes(px(14), px(0)),
                     border_radius: btn_radius(),
                     ..default()
                 },
@@ -368,19 +346,7 @@ pub fn sync_overlay(
             .id();
         commands.entity(menu_row).add_child(button);
     }
-    commands.entity(tabs).add_child(menu_row);
-    commands.entity(root).add_child(tabs);
-
-    // ---- under the seats: the phase rail, twelve steps left to right ---
-    let rail = spawn_phase_rail(
-        &mut commands,
-        lang,
-        view,
-        &orders,
-        &fonts,
-        duel.statics.as_ref(),
-    );
-    commands.entity(root).add_child(rail);
+    commands.entity(root).add_child(menu_row);
 
     // ---- the prompt slip: the question, and the answers to it -------------
     //
@@ -1425,7 +1391,10 @@ fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity)
     let chip = commands
         .spawn((
             Node {
-                padding: UiRect::axes(px(12), px(6)),
+                height: px(MENU_H),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::axes(px(14), px(0)),
                 border_radius: btn_radius(),
                 ..default()
             },
@@ -1444,7 +1413,10 @@ fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity)
                 action: MenuAction::ReleaseHold,
             },
             Node {
-                padding: UiRect::axes(px(12), px(6)),
+                height: px(MENU_H),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::axes(px(14), px(0)),
                 border_radius: btn_radius(),
                 ..default()
             },
@@ -1627,328 +1599,122 @@ fn spawn_step(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str)
         .id()
 }
 
-/// One player tab: name, life, zone counts; active highlighted, lost
-/// grayed out, team color at the border.
-#[allow(clippy::too_many_lines)] // the icon+number spans are naturally flat
-pub(super) fn spawn_player_tab(
+/// The second life total (CR 903.10a), drawn as a track: the commander glyph,
+/// a fixed-width bar filled to the worst source, one tick per other
+/// commander, and the worst number itself.
+///
+/// Shown like a life total and not like a row of numbers, because the
+/// question is "how close am I to dying to this" and not "what do these add
+/// up to" — they add up to nothing the rules recognise. `None` when no
+/// commander has connected: a bar sitting at zero under every seat every game
+/// would be noise, the same rule poison and energy follow.
+///
+/// Fixed width, and the same width for every seat: the eye learns what full
+/// looks like once and then reads every other seat against it. A bar scaled
+/// to its own worst source would make two seats with very different problems
+/// look identical.
+///
+/// Every node of it is `Pickable::IGNORE`, and that is load-bearing rather
+/// than tidy: anything pickable in front of a control stops
+/// `PickingInteraction` at itself, so a `Feel` behind the track would go dead
+/// across its whole width — the label finding again, and invisible in an
+/// ordinary game for the same reason the overflow was.
+///
+/// It was written inside the seat tab and outlived it. It was lifted out
+/// **before** the tab was deleted rather than after, which is the whole point
+/// of it existing unused for one commit: the seat sheet is to redraw the
+/// track exactly as the tab drew it, and "exactly" is not something that can
+/// be recovered from a diff two commits later.
+#[expect(dead_code, reason = "the seat sheet calls it next")]
+pub(super) fn spawn_commander_track(
     commands: &mut Commands,
-    lang: Lang,
-    view: &PlayerView,
-    statics: Option<&GameStatic>,
-    seat: &baylee_view::SeatView,
-    focus: Option<PlayerId>,
     fonts: &UiFonts,
-) -> Entity {
-    let player = seat.player;
-    let name = statics.map_or_else(
-        || Phrase::SeatNumbered.fill(lang, &[&player.to_string()]),
-        |s| s.seat_name(player).to_string(),
-    );
-    let team = statics.and_then(|s| s.seats.iter().find(|i| i.player == player)?.team);
-    let exile_count = view.exile.get(player.get() as usize).map_or(0, Vec::len);
-    let is_active = view.active == player;
-    let is_focused = focus == Some(player);
-    let has_priority = view.priority == Some(player);
-
-    let is_local = seat.player == view.seat;
-    let (background, ink) = if seat.has_lost {
-        (palette::PANEL, palette::DEAD)
-    } else if is_active {
-        (palette::PANEL_LIT, palette::INK)
-    } else {
-        (palette::PANEL, palette::INK)
-    };
-    // The seat's own colour, which is the one it wears on its mat: gilt for
-    // the local seat, the pie in ring order for everyone else.
-    let identity = if is_local {
-        palette::ACCENT
-    } else {
-        team_color(team)
-    };
-    // The rim is always two pixels wide and says what it has to say in
-    // colour. It used to be one pixel at rest and two when active or
-    // focused, and bevy adds a border to an auto-sized node — so the tab the
-    // turn was on stood two pixels taller and wider than the ones beside it
-    // and the whole row shifted as the turn passed. `is_focused` was carried
-    // by that width and by nothing else, which is why it needs a shade of its
-    // own here: the same colour the seat already wears, at rest drawn faint.
-    let rim = if is_active {
-        palette::ACTIVE
-    } else if is_focused {
-        identity
-    } else {
-        identity.with_alpha(0.40)
-    };
-
-    let display = if is_local {
-        baylee_client_core::i18n::own_seat_name(lang, &name)
-    } else {
-        name.clone()
-    };
-    let counts_color = if seat.has_lost {
-        palette::DEAD
-    } else {
-        palette::MUTED
-    };
-    let tab = commands
+    seat: &baylee_view::SeatView,
+    muted: Color,
+) -> Option<Entity> {
+    let track = commanderdamage::Track::of(&seat.commander_damage)?;
+    let color = if track.danger { palette::DANGER } else { muted };
+    let row = commands
         .spawn((
-            PlayerTab { player },
             Node {
-                // A row, because the caret is a *marker* and stands in its
-                // own column: inline it indented the name by its own advance
-                // and left the counts under it hanging to its left, so the
-                // two lines of one tab did not share an edge.
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(4),
-                // Four and not five: the tab plus the bar's own padding is
-                // `TAB_H`, and the bar states that height now.
-                padding: UiRect::axes(px(10), px(4)),
-                border: UiRect::all(px(2)),
-                border_radius: btn_radius(),
+                column_gap: px(4.0),
                 ..default()
             },
-            BackgroundColor(background),
-            BorderColor::all(rim),
-            Feel::new(background),
-            soft_shadow(),
+            Pickable::IGNORE,
             children![(
-                // The priority marker. It is always drawn and merely goes
-                // invisible, because a caret that appeared and vanished
-                // changed the tab's width and shoved the seat beside it
-                // sideways every time priority moved. In its own column that
-                // costs nothing: the marker holds the width whatever colour
-                // it is wearing.
-                Text::new("\u{25b6}"),
-                tf(fonts, 14.0),
-                TextColor(if !has_priority {
-                    Color::NONE
-                } else if seat.has_lost {
-                    palette::DEAD
-                } else {
-                    ink
-                }),
-                Pickable::IGNORE,
-            ),],
-        ))
-        .id();
-
-    // Everything the marker points at, stacked: the name with life behind a
-    // heart, the zone counts, and the commander track when there is one.
-    let lines = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: px(2),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(tab).add_child(lines);
-
-    // The first line is a row and not just the text, because the *second*
-    // life total (CR 903.10a) hangs off the end of it. It cannot go under the
-    // counts: the tab fills `TAB_H` exactly, so a third line grew the tab out
-    // of the strip both ways — measured with the track forced on, the tab
-    // stood 58.5 tall, its top border cut off by the window's edge and its
-    // bottom border drawn over the phase rail. Beside the life total it costs
-    // width, which the strip has, and it is where a second life total belongs
-    // anyway.
-    let head = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: px(6),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(lines).add_child(head);
-
-    let name_line = commands
-        .spawn((
-            Text::new(format!("{display} ")),
-            tf(fonts, 14.0),
-            TextColor(if seat.has_lost { palette::DEAD } else { ink }),
-            Pickable::IGNORE,
-            children![
-                (
-                    TextSpan::new(glyph::HEART.to_string()),
-                    icon_tf(fonts, 11.0),
-                    TextColor(if seat.life <= 5 {
-                        palette::DANGER
-                    } else {
-                        palette::ACCENT
-                    }),
-                ),
-                (
-                    TextSpan::new(format!(" {}", seat.life)),
-                    tf(fonts, 14.0),
-                    TextColor(if seat.has_lost {
-                        palette::DEAD
-                    } else if seat.life <= 5 {
-                        palette::DANGER
-                    } else {
-                        ink
-                    }),
-                ),
-            ],
-        ))
-        .id();
-    commands.entity(head).add_child(name_line);
-
-    // Zone counts as icon + number pairs, with experience counters
-    // (poison, energy) appearing only when a player actually has them.
-    let counts = commands
-        .spawn((
-            Text::new(""),
-            tf(fonts, 11.0),
-            TextColor(counts_color),
-            // A `Text` is a `Node`, so a label inside a button is a pickable
-            // child in front of it — see `Feel` in `ambience.rs`.
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(lines).add_child(counts);
-    let mut span = |icon: char, value: String| {
-        let icon_span = commands
-            .spawn((
-                TextSpan::new(icon.to_string()),
+                Text::new(glyph::COMMAND.to_string()),
                 icon_tf(fonts, 10.0),
-                TextColor(counts_color),
-            ))
-            .id();
-        let value_span = commands
-            .spawn((
-                TextSpan::new(value),
-                tf(fonts, 11.0),
-                TextColor(counts_color),
-            ))
-            .id();
-        commands.entity(counts).add_child(icon_span);
-        commands.entity(counts).add_child(value_span);
-    };
-    span(glyph::HAND, format!(" {}  ", seat.hand_count));
-    span(glyph::LIBRARY, format!(" {}  ", seat.library_count));
-    span(glyph::SKULL, format!(" {}  ", seat.graveyard_count));
-    span(glyph::EXILE, format!(" {exile_count}"));
-    if seat.poison > 0 {
-        span(glyph::POISON, format!(" {}", seat.poison));
-    }
-    if seat.energy > 0 {
-        span(glyph::ENERGY, format!(" {}", seat.energy));
-    }
-
-    // The second life total (CR 903.10a), and shown like one: a bar rather
-    // than a row of numbers, because the question is "how close am I to dying
-    // to this" and not "what do these add up to" — they add up to nothing the
-    // rules recognise.
-    //
-    // Only when a commander has actually connected, the rule poison and energy
-    // follow above. A bar sitting at zero under all eight seats every game
-    // would be noise on the one screen that has no room for any.
-    if let Some(track) = commanderdamage::Track::of(&seat.commander_damage) {
-        let color = if track.danger {
-            palette::DANGER
-        } else {
-            counts_color
-        };
-        // Every node of the track is `Pickable::IGNORE`, and now that it
-        // stands on the tab's own life line that is load-bearing rather than
-        // tidy: anything pickable in front of a control stops
-        // `PickingInteraction` at itself, so `Feel` would go dead across the
-        // whole track — the label finding again, and invisible in an ordinary
-        // game for the same reason the overflow was.
-        let row = commands
-            .spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    column_gap: px(4.0),
-                    ..default()
-                },
+                TextColor(color),
                 Pickable::IGNORE,
-                children![(
-                    Text::new(glyph::COMMAND.to_string()),
-                    icon_tf(fonts, 10.0),
-                    TextColor(color),
-                    Pickable::IGNORE,
-                )],
-            ))
-            .id();
-        commands.entity(head).add_child(row);
+            )],
+        ))
+        .id();
 
-        // Fixed width, and the same width in every seat's tab: the eye learns
-        // what full looks like once, and then reads every other seat against
-        // it. A bar scaled to its own worst source would make two seats with
-        // very different problems look identical.
-        let bar = commands
-            .spawn((
-                Node {
-                    width: px(TRACK_W),
-                    height: px(4.0),
-                    border_radius: BorderRadius::all(px(2.0)),
-                    ..default()
-                },
-                BackgroundColor(palette::PANEL_LIT),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(row).add_child(bar);
+    let bar = commands
+        .spawn((
+            Node {
+                width: px(TRACK_W),
+                height: px(4.0),
+                border_radius: BorderRadius::all(px(2.0)),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_child(bar);
 
-        let fill = commands
+    let fill = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0.0),
+                top: px(0.0),
+                width: px(TRACK_W * track.fill),
+                height: px(4.0),
+                border_radius: BorderRadius::all(px(2.0)),
+                ..default()
+            },
+            BackgroundColor(color),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(bar).add_child(fill);
+
+    // One tick per other commander, on the same scale. They say how many more
+    // clocks are running and how far along each is; which commander is which
+    // is the tooltip's answer, the same half this panel already gives for a
+    // counter's colour.
+    for at in &track.ticks {
+        let tick = commands
             .spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    left: px(0.0),
+                    left: px(TRACK_W * at),
                     top: px(0.0),
-                    width: px(TRACK_W * track.fill),
+                    width: px(1.0),
                     height: px(4.0),
-                    border_radius: BorderRadius::all(px(2.0)),
                     ..default()
                 },
-                BackgroundColor(color),
+                BackgroundColor(palette::MUTED),
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(bar).add_child(fill);
-
-        // One tick per other commander, on the same scale. They say how many
-        // more clocks are running and how far along each is; which commander
-        // is which is the tooltip's answer, the same half this panel already
-        // gives for a counter's colour.
-        for at in &track.ticks {
-            let tick = commands
-                .spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: px(TRACK_W * at),
-                        top: px(0.0),
-                        width: px(1.0),
-                        height: px(4.0),
-                        ..default()
-                    },
-                    BackgroundColor(palette::MUTED),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(bar).add_child(tick);
-        }
-
-        let worst = commands
-            .spawn((
-                Text::new(track.worst.to_string()),
-                tf(fonts, 11.0),
-                TextColor(color),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(row).add_child(worst);
+        commands.entity(bar).add_child(tick);
     }
-    tab
+
+    let worst = commands
+        .spawn((
+            Text::new(track.worst.to_string()),
+            tf(fonts, 11.0),
+            TextColor(color),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_child(worst);
+    Some(row)
 }
 
 /// Whether the hovered object is a card printed on both sides.

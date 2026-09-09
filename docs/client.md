@@ -163,8 +163,11 @@ a mat — for the same reason the felt's brightness assertion goes both ways.
 
 **The camera frames the table against the window it is seen through, not
 against the window.** The HUD is not beside the battlefield, it is on top of
-it: the tab strip, the phase rail under it and the hand bar are overlays on
-the same full-window camera and cover about a fifth of it. The rig used to be a
+it: the hand bar is an overlay on the same full-window camera. It used to be
+far more than that — a strip of seat tabs and a phase rail under it took 110
+logical pixels off the top of every window, in every game, and both of them
+said what §"Every seat's bar" now says on the seat's own mat, so `Canvas::hud`
+has a `top` of zero. The rig used to be a
 hard-coded twenty units aimed at the middle of the felt, and the result was
 that the local seat's own mat projected *below* the hand bar — a player could
 not see their own creatures, which makes every other piece of board legibility
@@ -195,10 +198,13 @@ The distance is clamped before the look point is computed from it, not after.
 Aiming for a camera the clamp then moves is the one way this puts the table off
 screen with every formula still right — the far edge gets pinned for an eye
 that is not there. Clamped first, a table too big for `MAX_DISTANCE` keeps its
-far edge under the tab strip and overflows in front of the local seat, which a
-player can pan out of. A four-seat table on an upright phone is that case, and
-no camera fixes it: at the width it needs the felt's own edge comes into frame.
-That one waits on the rail becoming a horizontal strip, which changes `Canvas`.
+far edge at the top of the window and overflows in front of the local seat,
+which a player can pan out of. A four-seat table on an upright phone is that
+case, and no camera fixes it: at the width it needs the felt's own edge comes
+into frame. It used to be said that this waited on the rail coming off the top
+of the window and `Canvas` changing. That has happened, and it did not fix it:
+the phone's problem is the ring's shape against a tall window, not the hundred
+pixels the HUD was taking.
 **The pool says which step it is.** The rim already answers *whose* turn it
 is; where in the turn we are was only ever readable off the rail, in text, at
 the far edge of the screen. `tabletop::phase_light` gives each of the twelve
@@ -1411,16 +1417,111 @@ The fill under a control that is *off* is `palette::SLIP_GHOST` and never
 `Color::NONE`, which is not "no fill" on a node carrying a drop shadow — it
 is a hole with the shadow visible through it.
 
-## The rail's head says which turn and what the game is
+## Every seat's bar
 
-The day/night designation (CR 731) is drawn as a second block beside the turn
-number, at the left of the phase rail where the eye starts. It is not drawn
+A seat used to be described twice from the top of the window: a tab in a strip
+saying who it is, how much life it has and what is in its zones, and a rail
+under that strip saying where the turn had got to. Between them they took 110
+logical pixels off every window in every game to describe seats that were
+already drawn on the table, each on its own mat. Both are gone. What they said
+is written on the seat's own ground.
+
+**The mat grew a shelf to write it on.** `tabletop::MAT_LEDGE` is a fourth
+band at the mat's centre-facing edge, 0.95 table units, *added* to
+`layout::POD_DEPTH` rather than taken out of it — three lanes stay exactly a
+card tall each, because a lane is where a card stands and the ledge is
+furniture. Two compile-time assertions fence it: wider than four rims (or the
+bar is written on its own border) and narrower than three quarters of a card
+(or it is a fourth row). It is veiled at `MAT_LEDGE_VALUE = 0.0060`, one shade
+*below* the quietest lane, so the ink on it is the brightest thing on a seat's
+ground; its own boundary is a seam 1.5 times a lane seam, because that is
+where a seat's ground stops being a place cards stand and becomes a shelf they
+are described on. Measured through the local mat on a running client: rim
+(164, 145, 110) → ledge (26, 55, 39) → ledge seam (64, 78, 70) → creature lane
+(34, 58, 44). The composited contrast is 8.7:1 for the parchment ink and 4.5:1
+for its glyph edges — WCAG's 7.0 for text and 3.0 for graphical objects, and
+`the_ledge_is_dark_enough_to_read_ink_against` bounds it against a *measured*
+felt of (21, 63, 40) rather than against the linear `FELT_*` constant, because
+the shader's lamp and the sky's tint are multiplies `tabletop` cannot see.
+
+**The bar cannot ask the camera where the shelf is.** `bevy_ui` orders
+`UiSystems::Layout` `.before(TransformSystems::Propagate)`, so a system that
+reads a camera's propagated `GlobalTransform` in `PostUpdate` and writes a
+`Node` position is writing one the layout has already read past — a bar a
+frame behind the camera, forever. `table::Lens` is the answer: it builds
+`clip_from_world` from the same `CameraRig::eye` the camera itself is set
+from, and `hud::measure_shelves` projects each mat's four `ledge_corners`
+through it. `the_lens_and_the_written_out_projection_agree` checks it against
+the hand-derived closed form already in `camera_tests`, under half a pixel at
+every ledge corner of a four-seat table.
+
+**A shelf is measured along its own axis, not by its bounding box.** A side
+seat at a four-player table is turned ninety degrees to the camera, so the box
+round its ledge reported 60 pixels of usable length where the ledge itself has
+430. `hud::Shelf::of` takes the four corners and reads `along`, `depth` and
+`tilt` off them, and the bar is rotated to match with
+`UiTransform::from_rotation`. Rotation carries picking: Bevy 0.19's UI backend
+tests the cursor with `UiGlobalTransform::inverse().transform_point2`.
+
+**Four densities, and the fourth is not decoration.** The same shelf projects
+1141 pixels at a duel and 151 on an eight-player ring.
+`seatbar::Density::for_length` takes the densest form that fits — Full (924),
+Compact (788), Pip (348), Mark (143) — where "fits" allows a quarter of
+overhang for everything below Full, because a bar may hang a little past a mat
+it belongs to but must not be wider than the seat beside it. Three densities
+would have put a 348-pixel bar on a 310-pixel shelf at five seats. `Mark` is a
+caret, the seat's colour and twelve 8×10 pips: where the game is, and whose
+seat, and nothing else. What a density drops, the seat sheet carries on hover.
+Two invariants hold the set together and are tested: a thinner form never
+carries a cell a denser one drops (four sizes of one bar, not four designs),
+and no form ever drops the caret, the colour or the steps.
+
+Three channels on a step tile, and they answer three different questions.
+The **frame** is the standing order — none at all for a dead step, gold for
+the step the game is in, accent for a stop, danger for a skip. The **ring** is
+where the game is: two crisp rings at `HALO_OUT` outside the tile rather than
+a `BoxShadow`, because a shadow under a ten-per-cent fill is drawn *through*
+it and the whole tile interior would glow. The **ink alpha** is time — which
+turn's row this is. Untap and cleanup get no frame at all and are
+`Pickable::IGNORE`: a control that can never do anything should not look like
+one, and both are stepped over by the keyboard for the same reason
+(`RailRow::grants_priority`, CR 502.4 and CR 514.3a). When the game is in one
+of them it gets an under-tick instead of a frame — the game being somewhere
+does not make it a control.
+
+The bar is its **own retained tree**, `SeatBarRoot`, a sibling of `HudRoot`
+with its own `BarRevision`. `HudRevision` carries `hovered`, so the overlay
+tree is rebuilt on every pointer move; a bar that rebuilt with it would be
+rebuilt some hundreds of times a turn. `place_seat_bars` is guarded the same
+way `apply_camera_rig` is — it stores the corner and tilt it last wrote and
+skips the write when they have not changed, because a `Mut<Node>` marks the
+node changed on any write and taffy would relay out every bar every frame
+while the camera stood still.
+
+**Both rows of standing orders are seen at once in the settings screen**, and
+that is where they belong. A seat bar carries the twelve steps of a turn but
+only the row that turn belongs to — an order about opponents' turns is
+invisible on your own bar until an opponent is taking one — and a player
+arranging stops wants the whole arrangement in front of them. `PhaseOrders` is
+keyed by `RailSide` and not by seat, so one tile on one seat's bar sets an
+order every other seat's bar then draws.
+
+## The bar's hinge says which turn and what the game is
+
+The day/night designation (CR 731) is drawn beside the turn number, on the
+hinge between a seat's counts and its steps. It is not drawn
 at all when the game has neither designation, which is every game with no
 daybound card in it, and no slot is held for one: a game that has become day
 or night has exactly one of the two from that point forward (CR 731.1), so
-the block appears once and its arrival *is* the announcement. The caret rule
-above — draw it always and let it go `Color::NONE` — is for a marker that
+the block appears once and its arrival *is* the announcement — which is why
+the hinge *widens* when it comes rather than reserving room for it. The caret
+rule above — draw it always and let it go `Color::NONE` — is for a marker that
 toggles, and this one never does.
+
+The two shapes below were photographed while this stood in the phase rail's
+head. The rail is gone; the lessons are about drawing two things side by side
+and about a fill needing something to be a fill against, and they moved with
+the block.
 
 Two shapes came out of photographing it, and both are the same lesson from
 opposite sides.
@@ -1438,20 +1539,29 @@ differ by exactly two pixels forever.
 `palette::PANEL` to sit a shade below the turn number, which is true — but
 the rail underneath is `PANEL` too, so the pill measured (13, 15, 21) on a
 (12, 14, 20) strip and was not there: a pill by day, a glyph floating beside
-one by night. Both fills are `PANEL_LIT` now and the two states differ by
-what the block *says* — a sun in `PARCHMENT`, a moon in `INK`. Neither is
-`ACTIVE`, which lights the current step a hundred pixels to the right; a
+one by night. The two states differ by what the block *says* — a sun in
+`PARCHMENT`, a moon in `INK`, from `seatbar::designation_of`. Neither is
+`ACTIVE`, which lights the current step a few cells to the right; a
 designation wearing it would read as a step the game was in. The untap step
-gave up the sun for a rotate-back arrow on the way past, because two suns in
-one strip would have said the untap step is the daytime.
+gave up the sun for a rotate-back arrow on the way past, because two suns on
+one bar would have said the untap step is the daytime, and
+`the_designation_does_not_borrow_a_step_glyph` reads both files to hold it.
 
 The change is marked by a flash on the block's border and shadow, and it is
 anchored to the **change** rather than to the entity. `PhaseNow` can ease
-from zero at spawn because the tree is rebuilt when the step changes; this
-tree is rebuilt on every hover, so a light born with the block would fire
-whenever the pointer crossed a card. `rail::DesignationFlash` keeps the last
-designation it saw beside the clock, and `a_rebuild_does_not_restart_the_
-flash` despawns and respawns the block mid-decay to prove it.
+from zero at spawn because the tree is rebuilt when the step changes; the
+overlay tree is rebuilt on every hover, so a light born with the block would
+fire whenever the pointer crossed a card. `rail::DesignationFlash` keeps the
+last designation it saw beside the clock, and
+`a_rebuild_does_not_restart_the_flash` despawns and respawns the block
+mid-decay to prove it.
+
+Both of those systems are **waiting** as this is written. `light_the_current_
+step` and `flash_the_designation` outlived the rail because what they know is
+not the rail's shape; nothing spawns a `PhaseNow` or a `Designation` between
+the commit that retired it and the one that gives the bar its baton and its
+hinge-light, so both run over an empty query. Their tests spawn the markers by
+hand and still hold what the systems are for.
 
 ## The prompt slip is a sheet, and a sheet is a child
 
@@ -1503,8 +1613,9 @@ name with a grey aside and reads as one. It is also the only thing the
 deleted pile-chip strip said that nothing else on the sheet did.
 
 **The sheet moves and resizes, and remembers where it was put.**
-`browser::Placement` is a rectangle inside the *band* — the strip between the
-phase rail and the hand bar — in logical pixels rather than fractions of it,
+`browser::Placement` is a rectangle inside the *band* — everything between the
+window's top edge and the hand bar; it used to start under the phase rail, a
+hundred and ten pixels down — in logical pixels rather than fractions of it,
 because the grid inside is cards at a fixed size and a sheet that scaled with
 the window would show a different number of columns on every screen. `fit`
 shrinks before it moves (a sheet moved first can be pushed off the far edge

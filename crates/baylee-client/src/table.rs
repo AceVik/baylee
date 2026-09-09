@@ -527,21 +527,31 @@ fn ground(q: f32) -> f32 {
 
 /// The part of the window the table is actually seen through.
 ///
-/// The HUD is not beside the battlefield, it is on top of it: the tab strip,
-/// the phase rail under it and the hand bar are overlays on the same
-/// full-window camera. Framing the table against the *window* therefore
-/// frames it against a rectangle a fifth of which nobody can see.
+/// The HUD is not beside the battlefield, it is on top of it: the hand bar is
+/// an overlay on the same full-window camera. Framing the table against the
+/// *window* therefore frames it against a rectangle part of which nobody can
+/// see.
+///
+/// The top used to cost a hundred and ten of those pixels — a strip of seat
+/// tabs and a phase rail under it, on every screen and for the whole game.
+/// Both are on the table now, written on each seat's own mat, so the top is
+/// **zero** and the camera comes in by that much: the framed depth shrinks,
+/// so the rig moves closer, so every card is drawn larger. That is the payment
+/// the ledge was bought with.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Canvas {
     /// The window, in logical pixels.
     pub window: Vec2,
-    /// Covered at the top: the tab strip and the phase rail under it.
+    /// Covered at the top. Nothing any more — kept because the field is what
+    /// a future panel across the top would say so in, and because the framing
+    /// arithmetic below is written in terms of all four sides.
     pub top: f32,
     /// Covered at the bottom: the hand bar.
     pub bottom: f32,
-    /// Covered on the right. Nothing, since the phase rail went across the
-    /// top -- kept because a window is not always the whole canvas and the
-    /// next panel that takes a side should have somewhere to say so.
+    /// Covered on the right. Nothing: the menu pills are a corner rather than
+    /// a column, and the stack panel is drawn over the felt on purpose — a
+    /// stack lasts a few seconds and the camera must not lurch when one
+    /// appears.
     pub right: f32,
 }
 
@@ -551,7 +561,7 @@ impl Canvas {
     pub fn hud(window: Vec2) -> Self {
         Self {
             window,
-            top: crate::hud::TAB_H + crate::hud::rail::RAIL_H,
+            top: 0.0,
             bottom: crate::hud::HAND_BAR_H,
             right: 0.0,
         }
@@ -2662,14 +2672,22 @@ mod camera_tests {
     /// foreshortening of a board turned away from the camera, and squeezing
     /// that out means a lean of zero, which is a table of decals.
     ///
-    /// The bound was 1.08 and is 1.12, which is a promise being partly given
-    /// back and therefore says why. The owner asked a third time for more
-    /// angle on the table after being told what it trades against, so
-    /// [`CAMERA_LEAN`] went 0.27 → 0.36 and the widest board on an eight-seat
-    /// ring went 6.3% → 10.6%. The bound is that measurement plus a hair and
+    /// The bound was 1.08, then 1.12, and is 1.13 — a promise being given
+    /// back in pieces, so each piece says what bought it. [`CAMERA_LEAN`]
+    /// went 0.27 → 0.36 because the owner asked a third time for more angle
+    /// after being told what it trades against, and the widest board on an
+    /// eight-seat ring went 6.3% → 10.6% with it. Then the tab strip and the
+    /// phase rail came off the top of the window, [`Canvas::hud`]'s `top`
+    /// dropped from 110 to nothing, and the same ring went 10.3% → 12.1%:
+    /// a canvas that is taller is also *squarer*, the ring is laid out
+    /// rounder against it, and a rounder ring turns its side seats further
+    /// away from the camera. The bound is that measurement plus a hair and
     /// not a round number chosen to be safe: it still fails the shot this
     /// test was written for, which drew one board 18.9% wider than its
     /// neighbours.
+    ///
+    /// The phone keeps 1.18 and did not move — it was already 16.5% at three
+    /// seats for the reason below, and the taller canvas took it to 17.5%.
     #[test]
     fn every_seat_is_drawn_a_board_of_the_same_width() {
         // A phone is allowed a little more. Its ring is nearly a column —
@@ -2677,8 +2695,8 @@ mod camera_tests {
         // fraction of the eye distance closer than it does on a ring that had
         // room to be round, and no lens shortens that.
         for (window, bound) in [
-            (WINDOW, 1.12),
-            (Vec2::new(1280.0, 800.0), 1.12),
+            (WINDOW, 1.13),
+            (Vec2::new(1280.0, 800.0), 1.13),
             (Vec2::new(430.0, 932.0), 1.18),
         ] {
             let canvas = Canvas::hud(window);

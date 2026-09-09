@@ -50,8 +50,10 @@ pub(super) fn spawn_hand_bar(
             //
             // The shadow went with it, and had to: a `BoxShadow` is drawn
             // from the node's rectangle and not from its paint, so a
-            // transparent bar with `elevation_shadow(-1.0)` still lays a dark
-            // band the width of the window over the table.
+            // transparent bar with an elevation shadow under it still lays a
+            // dark band the width of the window over the table. The function
+            // that cast it is gone too — the phase rail was its other caller,
+            // and the rail is on the table now.
             BackgroundColor(Color::NONE),
             ZIndex(2),
             Pickable::IGNORE,
@@ -438,10 +440,13 @@ fn beside(
     } else {
         left
     };
-    // Kept clear of the tab strip and the hand bar.
+    // Kept clear of the window's own edge and of the hand bar. It used to be
+    // kept clear of the tab strip and the phase rail as well; both are on the
+    // table now, so the preview may open a hundred pixels higher than it
+    // could.
     let y = middle - panel.y / 2.0;
     Vec2::new(x, y).clamp(
-        Vec2::new(low.x, TAB_H + RAIL_H + PREVIEW_INSET),
+        Vec2::new(low.x, EDGE),
         Vec2::new(
             high.x,
             (window.y - HAND_BAR_H - PREVIEW_INSET - panel.y).max(low.y),
@@ -471,26 +476,6 @@ pub(super) fn preview_face(
 pub const OVERLAY_CARD_W: f32 = 86.0;
 /// Card height in the own-board overlay (63:88).
 pub const OVERLAY_CARD_H: f32 = OVERLAY_CARD_W * 88.0 / 63.0;
-/// Height of the tab bar at the top (the overlay starts below it).
-///
-/// It is the strip's height *and* what a seat tab adds up to plus the strip's
-/// own padding, and the phase rail is pinned at exactly this — so the two had
-/// to be made to agree. They did not: the bar carried no height at all, grew
-/// to the 58 its contents wanted, and the rail was drawn over its last ten
-/// pixels. Measured on the running client, the active tab's gold bottom
-/// border read (72, 55, 31) where its top read (214, 163, 79) — the same gold
-/// under 88% black. With the height stated they agree: (203, 154, 74) against
-/// (214, 163, 79), the difference being the tab's own drop shadow.
-///
-/// There is **no slack in it**: 2 + 2 of border, 4 + 4 of padding, and two
-/// line boxes of 16.8 and 13.2 with 2 between them come to 44, and the bar's
-/// own 6 above and below make exactly 56. Confirmed on screen — the tab's
-/// top border is drawn at logical y 6 and the bottom of its bottom border at
-/// 50. So a tab that grows a pixel overflows this strip by a pixel: the bar
-/// does not clip (that would take the bottom off every tab's shadow), and it
-/// went back under the rail as quietly as it did the first time. Grow this
-/// with whatever grew in there.
-pub const TAB_H: f32 = 56.0;
 /// The hand bar's height, including its padding.
 pub const HAND_BAR_H: f32 = HAND_CARD_H + 20.0;
 

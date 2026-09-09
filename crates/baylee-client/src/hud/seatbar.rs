@@ -50,6 +50,17 @@ pub struct SeatBarRoot;
 pub struct SeatBar {
     /// Whose shelf this is written on.
     pub player: PlayerId,
+    /// Where this bar was last put — its top-left corner and its tilt — so
+    /// that a camera standing still costs nothing.
+    ///
+    /// [`place_seat_bars`] writes `Node::left`/`top`, and a `Mut<Node>` marks
+    /// the node changed on any write at all, so placing every bar every frame
+    /// would relayout every bar every frame whether or not the camera had
+    /// moved. `table::apply_camera_rig` keeps the same discipline for the
+    /// same reason. What is stored is the pair actually written rather than
+    /// the shelf it came from, because the corner also moves when the
+    /// designation appears and widens the hinge.
+    pub placed: Option<(Vec2, f32)>,
 }
 
 /// A step tile on a seat's bar — the seat bar's half of [`PhaseButton`].
@@ -231,19 +242,29 @@ pub fn measure_shelves(
 pub fn place_seat_bars(
     shelves: Res<Shelves>,
     duel: Res<Duel>,
-    mut bars: Query<(&SeatBar, &mut Node, &mut UiTransform)>,
+    mut bars: Query<(&mut SeatBar, &mut Node, &mut UiTransform)>,
 ) {
     let designated = duel.view.as_ref().is_some_and(|v| v.day_night.is_some());
-    for (bar, mut node, mut turn) in &mut bars {
+    for (mut bar, mut node, mut turn) in &mut bars {
         let Some(shelf) = shelves.of(bar.player) else {
             // A shelf the camera cannot see is a bar with nowhere to be.
             // Hidden rather than despawned: the seat has not gone anywhere,
             // and rebuilding the tree when the camera swings back would make
             // an orbit cost a rebuild per seat.
-            node.display = Display::None;
+            if bar.placed.is_some() {
+                bar.placed = None;
+                node.display = Display::None;
+            }
             continue;
         };
+        // The camera stands still most of the time and should cost nothing
+        // then: touching `Node` at all is a relayout of this bar's whole
+        // subtree, so the write is guarded by where the bar already is.
         let corner = shelf.corner(designated);
+        if bar.placed == Some((corner, shelf.tilt)) {
+            continue;
+        }
+        bar.placed = Some((corner, shelf.tilt));
         node.display = Display::Flex;
         node.left = px(corner.x);
         node.top = px(corner.y);
@@ -349,7 +370,10 @@ fn spawn_bar(
     let player = seat.player;
     let bar = commands
         .spawn((
-            SeatBar { player },
+            SeatBar {
+                player,
+                placed: None,
+            },
             // Turned to lie along its own ledge. Bevy 0.19's UI picking runs
             // the pointer through `UiGlobalTransform::inverse`, so a rotated
             // tile is still clickable where it is drawn — which is what makes
@@ -677,11 +701,7 @@ fn hinge(
     // already lives. It appears once and never leaves (CR 731.1), which is
     // why the hinge widens rather than reserving a slot.
     if let Some(now) = view.day_night {
-        use baylee_view::DayNight;
-        let (mark, tone) = match now {
-            DayNight::Day => ('\u{f185}', palette::PARCHMENT),
-            DayNight::Night => ('\u{f186}', palette::INK),
-        };
+        let (mark, tone) = designation_of(now);
         let glyph = commands
             .spawn((
                 Text::new(mark.to_string()),
@@ -693,6 +713,26 @@ fn hinge(
         commands.entity(cell).add_child(glyph);
     }
     cell
+}
+
+/// The glyph and the ink for a day/night designation (CR 731).
+///
+/// Two colours and no third, and both of them are in the **glyph**. Day is
+/// the sun in [`palette::PARCHMENT`], the warmest light in the palette and
+/// the one colour that never means a status; night is the moon in
+/// [`palette::INK`], the cool one. Neither is [`palette::ACTIVE`] — that
+/// lights the step the game is in a few cells to the right, and a designation
+/// wearing it would read as a step.
+///
+/// Its own function because it is what
+/// `tests::designation::the_designation_does_not_borrow_a_step_glyph` reads:
+/// the sun was the untap step's mark until the day designation wanted it, and
+/// the two sets have to stay disjoint on a bar that draws both.
+fn designation_of(now: baylee_view::DayNight) -> (char, Color) {
+    match now {
+        baylee_view::DayNight::Day => ('\u{f185}', palette::PARCHMENT),
+        baylee_view::DayNight::Night => ('\u{f186}', palette::INK),
+    }
 }
 
 /// The twelve steps of a turn.
@@ -853,11 +893,7 @@ fn spawn_tile(
         ))
         .id();
 
-    if density == Density::Pip {
-        // A pip is the tile with nothing written in it: at fourteen pixels a
-        // glyph is a smudge, and the frame and the fill already carry the
-        // order and the ink already carries the time.
-    } else {
+    if density.tiles_have_glyphs() {
         let glyph = commands
             .spawn((
                 Text::new(icon.to_string()),

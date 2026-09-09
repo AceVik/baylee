@@ -321,6 +321,19 @@ impl Density {
         matches!(self, Self::Full)
     }
 
+    /// Whether a step tile carries a glyph at all.
+    ///
+    /// The two small forms do not. At eleven pixels across a glyph is a
+    /// smudge, and the frame, the fill and the ink already carry the standing
+    /// order, where the game is and how much of the turn has gone — which is
+    /// everything the tile is for. A form that drops the label always drops
+    /// the glyph one size later, never the other way round, which is what
+    /// `a_labelled_tile_is_a_tile_with_a_glyph_on_it` holds.
+    #[must_use]
+    pub const fn tiles_have_glyphs(self) -> bool {
+        matches!(self, Self::Full | Self::Compact)
+    }
+
     /// The twelve tiles and the eleven gaps between them.
     #[must_use]
     pub fn steps_width(self) -> f32 {
@@ -412,6 +425,28 @@ mod tests {
             assert_eq!(Density::for_length(pip - 1.0, designated), Density::Mark);
             assert_eq!(Density::for_length(0.0, designated), Density::Mark);
             assert_eq!(Density::for_length(-40.0, designated), Density::Mark);
+        }
+    }
+
+    /// A tile that is labelled is a tile that has a glyph.
+    ///
+    /// The two go in one order — the label goes first, the glyph one size
+    /// later — and the renderer used to ask the question the other way round:
+    /// it drew a glyph unless the form was exactly [`Density::Pip`], which was
+    /// right while `Pip` was the smallest form and put a ten-pixel glyph in an
+    /// eight-by-ten tile the moment [`Density::Mark`] existed.
+    #[test]
+    fn a_labelled_tile_is_a_tile_with_a_glyph_on_it() {
+        for density in Density::ALL {
+            assert!(
+                !density.tiles_are_labelled() || density.tiles_have_glyphs(),
+                "{density:?} writes a label with no glyph beside it"
+            );
+            assert!(
+                !density.tiles_have_glyphs() || density.tile_width() >= 12.0,
+                "{density:?} draws a glyph in a {} pixel tile",
+                density.tile_width()
+            );
         }
     }
 

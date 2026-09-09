@@ -368,8 +368,10 @@ pub(super) fn spawn_stack_panel(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                right: px(12),
-                top: px(TAB_H + RAIL_H + 12.0),
+                right: px(EDGE),
+                // Under the menu pills, which are the only thing left in this
+                // corner — see [`MENU_BAND`].
+                top: px(MENU_BAND),
                 width: px(STACK_PANEL_W),
                 max_height: percent(62),
                 flex_direction: FlexDirection::Column,

@@ -712,9 +712,9 @@ action, which is exactly why a client may decide it alone and why the clock
 is the player's own; `SkyMode::Day`/`Night` exist so a player can override
 that clock, so a sky driven by the rules would either overrule the player's
 setting or be overruled by it, and either way could never be *read* as a
-rules fact. The designation is drawn in the phase rail's head instead, where
-a fact about the game already lives, and the sky is allowed to disagree with
-it. The hour comes from `web-time` in the shell, because
+rules fact. The designation is drawn on every seat's own bar instead, on the
+hinge beside the turn number, where a fact about the game already lives — and
+the sky is allowed to disagree with it. The hour comes from `web-time` in the shell, because
 `std::time::SystemTime::now` panics on `wasm32-unknown-unknown` and
 `baylee-client-core` compiles for it — and it is **UTC**, with `Day` and
 `Night` there for a player the offset bothers.
@@ -767,23 +767,52 @@ refusal with the defaults — every key a player had ever bound, lost to one
 retired row. An unknown name is now dropped and the rest of the map kept, in
 both directions of an upgrade.
 
-The **camera frames the table against the part of the window it is seen
-through**, which is not the window: the tab strip, the phase rail under it and
-the hand bar are overlays on the same full-window camera and cover about a
-fifth of it. The rail is a horizontal strip now — twelve steps left to right,
-two rows (opponents' turns above your own), the step the game is in lit by
-`hud::rail::light_the_current_step` rather than by a colour written at build
-time, since the HUD tree is rebuilt on every step change and a light that
-eased from zero at spawn *is* the transition. The untap and cleanup rows are
+**Every seat reads itself off its own mat.** The front of each mat is a
+`tabletop::MAT_LEDGE` shelf — a fourth band, dimmer than the quietest lane, so
+the ink on it is the brightest thing on a seat's ground — and the seat's bar
+is written along it: the priority caret, the seat's colour, its name, life,
+its four zone counts, the turn number with the day/night designation on its
+hinge, then the twelve steps of that turn. It is a **second retained tree**
+with its own `hud::BarRevision`, because `HudRevision` counts the hover and a
+bar rebuilt on every pointer move would be rebuilt hundreds of times a turn.
+Placement cannot use the camera's propagated `GlobalTransform` — `bevy_ui`
+orders `UiSystems::Layout` *before* `TransformSystems::Propagate`, so a
+`Node` written from it is a frame stale — so `table::Lens` projects the
+mat's ledge corners from the same `CameraRig::eye` the camera is set from, and
+`camera_tests` checks that against the hand-derived projection to half a pixel.
+A rotated seat's bar is rotated with it (`UiTransform::from_rotation`), which
+carries picking too: Bevy 0.19's UI backend inverts `UiGlobalTransform`.
+The bar comes in **four densities** and the fourth is not decoration — the
+shelf projects 1141 px at a duel and 151 px on an eight-player ring, so
+`seatbar::Density::for_length` drops from the full bar to a compact one to
+pips to `Mark` (a caret, the seat's colour and twelve 8×10 pips). What a
+density drops, the seat sheet carries on hover. The untap and cleanup steps are
 dead in the model, not merely drawn grey: `RailRow::grants_priority` is false
-there and `PhaseOrders::toggle` refuses both. The predicate is about a
-*standing order*, not about the rules, which is what puts cleanup on the list:
-untap grants no priority at all (CR 502.4), and cleanup grants a round only
-*because* a state-based action was performed or an ability triggered (CR
-514.3, 514.3a) — a window the engine opens on its own and asks about when it
-opens. A green button in either is a stop that can never fire. The one thing
-greying cleanup costs is a speculative hold there, arranged in advance against
-a trigger that may not come. A hard-coded 20-unit rig aimed at the middle of the felt put the local
+there and `PhaseOrders::toggle` refuses both, so those two tiles carry no
+frame and are `Pickable::IGNORE`. The predicate is about a *standing order*,
+not about the rules, which is what puts cleanup on the list: untap grants no
+priority at all (CR 502.4), and cleanup grants a round only *because* a
+state-based action was performed or an ability triggered (CR 514.3, 514.3a) —
+a window the engine opens on its own and asks about when it opens. A green
+button in either is a stop that can never fire. The one thing greying cleanup
+costs is a speculative hold there, arranged in advance against a trigger that
+may not come. Both rows of standing orders are seen at once in
+`settingsui.rs`, which is where a player arranges them; a bar shows only the
+row its own turn belongs to.
+
+The **camera frames the table against the part of the window it is seen
+through**, which is not the window: the hand bar is an overlay on the same
+full-window camera. It used to be far more than that — a strip of seat tabs
+and a phase rail under it took 110 logical pixels off the top of every window
+in every game, and both of them said what a seat's own bar says now, so
+`Canvas::hud`'s `top` is **zero**. The camera came in by that much: measured
+at 1728×1052, pixels per table unit went 37.9 → 43.8 at a duel and 28.2 →
+29.6 on an eight-seat ring. It is not free at every size — a taller canvas is
+a squarer one, the ring is laid out rounder against it, and at three seats
+that costs more depth than the height gained (34.9 → 32.0). A rounder ring
+also turns its side seats further from the camera, which is why
+`every_seat_is_drawn_a_board_of_the_same_width` moved from 1.12 to 1.13.
+A hard-coded 20-unit rig aimed at the middle of the felt put the local
 seat's own mat *underneath the hand bar* on every screen.
 `table::CameraRig::home(layout, canvas)` computes it instead, from
 `TableLayout::extent` (each pod's box rotated by its `facing`, because a seat
@@ -953,7 +982,7 @@ Every key comes from the account's `Keymap` (`baylee-client-core/src/prefs.rs`),
 resolved through `crates/baylee-client/src/keys.rs` — the one place that knows
 a stored key name is a Bevy `KeyCode`. Input handlers ask *actions*, never
 keys; `W` and `⇧W` are two chords and telling them apart is the keymap's job.
-The keymap, the phase rail and the automation switches travel with the account
+The keymap, the standing orders and the automation switches travel with the account
 over `GET`/`PUT /settings`, and `crates/baylee-client/src/settingsui.rs` is
 where a player changes them.
 

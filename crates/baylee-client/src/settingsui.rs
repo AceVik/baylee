@@ -1,4 +1,4 @@
-//! The settings screen: keys, automation, and the phase rail.
+//! The settings screen: keys, automation, and the standing orders.
 //!
 //! It lives beside the lobby rather than inside a duel for one reason — this
 //! is where the account is. Everything on this screen belongs to the account
@@ -214,7 +214,13 @@ fn chords_of(keymap: &Keymap, action: Action, lang: Lang) -> String {
         .join("  /  ")
 }
 
-/// The automation switches, and the phase rail underneath them.
+/// The automation switches, and the standing orders underneath them.
+///
+/// This is where both rows are seen **at once**. Every seat bar carries the
+/// twelve steps of a turn, but only the row that turn belongs to — an order
+/// about opponents' turns is invisible on your own bar until an opponent is
+/// taking one. A player arranging stops wants the whole arrangement in front
+/// of them, and that is a settings screen rather than a table.
 fn automation_panel(
     commands: &mut Commands,
     prefs: &Preferences,

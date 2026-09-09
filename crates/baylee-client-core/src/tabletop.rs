@@ -446,6 +446,15 @@ pub const MAT_LEDGE: f32 = 0.95;
 /// middle, or the bar is written on its own border.
 const _: () = assert!(MAT_LEDGE > MAT_RIM * 4.0);
 
+/// And it has to stay a shelf rather than become a fourth lane.
+///
+/// Measured against a **card** rather than against a lane, which is the
+/// tighter and the truer of the two: what makes a band read as a row is that
+/// a card would sit on it, not what fraction of the lane beside it the band
+/// happens to be. A lane carries a card plus air, so a bound of
+/// three-quarters of a *lane* lets the shelf grow to nine tenths of a card.
+const _: () = assert!(MAT_LEDGE < crate::layout::CARD_HEIGHT * 0.75);
+
 /// How much of white the ledge is veiled with, on the same scale as
 /// [`MAT_LANES`].
 ///
@@ -1530,31 +1539,10 @@ mod tests {
             MAT_RIM < lane * 0.15,
             "a {MAT_RIM} rim against a {lane} lane is a frame"
         );
-        // And the ledge has to be a shelf rather than a fourth lane. That it
-        // clears the rim is a `const _` beside the constant itself; this is
-        // the half that needs the layout.
-        //
-        // Measured against a **card** rather than against a lane, and that is
-        // the tighter and the truer of the two: what makes a band read as a
-        // row is that a card would sit on it, not what fraction of the lane
-        // beside it the band happens to be. A lane carries a card plus air,
-        // so a bound of three-quarters of a lane lets the shelf grow to nine
-        // tenths of a card.
-        // A `const _` beside the constant would be the natural home, but
-        // `CARD_HEIGHT` lives in `layout` and the shelf lives here, so the
-        // two meet in a test rather than in a compile-time assertion.
-        #[allow(
-            clippy::assertions_on_constants,
-            reason = "the two crates' constants meeting"
-        )]
-        {
-            assert!(
-                MAT_LEDGE < crate::layout::CARD_HEIGHT * 0.75,
-                "a {MAT_LEDGE} ledge is three-quarters of the {} a card \
-                 stands in — that is a fourth row, not a shelf",
-                crate::layout::CARD_HEIGHT
-            );
-        }
+        // That the ledge clears the rim, and that it stays a shelf rather
+        // than becoming a fourth lane, are both `const _` assertions beside
+        // `MAT_LEDGE` itself — `layout` is the same crate, so the card the
+        // second one measures against is reachable at compile time.
     }
 
     /// The ink on the ledge has to be readable *as composited*, which is a

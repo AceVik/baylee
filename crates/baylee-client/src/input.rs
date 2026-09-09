@@ -17,8 +17,8 @@
 //! whatever the cursor happens to be resting on.
 
 use crate::hud::{
-    AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PhaseButton, PlayerTab,
-    PreviewResize, PromptAction, PromptButton, TrayCard, TrayClose, TrayFilter, TraySort, TrayTab,
+    AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PlayerTab, PreviewResize,
+    PromptAction, PromptButton, TrayCard, TrayClose, TrayFilter, TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -1362,7 +1362,6 @@ pub fn pointer(
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
     tabs: Query<&PlayerTab>,
-    phase_buttons: Query<&PhaseButton>,
     seat_steps: Query<&crate::hud::SeatStep>,
     menu_buttons: Query<&MenuButton>,
     prompt_buttons: Query<&PromptButton>,
@@ -1410,14 +1409,11 @@ pub fn pointer(
             }
             continue;
         }
-        if let Some(button) = find_in_lineage(e, &phase_buttons, &parents) {
-            prefs.edit().orders.toggle(button.side, button.row);
-            continue;
-        }
-        // A step tile on a seat bar toggles the same standing order the
-        // rail button does: `PhaseOrders` is keyed by `RailSide` and not by
-        // seat, so an order about opponents' turns is one order however
-        // many opponents are sitting at the table.
+        // A step tile on a seat bar toggles a standing order. `PhaseOrders`
+        // is keyed by `RailSide` and not by seat, so an order about
+        // opponents' turns is one order however many opponents are sitting at
+        // the table — which is why one tile on one seat's bar can set an
+        // order every other seat's bar then draws.
         if let Some(tile) = find_in_lineage(e, &seat_steps, &parents) {
             prefs.edit().orders.toggle(tile.side, tile.row);
             continue;
@@ -3151,10 +3147,7 @@ mod dragging {
         // The node the overlay would have built: an explicit rectangle, so
         // that "it moved" is a comparison of two numbers rather than of a
         // number against `Auto`.
-        let band = (
-            1728.0,
-            1052.0 - (crate::hud::TAB_H + crate::hud::RAIL_H) - crate::hud::HAND_BAR_H,
-        );
+        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_BAR_H);
         let home = Placement::centred(band);
         let panel = app
             .world_mut()

@@ -73,8 +73,8 @@ mod layout {
 /// pointed at it. Nothing else does: a permanent is on the felt, a pile is
 /// beside a mat, a stack card is in a panel that scrolls — so those anchor at
 /// the pointer, and the arithmetic that keeps the panel beside the pointer
-/// rather than on top of it, off the tab strip and the phase rail under it,
-/// and off the hand bar, is the whole of the placement.
+/// rather than on top of it, off the window's own top edge and off the hand
+/// bar, is the whole of the placement.
 mod preview_place {
     use super::*;
 
@@ -109,8 +109,8 @@ mod preview_place {
     }
 
     /// Whatever it is anchored to, the panel stays inside the part of the
-    /// window a player can see it in: the tab strip and the phase rail are
-    /// above, the hand bar below.
+    /// window a player can see it in — which is the whole of it now bar the
+    /// hand at the bottom.
     #[test]
     fn the_panel_stays_in_the_band() {
         let anchors = [
@@ -136,18 +136,15 @@ mod preview_place {
         }
     }
 
-    /// A pointer anchor is also kept out from under the strips at either end,
-    /// which the clamp above allows and this does not: a preview whose top
-    /// half is behind the phase rail is a preview of a card.s bottom half.
+    /// A pointer anchor is also kept off the window's own top edge and out
+    /// from under the hand bar, which the clamp above allows and this does
+    /// not: a preview whose bottom half is behind the hand is a preview of a
+    /// card's top half.
     #[test]
-    fn a_pointer_anchor_clears_the_tab_strip_and_the_hand_bar() {
+    fn a_pointer_anchor_clears_the_window_edge_and_the_hand_bar() {
         for y in [0.0_f32, 30.0, 500.0, 1000.0, 1052.0] {
             let place = preview_place(PreviewAt::Pointer(Vec2::new(600.0, y)), PANEL, WINDOW);
-            assert!(
-                place.y >= TAB_H + rail::RAIL_H,
-                "at y {y} the panel starts at {}",
-                place.y
-            );
+            assert!(place.y >= EDGE, "at y {y} the panel starts at {}", place.y);
             assert!(
                 place.y + PANEL.y <= WINDOW.y - HAND_BAR_H,
                 "at y {y} the panel ends at {}",
@@ -194,7 +191,7 @@ mod preview_place {
     /// its own clamp and a test of the pointer arm would not have caught a
     /// card one that was missing it.
     #[test]
-    fn a_card_anchor_clears_the_tab_strip_and_the_hand_bar() {
+    fn a_card_anchor_clears_the_window_edge_and_the_hand_bar() {
         for cy in [0.0_f32, 40.0, 600.0, 1052.0] {
             let rect = Rect {
                 min: Vec2::new(800.0, cy - 73.0),
@@ -202,7 +199,7 @@ mod preview_place {
             };
             let place = preview_place(PreviewAt::Card(rect), PANEL, WINDOW);
             assert!(
-                place.y >= TAB_H + rail::RAIL_H,
+                place.y >= EDGE,
                 "a card centred at y {cy} opened a panel at {}",
                 place.y
             );
@@ -290,38 +287,6 @@ mod preview {
             source.contains(needle),
             "the preview's frame must hand `Pickable::IGNORE` to its whole \
              subtree; without it the panel covers the card it is describing"
-        );
-    }
-}
-
-/// A seat tab fills its strip exactly, so nothing may be stacked into it.
-mod seat_tab {
-    /// `hand::TAB_H` is 56 and a tab comes to 44 of it — two borders, eight
-    /// of padding and two line boxes of 16.8 and 13.2 with 2 between them —
-    /// which leaves the strip's own 6 above and below and **no slack at
-    /// all**. So a third line in the tab's stacked column does not make a
-    /// taller tab in a taller strip: the strip's height is stated, the phase
-    /// rail is pinned under it and the camera frames the table against both.
-    ///
-    /// That is not hypothetical. The commander-damage track (CR 903.10a) was
-    /// a third line, and it appears only once a commander has connected — so
-    /// nothing in a normal game showed it. Forced on and measured, the tab
-    /// stood 58.5 tall: its top border cut off by the window's edge, its
-    /// bottom border drawn over the phase rail. It sits beside the life
-    /// total now, where it costs width instead.
-    ///
-    /// Anything else conditional belongs on that row too, or beside the
-    /// counts. This counts the calls rather than reading the layout, because
-    /// the layout exists only inside a running renderer — the same shape as
-    /// the shader tests, and the reason this file reads source at all.
-    #[test]
-    fn nothing_new_is_stacked_into_a_seat_tab() {
-        let overlay = include_str!("overlay.rs");
-        let stacked = overlay.matches("entity(lines).add_child(").count();
-        assert_eq!(
-            stacked, 2,
-            "a seat tab's column carries the name row and the counts row and \
-             has room for neither a third nor one fewer — see `hand::TAB_H`"
         );
     }
 }
@@ -834,33 +799,51 @@ mod the_designation {
         );
     }
 
-    /// The designation's two glyphs belong to nothing else in the strip.
+    /// The designation's two glyphs belong to nothing else on a seat's bar.
     ///
     /// The sun was the untap step's until the day designation wanted it, and
-    /// two suns a hundred pixels apart in one rail would have said the untap
+    /// two suns a hundred pixels apart on one bar would have said the untap
     /// step *is* the daytime. The check is the two sets being disjoint and
     /// not every glyph being unique, because the two main phases share a flag
     /// on purpose — they are one phase kind twice, and "M1" and "M2" under
     /// them are what tell them apart.
+    ///
+    /// The two halves used to live in one file and the test split it at
+    /// `fn spawn_designation`. They are two files now — the steps' glyphs
+    /// stayed with [`row_visual`](crate::hud::rail) when the rail went, and
+    /// the hinge that carries the designation is on the bar — so the test
+    /// reads both instead of splitting one.
     #[test]
     fn the_designation_does_not_borrow_a_step_glyph() {
-        let rail = include_str!("rail.rs");
         let glyphs = |src: &str| -> Vec<String> {
             src.match_indices("'\\u{f")
                 .map(|(at, _)| src[at + 1..at + 9].to_string())
                 .collect()
         };
-        let (steps, rest) = rail
-            .split_once("fn spawn_designation")
-            .expect("the block is still built there");
-        let steps = glyphs(steps);
-        let designation = glyphs(rest.split_once("\n}").expect("and still closes").0);
+        let steps = glyphs(
+            include_str!("rail.rs")
+                .split_once("fn row_visual")
+                .expect("the steps' glyphs are still there")
+                .1
+                .split_once("\n}")
+                .expect("and the table still closes")
+                .0,
+        );
+        let bar = include_str!("seatbar.rs");
+        let designation = glyphs(
+            bar.split_once("fn designation_of")
+                .expect("the hinge still names its two glyphs")
+                .1
+                .split_once("\n}")
+                .expect("and still closes")
+                .0,
+        );
         assert_eq!(
             designation.len(),
             2,
             "the sun and the moon: {designation:?}"
         );
-        assert!(steps.len() >= 12, "the rows did not parse: {steps:?}");
+        assert_eq!(steps.len(), 12, "the rows did not parse: {steps:?}");
         for glyph in &designation {
             assert!(
                 !steps.contains(glyph),

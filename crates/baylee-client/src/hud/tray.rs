@@ -76,10 +76,7 @@ pub(crate) fn band_of(windows: &Query<&Window>) -> (f32, f32) {
     let size = windows.single().map_or(Vec2::new(1200.0, 800.0), |w| {
         Vec2::new(w.width(), w.height())
     });
-    (
-        size.x,
-        (size.y - (TAB_H + RAIL_H) - HAND_BAR_H).max(Placement::MIN_H),
-    )
+    (size.x, (size.y - EDGE - HAND_BAR_H).max(Placement::MIN_H))
 }
 
 /// The zone browser: a sheet laid on the felt, in the middle of the table.
@@ -107,18 +104,21 @@ pub(super) fn spawn_tray(
     place: Placement,
 ) -> Entity {
     let rows = browser.rows(view, interaction);
-    // The band: the whole strip between the phase rail and the hand bar,
+    // The band: the whole window between its top edge and the hand bar,
     // painting nothing and answering no click. It used to centre its one
     // child; now it is the coordinate space that child is placed in, which is
     // what makes a remembered position mean the same thing on two screens
-    // with different amounts of HUD above and below.
+    // with different amounts of HUD above and below. It used to start under
+    // the phase rail, a hundred and ten pixels down; there is nothing across
+    // the top of the window any more, so it starts at the window's own edge
+    // and the sheet has that much more room to be dragged into.
     let frame = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
                 left: px(0),
                 right: px(0),
-                top: px(TAB_H + RAIL_H),
+                top: px(EDGE),
                 bottom: px(HAND_BAR_H),
                 ..default()
             },
@@ -745,13 +745,13 @@ mod tests {
 
     /// The band never claims more room than the window has.
     #[test]
-    fn the_band_is_what_is_left_between_the_rail_and_the_hand() {
+    fn the_band_is_what_is_left_above_the_hand() {
         // A window the size the dev harness reports.
-        let tall = 1052.0 - (TAB_H + RAIL_H) - HAND_BAR_H;
+        let tall = 1052.0 - EDGE - HAND_BAR_H;
         assert!(tall > Placement::MIN_H, "the fixture is not exercising it");
         // A window too short for a sheet still gets one: `MIN_H` wins, and a
         // sheet clamped to nothing would be a sheet that is not there.
-        let cramped = (200.0f32 - (TAB_H + RAIL_H) - HAND_BAR_H).max(Placement::MIN_H);
+        let cramped = (200.0f32 - EDGE - HAND_BAR_H).max(Placement::MIN_H);
         assert!((cramped - Placement::MIN_H).abs() < f32::EPSILON);
     }
 
