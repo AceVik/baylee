@@ -1,6 +1,6 @@
 //! Tishana's Tidebinder — {2}{U} — Creature — Merfolk Wizard
 //! Oracle: Flash
-//! Oracle: When this creature enters, counter target activated or triggered ability. If countered, that permanent loses all abilities until end of turn.
+//! Oracle: When this creature enters, counter up to one target activated or triggered ability. If an ability of an artifact, creature, or planeswalker is countered this way, that permanent loses all abilities for as long as this creature remains on the battlefield. (Mana abilities can't be targeted.)
 //! Set: LCI #81 — The Lost Caverns of Ixalan | Scryfall ID: 907b3d1d-8c85-4707-80b5-c4d832df9846 | Oracle ID: 2993dc7d-723d-4a9b-94bd-4bb02a9f7243
 // IMPLEMENTED — flash + counter target ability + ability suppression until EOT.
 

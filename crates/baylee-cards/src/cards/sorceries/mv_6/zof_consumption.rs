@@ -1,4 +1,7 @@
 //! Zof Consumption // Zof Bloodbog — {4}{B}{B} — Sorcery // Land
+//! Oracle: Each opponent loses 4 life and you gain 4 life.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {B}.
 //! Set: ZNR #132 — Zendikar Rising | Scryfall ID: 98496d5b-1519-4f0c-8b46-0a43be643dfb | Oracle ID: d9f11985-e460-425d-b083-9cb0edf1983a
 //! Face: Zof Consumption — {4}{B}{B} — Sorcery
 //! Face: Zof Bloodbog —  — Land

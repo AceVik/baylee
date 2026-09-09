@@ -1,4 +1,7 @@
 //! Ondu Inversion // Ondu Skyruins — {6}{W}{W} — Sorcery // Land
+//! Oracle: Destroy all nonland permanents.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {W}.
 //! Set: ZNR #30 — Zendikar Rising | Scryfall ID: b6e6be8c-41c3-4348-a8dd-b40ceb24e9b4 | Oracle ID: 15fc4e74-300e-4c2d-8ed7-004553b2f7c2
 //! Face: Ondu Inversion — {6}{W}{W} — Sorcery
 //! Face: Ondu Skyruins —  — Land

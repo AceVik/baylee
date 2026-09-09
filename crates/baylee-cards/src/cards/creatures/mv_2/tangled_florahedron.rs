@@ -1,4 +1,7 @@
 //! Tangled Florahedron // Tangled Vale — {1}{G} — Creature — Elemental // Land
+//! Oracle: {T}: Add {G}.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G}.
 //! Set: ZNR #211 — Zendikar Rising | Scryfall ID: 235d1ffc-72aa-40a2-95dc-3f6a8d495061 | Oracle ID: 53542c79-a62a-4d6a-97db-5296e9c68302
 //! Face: Tangled Florahedron — {1}{G} — Creature — Elemental
 //! Face: Tangled Vale —  — Land

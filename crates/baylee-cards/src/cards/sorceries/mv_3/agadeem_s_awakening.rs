@@ -1,4 +1,7 @@
 //! Agadeem's Awakening // Agadeem, the Undercrypt — {X}{B}{B}{B} — Sorcery // Land
+//! Oracle: Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {B}.
 //! Set: ZNR #90 — Zendikar Rising | Scryfall ID: 67f4c93b-080c-4196-b095-6a120a221988 | Oracle ID: 562d71b9-1646-474e-9293-55da6947a758
 //! Face: Agadeem's Awakening — {X}{B}{B}{B} — Sorcery
 //! Face: Agadeem, the Undercrypt —  — Land

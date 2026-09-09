@@ -1,4 +1,9 @@
 //! Golden Guardian // Gold-Forge Garrison — {4} — Artifact Creature — Golem // Land
+//! Oracle: Defender
+//! Oracle: {2}: This creature fights another target creature you control. When this creature dies this turn, return it to the battlefield transformed under your control.
+//! Oracle: (Transforms from Golden Guardian.)
+//! Oracle: {T}: Add two mana of any one color.
+//! Oracle: {4}, {T}: Create a 4/4 colorless Golem artifact creature token.
 //! Set: RIX #179 — Rivals of Ixalan | Scryfall ID: 397ba02d-f347-46f7-b028-dd4ba55faa2f | Oracle ID: 58afb897-4d57-4b53-a5c3-b532cb3d5180
 //! Face: Golden Guardian — {4} — Artifact Creature — Golem
 //! Face: Gold-Forge Garrison —  — Land

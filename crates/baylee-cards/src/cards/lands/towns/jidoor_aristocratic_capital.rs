@@ -1,4 +1,7 @@
 //! Jidoor, Aristocratic Capital // Overture — (no cost) — Land — Town // Sorcery — Adventure
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {U}.
+//! Oracle: Target opponent mills half their library, rounded down. (Then exile this card. You may play the land later from exile.)
 //! Set: FIN #284 — Final Fantasy | Scryfall ID: 98b2d5b5-f85b-4c42-a0f5-a76f6af304ba | Oracle ID: bd513d9d-5aa2-4860-bd86-8b5d9430f133
 //! Face: Jidoor, Aristocratic Capital —  — Land — Town
 //! Face: Overture — {4}{U}{U} — Sorcery — Adventure

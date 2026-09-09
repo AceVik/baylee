@@ -1,5 +1,6 @@
 //! Glasspool Mimic // Glasspool Shore — {2}{U} — Creature — Shapeshifter Rogue // Land
-//! Oracle: You may have this creature enter as a copy of a creature you control, except it's a Shapeshifter Rogue in addition to its other types. // This land enters tapped.
+//! Oracle: You may have this creature enter as a copy of a creature you control, except it's a Shapeshifter Rogue in addition to its other types.
+//! Oracle: This land enters tapped.
 //! Oracle: {T}: Add {U}.
 //! Set: ZNR #60 — Zendikar Rising | Scryfall ID: 5adcb500-8c77-4925-8e2c-1243502827d1 | Oracle ID: c178953c-3888-4edd-9d0c-265bd82b1d24
 // IMPLEMENTED — clone-with-extra-subtypes front (CopyOnEnter) + MDFC

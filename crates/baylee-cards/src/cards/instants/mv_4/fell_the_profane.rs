@@ -1,4 +1,7 @@
 //! Fell the Profane // Fell Mire — {2}{B}{B} — Instant // Land
+//! Oracle: Destroy target creature or planeswalker.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {B}.
 //! Set: MH3 #244 — Modern Horizons 3 | Scryfall ID: a3cb782d-c459-468d-9779-9b5669abc337 | Oracle ID: 053a69d8-2b5e-4f14-8b02-ca405891dc4a
 //! Face: Fell the Profane — {2}{B}{B} — Instant
 //! Face: Fell Mire —  — Land

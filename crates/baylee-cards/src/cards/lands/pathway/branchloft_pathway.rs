@@ -1,4 +1,6 @@
 //! Branchloft Pathway // Boulderloft Pathway — (no cost) — Land // Land
+//! Oracle: {T}: Add {G}.
+//! Oracle: {T}: Add {W}.
 //! Set: ZNR #258 — Zendikar Rising | Scryfall ID: 0511e232-2a72-40f5-a400-4f7ebc442d17 | Oracle ID: 7c304547-a4b1-46c9-baed-16d2bfbe16eb
 //! Face: Branchloft Pathway —  — Land
 //! Face: Boulderloft Pathway —  — Land

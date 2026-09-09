@@ -1,5 +1,6 @@
 //! Isolated Chapel — (no cost) — Land
-//! Oracle: Isolated Chapel enters the battlefield tapped unless you control a PLAINS or an SWAMP.
+//! Oracle: This land enters tapped unless you control a Plains or a Swamp.
+//! Oracle: {T}: Add {W} or {B}.
 //! {T}: Add White or Black.
 //! Set: XLN #253 — Ixalan | Scryfall ID: 78814c92-b52c-462a-866f-3e7da9db9f70 | Oracle ID: 7e5d9efe-48a9-434b-bb09-056e0e09cc9a
 // IMPLEMENTED — checkland (ETB tapped unless you control a PLAINS/SWAMP) + 2-color mana.

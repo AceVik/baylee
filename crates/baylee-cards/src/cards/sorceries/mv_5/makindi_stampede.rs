@@ -1,4 +1,7 @@
 //! Makindi Stampede // Makindi Mesas — {3}{W}{W} — Sorcery // Land
+//! Oracle: Creatures you control get +2/+2 until end of turn.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {W}.
 //! Set: ZNR #26 — Zendikar Rising | Scryfall ID: ada9a974-8f1f-4148-bd61-200fc14714b2 | Oracle ID: 342e08f9-d4d0-4408-8621-66e087058616
 //! Face: Makindi Stampede — {3}{W}{W} — Sorcery
 //! Face: Makindi Mesas —  — Land

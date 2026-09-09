@@ -1,4 +1,7 @@
 //! Boggart Trawler // Boggart Bog — {2}{B} — Creature — Goblin // Land
+//! Oracle: When this creature enters, exile target player's graveyard.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {B}.
 //! Set: MH3 #243 — Modern Horizons 3 | Scryfall ID: d0d484a6-5610-4f1d-95ec-eda273c255e4 | Oracle ID: 727f3201-1cfc-4ab2-9dfe-be4f7251f42f
 //! Face: Boggart Trawler — {2}{B} — Creature — Goblin
 //! Face: Boggart Bog —  — Land

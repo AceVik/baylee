@@ -1,4 +1,7 @@
 //! Skyclave Cleric // Skyclave Basilica — {1}{W} — Creature — Kor Cleric // Land
+//! Oracle: When this creature enters, you gain 2 life.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {W}.
 //! Set: ZNR #40 — Zendikar Rising | Scryfall ID: 014027c4-7f9d-4096-b308-ea4be574c0d4 | Oracle ID: da9e3910-9a1c-43a9-9138-ca971b2bccae
 //! Face: Skyclave Cleric — {1}{W} — Creature — Kor Cleric
 //! Face: Skyclave Basilica —  — Land

@@ -1,5 +1,7 @@
 //! Zagoth Triome — (no cost) — Land — SWAMP FOREST ISLAND
 //! Oracle: ({T}: Add {B}, {G}, or {U}.)
+//! Oracle: This land enters tapped.
+//! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)
 //! Zagoth Triome enters the battlefield tapped.
 //! Cycling {2}
 //! Set: IKO #259 — Ikoria: Lair of Behemoths | Scryfall ID: cc520518-2063-4b57-a0d4-10cf62a7175e | Oracle ID: fdd46004-eaba-4024-8687-39b23dc6a58c

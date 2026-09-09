@@ -1,9 +1,11 @@
 //! Harvesttide Infiltrator // Harvesttide Assailant — {2}{R} — Creature — Human Werewolf // Creature — Werewolf
+//! Oracle: Trample
+//! Oracle: Daybound (If a player casts no spells during their own turn, it becomes night next turn.)
+//! Oracle: Trample
+//! Oracle: Nightbound (If a player casts at least two spells during their own turn, it becomes day next turn.)
 //! Set: MID #143 — Innistrad: Midnight Hunt | Scryfall ID: 35fdb976-291c-4824-9518-dd8c9f93fcde | Oracle ID: 8669f2e1-3e98-4fa5-ba4f-a0860b92c609
 //! Face: Harvesttide Infiltrator — {2}{R} — Creature — Human Werewolf
 //! Face: Harvesttide Assailant —  — Creature — Werewolf
-//! Oracle: Harvesttide Infiltrator — Trample. Daybound.
-//! Oracle: Harvesttide Assailant — Trample. Nightbound.
 // IMPLEMENTED — trample on both faces, daybound on the front and nightbound
 // on the back (CR 702.145a).
 

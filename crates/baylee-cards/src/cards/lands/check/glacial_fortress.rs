@@ -1,5 +1,6 @@
 //! Glacial Fortress — (no cost) — Land
-//! Oracle: Glacial Fortress enters the battlefield tapped unless you control a PLAINS or an ISLAND.
+//! Oracle: This land enters tapped unless you control a Plains or an Island.
+//! Oracle: {T}: Add {W} or {U}.
 //! {T}: Add White or Blue.
 //! Set: XLN #251 — Ixalan | Scryfall ID: d673a2d5-0c61-48dc-8c8d-06f0c7b6b8bf | Oracle ID: 027dd013-baa7-4111-b3c9-f4d1414e9c45
 // IMPLEMENTED — checkland (ETB tapped unless you control a PLAINS/ISLAND) + 2-color mana.

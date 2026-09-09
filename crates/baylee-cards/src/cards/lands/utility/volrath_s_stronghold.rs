@@ -1,5 +1,6 @@
 //! Volrath's Stronghold — (no cost) — Land
-//! Oracle: {T}: Add {C}. {T}: Put target creature card from your graveyard on top of your library.
+//! Oracle: {T}: Add {C}.
+//! Oracle: {1}{B}, {T}: Put target creature card from your graveyard on top of your library.
 //! Set: PD3 #352 — Premium Deck Series: Graveborn | Scryfall ID: f465ae5f-61f0-42c4-978f-841ba1226f56 | Oracle ID: 73b8cf90-3c71-4f8b-a29f-61894b7f27c9
 // IMPLEMENTED.
 
@@ -17,7 +18,11 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost::TAP, &[Effect::GraveyardToTop {
+        // `{1}{B}, {T}`, not `{T}`. The header this file carried had dropped
+        // the mana from the printed sentence, and the code was written from
+        // the header: a free, repeatable recursion of any creature in your
+        // graveyard, which is a different card.
+        activated!(Cost { mana: baylee_core::mana!("{1}{B}"), parts: &[CostPart::TapSelf] }, &[Effect::GraveyardToTop {
                 target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
             }], target: Some(TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You))),
     ],

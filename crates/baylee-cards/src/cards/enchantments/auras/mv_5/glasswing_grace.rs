@@ -1,4 +1,8 @@
 //! Glasswing Grace // Age-Graced Chapel — {3}{W/B}{W/B} — Enchantment — Aura // Land
+//! Oracle: Enchant creature
+//! Oracle: Enchanted creature gets +2/+2 and has flying and lifelink.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {W} or {B}.
 //! Set: MH3 #254 — Modern Horizons 3 | Scryfall ID: 90630b20-fc83-475f-bcd5-8bcfee0cf241 | Oracle ID: 3a3e8c9b-e458-4661-980d-0a84a4c2452b
 //! Face: Glasswing Grace — {3}{W/B}{W/B} — Enchantment — Aura
 //! Face: Age-Graced Chapel —  — Land

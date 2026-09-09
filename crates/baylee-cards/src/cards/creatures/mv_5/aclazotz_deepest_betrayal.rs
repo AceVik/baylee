@@ -1,4 +1,11 @@
 //! Aclazotz, Deepest Betrayal // Temple of the Dead — {3}{B}{B} — Legendary Creature — Bat God // Land
+//! Oracle: Flying, lifelink
+//! Oracle: Whenever Aclazotz attacks, each opponent discards a card. For each opponent who can't, you draw a card.
+//! Oracle: Whenever an opponent discards a land card, create a 1/1 black Bat creature token with flying.
+//! Oracle: When Aclazotz dies, return it to the battlefield tapped and transformed under its owner's control.
+//! Oracle: (Transforms from Aclazotz, Deepest Betrayal.)
+//! Oracle: {T}: Add {B}.
+//! Oracle: {2}{B}, {T}: Transform this land. Activate only if a player has one or fewer cards in hand and only as a sorcery.
 //! Set: LCI #88 — The Lost Caverns of Ixalan | Scryfall ID: 627c392c-4d18-4eb2-a4e8-c668f61f5487 | Oracle ID: fcdfe9d5-2743-4d3e-ab57-bf0f96beaa15
 //! Face: Aclazotz, Deepest Betrayal — {3}{B}{B} — Legendary Creature — Bat God
 //! Face: Temple of the Dead —  — Land

@@ -1,4 +1,7 @@
 //! Valakut Awakening // Valakut Stoneforge — {2}{R} — Instant // Land
+//! Oracle: Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {R}.
 //! Set: ZNR #174 — Zendikar Rising | Scryfall ID: 228e551e-023a-4c9a-8f32-58dae6ffdf7f | Oracle ID: ff0ab867-b710-4b1a-baed-95fc3cf68f79
 //! Face: Valakut Awakening — {2}{R} — Instant
 //! Face: Valakut Stoneforge —  — Land

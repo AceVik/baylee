@@ -1,5 +1,5 @@
 //! Esper Sentinel — {W} — Artifact Creature — Human Soldier
-//! Oracle: Whenever an opponent casts their first noncreature spell of the turn, you may have that player pay {1}. If they don't, you draw a card.
+//! Oracle: Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.
 //! Set: MH2 #12 — Modern Horizons 2 | Scryfall ID: f3537373-ef54-4578-9d05-6216420ee349 | Oracle ID: 5def9f38-0a0b-4e8d-9f9d-29dcb46520b4
 // IMPLEMENTED — first-noncreature-spell-per-turn tax (per-turn tracking).
 

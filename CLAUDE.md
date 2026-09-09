@@ -46,6 +46,7 @@ cargo run -p xtask -- codegen            # regen subtypes, card stubs, registry,
 cargo run -p xtask -- codegen --check    # CI: fail if generated files are stale
 cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
 cargo run -p xtask -- adopt --name "Yavimaya Coast"       # take a generated card off the machine, for good
+cargo run -p xtask -- refresh-oracle                      # rewrite every `//! Oracle:` header from the cached printing
 cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + forge data side by side
 cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages for unimplemented cards
 cargo run -p xtask -- forge-report                        # how far the card transcoder reaches, and what it needs next
@@ -231,7 +232,13 @@ renumbers an existing one — a `CardIndex` is what saved decks and replays
 name. The `//!`
 header (name, cost, oracle text, set, Scryfall id) is the human-verification
 surface and `xtask validate` fails if it drifts from the `CardDef` built below
-it. A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
+it — **and** if its oracle text is not the one Scryfall prints, which is the
+check that turns "a person could have read this card" into something a build
+can say. The header is derived data, so `xtask refresh-oracle` writes it and
+nobody retypes it; the first run of the pair found 145 disagreements, two of
+which were cards built from their own wrong header (Volrath's Stronghold's
+`{1}{B}` and Mirrorhall Mimic's disturb cost).
+A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
 `// NOT SUPPORTED:` comment; extend the DSL rather than working around it.
 `docs/card-dsl.md` is the authoring contract, `docs/llm-learnings.md` gets
 updated after every card batch.

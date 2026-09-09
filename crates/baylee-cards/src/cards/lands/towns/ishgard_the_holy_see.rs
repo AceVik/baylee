@@ -1,4 +1,7 @@
 //! Ishgard, the Holy See // Faith & Grief — (no cost) — Land — Town // Sorcery — Adventure
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {W}.
+//! Oracle: Return up to two target artifact and/or enchantment cards from your graveyard to your hand. (Then exile this card. You may play the land later from exile.)
 //! Set: FIN #283 — Final Fantasy | Scryfall ID: 068bc755-9d3d-430b-abc5-c775a5415bf9 | Oracle ID: 4f4358cb-59df-46d9-be27-69929f5a615c
 //! Face: Ishgard, the Holy See —  — Land — Town
 //! Face: Faith & Grief — {3}{W}{W} — Sorcery — Adventure

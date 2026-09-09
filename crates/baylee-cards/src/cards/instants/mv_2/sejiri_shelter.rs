@@ -1,4 +1,7 @@
 //! Sejiri Shelter // Sejiri Glacier — {1}{W} — Instant // Land
+//! Oracle: Target creature you control gains protection from the color of your choice until end of turn.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {W}.
 //! Set: ZNR #37 — Zendikar Rising | Scryfall ID: f25d56f9-aa54-4657-9ac9-e93fbba3e715 | Oracle ID: d54e4e37-042b-44a5-918d-757308545d4d
 //! Face: Sejiri Shelter — {1}{W} — Instant
 //! Face: Sejiri Glacier —  — Land

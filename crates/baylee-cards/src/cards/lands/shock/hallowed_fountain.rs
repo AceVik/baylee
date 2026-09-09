@@ -1,5 +1,6 @@
 //! Hallowed Fountain — (no cost) — Land — PLAINS ISLAND
 //! Oracle: ({T}: Add {W} or {U}.)
+//! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
 //! Hallowed Fountain enters the battlefield tapped unless you pay 2 life.
 //! Set: FDN #280 — Foundations | Scryfall ID: b7285986-7e08-4969-86ef-452dc5bfdd9f | Oracle ID: f1750962-a87c-49f6-b731-02ae971ac6ea
 // IMPLEMENTED — shockland (pay 2 life or enters tapped) with the

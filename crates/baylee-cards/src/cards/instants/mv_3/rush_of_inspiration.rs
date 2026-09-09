@@ -1,4 +1,7 @@
 //! Rush of Inspiration // Crackling Falls — {1}{U/R}{U/R} — Instant // Land
+//! Oracle: Draw two cards. Then discard a card at random unless you pay {E}{E} (two energy counters).
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {U} or {R}.
 //! Set: MH3 #257 — Modern Horizons 3 | Scryfall ID: 70a25a3a-c12a-49d3-8a91-a108dfa9d3c5 | Oracle ID: bbd569cc-bc21-46df-b8eb-5b5bcd8fe762
 //! Face: Rush of Inspiration — {1}{U/R}{U/R} — Instant
 //! Face: Crackling Falls —  — Land

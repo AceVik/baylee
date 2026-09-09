@@ -1,4 +1,7 @@
 //! Bala Ged Recovery // Bala Ged Sanctuary — {2}{G} — Sorcery // Land
+//! Oracle: Return target card from your graveyard to your hand.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G}.
 //! Set: ZNR #180 — Zendikar Rising | Scryfall ID: c5cb3052-358d-44a7-8cfd-cd31b236494a | Oracle ID: d2075f58-b0e9-4e85-b7e6-0523a27a1d5b
 //! Face: Bala Ged Recovery — {2}{G} — Sorcery
 //! Face: Bala Ged Sanctuary —  — Land

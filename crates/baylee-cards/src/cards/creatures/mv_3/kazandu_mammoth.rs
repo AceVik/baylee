@@ -1,4 +1,7 @@
 //! Kazandu Mammoth // Kazandu Valley — {1}{G}{G} — Creature — Elephant // Land
+//! Oracle: Landfall — Whenever a land you control enters, this creature gets +2/+2 until end of turn.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G}.
 //! Set: ZNR #189 — Zendikar Rising | Scryfall ID: 2f632537-63bf-4490-86e6-e6067b9c1a3b | Oracle ID: 2ac1c95c-2a9d-40bc-9cad-9cadfa3f19f7
 //! Face: Kazandu Mammoth — {1}{G}{G} — Creature — Elephant
 //! Face: Kazandu Valley —  — Land

@@ -1,4 +1,7 @@
 //! Zanarkand, Ancient Metropolis // Lasting Fayth — (no cost) — Land — Town // Sorcery — Adventure
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G}.
+//! Oracle: Create a 1/1 colorless Hero creature token. Put a +1/+1 counter on it for each land you control. (Then exile this card. You may play the land later from exile.)
 //! Set: FIN #293 — Final Fantasy | Scryfall ID: 881e4c00-3b9a-47a1-bf66-1badda994c88 | Oracle ID: 5f2b3ea8-99ee-47a4-8a1c-4b27478d524c
 //! Face: Zanarkand, Ancient Metropolis —  — Land — Town
 //! Face: Lasting Fayth — {4}{G}{G} — Sorcery — Adventure

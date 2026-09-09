@@ -1,4 +1,8 @@
 //! Kazuul's Fury // Kazuul's Cliffs — {2}{R} — Instant // Land
+//! Oracle: As an additional cost to cast this spell, sacrifice a creature.
+//! Oracle: Kazuul's Fury deals damage equal to the sacrificed creature's power to any target.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {R}.
 //! Set: ZNR #146 — Zendikar Rising | Scryfall ID: 75240bbc-adc7-48ff-9523-c79776d710d3 | Oracle ID: f8410804-632b-4f18-9a73-6dccc7e4582d
 //! Face: Kazuul's Fury — {2}{R} — Instant
 //! Face: Kazuul's Cliffs —  — Land

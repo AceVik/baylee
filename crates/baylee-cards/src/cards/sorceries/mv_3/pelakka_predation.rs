@@ -1,4 +1,7 @@
 //! Pelakka Predation // Pelakka Caverns — {2}{B} — Sorcery // Land
+//! Oracle: Target opponent reveals their hand. You choose a card from it with mana value 3 or greater. That player discards that card.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {B}.
 //! Set: ZNR #120 — Zendikar Rising | Scryfall ID: e63f8b20-f45b-4293-9aac-cdc021939be6 | Oracle ID: b0fd6889-20b4-439b-aa97-2e90aca1675a
 //! Face: Pelakka Predation — {2}{B} — Sorcery
 //! Face: Pelakka Caverns —  — Land

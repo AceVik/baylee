@@ -1,5 +1,5 @@
 //! Scalding Tarn — (no cost) — Land
-//! Oracle: {T}, Pay 1 life, Sacrifice this land: Search your library for a Island or Mountain card, put it onto the battlefield, then shuffle.
+//! Oracle: {T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Mountain card, put it onto the battlefield, then shuffle.
 //! Set: MH2 #254 — Modern Horizons 2 | Scryfall ID: 71e491c5-8c07-449b-b2f1-ffa052e6d311 | Oracle ID: cb027150-848c-4a66-88ad-e20222304dd8
 // IMPLEMENTED — fetchland (tap + pay life + sacrifice → search Island/Mountain
 // to the battlefield untapped, shuffle). Untapped is the whole difference

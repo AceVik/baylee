@@ -1,4 +1,8 @@
 //! Blackbloom Rogue // Blackbloom Bog — {2}{B} — Creature — Human Rogue // Land
+//! Oracle: Menace (This creature can't be blocked except by two or more creatures.)
+//! Oracle: This creature gets +3/+0 as long as an opponent has eight or more cards in their graveyard.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {B}.
 //! Set: ZNR #91 — Zendikar Rising | Scryfall ID: 32779721-b021-4bd4-95d1-4a19b78d9faa | Oracle ID: 34320ebf-da97-44a4-bbeb-a9da06548289
 //! Face: Blackbloom Rogue — {2}{B} — Creature — Human Rogue
 //! Face: Blackbloom Bog —  — Land

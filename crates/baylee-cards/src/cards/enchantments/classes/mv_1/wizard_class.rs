@@ -1,8 +1,10 @@
 //! Wizard Class — {U} — Enchantment — Class
 //! Oracle: (Gain the next level as a sorcery to add its ability.)
 //! Oracle: You have no maximum hand size.
-//! Oracle: {2}{U}: Level 2 — When this Class becomes level 2, draw two cards.
-//! Oracle: {4}{U}: Level 3 — Whenever you draw a card, put a +1/+1 counter on target creature you control.
+//! Oracle: {2}{U}: Level 2
+//! Oracle: When this Class becomes level 2, draw two cards.
+//! Oracle: {4}{U}: Level 3
+//! Oracle: Whenever you draw a card, put a +1/+1 counter on target creature you control.
 //! Set: AFR #81 — Adventures in the Forgotten Realms | Scryfall ID: d1f629fb-b097-4240-8560-ef47f5678f48 | Oracle ID: 36f68aa3-9955-46f1-bc87-497f16ef5222
 // IMPLEMENTED — all three levels: no-max-hand-size (L1), draw-two
 // level-up (L2), and the draw-watcher counter grant (L3, GrantTriggered).

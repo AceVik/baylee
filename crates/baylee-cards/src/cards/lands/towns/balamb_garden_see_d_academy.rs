@@ -1,4 +1,10 @@
 //! Balamb Garden, SeeD Academy // Balamb Garden, Airborne — (no cost) — Land — Town // Legendary Artifact — Vehicle
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G} or {U}.
+//! Oracle: {5}{G}{U}, {T}: Transform this land. This ability costs {1} less to activate for each other Town you control.
+//! Oracle: Flying
+//! Oracle: Whenever Balamb Garden attacks, draw a card.
+//! Oracle: Crew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)
 //! Set: FIN #272 — Final Fantasy | Scryfall ID: 001e9f20-5b15-41cb-bf82-46172decc235 | Oracle ID: 8b84fec5-617c-4088-8250-2ba1f1f9479a
 //! Face: Balamb Garden, SeeD Academy —  — Land — Town
 //! Face: Balamb Garden, Airborne —  — Legendary Artifact — Vehicle

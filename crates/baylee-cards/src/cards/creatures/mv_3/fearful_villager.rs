@@ -1,9 +1,11 @@
 //! Fearful Villager // Fearsome Werewolf — {2}{R} — Creature — Human Werewolf // Creature — Werewolf
+//! Oracle: Menace (This creature can't be blocked except by two or more creatures.)
+//! Oracle: Daybound (If a player casts no spells during their own turn, it becomes night next turn.)
+//! Oracle: Menace (This creature can't be blocked except by two or more creatures.)
+//! Oracle: Nightbound (If a player casts at least two spells during their own turn, it becomes day next turn.)
 //! Set: VOW #157 — Innistrad: Crimson Vow | Scryfall ID: 5eb3a08e-1d31-4ab9-854f-a86b060696ec | Oracle ID: 5fd09dbc-8bcd-4fe0-91b5-b00e721fa7eb
 //! Face: Fearful Villager — {2}{R} — Creature — Human Werewolf
 //! Face: Fearsome Werewolf —  — Creature — Werewolf
-//! Oracle: Fearful Villager — Menace. Daybound.
-//! Oracle: Fearsome Werewolf — Menace. Nightbound.
 // IMPLEMENTED — menace on both faces, daybound on the front and nightbound
 // on the back (CR 702.145a).
 

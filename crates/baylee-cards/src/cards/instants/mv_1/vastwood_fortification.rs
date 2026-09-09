@@ -1,4 +1,7 @@
 //! Vastwood Fortification // Vastwood Thicket — {G} — Instant // Land
+//! Oracle: Put a +1/+1 counter on target creature.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G}.
 //! Set: ZNR #216 — Zendikar Rising | Scryfall ID: 3a7fd24e-84d8-405d-86e4-0571a9e23cc2 | Oracle ID: ce148a0c-6c63-49d5-a156-99efae4e367a
 //! Face: Vastwood Fortification — {G} — Instant
 //! Face: Vastwood Thicket —  — Land

@@ -1,4 +1,6 @@
 //! Barkchannel Pathway // Tidechannel Pathway — (no cost) — Land // Land
+//! Oracle: {T}: Add {G}.
+//! Oracle: {T}: Add {U}.
 //! Set: KHM #251 — Kaldheim | Scryfall ID: b6de14ae-0132-4261-af00-630bf15918cd | Oracle ID: 59d22de5-e310-44d7-89cf-ef3529e40cef
 //! Face: Barkchannel Pathway —  — Land
 //! Face: Tidechannel Pathway —  — Land

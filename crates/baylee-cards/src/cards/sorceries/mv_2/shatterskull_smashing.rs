@@ -1,4 +1,7 @@
 //! Shatterskull Smashing // Shatterskull, the Hammer Pass — {X}{R}{R} — Sorcery // Land
+//! Oracle: Shatterskull Smashing deals X damage divided as you choose among up to two target creatures and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided as you choose among them instead.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {R}.
 //! Set: ZNR #161 — Zendikar Rising | Scryfall ID: bc7239ea-f8aa-4a6f-87bd-c35359635673 | Oracle ID: 78301998-fd9b-4cd5-afad-dbcb43cac2a7
 //! Face: Shatterskull Smashing — {X}{R}{R} — Sorcery
 //! Face: Shatterskull, the Hammer Pass —  — Land

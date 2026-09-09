@@ -1,4 +1,7 @@
 //! Waterlogged Teachings // Inundated Archive — {3}{U/B} — Instant // Land
+//! Oracle: Search your library for an instant card or a card with flash, reveal it, put it into your hand, then shuffle.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {U} or {B}.
 //! Set: MH3 #261 — Modern Horizons 3 | Scryfall ID: 060f9675-4921-4cbb-bae2-54c85c679fd4 | Oracle ID: e6ad1be9-f13d-4590-b3db-e2d0fff46f03
 //! Face: Waterlogged Teachings — {3}{U/B} — Instant
 //! Face: Inundated Archive —  — Land

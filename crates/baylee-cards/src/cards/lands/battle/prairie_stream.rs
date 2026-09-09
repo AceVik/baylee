@@ -1,5 +1,6 @@
 //! Prairie Stream — (no cost) — Land
-//! Oracle: Prairie Stream enters the battlefield tapped unless you control a PLAINS or an ISLAND.
+//! Oracle: ({T}: Add {W} or {U}.)
+//! Oracle: This land enters tapped unless you control two or more basic lands.
 //! {T}: Add White or Blue.
 //! Set: BFZ #241 — Battle for Zendikar | Scryfall ID: b2e133b4-2263-4ac2-8d16-7bf307d5e104 | Oracle ID: 5330e24a-8568-446e-840a-594cd08bd1bc
 // IMPLEMENTED — checkland (ETB tapped unless you control a PLAINS/ISLAND) + 2-color mana.

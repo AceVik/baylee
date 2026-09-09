@@ -1,4 +1,7 @@
 //! Sea Gate Restoration // Sea Gate, Reborn — {4}{U}{U}{U} — Sorcery // Land
+//! Oracle: Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size for the rest of the game.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {U}.
 //! Set: ZNR #76 — Zendikar Rising | Scryfall ID: 193071fe-180b-4d35-ba78-9c16675c29fc | Oracle ID: 4a8d41fe-e04d-484b-a7d1-19be311e6ca7
 //! Face: Sea Gate Restoration — {4}{U}{U}{U} — Sorcery
 //! Face: Sea Gate, Reborn —  — Land

@@ -1,4 +1,8 @@
 //! Drowner of Truth // Drowned Jungle — {5}{G/U}{G/U} — Creature — Eldrazi // Land
+//! Oracle: Devoid (This card has no color.)
+//! Oracle: When you cast this spell, if {C} was spent to cast it, create two 0/1 colorless Eldrazi Spawn creature tokens with "Sacrifice this token: Add {C}."
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G} or {U}.
 //! Set: MH3 #253 — Modern Horizons 3 | Scryfall ID: 7a1d3c1d-1373-4ac4-bb26-9780976efc4f | Oracle ID: db19a27a-ee22-4931-ae3c-0ce21f456ea6
 //! Face: Drowner of Truth — {5}{G/U}{G/U} — Creature — Eldrazi
 //! Face: Drowned Jungle —  — Land

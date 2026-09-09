@@ -1,5 +1,7 @@
 //! Jasmine Dragon Tea Shop — (no cost) — Land
 //! Oracle: {T}: Add {C}.
+//! Oracle: {T}: Add one mana of any color. Spend this mana only to cast an Ally spell or activate an ability of an Ally source.
+//! Oracle: {5}, {T}: Create a 1/1 white Ally creature token.
 //! {T}: Add one mana of any color. Spend this mana only to cast an Ally spell or activate an ability of an Ally source.
 //! {5}, {T}: Create a 1/1 white Ally creature token.
 //! Set: TLA #259 — Avatar: The Last Airbender | Scryfall ID: da2c83d4-a95f-47ff-a08f-694eb78d6b9b | Oracle ID: d9a24444-289f-473f-9985-8df275257555

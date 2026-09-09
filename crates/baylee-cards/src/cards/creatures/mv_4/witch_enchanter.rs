@@ -1,4 +1,7 @@
 //! Witch Enchanter // Witch-Blessed Meadow — {3}{W} — Creature — Human Warlock // Land
+//! Oracle: When this creature enters, destroy target artifact or enchantment an opponent controls.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {W}.
 //! Set: MH3 #239 — Modern Horizons 3 | Scryfall ID: 62061e7c-cf19-4f03-b8fa-2bdba62d6b0b | Oracle ID: 0355249a-8e4e-41db-9cea-1b901faffbe6
 //! Face: Witch Enchanter — {3}{W} — Creature — Human Warlock
 //! Face: Witch-Blessed Meadow —  — Land

@@ -1,5 +1,5 @@
 //! Tundra — (no cost) — Land — PLAINS ISLAND
-//! Oracle: ({T}: Add {W} or {B}.)
+//! Oracle: ({T}: Add {W} or {U}.)
 //! Set: VMA #322 — Vintage Masters | Scryfall ID: efd35cb4-862d-4699-a197-b744989b3ceb | Oracle ID: 02418479-9455-417f-a6a1-004356faff37
 // IMPLEMENTED — two-color mana choice.
 

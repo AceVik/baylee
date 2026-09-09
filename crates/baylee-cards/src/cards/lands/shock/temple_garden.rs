@@ -1,5 +1,6 @@
 //! Temple Garden — (no cost) — Land — FOREST PLAINS
 //! Oracle: ({T}: Add {G} or {W}.)
+//! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
 //! Temple Garden enters the battlefield tapped unless you pay 2 life.
 //! Set: FDN #283 — Foundations | Scryfall ID: b9b0589d-f327-46a7-8bac-06b7654c547a | Oracle ID: f413a83d-a40d-434c-b20a-4c707c0527fa
 // IMPLEMENTED — shockland (pay 2 life or enters tapped) with the

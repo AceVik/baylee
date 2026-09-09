@@ -489,11 +489,19 @@ pub fn render_stub(
         " \u{2014} {}\n",
         card.type_line.as_deref().unwrap_or("")
     ));
-    doc_lines(
-        &mut out,
-        "Oracle: ",
-        &card.oracle_text.clone().unwrap_or_default(),
-    );
+    // Every face's printed text, not the card's. Scryfall carries no
+    // top-level `oracle_text` for a double-faced card — it is per face —
+    // so reading it there left the Oracle header of all 96 two-faced files
+    // *empty*, which is the human-verification surface missing on exactly
+    // the cards that are hardest to check by eye. The faces are joined in
+    // printed order, which is the order `xtask validate` compares against.
+    let oracle = faces
+        .iter()
+        .map(|f| f.oracle_text.trim())
+        .filter(|t| !t.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    doc_lines(&mut out, "Oracle: ", &oracle);
     out.push_str(&format!(
         "//! Set: {} #{} \u{2014} {} | Scryfall ID: {} | Oracle ID: {}\n",
         card.set.as_deref().unwrap_or("?").to_uppercase(),

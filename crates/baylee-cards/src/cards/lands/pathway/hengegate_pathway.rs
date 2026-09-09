@@ -1,5 +1,6 @@
 //! Hengegate Pathway // Mistgate Pathway — (no cost) — Land // Land
-//! Oracle: Hengegate Pathway: {T}: Add {W}. // Mistgate Pathway: {T}: Add {U}.
+//! Oracle: {T}: Add {W}.
+//! Oracle: {T}: Add {U}.
 //! Set: ZNR #261 — Zendikar Rising | Scryfall ID: 7ef37cb3-d803-47d7-8a01-9c803aa2eadc | Oracle ID: 461b3f2f-fcee-4160-abfa-061f8b6a784f
 // IMPLEMENTED — MDFC land-face choice on play (CR 712.4a) + per-face
 // mana abilities.

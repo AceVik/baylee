@@ -1,4 +1,7 @@
 //! Spikefield Hazard // Spikefield Cave — {R} — Instant // Land
+//! Oracle: Spikefield Hazard deals 1 damage to any target. If a permanent dealt damage this way would die this turn, exile it instead.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {R}.
 //! Set: ZNR #166 — Zendikar Rising | Scryfall ID: a69541db-3f4e-412f-aa8e-dec1e74f74dc | Oracle ID: 81036c9f-fe0a-45a7-bcd5-0d344f31055a
 //! Face: Spikefield Hazard — {R} — Instant
 //! Face: Spikefield Cave —  — Land

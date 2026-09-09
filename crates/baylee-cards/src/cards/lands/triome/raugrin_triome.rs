@@ -1,5 +1,7 @@
 //! Raugrin Triome — (no cost) — Land — ISLAND MOUNTAIN PLAINS
 //! Oracle: ({T}: Add {U}, {R}, or {W}.)
+//! Oracle: This land enters tapped.
+//! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)
 //! Raugrin Triome enters the battlefield tapped.
 //! Cycling {2}
 //! Set: IKO #251 — Ikoria: Lair of Behemoths | Scryfall ID: 02138fbb-3962-4348-8d31-faaefba0b8b2 | Oracle ID: c7fa1dda-9312-4ec8-82cd-a1ba7bc33497

@@ -1,4 +1,7 @@
 //! Lindblum, Industrial Regency // Mage Siege — (no cost) — Land — Town // Instant — Adventure
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {R}.
+//! Oracle: Create a 0/1 black Wizard creature token with "Whenever you cast a noncreature spell, this token deals 1 damage to each opponent."
 //! Set: FIN #285 — Final Fantasy | Scryfall ID: 548dd152-f0b6-4e8f-9afc-a4ec1671b648 | Oracle ID: 4cc014f3-05e0-442e-9dee-03eab1aa65a3
 //! Face: Lindblum, Industrial Regency —  — Land — Town
 //! Face: Mage Siege — {2}{R} — Instant — Adventure

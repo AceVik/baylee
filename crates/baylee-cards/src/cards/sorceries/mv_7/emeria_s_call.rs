@@ -1,4 +1,7 @@
 //! Emeria's Call // Emeria, Shattered Skyclave — {4}{W}{W}{W} — Sorcery // Land
+//! Oracle: Create two 4/4 white Angel Warrior creature tokens with flying. Non-Angel creatures you control gain indestructible until your next turn.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {W}.
 //! Set: ZNR #12 — Zendikar Rising | Scryfall ID: c470539a-9cc7-4175-8f7c-c982b6072b6d | Oracle ID: 6ec2a242-9068-4ee2-8ac8-8341cc570f56
 //! Face: Emeria's Call — {4}{W}{W}{W} — Sorcery
 //! Face: Emeria, Shattered Skyclave —  — Land

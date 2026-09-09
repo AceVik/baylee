@@ -1,4 +1,9 @@
 //! Legion's Landing // Adanto, the First Fort — {W} — Legendary Enchantment // Legendary Land
+//! Oracle: When Legion's Landing enters, create a 1/1 white Vampire creature token with lifelink.
+//! Oracle: When you attack with three or more creatures, transform Legion's Landing.
+//! Oracle: (Transforms from Legion's Landing.)
+//! Oracle: {T}: Add {W}.
+//! Oracle: {2}{W}, {T}: Create a 1/1 white Vampire creature token with lifelink.
 //! Set: XLN #22 — Ixalan | Scryfall ID: 05e2a5e6-3aaa-4096-bdd0-fcc1afe5a36c | Oracle ID: f7d8b91b-6541-4d3e-af51-7e000eac69c1
 //! Face: Legion's Landing — {W} — Legendary Enchantment
 //! Face: Adanto, the First Fort —  — Legendary Land

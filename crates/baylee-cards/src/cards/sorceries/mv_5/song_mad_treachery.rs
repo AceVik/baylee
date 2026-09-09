@@ -1,4 +1,7 @@
 //! Song-Mad Treachery // Song-Mad Ruins — {3}{R}{R} — Sorcery // Land
+//! Oracle: Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {R}.
 //! Set: ZNR #165 — Zendikar Rising | Scryfall ID: 782ca27f-9f18-476c-b582-89c06fb2e322 | Oracle ID: 81b61770-2ed5-4a50-84d0-97790002fc5a
 //! Face: Song-Mad Treachery — {3}{R}{R} — Sorcery
 //! Face: Song-Mad Ruins —  — Land

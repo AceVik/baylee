@@ -1,4 +1,8 @@
 //! Westvale Abbey // Ormendahl, Profane Prince — (no cost) — Land // Legendary Creature — Demon
+//! Oracle: {T}: Add {C}.
+//! Oracle: {5}, {T}, Pay 1 life: Create a 1/1 white and black Human Cleric creature token.
+//! Oracle: {5}, {T}, Sacrifice five creatures: Transform this land, then untap it.
+//! Oracle: Flying, lifelink, indestructible, haste
 //! Set: INR #287 — Innistrad Remastered | Scryfall ID: 5fbc6091-a161-45b0-9932-543b569caaee | Oracle ID: 04eeb9ad-5c59-411b-8809-db8349838588
 //! Face: Westvale Abbey —  — Land
 //! Face: Ormendahl, Profane Prince —  — Legendary Creature — Demon

@@ -1,4 +1,9 @@
 //! Arguel's Blood Fast // Temple of Aclazotz — {1}{B} — Legendary Enchantment // Legendary Land
+//! Oracle: {1}{B}, Pay 2 life: Draw a card.
+//! Oracle: At the beginning of your upkeep, if you have 5 or less life, you may transform Arguel's Blood Fast.
+//! Oracle: (Transforms from Arguel's Blood Fast.)
+//! Oracle: {T}: Add {B}.
+//! Oracle: {T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness.
 //! Set: XLN #90 — Ixalan | Scryfall ID: c4ac7570-e74e-4081-ac53-cf41e695b7eb | Oracle ID: be2a4bc4-8af6-48c5-9421-32d26272e71a
 //! Face: Arguel's Blood Fast — {1}{B} — Legendary Enchantment
 //! Face: Temple of Aclazotz —  — Legendary Land

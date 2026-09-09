@@ -1,6 +1,6 @@
 //! Riptide Laboratory — (no cost) — Land
 //! Oracle: {T}: Add {C}.
-//! Oracle: {1}{U}, {T}: Return target Wizard you control to its owner\u{2019}s hand.
+//! Oracle: {1}{U}, {T}: Return target Wizard you control to its owner's hand.
 //! Set: C14 #305 — Commander 2014 | Scryfall ID: 25a9cb87-e572-4885-8561-1d4b158ec7e4 | Oracle ID: 444d50dd-a44a-42db-bbf6-d0978e3bd6a3
 // IMPLEMENTED.
 

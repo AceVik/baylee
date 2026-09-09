@@ -1,9 +1,11 @@
 //! Tireless Hauler // Dire-Strain Brawler — {4}{G} — Creature — Human Werewolf // Creature — Werewolf
+//! Oracle: Vigilance
+//! Oracle: Daybound (If a player casts no spells during their own turn, it becomes night next turn.)
+//! Oracle: Vigilance
+//! Oracle: Nightbound (If a player casts at least two spells during their own turn, it becomes day next turn.)
 //! Set: MID #203 — Innistrad: Midnight Hunt | Scryfall ID: 3e96f9a6-c215-42b1-aa02-8e6143fe5bd7 | Oracle ID: c31e9db3-5d9d-470a-871a-b4b5b0536db5
 //! Face: Tireless Hauler — {4}{G} — Creature — Human Werewolf
 //! Face: Dire-Strain Brawler —  — Creature — Werewolf
-//! Oracle: Tireless Hauler — Vigilance. Daybound.
-//! Oracle: Dire-Strain Brawler — Vigilance. Nightbound.
 // IMPLEMENTED — vigilance on both faces, daybound on the front and
 // nightbound on the back (CR 702.145a).
 

@@ -1,4 +1,7 @@
 //! Umara Wizard // Umara Skyfalls — {4}{U} — Creature — Merfolk Wizard // Land
+//! Oracle: Whenever you cast an instant, sorcery, or Wizard spell, this creature gains flying until end of turn.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {U}.
 //! Set: ZNR #86 — Zendikar Rising | Scryfall ID: 890eee8d-a339-4143-adfa-1b17ec10c099 | Oracle ID: 6bc668f4-8fc7-4aaf-891b-277d8328b376
 //! Face: Umara Wizard — {4}{U} — Creature — Merfolk Wizard
 //! Face: Umara Skyfalls —  — Land

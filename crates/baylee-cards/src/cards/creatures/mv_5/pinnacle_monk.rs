@@ -1,4 +1,8 @@
 //! Pinnacle Monk // Mystic Peak — {3}{R}{R} — Creature — Djinn Monk // Land
+//! Oracle: Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)
+//! Oracle: When this creature enters, return target instant or sorcery card from your graveyard to your hand.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {R}.
 //! Set: MH3 #246 — Modern Horizons 3 | Scryfall ID: 24d4f26e-7f96-4b38-867e-4fac819b2679 | Oracle ID: f3d48efa-910a-4872-a5b1-a353c5dbce99
 //! Face: Pinnacle Monk — {3}{R}{R} — Creature — Djinn Monk
 //! Face: Mystic Peak —  — Land

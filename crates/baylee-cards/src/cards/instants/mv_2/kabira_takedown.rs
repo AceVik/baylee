@@ -1,4 +1,7 @@
 //! Kabira Takedown // Kabira Plateau — {1}{W} — Instant // Land
+//! Oracle: Kabira Takedown deals damage equal to the number of creatures you control to target creature or planeswalker.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {W}.
 //! Set: ZNR #19 — Zendikar Rising | Scryfall ID: 366e9845-019d-47cc-adb8-8fbbaad35b6d | Oracle ID: 0bb73c07-0220-4ba9-8d85-3c357c223833
 //! Face: Kabira Takedown — {1}{W} — Instant
 //! Face: Kabira Plateau —  — Land

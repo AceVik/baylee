@@ -1,5 +1,6 @@
 //! Brightclimb Pathway // Grimclimb Pathway — (no cost) — Land // Land
-//! Oracle: Brightclimb Pathway: {T}: Add {W}. // Grimclimb Pathway: {T}: Add {B}.
+//! Oracle: {T}: Add {W}.
+//! Oracle: {T}: Add {B}.
 //! Set: ZNR #259 — Zendikar Rising | Scryfall ID: d24c3d51-795d-4c01-a34a-3280fccd2d78 | Oracle ID: 1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9
 // IMPLEMENTED — MDFC land-face choice on play (CR 712.4a) + per-face
 // mana abilities.

@@ -1,4 +1,7 @@
 //! Stump Stomp // Burnwillow Clearing — {1}{R/G} — Sorcery // Land
+//! Oracle: Target creature you control deals damage equal to its power to target creature or planeswalker you don't control.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {R} or {G}.
 //! Set: MH3 #259 — Modern Horizons 3 | Scryfall ID: 49974246-0a3b-4ec9-b5ea-2a89df9bb0b5 | Oracle ID: eb7b1284-0b2c-4b6a-a389-b2b932838083
 //! Face: Stump Stomp — {1}{R/G} — Sorcery
 //! Face: Burnwillow Clearing —  — Land

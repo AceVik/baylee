@@ -1,10 +1,19 @@
 //! Mirrorhall Mimic // Ghastly Mimicry — {3}{U} — Creature — Spirit // Enchantment — Aura
-//! Oracle: You may have Mirrorhall Mimic enter the battlefield as a copy of any creature on the battlefield, except it's a Spirit in addition to its other types. Disturb {5}{U}. // Enchant creature. Enchanted creature is a copy of Mirrorhall Mimic, except it's a Spirit in addition to its other types.
+//! Oracle: You may have this creature enter as a copy of any creature on the battlefield, except it's a Spirit in addition to its other types.
+//! Oracle: Disturb {3}{U}{U} (You may cast this card from your graveyard transformed for its disturb cost.)
+//! Oracle: Enchant creature
+//! Oracle: At the beginning of your upkeep, create a token that's a copy of enchanted creature, except it's a Spirit in addition to its other types.
+//! Oracle: If Ghastly Mimicry would be put into a graveyard from anywhere, exile it instead.
 //! Set: VOW #68 — Innistrad: Crimson Vow | Scryfall ID: 823ad188-bd56-476d-9853-bed90bfad582 | Oracle ID: 5768fe50-a134-492c-a725-5ed02610c39f
 // IMPLEMENTED — clone front + disturb (cast Ghastly Mimicry from the
 // graveyard, exile on resolution).
-// NOTE: Ghastly Mimicry's aura effect ("enchanted creature is a copy of
-// Mirrorhall Mimic") is an aura-attachment rules item (M3+).
+// NOT SUPPORTED: Ghastly Mimicry's aura ability — an upkeep trigger making a
+// token copy of the enchanted creature — needs aura attachment (M3+). The
+// note here used to describe a *static* copy effect instead, which is the
+// card's older printing; the disturb cost was one mana off in the same
+// direction ({5}{U} against the printed {3}{U}{U}) and nothing compared a
+// back face's cost to anything until `check_code_matches_the_printing`
+// learned to read past the front one.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{creature, enchantment};
@@ -24,7 +33,7 @@ card! {
         },
         face! {
             name: "Ghastly Mimicry",
-            mana_cost: baylee_core::mana!("{5}{U}"),
+            mana_cost: baylee_core::mana!("{3}{U}{U}"),
             types: TypeSet::ENCHANTMENT,
             subtypes: &[enchantment::AURA],
             castable_from_hand: false, // disturb: cast from the graveyard

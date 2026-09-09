@@ -1,4 +1,7 @@
 //! Jwari Disruption // Jwari Ruins — {1}{U} — Instant // Land
+//! Oracle: Counter target spell unless its controller pays {1}.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {U}.
 //! Set: ZNR #64 — Zendikar Rising | Scryfall ID: 301750a7-d1fd-435e-bfa8-9d2fb22ad627 | Oracle ID: 941a4b14-ea2a-4bd0-8cc2-d609f80df32c
 //! Face: Jwari Disruption — {1}{U} — Instant
 //! Face: Jwari Ruins —  — Land

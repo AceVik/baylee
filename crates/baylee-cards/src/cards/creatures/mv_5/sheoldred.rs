@@ -1,6 +1,11 @@
 //! Sheoldred // The True Scriptures — {3}{B}{B} — Legendary Creature — Phyrexian Praetor // Enchantment — Saga
-//! Oracle: Menace. When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice. {4}{B}: Exile Sheoldred, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery and only if an opponent has eight or more cards in their graveyard.
-//! Oracle: The True Scriptures — I: For each opponent, destroy up to one target creature or planeswalker that player controls. II: Each opponent discards three cards, then mills three cards. III: Put all creature cards from all graveyards onto the battlefield under your control. Exile this Saga, then return it to the battlefield (front face up).
+//! Oracle: Menace
+//! Oracle: When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
+//! Oracle: {4}{B}: Exile Sheoldred, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery and only if an opponent has eight or more cards in their graveyard.
+//! Oracle: (As this Saga enters and after your draw step, add a lore counter.)
+//! Oracle: I — For each opponent, destroy up to one target creature or planeswalker that player controls.
+//! Oracle: II — Each opponent discards three cards, then mills three cards.
+//! Oracle: III — Put all creature cards from all graveyards onto the battlefield under your control. Exile this Saga, then return it to the battlefield (front face up).
 //! Set: MOM #125 — March of the Machine | Scryfall ID: bf2249e6-af74-4b88-8eb7-144ce8fa7f6b | Oracle ID: 97652492-7906-4d79-983c-fa1dc1239eba
 // IMPLEMENTED — menace + ETB edict + conditional flip; all three saga
 // chapters on the back face (lore counters, chapter triggers, sacrifice

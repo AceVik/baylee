@@ -1,4 +1,7 @@
 //! Sink into Stupor // Soporific Springs — {1}{U}{U} — Instant // Land
+//! Oracle: Return target spell or nonland permanent an opponent controls to its owner's hand.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {U}.
 //! Set: MH3 #241 — Modern Horizons 3 | Scryfall ID: 5358b87a-1a29-426d-b165-40c97da2c14d | Oracle ID: bcc6eece-75ea-494c-b33a-d4477d504e0b
 //! Face: Sink into Stupor — {1}{U}{U} — Instant
 //! Face: Soporific Springs —  — Land

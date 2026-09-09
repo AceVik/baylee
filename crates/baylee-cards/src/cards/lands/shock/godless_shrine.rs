@@ -1,5 +1,6 @@
 //! Godless Shrine — (no cost) — Land — PLAINS SWAMP
 //! Oracle: ({T}: Add {W} or {B}.)
+//! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
 //! Godless Shrine enters the battlefield tapped unless you pay 2 life.
 //! Set: FDN #281 — Foundations | Scryfall ID: 8fbd1ae0-3d4c-492a-a1ea-85a95fa3d7b6 | Oracle ID: 73864fcc-1bde-4bc0-831e-2b93e546e417
 // IMPLEMENTED — shockland (pay 2 life or enters tapped) with the

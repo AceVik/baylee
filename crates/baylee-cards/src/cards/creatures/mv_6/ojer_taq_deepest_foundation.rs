@@ -1,4 +1,10 @@
 //! Ojer Taq, Deepest Foundation // Temple of Civilization — {4}{W}{W} — Legendary Creature — God // Land
+//! Oracle: Vigilance
+//! Oracle: If one or more creature tokens would be created under your control, three times that many of those tokens are created instead.
+//! Oracle: When Ojer Taq dies, return it to the battlefield tapped and transformed under its owner's control.
+//! Oracle: (Transforms from Ojer Taq, Deepest Foundation.)
+//! Oracle: {T}: Add {W}.
+//! Oracle: {2}{W}, {T}: Transform this land. Activate only if you attacked with three or more creatures this turn and only as a sorcery.
 //! Set: LCI #26 — The Lost Caverns of Ixalan | Scryfall ID: 1ca79dd4-67fc-496c-96fc-489b039c4932 | Oracle ID: 486bb9a5-73f1-4cec-b097-fb07ac80b72e
 //! Face: Ojer Taq, Deepest Foundation — {4}{W}{W} — Legendary Creature — God
 //! Face: Temple of Civilization —  — Land

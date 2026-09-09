@@ -1,5 +1,7 @@
 //! Raffine's Tower — (no cost) — Land
-//! Oracle: Raffine's Tower enters the battlefield tapped.
+//! Oracle: ({T}: Add {W}, {U}, or {B}.)
+//! Oracle: This land enters tapped.
+//! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)
 //! {T}: Add White, Blue, or Black.
 //! Set: SNC #254 — Streets of New Capenna | Scryfall ID: a2c56479-4bee-4edb-80d7-4af010b7c793 | Oracle ID: 6e9ef5ef-6aed-4d3e-a59b-9e3dc8740b1b
 // IMPLEMENTED — 3-color tapland (ETB tapped).

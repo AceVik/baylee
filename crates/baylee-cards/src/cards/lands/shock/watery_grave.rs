@@ -1,5 +1,6 @@
 //! Watery Grave — (no cost) — Land — ISLAND SWAMP
 //! Oracle: ({T}: Add {U} or {B}.)
+//! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
 //! Watery Grave enters the battlefield tapped unless you pay 2 life.
 //! Set: FDN #284 — Foundations | Scryfall ID: 5525d6a6-e532-4047-9da4-bfae7927fecc | Oracle ID: fc9ec820-4245-4a96-b009-5308a818ca58
 // IMPLEMENTED — shockland (pay 2 life or enters tapped) with the

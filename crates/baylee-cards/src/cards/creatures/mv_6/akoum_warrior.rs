@@ -1,4 +1,7 @@
 //! Akoum Warrior // Akoum Teeth — {5}{R} — Creature — Minotaur Warrior // Land
+//! Oracle: Trample
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {R}.
 //! Set: ZNR #134 — Zendikar Rising | Scryfall ID: d8ed0335-daa6-4dbe-a94d-4d56c8cfd093 | Oracle ID: afedce7b-0e18-40ad-a26a-1933fddb560d
 //! Face: Akoum Warrior — {5}{R} — Creature — Minotaur Warrior
 //! Face: Akoum Teeth —  — Land

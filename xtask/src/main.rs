@@ -182,6 +182,24 @@ enum Cmd {
         #[arg(long)]
         name: String,
     },
+    /// Rewrite every card's `//! Oracle:` header from its cached printing.
+    ///
+    /// The header is *derived* data — Scryfall's own text, copied into the
+    /// file so a person can read the card beside the code built from it — so
+    /// a tool writes it and `validate` compares it. Hand-editing forty-eight
+    /// of them by retyping rules text is exactly the transcription step this
+    /// check exists to catch.
+    ///
+    /// It touches the header and nothing else, hand-owned files included:
+    /// what a card *does* stays whoever's it was, and only the sentence it
+    /// is measured against is refreshed. That is also how an errata is taken
+    /// — refresh, then read the diff, because a changed printing usually
+    /// means the implementation below it has to change too.
+    RefreshOracle {
+        /// Print what would change and write nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Seat a dev account at a table and print (or play) its ticket.
     ///
     /// Skips the lobby's sign-in and deck-picking screens and nothing else:
@@ -252,6 +270,7 @@ fn main() -> anyhow::Result<()> {
         } => card_batch(&root, cards.as_deref(), &out, &forge, &cache),
         Cmd::Validate => validate(&root),
         Cmd::Adopt { name } => adopt(&root, &name),
+        Cmd::RefreshOracle { dry_run } => refresh_oracle(&root, dry_run),
         Cmd::DevTable {
             gateway,
             seats,
@@ -1107,11 +1126,59 @@ fn check_code_matches_the_printing(
     let Some(face) = content.find("faces: &[").map(|pos| &content[pos..]) else {
         return;
     };
-    if let (Some(printed), Some(code)) = (printed("mana_cost"), code_costs(face).first())
-        && normalise_cost(&printed) != *code
+    // Every face the printing puts a cost on, not the front one alone: an
+    // MDFC's back side is a card you cast for its own printed cost, and
+    // nothing here read it.
+    //
+    // Two tolerances, and both are about what a face's cost *means* rather
+    // than about slack. The lists are compared only when they are the same
+    // length, because a differing count is a modelling decision rather than
+    // a typo — a split card and an adventure print two faces Scryfall's way
+    // and are one `FaceDef` here. And a back face the printing gives no cost
+    // is skipped, because a `FaceDef` there carries the cost the face is
+    // actually cast for: Ghastly Mimicry's `mana_cost` is its **disturb**
+    // cost, which Scryfall writes in the oracle text and not in
+    // `card_faces[1].mana_cost`. That is why this check would not have found
+    // the `{5}{U}` it was built at — [`check_oracle_matches_the_printing`]
+    // did, by comparing the sentence.
+    //
+    // `tally.costs` is what keeps either tolerance from quietly swallowing
+    // the whole check.
+    let printed_costs: Vec<String> = match payload
+        .get("card_faces")
+        .and_then(serde_json::Value::as_array)
     {
-        println!("{slug}: the printing costs {printed} and the code costs {code}");
-        *problems += 1;
+        Some(faces) => faces
+            .iter()
+            .map(|f| {
+                f.get("mana_cost")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string()
+            })
+            .collect(),
+        None => vec![
+            payload
+                .get("mana_cost")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+        ],
+    };
+    let code_costs = code_costs(face);
+    if printed_costs.len() == code_costs.len() {
+        for (at, (printed, code)) in printed_costs.iter().zip(&code_costs).enumerate() {
+            if at > 0 && printed.is_empty() {
+                continue;
+            }
+            tally.costs += 1;
+            if normalise_cost(printed) != *code {
+                println!(
+                    "{slug}: face {at} costs {printed} in the printing and {code} in the code"
+                );
+                *problems += 1;
+            }
+        }
     }
     // A creature only, and for loyalty a planeswalker only. `power` on a
     // printing with no P/T is absent, and a face that writes neither is a
@@ -1137,6 +1204,85 @@ fn check_code_matches_the_printing(
     }
 }
 
+/// The `//! Oracle:` header against the text actually printed on the card.
+///
+/// The header is the pool's human-verification surface, and every other
+/// check reads *around* it: the cost, the P/T, the colors and the keywords
+/// are compared against the printing, and the abilities are compared
+/// against nothing at all. So a card whose rules text had been paraphrased,
+/// abbreviated or overtaken by errata read as correct to a person and to
+/// every gate, and the code underneath it was written from the wrong
+/// sentence.
+///
+/// That is not hypothetical: the first run of this check found 145
+/// disagreements. Ninety-seven were one codegen bug — Scryfall carries a
+/// double-faced card's text per face and `stubgen` wrote the absent
+/// top-level field, so every two-faced header was blank — and the other
+/// forty-eight were hand-written headers, refreshed by
+/// [`refresh_oracle`]. Two of those forty-eight were a *card* written from
+/// its own wrong header: Volrath's Stronghold's second ability had lost its
+/// `{1}{B}`, and Mirrorhall Mimic's disturb was built at `{5}{U}` against a
+/// printed `{3}{U}{U}`.
+///
+/// Whitespace is the only thing forgiven, because a line's indentation
+/// inside a doc comment is not a rules fact. Wording is not: "you may draw a
+/// card unless that player pays {1}" and "you may have that player pay {1};
+/// if they don't, you draw a card" are the same card and *not* the same
+/// question, and which of the two is printed decides who is asked.
+fn check_oracle_matches_the_printing(
+    slug: &str,
+    content: &str,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    let header = content
+        .lines()
+        .filter_map(|l| l.strip_prefix("//! Oracle:"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let printed = printed_text(payload);
+    tally.oracle += 1;
+    if squash(&header) == squash(&printed) {
+        return;
+    }
+    println!("{slug}: the header's oracle text is not the printing's");
+    for line in diff_lines(&header, &printed) {
+        println!("    {line}");
+    }
+    *problems += 1;
+}
+
+/// Every non-blank line, trimmed — the one difference this check forgives.
+fn squash(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// The two texts side by side, as `-` header and `+` printing lines.
+///
+/// A whole-line set difference rather than a real diff: the header is at
+/// most a dozen lines, and what a reader needs is which sentence to look at,
+/// not an edit script.
+fn diff_lines(header: &str, printed: &str) -> Vec<String> {
+    let (a, b) = (squash(header), squash(printed));
+    let mut out = Vec::new();
+    for line in &a {
+        if !b.contains(line) {
+            out.push(format!("- {line}"));
+        }
+    }
+    for line in &b {
+        if !a.contains(line) {
+            out.push(format!("+ {line}"));
+        }
+    }
+    out
+}
+
 /// What the printing checks actually compared.
 ///
 /// Every one of them skips quietly — no cached payload, no field in it, no
@@ -1155,6 +1301,10 @@ struct PrintingTally {
     keywords: usize,
     /// Cards whose mana abilities were read and held against the text.
     mana: usize,
+    /// Cards whose Oracle header was held against the printed text.
+    oracle: usize,
+    /// Face costs compared against the printing, over the whole pool.
+    costs: usize,
 }
 
 /// The floor under each count in [`PrintingTally`].
@@ -1167,10 +1317,18 @@ struct PrintingTally {
 /// pool" — and it exists for the same reason: a checker that silently stops
 /// checking reports a clean pool.
 /// Measured 2026-09-09 over a pool of 1365: **1365** payloads, 7 loyalty,
-/// 1365 identity, 49 keyword, 361 mana. The first two are now every card in
-/// the pool rather than the 1263 the lookup used to find, so the floor under
-/// them is a real bound and not a record of a gap: nothing but a card
-/// leaving the pool can move it down.
+/// 1365 identity, 49 keyword, 361 mana, **1365** oracle, 1370 cost. Payloads,
+/// identity and oracle are now every card in the pool rather than the 1263
+/// the lookup used to find, so the floor under them is a real bound and not a
+/// record of a gap: nothing but a card leaving the pool can move it down.
+///
+/// Cost is 1370 rather than 1365 + 109, and the arithmetic is exact: seven
+/// back faces in the pool print a mana cost, two of those cards (Emeritus of
+/// Woe and Twining Twins, both adventures) are one `FaceDef` here against
+/// Scryfall's two and are skipped whole, so 1363 fronts + 7 backs = 1370.
+/// The other 102 back faces are transform sides that print no cost at all —
+/// a `FaceDef` there carries whatever the face is really cast for, and
+/// comparing it to an empty string would fail every one of them.
 ///
 /// The two that did not move are the two the new cards had nothing to add
 /// to. Loyalty is 7 and the pool holds exactly seven planeswalker faces, so
@@ -1183,6 +1341,8 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     identity: 1300,
     keywords: 45,
     mana: 340,
+    oracle: 1300,
+    costs: 1340,
 };
 
 /// Keyword bits that have a printed spelling to look for.
@@ -1653,6 +1813,89 @@ fn adopt(root: &Path, name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Rewrites every card's `//! Oracle:` block from its cached printing.
+///
+/// The counterpart to [`check_oracle_matches_the_printing`], and it exists
+/// for the reason `codegen` exists: the header is derived data, so it is
+/// written by whatever holds the source of truth rather than retyped. Forty-
+/// eight hand-owned cards disagreed with their own printing on the day this
+/// was written, and retyping forty-eight blocks of rules text by hand is the
+/// step that produced most of them.
+///
+/// It reaches hand-owned files, which `codegen` deliberately does not,
+/// because the two are writing different things. `codegen` writes what a
+/// card *does*, and a hand-owned card is exactly one whose behaviour a
+/// person took over; this writes only the sentence the behaviour is measured
+/// against, which is nobody's to author. So an errata is taken by running
+/// this and then **reading the diff**: a printing that changed usually means
+/// the code below it has to change too, and the refreshed header is what
+/// makes that visible instead of leaving the card agreeing with a sentence
+/// Wizards has since replaced.
+fn refresh_oracle(root: &Path, dry_run: bool) -> anyhow::Result<()> {
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    let names = acceptance::all_names(&rows, &pool_text);
+    let cards_dir = root.join("crates/baylee-cards/src/cards");
+    let files = card_files(&cards_dir)?;
+    let mut changed = 0usize;
+    for name in &names {
+        let slug = front_face_slug(name);
+        let (Some(path), Some(payload)) = (files.get(&slug), cached_printing(root, name)) else {
+            continue;
+        };
+        let text = fs::read_to_string(path)?;
+        let Some(next) = with_oracle_header(&text, &printed_text(&payload)) else {
+            continue;
+        };
+        changed += 1;
+        println!("{}", relative(path, &cards_dir));
+        if !dry_run {
+            fs::write(path, next)?;
+        }
+    }
+    let verb = if dry_run {
+        "would refresh"
+    } else {
+        "refreshed"
+    };
+    println!("{verb} {changed} of {} headers", names.len());
+    Ok(())
+}
+
+/// `text` with its `//! Oracle:` block replaced by `printed`, or `None` when
+/// it already says exactly that.
+///
+/// The block is rewritten in place rather than edited line by line: the old
+/// lines are dropped wherever they sat and the new ones go straight after
+/// the name line, which is where `stubgen` puts them, so a hand-written file
+/// ends up with the header a generated one would have had.
+fn with_oracle_header(text: &str, printed: &str) -> Option<String> {
+    let lines: Vec<&str> = printed
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
+    let mut out = String::with_capacity(text.len() + 256);
+    let mut written = false;
+    for line in text.lines() {
+        if line.starts_with("//! Oracle:") {
+            continue; // the old block, dropped wherever it sat
+        }
+        out.push_str(line);
+        out.push('\n');
+        if !written && line.starts_with("//!") {
+            written = true;
+            for oracle in &lines {
+                out.push_str("//! Oracle: ");
+                out.push_str(oracle);
+                out.push('\n');
+            }
+        }
+    }
+    (out != text).then_some(out)
+}
+
 /// Cards whose printed "you control" or "an opponent controls" is not a
 /// filter on any object, with the reason.
 ///
@@ -1824,13 +2067,20 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             check_card_matches_the_printing(&slug, def, &payload, &mut tally, &mut problems);
         }
         check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
+        check_oracle_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
     }
     // Before the bail, not after it: a floor that failed is only readable
     // beside the counts that failed it.
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
-         {} keyword, {} mana",
-        tally.payloads, tally.loyalty, tally.identity, tally.keywords, tally.mana
+         {} keyword, {} mana, {} oracle, {} cost",
+        tally.payloads,
+        tally.loyalty,
+        tally.identity,
+        tally.keywords,
+        tally.mana,
+        tally.oracle,
+        tally.costs
     );
     check_printing_floors(&tally, &mut problems);
     if problems > 0 {
@@ -1854,6 +2104,8 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
         ("color identity", tally.identity, PRINTING_FLOOR.identity),
         ("keyword", tally.keywords, PRINTING_FLOOR.keywords),
         ("mana", tally.mana, PRINTING_FLOOR.mana),
+        ("oracle text", tally.oracle, PRINTING_FLOOR.oracle),
+        ("face cost", tally.costs, PRINTING_FLOOR.costs),
     ] {
         if seen < floor {
             println!(

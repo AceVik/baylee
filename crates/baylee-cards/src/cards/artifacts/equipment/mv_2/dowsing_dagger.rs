@@ -1,4 +1,10 @@
 //! Dowsing Dagger // Lost Vale — {2} — Artifact — Equipment // Land
+//! Oracle: When this Equipment enters, target opponent creates two 0/2 green Plant creature tokens with defender.
+//! Oracle: Equipped creature gets +2/+1.
+//! Oracle: Whenever equipped creature deals combat damage to a player, you may transform this Equipment.
+//! Oracle: Equip {2}
+//! Oracle: (Transforms from Dowsing Dagger.)
+//! Oracle: {T}: Add three mana of any one color.
 //! Set: XLN #235 — Ixalan | Scryfall ID: 514d53be-6ade-4f73-a844-e9ae2dafd6ce | Oracle ID: df34a6ad-ae1c-4470-8c9e-49815bba1973
 //! Face: Dowsing Dagger — {2} — Artifact — Equipment
 //! Face: Lost Vale —  — Land

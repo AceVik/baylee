@@ -1,4 +1,7 @@
 //! Legion Leadership // Legion Stronghold — {1}{R/W} — Instant // Land
+//! Oracle: Until end of turn, double target creature's power and it gains first strike.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {R} or {W}.
 //! Set: MH3 #255 — Modern Horizons 3 | Scryfall ID: 7676abd9-0a3d-4721-b17b-778d2e3c2e25 | Oracle ID: ad225ec2-ff3a-48f6-81a7-dfdd1b75e1f7
 //! Face: Legion Leadership — {1}{R/W} — Instant
 //! Face: Legion Stronghold —  — Land

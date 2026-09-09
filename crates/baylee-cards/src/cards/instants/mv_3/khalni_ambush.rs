@@ -1,4 +1,7 @@
 //! Khalni Ambush // Khalni Territory — {2}{G} — Instant // Land
+//! Oracle: Target creature you control fights target creature you don't control. (Each deals damage equal to its power to the other.)
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G}.
 //! Set: ZNR #192 — Zendikar Rising | Scryfall ID: 99535539-aa73-41ed-86ab-21c97b92620d | Oracle ID: 37a55560-6e32-4f54-b9a8-fd157aea6eb5
 //! Face: Khalni Ambush — {2}{G} — Instant
 //! Face: Khalni Territory —  — Land

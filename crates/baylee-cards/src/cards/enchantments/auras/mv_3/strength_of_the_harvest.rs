@@ -1,4 +1,8 @@
 //! Strength of the Harvest // Haven of the Harvest — {2}{G/W} — Enchantment — Aura // Land
+//! Oracle: Enchant creature
+//! Oracle: Enchanted creature gets +1/+1 for each creature and/or enchantment you control.
+//! Oracle: This land enters tapped.
+//! Oracle: {T}: Add {G} or {W}.
 //! Set: MH3 #258 — Modern Horizons 3 | Scryfall ID: a7143aa7-b16d-4e63-910c-6ceec55483f3 | Oracle ID: 1a8c996d-ca93-4c17-ace5-66ecd6b99317
 //! Face: Strength of the Harvest — {2}{G/W} — Enchantment — Aura
 //! Face: Haven of the Harvest —  — Land

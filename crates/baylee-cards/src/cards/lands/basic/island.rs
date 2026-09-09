@@ -1,5 +1,5 @@
 //! Island — (no cost) — Basic Land — Island
-//! Oracle: ({T}: Add {B}.)
+//! Oracle: ({T}: Add {U}.)
 //! Set: TRK #319 — Star Trek | Scryfall ID: f3cc07cd-cc79-4745-b0b7-eade60175cc3 | Oracle ID: b2c6aa39-2d2a-459c-a555-fb48ba993373
 // IMPLEMENTED — basic land mana ability.
 

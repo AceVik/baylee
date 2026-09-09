@@ -1,4 +1,7 @@
 //! Razorgrass Ambush // Razorgrass Field — {1}{W} — Instant // Land
+//! Oracle: Razorgrass Ambush deals 3 damage to target attacking or blocking creature.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {W}.
 //! Set: MH3 #238 — Modern Horizons 3 | Scryfall ID: 57065dca-f90e-4184-bbc4-95d726a4160b | Oracle ID: 5da954fa-9001-4557-825c-1462035d21ed
 //! Face: Razorgrass Ambush — {1}{W} — Instant
 //! Face: Razorgrass Field —  — Land

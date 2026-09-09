@@ -1,5 +1,7 @@
 //! Indatha Triome — (no cost) — Land — PLAINS SWAMP FOREST
 //! Oracle: ({T}: Add {W}, {B}, or {G}.)
+//! Oracle: This land enters tapped.
+//! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)
 //! Indatha Triome enters the battlefield tapped.
 //! Cycling {2}
 //! Set: IKO #248 — Ikoria: Lair of Behemoths | Scryfall ID: 2b74bb81-fb9a-40e5-a941-e517430b52f5 | Oracle ID: ec2b3779-55f7-4169-aa66-6312fb52721f

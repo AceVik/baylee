@@ -1,4 +1,7 @@
 //! Disciple of Freyalise // Garden of Freyalise — {3}{G}{G}{G} — Creature — Elf Druid // Land
+//! Oracle: When this creature enters, you may sacrifice another creature. If you do, you gain X life and draw X cards, where X is that creature's power.
+//! Oracle: As this land enters, you may pay 3 life. If you don't, it enters tapped.
+//! Oracle: {T}: Add {G}.
 //! Set: MH3 #250 — Modern Horizons 3 | Scryfall ID: a8e9ea5a-5e10-4b77-baef-0352ff035483 | Oracle ID: 2699005b-a471-429f-a9d8-fbf2077ee2fd
 //! Face: Disciple of Freyalise — {3}{G}{G}{G} — Creature — Elf Druid
 //! Face: Garden of Freyalise —  — Land

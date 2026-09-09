@@ -1,4 +1,9 @@
 //! Journey to Eternity // Atzal, Cave of Eternity — {1}{B}{G} — Legendary Enchantment — Aura // Legendary Land
+//! Oracle: Enchant creature you control
+//! Oracle: When enchanted creature dies, return it to the battlefield under your control, then return this card to the battlefield transformed under your control.
+//! Oracle: (Transforms from Journey to Eternity.)
+//! Oracle: {T}: Add one mana of any color.
+//! Oracle: {3}{B}{G}, {T}: Return target creature card from your graveyard to the battlefield.
 //! Set: RIX #160 — Rivals of Ixalan | Scryfall ID: d81c4b3f-81c2-403b-8a5d-c9415f73a1f9 | Oracle ID: 7d6ccd0b-df16-40b2-930b-bcde0b6ef73f
 //! Face: Journey to Eternity — {1}{B}{G} — Legendary Enchantment — Aura
 //! Face: Atzal, Cave of Eternity —  — Legendary Land

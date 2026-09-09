@@ -1,4 +1,6 @@
 //! Darkbore Pathway // Slitherbore Pathway — (no cost) — Land // Land
+//! Oracle: {T}: Add {B}.
+//! Oracle: {T}: Add {G}.
 //! Set: KHM #254 — Kaldheim | Scryfall ID: 87a4e5fe-161f-42da-9ca2-67c8e8970e94 | Oracle ID: 868e6e68-4367-4073-a864-235d5961ae56
 //! Face: Darkbore Pathway —  — Land
 //! Face: Slitherbore Pathway —  — Land

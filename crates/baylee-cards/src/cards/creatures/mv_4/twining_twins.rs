@@ -1,6 +1,6 @@
 //! Twining Twins // Swift Spiral — {2}{U}{U} — Creature — Faerie Wizard // Instant — Adventure
-//! Oracle: Twining Twins — Flying, vigilance, ward {1}. 4/4.
-//! Oracle: Swift Spiral {1}{W} — Instant — Adventure: Exile target nontoken creature. Return it to the battlefield under its owner's control at the beginning of the next end step.
+//! Oracle: Flying, vigilance, ward {1}
+//! Oracle: Exile target nontoken creature. Return it to the battlefield under its owner's control at the beginning of the next end step.
 //! Set: EOC #66 — Edge of Eternities Commander | Scryfall ID: 043718ea-59f6-4d1a-94c5-271704c1a38a | Oracle ID: 105aea98-8eb9-4fb2-a0cb-7c7513317c5b
 // IMPLEMENTED — flying/vigilance/ward 4/4 front + the adventure back
 // (cast Swift Spiral, exile on resolution, cast Twining Twins from
