@@ -223,6 +223,30 @@ fn sentences(line: &str) -> Vec<String> {
         .collect()
 }
 
+/// The counting enters-clauses: "unless you control N or more …", by the
+/// phrase that finishes the sentence, the filter each one of them counts and
+/// the note it leaves behind.
+///
+/// The word before "lands" is the entire difference between them and it is
+/// not a modifier a reader may drop: a battle land counts *basic* lands and a
+/// slow land counts *other* lands. "Other" costs nothing extra here because
+/// the entering land never counts itself anyway. Two phrases this table does
+/// **not** carry, and deliberately: "two or fewer other lands" is the fast
+/// lands and is the opposite comparison, and "three or more other Islands"
+/// is a cycle whose second sentence the reader cannot read regardless.
+const COUNTED: [(&str, &str, &str); 2] = [
+    (
+        " or more basic lands",
+        "Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::BASIC_LAND,\n])",
+        "battle land",
+    ),
+    (
+        " or more other lands",
+        "Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::LAND,\n])",
+        "slow land",
+    ),
+];
+
 struct Recognizer<'a> {
     cats: &'a SubtypeCatalogs,
     body: CardBody,
@@ -331,21 +355,23 @@ impl Recognizer<'_> {
             return Some(());
         }
         // Before the checkland below it, which claims the same prefix and
-        // would refuse the whole card on the phrase this one reads.
-        if let Some(n) = line
-            .strip_prefix("This land enters tapped unless you control ")
-            .and_then(|rest| rest.strip_suffix(" or more basic lands"))
-            .and_then(number)
-            .and_then(|n| u8::try_from(n).ok())
-        {
-            let name = self.named_filter(
-                "Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::BASIC_LAND,\n])",
-            );
-            self.body.enter_modifiers.push(format!(
-                "EnterModifier::TappedUnlessCount {{ filter: &{name}, at_least: {n} }}"
-            ));
-            self.body.notes.push("battle land".to_string());
-            return Some(());
+        // would refuse the whole card on the phrases these read.
+        if let Some(rest) = line.strip_prefix("This land enters tapped unless you control ") {
+            for (phrase, filter, note) in COUNTED {
+                let Some(n) = rest
+                    .strip_suffix(phrase)
+                    .and_then(number)
+                    .and_then(|n| u8::try_from(n).ok())
+                else {
+                    continue;
+                };
+                let name = self.named_filter(filter);
+                self.body.enter_modifiers.push(format!(
+                    "EnterModifier::TappedUnlessCount {{ filter: &{name}, at_least: {n} }}"
+                ));
+                self.body.notes.push(note.to_string());
+                return Some(());
+            }
         }
         if let Some(rest) = line.strip_prefix("This land enters tapped unless you control ") {
             let name = self.control_filter(rest)?;
@@ -687,17 +713,47 @@ mod tests {
             )
             .is_none()
         );
-        // …including a count the rule beside it does not read. A slow land
-        // counts *other lands* rather than basic ones, and the two sentences
-        // are one word apart, so the reader that learned the battle lands
-        // must not carry the slow lands in on the same filter.
+        // …including a count the table beside it does not carry. A fast land
+        // is one word from a slow land and the opposite comparison, so the
+        // reader that learned "two or more" must not answer "two or fewer".
         assert!(
             recognize(
-                &card("Land", "This land enters tapped unless you control two or more other lands.\n{T}: Add {G}."),
+                &card("Land", "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {G}."),
                 &cats(),
             )
             .is_none()
         );
+        // …and a count that *is* read still refuses the card when the
+        // sentence after it is not. The Eldraine cycle's second clause is a
+        // trigger on entering **untapped**, which is a condition no rule
+        // here says, so those five stay stubs on their own merits.
+        assert!(
+            recognize(
+                &card(
+                    "Land \u{2014} Plains",
+                    "This land enters tapped unless you control three or more other Plains.\nWhen this land enters untapped, put a +1/+1 counter on target creature you control.",
+                ),
+                &cats(),
+            )
+            .is_none()
+        );
+    }
+
+    /// The slow lands: the same counting clause as a battle land, over
+    /// *other* lands — which costs nothing, because the entering land never
+    /// counts itself.
+    #[test]
+    fn a_slow_land_counts_the_other_lands() {
+        let body = read(
+            "Land",
+            "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {U}.",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }"]
+        );
+        assert!(body.statics.contains("Filter::LAND"));
+        assert!(!body.statics.contains("BASIC"));
     }
 
     /// The battle lands: a condition that **counts**, and counts *basic*
