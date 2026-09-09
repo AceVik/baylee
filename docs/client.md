@@ -467,6 +467,19 @@ a `SeatTicket` — `dev-table`, or a browser handed `?game=…&token=…` — ne
 and keeps the CDN. That is the correct fallback rather than a gap: the pictures
 still arrive, they are simply not the gateway's copies.
 
+**Both schemes have to be built in.** Bevy registers `http` and `https` as two
+asset sources behind two separate cargo features, and a scheme with no source
+does not fail the way a missing file does: the request never leaves, the load
+never settles, and `textures::Failure` never hears about it. The table draws
+constructed faces on grey slabs and looks like a slow network. The workspace
+therefore enables **both**, and `textures`'
+`a_card_picture_can_arrive_over_either_scheme` is what stops the pair being
+trimmed to one — because a development gateway is `http://127.0.0.1:28766`, so
+`https` alone means every picture disappears the moment a client signs in and
+adopts the mirror, while an unsigned-in client on the CDN goes on looking
+perfectly healthy. That asymmetry is what made it look like a card bug for a
+week.
+
 
 Board cards are fetched `small` (146×204); only the focused card is fetched
 `normal`. That is the difference between ~36 MB and ~400 MB for a large table.

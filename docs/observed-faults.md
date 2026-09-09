@@ -9,9 +9,36 @@ than one found by reading, and it is also the easiest kind to lose.
 
 ## Client
 
-### 1. Card images not loading — NOT REPRODUCED
+### 1. Card images not loading — FOUND AND FIXED
 
 Reported: "Kartenbilder werden nicht geladen/angezeigt."
+
+**The cause was the build, not the client.** Bevy's `WebAssetPlugin` registers
+the `http` and `https` asset sources behind two separate cargo features
+(`bevy_asset/src/io/web.rs`, `#[cfg(feature = "http")]`), and the workspace
+enabled only `https`. The gateway's art mirror is `http://127.0.0.1:28766/art/…`
+in development, so every picture a signed-in client asked for died at
+`Asset Source 'AssetSourceId::Name(http)' does not exist` — 134 of them in one
+launch. The card fell back to its constructed face and the library pile to a
+grey slab, which is exactly what "the images are not loading" looks like.
+
+What kept it hidden for a week is the asymmetry: `use_art_base` is only called
+from the lobby's `/auth/config` callback (entry 2), so a client launched with a
+`SeatTicket` never adopts the mirror, stays on the `https` CDN, and draws every
+picture perfectly. The two paths disagreed, and the healthy one was the one
+being measured. The measurement below is right and was taken on that path.
+
+Fixed by enabling both features, with
+`textures::a_card_picture_can_arrive_over_either_scheme` asserting the pair.
+The same defect was **both** of the owner's first two reports: the card *backs*
+come from the same base (`images::back_url`), which is why face-down piles were
+grey. It was also the third — "I miss the glowing for playable cards" — because
+the gold ring was still being drawn the whole time, around a dark rectangle on
+a dark bar. With the art back, the two lands in a seven-card hand light up
+again.
+
+*The original entry, kept because the two dead hypotheses are still worth not
+chasing:*
 
 Measured instead: on the offline path (`house_duel`, no gateway) seven cards
 in hand rendered with full art and printed text. The gateway's own route is

@@ -654,6 +654,40 @@ mod tests {
     use super::*;
     use baylee_client_core::images::ArtSize;
 
+    /// Every scheme a card picture can arrive over has to be a source the
+    /// asset server knows about.
+    ///
+    /// Bevy registers `http` and `https` as two asset sources behind two
+    /// separate cargo features, and a scheme with no source does not fail the
+    /// way a missing file does — the request never leaves, the load never
+    /// settles, and `Failure` never hears about it. The table simply draws
+    /// constructed faces on grey slabs, which reads as "the art is slow"
+    /// rather than as a build that cannot fetch.
+    ///
+    /// `http` is the half that is easy to leave out and the half that matters
+    /// most here: the gateway's mirror is what a signed-in client is *told*
+    /// to use ([`baylee_client_core::images::use_art_base`]), and a
+    /// development gateway is `http://127.0.0.1:28766`. With `https` alone,
+    /// every picture in the game was missing the moment the mirror was
+    /// adopted — while an unsigned-in client, still on the CDN, looked
+    /// perfectly healthy.
+    #[test]
+    fn a_card_picture_can_arrive_over_either_scheme() {
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::io::web::WebAssetPlugin {
+            silence_startup_warning: true,
+        })
+        .add_plugins(bevy::asset::AssetPlugin::default());
+        let server = app.world().resource::<AssetServer>();
+        for scheme in ["http", "https"] {
+            assert!(
+                server.get_source(scheme).is_ok(),
+                "no `{scheme}` asset source: every card picture served over \
+                 {scheme}:// is silently unfetchable"
+            );
+        }
+    }
+
     /// The back of a card is a fetched picture like every other one, and the
     /// order of the two answers is what keeps a face-down card on the table:
     /// a material bound to a texture whose bytes have not arrived does not
