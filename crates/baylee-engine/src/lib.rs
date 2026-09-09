@@ -63,6 +63,9 @@ pub mod layers;
 /// `ContinuousEffect`, `EffectTable`, modifiers, durations.
 pub mod effects;
 
+/// Replacement rules that multiply, CR 614: Doubling Season and its kin.
+pub mod replacement;
+
 /// Endless-loop detection for decision-free segments (house rule).
 pub mod loops;
 

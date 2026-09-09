@@ -12,36 +12,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::AddCounter { kind, amount } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
             let target_id = res.targets.first().copied().unwrap_or(res.source);
-            // Counter-placement replacements (Doubling Season, CR 614.2).
-            let mut n_total = n;
-            if let Some(target_obj) = state.object(target_id) {
-                for entry in &state.replacement_rules {
-                    if let baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement {
-                        object_filter,
-                    } = entry.rule
-                        && eval::matches(
-                            object_filter,
-                            state,
-                            target_obj,
-                            entry.controller,
-                            entry.source,
-                        )
-                    {
-                        n_total = n_total.saturating_mul(2);
-                    }
-                }
-            }
-            if let Some(obj) = state.object_mut(target_id) {
-                let old = obj.counters.get(kind);
-                let new = obj.counters.add(kind, n_total);
-                state.journal.record(GameEvent::CounterChanged {
-                    object: target_id,
-                    kind,
-                    old,
-                    new,
-                });
-            }
-            state.invalidate_projections();
+            crate::replacement::put_counters(state, target_id, kind, n);
             None
         }
         Effect::AddCounterFilter {
@@ -61,19 +32,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 })
                 .copied()
                 .collect();
+            // Per object, not once for the sweep: "a permanent you control"
+            // is asked of each permanent the counters land on, so a board
+            // holding one of mine and one of theirs gets two answers.
             for id in objects {
-                if let Some(obj) = state.object_mut(id) {
-                    let old = obj.counters.get(kind);
-                    let new = obj.counters.add(kind, n);
-                    state.journal.record(GameEvent::CounterChanged {
-                        object: id,
-                        kind,
-                        old,
-                        new,
-                    });
-                }
+                crate::replacement::put_counters(state, id, kind, n);
             }
-            state.invalidate_projections();
             None
         }
         Effect::DrainAllCountersIntoSelf => {

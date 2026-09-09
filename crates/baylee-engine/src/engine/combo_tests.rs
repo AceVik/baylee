@@ -1295,3 +1295,62 @@ fn the_forge_does_not_reach_the_artifact_across_the_table() {
         "\"artifacts **you** control\" is the whole scope of the grant"
     );
 }
+
+/// Doubling Season's **second** sentence ("If an effect would put one or
+/// more counters on a permanent **you control**, it puts twice that many of
+/// those counters on that permanent instead") over the same Earth King's
+/// Lieutenant.
+///
+/// Deliberately the same board and the same two numbers as
+/// [`panharmonicon_fires_your_enters_trigger_twice_and_theirs_once`],
+/// reached the other way round: there one counter was placed twice, here
+/// two counters are placed once. Read together they say the two rules are
+/// separate machines that happen to agree here — and the pair is what a
+/// board with only one of the enchantments on it can never show.
+#[test]
+fn doubling_season_doubles_the_counters_on_your_own_permanents_only() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(87, forest())
+        .battlefield(0, &[doubling_season(), ondu_cleric(), forest(), plains()])
+        .hand(0, &[earth_king_s_lieutenant()])
+        .battlefield(1, &[ondu_cleric(), forest(), plains()])
+        .hand(1, &[earth_king_s_lieutenant()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("my cleric");
+    let their_cleric = on_battlefield(&engine, p1, ondu_cleric()).expect("their cleric");
+
+    cast_from_hand(&mut engine, p0, earth_king_s_lieutenant());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, earth_king_s_lieutenant()).is_some() && stack_is_empty(e)
+    });
+    assert_eq!(
+        pt(&engine, my_cleric),
+        (3, 3),
+        "one +1/+1 counter, put on a permanent I control, is put twice"
+    );
+    assert_eq!(
+        pt(&engine, their_cleric),
+        (1, 1),
+        "the Lieutenant's trigger never reached their Ally to begin with"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, earth_king_s_lieutenant());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p1, earth_king_s_lieutenant()).is_some() && stack_is_empty(e)
+    });
+    assert_eq!(
+        pt(&engine, their_cleric),
+        (2, 2),
+        "their Ally is not a permanent I control, so my enchantment does \
+         not replace the counter going onto it"
+    );
+    assert_eq!(
+        pt(&engine, my_cleric),
+        (3, 3),
+        "and my own Ally took nothing from their turn"
+    );
+}

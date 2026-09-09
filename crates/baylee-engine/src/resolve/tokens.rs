@@ -53,18 +53,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(obj) = state.object_mut(target_id) {
                 obj.base_mut().subtypes.insert(subtype);
                 obj.cache.clear();
-                let old = obj.counters.get(baylee_cards_dsl::CounterKind::P1P1);
-                let new = obj
-                    .counters
-                    .add(baylee_cards_dsl::CounterKind::P1P1, amount);
-                state.journal.record(GameEvent::CounterChanged {
-                    object: target_id,
-                    kind: baylee_cards_dsl::CounterKind::P1P1,
-                    old,
-                    new,
-                });
             }
-            state.invalidate_projections();
+            crate::replacement::put_counters(
+                state,
+                target_id,
+                baylee_cards_dsl::CounterKind::P1P1,
+                amount,
+            );
             None
         }
         Effect::CreateTokenCopyOf {
@@ -161,7 +156,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::CreateTokenN { token, amount } => {
             // Token-creation replacements double the total (CR 614.1).
             let count = amount2(&amount, state, you, res.source, res.x, &res.targets)
-                * token_multiplier(state, you);
+                * crate::replacement::token_multiplier(state, you);
             for _ in 0..count {
                 create_one_token(state, you, token);
             }
@@ -189,7 +184,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CreateToken { token } => {
             // Token-creation replacements (Doubling Season, CR 614.1).
-            let count = token_multiplier(state, res.controller);
+            let count = crate::replacement::token_multiplier(state, res.controller);
             for _ in 0..count {
                 create_one_token(state, res.controller, token);
             }
@@ -245,42 +240,6 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         }
         baylee_cards_dsl::CopyMod::AddCounter(_, _) => {}
     }
-}
-
-/// How many times over an effect creating tokens under `recipient`'s
-/// control actually creates them (CR 614.1; Doubling Season, Elspeth
-/// Storm-Slayer).
-///
-/// `controller_filter` is a filter over the **affected controller**, not
-/// over the effect doing the creating: "if one or more tokens would be
-/// created under *your* control" is a statement about who ends up with them
-/// and says nothing about whose spell put them there. So it is read against
-/// the replacement's own source with the recipient as "you", which makes
-/// `ControlledByYou` mean "the enchantment that recipient controls".
-///
-/// Reading it the other way round — against the *resolving* effect's source
-/// with the resolving controller as "you" — asks whether a player controls
-/// their own spell, and that is a question which answers yes for everybody:
-/// an opponent's Maskwood Nexus made two Shapeshifters because I had a
-/// Doubling Season.
-fn token_multiplier(state: &GameState, recipient: PlayerId) -> u32 {
-    let mut count = 1u32;
-    for entry in &state.replacement_rules {
-        if let baylee_cards_dsl::ReplacementRule::DoubleTokenCreation { controller_filter } =
-            entry.rule
-            && let Some(source_obj) = state.object(entry.source)
-            && eval::matches(
-                controller_filter,
-                state,
-                source_obj,
-                recipient,
-                entry.source,
-            )
-        {
-            count *= 2;
-        }
-    }
-    count
 }
 
 pub(super) fn create_one_token(
