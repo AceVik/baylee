@@ -773,7 +773,7 @@ What is not offered is drawn as it always is — not dimmed, not greyed: the
 lit set already says it, and a felt that goes dark under every spell makes
 the whole table flinch twice a turn. A click on it changes nothing and puts
 one line on the slip, `NotOffered`; hover, preview and an unoffered pile top
-work as they always did. A pile chip wears the offer when any card inside it
+work as they always did. A pile top wears the offer when any card inside it
 is offered — delve and a reanimation target live nowhere else on the felt —
 and the browser it opens lights them one by one.
 `every_offered_object_is_drawn_somewhere` grows one clause — drawn *as

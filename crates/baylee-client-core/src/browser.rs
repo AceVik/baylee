@@ -209,6 +209,12 @@ pub struct Browser {
     descending: bool,
     typing: bool,
     typing_epoch: u64,
+    /// The cards the engine was showing this seat the last time a view came
+    /// in — the memory [`Self::saw_reveal`] needs to spot a *new* one.
+    ///
+    /// Ids and not a count, because a reveal that ends and another that
+    /// begins in the same frame is two reveals and the same length.
+    looking_seen: Vec<ObjectId>,
 }
 
 impl Browser {
@@ -241,7 +247,7 @@ impl Browser {
         self.open = true;
     }
 
-    /// Opens the panel on one zone — what a pile chip does.
+    /// Opens the panel on one zone — what a tap on a pile does.
     pub fn open_at(&mut self, zone: BrowseZone) {
         self.open = true;
         self.tab = Some(zone);
@@ -381,6 +387,33 @@ impl Browser {
         }
     }
 
+    /// Reacts to a *view* arriving, which is a different event.
+    ///
+    /// [`Self::follow`] answers a question being asked; this answers cards
+    /// being **shown**. `looking_at` can fill up with no choice attached at
+    /// all — a reveal, the top of a library turned over — and those cards
+    /// live in no zone the seat can otherwise see, so the sheet is the only
+    /// surface in the client that draws them. Until the pile chips were
+    /// removed there was a button standing above the board that would open
+    /// it; now the reveal opens it itself.
+    ///
+    /// Edge-triggered on the ids, for the reason `follow` gives about
+    /// per-frame decisions: a panel re-deciding every frame whether to be
+    /// open could not be closed. So it opens on the frame a reveal *becomes*
+    /// something else and leaves the player alone afterwards — and a reveal
+    /// that ends and another that begins is two openings, which a length
+    /// comparison would have merged into none.
+    pub fn saw_reveal(&mut self, view: &PlayerView) {
+        let now: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
+        if now != self.looking_seen {
+            if !now.is_empty() {
+                self.open = true;
+                self.tab = Some(BrowseZone::Looking);
+            }
+            self.looking_seen = now;
+        }
+    }
+
     /// Whether this choice needs the tray at all.
     ///
     /// True when the engine offered an object that is neither on the
@@ -432,7 +465,7 @@ impl Browser {
     /// The rows to draw, in tab order and then in each zone's own order.
     ///
     /// Pass `None` for the interaction to browse with no question pending —
-    /// what clicking a pile chip does. Nothing is selectable then, which is
+    /// what tapping a pile does. Nothing is selectable then, which is
     /// the honest answer: there is nothing to select *for*.
     #[must_use]
     pub fn rows(&self, view: &PlayerView, interaction: Option<&Interaction>) -> Vec<BrowseRow> {
@@ -615,6 +648,49 @@ mod tests {
         assert!(rows.iter().all(|r| r.zone == BrowseZone::Looking));
         assert!(rows.iter().all(|r| r.selectable), "all four were offered");
         assert!(rows.iter().all(|r| r.art.is_some()), "each has a picture");
+    }
+
+    /// A reveal with no question attached opens the sheet by itself.
+    ///
+    /// This is the job the "Zones" chip used to do and the reason the chip
+    /// could not simply be deleted: cards in `looking_at` are shown to a seat
+    /// without anything being asked of them, they are drawn on no other
+    /// surface in the client, and `follow` only ever runs when a *choice*
+    /// arrives. Edge-triggered on the ids, so the player can put it away.
+    #[test]
+    fn cards_shown_to_a_seat_open_the_sheet_by_themselves() {
+        let mut b = Browser::new();
+        let nothing = ViewBuilder::new(2).build();
+        b.saw_reveal(&nothing);
+        assert!(!b.is_open(), "an empty reveal is not a reveal");
+
+        let shown = ViewBuilder::new(2)
+            .with_looking_at(vec![printed(10, 0, "Ponder", 1)])
+            .build();
+        b.saw_reveal(&shown);
+        assert!(
+            b.is_open(),
+            "cards being shown open the sheet that draws them"
+        );
+        assert_eq!(b.tab(), Some(BrowseZone::Looking));
+
+        // …and it stays closed once the player closes it, however many views
+        // arrive carrying the same cards. A per-frame decision would make the
+        // panel impossible to dismiss.
+        b.close();
+        for _ in 0..5 {
+            b.saw_reveal(&shown);
+            assert!(!b.is_open(), "the same reveal re-opened it");
+        }
+
+        // A reveal that ends and another that begins is two reveals, and the
+        // second one opens it again — which a length comparison would miss,
+        // because both are one card.
+        let other = ViewBuilder::new(2)
+            .with_looking_at(vec![printed(11, 0, "Brainstorm", 2)])
+            .build();
+        b.saw_reveal(&other);
+        assert!(b.is_open(), "a different reveal is a new one");
     }
 
     /// The invariant the whole module exists for: an id the engine offered

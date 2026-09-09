@@ -17,9 +17,8 @@
 //! whatever the cursor happens to be resting on.
 
 use crate::hud::{
-    AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PhaseButton, PileChip,
-    PlayerTab, PreviewResize, PromptAction, PromptButton, TrayCard, TrayClose, TrayFilter,
-    TraySort, TrayTab,
+    AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PhaseButton, PlayerTab,
+    PreviewResize, PromptAction, PromptButton, TrayCard, TrayClose, TrayFilter, TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -38,7 +37,7 @@ use bevy::prelude::*;
 ///
 /// Bundled rather than four more arguments because `pointer` already sits at
 /// Bevy's parameter limit — and because they are one thing: the tray, its
-/// tabs, its close button, and the pile chips that open it.
+/// tabs, its close button, its filter box and its sort control.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TrayWidgets<'w, 's> {
     cards: Query<'w, 's, &'static TrayCard>,
@@ -46,7 +45,6 @@ pub struct TrayWidgets<'w, 's> {
     close: Query<'w, 's, &'static TrayClose>,
     sort: Query<'w, 's, &'static TraySort>,
     filter: Query<'w, 's, &'static TrayFilter>,
-    chips: Query<'w, 's, &'static PileChip>,
 }
 
 /// Finds a component on the clicked entity or one of its ancestors —
@@ -390,8 +388,8 @@ fn look_around(
         settings.save();
     }
     if fired.has(Action::ToggleBrowser) {
-        // A latch rather than a held key, for the same reason the pile chips
-        // are buttons: reading a graveyard is not a glance, and a held key is
+        // A latch rather than a held key, for the same reason a tap on a pile
+        // opens one: reading a graveyard is not a glance, and a held key is
         // not a gesture a phone has. The tab it was last left on is kept, so
         // a player checking their own yard twice does not re-pick it.
         if duel.browser.is_open() {
@@ -843,12 +841,20 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
         step_number(duel, step);
     }
 
-    // Cancel: an open preview first, then a selected phase button, then a
-    // half-built answer.
+    // Cancel: an open preview first, then the zone browser, then a selected
+    // phase button, then a half-built answer.
+    //
+    // The browser sits where it does because Esc walks the screen from the
+    // top down and the sheet is a *standing* panel: the preview is over it
+    // and is gone the moment the pointer moves, while the sheet stays until
+    // it is put away. Its filter box comes earlier still, in `browser_keys` —
+    // a box that has the keyboard answers Escape itself.
     if fired.has(Action::Cancel) {
         if duel.hovered.is_some() {
             duel.hovered = None;
             duel.hovered_at = None;
+        } else if duel.browser.is_open() {
+            duel.browser.close();
         } else if prefs.orders().selected().is_some() {
             prefs.rail_cursor().clear_selection();
         } else if let Some(i) = duel.interaction.as_mut() {
@@ -1105,14 +1111,6 @@ fn pick_choice(duel: &mut Duel, index: usize) {
     }
 }
 
-/// A click on the zone browser or on one of the chips that opens it.
-///
-/// Its own function rather than four more arms in [`pointer`]: they are one
-/// widget, and the browser is meant to be a second *place* to click a card,
-/// not a second way to answer a choice — which is why a tray card goes
-/// through the same [`activate_card`] a card on the table does.
-///
-/// Returns whether the click belonged to the browser.
 /// The two buttons in the top-right menu.
 ///
 /// `was_armed` is the concession's state *before* this click, taken once at
@@ -1156,6 +1154,16 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
     }
 }
 
+/// A click inside the zone browser.
+///
+/// Its own function rather than five more arms in [`pointer`]: they are one
+/// widget, and the browser is meant to be a second *place* to click a card,
+/// not a second way to answer a choice — which is why a tray card goes
+/// through the same [`activate_card`] a card on the table does. *Opening* it
+/// is not in here at all: that is a tap on the table, which reaches
+/// [`open_pile`] through the ordinary card path.
+///
+/// Returns whether the click belonged to the browser.
 fn browser_click(
     duel: &mut Duel,
     entity: Entity,
@@ -1191,18 +1199,6 @@ fn browser_click(
             duel.browser.stop_typing();
         } else {
             duel.browser.start_typing();
-        }
-        return true;
-    }
-    if let Some(chip) = find_in_lineage(entity, &tray.chips, parents) {
-        let zone = chip.zone;
-        // A second click on the pile already showing puts it away, so a chip
-        // is a toggle rather than a one-way door.
-        if duel.browser.is_open() && duel.browser.tab() == zone {
-            duel.browser.close();
-        } else {
-            duel.browser.open();
-            duel.browser.show(zone);
         }
         return true;
     }
@@ -2681,6 +2677,52 @@ mod tests {
             )),
             ..Default::default()
         }
+    }
+
+    /// A tap on the top card of a pile opens that pile.
+    ///
+    /// This is the only way in to a graveyard now that the pile chips are
+    /// gone, so it needs a witness rather than a reading: `open_pile` was
+    /// wired before the chips were removed and nothing ever clicked it, which
+    /// is precisely the shape of defect this client has shipped before. The
+    /// door has to be proved from a *tap* — `activate_card`, the same
+    /// function the pointer calls — and not by calling `open_pile` directly,
+    /// or the test would pass with the last branch of `activate_card` gone.
+    #[test]
+    fn a_tap_on_a_pile_opens_it() {
+        use baylee_client_core::test_support::{ViewBuilder, printed};
+
+        let top = obj(7);
+        let view = ViewBuilder::new(2)
+            .with_graveyard(0, vec![printed(7, 0, "Llanowar Elves", 1)])
+            .build();
+        let mut duel = crate::Duel::default();
+        duel.receive_view(view);
+        crate::rebuild_board(&mut duel);
+        assert!(!duel.browser.is_open(), "nothing has been tapped yet");
+
+        super::activate_card(&mut duel, top);
+        assert!(duel.browser.is_open(), "the graveyard did not open");
+        assert_eq!(
+            duel.browser.tab(),
+            Some(baylee_client_core::BrowseZone::Graveyard(PlayerId::new(0))),
+            "it opened on somebody else's pile"
+        );
+    }
+
+    /// And a library never opens, however often it is tapped: nobody may look
+    /// through one, their own included (CR 401.2), so the pile beside the mat
+    /// is inert rather than merely empty.
+    #[test]
+    fn a_tap_on_a_library_opens_nothing() {
+        use baylee_client_core::test_support::ViewBuilder;
+
+        let view = ViewBuilder::new(2).build();
+        let mut duel = crate::Duel::default();
+        duel.receive_view(view);
+        crate::rebuild_board(&mut duel);
+        super::activate_card(&mut duel, obj(999));
+        assert!(!duel.browser.is_open());
     }
 
     #[test]

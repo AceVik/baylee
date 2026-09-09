@@ -794,7 +794,8 @@ browser**. A model in `client-core` over `looking_at ∪ graveyards ∪ exile �
 command ∪ stack`, and a tray panel that reuses `spawn_hand_card`'s node path —
 **not a second card renderer**. It opens automatically when a pending's
 options include anything outside battlefield and hand, and on demand from a
-key or a tap on a pile chip at the mat's corner. It carries the filter box the
+key or a tap on the top card of a pile at the mat's corner. It carries the
+filter box the
 subtype picker already proved, and in order mode it answers `OrderObjects` by
 click-click swap. One panel closes tutoring, scry, dig, wish, delve, reorder,
 graveyard targets and counterspell targets.
@@ -944,7 +945,7 @@ convention. It is a swap of two rows in `Keymap::standard()` and no new action.
 from the same session: "Karten auf dem Friedhof und Exile immer sichtbar. Wenn
 der entsprechende Stapel angeklickt wird, wird die entsprechende Zone angezeigt
 (sortierbar, durchsuchbar, scrollbar)." Two of the four already existed — a
-pile chip opens its zone, and `Browser::set_filter` narrows by name — so what
+tap on a pile opens its zone, and `Browser::set_filter` narrows by name — so what
 was actually missing was sorting, scrolling, and a reason to trust the order.
 
 `SortKey` is `Place`, `Name`, `ManaValue`, `Type`, and every one of them reads
@@ -1237,9 +1238,17 @@ model rather than by hand-building actions.~~ **Lock B — done.**
 of the table, which is what lets
 `every_offered_object_is_drawn_somewhere` assert that each offered id is drawn
 *exactly once* rather than at least once. The panel is `hud/tray.rs`, opened by
-the pile chips or by `G`. The chips sit in the HUD rather than at the mat
-corners as planned above, because the zone counts they replace are `TextSpan`s
-inside one text entity, and a span has no layout node to click.
+a tap on the top card of a pile, by `G`, or by a reveal arriving.
+
+It shipped first with a strip of *pile chips* in the HUD doing the opening,
+placed there rather than at the mat corners because the zone counts they
+replaced are `TextSpan`s inside one text entity and a span has no layout node
+to click. That reasoning expired: the piles stand on the felt now with the
+real top card lying on them, and a card is a `Placement` like any other — so
+the pile *is* the button, and the strip was a second drawing of three zones in
+a second renderer. It is gone; `a_tap_on_a_pile_opens_it` is the door's
+witness, and `saw_reveal` covers the one thing the chips did that the felt
+cannot, which is showing cards that are in no zone at all.
 
 **Second, the common turn made fast and safe.** ~~The keymap swap~~; ~~the
 `ChooseNumber` stepper and digit picks~~; ~~arm-then-act with mana abilities

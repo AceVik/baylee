@@ -33,7 +33,7 @@ Two consequences worth knowing before changing anything here:
 | Declare nothing — no attackers, or no blockers | `O` | implemented |
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
-| Open the zone browser (graveyards, exile, the stack) | `G` (or a pile chip) | implemented |
+| Open the zone browser (graveyards, exile, the stack) | `G`, or a tap on the top card of a pile | implemented |
 | Battlefield camera: pan | arrows (not while choosing a number), right- or middle-drag, touch-drag | implemented |
 | Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
 | Battlefield camera: rotate | `Shift+←/→`, left-drag, rotate gesture | implemented |

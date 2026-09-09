@@ -1249,9 +1249,11 @@ pub fn sync_overlay(
         commands.entity(root).add_child(stack);
     }
 
-    // ---- the pile chips, and the browser they open ----------------------
-    let strip = tray::spawn_pile_strip(&mut commands, lang, &duel.browser, view, &fonts);
-    commands.entity(root).add_child(strip);
+    // ---- the zone browser ------------------------------------------------
+    //
+    // Opened from the table (a tap on the top card of a pile), from the
+    // keyboard, or by the engine asking a question about cards the table
+    // cannot show. Nothing draws a second copy of a zone to click.
     if let (true, Some(statics)) = (duel.browser.is_open(), duel.statics.as_ref()) {
         let tray = tray::spawn_tray(
             &mut commands,

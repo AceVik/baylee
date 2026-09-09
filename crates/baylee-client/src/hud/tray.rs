@@ -7,9 +7,16 @@
 //! card renderer is how two parts of one interface start disagreeing about
 //! what a card looks like.
 //!
-//! It opens by itself for a choice that needs it ([`Browser::wanted`]) and
-//! by hand from a pile chip, and a click on one of its cards goes through
-//! exactly the same `activate_card` a click on the table does.
+//! It opens by itself for a choice that needs it ([`Browser::wanted`]) and by
+//! hand from the table — a tap on the top card of a pile opens that pile —
+//! and a click on one of its cards goes through exactly the same
+//! `activate_card` a click on the table does.
+//!
+//! There was a strip of pile chips above the sheet doing that second job,
+//! drawing the local seat's graveyard, exile and command zone as counts. It is
+//! gone: those three piles stand on the felt now with a real stack of cards on
+//! them, and two drawings of one zone in two renderers is what the command
+//! zone's own well already replaced once. The pile *is* the button.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
@@ -536,128 +543,4 @@ fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameSta
             Phrase::BrowseZoneOf.fill(lang, &[&name, &who])
         }
     }
-}
-
-/// The pile chips: the viewing seat's own off-board zones, as counts that
-/// can be clicked.
-///
-/// The counts were already on screen — in every seat tab — and were the one
-/// place the interface said "there are seven cards here" and offered no way
-/// to look at them. They are the seat's *own* piles only, because a strip
-/// that listed all eight seats' would not fit; every other pile at the table
-/// is one tab away inside the tray, which lists them all.
-#[allow(clippy::too_many_lines)] // one flat strip of chips
-pub(super) fn spawn_pile_strip(
-    commands: &mut Commands,
-    lang: Lang,
-    browser: &Browser,
-    view: &PlayerView,
-    fonts: &UiFonts,
-) -> Entity {
-    let strip = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(12),
-                top: px(TAB_H + RAIL_H + 10.0),
-                flex_direction: FlexDirection::Row,
-                column_gap: px(4),
-                ..default()
-            },
-            ZIndex(3),
-            Pickable::IGNORE,
-        ))
-        .id();
-
-    let me = view.seat;
-    let mut chips = Vec::new();
-    let pile = |zones: &Vec<Vec<baylee_view::PublicObject>>| {
-        zones.get(me.get() as usize).map_or(0, Vec::len)
-    };
-    for (zone, count, icon) in [
-        (
-            BrowseZone::Graveyard(me),
-            pile(&view.graveyards),
-            glyph::SKULL,
-        ),
-        (BrowseZone::Exile(me), pile(&view.exile), glyph::EXILE),
-        (BrowseZone::Command(me), pile(&view.command), glyph::COMMAND),
-    ] {
-        // An empty pile is not a chip. A button that opens onto nothing is
-        // one the player learns to stop pressing.
-        if count == 0 {
-            continue;
-        }
-        let lit = browser.is_open() && browser.tab() == Some(zone);
-        chips.push(
-            commands
-                .spawn((
-                    PileChip { zone: Some(zone) },
-                    Button,
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        column_gap: px(4),
-                        padding: UiRect::axes(px(7), px(3)),
-                        border_radius: btn_radius(),
-                        ..default()
-                    },
-                    BackgroundColor(if lit {
-                        palette::PANEL_LIT
-                    } else {
-                        palette::PANEL
-                    }),
-                    soft_shadow(),
-                    children![
-                        (
-                            Text::new(icon.to_string()),
-                            icon_tf(fonts, 10.0),
-                            TextColor(if lit { palette::ACCENT } else { palette::MUTED }),
-                            Pickable::IGNORE,
-                        ),
-                        (
-                            Text::new(count.to_string()),
-                            tf(fonts, 11.0),
-                            TextColor(if lit { palette::ACCENT } else { palette::INK }),
-                            Pickable::IGNORE,
-                        ),
-                    ],
-                ))
-                .id(),
-        );
-    }
-    // The way in when every pile is empty but the stack or a reveal is not:
-    // without it a search would be the only thing that ever opened the tray.
-    let all_lit = browser.is_open() && browser.tab().is_none();
-    chips.push(
-        commands
-            .spawn((
-                PileChip { zone: None },
-                Button,
-                Node {
-                    padding: UiRect::axes(px(7), px(3)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(if all_lit {
-                    palette::PANEL_LIT
-                } else {
-                    palette::PANEL
-                }),
-                soft_shadow(),
-                children![(
-                    Text::new(Phrase::BrowseTitle.text(lang)),
-                    tf(fonts, 10.0),
-                    TextColor(if all_lit {
-                        palette::ACCENT
-                    } else {
-                        palette::MUTED
-                    }),
-                    Pickable::IGNORE,
-                )],
-            ))
-            .id(),
-    );
-    commands.entity(strip).add_children(&chips);
-    strip
 }

@@ -138,7 +138,7 @@ right and both are visible at once, deliberately: "what just happened" and
 An episode is drawn like a stack entry, because it is the same thing later:
 the actor's picture, turn and step beneath it, the lines to the right. Hover
 on a thumbnail sets `Duel::hovered` — the card lifts if it is still on the
-battlefield, the pile chip lights if it is in a graveyard. `move_object`
+battlefield, the pile top lights if it is in a graveyard. `move_object`
 returns the same `ObjectId`, so a logged card is still findable. No glow bit:
 that register says what a player can *do*, and a log highlight is not an
 offer.

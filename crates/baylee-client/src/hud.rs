@@ -301,17 +301,6 @@ pub struct TraySort {
     pub reverse: bool,
 }
 
-/// A zone count that opens the browser on that pile when clicked.
-///
-/// The counts were already drawn — in the seat tabs and in the own-board
-/// overlay — and were the one place the interface said "there are seven
-/// cards here" and gave the player no way to look at them.
-#[derive(Component)]
-pub struct PileChip {
-    /// The pile it opens, or `None` for every zone at once.
-    pub zone: Option<baylee_client_core::browser::BrowseZone>,
-}
-
 /// The scrolling strip inside the hand bar.
 #[derive(Component)]
 pub struct HandStrip;
@@ -442,7 +431,8 @@ pub struct HudRevision {
     /// without it the highlight would never move.
     ability_pick: usize,
     /// What the zone browser is showing. Opened by a choice arriving and
-    /// by a click on a pile chip, neither of which need be a new snapshot,
+    /// by a tap on the top card of a pile, neither of which need be a new
+    /// snapshot,
     /// and the tab and filter move with no snapshot at all.
     browser: (
         bool,

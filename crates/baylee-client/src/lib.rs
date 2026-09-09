@@ -345,6 +345,20 @@ impl Duel {
     ///
     /// A method rather than a match arm because that is the only way a test
     /// can ask what a re-sent question does.
+    /// A new view of the table.
+    ///
+    /// Only one thing beyond storing it, and it is here rather than at the
+    /// message loop for the reason [`Self::receive_choice`] is: a method is
+    /// the only shape a test can ask a question of. Cards the engine is
+    /// *showing* this seat live in no zone the table can draw, so a reveal
+    /// opens the sheet that does — on the edge, never per frame.
+    pub(crate) fn receive_view(&mut self, view: PlayerView) {
+        self.view = Some(view);
+        if let Some(v) = self.view.as_ref() {
+            self.browser.saw_reveal(v);
+        }
+    }
+
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
         let seat = self.seat().unwrap_or(PlayerId::new(0));
         if !matches!(pending, Pending::ChooseSubtype { .. }) {
@@ -690,7 +704,7 @@ fn poll_host(
                 textures.forget_unresolved();
             }
             HostMessage::View(view) => {
-                duel.view = Some(*view);
+                duel.receive_view(*view);
                 rebuild_board(&mut duel);
                 if *phase.get() == DuelPhase::Opening {
                     next.set(DuelPhase::Playing);
