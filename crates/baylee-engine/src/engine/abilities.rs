@@ -562,6 +562,10 @@ impl<L: CardLookup> Engine<L> {
                 // of a deck they have never seen.
                 print: baylee_core::ids::PrintRef::UNKNOWN,
             });
+            // And it is still a copy, however it got here (CR 704.5e): the
+            // spell was never a card anyone owns, so a graveyard is the one
+            // place it must not end up.
+            obj.riders.push(crate::object::Rider::SpellCopy);
             obj
         });
         self.state

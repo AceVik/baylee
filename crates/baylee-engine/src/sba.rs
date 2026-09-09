@@ -226,8 +226,15 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
                 obj.kind,
                 ObjectKind::Emblem | ObjectKind::AbilityOnStack | ObjectKind::Spell
             );
-        if !is_token_like || obj.zone == crate::zone::Zone::Battlefield {
-            continue; // an emblem, a spell copy, or it went back
+        // CR 704.5e: a copy of a spell anywhere but the stack ceases to
+        // exist, and so does a copy of a card anywhere but the stack or the
+        // battlefield. Both are the same marker here, because a copy that
+        // resolved into a permanent is still the copy it was — Storm of
+        // Saruman's own reminder text says so.
+        let is_a_copy = obj.riders.contains(&crate::object::Rider::SpellCopy)
+            && obj.zone != crate::zone::Zone::Stack;
+        if !(is_token_like || is_a_copy) || obj.zone == crate::zone::Zone::Battlefield {
+            continue; // an emblem, a spell still on the stack, or it went back
         }
         // Ceasing to exist means leaving the zone list too. Removing it
         // only from the arena leaves a dangling id behind that every later

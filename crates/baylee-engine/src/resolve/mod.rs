@@ -1609,6 +1609,12 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     obj.targets = targets;
                     obj.target_req = target_req;
                     obj.zone = crate::zone::Zone::Stack;
+                    // CR 704.5e: it stops existing the moment it is anywhere
+                    // but the stack or the battlefield. Carrying the copied
+                    // card is what makes the marker necessary — without it
+                    // the copy resolved into a graveyard and stayed there as
+                    // a second, real card.
+                    obj.riders.push(crate::object::Rider::SpellCopy);
                 }
                 state
                     .zones

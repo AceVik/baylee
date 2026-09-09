@@ -381,6 +381,15 @@ pub enum Rider {
     /// May be played from exile by the given player, spending mana of
     /// any color (Opposition Agent's search takeover).
     PlayableFromExileFor(PlayerId),
+    /// This object is a copy of a spell, and ceases to exist as soon as it
+    /// is anywhere but the stack or the battlefield (CR 704.5e).
+    ///
+    /// It cannot be read off the object itself. A copy carries the copied
+    /// card so that [`crate::engine::Engine::resolve_stack_top`] can find
+    /// the spell's effects, which makes it indistinguishable from the card
+    /// it was copied from — and a token is the opposite thing, card-less
+    /// and swept up by CR 704.5d.
+    SpellCopy,
 }
 
 /// Riders attached to an object.

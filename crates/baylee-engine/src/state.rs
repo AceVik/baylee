@@ -1199,12 +1199,15 @@ impl GameState {
             .is_none_or(|o| o.kind != ObjectKind::AbilityOnStack);
         self.zones.insert(id, to, pos, projectable);
         // A card-less object that lands anywhere but the battlefield or the
-        // stack is a cleanup candidate (CR 704.5d). The stack is excluded
-        // because a token *copy of a spell* legitimately lives there and
-        // must be allowed to resolve — the bug this rule already caused
-        // once, recorded in `sba::run`.
+        // stack is a cleanup candidate (CR 704.5d), and so is a copy of a
+        // spell, which carries a card and would otherwise be invisible here
+        // (CR 704.5e). The stack is excluded because a copy of a spell
+        // legitimately lives there and must be allowed to resolve — the bug
+        // this rule already caused once, recorded in `sba::run`.
         if !matches!(to.zone(), Zone::Battlefield | Zone::Stack)
-            && self.object(id).is_some_and(|o| o.card.is_none())
+            && self.object(id).is_some_and(|o| {
+                o.card.is_none() || o.riders.contains(&crate::object::Rider::SpellCopy)
+            })
         {
             self.watch_token_cleanup(id);
         }
@@ -1823,6 +1826,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(p.get());
             }
             Rider::Prepared => h.u8(10),
+            Rider::SpellCopy => h.u8(11),
         }
     }
 }

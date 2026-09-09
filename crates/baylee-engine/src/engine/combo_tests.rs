@@ -2672,4 +2672,83 @@ fn a_prepared_cast_resolves_and_unprepares_the_warlock() {
         offered_ability(&engine, emeritus).is_none(),
         "so it is not offered a second time"
     );
+    // CR 704.5e: a copy of a spell in a zone other than the stack ceases to
+    // exist. The Warlock's spell is a copy of a card nobody put in a deck,
+    // so a graveyard is the one place it must never reach — a Demonic Tutor
+    // sitting there is a card that could be flashed back, delved away or
+    // counted by a threshold, and it was never in the game.
+    assert_eq!(
+        in_graveyard(&engine, p0, demonic_tutor()),
+        0,
+        "the copy ceased to exist rather than becoming a card in a graveyard"
+    );
+}
+
+/// The other half of CR 704.5e, at the other place a spell copy is made:
+/// `Effect::CopyTargetSpell`.
+///
+/// Storm of Saruman copies the turn's second spell, so a Brainstorm cast
+/// second resolves twice — and exactly *one* Brainstorm may be in the
+/// graveyard afterwards. The copy going there instead of ceasing to exist
+/// is the same defect the prepared cast had, at the site the prepared cast
+/// was modelled on.
+#[test]
+fn a_copied_spell_leaves_one_card_in_the_graveyard_not_two() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(108, island())
+        .battlefield(
+            0,
+            &[storm_of_saruman(), forest(), island(), island(), island()],
+        )
+        .hand(0, &[llanowar_elves(), brainstorm()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The turn's first spell, so the Brainstorm after it is the second.
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    cast_from_hand(&mut engine, p0, brainstorm());
+    // The copy is made by a trigger, so it is one resolution away.
+    advance_until(&mut engine, |e| spells_on_the_stack(e, p0) == 2);
+    assert_eq!(
+        spells_on_the_stack(&engine, p0),
+        2,
+        "the copy stands beside the spell it was made from"
+    );
+
+    // Both resolve, each asking which two cards go back on the library.
+    advance_until(&mut engine, |e| spells_on_the_stack(e, p0) == 0);
+    assert_eq!(
+        in_graveyard(&engine, p0, brainstorm()),
+        1,
+        "the copy ceased to exist; only the card that was cast is a card"
+    );
+}
+
+/// Demonic Tutor, the spell Emeritus of Woe prepares. It is in nobody's
+/// deck: the ability links it by `CardIndex` out of the registry.
+fn demonic_tutor() -> baylee_core::ids::CardIndex {
+    card_index("82004860-e589-4e38-8d61-8c0210e4ea39")
+}
+
+/// How many cards of one printing are in `seat`'s graveyard.
+fn in_graveyard(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Graveyard(seat))
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+        .count()
 }
