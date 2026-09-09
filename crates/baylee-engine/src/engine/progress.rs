@@ -870,17 +870,48 @@ impl<L: CardLookup> Engine<L> {
         });
         // Collect statics of permanents not yet registered (then apply,
         // so the borrow of `state` ends before mutation).
+        //
+        // This scan and the replacement-rule scan at the bottom of the
+        // function both read `GameObject::abilities` rather than the card
+        // behind the permanent. It is the third place a permanent is asked
+        // what it can do — the offer and the trigger scan had both already
+        // been taught the question — and it is the one nobody notices,
+        // because a static ability is something the machine registers
+        // rather than something a player is offered and refused.
+        //
+        // Two kinds of copy were failing here, and only one of them for
+        // the obvious reason. A token copy has no card at all, so the
+        // whole permanent was skipped. A Glasspool Mimic *has* a card and
+        // it is the wrong one: `check_copy_on_enter` writes the copied
+        // list into `own_abilities` (CR 707.2), and reading the printed
+        // face instead registered the Mimic's own statics, of which it has
+        // none.
+        //
+        // A Mimic is registered a pass late, because
+        // `check_copy_on_enter` runs inside `apply_enter_modifiers`, one
+        // step *after* this one: the pass it arrives on scans it with an
+        // empty list, and the next pass picks it up — the question below
+        // being whether the effect is already registered and not whether
+        // the permanent has been looked at. For a static that costs
+        // nothing; no priority is granted between two passes, so no player
+        // ever sees the board without it.
+        //
+        // It is not free for the loop at the bottom. `collect_triggers` is
+        // step 3 of the *same* pass that hands the Mimic its list at 0b,
+        // so the copy's own triggered abilities fire on schedule while its
+        // replacement rules are still a step behind them — a Mimic that
+        // entered as a Katara would not double the trigger its own
+        // arrival causes, which by CR 707.2 it should. A token copy has
+        // neither problem: `settle_copied_rules_text` hands it its list at
+        // step 0, ahead of both, which is why that function runs where it
+        // does.
         let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut to_register = Vec::new();
         for id in ids {
             let Some(obj) = self.state.object(id) else {
                 continue;
             };
-            let Some(card) = obj.card else { continue };
-            let Some(def) = self.lookup.card(card.index) else {
-                continue;
-            };
-            for ability in def.abilities_for_face(obj.face_index as usize) {
+            for ability in obj.abilities(&self.lookup) {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
@@ -923,11 +954,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(id) else {
                 continue;
             };
-            let Some(card) = obj.card else { continue };
-            let Some(def) = self.lookup.card(card.index) else {
-                continue;
-            };
-            for ability in def.abilities_for_face(obj.face_index as usize) {
+            for ability in obj.abilities(&self.lookup) {
                 let AbilityDef::Replacement(rule) = ability else {
                     continue;
                 };
@@ -1442,7 +1469,8 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// It runs first in the pass rather than beside the daybound checks
     /// because what follows in the same pass is what asks a permanent what
-    /// it can do: the trigger scan and the offer both read
+    /// it can do: [`Self::sync_static_effects`] on the very next line, then
+    /// the trigger scan and the offer, all three reading
     /// [`GameObject::abilities`], and a copy still answering an empty list
     /// would have its text a whole priority window late.
     ///

@@ -1765,11 +1765,23 @@ fn nesting_dovehawk() -> baylee_core::ids::CardIndex {
 /// somewhere.
 #[track_caller]
 fn counters_on_the_dovehawk(engine: &Engine<RegistryLookup>, seat: PlayerId) -> u16 {
-    let bird = on_battlefield(engine, seat, nesting_dovehawk()).expect("that seat's Dovehawk");
+    plus_one_counters(engine, seat, nesting_dovehawk())
+}
+
+/// The `+1/+1` counters on the one permanent of `card` that seat `seat`
+/// controls, which is how a trigger that places exactly one per firing is
+/// counted.
+#[track_caller]
+fn plus_one_counters(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) -> u16 {
+    let obj = on_battlefield(engine, seat, card).expect("that seat's permanent");
     engine
         .state()
-        .object(bird)
-        .expect("the Dovehawk is an object")
+        .object(obj)
+        .expect("a permanent on the battlefield is an object")
         .counters
         .get(baylee_cards_dsl::CounterKind::P1P1)
 }
@@ -1932,6 +1944,289 @@ fn the_copy_fires_the_enters_trigger_it_copied() {
     assert!(
         engine.state().object(victim).is_some(),
         "their Strix is still on the battlefield"
+    );
+}
+
+fn great_divide_guide() -> baylee_core::ids::CardIndex {
+    card_index("79e69a91-d580-47fb-be76-1e32c50d2fa0")
+}
+
+/// The third of the three places a permanent's rules text is read, after the
+/// offer and the trigger scan: its **static** abilities, which are
+/// continuous effects the machine registers rather than anything a player
+/// takes (CR 611.2).
+///
+/// Great Divide Guide gives each land and Ally its controller has
+/// "{T}: Add one mana of any color", so the copy gives them to *mine*. Sea
+/// Gate Loremaster is the subject because it is an Ally with no mana of its
+/// own — a land would be in `mana_abilities` either way, on the CR 305.6
+/// shortcut, and would say the same thing before and after. The four Islands
+/// are the bystanders twice over: they make no green, and they were offering
+/// their own mana the whole time.
+///
+/// The Guide across the table is the other bystander. Its grant reads "you
+/// control", so it never reached my board, and copying it did not tap it.
+#[test]
+fn the_copy_registers_the_static_ability_it_copied() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(97, forest())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                sea_gate_loremaster(),
+            ],
+        )
+        .hand(0, &[rite_of_replication()])
+        .battlefield(1, &[great_divide_guide(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ally = on_battlefield(&engine, p0, sea_gate_loremaster()).expect("my Ally");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the main phase grants priority");
+    };
+    assert!(
+        !legal.mana_abilities.contains(&ally),
+        "an Ally with no mana ability of its own is offered none"
+    );
+
+    let victim = aim_at_theirs(
+        &mut engine,
+        rite_of_replication(),
+        great_divide_guide(),
+        false,
+    );
+
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("the resolved spell hands priority back");
+    };
+    assert_eq!(player, p0, "to the seat that cast it");
+    assert!(
+        legal.mana_abilities.contains(&ally),
+        "the copy's static ability reached my Ally"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: ally })
+        .expect("an offered mana ability is activatable");
+    let Pending::ChooseColor { .. } = engine.pending().clone() else {
+        panic!("any-colour mana asks a colour, got {:?}", engine.pending());
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Green),
+        )
+        .expect("the colour is the ability's own choice");
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Green),
+        1,
+        "four Islands make no green — the copied grant did"
+    );
+    assert!(
+        engine
+            .state()
+            .object(ally)
+            .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED)),
+        "and the {{T}} in the granted cost was paid"
+    );
+    let original = engine.state().object(victim).expect("their Guide");
+    assert_eq!(original.controller, p1, "the Guide copied is still theirs");
+    assert!(
+        !original.status.contains(crate::object::Status::TAPPED),
+        "and copying it did not tap it"
+    );
+}
+
+fn katara_the_fearless() -> baylee_core::ids::CardIndex {
+    card_index("0972d46e-423b-454e-87c7-a2d40fb6fb6d")
+}
+
+/// The other half of that same scan: a **replacement** rule (CR 614), which
+/// `sync_static_effects` registers in a second loop beside the statics and
+/// which was reading the card behind the permanent for the same reason and
+/// with the same result.
+///
+/// Katara, the Fearless ("If a triggered ability of an Ally you control
+/// triggers, that ability triggers an additional time") over Earth King's
+/// Lieutenant ("Whenever another Ally you control enters, put a +1/+1
+/// counter on this creature"). One counter per firing is the readout
+/// `panharmonicon_fires_your_enters_trigger_twice_and_theirs_once` already
+/// established on this very pair of cards, so two counters is two firings
+/// and the copy's rule was registered.
+///
+/// The copy is both what causes the trigger and what doubles it, which is
+/// not a trick: a continuous effect is on as soon as the permanent is on
+/// the battlefield, and the engine registers it earlier in the same pass
+/// than the one that collects the trigger. The Lieutenant across the table
+/// is the bystander for the *rally's* own "you control": the copy entered
+/// under my control, so their rally never fired at all. Katara's filter
+/// says "you control" too, and the `2` is what reads it from where the copy
+/// stands — evaluated from seat 1's, my Lieutenant is not their Ally and
+/// the number would be `1`.
+#[test]
+fn the_copy_registers_the_replacement_rule_it_copied() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(98, forest())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                earth_king_s_lieutenant(),
+            ],
+        )
+        .hand(0, &[rite_of_replication()])
+        .battlefield(
+            1,
+            &[katara_the_fearless(), forest(), earth_king_s_lieutenant()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        plus_one_counters(&engine, p0, earth_king_s_lieutenant()),
+        0,
+        "no Ally has entered yet, on either side"
+    );
+    assert_eq!(plus_one_counters(&engine, p1, earth_king_s_lieutenant()), 0);
+
+    let victim = aim_at_theirs(
+        &mut engine,
+        rite_of_replication(),
+        katara_the_fearless(),
+        false,
+    );
+
+    assert_eq!(
+        plus_one_counters(&engine, p0, earth_king_s_lieutenant()),
+        2,
+        "my Lieutenant's rally fired twice: once for the Ally that entered, \
+         and once more because that Ally was a Katara"
+    );
+    assert_eq!(
+        plus_one_counters(&engine, p1, earth_king_s_lieutenant()),
+        0,
+        "nothing entered under their control, so their rally never fired"
+    );
+    assert_eq!(
+        engine.state().object(victim).map(|o| o.controller),
+        Some(p1),
+        "and the Katara that was copied is still theirs"
+    );
+}
+
+fn karmic_guide() -> baylee_core::ids::CardIndex {
+    card_index("8c31fec9-e4b3-4761-990e-7be38eb05604")
+}
+
+/// The **other** producer of a copied rules text, and the one that has a
+/// card: [`Engine::check_copy_on_enter`] hands a Glasspool Mimic the list
+/// of the creature it entered as (CR 707.2), and the scan that registers
+/// statics was reading the Mimic's own printed face instead — which carries
+/// none, so the thing it had become contributed nothing.
+///
+/// Karmic Guide is the one creature a Mimic can copy here whose static says
+/// something about *itself*: `Filter::This`, protection from black. Being
+/// self-scoped is what makes it visible at all. Every other copyable static
+/// in this pool is a grant scoped to "you control", and a Mimic copies a
+/// creature you control — so the original would still be standing there
+/// supplying it, and two of them would read as the same board as one.
+///
+/// Vindicate ("Destroy target permanent") is white **and** black, so
+/// protection from black keeps it off either Angel (CR 702.16b). The Island
+/// in the same list is the bystander that says the spell was castable and
+/// looking at my side of the table the whole time.
+#[test]
+fn a_mimic_copying_a_protected_creature_is_protected_too() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(99, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[karmic_guide(), glasspool_mimic()])
+        .battlefield(1, &[plains(), swamp(), forest()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Cast rather than seated: Karmic Guide has echo {3}{W}{W}, and a
+    // Guide that began the game on the battlefield was gone by the time
+    // this line ran — the first upkeep is the one `reach_main_phase`
+    // walks through, and answering for echo there is the only thing on
+    // the card that could have taken it. Cast on my own turn, the echo is
+    // asked at my *next* one, past the end of the measurement.
+    cast_from_hand(&mut engine, p0, karmic_guide());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, karmic_guide()).is_some() && stack_is_empty(e)
+    });
+    let guide = on_battlefield(&engine, p0, karmic_guide()).expect("my Angel");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the main phase grants priority");
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let mimic = in_hand(&engine, p0, glasspool_mimic()).expect("mimic in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: mimic })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![guide],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, glasspool_mimic()).expect("the Mimic arrived");
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, vindicate());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let options = target_options(&engine);
+
+    assert!(
+        !options.contains(&copy),
+        "the Mimic entered as an Angel with protection from black: {options:?}"
+    );
+    assert!(
+        !options.contains(&guide),
+        "and the Angel it copied has always had it: {options:?}"
+    );
+    assert!(
+        options.contains(&on_battlefield(&engine, p0, island()).expect("my Island")),
+        "while a land of mine was a legal target the whole time: {options:?}"
     );
 }
 
