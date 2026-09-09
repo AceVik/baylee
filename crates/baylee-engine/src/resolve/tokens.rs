@@ -11,8 +11,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     match op {
         Effect::CreateTokenForTargetController { token } => {
             if let Some(&target_id) = res.targets.first() {
+                // Crib Swap and An Offer You Can't Refuse hand the tokens to
+                // the player whose permanent or spell was answered, so the
+                // replacement is read off *them*: CR 614.1 asks whose control
+                // the tokens would be created under, not whose spell is
+                // creating them. My Doubling Season must not double the
+                // Shapeshifter my own removal hands them, and theirs must.
                 let controller = state.object(target_id).map_or(you, |o| o.controller);
-                create_one_token(state, controller, token);
+                create_tokens(state, controller, token, None, 1);
             }
             None
         }
@@ -44,7 +50,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                             && o.characteristics().subtypes.contains(army_type)
                     })
                 });
-            let target_id = army.unwrap_or_else(|| create_one_token(state, you, token));
+            // The one token creation that deliberately does *not* go through
+            // [`create_tokens`]. Doubling Season would make two Armies and
+            // the counters then go on one Army you control, which is a
+            // choice — and amass has nowhere to ask it. Doubling it here
+            // would silently pick for the player; leaving it is a known
+            // undercount, and the honest one until the choice exists.
+            let target_id = army.unwrap_or_else(|| create_token(state, you, token, None));
             // CR 701.44b: the Army becomes the named type in addition to its
             // other types, whether it was just created or was already there.
             // Written into the base rather than registered as a continuous
@@ -75,21 +87,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(id) = target_id
                 && let Some(base) = state.object(id).map(|o| o.base.clone())
             {
-                for _ in 0..count {
-                    let base = base.clone();
-                    let ts = state.next_timestamp();
-                    let new_id = state.arena.insert_with(|oid| {
-                        let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
-                        obj.timestamp = ts;
-                        obj
-                    });
-                    state
-                        .zones
-                        .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top, true);
-                    if let Some(obj) = state.object_mut(new_id) {
-                        obj.zone = crate::zone::Zone::Battlefield;
-                    }
-                }
+                create_token_copies(state, you, &base, count);
             }
             None
         }
@@ -111,18 +109,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(id) = token
                 && let Some(base) = state.object(id).map(|o| o.base.clone())
             {
-                let ts = state.next_timestamp();
-                let new_id = state.arena.insert_with(|oid| {
-                    let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
-                    obj.timestamp = ts;
-                    obj
-                });
-                state
-                    .zones
-                    .insert(new_id, ZoneLocation::Battlefield, ZonePosition::Top, true);
-                if let Some(obj) = state.object_mut(new_id) {
-                    obj.zone = crate::zone::Zone::Battlefield;
-                }
+                create_token_copies(state, you, &base, 1);
             }
             None
         }
@@ -132,34 +119,21 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to)
                 && let Some(base) = state.object(equipped).map(|o| o.base.clone())
             {
-                for _ in 0..count {
-                    let mut base = (*base).clone();
-                    for m in mods {
-                        apply_copy_mod(&mut base, m);
-                    }
-                    let ts = state.next_timestamp();
-                    let id = state.arena.insert_with(|oid| {
-                        let mut obj = GameObject::new_bare(oid, you, ObjectKind::Permanent, base);
-                        obj.timestamp = ts;
-                        obj
-                    });
-                    state
-                        .zones
-                        .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);
-                    if let Some(obj) = state.object_mut(id) {
-                        obj.zone = crate::zone::Zone::Battlefield;
-                    }
+                // The modifications are applied once and the result copied,
+                // rather than per token: they do not depend on how many
+                // there are, and the doubling below must see the same base
+                // every copy gets.
+                let mut modified = (*base).clone();
+                for m in mods {
+                    apply_copy_mod(&mut modified, m);
                 }
+                create_token_copies(state, you, &std::sync::Arc::new(modified), count);
             }
             None
         }
         Effect::CreateTokenN { token, amount } => {
-            // Token-creation replacements double the total (CR 614.1).
-            let count = amount2(&amount, state, you, res.source, res.x, &res.targets)
-                * crate::replacement::token_multiplier(state, you);
-            for _ in 0..count {
-                create_one_token(state, you, token);
-            }
+            let count = amount2(&amount, state, you, res.source, res.x, &res.targets);
+            create_tokens(state, you, token, None, count);
             None
         }
         Effect::CreateTokenPtPerCount {
@@ -168,26 +142,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             p,
             t,
         } => {
-            let id = create_one_token(state, you, token);
-            let ts = state.next_timestamp();
-            state.effects.register(crate::effects::ContinuousEffect {
-                id: baylee_core::ids::EffectId::new(0),
-                source: Some(id),
-                controller: you,
-                layer: baylee_cards_dsl::Layer::PtModify,
-                timestamp: ts,
-                duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
-                filter: crate::effects::EffectFilter::ObjectIs(id),
-                modifier: baylee_cards_dsl::Modifier::ModifyPTPerCount { filter, p, t },
-            });
+            // One effect per token: `EffectFilter::ObjectIs` names exactly
+            // one object, so a doubled token that shared its twin's effect
+            // would be the printed 0/0 the definition leaves behind.
+            for id in create_tokens(state, you, token, None, 1) {
+                let ts = state.next_timestamp();
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(id),
+                    controller: you,
+                    layer: baylee_cards_dsl::Layer::PtModify,
+                    timestamp: ts,
+                    duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
+                    filter: crate::effects::EffectFilter::ObjectIs(id),
+                    modifier: baylee_cards_dsl::Modifier::ModifyPTPerCount { filter, p, t },
+                });
+            }
             None
         }
         Effect::CreateToken { token } => {
-            // Token-creation replacements (Doubling Season, CR 614.1).
-            let count = crate::replacement::token_multiplier(state, res.controller);
-            for _ in 0..count {
-                create_one_token(state, res.controller, token);
-            }
+            create_tokens(state, res.controller, token, None, 1);
             None
         }
         Effect::CreateTokenFromLinked { token } => {
@@ -212,7 +186,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 }
             }
             if let Some(owner) = owner {
-                create_sized_token(state, owner, token, cmc as i16);
+                create_tokens(state, owner, token, Some(cmc as i16), 1);
             }
             None
         }
@@ -242,28 +216,74 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
     }
 }
 
-pub(super) fn create_one_token(
+/// The door every token-creating effect goes through, and the only place
+/// CR 614.1 is read.
+///
+/// `count` is what the effect asks for; what arrives is that many times the
+/// recipient's multiplier, because "if one or more tokens would be created
+/// under **your** control" is a statement about who ends up with them and
+/// says nothing about whose effect is creating them. So `controller` is the
+/// player the tokens are created under — the exiled creature's controller
+/// for Crib Swap, the exiled card's owner for Skyclave Apparition — and not
+/// the resolving effect's own.
+///
+/// `size` is for a token the effect measures rather than the definition
+/// printing it. Skyclave Apparition's Illusion is "X/X, where X is the
+/// exiled card's mana value": the definition deliberately leaves power and
+/// toughness unset and this is what fills them in. Overriding here rather
+/// than copying the definition and editing it is what keeps the token's
+/// identity — a copy is a different `TokenDef` with no registry entry, and
+/// the art key would be lost.
+pub(super) fn create_tokens(
     state: &mut GameState,
     controller: PlayerId,
     token: &'static baylee_cards_dsl::TokenDef,
-) -> ObjectId {
-    create_token(state, controller, token, None)
+    size: Option<i16>,
+    count: u32,
+) -> Vec<ObjectId> {
+    let count = count.saturating_mul(crate::replacement::token_multiplier(state, controller));
+    (0..count)
+        .map(|_| create_token(state, controller, token, size))
+        .collect()
 }
 
-/// The same, at a size the effect computed rather than the one printed.
+/// The same door for a token that is a **copy** of something already in
+/// play, which has a set of characteristics where the others have a
+/// definition.
 ///
-/// Skyclave Apparition's Illusion is "X/X, where X is the exiled card's mana
-/// value": the definition deliberately leaves power and toughness unset and
-/// this is what fills them in. Overriding here rather than copying the
-/// definition and editing it is what keeps the token's identity — a copy is a
-/// different `TokenDef` with no registry entry, and the art key would be lost.
-pub(super) fn create_sized_token(
+/// A token copy is a token, so the same replacement applies: Rite of
+/// Replication under a Doubling Season makes two copies, or ten when it was
+/// kicked. It was the three copy branches reading no replacement at all
+/// that made this a second door rather than one more argument — a
+/// `TokenDef` and a copied set of characteristics are different inputs, and
+/// a token built from the second carries no definition, which is the
+/// engine's other notion of what a token is.
+pub(super) fn create_token_copies(
     state: &mut GameState,
     controller: PlayerId,
-    token: &'static baylee_cards_dsl::TokenDef,
-    size: i16,
-) -> ObjectId {
-    create_token(state, controller, token, Some(size))
+    base: &std::sync::Arc<Characteristics>,
+    count: u32,
+) -> Vec<ObjectId> {
+    let count = count.saturating_mul(crate::replacement::token_multiplier(state, controller));
+    (0..count)
+        .map(|_| {
+            let ts = state.next_timestamp();
+            let id = state.arena.insert_with(|oid| {
+                let mut obj =
+                    GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
+                obj.timestamp = ts;
+                obj
+            });
+            state
+                .zones
+                .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);
+            if let Some(obj) = state.object_mut(id) {
+                obj.zone = crate::zone::Zone::Battlefield;
+            }
+            state.invalidate_projections();
+            id
+        })
+        .collect()
 }
 
 fn create_token(

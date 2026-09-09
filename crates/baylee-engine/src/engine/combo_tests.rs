@@ -102,6 +102,12 @@ fn panharmonicon() -> baylee_core::ids::CardIndex {
 fn darksteel_forge() -> baylee_core::ids::CardIndex {
     card_index("9b3bec05-441f-4fdf-8b51-69fa8613fcd4")
 }
+fn crib_swap() -> baylee_core::ids::CardIndex {
+    card_index("2987c385-011a-4032-a516-a46d1e9dc9e8")
+}
+fn rite_of_replication() -> baylee_core::ids::CardIndex {
+    card_index("fb60739e-1dc3-481d-a056-ad72e665c680")
+}
 
 /// The one *non-mana* activated ability `source` is offering right now.
 ///
@@ -1352,5 +1358,238 @@ fn doubling_season_doubles_the_counters_on_your_own_permanents_only() {
         pt(&engine, my_cleric),
         (3, 3),
         "and my own Ally took nothing from their turn"
+    );
+}
+
+/// Permanents `seat` controls that no card stands behind.
+///
+/// [`tokens_controlled`] reads `token`, which is the token *definition* a
+/// Treasure or a Shapeshifter was stamped out of, and a token copy of a
+/// creature has none: `CreateTokenCopyOf` builds its object out of the
+/// copied characteristics and stamps no definition on it. So the engine has
+/// two notions of "this is a token" and the copy branches only satisfy the
+/// second — the absence of a card behind the permanent — which is what this
+/// counts.
+#[must_use]
+fn cardless_permanents(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.controller == seat && o.card.is_none())
+        })
+        .count()
+}
+
+/// A duel where seat 0 holds `spell` and seat 1 has a creature to point it
+/// at, with a Doubling Season on the seat `season` names.
+///
+/// Moving one enchantment across the table is the only difference between
+/// the two tests that use each table, which is what makes the pair of
+/// numbers mean anything: a rule read off the wrong seat gives the same
+/// answer on a board that has only one Doubling Season on it.
+fn a_table_with_a_season_on_one_side(
+    seed: u64,
+    season: usize,
+    lands: &[baylee_core::ids::CardIndex],
+    spell: baylee_core::ids::CardIndex,
+) -> Engine<RegistryLookup> {
+    let mut mine = lands.to_vec();
+    let mut theirs = vec![llanowar_elves(), forest()];
+    if season == 0 {
+        mine.push(doubling_season());
+    } else {
+        theirs.push(doubling_season());
+    }
+    let mut engine = Duel::new(seed, forest())
+        .battlefield(0, &mine)
+        .hand(0, &[spell])
+        .battlefield(1, &theirs)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    engine
+}
+
+/// Casts seat 0's spell at seat 1's Llanowar Elves and lets it resolve.
+///
+/// The wizard asks its questions in its own order and the spell is not on
+/// the stack until the last of them is answered, so the loop answers
+/// whatever is in front of it rather than assuming a sequence. Rite of
+/// Replication is what made that necessary: its kicker is asked *after* the
+/// target choice, and a test that passed priority in between found an empty
+/// stack, called the spell resolved and counted a board nothing had
+/// happened to yet.
+#[track_caller]
+fn aim_at_their_elf(
+    engine: &mut Engine<RegistryLookup>,
+    spell: baylee_core::ids::CardIndex,
+) -> baylee_core::ids::ObjectId {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let victim = on_battlefield(engine, p1, llanowar_elves()).expect("their elf");
+    cast_from_hand(engine, p0, spell);
+    let mut aimed = false;
+    loop {
+        match engine.pending() {
+            // Every optional additional cost declined: kicker is not what
+            // any of these tests are about.
+            Pending::YesNo { .. } => {
+                engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+            }
+            Pending::ChooseTargets { .. } => {
+                let options = target_options(engine);
+                assert!(
+                    options.contains(&victim),
+                    "their creature is a legal target"
+                );
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![victim],
+                        },
+                    )
+                    .unwrap();
+                aimed = true;
+            }
+            _ => break,
+        }
+    }
+    assert!(aimed, "the spell asked for its target");
+    pass_until(engine, stack_is_empty);
+    victim
+}
+
+/// Crib Swap ("Exile target creature. **Its controller** creates a 1/1
+/// colorless Shapeshifter creature token") cast under my own Doubling
+/// Season.
+///
+/// CR 614.1 asks whose control the tokens would be created *under*, not
+/// whose spell is creating them, and this spell deliberately hands them to
+/// the player whose creature was just exiled. So my enchantment has nothing
+/// to replace here: the Shapeshifter is theirs, and my removal must not
+/// make it a pair of them.
+#[test]
+fn my_season_does_not_double_the_shapeshifter_my_own_removal_hands_them() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine =
+        a_table_with_a_season_on_one_side(88, 0, &[plains(), plains(), plains()], crib_swap());
+    aim_at_their_elf(&mut engine, crib_swap());
+
+    assert_eq!(
+        tokens_controlled(&engine, p1),
+        1,
+        "the token is created under the exiled creature's controller, and \
+         my Doubling Season is on the other side of the table from it"
+    );
+    assert_eq!(
+        tokens_controlled(&engine, p0),
+        0,
+        "and nothing arrived on my own board"
+    );
+}
+
+/// The same spell, the same board, the enchantment moved one seat: their
+/// Doubling Season doubles the token my removal hands them.
+///
+/// The mirror of the test above and the half that has to fail before the
+/// fix, because a branch that consults no replacement at all passes the
+/// first one for the wrong reason.
+#[test]
+fn their_season_doubles_the_shapeshifter_my_removal_hands_them() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine =
+        a_table_with_a_season_on_one_side(89, 1, &[plains(), plains(), plains()], crib_swap());
+    aim_at_their_elf(&mut engine, crib_swap());
+
+    assert_eq!(
+        tokens_controlled(&engine, p1),
+        2,
+        "the tokens are created under their control, which is exactly what \
+         their own Doubling Season replaces"
+    );
+    assert_eq!(
+        tokens_controlled(&engine, p0),
+        0,
+        "and my side of the table gained nothing from their enchantment"
+    );
+}
+
+/// Rite of Replication ("Create a token that's a copy of target creature")
+/// under my own Doubling Season.
+///
+/// A token copy is a token, so the same rule applies to it — and this is
+/// the direction the previous pair cannot reach: the copy is created under
+/// *my* control however far away the creature it copies is, so my
+/// enchantment doubles it and their creature is untouched.
+#[test]
+fn my_season_doubles_the_copy_i_make_of_their_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_table_with_a_season_on_one_side(
+        90,
+        0,
+        &[island(), island(), island(), island()],
+        rite_of_replication(),
+    );
+    let victim = aim_at_their_elf(&mut engine, rite_of_replication());
+
+    assert_eq!(
+        cardless_permanents(&engine, p0),
+        2,
+        "one token copy created twice, under my control and my own \
+         Doubling Season"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "the creature that was copied is still theirs and still there"
+    );
+    assert_eq!(
+        cardless_permanents(&engine, p1),
+        0,
+        "and copying their creature put nothing on their side of the table"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(victim)
+            .map(|o| o.controller)
+            .expect("the original is still an object"),
+        p1,
+        "copying a permanent does not take it"
+    );
+}
+
+/// The same cast with the Doubling Season across the table: one copy.
+///
+/// Their enchantment reads "under **your** control", and the copy is
+/// created under mine, so it has nothing to say about a spell of mine that
+/// happens to point at a creature of theirs. Without this half, a branch
+/// that doubled unconditionally would look right.
+#[test]
+fn their_season_does_not_double_the_copy_i_make_of_their_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_table_with_a_season_on_one_side(
+        91,
+        1,
+        &[island(), island(), island(), island()],
+        rite_of_replication(),
+    );
+    aim_at_their_elf(&mut engine, rite_of_replication());
+
+    assert_eq!(
+        cardless_permanents(&engine, p0),
+        1,
+        "the copy is created under my control, and their Doubling Season \
+         replaces nothing that happens on my side of the table"
+    );
+    assert_eq!(
+        cardless_permanents(&engine, p1),
+        0,
+        "and their own board gained nothing from copying their creature"
     );
 }

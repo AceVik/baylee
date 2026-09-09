@@ -1,21 +1,22 @@
 //! Replacement rules that multiply what an effect does (CR 614): Doubling
 //! Season, Elspeth Storm-Slayer and the cards written like them.
 //!
-//! They live in one module because they are read from six places across
-//! three others — two token-creating effects, three counter-placing ones
-//! and a planeswalker's starting loyalty — and the bug that collected them
-//! here was one of those places reading its own rule
-//! differently from the rest: a filter over the *affected controller* was
-//! being asked of the resolving effect's own controller, which is a
-//! question that answers yes for everybody, so my Doubling Season doubled
-//! an opponent's tokens.
+//! They live in one module because the bug that collected them here was
+//! one reader taking its own rule differently from the rest: a filter over
+//! the *affected controller* was being asked of the resolving effect's own
+//! controller, which is a question that answers yes for everybody, so my
+//! Doubling Season doubled an opponent's tokens.
 //!
-//! [`put_counters`] is a door for the same reason [`crate::sba::destroy`]
-//! is. A counter added beside it is a counter Doubling Season does not
-//! see, and nothing says so until someone plays the pair: that is exactly
-//! how "put a +1/+1 counter on each other Ally you control" — the shape
-//! most of the pool writes — sat outside the rule while the single-target
-//! shape beside it was inside.
+//! There are exactly three readers, and they are **doors** for the same
+//! reason [`crate::sba::destroy`] is: [`put_counters`] here, and
+//! `resolve::tokens::create_tokens` and
+//! `resolve::tokens::create_token_copies` beside the token
+//! factory. A counter or a token produced beside one of them is invisible
+//! to the rule, and nothing says so until someone plays the pair — which is
+//! exactly how "put a +1/+1 counter on each other Ally you control", the
+//! shape most of the pool writes, sat outside while the single-target shape
+//! next to it was inside, and how a token *copy* was outside while the
+//! plain token was in.
 
 use crate::eval;
 use crate::event::GameEvent;

@@ -610,9 +610,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
-                // Token replacement applies per token created (CR 614.1
-                // applies to the total, per controller).
-                tokens::create_one_token(state, controller, token);
+                // The token goes to the exiled permanent's controller, so
+                // CR 614.1 is read off them and not off whoever cast this.
+                // The comment here used to say so while the call underneath
+                // it consulted no replacement at all.
+                tokens::create_tokens(state, controller, token, None, 1);
             }
             None
         }

@@ -137,6 +137,36 @@ put-backs (`AwaitingOp::PutBackOnTop`, `BottomFromHand`), and
 `CostPart::ReturnSelfToHand`. Each fails safe — no entry in
 `commander_redirect` means the printed move stands and no question is asked.
 
+### The replacements that multiply, and their three doors
+Doubling Season and its kin do not rewrite an event; they multiply what an
+effect produces (CR 614.1 for tokens, CR 614.2 for counters), so they live
+in `engine/replacement.rs` and are read at the moment of production rather
+than in the propose/apply funnel above. There are three doors and every
+producing effect goes through one of them:
+`replacement::put_counters`, `resolve::tokens::create_tokens` and
+`resolve::tokens::create_token_copies`.
+
+Doors, not helpers, because the bug is always the same one: a counter or a
+token placed beside the rule is invisible to it, and nothing says so until
+someone plays the pair. Every one of the eight sites now behind these doors
+was once outside — `AddCounterFilter` ("put a +1/+1 counter on each other
+Ally you control", the shape most of the pool writes), a planeswalker's
+starting loyalty, the three token-copy branches, the two effects that hand
+tokens to *someone else*, and the sized token an exiled card leaves behind.
+
+The direction each rule reads is the part that is easy to get backwards, and
+the two read opposite ways. The token rule filters the **affected
+controller**: "if one or more tokens would be created under *your* control"
+says nothing about whose spell is creating them, so Crib Swap's Shapeshifter
+is doubled by the Doubling Season of the player whose creature was exiled,
+never by the caster's. The counter rule filters the **object receiving
+them**: "a permanent you control" is about the permanent, so an opponent's
+spell putting a counter on my creature is doubled by mine.
+
+`Amass` is the one deliberate hole and is documented at its call site: two
+Armies would need a choice of which one takes the counters, and amass has
+nowhere to ask it.
+
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing
