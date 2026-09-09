@@ -54,6 +54,7 @@ pub mod manapool;
 pub mod prefs;
 pub mod prose;
 pub mod reconnect;
+pub mod seatbar;
 pub mod sky;
 pub mod tabletop;
 
