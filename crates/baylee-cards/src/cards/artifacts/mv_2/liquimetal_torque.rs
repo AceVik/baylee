@@ -20,7 +20,7 @@ card! {
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(Cost::TAP, &[Effect::CreateContinuousEffect {
                 layer: Layer::Type,
-                filter: &Filter::NONLAND,
+                filter: &Filter::This,
                 modifier: Modifier::AddType(TypeSet::ARTIFACT),
                 duration: Duration::UntilEndOfTurn,
             }], target: Some(TargetSpec::Object(&Filter::NONLAND))),

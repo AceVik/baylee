@@ -17,7 +17,7 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[activated!(Cost::TAP, &[Effect::CreateContinuousEffect {
             layer: Layer::Type,
-            filter: &Filter::Any,
+            filter: &Filter::This,
             modifier: Modifier::AddType(TypeSet::ARTIFACT),
             duration: Duration::UntilEndOfTurn,
         }], target: Some(TargetSpec::Object(&Filter::Any)))],
