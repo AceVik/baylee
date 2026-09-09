@@ -84,6 +84,31 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+### The one check in the fixpoint that is not a state-based action
+Daybound and nightbound (CR 702.145c–g) are checked as their own step of
+`Progress::run_machine`, between the state-based actions and the trigger
+collection, and both halves of that placement are deliberate.
+
+They are not SBAs — CR 702.145c and f say "this happens immediately and
+isn't a state-based action" in as many words — and they need the card
+definition behind a permanent, which `sba::run` has no lookup for. They run
+after the SBAs have settled so that a permanent about to die does not turn
+over first, and before triggers are collected so that a permanent which does
+turn over has done so before anything asks what triggered.
+
+The step reports whether it changed anything, and the two shapes it must
+refuse are why that answer has to be exact. A token has no card, and a clone
+of a werewolf carries the copied daybound over a definition with one face
+(CR 701.27c) — turning either over would rebuild its base from a face that
+is not there. Both are skipped, and skipped *without* reporting a change: a
+guard that reported one would send the fixpoint round forever on a permanent
+it had just declined to touch.
+
+`GameState::transform` is the door that journals `Transformed`. Its
+neighbour `switch_face` does the same work silently and is what the modal
+paths call, because choosing which face of an MDFC to cast or to play as a
+land is not a transform (CR 712.4a).
+
 ### A replacement that has to ask (CR 903.9b)
 `GameState::move_object` is the one funnel every zone change goes through,
 and it is synchronous: it cannot stop and ask a player anything. CR 903.9b

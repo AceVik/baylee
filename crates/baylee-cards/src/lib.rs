@@ -126,6 +126,34 @@ mod tests {
         }
     }
 
+    /// The back face of a transforming double-faced card is never cast (CR
+    /// 712.2) — it is only ever reached by turning the card over.
+    ///
+    /// Nothing in a `CardDef` says which layout a card was printed in, so
+    /// `castable_from_hand` is what carries the difference between a modal
+    /// back a player may cast and a transformed back they may not. Get it
+    /// wrong and the cast wizard offers the back face as a *mode*, at the
+    /// mana cost that face prints — which for a transformed back is nothing
+    /// at all. Tavern Smasher was on offer for {0} until this test existed.
+    ///
+    /// Nightbound is the marker because it is the only thing in the DSL
+    /// that identifies a transformed back as one (CR 702.145e).
+    #[test]
+    fn a_nightbound_face_is_never_castable_from_the_hand() {
+        for (oracle_id, def) in generated::ALL {
+            for face in def.faces {
+                assert!(
+                    !(face.keywords.contains(dsl::KeywordSet::NIGHTBOUND)
+                        && face.castable_from_hand),
+                    "{} ({oracle_id}): {} is a transformed back face and may not be cast \
+                     (CR 712.2) — set castable_from_hand: false",
+                    def.name(),
+                    face.name,
+                );
+            }
+        }
+    }
+
     /// An index is an identity, not a position: `DeckEntry` stores one, the
     /// gateway persists decks made of them, and a replay names them. They are
     /// handed out by `data/card-index.tsv` (append-only) rather than by a

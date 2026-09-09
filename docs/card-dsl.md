@@ -99,8 +99,35 @@ both are load-bearing:
   a line went missing. An implemented card writes
   `coverage: Coverage::Implemented` by hand.
 
-`FaceDef::DEFAULT.castable_from_hand` is `true`; only disturb and adventure
-backs opt out.
+`FaceDef::DEFAULT.castable_from_hand` is `true`; disturb backs, adventure
+backs and the back face of a **transforming** double-faced card opt out. The
+last of those is the one that bites, because nothing in a `CardDef` says
+which layout a card was printed in: an MDFC's back is a face a player may
+cast, a werewolf's back is only ever reached by turning the card over (CR
+712.2), and this flag is the whole of the difference. Leave it `true` on a
+transformed back and the cast wizard offers that face as a *mode* at the
+cost it prints — which is nothing, so Tavern Smasher was a 6/5 for {0}.
+`a_nightbound_face_is_never_castable_from_the_hand` in `baylee-cards` is
+what turns that into a build failure.
+
+### Two faces that disagree
+
+Three `FaceDef` fields exist for cards whose faces are not the same card,
+and all three are hand-written — the Scryfall payload codegen reads carries
+none of them per face:
+
+- `keywords`. `CardDef::keywords_for_face` gives face 0 the card-level set
+  when the face states none of its own, and gives a back face **only** what
+  it prints. So an ordinary card still writes one `keywords:` line, and a
+  transforming card writes one per face — including the keyword both faces
+  share, which is written twice on purpose. Daybound is printed on a front
+  face and nightbound on a back one (CR 702.145a), and a card that stated
+  either for the whole card would be a permanent that turns over at night
+  and turns back in the same breath.
+- `color_indicator` (CR 105.2c). A face with no mana cost has nothing else
+  to say what colour it is; Dire-Strain Brawler is green only because of the
+  dot printed on it.
+- `castable_from_hand`, above.
 
 ## Generated cards, and why they may say `Implemented`
 

@@ -1816,6 +1816,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::golden_guardian::CARD,
     ),
     (
+        "58bd02ae-2676-4c9c-b24e-2bd51be8bde7",
+        &crate::cards::bird_admirer::CARD,
+    ),
+    (
         "58bd67a8-1833-4827-aa33-1c141568f481",
         &crate::cards::mystifying_maze::CARD,
     ),
@@ -1978,6 +1982,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "5f42b67f-87fd-4f98-a0e8-0c8313f4bbc8",
         &crate::cards::shipwreck_marsh::CARD,
+    ),
+    (
+        "5fd09dbc-8bcd-4fe0-91b5-b00e721fa7eb",
+        &crate::cards::fearful_villager::CARD,
     ),
     (
         "5ff1d6d8-8cea-4a25-90d9-b575f4c99bc8",
@@ -2464,6 +2472,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::lantern_lit_graveyard::CARD,
     ),
     (
+        "73a3b9a1-37a0-469a-9557-8c118a1ee78f",
+        &crate::cards::tavern_ruffian::CARD,
+    ),
+    (
         "73b3e242-075d-4c4d-9b09-6fef1633c348",
         &crate::cards::sejiri_refuge::CARD,
     ),
@@ -2894,6 +2906,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "865a2194-fca0-446e-aae3-ca475cd66e00",
         &crate::cards::dismal_backwater::CARD,
+    ),
+    (
+        "8669f2e1-3e98-4fa5-ba4f-a0860b92c609",
+        &crate::cards::harvesttide_infiltrator::CARD,
     ),
     (
         "867dbd5a-c3cf-41ce-980b-c9babc6f30f2",
@@ -4118,6 +4134,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "c3172c5d-c745-4422-b651-cd414c8da11b",
         &crate::cards::birnin_zana_plaza::CARD,
+    ),
+    (
+        "c31e9db3-5d9d-470a-871a-b4b5b0536db5",
+        &crate::cards::tireless_hauler::CARD,
     ),
     (
         "c39e5fb0-6de3-4105-ad3c-0ecb8951a1d5",
@@ -6812,10 +6832,15 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::swiftfoot_boots::CARD),
     Some(&crate::cards::thought_vessel::CARD),
     Some(&crate::cards::three_visits::CARD),
+    Some(&crate::cards::bird_admirer::CARD),
+    Some(&crate::cards::fearful_villager::CARD),
+    Some(&crate::cards::harvesttide_infiltrator::CARD),
+    Some(&crate::cards::tavern_ruffian::CARD),
+    Some(&crate::cards::tireless_hauler::CARD),
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x671372b294cbbd1;
+pub const POOL_HASH: u64 = 0xa9ab4be676a5dd58;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

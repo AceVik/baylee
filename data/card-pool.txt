@@ -1179,3 +1179,12 @@ Rampant Growth
 Swiftfoot Boots
 Thought Vessel
 Three Visits
+
+# Daybound and nightbound (CR 702.145), the pool's first day/night cards.
+# Five werewolves whose whole text is one combat keyword on each face, so
+# what they exercise is the designation and the transform and nothing else.
+Bird Admirer // Wing Shredder
+Fearful Villager // Fearsome Werewolf
+Harvesttide Infiltrator // Harvesttide Assailant
+Tavern Ruffian // Tavern Smasher
+Tireless Hauler // Dire-Strain Brawler

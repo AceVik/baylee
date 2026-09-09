@@ -212,7 +212,11 @@ The engine is also strictly synchronous — async lives only in `engine-server`,
 (`crates/baylee-cards/src/generated.rs`, `cards/mod.rs`) and subtype constants
 (`crates/baylee-core/src/generated/subtypes.rs`). You then edit **only**
 `coverage`, `keywords`, `abilities` in `crates/baylee-cards/src/cards/<slug>.rs`;
-`index`, `oracle_id`, `scryfall_id` and `faces` stay as generated. The index
+`index`, `oracle_id`, `scryfall_id` and `faces` stay as generated — except
+for the three fields a face has no printed data for in the Scryfall payload
+codegen reads: `keywords`, `color_indicator` and `castable_from_hand`, which
+a transforming double-faced card needs on its back face and which are added
+by hand. The index
 comes from the append-only ledger `data/card-index.tsv`, so a new card never
 renumbers an existing one — a `CardIndex` is what saved decks and replays
 name. The `//!`
@@ -651,10 +655,17 @@ Night }` and a pure `phase(mode, hour)` with dawn and dusk ramps — and
 `baylee-client/src/sky.rs` draws it as one quad parented to the camera,
 painted in **screen space** by `shaders/sky.wgsl` so it holds still when the
 player orbits and so the sun and the moon can be put where the table is not.
-Magic's day/night designation (CR 731) is a different thing entirely and no
-card in the pool has it: nothing about this sky changes a legal action, which
-is exactly why a client may decide it alone and why the clock is the player's
-own. The hour comes from `web-time` in the shell, because
+Magic's day/night designation (CR 731) is a different thing entirely, and it
+is now in the pool — five werewolves print daybound and nightbound, the
+engine keeps `GameState.day_night`, and `PlayerView.day_night` carries it.
+The two must not be joined up. Nothing about this sky changes a legal
+action, which is exactly why a client may decide it alone and why the clock
+is the player's own; `SkyMode::Day`/`Night` exist so a player can override
+that clock, so a sky driven by the rules would either overrule the player's
+setting or be overruled by it, and either way could never be *read* as a
+rules fact. The designation is drawn in the phase rail's head instead, where
+a fact about the game already lives, and the sky is allowed to disagree with
+it. The hour comes from `web-time` in the shell, because
 `std::time::SystemTime::now` panics on `wasm32-unknown-unknown` and
 `baylee-client-core` compiles for it — and it is **UTC**, with `Day` and
 `Night` there for a player the offset bothers.
