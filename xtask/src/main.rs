@@ -1042,17 +1042,31 @@ fn code_costs(content: &str) -> Vec<String> {
 /// 3/2, which is how it was reported — a card that costs one mana less than
 /// the one drawn on it.
 ///
-/// Only the two fields that decide a game are checked, and only against the
-/// front face: a cost is what a player pays and a P/T is what survives
-/// combat, and both are single values a hand edit can silently move. The rest
-/// of a face (types, subtypes, oracle text) is either already checked by the
-/// header or is not a number.
+/// The numbers on the front face are what this one checks: a cost is what a
+/// player pays, a P/T is what survives combat, and a starting loyalty is what
+/// a planeswalker has to lose before it dies — all single values a hand edit
+/// can silently move. [`check_card_matches_the_printing`] is the other half,
+/// asked of the *compiled* card rather than of its source text, because
+/// colors and keywords are sets rather than literals a `find` can lift out of
+/// a file.
 ///
-/// A card with no cached payload is skipped rather than failed. The cache is
-/// a working directory that a checkout need not have filled — a hundred of
-/// the pool's cards have no file there today — and failing on its absence
-/// would turn a data-fetching problem into a build failure about card rules.
-fn check_code_matches_the_printing(root: &Path, slug: &str, content: &str, problems: &mut usize) {
+/// A card with no cached payload is skipped rather than failed, because
+/// failing on its absence would turn a data-fetching problem into a build
+/// failure about card rules. It reaches 1263 of the pool's 1365, and the
+/// missing 102 are not missing data: a double-faced card's payload is cached
+/// under **both** face names (`agadeem_s_awakening_agadeem_the_undercrypt`)
+/// while the pool slugs it by its front face alone, so `{slug}.json` finds
+/// nothing and every printing check quietly skips the card. Closing that is
+/// its own change — three call sites read the cache this way — and it would
+/// hand this function a hundred cards it has never seen.
+/// [`PrintingTally`]'s floors are what say the reach has not shrunk further.
+fn check_code_matches_the_printing(
+    root: &Path,
+    slug: &str,
+    content: &str,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
     let path = root
         .join("data/scryfall-cache")
         .join(format!("{slug}.json"));
@@ -1062,6 +1076,7 @@ fn check_code_matches_the_printing(root: &Path, slug: &str, content: &str, probl
     let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) else {
         return;
     };
+    tally.payloads += 1;
     // A double-faced card carries its per-face costs and P/T inside
     // `card_faces`, and its top-level `mana_cost` is the two sides joined
     // with " // " — a string no `CardDef` face ever holds.
@@ -1083,15 +1098,361 @@ fn check_code_matches_the_printing(root: &Path, slug: &str, content: &str, probl
         println!("{slug}: the printing costs {printed} and the code costs {code}");
         *problems += 1;
     }
-    // A creature only. `power` on a printing with no P/T is absent, and a
-    // face that writes neither is a noncreature card the check has nothing
-    // to say about.
-    for (key, field) in [("power", "power: Some("), ("toughness", "toughness: Some(")] {
+    // A creature only, and for loyalty a planeswalker only. `power` on a
+    // printing with no P/T is absent, and a face that writes neither is a
+    // noncreature card the check has nothing to say about. A transforming
+    // planeswalker whose *front* face has no loyalty is skipped the same
+    // way: the payload's front face carries `null` there, so nothing is
+    // compared against the back face's number.
+    for (key, field) in [
+        ("power", "power: Some("),
+        ("toughness", "toughness: Some("),
+        ("loyalty", "loyalty: Some("),
+    ] {
         let (Some(printed), Some(code)) = (printed(key), field_number(face, field)) else {
             continue;
         };
         if printed != code {
             println!("{slug}: the printing has {key} {printed} and the code has {code}");
+            *problems += 1;
+        }
+        if key == "loyalty" {
+            tally.loyalty += 1;
+        }
+    }
+}
+
+/// What the printing checks actually compared.
+///
+/// Every one of them skips quietly — no cached payload, no field in it, no
+/// symbol in the text, no comparison — so the whole family can go silent
+/// without a single line of output changing. These counts are what says it
+/// did not.
+#[derive(Default)]
+struct PrintingTally {
+    /// Cards with a cached payload at all.
+    payloads: usize,
+    /// Cards whose starting loyalty was compared.
+    loyalty: usize,
+    /// Cards whose color identity was compared.
+    identity: usize,
+    /// Cards claiming at least one keyword bit that has a printed spelling.
+    keywords: usize,
+    /// Cards whose mana abilities were read and held against the text.
+    mana: usize,
+}
+
+/// The floor under each count in [`PrintingTally`].
+///
+/// Absolute numbers rather than a fraction of whatever happened to be on
+/// disk, because `data/scryfall-cache` is **tracked**: a fresh checkout has
+/// the same payloads CI does, so there is no honest reason for the count to
+/// drop. Each is the measured number with slack for cards leaving the pool.
+/// The shape is `baylee_cards::lints`' own — "the sweep is not reaching the
+/// pool" — and it exists for the same reason: a checker that silently stops
+/// checking reports a clean pool.
+/// Measured 2026-09-09 over a pool of 1365: 1263 payloads, 7 loyalty, 1263
+/// identity, 44 keyword, 361 mana. The two 1263s are every card whose payload
+/// was *found* — 102 double-faced cards are cached under a two-face slug the
+/// lookup does not build — so their floor is that reach minus room for cards
+/// leaving the pool, and it would catch the reach shrinking without catching
+/// the hundred it never had.
+const PRINTING_FLOOR: PrintingTally = PrintingTally {
+    payloads: 1200,
+    loyalty: 6,
+    identity: 1200,
+    keywords: 40,
+    mana: 340,
+};
+
+/// Keyword bits that have a printed spelling to look for.
+///
+/// Not every bit does, and the missing ones are deliberate rather than
+/// forgotten. `UNBLOCKABLE` and `UNCOUNTERABLE` are our names for printed
+/// *sentences* — "can't be blocked", "this spell can't be countered" — that
+/// every card words its own way, so there is no single word to find.
+const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
+    use baylee_cards::dsl::KeywordSet as K;
+    &[
+        (K::FLYING, "flying"),
+        (K::FIRST_STRIKE, "first strike"),
+        (K::DOUBLE_STRIKE, "double strike"),
+        (K::DEATHTOUCH, "deathtouch"),
+        (K::HASTE, "haste"),
+        (K::HEXPROOF, "hexproof"),
+        (K::INDESTRUCTIBLE, "indestructible"),
+        (K::LIFELINK, "lifelink"),
+        (K::MENACE, "menace"),
+        (K::REACH, "reach"),
+        (K::TRAMPLE, "trample"),
+        (K::VIGILANCE, "vigilance"),
+        (K::DEFENDER, "defender"),
+        (K::FLASH, "flash"),
+        (K::SHROUD, "shroud"),
+        (K::FEAR, "fear"),
+        (K::INTIMIDATE, "intimidate"),
+        (K::SHADOW, "shadow"),
+        (K::HORSEMANSHIP, "horsemanship"),
+        (K::INFECT, "infect"),
+        (K::WITHER, "wither"),
+        (K::PERSIST, "persist"),
+        (K::UNDYING, "undying"),
+        (K::PROWESS, "prowess"),
+        (K::SKULK, "skulk"),
+        (K::FLANKING, "flanking"),
+        (K::CHANGELING, "changeling"),
+        (K::PARTNER, "partner"),
+        (K::REBOUND, "rebound"),
+        (K::PROTECTION_BLACK, "protection from black"),
+        (K::DAYBOUND, "daybound"),
+        (K::NIGHTBOUND, "nightbound"),
+    ]
+};
+
+/// Whether `text` says `word` as a word, so a Reach creature does not read as
+/// having Flash because its own reminder text mentions flashback.
+fn mentions_word(text: &str, word: &str) -> bool {
+    let boundary = |c: char| !c.is_alphanumeric();
+    text.match_indices(word).any(|(at, _)| {
+        text[..at].chars().next_back().is_none_or(boundary)
+            && text[at + word.len()..].chars().next().is_none_or(boundary)
+    })
+}
+
+/// Every face's printed text, joined.
+fn printed_text(payload: &serde_json::Value) -> String {
+    let mut out = String::new();
+    let mut push = |v: Option<&serde_json::Value>| {
+        if let Some(s) = v.and_then(serde_json::Value::as_str) {
+            out.push_str(s);
+            out.push('\n');
+        }
+    };
+    push(payload.get("oracle_text"));
+    if let Some(faces) = payload
+        .get("card_faces")
+        .and_then(serde_json::Value::as_array)
+    {
+        for face in faces {
+            push(face.get("oracle_text"));
+        }
+    }
+    out
+}
+
+/// A Scryfall color letter.
+fn color_of_letter(letter: &str) -> Option<baylee_cards::dsl::Color> {
+    use baylee_cards::dsl::Color;
+    Some(match letter {
+        "W" => Color::White,
+        "U" => Color::Blue,
+        "B" => Color::Black,
+        "R" => Color::Red,
+        "G" => Color::Green,
+        _ => return None,
+    })
+}
+
+/// A color set as the letters a printing would use, for a message someone
+/// can hold against Scryfall.
+fn color_letters(set: baylee_cards::dsl::ColorSet) -> String {
+    use baylee_cards::dsl::Color;
+    let mut out = String::new();
+    for (color, letter) in [
+        (Color::White, 'W'),
+        (Color::Blue, 'U'),
+        (Color::Black, 'B'),
+        (Color::Red, 'R'),
+        (Color::Green, 'G'),
+    ] {
+        if set.contains(color) {
+            out.push(letter);
+        }
+    }
+    if out.is_empty() {
+        out.push_str("(colorless)");
+    }
+    out
+}
+
+/// The compiled card against the printing: its color identity, the keyword
+/// bits it claims, and the mana its abilities offer to make.
+///
+/// The other half of [`check_code_matches_the_printing`], and separate from
+/// it because these three are not literals a `find` can lift out of a source
+/// file — they are sets, computed by codegen or written across several
+/// fields, and the compiled `CardDef` is the only place they exist as one
+/// answer.
+///
+/// Two of the five fields the plan named are not here, and both for the same
+/// reason: the cache holds `ScryfallCard`, a trimmed struct, not Scryfall's
+/// whole payload. It has no `keywords` array and no `produced_mana`, so both
+/// are read out of the printed text instead — which the cache does keep, and
+/// which is what a person checking the card would read anyway. `defense` is
+/// absent from all three: the cache, the DSL, and the pool, which has no
+/// battle in it.
+fn check_card_matches_the_printing(
+    root: &Path,
+    slug: &str,
+    def: &baylee_cards::dsl::CardDef,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    let path = root
+        .join("data/scryfall-cache")
+        .join(format!("{slug}.json"));
+    let Ok(text) = fs::read_to_string(&path) else {
+        return;
+    };
+    let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return;
+    };
+
+    // Color identity (CR 903.4) decides which decks may play the card, and
+    // it is codegen's arithmetic over every face rather than anything a
+    // person typed — which is exactly why nothing was checking it.
+    if let Some(letters) = payload
+        .get("color_identity")
+        .and_then(serde_json::Value::as_array)
+    {
+        let printed = letters
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .filter_map(color_of_letter)
+            .fold(baylee_cards::dsl::ColorSet::EMPTY, |set, c| {
+                set.union(baylee_cards::dsl::ColorSet::of(c))
+            });
+        tally.identity += 1;
+        if printed != def.color_identity {
+            println!(
+                "{slug}: the printing's color identity is {} and the code's is {}",
+                color_letters(printed),
+                color_letters(def.color_identity),
+            );
+            *problems += 1;
+        }
+    }
+
+    let whole = printed_text(&payload).to_lowercase();
+    let printed = strip_reminders(&whole);
+
+    // Keywords, in the one direction that is a bug. A bit the code claims
+    // has to be printed on the card; a keyword in the text with no bit is
+    // ordinary — most keywords are `AbilityDef` data rather than bits, and a
+    // partial card is allowed to leave one unimplemented.
+    let claimed = def.all_keywords();
+    let mut asked = false;
+    for (bit, word) in KEYWORD_WORDS {
+        if !claimed.contains(*bit) {
+            continue;
+        }
+        asked = true;
+        if !mentions_word(&printed, word) {
+            println!("{slug}: the code claims {word} and the printed text never says it");
+            *problems += 1;
+        }
+    }
+    tally.keywords += usize::from(asked);
+
+    // Reminder text *kept* for the mana check, and taken out for the keyword
+    // one above. Both are load-bearing and they pull opposite ways: a Reach
+    // creature must not read as having Flash because its own reminder
+    // mentions flashback, and a dual land prints its mana ability as nothing
+    // but reminder text — Taiga's whole oracle text is
+    // "({T}: Add {R} or {G}.)", so stripping it leaves a land that taps for
+    // two colors and says nothing at all.
+    check_mana_matches_the_printing(slug, def, &whole, tally, problems);
+}
+
+/// What the card's mana abilities make, against what its text offers to add.
+///
+/// Read from "Add" to the end of the line, not from the whole text, because
+/// an activation cost is written in the same symbols and `{G}, {T}: …` would
+/// otherwise license a green mana the land never makes.
+///
+/// A clause that says "any color" names no symbol at all and is the card
+/// making every color, so such a card is skipped rather than reported: the
+/// code is right to claim five and the text is right to print none.
+fn check_mana_matches_the_printing(
+    slug: &str,
+    def: &baylee_cards::dsl::CardDef,
+    printed: &str,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    use baylee_cards::dsl::{AbilityDef, ManaColor};
+
+    let mut claimed: Vec<char> = Vec::new();
+    let lists = std::iter::once(def.abilities).chain(def.faces.iter().map(|f| f.abilities));
+    for ability in lists.flatten() {
+        let (cost, effects) = match ability {
+            AbilityDef::Activated {
+                cost,
+                effects,
+                mana_ability: true,
+                ..
+            }
+            | AbilityDef::ActivatedConditional {
+                cost,
+                effects,
+                mana_ability: true,
+                ..
+            } => (cost, *effects),
+            _ => continue,
+        };
+        // `mana_made` refuses anything a planner could not read — a second
+        // effect, a board-dependent source, an amount that is not fixed —
+        // and every refusal is a card this check has nothing to say about.
+        let Some((made, _restricted)) = baylee_cards::dsl::mana_made(cost, effects) else {
+            continue;
+        };
+        for color in made.colors {
+            claimed.push(match color {
+                ManaColor::White => 'w',
+                ManaColor::Blue => 'u',
+                ManaColor::Black => 'b',
+                ManaColor::Red => 'r',
+                ManaColor::Green => 'g',
+                ManaColor::Colorless => 'c',
+            });
+        }
+    }
+    if claimed.is_empty() {
+        return;
+    }
+
+    let mut offered: Vec<char> = Vec::new();
+    let mut saw_a_clause = false;
+    for (at, _) in printed.match_indices("add ") {
+        let clause = printed[at..].split('\n').next().unwrap_or_default();
+        // "one mana of any color", "mana of any type that a land you
+        // control could produce" — a promise with no symbol in it.
+        if clause.contains("any color") || clause.contains("any type") {
+            return;
+        }
+        saw_a_clause = true;
+        let bytes: Vec<char> = clause.chars().collect();
+        for i in 0..bytes.len().saturating_sub(2) {
+            if bytes[i] == '{' && bytes[i + 2] == '}' && "wubrgc".contains(bytes[i + 1]) {
+                offered.push(bytes[i + 1]);
+            }
+        }
+    }
+    if !saw_a_clause {
+        println!(
+            "{slug}: the code has a mana ability and the printed text never says \"add\"; \
+             a land's intrinsic mana comes off the type line (CR 305.6) and needs no ability"
+        );
+        *problems += 1;
+        return;
+    }
+    tally.mana += 1;
+    for color in claimed {
+        if !offered.contains(&color) {
+            println!(
+                "{slug}: the code taps for {{{}}} and the printing never offers it",
+                color.to_ascii_uppercase()
+            );
             *problems += 1;
         }
     }
@@ -1346,23 +1707,7 @@ fn check_scope_matches_the_text(
     let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) else {
         return;
     };
-    let mut printed = String::new();
-    let mut push = |v: Option<&serde_json::Value>| {
-        if let Some(s) = v.and_then(serde_json::Value::as_str) {
-            printed.push_str(s);
-            printed.push('\n');
-        }
-    };
-    push(payload.get("oracle_text"));
-    if let Some(faces) = payload
-        .get("card_faces")
-        .and_then(serde_json::Value::as_array)
-    {
-        for face in faces {
-            push(face.get("oracle_text"));
-        }
-    }
-    let printed = strip_reminders(&printed).to_lowercase();
+    let printed = strip_reminders(&printed_text(&payload)).to_lowercase();
 
     // The filters the card was built from, read off the one rendering that
     // cannot go stale as the DSL grows a variant.
@@ -1419,6 +1764,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     let names = acceptance::all_names(&rows, &pool_text);
     let mut problems = 0usize;
     let mut stubs = 0usize;
+    let mut tally = PrintingTally::default();
     // Who owns each finished card, which is the number to watch: a machine-
     // owned card is a reader's output and is corrected by fixing the reader,
     // a hand-owned one is somebody's and codegen never touches it.
@@ -1464,10 +1810,19 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         check_header_matches_code(&slug, &content, &mut problems);
         if let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) {
             check_scope_matches_the_text(root, &slug, def.name(), def, &mut problems);
+            check_card_matches_the_printing(root, &slug, def, &mut tally, &mut problems);
         }
         check_search_tapped_matches_text(&slug, &content, &mut problems);
-        check_code_matches_the_printing(root, &slug, &content, &mut problems);
+        check_code_matches_the_printing(root, &slug, &content, &mut tally, &mut problems);
     }
+    // Before the bail, not after it: a floor that failed is only readable
+    // beside the counts that failed it.
+    println!(
+        "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
+         {} keyword, {} mana",
+        tally.payloads, tally.loyalty, tally.identity, tally.keywords, tally.mana
+    );
+    check_printing_floors(&tally, &mut problems);
     if problems > 0 {
         anyhow::bail!("{problems} convention problem(s) found");
     }
@@ -1479,6 +1834,25 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         names.len() - stubs - machine
     );
     Ok(())
+}
+
+/// Holds every printing check to what it reached last time.
+fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
+    for (what, seen, floor) in [
+        ("payloads", tally.payloads, PRINTING_FLOOR.payloads),
+        ("loyalty", tally.loyalty, PRINTING_FLOOR.loyalty),
+        ("color identity", tally.identity, PRINTING_FLOOR.identity),
+        ("keyword", tally.keywords, PRINTING_FLOOR.keywords),
+        ("mana", tally.mana, PRINTING_FLOOR.mana),
+    ] {
+        if seen < floor {
+            println!(
+                "only {seen} {what} comparisons were made against the printings and the \
+                 floor is {floor}; the sweep is not reaching the pool"
+            );
+            *problems += 1;
+        }
+    }
 }
 
 /// Writes every compiled `CardDef` to `out`, one `Debug` rendering per card.

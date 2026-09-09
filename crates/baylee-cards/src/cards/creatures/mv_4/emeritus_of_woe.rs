@@ -29,7 +29,6 @@ card! {
         enter_modifiers: &[EnterModifier::Prepared],
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
-    keywords: KeywordSet::FLYING,
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Prepared {

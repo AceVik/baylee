@@ -279,7 +279,30 @@ cannot say — not to get past a transcoding bug, which belongs in the reader
 where it also fixes the cards you have not looked at.
 
 `xtask validate` reports the split, which is the number to watch: **1365
-cards, 576 finished — 212 hand-owned, 364 machine-owned — and 789 stubs.**
+cards, 572 finished — 212 hand-owned, 360 machine-owned — and 793 stubs.**
+
+It also holds a card against its **printing** — Scryfall's own payload in
+`data/scryfall-cache`, which is tracked, so a fresh checkout checks exactly
+what CI does. Four comparisons, and each is a mistake a header cannot catch
+because a header is the other thing a person wrote: the front face's cost,
+P/T and starting loyalty; the card's colour identity (CR 903.4, which counts a
+mana symbol in the rules text — a `{4}` artifact that taps for `{U}` is blue);
+every keyword **bit** the card claims, which must appear as its own word in
+the printed text; and the colours its mana abilities offer to make, which must
+appear in an "Add" clause. The last two are read out of the oracle text rather
+than out of Scryfall's `keywords` and `produced_mana` arrays, because the
+cache holds a trimmed `ScryfallCard` that has neither.
+
+Each comparison skips quietly when the card has nothing to compare, so the
+command ends by printing how many it actually made and failing if that falls
+below a floor. A checker that has silently stopped checking reports a clean
+pool, which is the one failure a card gate must not have.
+
+The reach today is **1263 of the 1365**, and the gap is a slug, not missing
+data: a double-faced card is cached under both of its face names
+(`agadeem_s_awakening_agadeem_the_undercrypt.json`) and the pool names it by
+its front face, so the lookup misses and all 102 of them go unchecked against
+their printings. Every one of the 102 has its payload on disk.
 
 If you want more cards generated, the lever is usually **this document's
 vocabulary**, not the readers. `cargo run -p xtask -- forge-report` ranks
