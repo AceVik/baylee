@@ -132,6 +132,78 @@ pub fn load_acceptance(text: &str, deck_name: &str) -> Result<LoadedDeck, String
     })
 }
 
+/// Loads a deck from the stored `"N Card Name"` rows a saved deck is kept as.
+///
+/// The grammar is `baylee_core::deckrow`'s, which is the same reader a stored
+/// deck, an exported file and an imported one all go through, so a deck
+/// resolves to the same cards wherever it came from. The commander is stored
+/// by name and is **moved** out of the main list rather than copied: the
+/// builder seats the leader among the rows on purpose, so copying it would
+/// make one more card that sits in the library and the command zone at once.
+///
+/// What this deliberately does *not* do is enforce the copy limit or the deck
+/// size. Those belong to the gateway, because they are checks on a deck
+/// somebody else submitted, and a limit enforced in two places with two error
+/// types is a limit that will one day differ. Offline there is no other
+/// party — and the engine still refuses a preset it cannot play.
+///
+/// # Errors
+/// Returns the first malformed row or unresolvable card name.
+pub fn from_lines(
+    name: &str,
+    cards: &[String],
+    sideboard: &[String],
+    commander: Option<&str>,
+) -> Result<LoadedDeck, String> {
+    fn expand(lines: &[String]) -> Result<Vec<DeckCard>, String> {
+        let mut out = Vec::new();
+        for line in lines {
+            let row = baylee_core::deckrow::parse(line)
+                .map_err(|_| format!("malformed card line: {line}"))?;
+            let index = by_name(&row.name).ok_or_else(|| format!("unknown card: {}", row.name))?;
+            for _ in 0..row.count {
+                out.push(DeckCard::chosen(index, &row.print));
+            }
+        }
+        Ok(out)
+    }
+
+    let mut main = expand(cards)?;
+    let sideboard = expand(sideboard)?;
+    let commanders = commander
+        .and_then(by_name)
+        .map(|index| {
+            let card = match main.iter().position(|c| c.index == index) {
+                Some(at) => main.remove(at),
+                None => DeckCard::plain(index),
+            };
+            vec![card]
+        })
+        .unwrap_or_default();
+    Ok(LoadedDeck {
+        name: name.to_string(),
+        main,
+        sideboard,
+        commanders,
+    })
+}
+
+/// Every deck the acceptance text names, in the order it names them.
+///
+/// The file is the only deck data every build carries — the browser build
+/// embeds it — so this is what "which decks are there before anybody has
+/// built one" is answered with.
+#[must_use]
+pub fn acceptance_names(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    for row in parse_decks(text).unwrap_or_default() {
+        if !names.contains(&row.deck) {
+            names.push(row.deck.clone());
+        }
+    }
+    names
+}
+
 /// A two-seat mirror game built to exercise one card.
 ///
 /// A probe deck alone proves less than it looks: four copies in sixty cards
