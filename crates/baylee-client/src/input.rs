@@ -23,7 +23,7 @@ use crate::hud::{
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
 use crate::table::CardVisual;
-use crate::{Deed, Duel};
+use crate::{Deed, Duel, HoverSpot};
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::browser::Placement;
 use baylee_client_core::interaction::{Interaction, Prompt, SelectionOutcome};
@@ -55,15 +55,63 @@ fn find_in_lineage<'a, T: Component>(
     query: &'a Query<&T>,
     parents: &Query<&ChildOf>,
 ) -> Option<&'a T> {
+    lineage_bearer(entity, query, parents).map(|(_, found)| found)
+}
+
+/// The same walk, answering *which* ancestor carried the component.
+///
+/// The entity is what a caller needs to ask a second question about the card
+/// — where it is on the screen, for one, which is a `GlobalTransform` on that
+/// same entity and not on whichever child the pointer happened to land on.
+fn lineage_bearer<'a, T: Component>(
+    entity: Entity,
+    query: &'a Query<&T>,
+    parents: &Query<&ChildOf>,
+) -> Option<(Entity, &'a T)> {
     let mut current = Some(entity);
     for _ in 0..6 {
         let e = current?;
         if let Ok(found) = query.get(e) {
-            return Some(found);
+            return Some((e, found));
         }
         current = parents.get(e).ok().map(ChildOf::parent);
     }
     None
+}
+
+/// Where a card on the felt lies on the screen, in logical pixels.
+///
+/// The four corners of its printed face, projected and boxed — not the
+/// centre and a guess at a width. A card is a quad on a table seen at
+/// `CAMERA_LEAN`, so what it covers on the screen depends on where at the
+/// table it is and on whether it is tapped, and both of those are already in
+/// its `GlobalTransform`. The mesh is built in local XY with the face on +Z
+/// ([`rounded_slab_mesh`](crate::table)), so the corners are
+/// `(±width/2, ±height/2, 0)` whatever the transform then does with them.
+///
+/// `None` when there is no table camera yet, when the entity has no place, or
+/// when any corner projects behind the lens — a partly visible box is worse
+/// than none, because the panel would open at an edge that is not the card's.
+fn card_on_screen(
+    card: Entity,
+    places: &Query<&GlobalTransform>,
+    camera: &Query<(&Camera, &GlobalTransform), With<crate::table::TableCamera>>,
+) -> Option<Rect> {
+    use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
+
+    let (cam, eye) = camera.iter().next()?;
+    let place = places.get(card).ok()?;
+    let (hw, hh) = (CARD_WIDTH / 2.0, CARD_HEIGHT / 2.0);
+    let mut min = Vec2::splat(f32::INFINITY);
+    let mut max = Vec2::splat(f32::NEG_INFINITY);
+    for (x, y) in [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)] {
+        let at = cam
+            .world_to_viewport(eye, place.transform_point(Vec3::new(x, y, 0.0)))
+            .ok()?;
+        min = min.min(at);
+        max = max.max(at);
+    }
+    Some(Rect { min, max })
 }
 
 /// Whether the card `entity` belongs to is still gliding towards its mark.
@@ -1466,6 +1514,8 @@ pub fn pointer_hover(
     hand_cards: Query<&HandCardVisual>,
     tray_cards: Query<&TrayCard>,
     parents: Query<&ChildOf>,
+    places: Query<&GlobalTransform>,
+    table_camera: Query<(&Camera, &GlobalTransform), With<crate::table::TableCamera>>,
     mut duel: ResMut<Duel>,
 ) {
     // `hovered` has four writers and only one of them is this system. A hover
@@ -1547,13 +1597,20 @@ pub fn pointer_hover(
             // has since travelled, which on a fast sweep is a card or two
             // further along.
             let at = over.pointer_location.position;
-            if let Some(v) = find_in_lineage(over.entity, &cards, &parents) {
+            if let Some((card, v)) = lineage_bearer(over.entity, &cards, &parents) {
                 duel.hovered = Some(v.object);
-                duel.hovered_at = Some(at);
+                // The card itself, when it can be projected: a permanent on
+                // the felt is a quad with a place in the world, so the
+                // preview can stand at its *edge* rather than at the rim the
+                // pointer crossed to get there — which is inside the card.
+                duel.hovered_at = Some(
+                    card_on_screen(card, &places, &table_camera)
+                        .map_or(HoverSpot::Point(at), HoverSpot::Card),
+                );
                 *source = HoverSource::Table;
             } else if let Some(h) = find_in_lineage(over.entity, &hand_cards, &parents) {
                 duel.hovered = Some(h.object);
-                duel.hovered_at = Some(at);
+                duel.hovered_at = Some(HoverSpot::Point(at));
                 *source = HoverSource::Hand;
             } else if let Some(t) = find_in_lineage(over.entity, &tray_cards, &parents) {
                 // A row in the zone browser. It is a card drawn 74 px across,
@@ -1562,7 +1619,7 @@ pub fn pointer_hover(
                 // panel standing beside the pointer, because a tray row has
                 // no place of its own in the HUD's layout.
                 duel.hovered = Some(t.object);
-                duel.hovered_at = Some(at);
+                duel.hovered_at = Some(HoverSpot::Point(at));
                 *source = HoverSource::Tray;
             }
         }

@@ -156,6 +156,64 @@ mod preview_place {
         }
     }
 
+    /// The fault the card anchor exists for: a permanent on the felt is about
+    /// a hundred pixels across, and the pointer finds it at its *rim*, so a
+    /// panel opened a gap away from the pointer opened the better part of a
+    /// card's width inside the card and covered the thing it was describing.
+    ///
+    /// Measured on a live table before the fix: an Island at logical
+    /// (895, 698) opened a panel whose left edge was on the card and whose
+    /// body crossed the middle of the board.
+    #[test]
+    fn a_card_anchor_opens_beside_the_card_and_never_over_it() {
+        // A card as the camera draws one, walked across the table.
+        let (w, h) = (104.0_f32, 146.0_f32);
+        for cx in [90.0_f32, 400.0, 864.0, 1300.0, 1640.0] {
+            for cy in [200.0_f32, 500.0, 800.0] {
+                let rect = Rect {
+                    min: Vec2::new(cx - w / 2.0, cy - h / 2.0),
+                    max: Vec2::new(cx + w / 2.0, cy + h / 2.0),
+                };
+                let place = preview_place(PreviewAt::Card(rect), PANEL, WINDOW);
+                let panel = Rect {
+                    min: place,
+                    max: place + PANEL,
+                };
+                // The two rectangles do not meet horizontally. Vertically
+                // they always do — the panel is three times a card's height,
+                // so it is bound to span it.
+                assert!(
+                    panel.max.x <= rect.min.x || panel.min.x >= rect.max.x,
+                    "a card at {rect:?} opened a panel at {panel:?} over itself"
+                );
+            }
+        }
+    }
+
+    /// The same anchor obeys the band. Written out because the card arm has
+    /// its own clamp and a test of the pointer arm would not have caught a
+    /// card one that was missing it.
+    #[test]
+    fn a_card_anchor_clears_the_tab_strip_and_the_hand_bar() {
+        for cy in [0.0_f32, 40.0, 600.0, 1052.0] {
+            let rect = Rect {
+                min: Vec2::new(800.0, cy - 73.0),
+                max: Vec2::new(904.0, cy + 73.0),
+            };
+            let place = preview_place(PreviewAt::Card(rect), PANEL, WINDOW);
+            assert!(
+                place.y >= TAB_H + rail::RAIL_H,
+                "a card centred at y {cy} opened a panel at {}",
+                place.y
+            );
+            assert!(
+                place.y + PANEL.y <= WINDOW.y - HAND_BAR_H,
+                "a card centred at y {cy} opened a panel ending at {}",
+                place.y + PANEL.y
+            );
+        }
+    }
+
     /// The hand's bubble is unchanged: it sits ten pixels above the bar, so
     /// the caret drawn between the two has something to bridge.
     #[test]

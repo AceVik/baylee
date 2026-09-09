@@ -239,10 +239,14 @@ pub(super) enum PreviewAt {
     /// is the one place in the client where the card has a position the HUD
     /// itself knows.
     Hand(f32),
-    /// Anything the pointer found somewhere else — a permanent on the felt, a
-    /// pile beside a mat, a card in the stack panel. None of those has a place
-    /// in the HUD's layout, so the panel stands beside the pointer instead,
-    /// the way a tooltip does.
+    /// A card on the felt, at the screen rectangle its four corners project
+    /// to. The panel opens at that rectangle's edge — the card's edge, and
+    /// not the point on its rim where the pointer crossed in, which is
+    /// inside the card and put the panel over the thing it describes.
+    Card(Rect),
+    /// Anything the pointer found that has no rectangle of its own — a row in
+    /// the zone browser, an entry in the stack panel. The panel stands beside
+    /// the pointer instead, the way an ordinary tooltip does.
     Pointer(Vec2),
     /// A hover with no pointer behind it: the keyboard cursor names a card
     /// without standing anywhere, so the panel falls back to the middle.
@@ -257,13 +261,17 @@ pub(super) fn preview_anchor(
     hovered: Option<ObjectId>,
     layout: HandLayout,
     scroll: f32,
-    pointer: Option<Vec2>,
+    spot: Option<crate::HoverSpot>,
 ) -> Option<(Option<ImageKey>, PreviewAt)> {
     let h = hovered?;
-    // The pointer's own answer for everything that is not in the hand bar.
+    // Where the hover happened, for everything that is not in the hand bar.
     // Checked once here rather than at each arm below, because "where the
     // panel goes" is the same question whatever the card turned out to be.
-    let at = pointer.map_or(PreviewAt::Loose, PreviewAt::Pointer);
+    let at = match spot {
+        Some(crate::HoverSpot::Card(rect)) => PreviewAt::Card(rect),
+        Some(crate::HoverSpot::Point(p)) => PreviewAt::Pointer(p),
+        None => PreviewAt::Loose,
+    };
     if let Some(i) = board.hand.iter().position(|c| c.id == h) {
         let x = 10.0 + i as f32 * layout.step - scroll + HAND_CARD_W / 2.0;
         return Some((Some(board.hand[i].art), PreviewAt::Hand(x)));
@@ -372,30 +380,65 @@ pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
             (window.x - panel.x) / 2.0,
             window.y - HAND_BAR_H - 10.0 - panel.y,
         )),
-        PreviewAt::Pointer(p) => {
-            // Beside the pointer, on whichever side it fits — a panel that
-            // always opened to the right would run off the screen for every
-            // card in the right-hand third of the table, and clamping it back
-            // would put it straight over the pointer.
-            let right = p.x + PREVIEW_GAP;
-            let left = p.x - PREVIEW_GAP - panel.x;
-            let x = if right + panel.x <= high.x {
-                right
-            } else {
-                left
-            };
-            // Vertically centred on the pointer, and kept clear of the tab
-            // strip and the hand bar.
-            let y = p.y - panel.y / 2.0;
-            Vec2::new(x, y).clamp(
-                Vec2::new(low.x, TAB_H + RAIL_H + PREVIEW_INSET),
-                Vec2::new(
-                    high.x,
-                    (window.y - HAND_BAR_H - PREVIEW_INSET - panel.y).max(low.y),
-                ),
-            )
-        }
+        PreviewAt::Card(rect) => beside(
+            rect.min.x,
+            rect.max.x,
+            rect.center().y,
+            panel,
+            low,
+            high,
+            window,
+        ),
+        // The pointer is a rectangle of no width: the same arithmetic, with
+        // the gap measured from the one point there is.
+        PreviewAt::Pointer(p) => beside(p.x, p.x, p.y, panel, low, high, window),
     }
+}
+
+/// The panel beside a span, vertically centred on `middle`.
+///
+/// Split out because a card and a bare pointer want exactly the same
+/// placement and differ only in how wide the thing being described is — and
+/// that difference is the whole of the fault this fixes. A permanent on the
+/// felt is about a hundred pixels across, so a panel opened `PREVIEW_GAP`
+/// from the *pointer* opened some eighty pixels inside the card and covered
+/// it; opened from the card's own right edge it stands clear of it.
+#[allow(clippy::too_many_arguments)] // a span, a panel and the band it fits in
+fn beside(
+    from: f32,
+    to: f32,
+    middle: f32,
+    panel: Vec2,
+    low: Vec2,
+    high: Vec2,
+    window: Vec2,
+) -> Vec2 {
+    // On whichever side it fits — a panel that always opened to the right
+    // would run off the screen for everything in the right-hand third of the
+    // table, and clamping it back would put it straight over the card again.
+    let right = to + PREVIEW_GAP;
+    let left = from - PREVIEW_GAP - panel.x;
+    let x = if right + panel.x <= high.x {
+        right
+    } else if left >= low.x {
+        left
+    } else if window.x - to >= from {
+        // Neither side has the room. The clamp below is going to slide the
+        // panel back over the card whatever happens, so it goes on the side
+        // with more space and covers as little of it as there is to cover.
+        right
+    } else {
+        left
+    };
+    // Kept clear of the tab strip and the hand bar.
+    let y = middle - panel.y / 2.0;
+    Vec2::new(x, y).clamp(
+        Vec2::new(low.x, TAB_H + RAIL_H + PREVIEW_INSET),
+        Vec2::new(
+            high.x,
+            (window.y - HAND_BAR_H - PREVIEW_INSET - panel.y).max(low.y),
+        ),
+    )
 }
 
 /// The face for whatever the preview is pointing at.
