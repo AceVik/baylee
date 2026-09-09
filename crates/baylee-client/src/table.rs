@@ -747,16 +747,102 @@ pub fn apply_camera_rig(
     }
     shown.0 = Some(current);
 
-    let horizontal = current.distance * current.lean;
-    let height = current.distance;
-    let offset = Vec3::new(
-        current.yaw.sin() * horizontal,
-        height,
-        current.yaw.cos() * horizontal,
-    );
-    let look = Vec3::new(current.target.x, 0.0, current.target.y);
+    let eye = current.eye();
     for mut transform in &mut cams {
-        *transform = Transform::from_translation(look + offset).looking_at(look, Vec3::Y);
+        *transform = eye;
+    }
+}
+
+impl ShownRig {
+    /// Where the camera stands *this frame*, or `None` before the first one.
+    #[must_use]
+    pub fn rig(self) -> Option<CameraRig> {
+        self.0
+    }
+}
+
+impl CameraRig {
+    /// The camera transform this rig asks for.
+    ///
+    /// Extracted from [`apply_camera_rig`] rather than copied, because
+    /// [`Lens`] projects with it and anything placed on the table by
+    /// projection has to be placed through the *same* eye the camera was set
+    /// from. Two derivations of one camera agree until the day one of them is
+    /// edited.
+    #[must_use]
+    pub fn eye(self) -> Transform {
+        let horizontal = self.distance * self.lean;
+        let offset = Vec3::new(
+            self.yaw.sin() * horizontal,
+            self.distance,
+            self.yaw.cos() * horizontal,
+        );
+        let look = Vec3::new(self.target.x, 0.0, self.target.y);
+        Transform::from_translation(look + offset).looking_at(look, Vec3::Y)
+    }
+}
+
+/// Where a point on the felt lands in the window, in logical pixels.
+///
+/// The seat bars are screen-space ink pinned to a rectangle on the table, so
+/// something has to answer "where is that rectangle on screen" every frame.
+/// It is written here, from a [`CameraRig`], rather than asked of Bevy's
+/// `Camera::world_to_viewport`, for a scheduling reason worth stating: a
+/// camera's `GlobalTransform` is propagated in `PostUpdate` **after**
+/// `UiSystems::Layout` has already run (`bevy_ui` orders its layout
+/// `.before(TransformSystems::Propagate)`), so a placement system reading the
+/// propagated transform writes a `Node` position the layout will not look at
+/// until the next frame. The ink would swim one frame behind the felt for as
+/// long as the camera moved. Reading the rig instead, in `Update` and right
+/// after [`apply_camera_rig`] has written it, is exact.
+#[derive(Clone, Copy)]
+pub struct Lens {
+    clip_from_world: Mat4,
+    window: Vec2,
+}
+
+impl Lens {
+    /// The projection this rig gives onto a window of this size.
+    #[must_use]
+    pub fn new(rig: CameraRig, window: Vec2) -> Self {
+        let aspect = (window.x / window.y.max(1.0)).max(1e-3);
+        // `perspective_rh` rather than the reverse-infinite matrix Bevy's
+        // `PerspectiveProjection` builds: they differ only in how z is
+        // mapped, and nothing here reads z. The near and far planes are
+        // therefore arbitrary and only have to bracket the table.
+        let clip = Mat4::perspective_rh(FOV, aspect, 0.1, 1000.0);
+        Self {
+            clip_from_world: clip * rig.eye().to_matrix().inverse(),
+            window,
+        }
+    }
+
+    /// Where a point on the felt is drawn, or `None` if it is behind the eye.
+    #[must_use]
+    pub fn project(&self, table: Vec2) -> Option<Vec2> {
+        let clip = self.clip_from_world * to_world(table, TABLE_Y).extend(1.0);
+        if clip.w <= 1e-4 {
+            return None;
+        }
+        let ndc = clip.truncate() / clip.w;
+        Some(Vec2::new(
+            ndc.x.mul_add(0.5, 0.5) * self.window.x,
+            0.5f32.mul_add(-ndc.y, 0.5) * self.window.y,
+        ))
+    }
+
+    /// Four table points projected, in the order they were given.
+    ///
+    /// `None` if any of them is behind the eye, because three corners of a
+    /// rectangle are not a smaller rectangle — they are a bar drawn somewhere
+    /// the shelf is not.
+    #[must_use]
+    pub fn corners(&self, points: [Vec2; 4]) -> Option<[Vec2; 4]> {
+        let mut out = [Vec2::ZERO; 4];
+        for (slot, point) in out.iter_mut().zip(points) {
+            *slot = self.project(point)?;
+        }
+        Some(out)
     }
 }
 
@@ -2414,6 +2500,110 @@ mod camera_tests {
             (table.x - rig.target.x) / (depth * t * aspect),
             cos * s / (depth * t),
         )
+    }
+
+    /// Every seat's bar fits the shelf it is written on, at every table.
+    ///
+    /// Two claims, and the second is the one that is easy to lose. The
+    /// density chosen for a shelf must not overhang it by more than that
+    /// density is allowed — which is what makes the choice a choice rather
+    /// than a label. And the shelf has to project **deeper** than the bar is
+    /// tall, or the ink is standing on the creature lane behind it rather
+    /// than on the ledge; a few pixels of shelf above and below is what makes
+    /// the bar sit on the felt instead of floating over it.
+    ///
+    /// The local seat is in the loop and is not the easy case: its ledge is
+    /// the *far* edge of its own mat, so it is the more foreshortened end of
+    /// the nearest board.
+    ///
+    /// Measured through [`Shelf`](crate::hud::Shelf), which is what the
+    /// renderer places from, and therefore along each shelf's **own** axis. A
+    /// side seat's ledge runs up and down the screen; its bounding box is
+    /// sixty pixels wide and the ledge is four hundred long, so a test
+    /// measuring the box would report a pip strip on a shelf with room for
+    /// every label.
+    #[test]
+    fn the_bar_fits_its_ledge_at_every_seat_of_an_eight_ring() {
+        use crate::hud::Shelf;
+        let canvas = Canvas::hud(WINDOW);
+        for n in 2..=8 {
+            let layout = TableLayout::new(&seats(n), canvas.aspect(), None);
+            let rig = CameraRig::home(&layout, canvas);
+            let lens = Lens::new(rig, canvas.window);
+            for slot in &layout.slots {
+                let corners = lens
+                    .corners(slot.ledge_corners())
+                    .expect("every ledge is in front of the camera");
+                let shelf = Shelf::of(corners, false);
+                let density = shelf.density;
+                let over = density.width(false) - shelf.along;
+                assert!(
+                    over <= density.width(false) * density.overhang() + 1e-3,
+                    "at {n} seats, seat {} takes the {density:?} bar ({} wide) \
+                     on a {} shelf — {over} of overhang",
+                    slot.ring_index,
+                    density.width(false),
+                    shelf.along
+                );
+                assert!(
+                    shelf.depth >= density.ink_height(),
+                    "at {n} seats, seat {}'s shelf projects {} deep and the \
+                     {density:?} bar draws {} of ink — it would stand on the \
+                     creature lane",
+                    slot.ring_index,
+                    shelf.depth,
+                    density.ink_height()
+                );
+                // And no bar is drawn upside-down, whatever its mat is doing:
+                // the ink reads in the viewer's order and the ground belongs
+                // to the seat.
+                assert!(
+                    shelf.tilt.abs() <= std::f32::consts::FRAC_PI_2 + 1e-3,
+                    "at {n} seats, seat {}'s bar is turned {} radians",
+                    slot.ring_index,
+                    shelf.tilt
+                );
+            }
+        }
+    }
+
+    /// [`Lens`] and the projection written out above agree.
+    ///
+    /// The one is a matrix built from the rig's own eye transform and the
+    /// other is the closed form this file has always tested with, derived by
+    /// hand from the lean and the lens. They are two independent derivations
+    /// of one camera, which is the only reason either is evidence about the
+    /// other — and it is what makes `Lens` safe to place the seat bars with,
+    /// since a bar pinned to a shelf by a projection nobody has checked is a
+    /// bar that lands wherever the arithmetic happens to put it.
+    ///
+    /// At yaw zero, because the closed form assumes it: it reads `table.y`
+    /// straight down the view axis. The general case is `Lens`'s alone, which
+    /// is the whole reason it exists — a player may orbit the table.
+    #[test]
+    fn the_lens_and_the_written_out_projection_agree() {
+        let canvas = Canvas::hud(WINDOW);
+        let layout = TableLayout::new(&seats(4), canvas.aspect(), None);
+        let rig = CameraRig::home(&layout, canvas);
+        let lens = Lens::new(rig, canvas.window);
+        for slot in &layout.slots {
+            for corner in slot.ledge_corners() {
+                let theirs = project(rig, canvas, corner) * canvas.window * 0.5;
+                // The closed form answers in pixels from the middle of the
+                // window with `+y` up; the lens answers from the top-left
+                // corner with `+y` down, which is where a `Node` lives.
+                let theirs = Vec2::new(
+                    theirs.x + canvas.window.x * 0.5,
+                    canvas.window.y.mul_add(0.5, -theirs.y),
+                );
+                let ours = lens.project(corner).expect("the table is in front");
+                assert!(
+                    ours.distance(theirs) < 0.5,
+                    "the lens puts {corner:?} at {ours:?} and the written-out \
+                     projection at {theirs:?}"
+                );
+            }
+        }
     }
 
     /// Every corner of every seat's mat, in table space.

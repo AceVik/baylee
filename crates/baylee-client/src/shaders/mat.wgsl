@@ -66,7 +66,7 @@ const LANE_FAR: f32 = 0.0080;
 /// Dimmer than the quietest lane, because the ink on it is meant to be the
 /// brightest thing on a seat's ground.
 const LANE_LEDGE: f32 = 0.0060;
-const LEDGE_FRAC: f32 = 0.14666855;
+const LEDGE_FRAC: f32 = 0.16114313;
 
 /// The hairline between two lanes, and how wide it runs as a fraction of the
 /// mat's depth. `tabletop::MAT_SEAM`, `tabletop::MAT_SEAM_WIDTH`.

@@ -6,7 +6,7 @@ use super::*;
 use baylee_client_core::combat::{Combat, LineEnd};
 
 /// Icon and the short rail label for a rail row.
-fn row_visual(row: RailRow) -> (char, &'static str) {
+pub(super) fn row_visual(row: RailRow) -> (char, &'static str) {
     match row {
         // A rotate-back arrow rather than the sun it used to be: the sun is
         // the day designation's glyph now, and two of them a hundred pixels

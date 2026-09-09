@@ -812,6 +812,7 @@ mod card;
 mod hand;
 mod overlay;
 pub(crate) mod rail;
+pub(crate) mod seatbar;
 mod stack;
 mod tray;
 
@@ -828,5 +829,9 @@ pub use hand::{HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W, TAB_H};
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
 pub use rail::{DesignationFlash, RAIL_H, flash_the_designation, light_the_current_step};
+pub use seatbar::{
+    BarRevision, SeatBar, SeatBarRoot, SeatInk, SeatStep, Shelf, Shelves, measure_shelves,
+    place_seat_bars, sync_seat_bars,
+};
 pub use stack::{StackMotion, ease_the_stack_in};
 pub(crate) use tray::band_of;

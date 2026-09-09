@@ -39,9 +39,20 @@ pub enum Density {
     Full,
     /// Every cell, and the step tiles are their glyphs alone.
     Compact,
-    /// Name, life and the hand; the steps are pips. The seat sheet carries
-    /// what is dropped.
+    /// Name, life and the hand; the steps are small blank pips.
     Pip,
+    /// The caret, the seat's colour, and the twelve steps. Nothing else.
+    ///
+    /// This is what a seat gets on a six- to eight-player ring, where its
+    /// whole board is under 230 logical pixels wide and its cards are drawn
+    /// eighteen pixels across. There is no bar that fits there and says more,
+    /// and a bar that overhung its own mat to say more would be writing on
+    /// the seats beside it. What survives is the promise §7 of the design
+    /// makes — **every bar marks the step the game is in** — plus the colour
+    /// that says whose bar it is, which is the same colour that seat's rim
+    /// wears. The seat sheet carries the rest, and framing the seat (a click
+    /// on its board) widens it back to a bar that can talk.
+    Mark,
 }
 
 /// One cell of a seat's bar, left to right in the **viewer's** reading order.
@@ -110,26 +121,27 @@ impl Zone {
     }
 }
 
-/// The bar's height on screen, the same for every seat.
-///
-/// The ledge projects deeper than this at a duel's framing, which is what
-/// leaves a few pixels of shelf above and below the ink and makes the bar sit
-/// *on* the felt rather than float over it. `camera_tests` is what holds that
-/// and not this constant.
-pub const BAR_H: f32 = 34.0;
-
 /// The gap between two cells.
 pub const CELL_GAP: f32 = 6.0;
 
 /// The gap between two step tiles, per density.
-const TILE_GAP: [f32; 3] = [3.0, 3.0, 4.0];
+const TILE_GAP: [f32; 4] = [3.0, 3.0, 3.0, 2.0];
 
-/// How wide one step tile is drawn, per density.
-const TILE_W: [f32; 3] = [40.0, 30.0, 14.0];
+/// How wide and how tall one step tile is drawn, per density.
+///
+/// A pip is a *smaller tile*, not the same tile with less written in it, and
+/// that is what makes the pip form reachable at all. A five-seat ring is the
+/// table the camera has least room for — its ledge projects under thirty
+/// pixels deep at the reference window — so a bar whose tiles were 24 tall
+/// everywhere could not be drawn on it without standing on the creature lane.
+const TILE_W: [f32; 4] = [40.0, 30.0, 11.0, 8.0];
+const TILE_H: [f32; 4] = [24.0, 24.0, 12.0, 10.0];
 
-/// How tall a step tile is. One number: a tile is the same object at every
-/// density and only its width and what is written in it change.
-pub const TILE_H: f32 = 24.0;
+/// How far outside a tile the now-ring stands, and how thick it is.
+///
+/// It is the outermost ink on a bar, so it is what the shelf has to be deep
+/// enough to hold — see [`Density::ink_height`].
+pub const HALO_OUT: f32 = 2.0;
 
 /// How many steps a turn has, and therefore how many tiles a bar carries.
 ///
@@ -154,7 +166,7 @@ const HINGE_W_DESIGNATED: f32 = 52.0;
 
 impl Density {
     /// Densest first, which is the order [`Self::for_length`] tries them in.
-    pub const ALL: [Self; 3] = [Self::Full, Self::Compact, Self::Pip];
+    pub const ALL: [Self; 4] = [Self::Full, Self::Compact, Self::Pip, Self::Mark];
 
     /// This density's index into the per-density tables above.
     const fn rank(self) -> usize {
@@ -162,6 +174,7 @@ impl Density {
             Self::Full => 0,
             Self::Compact => 1,
             Self::Pip => 2,
+            Self::Mark => 3,
         }
     }
 
@@ -172,12 +185,12 @@ impl Density {
     /// are, and the seat sheet carries everything the pip form drops.
     #[must_use]
     pub fn for_length(length: f32, designated: bool) -> Self {
-        for density in [Self::Full, Self::Compact] {
+        for density in [Self::Full, Self::Compact, Self::Pip] {
             if length >= density.min_length(designated) {
                 return density;
             }
         }
-        Self::Pip
+        Self::Mark
     }
 
     /// The shortest shelf this density may be drawn on.
@@ -199,24 +212,33 @@ impl Density {
     pub const fn overhang(self) -> f32 {
         match self {
             Self::Full => 0.0,
-            Self::Compact | Self::Pip => 0.25,
+            Self::Compact | Self::Pip | Self::Mark => 0.25,
         }
     }
 
     /// The cells this density draws, in the viewer's reading order.
     #[must_use]
     pub fn cells(self) -> Vec<Cell> {
-        let mut out = vec![Cell::Caret, Cell::Swatch, Cell::Name, Cell::Life];
+        let mut out = vec![Cell::Caret, Cell::Swatch];
         match self {
             Self::Full | Self::Compact => {
+                out.push(Cell::Name);
+                out.push(Cell::Life);
                 out.extend(Zone::ALL.map(Cell::Count));
                 out.push(Cell::Hinge);
             }
             // The hand is the one count a player reads about an opponent
             // without being told to, so it is the one that survives. The
-            // hinge goes: a turn number with no tiles beside it is a fact
-            // with nothing to hinge.
-            Self::Pip => out.push(Cell::Count(Zone::Hand)),
+            // hinge goes: a turn number with no room for the tiles it belongs
+            // to is a fact with nothing to hinge.
+            Self::Pip => {
+                out.push(Cell::Name);
+                out.push(Cell::Life);
+                out.push(Cell::Count(Zone::Hand));
+            }
+            // Nothing but the promise: the caret, the seat's colour, and the
+            // step the game is in.
+            Self::Mark => {}
         }
         out.push(Cell::Steps);
         out
@@ -247,7 +269,8 @@ impl Density {
     pub const fn name_width(self) -> f32 {
         match self {
             Self::Full => 112.0,
-            Self::Compact | Self::Pip => 96.0,
+            Self::Compact => 96.0,
+            Self::Pip | Self::Mark => 56.0,
         }
     }
 
@@ -255,6 +278,33 @@ impl Density {
     #[must_use]
     pub const fn tile_width(self) -> f32 {
         TILE_W[self.rank()]
+    }
+
+    /// How tall one step tile is drawn.
+    #[must_use]
+    pub const fn tile_height(self) -> f32 {
+        TILE_H[self.rank()]
+    }
+
+    /// How tall the bar's box is: the tile plus room above and below.
+    ///
+    /// The box is what answers the pointer, and it is allowed to be taller
+    /// than the shelf — it draws nothing, so a box overhanging onto the empty
+    /// top of the creature lane covers nothing and hides nothing. What the
+    /// shelf has to hold is [`Self::ink_height`].
+    #[must_use]
+    pub fn height(self) -> f32 {
+        self.tile_height() + 10.0
+    }
+
+    /// How tall the **drawn** part of a bar is: the tile and its now-ring.
+    ///
+    /// This is the number a shelf's projected depth is measured against,
+    /// because it is the ink that must sit on the ledge rather than on the
+    /// row of creatures behind it.
+    #[must_use]
+    pub fn ink_height(self) -> f32 {
+        self.tile_height() + HALO_OUT * 2.0
     }
 
     /// The gap between two step tiles at this density.
@@ -304,7 +354,7 @@ mod tests {
     #[test]
     fn a_denser_bar_is_a_wider_bar() {
         for designated in [false, true] {
-            let widths: Vec<f32> = Density::ALL.map(|d| d.width(designated)).into();
+            let widths: Vec<f32> = Density::ALL.map(|d| d.width(designated)).to_vec();
             for pair in widths.windows(2) {
                 assert!(
                     pair[0] > pair[1],
@@ -321,7 +371,7 @@ mod tests {
     #[test]
     fn a_denser_bar_asks_for_a_longer_shelf() {
         for designated in [false, true] {
-            let mins: Vec<f32> = Density::ALL.map(|d| d.min_length(designated)).into();
+            let mins: Vec<f32> = Density::ALL.map(|d| d.min_length(designated)).to_vec();
             for pair in mins.windows(2) {
                 assert!(
                     pair[0] > pair[1],
@@ -349,7 +399,7 @@ mod tests {
                 );
             }
             // Just under each threshold is the next form down, and below the
-            // last one it is pips all the way to nothing — a shelf too short
+            // last one it is marks all the way to nothing — a shelf too short
             // for a bar still has a seat on it.
             let full = Density::Full.min_length(designated);
             assert_eq!(
@@ -358,14 +408,16 @@ mod tests {
             );
             let compact = Density::Compact.min_length(designated);
             assert_eq!(Density::for_length(compact - 1.0, designated), Density::Pip);
-            assert_eq!(Density::for_length(0.0, designated), Density::Pip);
-            assert_eq!(Density::for_length(-40.0, designated), Density::Pip);
+            let pip = Density::Pip.min_length(designated);
+            assert_eq!(Density::for_length(pip - 1.0, designated), Density::Mark);
+            assert_eq!(Density::for_length(0.0, designated), Density::Mark);
+            assert_eq!(Density::for_length(-40.0, designated), Density::Mark);
         }
     }
 
     /// A thinner bar never carries a cell a denser one drops.
     ///
-    /// The three forms are one bar at three sizes, not three designs. If the
+    /// The four forms are one bar at four sizes, not four designs. If the
     /// pip form kept the graveyard while the compact form dropped it, a
     /// player would learn the bar twice and the seat sheet — which exists to
     /// carry exactly what a density drops — would have to know which.
@@ -384,19 +436,21 @@ mod tests {
         }
     }
 
-    /// Every form keeps the four things that answer "who is this and are they
-    /// alive", and every form draws the steps.
+    /// Every form keeps the promise the design makes about a bar.
+    ///
+    /// §7 of the spec answers "where is the game" with *every bar marks the
+    /// step the game is in*, so the steps are not optional at any size; the
+    /// swatch is what says whose bar it is, in the same colour that seat's
+    /// own rim wears; and the caret is what says who is holding priority.
+    /// Life, the name and the counts all go at the floor and are carried by
+    /// the seat sheet instead — because a bar wider than the mat it is
+    /// written on is a bar written across the seats beside it, and on an
+    /// eight-player ring a mat is a hundred and fifty pixels wide.
     #[test]
     fn no_form_drops_the_seat_or_the_turn() {
         for density in Density::ALL {
             let cells = density.cells();
-            for wanted in [
-                Cell::Caret,
-                Cell::Swatch,
-                Cell::Name,
-                Cell::Life,
-                Cell::Steps,
-            ] {
+            for wanted in [Cell::Caret, Cell::Swatch, Cell::Steps] {
                 assert!(
                     cells.contains(&wanted),
                     "{density:?} drops {wanted:?}, which is not optional"

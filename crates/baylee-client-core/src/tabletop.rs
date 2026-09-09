@@ -440,7 +440,7 @@ pub const MAT_LANES: [f32; 3] = [0.0135, 0.0105, 0.0080];
 /// It is added to [`crate::layout::POD_DEPTH`] rather than taken out of it:
 /// three lanes are still exactly a card tall each, because the ledge is
 /// furniture and a lane is where a card stands.
-pub const MAT_LEDGE: f32 = 0.85;
+pub const MAT_LEDGE: f32 = 0.95;
 
 /// The shelf has to clear the rim on both sides with something left in the
 /// middle, or the bar is written on its own border.
@@ -1532,11 +1532,29 @@ mod tests {
         );
         // And the ledge has to be a shelf rather than a fourth lane. That it
         // clears the rim is a `const _` beside the constant itself; this is
-        // the half that needs a lane to compare against.
-        assert!(
-            MAT_LEDGE < lane * 0.75,
-            "a {MAT_LEDGE} ledge against a {lane} lane reads as a fourth row"
-        );
+        // the half that needs the layout.
+        //
+        // Measured against a **card** rather than against a lane, and that is
+        // the tighter and the truer of the two: what makes a band read as a
+        // row is that a card would sit on it, not what fraction of the lane
+        // beside it the band happens to be. A lane carries a card plus air,
+        // so a bound of three-quarters of a lane lets the shelf grow to nine
+        // tenths of a card.
+        // A `const _` beside the constant would be the natural home, but
+        // `CARD_HEIGHT` lives in `layout` and the shelf lives here, so the
+        // two meet in a test rather than in a compile-time assertion.
+        #[allow(
+            clippy::assertions_on_constants,
+            reason = "the two crates' constants meeting"
+        )]
+        {
+            assert!(
+                MAT_LEDGE < crate::layout::CARD_HEIGHT * 0.75,
+                "a {MAT_LEDGE} ledge is three-quarters of the {} a card \
+                 stands in — that is a fourth row, not a shelf",
+                crate::layout::CARD_HEIGHT
+            );
+        }
     }
 
     /// The ink on the ledge has to be readable *as composited*, which is a

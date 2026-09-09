@@ -1363,6 +1363,7 @@ pub fn pointer(
     hand_cards: Query<&HandCardVisual>,
     tabs: Query<&PlayerTab>,
     phase_buttons: Query<&PhaseButton>,
+    seat_steps: Query<&crate::hud::SeatStep>,
     menu_buttons: Query<&MenuButton>,
     prompt_buttons: Query<&PromptButton>,
     ability_buttons: Query<&AbilityButton>,
@@ -1411,6 +1412,14 @@ pub fn pointer(
         }
         if let Some(button) = find_in_lineage(e, &phase_buttons, &parents) {
             prefs.edit().orders.toggle(button.side, button.row);
+            continue;
+        }
+        // A step tile on a seat bar toggles the same standing order the
+        // rail button does: `PhaseOrders` is keyed by `RailSide` and not by
+        // seat, so an order about opponents' turns is one order however
+        // many opponents are sitting at the table.
+        if let Some(tile) = find_in_lineage(e, &seat_steps, &parents) {
+            prefs.edit().orders.toggle(tile.side, tile.row);
             continue;
         }
         if let Some(button) = find_in_lineage(e, &menu_buttons, &parents) {

@@ -584,6 +584,20 @@ fn add_present_systems(app: &mut App) {
                 hud::light_the_current_step,
                 hud::flash_the_designation,
                 hud::ease_the_stack_in.after(hud::sync_overlay),
+                // The seat bars are ink pinned to a rectangle of felt, so
+                // they are measured from the rig the camera was just set
+                // from and placed in the same schedule. `bevy_ui` runs its
+                // layout *before* transform propagation, so a placer reading
+                // the camera's propagated `GlobalTransform` in `PostUpdate`
+                // would write a position the layout had already read past,
+                // and the ink would swim a frame behind the felt.
+                (
+                    hud::measure_shelves,
+                    hud::sync_seat_bars,
+                    hud::place_seat_bars,
+                )
+                    .chain()
+                    .after(table::apply_camera_rig),
             ),
             textures::drive_preloads,
             textures::load_the_card_back,
@@ -649,6 +663,8 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::HudRevision>()
             .init_resource::<hud::StackMotion>()
             .init_resource::<hud::DesignationFlash>()
+            .init_resource::<hud::Shelves>()
+            .init_resource::<hud::BarRevision>()
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
             .init_resource::<face::FaceMode>()
