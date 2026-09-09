@@ -985,6 +985,27 @@ fn front_face_slug(name: &str) -> String {
     baylee_cards_codegen::stubgen::slug(name.split(" // ").next().unwrap_or(name))
 }
 
+/// The cached Scryfall payload for a pool card, read once for every check
+/// that holds the card against its printing.
+///
+/// The cache is keyed by the name it was **fetched** under, and for a
+/// double-faced card that is both faces joined — Agadeem's Awakening is on
+/// disk as `agadeem_s_awakening_agadeem_the_undercrypt.json` — while the
+/// card's *file* is named after its front face alone. Three checks built
+/// the path from that file slug and so found nothing for 102 of the pool's
+/// 1365: every double-faced card in it, every payload present, every
+/// printing comparison quietly skipped. They were three copies of the same
+/// four lines, which is why all three were wrong in the same way, so the
+/// lookup is one function and the payload is now read once per card
+/// instead of three times.
+fn cached_printing(root: &Path, name: &str) -> Option<serde_json::Value> {
+    let path = root.join("data/scryfall-cache").join(format!(
+        "{}.json",
+        baylee_cards_codegen::stubgen::slug(name)
+    ));
+    serde_json::from_str(&fs::read_to_string(path).ok()?).ok()
+}
+
 /// Extracts the first `"`-quoted value after `key` (e.g. `name: "…"`).
 fn quoted_value<'a>(content: &'a str, key: &str) -> Option<&'a str> {
     let start = content.find(key)? + key.len();
@@ -996,35 +1017,43 @@ fn quoted_value<'a>(content: &'a str, key: &str) -> Option<&'a str> {
 /// All `mana_cost:` literals in the file (one per face), normalized:
 /// `{0}` and `ManaCost::ZERO` are the same thing.
 fn code_costs(content: &str) -> Vec<String> {
-    let mut costs = Vec::new();
-    let mut rest = content;
-    while let Some(pos) = rest.find("mana_cost: ") {
-        rest = &rest[pos + "mana_cost: ".len()..];
-        if rest.starts_with("ManaCost::ZERO") {
-            costs.push("(no cost)".to_string());
-        } else if rest.starts_with("baylee_core::mana!(\"") {
-            rest = &rest["baylee_core::mana!(\"".len()..];
-            if let Some(end) = rest.find('"') {
-                let lit = &rest[..end];
-                costs.push(if lit == "{0}" {
-                    "(no cost)".to_string()
-                } else {
-                    lit.to_string()
-                });
-            }
-        }
+    content.split("face! {").skip(1).map(face_cost).collect()
+}
+
+/// The `mana_cost` one `face!` block writes, or `(no cost)` for a face that
+/// writes none.
+///
+/// A costless face writes no `mana_cost` line at all — `FaceDef::DEFAULT`
+/// supplies `ManaCost::ZERO` and the authoring rule is never to restate a
+/// default — so [`code_costs`] has to be **positional** rather than a
+/// scrape of the written lines. It was a scrape with one "(no cost)"
+/// appended when the counts disagreed, which put the entry on the wrong
+/// face: Ishgard, the Holy See is a Town on the front of an Adventure, so
+/// the first cost the file writes belongs to the *second* face, and the
+/// checker reported that the printing costs nothing while the code costs
+/// {3}{W}{W}. Five cards said it, all of them a land or a town in front of
+/// a spell — and none of them said it until the payload lookup started
+/// finding double-faced cards at all.
+///
+/// A block reaches to the start of the next one, so the last block reaches
+/// the end of the file and would pick up a `mana_cost:` written after the
+/// `faces` list closes. Measured 2026-09-09 over the 109 multi-faced files:
+/// none writes one there, and both callers would be blind to it if one did —
+/// the header check compares sets and the printing check reads the front
+/// face.
+fn face_cost(face: &str) -> String {
+    const NONE: &str = "(no cost)";
+    let Some(pos) = face.find("mana_cost: ") else {
+        return NONE.to_string();
+    };
+    let rest = &face[pos + "mana_cost: ".len()..];
+    let Some(rest) = rest.strip_prefix("baylee_core::mana!(\"") else {
+        return NONE.to_string();
+    };
+    match rest.find('"') {
+        Some(end) if &rest[..end] != "{0}" => rest[..end].to_string(),
+        _ => NONE.to_string(),
     }
-    // A costless face writes no `mana_cost` line at all — `FaceDef::DEFAULT`
-    // supplies `ManaCost::ZERO` and the authoring rule is never to restate a
-    // default. So a face the loop above did not see *is* a free face, which
-    // is how a land on the front of a modal double-faced card gets its
-    // "(no cost)" back. Reading only the written lines made the checker
-    // demand that a Land carry the cost of the Sorcery on its other side.
-    let faces = content.matches("face! {").count();
-    if faces > costs.len() {
-        costs.push("(no cost)".to_string());
-    }
-    costs
 }
 
 /// Compares the mandatory human-readable header against the `CardDef`
@@ -1052,31 +1081,17 @@ fn code_costs(content: &str) -> Vec<String> {
 ///
 /// A card with no cached payload is skipped rather than failed, because
 /// failing on its absence would turn a data-fetching problem into a build
-/// failure about card rules. It reaches 1263 of the pool's 1365, and the
-/// missing 102 are not missing data: a double-faced card's payload is cached
-/// under **both** face names (`agadeem_s_awakening_agadeem_the_undercrypt`)
-/// while the pool slugs it by its front face alone, so `{slug}.json` finds
-/// nothing and every printing check quietly skips the card. Closing that is
-/// its own change — three call sites read the cache this way — and it would
-/// hand this function a hundred cards it has never seen.
-/// [`PrintingTally`]'s floors are what say the reach has not shrunk further.
+/// failure about card rules. It now reaches all 1365 — it reached 1263 until
+/// [`cached_printing`] learned the name a double-faced card is filed under —
+/// and [`PrintingTally`]'s floors are what say the reach has not shrunk
+/// again.
 fn check_code_matches_the_printing(
-    root: &Path,
     slug: &str,
     content: &str,
+    payload: &serde_json::Value,
     tally: &mut PrintingTally,
     problems: &mut usize,
 ) {
-    let path = root
-        .join("data/scryfall-cache")
-        .join(format!("{slug}.json"));
-    let Ok(text) = fs::read_to_string(&path) else {
-        return;
-    };
-    let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) else {
-        return;
-    };
-    tally.payloads += 1;
     // A double-faced card carries its per-face costs and P/T inside
     // `card_faces`, and its top-level `mana_cost` is the two sides joined
     // with " // " — a string no `CardDef` face ever holds.
@@ -1151,17 +1166,22 @@ struct PrintingTally {
 /// The shape is `baylee_cards::lints`' own — "the sweep is not reaching the
 /// pool" — and it exists for the same reason: a checker that silently stops
 /// checking reports a clean pool.
-/// Measured 2026-09-09 over a pool of 1365: 1263 payloads, 7 loyalty, 1263
-/// identity, 44 keyword, 361 mana. The two 1263s are every card whose payload
-/// was *found* — 102 double-faced cards are cached under a two-face slug the
-/// lookup does not build — so their floor is that reach minus room for cards
-/// leaving the pool, and it would catch the reach shrinking without catching
-/// the hundred it never had.
+/// Measured 2026-09-09 over a pool of 1365: **1365** payloads, 7 loyalty,
+/// 1365 identity, 49 keyword, 361 mana. The first two are now every card in
+/// the pool rather than the 1263 the lookup used to find, so the floor under
+/// them is a real bound and not a record of a gap: nothing but a card
+/// leaving the pool can move it down.
+///
+/// The two that did not move are the two the new cards had nothing to add
+/// to. Loyalty is 7 and the pool holds exactly seven planeswalker faces, so
+/// that check was already whole. Mana is 361 because 97 of the pool's 109
+/// multi-faced files are still `// GENERATED STUB`, and a stub writes no
+/// mana ability for the check to read.
 const PRINTING_FLOOR: PrintingTally = PrintingTally {
-    payloads: 1200,
+    payloads: 1300,
     loyalty: 6,
-    identity: 1200,
-    keywords: 40,
+    identity: 1300,
+    keywords: 45,
     mana: 340,
 };
 
@@ -1292,22 +1312,12 @@ fn color_letters(set: baylee_cards::dsl::ColorSet) -> String {
 /// absent from all three: the cache, the DSL, and the pool, which has no
 /// battle in it.
 fn check_card_matches_the_printing(
-    root: &Path,
     slug: &str,
     def: &baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
     tally: &mut PrintingTally,
     problems: &mut usize,
 ) {
-    let path = root
-        .join("data/scryfall-cache")
-        .join(format!("{slug}.json"));
-    let Ok(text) = fs::read_to_string(&path) else {
-        return;
-    };
-    let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) else {
-        return;
-    };
-
     // Color identity (CR 903.4) decides which decks may play the card, and
     // it is codegen's arithmetic over every face rather than anything a
     // person typed — which is exactly why nothing was checking it.
@@ -1333,7 +1343,7 @@ fn check_card_matches_the_printing(
         }
     }
 
-    let whole = printed_text(&payload).to_lowercase();
+    let whole = printed_text(payload).to_lowercase();
     let printed = strip_reminders(&whole);
 
     // Keywords, in the one direction that is a bug. A bit the code claims
@@ -1686,10 +1696,10 @@ const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
 /// rules the card carries, and hexproof's own reminder ends "…spells or
 /// abilities your opponents control" on every card that has it.
 fn check_scope_matches_the_text(
-    root: &Path,
     slug: &str,
     name: &str,
     def: &baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
     problems: &mut usize,
 ) {
     if !matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented) {
@@ -1698,16 +1708,7 @@ fn check_scope_matches_the_text(
     if SCOPE_EXCEPTIONS.iter().any(|(card, _)| *card == name) {
         return;
     }
-    let path = root
-        .join("data/scryfall-cache")
-        .join(format!("{slug}.json"));
-    let Ok(text) = fs::read_to_string(&path) else {
-        return;
-    };
-    let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) else {
-        return;
-    };
-    let printed = strip_reminders(&printed_text(&payload)).to_lowercase();
+    let printed = strip_reminders(&printed_text(payload)).to_lowercase();
 
     // The filters the card was built from, read off the one rendering that
     // cannot go stale as the DSL grows a variant.
@@ -1808,12 +1809,21 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             }
         }
         check_header_matches_code(&slug, &content, &mut problems);
-        if let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) {
-            check_scope_matches_the_text(root, &slug, def.name(), def, &mut problems);
-            check_card_matches_the_printing(root, &slug, def, &mut tally, &mut problems);
-        }
         check_search_tapped_matches_text(&slug, &content, &mut problems);
-        check_code_matches_the_printing(root, &slug, &content, &mut tally, &mut problems);
+        let def = by_name.get(name.split(" // ").next().unwrap_or(name));
+        // One read for the three checks that need it, and the tally counts
+        // the card here rather than inside one of them: "the payload was
+        // found" is a fact about the card, not about whichever check
+        // happened to look first.
+        let Some(payload) = cached_printing(root, name) else {
+            continue;
+        };
+        tally.payloads += 1;
+        if let Some(def) = def {
+            check_scope_matches_the_text(&slug, def.name(), def, &payload, &mut problems);
+            check_card_matches_the_printing(&slug, def, &payload, &mut tally, &mut problems);
+        }
+        check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
     }
     // Before the bail, not after it: a floor that failed is only readable
     // beside the counts that failed it.

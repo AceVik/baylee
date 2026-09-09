@@ -298,11 +298,19 @@ command ends by printing how many it actually made and failing if that falls
 below a floor. A checker that has silently stopped checking reports a clean
 pool, which is the one failure a card gate must not have.
 
-The reach today is **1263 of the 1365**, and the gap is a slug, not missing
-data: a double-faced card is cached under both of its face names
-(`agadeem_s_awakening_agadeem_the_undercrypt.json`) and the pool names it by
-its front face, so the lookup misses and all 102 of them go unchecked against
-their printings. Every one of the 102 has its payload on disk.
+The reach today is **all 1365**. It was 1263, and the gap was a slug rather
+than missing data: a double-faced card is cached under both of its face names
+(`agadeem_s_awakening_agadeem_the_undercrypt.json`) while the pool names its
+file after the front face alone, so three separate copies of the same four
+lines built `{slug}.json` and found nothing for every double-faced card in
+the pool. `cached_printing` is the one lookup they now share.
+
+What the other 102 brought with them is the reason to care: five cards where
+a Town or a Land is printed in front of a spell, reported as costing nothing
+in the printing and `{3}{W}{W}` in the code. The cards were right. A costless
+face writes no `mana_cost` line at all — never restate a default — so reading
+the file's mana costs as a list of the lines it *writes* handed the front face
+the back face's cost, and the list is read per `face!` block now.
 
 If you want more cards generated, the lever is usually **this document's
 vocabulary**, not the readers. `cargo run -p xtask -- forge-report` ranks
