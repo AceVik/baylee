@@ -137,7 +137,14 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for &id in self.state.zones.list(ZoneLocation::Battlefield) {
-            if casting::can_activate_mana(&self.state, player, id) {
+            // Karn's lock, asked on the offering side too. It stops every
+            // activated ability of the permanent, a mana ability included —
+            // CR 605.1 makes a mana ability a kind of activated ability, not
+            // an exception to one. What it does *not* stop is a cast, which
+            // is why this is two guards and not a `continue`: the Prepared
+            // rider below offers a spell.
+            let locked = self.artifact_activations_are_locked(id);
+            if !locked && casting::can_activate_mana(&self.state, player, id) {
                 legal.mana_abilities.push(id);
             }
             // Activated abilities of controlled permanents.
@@ -149,7 +156,12 @@ impl<L: CardLookup> Engine<L> {
             }
             // A token's abilities come from its definition rather than from a
             // card; everything below reads the same `AbilityDef`s either way.
-            for (i, ability) in obj.abilities(&self.lookup).iter().enumerate() {
+            let offered: &[AbilityDef] = if locked {
+                &[]
+            } else {
+                obj.abilities(&self.lookup)
+            };
+            for (i, ability) in offered.iter().enumerate() {
                 match ability {
                     AbilityDef::Activated {
                         cost,
@@ -239,6 +251,17 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
             }
+            // Karn's lock reaches the grants below as well: an ability a
+            // continuous effect gave an artifact is an activated ability of
+            // that artifact like any other. This is the third door onto the
+            // same list — printed, intrinsic, granted — and the one that made
+            // moving the check to the top of `start_activation` necessary,
+            // because `start_granted_activation` returns before the branch it
+            // used to sit in. (Prepared, in between, is the door the lock
+            // leaves open: that one offers a spell.)
+            if locked {
+                continue;
+            }
             // Granted abilities (Urza's Saga chapters, a Chromatic Lantern's
             // lands): each surfaces under its own synthetic index. The slot
             // is the *position among the grants that apply*, affordable or
@@ -322,6 +345,33 @@ impl<L: CardLookup> Engine<L> {
             return !eval::target_player_options(&self.state, &spec, player).is_empty();
         }
         !eval::target_options(&spec, &self.state, player, source).is_empty()
+    }
+
+    /// Whether Karn's lock covers this permanent: "activated abilities of
+    /// artifacts your *opponents* control can't be activated".
+    ///
+    /// Not "everyone but me" — a teammate is neither, and at a two-headed
+    /// table the two readings differ by every artifact on Karn's own side of
+    /// the table but Karn's controller's.
+    ///
+    /// One probe read from both sides, for the reason
+    /// [`Engine::ability_has_a_target`] gives. The lock lived only in `apply`,
+    /// which is invisible while the walker is yours — the abilities it stops
+    /// are on the *other* seat's board, and that seat was still being offered
+    /// every one of them.
+    pub(crate) fn artifact_activations_are_locked(&self, id: ObjectId) -> bool {
+        let Some(obj) = self.state.object(id) else {
+            return false;
+        };
+        obj.characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::ARTIFACT)
+            && self.state.effects.iter().any(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::CantActivateArtifacts
+                ) && self.state.is_opponent(obj.controller, fx.controller)
+            })
     }
 
     /// Precondition check for `ActivatedConditional` abilities (B1).
@@ -578,6 +628,16 @@ impl<L: CardLookup> Engine<L> {
         if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);
         }
+        // Karn's lock, ahead of every route below it. It used to sit inside
+        // the printed-ability branch, which the granted and loyalty branches
+        // return before reaching — so a locked artifact's *granted* ability
+        // passed under it. Structural rather than observed: the offer guard
+        // above refuses first, and no test gets this far.
+        if self.artifact_activations_are_locked(source) {
+            return Err(EngineError::IllegalAction(
+                "activated abilities of artifacts can't be activated (Karn)",
+            ));
+        }
         // Granted abilities (synthetic index): resolve via the side map.
         if let Some(slot) = crate::choice::granted_slot(ability_index) {
             return self.start_granted_activation(player, source, slot, targets);
@@ -599,26 +659,6 @@ impl<L: CardLookup> Engine<L> {
             let card = obj
                 .card
                 .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
-            // Karn's lock: "activated abilities of artifacts your *opponents*
-            // control can't be activated". Not "everyone but me" — a
-            // teammate is neither, and at a two-headed table the two
-            // readings differ by every artifact on Karn's own side of the
-            // table but Karn's controller's.
-            if obj
-                .characteristics()
-                .types
-                .contains(baylee_core::types::TypeSet::ARTIFACT)
-                && self.state.effects.iter().any(|fx| {
-                    matches!(
-                        fx.modifier,
-                        baylee_cards_dsl::Modifier::CantActivateArtifacts
-                    ) && self.state.is_opponent(obj.controller, fx.controller)
-                })
-            {
-                return Err(EngineError::IllegalAction(
-                    "activated abilities of artifacts can't be activated (Karn)",
-                ));
-            }
             // The object's own list, which is what `legal_actions` indexed
             // when it offered this. Reading the card's instead was the
             // "two probes must agree" bug once more: a Glasspool Mimic

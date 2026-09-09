@@ -61,6 +61,29 @@ fn ondu_cleric() -> baylee_core::ids::CardIndex {
 fn werefox_bodyguard() -> baylee_core::ids::CardIndex {
     card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
 }
+fn karn_the_great_creator() -> baylee_core::ids::CardIndex {
+    card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
+}
+/// An artifact *land*, so the ability Karn's lock has to stop is a mana
+/// ability — the case that says the lock reads CR 605.1 rather than
+/// treating a mana ability as something other than an activated one.
+fn vault_of_whispers() -> baylee_core::ids::CardIndex {
+    card_index("09496421-74e4-466a-9546-56f2a0c8eef4")
+}
+fn skyclave_apparition() -> baylee_core::ids::CardIndex {
+    card_index("d90af00a-d322-4265-9954-7b1e80702e18")
+}
+/// Mana value five, and nothing else about it matters: it is here to be
+/// one over Skyclave Apparition's limit.
+fn sea_gate_loremaster() -> baylee_core::ids::CardIndex {
+    card_index("6eed122b-9760-47fd-8ba2-adeda8054e0d")
+}
+fn mycosynth_lattice() -> baylee_core::ids::CardIndex {
+    card_index("ae1f2ab5-c6a5-4d49-a746-3cb4668bf805")
+}
+fn chromatic_lantern() -> baylee_core::ids::CardIndex {
+    card_index("539f5396-d99a-417d-a84c-dff7930b5900")
+}
 
 /// The one *non-mana* activated ability `source` is offering right now.
 ///
@@ -94,6 +117,21 @@ fn offered_ability(
             ))
         .then_some(*index)
     })
+}
+
+/// Whether `LegalActions` is offering *any* ability of `source` right now,
+/// a mana ability included.
+///
+/// [`offered_ability`] deliberately steps over mana abilities, because most
+/// tests here are about the one ability a permanent has that is not one.
+/// Karn's lock is the opposite question — it stops every activated ability
+/// of an artifact, and a mana ability is one (CR 605.1).
+#[track_caller]
+fn offers_an_ability(engine: &Engine<RegistryLookup>, source: baylee_core::ids::ObjectId) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    legal.abilities.iter().any(|(id, _)| *id == source) || legal.mana_abilities.contains(&source)
 }
 
 /// The options a target choice is offering right now.
@@ -542,4 +580,229 @@ fn an_ability_the_copy_paid_for_with_its_life_still_resolves() {
         (0, 0),
         "the card in the graveyard is Glasspool Mimic, not the 2/2 it copied"
     );
+}
+
+/// Karn, the Great Creator plus an artifact land across the table.
+///
+/// `karns_lock_spares_a_teammate` proved the lock refuses the right seat;
+/// this asks the other half of the same question, which nothing asked:
+/// whether the seat it locks is still being *offered* what it cannot do.
+/// It was. The refusal lived in `apply` alone, and that is invisible from
+/// Karn's own side of the table — the abilities the lock stops are on the
+/// opponent's board, and an opponent's board is not what a test driving
+/// Karn looks at.
+///
+/// Two bystanders, because the lock has two edges. My own Llanowar Elves
+/// taps for mana exactly as before — the lock is about artifacts, not about
+/// me — and Karn's controller keeps their own Vault, which is the sentence
+/// `karns_lock_spares_a_teammate` was written for, read here through the
+/// offer instead of through the refusal.
+#[test]
+fn karns_lock_takes_their_artifact_off_the_list_and_leaves_the_rest_alone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(76, forest())
+        .battlefield(0, &[vault_of_whispers(), llanowar_elves()])
+        .battlefield(1, &[karn_the_great_creator(), vault_of_whispers()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_vault = on_battlefield(&engine, p0, vault_of_whispers()).expect("my vault");
+    let my_elves = on_battlefield(&engine, p0, llanowar_elves()).expect("my elves");
+    let their_vault = on_battlefield(&engine, p1, vault_of_whispers()).expect("their vault");
+
+    assert!(
+        !offers_an_ability(&engine, my_vault),
+        "Karn's lock stops my artifact land's mana ability, so it must not be offered"
+    );
+    assert!(
+        offers_an_ability(&engine, my_elves),
+        "the lock is about artifacts; an Elf Druid taps for mana as before"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: my_vault,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the two probes have to agree: what is not offered is not applied"
+    );
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p1),
+        "expected the opponent to hold priority, got {:?}",
+        engine.pending()
+    );
+    assert!(
+        offers_an_ability(&engine, their_vault),
+        "the lock spares its own controller: {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: their_vault,
+                ability_index: 0,
+            },
+        )
+        .expect("Karn's controller may still tap their own artifact land");
+}
+
+/// Skyclave Apparition against a board that is wrong in both directions at
+/// once: "nonland, nontoken permanent **you don't control** with mana value
+/// **4 or less**" is two clauses, and a test whose board fails only one of
+/// them cannot tell which clause is doing the work.
+///
+/// So the opponent gets a two-drop that must be offered and a five-drop
+/// that must not, and I keep a one-drop of my own that must not be offered
+/// either — the same permanent the mana-value clause would happily allow.
+#[test]
+fn skyclave_reaches_their_cheap_permanent_and_neither_their_dear_one_nor_mine() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(77, forest())
+        .battlefield(0, &[plains(), plains(), plains(), llanowar_elves()])
+        .hand(0, &[skyclave_apparition()])
+        .battlefield(1, &[snapcaster_mage(), sea_gate_loremaster()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my one-drop");
+    let cheap = on_battlefield(&engine, p1, snapcaster_mage()).expect("their two-drop");
+    let dear = on_battlefield(&engine, p1, sea_gate_loremaster()).expect("their five-drop");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let apparition = in_hand(&engine, p0, skyclave_apparition()).expect("apparition in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: apparition })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    let options = target_options(&engine);
+    assert!(
+        options.contains(&cheap),
+        "their two-drop is what the trigger is for: {options:?}"
+    );
+    assert!(
+        !options.contains(&dear),
+        "mana value 5 is one over the limit: {options:?}"
+    );
+    assert!(
+        !options.contains(&mine),
+        "\"you don't control\" does not reach my own board: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cheap],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(cheap)
+            .is_none_or(|o| o.zone != Zone::Battlefield)
+    });
+    assert_eq!(
+        engine.state().object(cheap).map(|o| o.zone),
+        Some(Zone::Exile),
+        "the chosen permanent is exiled, and the bystanders are still where they were"
+    );
+    assert_eq!(
+        engine.state().object(dear).map(|o| o.zone),
+        Some(Zone::Battlefield)
+    );
+    assert_eq!(
+        engine.state().object(mine).map(|o| o.zone),
+        Some(Zone::Battlefield)
+    );
+}
+
+/// Karn, the Great Creator plus Mycosynth Lattice — the lock the pair is
+/// famous for — with a Chromatic Lantern under it, so that all three doors
+/// onto `LegalActions` are shut at once.
+///
+/// [`karns_lock_takes_their_artifact_off_the_list_and_leaves_the_rest_alone`]
+/// reaches the lock through `LegalActions::abilities`, because a Vault of
+/// Whispers prints its own `{T}: Add {B}`. A Plains prints nothing: its mana
+/// comes off the type line (CR 305.6) and is offered through the separate
+/// `mana_abilities` list. The Lantern adds the third — "lands you control
+/// have `{T}`: Add one mana of any color" is *granted*, and a granted
+/// ability is offered from its own loop under a synthetic index. All three
+/// are activated abilities of an artifact once the Lattice has spoken, and
+/// each was a separate `push` that had to learn the same word.
+///
+/// The bystander is across the table and is the same card: Karn's controller
+/// keeps their own Plains, because the lock reads "artifacts your opponents
+/// control" and the Lattice does not change whose permanent anything is.
+#[test]
+fn karn_and_the_lattice_lock_their_basic_lands_too() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(78, forest())
+        .battlefield(0, &[plains(), llanowar_elves(), chromatic_lantern()])
+        .battlefield(
+            1,
+            &[karn_the_great_creator(), mycosynth_lattice(), plains()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_plains = on_battlefield(&engine, p0, plains()).expect("my plains");
+    let my_elves = on_battlefield(&engine, p0, llanowar_elves()).expect("my elves");
+    let my_lantern = on_battlefield(&engine, p0, chromatic_lantern()).expect("my lantern");
+    let their_plains = on_battlefield(&engine, p1, plains()).expect("their plains");
+
+    assert!(
+        !offers_an_ability(&engine, my_plains),
+        "under the Lattice my Plains is an artifact, so neither its own mana \
+         ability nor the one the Lantern grants it may be offered"
+    );
+    assert!(
+        !offers_an_ability(&engine, my_elves),
+        "so is my Elf Druid, and so is its"
+    );
+    assert!(
+        !offers_an_ability(&engine, my_lantern),
+        "the Lantern is an artifact whatever the Lattice says"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: my_plains })
+            .is_err(),
+        "the action validates against the offered list, so taking the land \
+         off it is what refuses the tap"
+    );
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        offers_an_ability(&engine, their_plains),
+        "the Lattice does not change whose permanent anything is: {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateManaAbility {
+                source: their_plains,
+            },
+        )
+        .expect("Karn's controller taps their own land as before");
 }
