@@ -39,7 +39,7 @@ Two consequences worth knowing before changing anything here:
 | Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
 | Battlefield camera: rotate | `Shift+←/→`, left-drag, rotate gesture | implemented |
 | Battlefield camera: tilt | left-drag (up/down) | implemented |
-| Select a phase/step button (the rail's keyboard cursor) | `⇧W` / `⇧S` | implemented |
+| Select a step tile (the seat bars' keyboard cursor) | `⇧W` / `⇧S` | implemented |
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Fast-forward to the next turn | `⇧Tab` | implemented |
 | Number choices (X) | arrows, digits, `⌫` (or the `−`/`+` buttons) | implemented |
@@ -88,7 +88,10 @@ thing the next declaration will be pointed at.
 Two independent things, both stored per account:
 
 - **The phase rail** — one button per step of the turn, per side of the
-  table, laid out left to right across the top of the screen under the seats.
+  table. It was a strip across the top of the window and is now written on
+  each seat's own mat: the twelve steps run along that seat's shelf, on the
+  edge of the mat that reads as *above* the board from where the local player
+  is sitting (`hud::seatbar`, `client-core/src/seatbar.rs`).
   Green means "ask me here", red means "skip"; the untap row is grey and
   answers nothing, because no player receives priority there (CR 502.4). Nothing is red by default: a
   client that auto-passes without being asked loses games its player never
@@ -182,10 +185,13 @@ taps them and then casts. Nothing is spent that a player would want to decide
 if anything about the board changes mid-way the taps stop and the turn comes
 back with a line in the prompt bar saying why (see `docs/client.md`
 §"Tapping lands for a spell"). Tapping a land by hand still works and always
-did; this only removes the requirement. Player tabs at the top switch board views; every step of the turn
-(Untap, Upkeep, Draw, Main 1, Begin Combat, Attackers, Blockers, Damage, End
-of Combat, Main 2, End Step, Cleanup) has its own rail button toggling green /
-red on click; the rail's "Next ▶" and "End ⏭" buttons fast-forward like `Tab`.
+did; this only removes the requirement. Every seat's bar is written on that
+seat's own mat, on the shelf along the edge of the board it describes, and
+clicking it switches board views (or points at that seat, while a choice is
+asking for a face). Every step of the turn (Untap, Upkeep, Draw, Main 1,
+Begin Combat, Attackers, Blockers, Damage, End of Combat, Main 2, End Step,
+Cleanup) has its own tile on that bar, toggling green / red on click.
+Fast-forwarding is `Tab` and `⇧Tab`, which have no buttons of their own.
 Clicking your own permanent activates what it is offering: one ability arms
 straight away (or goes through, if it makes mana), several open a chooser on
 its own row of the prompt bar ("Tap for G", "+1", "Ability 2"). The prompt bar carries the answers for

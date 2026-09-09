@@ -22,9 +22,10 @@
 // `table::shader_tests::the_shader_and_the_generator_agree_about_the_mat`
 // fails if the two drift.
 //
-// # WebGL2
+// # The browser's budget
 //
-// Uniforms only, no textures, no loops.
+// Uniforms only, no textures, no loops — the WebGL2 envelope, kept although
+// the browser build renders through WebGPU now. See `cardmat`'s header.
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::globals
@@ -44,6 +45,15 @@ struct MatParams {
     /// The clock the travelling light runs on: `MOVING` or `STILL`, the same
     /// two values the cards, the felt and the sky use.
     motion: f32,
+    /// 1 when this seat's shelf is on the mat's *outer* edge, 0 when it is on
+    /// the centre-facing one: `SeatSlot::ledge_is_outer`.
+    ///
+    /// A seat drawn across the table has its board upside-down from here, so
+    /// its shelf goes at the far end of the mat and its bar is still above
+    /// its creatures on the screen somebody is looking at. The lanes do not
+    /// turn round with it — where a card stands is the seat's own business —
+    /// which is why this cannot be a flipped uv and has to be a flag.
+    ledge_outer: f32,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: MatParams;
@@ -155,16 +165,26 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    // The seat's ledge, then three lanes down what is left of the mat's
-    // depth, brightest at the front where the creatures stand, and a hairline
-    // between them so the rows separate without a border drawn round each
-    // one. `uv.y = 0` is the edge nearest the middle of the table, which is
-    // the same end `seat_mat` paints the ledge at.
+    // The seat's ledge and three lanes, brightest at the front where the
+    // creatures stand, and a hairline between them so the rows separate
+    // without a border drawn round each one. `uv.y = 0` is the edge nearest
+    // the middle of the table, which is the same end `seat_mat` measures
+    // from.
+    //
+    // The lanes always run from that end outwards; only the shelf moves. So
+    // the block of three starts at `first` — one shelf in when the shelf is
+    // at this end, at zero when it is at the other — while `from_shelf` is
+    // the depth read from whichever end the shelf took, which answers both
+    // "is this the shelf" and "how far is the fence" without a second case.
     let v = in.uv.y;
-    let a = LEDGE_FRAC + (1.0 - LEDGE_FRAC) / 3.0;
-    let b = LEDGE_FRAC + (1.0 - LEDGE_FRAC) * 2.0 / 3.0;
+    let outer = params.ledge_outer > 0.5;
+    let lanes = 1.0 - LEDGE_FRAC;
+    let first = select(LEDGE_FRAC, 0.0, outer);
+    let from_shelf = select(v, 1.0 - v, outer);
+    let a = first + lanes / 3.0;
+    let b = first + lanes * 2.0 / 3.0;
     var lane = LANE_FAR;
-    if v < LEDGE_FRAC {
+    if from_shelf < LEDGE_FRAC {
         lane = LANE_LEDGE;
     } else if v < a {
         lane = LANE_NEAR;
@@ -176,7 +196,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // The ledge's own boundary is a seam too, and a brighter one: it is where
     // a seat's ground stops being a place cards stand on and becomes a shelf
     // they are described on.
-    let ledge_seam = clamp(1.0 - abs(v - LEDGE_FRAC) / SEAM_W, 0.0, 1.0) * SEAM * LEDGE_SEAM;
+    let ledge_seam = clamp(1.0 - abs(from_shelf - LEDGE_FRAC) / SEAM_W, 0.0, 1.0) * SEAM * LEDGE_SEAM;
     let seam = max(lane_seam, ledge_seam);
 
     // The rim: the one part meant to be read from across the table, since it

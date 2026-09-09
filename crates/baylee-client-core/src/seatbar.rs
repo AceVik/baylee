@@ -525,26 +525,53 @@ mod tests {
         }
     }
 
-    /// A duel's own shelf takes the form the spec says it does.
+    /// The ladder answers in the right order and changes hands where it says
+    /// it does.
     ///
-    /// The local ledge projects to about 0.635 of the window's width at a
-    /// duel framing — measured, and re-measured by `camera_tests` against the
-    /// real projection. This is the reading of that number: a laptop sees the
-    /// compact bar and only a wide window sees labels on the tiles.
+    /// Arithmetic about a strip of screen, which is all this crate can
+    /// honestly claim: how long a *particular* table's shelf actually
+    /// projects needs the camera, and the answer to "does a laptop duel get
+    /// the compact bar" is therefore
+    /// `table::camera_tests::a_duel_gets_the_bar_its_window_can_hold`, where
+    /// there is a `Lens` to ask.
+    ///
+    /// This used to be that test, written against a shelf modelled as
+    /// `window.x * 0.635`. A constant cannot be wrong about the projection it
+    /// is standing in for and so it never failed: the real ratio at a duel is
+    /// 0.659, which puts a 1440-wide window at 949 px and the **full** bar,
+    /// while the test went on promising the compact one.
     #[test]
-    fn a_laptop_duel_sees_the_compact_bar() {
-        let shelf = |window: f32| window * 0.635;
-        for (window, wanted) in [
-            (1280.0, Density::Compact),
-            (1440.0, Density::Compact),
-            (1728.0, Density::Full),
-            (1920.0, Density::Full),
-        ] {
-            assert_eq!(
-                Density::for_length(shelf(window), false),
-                wanted,
-                "a {window}-wide duel should draw the {wanted:?} bar"
-            );
+    fn the_ladder_hands_over_at_its_own_boundaries() {
+        for designated in [false, true] {
+            for density in Density::ALL {
+                let least = density.min_length(designated);
+                assert_eq!(
+                    Density::for_length(least, designated),
+                    density,
+                    "{density:?} should be the answer at its own floor"
+                );
+                // And a hair under it is the next form down, so no length
+                // falls between two rungs. `Mark` is the floor and has no
+                // rung below it.
+                if density != Density::Mark {
+                    assert_ne!(
+                        Density::for_length(least - 0.5, designated),
+                        density,
+                        "{density:?} still answers below its floor"
+                    );
+                }
+            }
+            // Densest first, so a longer shelf never gets a poorer bar.
+            let mut last = Density::Mark;
+            for length in (0..2000u16).map(f32::from) {
+                let got = Density::for_length(length, designated);
+                assert!(
+                    got.rank() <= last.rank(),
+                    "a {length}px shelf got {got:?} after a shorter one got \
+                     {last:?}"
+                );
+                last = got;
+            }
         }
     }
 

@@ -1637,7 +1637,13 @@ fn well_of(
 /// The size is the mat's own, in table units, and that is the difference the
 /// whole material exists for: the corner and the rim are lengths on this
 /// board rather than fractions of an image that was then stretched over it.
-fn mat_params(accent: Color, size: Vec2, mood: Mood, moving: bool) -> crate::matmat::MatParams {
+fn mat_params(
+    accent: Color,
+    size: Vec2,
+    mood: Mood,
+    moving: bool,
+    ledge_outer: bool,
+) -> crate::matmat::MatParams {
     let rgb = accent.to_linear();
     crate::matmat::MatParams {
         accent: Vec4::new(rgb.red, rgb.green, rgb.blue, zone_brightness(mood)),
@@ -1650,6 +1656,7 @@ fn mat_params(accent: Color, size: Vec2, mood: Mood, moving: bool) -> crate::mat
         } else {
             crate::cardmat::STILL
         },
+        ledge_outer: if ledge_outer { 1.0 } else { 0.0 },
     }
 }
 
@@ -1883,7 +1890,7 @@ pub fn sync_zones(
         let mood = Mood::of(pod);
         let accent = seat_accent(slot);
         let size = slot.half_extent * 2.0 + Vec2::splat(ZONE_MARGIN * 2.0);
-        let params = mat_params(accent, size, mood, moving);
+        let params = mat_params(accent, size, mood, moving, slot.ledge_is_outer());
         // Two different colours, not one with a dimmer on it. The mat carries
         // the seat's colour in its own rim and nowhere else, so a tint over
         // the whole thing would put the accent on the felt as well; what the
@@ -2577,6 +2584,98 @@ mod camera_tests {
         }
     }
 
+    /// A duel gets the bar its window can hold.
+    ///
+    /// The claim `baylee-client-core` cannot make on its own: which density
+    /// a *real* table's shelf projects to. It used to be made there anyway,
+    /// against a shelf modelled as `window.x * 0.635`, and a constant cannot
+    /// be wrong about the projection it stands in for — so it passed while
+    /// promising the compact bar at a width that actually gets the full one.
+    /// Measured here through the same `Lens` the renderer places from.
+    #[test]
+    fn a_duel_gets_the_bar_its_window_can_hold() {
+        use crate::hud::Shelf;
+        for (width, wanted) in DUEL_BARS {
+            let window = Vec2::new(width, width * WINDOW.y / WINDOW.x);
+            let canvas = Canvas::hud(window);
+            let layout = TableLayout::new(&seats(2), canvas.aspect(), None);
+            let rig = CameraRig::home(&layout, canvas);
+            let lens = Lens::new(rig, canvas.window);
+            let local = &layout.slots[0];
+            let corners = lens
+                .corners(local.ledge_corners())
+                .expect("the local ledge is in front of the camera");
+            let shelf = Shelf::of(corners, false);
+            assert_eq!(
+                shelf.density, wanted,
+                "a {width}-wide duel projects a {:.0} px shelf, which is the \
+                 {:?} bar and not the {wanted:?} one",
+                shelf.along, shelf.density
+            );
+        }
+    }
+
+    /// What [`a_duel_gets_the_bar_its_window_can_hold`] promises, in one
+    /// place, because these are the numbers a reader wants and not the loop
+    /// around them.
+    ///
+    /// Measured, at a window kept the shape of [`WINDOW`]: the local ledge
+    /// projects to 842, 942, 1122 and 1241 pixels, which is 0.658 down to
+    /// 0.646 of the window's width — a ratio rather than a constant, because
+    /// `Canvas::hud` takes a *fixed* hand bar off the bottom and a small
+    /// window is therefore a squarer canvas. The full bar wants 924, so the
+    /// hand-over is at about 1400 logical pixels: a 1280 laptop is the one
+    /// window in the list that reads its own seat off the compact bar.
+    const DUEL_BARS: [(f32, baylee_client_core::seatbar::Density); 4] = [
+        (1280.0, baylee_client_core::seatbar::Density::Compact),
+        (1440.0, baylee_client_core::seatbar::Density::Full),
+        (1728.0, baylee_client_core::seatbar::Density::Full),
+        (1920.0, baylee_client_core::seatbar::Density::Full),
+    ];
+
+    /// A free-for-all of three is on the circle it is supposed to be on.
+    ///
+    /// `layout::ROUND_COST` has always said a table with no allies is
+    /// *offered* a circle and takes it when the camera can afford it, and at
+    /// three seats a circle is the whole point: an ellipse shaped to a wide
+    /// canvas puts the two opponents at 150° and 210°, side by side across
+    /// the top, which is the silhouette a 2v1 draws.
+    ///
+    /// It was not afforded until the rail and the tab strip came off the top
+    /// of the window. Measured at 1728×1052 on either canvas: with `top` at
+    /// 110 the three-seat ring settled at 12.95 × 4.99 — an ellipse — and
+    /// with `top` at nothing it settles at 8.28 × 8.28. That is the one seat
+    /// count where the taller canvas made a board *smaller*, 34.9 → 32.0
+    /// pixels a table unit, and it is the circle being bought rather than
+    /// anything going wrong: 9.3% of reach, against the 30% `ROUND_COST`
+    /// allows.
+    ///
+    /// Written as a test because it is a *silhouette*, and the arithmetic
+    /// that produces it turns on a filter that a slightly different window
+    /// can flip. Nothing else at the table notices when it does.
+    #[test]
+    fn three_seats_playing_for_themselves_sit_on_a_circle() {
+        let canvas = Canvas::hud(WINDOW);
+        let layout = TableLayout::new(&seats(3), canvas.aspect(), None);
+        assert!(
+            (layout.radius.x - layout.radius.y).abs() < 1e-3,
+            "a three-seat free-for-all is on a {:?} ring, not a circle",
+            layout.radius
+        );
+        // And the two opponents are a third of the way round from the local
+        // seat and from each other, which is what a circle is for here.
+        for slot in &layout.slots {
+            let want = std::f32::consts::TAU * slot.ring_index as f32 / 3.0;
+            let off = (slot.angle - want).abs();
+            assert!(
+                off < 0.02,
+                "seat {} sits at {} radians, not {want}",
+                slot.ring_index,
+                slot.angle
+            );
+        }
+    }
+
     /// [`Lens`] and the projection written out above agree.
     ///
     /// The one is a matrix built from the rig's own eye transform and the
@@ -3055,6 +3154,28 @@ mod camera_tests {
                 "{name} is {ours} here and {theirs} in the shader"
             );
         }
+    }
+
+    /// The mat's WGSL is parsed and validated with the front end wgpu uses.
+    ///
+    /// `the_shader_and_the_generator_agree_about_the_mat` reads constants out
+    /// of this file as text and would go on passing over a shader that does
+    /// not compile — and nothing else here ever compiled it, so a typo in the
+    /// mat's arithmetic surfaced as a mat that simply did not draw, with the
+    /// reason in a browser console.
+    #[test]
+    fn the_mat_shader_compiles() {
+        let prelude = "\
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) world_position: vec4<f32>,
+    @location(1) world_normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+};
+struct Globals { time: f32 };
+@group(0) @binding(11) var<uniform> globals: Globals;
+";
+        crate::cardmat::tests::check_wgsl(include_str!("shaders/mat.wgsl"), prelude);
     }
 
     /// `PILE_REACH` is chosen in the model crate, which cannot see the mat's

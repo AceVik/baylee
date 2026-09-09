@@ -237,6 +237,22 @@ pub const PILE_REACH: f32 = 1.45;
 /// through, and the camera pays for it by drawing every card smaller.
 const PILE_STRIP: f32 = PILE_REACH + CARD_WIDTH * 0.5;
 
+/// How far a seat has to lean past the side of the ring before its bar
+/// changes edges.
+///
+/// [`SeatSlot::ledge_is_outer`] is a comparison against zero and a seat at
+/// the exact side of the ring is a tie, which in floating point is not a
+/// tie at all: `cos(FRAC_PI_2)` is -4.4e-8 and `cos(3·FRAC_PI_2)` is
+/// +1.2e-8, so the left flank of a four-seat table would take one edge and
+/// the right flank the other. Nothing about the two seats differs, and the
+/// answer has to be the same for both.
+///
+/// It is generous — about 4½° — because a side is placed by walking a
+/// polyline of [`RING_STEPS`] steps and lands *near* the side rather than on
+/// it, and because there is nothing to lose: the seat closest to a side that
+/// is genuinely across the table leans four times this far.
+const SIDE_SEAT_TILT: f32 = 0.08;
+
 /// One seat's place at the table.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SeatSlot {
@@ -285,6 +301,45 @@ impl SeatSlot {
         (self.mat_depth() - crate::tabletop::MAT_LEDGE) / LaneKind::ALL.len() as f32
     }
 
+    /// Which of the mat's two long edges this seat's shelf is written on.
+    ///
+    /// `true` for the **outer** edge — the one away from the middle of the
+    /// table, behind the land row — and `false` for the centre-facing edge.
+    ///
+    /// The rule is one sentence and it is the viewer's, not the seat's: a
+    /// bar is drawn *above* the board it describes, on the screen the local
+    /// player is looking at. For the local seat and its near-side
+    /// neighbours the edge that reads as "above" is the centre-facing one;
+    /// for a seat across the table it is the outer one, because that seat's
+    /// board is drawn upside-down from here and its centre-facing edge is at
+    /// the bottom of it.
+    ///
+    /// This was the other way round once — the centre-facing edge for
+    /// **every** seat, so a bar always stood between its owner's board and
+    /// the hearth. That is the reading from each seat's own chair, and it is
+    /// coherent; it is not what anybody sees. Two seats put their bars
+    /// back-to-back across the middle of the table and the opponent's sat
+    /// under their creatures, which is not "above the battlefield line" for
+    /// the one person at the table with a screen.
+    ///
+    /// `away.y` is the whole test. Table `+y` is away from the camera, so a
+    /// seat whose inward normal points up the table has its centre-facing
+    /// edge higher on screen. A seat exactly at the side of the ring is a
+    /// tie — its mat runs up and down the screen and neither edge is above
+    /// anything — and keeps the centre-facing edge, which is the one nearer
+    /// the hearth and the one it had before.
+    #[must_use]
+    pub fn ledge_is_outer(&self) -> bool {
+        // With a **tolerance**, and it is load-bearing rather than tidy.
+        // `cos(FRAC_PI_2)` is -4.4e-8 in f32 and `cos(3·FRAC_PI_2)` is
+        // +1.2e-8, so a bare `< 0.0` sends the left side seat of a four-seat
+        // table to one edge and the right one to the other; and `sides_on`
+        // places a side by walking a 256-step polyline, so the two are not
+        // at 90° to begin with. A side seat has no "above" and both of them
+        // have to make the same choice.
+        self.facing.cos() < -SIDE_SEAT_TILT
+    }
+
     /// Centre of a lane in table space.
     #[must_use]
     pub fn lane_center(&self, lane: LaneKind) -> Vec2 {
@@ -293,37 +348,53 @@ impl SeatSlot {
             .position(|l| *l == lane)
             .unwrap_or_default() as f32;
         let h = self.lane_height();
-        // Lane 0 (creatures) sits towards the table centre, lands at the
-        // back — and the ledge is nearer the centre still, so every lane is
-        // pushed one shelf's depth away from the edge it is measured from.
-        let offset_from_front = crate::tabletop::MAT_LEDGE + (index + 0.5) * h - self.half_extent.y;
+        // Lane 0 (creatures) sits towards the table centre and lands at the
+        // back, at every seat and whichever edge the shelf is on: where a
+        // card stands is the seat's own business and does not turn round
+        // because the ink moved. So the three lanes are measured from the
+        // centre-facing edge, and only a shelf standing *there* pushes them
+        // back by its own depth.
+        let front = if self.ledge_is_outer() {
+            0.0
+        } else {
+            crate::tabletop::MAT_LEDGE
+        };
+        let offset_from_front = front + (index + 0.5) * h - self.half_extent.y;
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
         self.center - away * offset_from_front
     }
 
     /// The four corners of this seat's ledge, in table space.
     ///
-    /// The band at the mat's centre-facing edge that the seat's bar is
+    /// The band along one long edge of the mat that the seat's bar is
     /// written on. This is what the renderer projects to find where the ink
     /// goes, and it is the *only* thing it needs: the bar is one screen-space
     /// node pinned to this rectangle's projection, never a world-space
     /// object, because there is no text on the 3D table.
     ///
-    /// The centre-facing edge for **every** seat, which is above your own
-    /// creatures and below the creatures of the seat across from you. A
-    /// player's bar faces the middle of the table, so every bar at the table
-    /// stands between its owner's board and the hearth rather than behind it;
-    /// "the top of the screen" is not a place a side seat has.
+    /// Whichever of the mat's two long edges [`ledge_is_outer`] names, so
+    /// that every bar at the table is drawn above the board it describes.
     ///
-    /// Ordered as the seat itself would read them: the two centre-facing
-    /// corners first, left then right in the *seat's* frame, then the two
-    /// that meet the creature lane, right then left. So the four are a loop.
+    /// Ordered as the seat itself would read them: the two corners on that
+    /// outside edge first, left then right in the *seat's* frame, then the
+    /// two that meet the lane behind it, right then left. So the four are a
+    /// loop, and the first long edge runs the seat's own left to right at
+    /// either end of the mat — which is what lets
+    /// [`Shelf::of`](crate::seatbar) take the tilt off it without caring
+    /// which edge it got.
+    ///
+    /// [`ledge_is_outer`]: Self::ledge_is_outer
     #[must_use]
     pub fn ledge_corners(&self) -> [Vec2; 4] {
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
         let side = Vec2::new(self.facing.cos(), -self.facing.sin());
-        let near = self.center + away * self.half_extent.y;
-        let far = self.center + away * (self.half_extent.y - crate::tabletop::MAT_LEDGE);
+        // `away` points at the middle of the table, so the shelf is measured
+        // along it or against it. Everything else about the rectangle — its
+        // length, its depth, the order of its corners — is the same either
+        // way, which is why this is a sign and not a second branch.
+        let reach = if self.ledge_is_outer() { -1.0 } else { 1.0 };
+        let near = self.center + away * (reach * self.half_extent.y);
+        let far = self.center + away * (reach * (self.half_extent.y - crate::tabletop::MAT_LEDGE));
         let out = side * self.half_extent.x;
         [near - out, near + out, far + out, far - out]
     }
@@ -1056,13 +1127,23 @@ const MAX_RING_Y: f32 = 11.2;
 /// not something a player should have to read off the life totals.
 ///
 /// So a free-for-all is offered a circle, and takes it if the camera can
-/// afford it. At three seats it costs a quarter: 22.3 units of reach against
-/// 17.9, every card a quarter smaller, and about two fifths of the screen's
-/// width left bare — which is what a round table is worth. At four it costs
-/// four fifths, for an arrangement that was already a diamond, and at five
-/// and six the circle is past [`MAX_RING_Y`] before it has handed anybody a
-/// board. This is the line between those, and it is deliberately nearer the
-/// first: 1.25 is bought, 1.43 is not.
+/// afford it. At three seats it cost a quarter when this was written: 22.3
+/// units of reach against 17.9, every card a quarter smaller, and about two
+/// fifths of the screen's width left bare — which is what a round table is
+/// worth. At four it costs four fifths, for an arrangement that was already
+/// a diamond, and at five and six the circle is past [`MAX_RING_Y`] before
+/// it has handed anybody a board. This is the line between those, and it is
+/// deliberately nearer the first: 1.25 is bought, 1.43 is not.
+///
+/// That quarter was the *old* canvas — 110 logical pixels of tab strip and
+/// phase rail off the top of the window, an aspect of 2.25, and three seats
+/// on an ellipse of 12.95 × 4.99 because the circle asked for more than this
+/// allows. With those gone the canvas is 1.97 and the circle costs 9.3%:
+/// 8.28 × 8.28, taken, and the one seat count where a taller window made a
+/// board smaller (34.9 → 32.0 pixels a table unit). It is bought, not lost.
+/// `camera_tests::three_seats_playing_for_themselves_sit_on_a_circle` is
+/// what says so out loud, because this filter is one window shape away from
+/// flipping back and nothing else at the table would notice.
 const ROUND_COST: f32 = 1.3;
 
 /// How much of the arc between two neighbours a mat may claim. The rest is
@@ -1172,6 +1253,85 @@ mod tests {
                         "{n} seats: the {} came out on the seat's other hand",
                         pile.label()
                     );
+                }
+            }
+        }
+    }
+
+    /// The two flanks of a table have to answer alike, and a seat across it
+    /// has to answer differently — with room to spare between the two, or
+    /// the tolerance that settles the flanks would start deciding real
+    /// seats.
+    #[test]
+    fn the_two_flanks_of_a_table_put_their_bars_on_the_same_edge() {
+        let table = TableLayout::new(&seats(4), 1.78, None);
+        let local = table.local().expect("a local seat");
+        assert!(
+            !local.ledge_is_outer(),
+            "the seat the camera sits behind reads its own bar above its own \
+             creatures, on the edge facing the middle of the table"
+        );
+
+        for slot in &TableLayout::new(&seats(3), 1.78, None).slots[1..] {
+            assert!(
+                slot.ledge_is_outer(),
+                "an opponent in a three-way is across the table and its board \
+                 is drawn upside-down from here, so its bar belongs on the \
+                 outer edge; cos is {}",
+                slot.facing.cos()
+            );
+        }
+
+        // Every case below is also run with a board being inspected, because
+        // that is the live call — `TableLayout::new(…, duel.focus)`, and `F`
+        // is a key a player presses. A focus reweights the compartments and
+        // with them the size of the ring, and a flank that drifted off the
+        // side of a ring while somebody looked at an opponent would move its
+        // bar to the other edge of its mat for as long as they looked.
+        let lookers = [None, Some(PlayerId::new(1)), Some(PlayerId::new(2))];
+        for n in [4, 8] {
+            for aspect in [1.4_f32, 1.78, 2.25] {
+                for focus in lookers {
+                    let layout = TableLayout::new(&seats(n), aspect, focus);
+                    let flanks: Vec<&SeatSlot> = layout
+                        .slots
+                        .iter()
+                        .filter(|slot| slot.facing.cos().abs() < 0.5)
+                        .collect();
+                    assert_eq!(
+                        flanks.len(),
+                        2,
+                        "{n} seats at {aspect} with {focus:?} inspected: a table \
+                         has two flanks"
+                    );
+                    for slot in &flanks {
+                        assert!(
+                            !slot.ledge_is_outer(),
+                            "{n} seats at {aspect} with {focus:?} inspected: a \
+                             flank has no 'above' and keeps the edge nearer the \
+                             hearth; cos is {}",
+                            slot.facing.cos()
+                        );
+                    }
+                }
+            }
+        }
+
+        // And the margin the tolerance is chosen against: nothing at any
+        // table sits in the gap between "a flank" and "across from here".
+        for n in 2..=8 {
+            for aspect in [1.4_f32, 1.78, 2.25] {
+                for focus in lookers {
+                    for slot in &TableLayout::new(&seats(n), aspect, focus).slots {
+                        let lean = slot.facing.cos().abs();
+                        assert!(
+                            lean < SIDE_SEAT_TILT || lean > SIDE_SEAT_TILT * 4.0,
+                            "{n} seats at {aspect} with {focus:?} inspected: seat \
+                             {} leans {lean}, which is neither a flank nor plainly \
+                             across the table",
+                            slot.ring_index
+                        );
+                    }
                 }
             }
         }

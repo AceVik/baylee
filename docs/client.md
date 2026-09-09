@@ -280,7 +280,13 @@ only ever bounded the bright end. It bounds both now.
   and taken only when the camera can afford it (`layout::ROUND_COST`); four
   seats and up keep the canvas shape, and so does a canvas narrower than about
   4:5 — a phone held upright would pay more than twice the reach for a circle,
-  so three seats there go on sitting where they fit.
+  so three seats there go on sitting where they fit. The desktop canvas only
+  started affording it when the tab strip and the phase rail came off the top
+  of the window: at an aspect of 2.25 the three-seat ring was an ellipse of
+  12.95 × 4.99 and the circle was refused, at 1.97 it is 8.28 × 8.28 and costs
+  9.3% of reach. That is why three is the one seat count whose boards got
+  *smaller* when the window got taller, 34.9 → 32.0 pixels a table unit, and
+  it is the circle being bought rather than anything going wrong.
 - Every seat plays on a board of the same width, and focusing an opponent
   widens that one at the other opponents' expense, never at yours.
 - Lanes fan when crowded and report overflow when even fanning stops being
@@ -707,15 +713,24 @@ a parameter — which is what lets bevy compile it as an imported module, what
 keeps it clear of the two different bind groups the two shaders read `globals`
 from, and what lets the naga test parse it on its own. Which mark a fragment
 is inside is found by walking the eleven bits to the k-th set one: a loop
-bound at compile time, no dynamic indexing, and WebGL2-safe like everything
-else here. *How many* marks there are is counted in that same loop, and that
-is not stylistic: `countOneBits` is what WGSL offers, naga lowers it to GLSL's
-`bitCount` with no version check, and `bitCount` arrived in ES 3.10 while
-WebGL2 compiles ES 3.00. The browser would have rejected the shader and the
-card pipeline with it, so the table would have drawn no cards at all — a
-whole-client failure from one builtin, in the one target
+bound at compile time, no dynamic indexing, and inside the GL budget like
+everything else here. *How many* marks there are is counted in that same
+loop, and that is not stylistic: `countOneBits` is what WGSL offers, naga
+lowers it to GLSL's `bitCount` with no version check, and `bitCount` arrived
+in ES 3.10 while WebGL2 compiles ES 3.00. The browser would have rejected the
+shader and the card pipeline with it, so the table would have drawn no cards
+at all — a whole-client failure from one builtin, in the one target
 `cargo check --target wasm32` cannot see, because WGSL is not lowered to GLSL
 until the pipeline is built in the browser.
+
+The browser build renders through **WebGPU** now (`Cargo.toml` lists
+`webgpu`, not `webgl2`), which lowers nothing to GLSL and would accept
+`countOneBits` — so that trap is disarmed and the loop stays anyway. It is
+the same loop either way, it costs nothing, and it is what keeps `webgl2` a
+one-word swap for a browser that has no WebGPU. The rule is therefore about
+*this* file rather than about the backend: nothing in the shaders reaches
+past the older budget until a commit says it is spending the fallback to get
+something.
 
 The bottom-right fifth of the card is left empty on purpose —
 power/toughness and the counter dice are going there, and a rail that had to
@@ -740,9 +755,9 @@ wrapper node clips the card and carries its shadow.
 All of them used to be 10%, which took the white away by taking a tenth of the
 card with it, and made every permanent read as a token.
 
-The whole thing is WebGL2-safe: uniforms only, no storage buffers, no texture
-arrays. Animation reads `globals.time` from the view bind group, so nothing is
-written per frame — a material is created once and never touched again while
+The whole thing stays inside the WebGL2 budget: uniforms only, no storage
+buffers, no texture arrays. Animation reads `globals.time` from the view bind
+group, so nothing is written per frame — a material is created once and never touched again while
 it is on screen.
 
 The 2D overlay draws cards through the same surface (`CardUiMaterial`, one
@@ -1427,7 +1442,7 @@ already drawn on the table, each on its own mat. Both are gone. What they said
 is written on the seat's own ground.
 
 **The mat grew a shelf to write it on.** `tabletop::MAT_LEDGE` is a fourth
-band at the mat's centre-facing edge, 0.95 table units, *added* to
+band along one long edge of the mat, 0.95 table units, *added* to
 `layout::POD_DEPTH` rather than taken out of it — three lanes stay exactly a
 card tall each, because a lane is where a card stands and the ledge is
 furniture. Two compile-time assertions fence it: wider than four rims (or the
@@ -1443,6 +1458,35 @@ for its glyph edges — WCAG's 7.0 for text and 3.0 for graphical objects, and
 `the_ledge_is_dark_enough_to_read_ink_against` bounds it against a *measured*
 felt of (21, 63, 40) rather than against the linear `FELT_*` constant, because
 the shader's lamp and the sky's tint are multiplies `tabletop` cannot see.
+
+**Which of the two long edges is the viewer's question, not the seat's.**
+`SeatSlot::ledge_is_outer` is `facing.cos() < 0.0`, and the whole of it is
+that a bar is drawn *above the board it describes on the one screen there
+is*: table `+y` runs away from the camera, so a seat whose inward normal
+points up the table keeps the centre-facing edge and a seat across the table
+takes the outer one, behind its land row. A seat exactly at the side of the
+ring is a tie — its mat runs up and down the screen and neither edge is above
+anything — and keeps the centre-facing edge it had.
+
+It shipped the other way round for one commit, at the centre-facing edge for
+every seat, so a bar always stood between its owner's board and the hearth.
+That is the reading from each seat's own chair and it is perfectly coherent;
+it is not what anybody sees. Two players put their bars back-to-back across
+the middle of the table and the opponent's sat *under* their creatures, which
+is not "above the battlefield line" for the one person at the table with a
+screen.
+
+**What moves is the shelf, and only the shelf.** The three lanes run from the
+centre-facing edge outwards at every seat — creatures nearest the middle of
+the table, lands at the back — because that is where the cards stand and a
+card does not turn round because the ink did. So `MatParams::ledge_outer` is
+a flag rather than a flipped `uv.y`: flipping the uv would move the lane
+veils with the shelf and put the brightest of the three behind the lands.
+`seat_mat` takes the same flag and
+`a_flipped_shelf_takes_the_other_end_and_leaves_the_lanes_alone` reads both
+mats — it has to read the shelf's *fence* rather than its veil, because a
+`Texture` is eight bits a channel and the shelf's 0.0060 and the quietest
+lane's 0.0080 are the same 2/255.
 
 **The bar cannot ask the camera where the shelf is.** `bevy_ui` orders
 `UiSystems::Layout` `.before(TransformSystems::Propagate)`, so a system that

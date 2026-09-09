@@ -94,6 +94,14 @@ Always build the browser client `--release` (a dev-profile wasm is ~350 MB vs
 ~36 MB). Servers are quiet without `RUST_LOG=info` — the tracing subscriber
 reads `EnvFilter::from_default_env()`.
 
+The browser client renders through **WebGPU**: the workspace's bevy features
+list `webgpu`, and `webgl2` is the one-word alternative that would put wgpu
+back on the GL backend. Every shader here nonetheless stays inside the older
+GL budget — uniforms only, no storage buffers, no texture arrays, no
+`bitCount` — because nothing drawn so far wants more and that keeps the
+fallback one word away. Reaching past it is allowed; it is a decision a
+commit has to state, because it is the commit that closes the fallback.
+
 The card catalog (card text, not images) lives in PostgreSQL and is optional:
 
 ```bash
@@ -767,10 +775,24 @@ refusal with the defaults — every key a player had ever bound, lost to one
 retired row. An unknown name is now dropped and the rest of the map kept, in
 both directions of an upgrade.
 
-**Every seat reads itself off its own mat.** The front of each mat is a
+**Every seat reads itself off its own mat.** One long edge of each mat is a
 `tabletop::MAT_LEDGE` shelf — a fourth band, dimmer than the quietest lane, so
 the ink on it is the brightest thing on a seat's ground — and the seat's bar
-is written along it: the priority caret, the seat's colour, its name, life,
+is written along it. *Which* edge is the viewer's question rather than the
+seat's: `SeatSlot::ledge_is_outer` asks whether `facing.cos()` leans past
+`SIDE_SEAT_TILT` towards the camera, so a bar is always drawn above the board
+it describes on the one screen there is — the centre-facing edge for the near
+half of the ring, the outer edge for a seat across the table, and the
+centre-facing edge for a side seat, where the mat runs up and down the screen
+and neither edge is above anything. That last case is why the test has a
+tolerance and is not a comparison against zero: `cos(FRAC_PI_2)` is -4.4e-8 in
+f32 and `cos(3·FRAC_PI_2)` is +1.2e-8, so `< 0.0` sends the left flank of a
+four-seat table to one edge and the right flank to the other, and the two
+flanks of a table have to answer alike. Only the
+shelf changes ends: the three lanes run from the centre-facing edge outwards
+at every seat, so `MatParams::ledge_outer` is a flag and not a flipped `uv.y`,
+which would carry the lane veils along with it. The bar carries
+the priority caret, the seat's colour, its name, life,
 its four zone counts, the turn number with the day/night designation on its
 hinge, then the twelve steps of that turn. It is a **second retained tree**
 with its own `hud::BarRevision`, because `HudRevision` counts the hover and a
@@ -807,11 +829,19 @@ and a phase rail under it took 110 logical pixels off the top of every window
 in every game, and both of them said what a seat's own bar says now, so
 `Canvas::hud`'s `top` is **zero**. The camera came in by that much: measured
 at 1728×1052, pixels per table unit went 37.9 → 43.8 at a duel and 28.2 →
-29.6 on an eight-seat ring. It is not free at every size — a taller canvas is
-a squarer one, the ring is laid out rounder against it, and at three seats
-that costs more depth than the height gained (34.9 → 32.0). A rounder ring
-also turns its side seats further from the camera, which is why
-`every_seat_is_drawn_a_board_of_the_same_width` moved from 1.12 to 1.13.
+29.6 on an eight-seat ring. Every seat count gained except **three**, which
+lost 34.9 → 32.0 — and that one is not a cost of the camera at all. A taller
+canvas is a squarer one, which is what finally let a three-player
+free-for-all pass `layout::ROUND_COST` and sit on the **circle** the design
+has always wanted for it: the ring went 12.95 × 4.99 to 8.28 × 8.28, and a
+circle at three seats costs 9.3% of reach against the 30% that filter allows.
+The ellipse it replaced put the two opponents at 150° and 210°, side by side
+across the top, which is the silhouette a 2v1 draws.
+`three_seats_playing_for_themselves_sit_on_a_circle` is what holds it, because
+a slightly different window can flip that filter and nothing else at the table
+notices. A rounder ring also turns its side seats further from the camera,
+which is why `every_seat_is_drawn_a_board_of_the_same_width` moved from 1.12
+to 1.13.
 A hard-coded 20-unit rig aimed at the middle of the felt put the local
 seat's own mat *underneath the hand bar* on every screen.
 `table::CameraRig::home(layout, canvas)` computes it instead, from

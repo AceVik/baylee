@@ -427,7 +427,7 @@ const _: () = assert!(MAT_RIM > 0.08);
 /// [`seat_mat`] about the quarter they were cut to.
 pub const MAT_LANES: [f32; 3] = [0.0135, 0.0105, 0.0080];
 
-/// The shelf at a mat's centre-facing edge that the seat's bar is written
+/// The shelf along one long edge of a mat that the seat's bar is written
 /// on, in table units — 0.61 of a card's height.
 ///
 /// It is a fourth band on the mat rather than a panel floating over the
@@ -468,8 +468,12 @@ pub const MAT_LEDGE_VALUE: f32 = 0.0060;
 /// strip of bare table with a rim round it.
 const _: () = assert!(MAT_LEDGE_VALUE < MAT_LANES[2] && MAT_LEDGE_VALUE > 0.0);
 
-/// Where the ledge ends, as a fraction of a mat's depth from its
-/// centre-facing edge.
+/// How much of a mat's depth the ledge takes, as a fraction.
+///
+/// Which end it takes it from is
+/// [`SeatSlot::ledge_is_outer`](crate::layout::SeatSlot::ledge_is_outer)'s
+/// to say, and the three lanes fill what is left from the centre-facing
+/// edge outwards either way.
 ///
 /// Derived rather than written down, so the shelf cannot end up a different
 /// size in the shader than in the geometry that reserved room for it.
@@ -545,7 +549,14 @@ pub const MAT_HUE_FALL: f32 = 0.55;
 /// coloured, so a seat's colour only ever arrives on the handful of pixels
 /// that are already nearly opaque, and every rim reads as off-white.
 #[must_use]
-pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]) -> Texture {
+pub fn seat_mat(
+    width: u32,
+    height: u32,
+    radius: f32,
+    rim: f32,
+    accent: [f32; 3],
+    ledge_outer: bool,
+) -> Texture {
     let mut texture = Texture::blank(width, height);
     let (w, h) = (width as f32, height as f32);
     let short = w.min(h);
@@ -564,12 +575,21 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]
             // How far in from the rim, in pixels.
             let inset = -outside;
 
-            // The ledge, then three lanes across what is left of the mat's
-            // depth. `v = 0` is the edge nearest the table centre, which is
-            // where the seat's bar is written; the band after it is the
-            // creature row.
+            // `v = 0` is the edge nearest the table centre, and the three
+            // lanes always run from there outwards — the creature row first,
+            // whichever end the shelf is at. Only the shelf moves: it takes
+            // the near end for a seat drawn near the camera and the far one
+            // for a seat across the table, so every bar is above the board it
+            // describes on the screen somebody is looking at.
             let v = py / h;
-            let below = ((v - LEDGE_FRAC) / (1.0 - LEDGE_FRAC)).clamp(0.0, 1.0);
+            let span = 1.0 - LEDGE_FRAC;
+            let first = if ledge_outer { 0.0 } else { LEDGE_FRAC };
+            let on_ledge = if ledge_outer {
+                v > span
+            } else {
+                v < LEDGE_FRAC
+            };
+            let below = ((v - first) / span).clamp(0.0, 1.0);
             #[expect(clippy::cast_possible_truncation, reason = "three lanes")]
             let lane = (below * 3.0).floor().clamp(0.0, 2.0) as usize;
             // Quiet, not absent. The mat's job is to say where a seat's
@@ -594,7 +614,7 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]
             // veil is cut to about a quarter, which lands the field just above
             // the wood — the mat says where a seat's ground is without being
             // the brightest thing in the room.
-            let base = if v < LEDGE_FRAC {
+            let base = if on_ledge {
                 MAT_LEDGE_VALUE
             } else {
                 MAT_LANES[lane]
@@ -608,15 +628,16 @@ pub fn seat_mat(width: u32, height: u32, radius: f32, rim: f32, accent: [f32; 3]
             // it is where the seat's ground stops being a place cards stand
             // and starts being a shelf they are described on.
             let seam_width = (h * MAT_SEAM_WIDTH).max(1.0);
-            let lanes = h * LEDGE_FRAC;
-            let step = (h - lanes) / 3.0;
+            let lanes = h * first;
+            let step = h * span / 3.0;
+            let fence = h * if ledge_outer { span } else { LEDGE_FRAC };
             let seam = [lanes + step, lanes + step * 2.0]
                 .iter()
                 .map(|edge| (py - edge).abs())
                 .fold(f32::MAX, f32::min);
             let seam = (1.0 - seam / seam_width).clamp(0.0, 1.0) * MAT_SEAM;
             let ledge_seam =
-                (1.0 - (py - lanes).abs() / seam_width).clamp(0.0, 1.0) * MAT_SEAM * MAT_LEDGE_SEAM;
+                (1.0 - (py - fence).abs() / seam_width).clamp(0.0, 1.0) * MAT_SEAM * MAT_LEDGE_SEAM;
             let seam = seam.max(ledge_seam);
 
             // The rim: the one part that is meant to be seen from across the
@@ -1781,7 +1802,7 @@ mod tests {
 
     #[test]
     fn only_the_rim_of_a_mat_carries_the_seats_colour() {
-        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT);
+        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT, false);
         // The field is the seat's *ground*, not the seat's colour: it stays
         // white so the material's neutral brightness leaves it felt, and a
         // player reads a coloured border around their board rather than a
@@ -1819,7 +1840,7 @@ mod tests {
 
     #[test]
     fn a_seat_mat_is_a_rounded_rectangle_with_a_rim() {
-        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT);
+        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT, false);
         // Corners are cut away, so a mat never reads as a plain box.
         assert!(mat.pixel(0, 0)[3] < 1e-6, "the corner is rounded off");
         assert!(mat.pixel(127, 63)[3] < 1e-6, "and so is the opposite one");
@@ -1836,7 +1857,7 @@ mod tests {
     #[test]
     fn a_seat_mat_shows_where_its_lanes_are() {
         const H: u32 = 96;
-        let mat = seat_mat(256, H, 0.1, 0.03, ACCENT);
+        let mat = seat_mat(256, H, 0.1, 0.03, ACCENT, false);
         // The seam belongs *on* the boundary between two lanes, not in the
         // middle of one. Drawn mid-lane it splits every row down its own
         // centre and tells a player the opposite of the truth about where
@@ -1877,6 +1898,63 @@ mod tests {
             "the ledge's own seam should be the plainer of the two: {fence} \
              vs {seam}"
         );
+    }
+
+    /// The shelf changes ends; the lanes do not.
+    ///
+    /// A seat across the table has its board drawn upside-down, so its bar
+    /// goes at the far end of the mat and is above its creatures on the one
+    /// screen there is. What must *not* move with it is the lane order —
+    /// creatures nearest the middle of the table at every seat — because
+    /// that is where the cards stand and no card turns round when the ink
+    /// does. The two are one flag apart in the shader and it would be a
+    /// one-character mistake to flip the uv instead, which is exactly what
+    /// this catches: it reads the same three rows out of both mats and asks
+    /// that the veils match end to end while the shelf does not.
+    #[test]
+    fn a_flipped_shelf_takes_the_other_end_and_leaves_the_lanes_alone() {
+        const H: u32 = 96;
+        let inner = seat_mat(256, H, 0.1, 0.03, ACCENT, false);
+        let outer = seat_mat(256, H, 0.1, 0.03, ACCENT, true);
+        #[expect(clippy::cast_possible_truncation, reason = "a row of a texture")]
+        let row = |v: f32| (v * H as f32) as u32;
+        let span = 1.0 - LEDGE_FRAC;
+        // Where the shelf *ends* rather than what it is veiled with, because
+        // a `Texture` is eight bits a channel and the shelf's own veil and
+        // the quietest lane's are 0.0060 and 0.0080 — both 2/255, and the
+        // same pixel. The fence between the shelf and the lanes is the
+        // brightest seam on a mat and lands at 15/255, so *that* is what a
+        // test can read: it is at one end of one mat and at the other end of
+        // the other.
+        let fence = |mat: &Texture, at: f32| mat.pixel(128, row(at))[3];
+        assert!(
+            fence(&inner, LEDGE_FRAC) > fence(&inner, span),
+            "the unflipped shelf is fenced off at the centre-facing end"
+        );
+        assert!(
+            fence(&outer, span) > fence(&outer, LEDGE_FRAC),
+            "the flipped shelf is fenced off at the outer end"
+        );
+        // And the creature lane is nearest the middle of the table on both,
+        // which is the half that must *not* move: on the flipped mat it
+        // starts at the very edge, where the unflipped one has its shelf.
+        let creature = span / 6.0;
+        assert!(
+            outer.pixel(128, row(creature))[3] > inner.pixel(128, row(creature))[3],
+            "the flipped mat plays creatures where the unflipped one writes"
+        );
+        // Read outwards, the three lanes never brighten. Stated as "never
+        // brighter" with one strict step across the whole run, because two
+        // neighbouring lanes are 0.0135 and 0.0105 and eight bits cannot
+        // always tell them apart either.
+        for (mat, first, name) in [(&inner, LEDGE_FRAC, "inner"), (&outer, 0.0, "outer")] {
+            let lane = |i: f32| mat.pixel(128, row((i + 0.5).mul_add(span / 3.0, first)))[3];
+            let (near, mid, far) = (lane(0.0), lane(1.0), lane(2.0));
+            assert!(
+                near >= mid && mid >= far && near > far,
+                "the {name} mat's lanes should dim outwards: {near}, {mid}, {far}"
+            );
+        }
     }
 
     #[test]

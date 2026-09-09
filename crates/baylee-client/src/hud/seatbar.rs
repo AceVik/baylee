@@ -120,8 +120,9 @@ impl Shelf {
     ///
     /// `corners` is
     /// [`SeatSlot::ledge_corners`](baylee_client_core::layout::SeatSlot::ledge_corners)'
-    /// loop, already projected: the two centre-facing corners first, then the
-    /// two that meet the creature lane.
+    /// loop, already projected: the two corners on the mat's outside edge
+    /// first — whichever of the two long edges that seat's shelf took — then
+    /// the two that meet the lane behind it.
     #[must_use]
     pub fn of(corners: [Vec2; 4], designated: bool) -> Self {
         let [near_a, near_b, far_b, far_a] = corners;
@@ -251,7 +252,13 @@ pub fn place_seat_bars(
             // Hidden rather than despawned: the seat has not gone anywhere,
             // and rebuilding the tree when the camera swings back would make
             // an orbit cost a rebuild per seat.
-            if bar.placed.is_some() {
+            //
+            // Guarded on what the node already says rather than on `placed`,
+            // which is the same thing for a bar that has been placed once and
+            // is *not* the same thing for a bar spawned this frame: that one
+            // has no `placed` and is nonetheless visible, at whatever corner
+            // `spawn_bar` happened to give it.
+            if node.display != Display::None {
                 bar.placed = None;
                 node.display = Display::None;
             }
