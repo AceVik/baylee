@@ -1155,6 +1155,22 @@ mod tests {
     /// rather than [`WIDE`].
     const CROWDED: f32 = 2.0;
 
+    /// Nobody may look through a library, their own included (CR 401.2), so
+    /// the pile beside the mat is inert rather than merely empty — and it
+    /// stays inert with sixty cards in it, which is the case an "is it empty"
+    /// reading would get wrong.
+    #[test]
+    fn a_library_is_never_browsable_however_full_it_is() {
+        let mut library = ZonePile::empty(PileKind::Library);
+        library.count = 60;
+        assert!(!library.is_browsable());
+
+        let mut graveyard = ZonePile::empty(PileKind::Graveyard);
+        assert!(!graveyard.is_browsable(), "an empty pile opens nothing");
+        graveyard.count = 1;
+        assert!(graveyard.is_browsable());
+    }
+
     /// The command zone is one zone drawn as one place per commander, and a
     /// seat that has none is drawn no place at all.
     ///

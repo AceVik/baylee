@@ -526,7 +526,12 @@ impl Browser {
     /// that ends and another that begins is two openings, which a length
     /// comparison would have merged into none.
     pub fn saw_reveal(&mut self, view: &PlayerView) {
-        let now: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
+        // Sorted, because *which* cards is the trigger and their order is
+        // not: a scry re-sends the same cards rearranged, and a sheet the
+        // player had closed would reopen itself under their hand halfway
+        // through putting them in order.
+        let mut now: Vec<ObjectId> = view.looking_at.iter().map(|o| o.id).collect();
+        now.sort_unstable();
         if now != self.looking_seen {
             if !now.is_empty() {
                 self.open = true;
@@ -851,6 +856,33 @@ mod tests {
     /// without anything being asked of them, they are drawn on no other
     /// surface in the client, and `follow` only ever runs when a *choice*
     /// arrives. Edge-triggered on the ids, so the player can put it away.
+    /// A library has no tab, so a tap on one has nowhere to go.
+    ///
+    /// The second of the two readings that enforce CR 401.2 — `ZonePile::
+    /// is_browsable` is the other — and the one that would silently start
+    /// working if a `Looking`-shaped variant were ever added for libraries.
+    #[test]
+    fn a_library_has_no_tab_to_open() {
+        use crate::layout::PileKind;
+
+        let seat = PlayerId::new(0);
+        assert_eq!(BrowseZone::of_pile(PileKind::Library, seat), None);
+        assert_eq!(
+            BrowseZone::of_pile(PileKind::Graveyard, seat),
+            Some(BrowseZone::Graveyard(seat))
+        );
+        assert_eq!(
+            BrowseZone::of_pile(PileKind::Exile, seat),
+            Some(BrowseZone::Exile(seat))
+        );
+        // Both command piles are one zone (CR 408.1): a seat with two
+        // commanders has two places on the mat and one tab.
+        assert_eq!(
+            BrowseZone::of_pile(PileKind::Command2, seat),
+            BrowseZone::of_pile(PileKind::Command, seat)
+        );
+    }
+
     #[test]
     fn cards_shown_to_a_seat_open_the_sheet_by_themselves() {
         let mut b = Browser::new();
@@ -885,6 +917,22 @@ mod tests {
             .build();
         b.saw_reveal(&other);
         assert!(b.is_open(), "a different reveal is a new one");
+
+        // But the *same* cards in a different order are the same reveal. A
+        // scry is exactly that — every rearrangement comes back as a view —
+        // and a sheet the player had closed must not reappear on each one.
+        let top = printed(20, 0, "Island", 3);
+        let under = printed(21, 0, "Opt", 4);
+        let ordered = ViewBuilder::new(2)
+            .with_looking_at(vec![top.clone(), under.clone()])
+            .build();
+        let swapped = ViewBuilder::new(2)
+            .with_looking_at(vec![under, top])
+            .build();
+        b.saw_reveal(&ordered);
+        b.close();
+        b.saw_reveal(&swapped);
+        assert!(!b.is_open(), "reordering the same cards reopened the sheet");
     }
 
     /// The invariant the whole module exists for: an id the engine offered

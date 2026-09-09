@@ -937,6 +937,7 @@ pub fn tray_drag(
     mut ups: MessageReader<Pointer<Release>>,
     grips: Query<&crate::hud::TrayGrip>,
     corners: Query<&crate::hud::TrayResize>,
+    closes: Query<&TrayClose>,
     parents: Query<&ChildOf>,
     windows: Query<&Window>,
     mut panels: Query<&mut Node, With<crate::hud::TrayPanel>>,
@@ -947,6 +948,13 @@ pub fn tray_drag(
 
     let cursor = windows.single().ok().and_then(Window::cursor_position);
     for down in downs.read() {
+        // The ✕ sits *on* the header, so its lineage carries the grip. The
+        // specific control claims the press before the row it stands on does,
+        // or every close would first nudge the sheet by whatever the hand
+        // wobbled between the press and the release — and then save it.
+        if find_in_lineage(down.entity, &closes, &parents).is_some() {
+            continue;
+        }
         let kind = if find_in_lineage(down.entity, &corners, &parents).is_some() {
             Some(TrayDragKind::Resize)
         } else if find_in_lineage(down.entity, &grips, &parents).is_some() {
@@ -2802,15 +2810,38 @@ mod tests {
     /// And a library never opens, however often it is tapped: nobody may look
     /// through one, their own included (CR 401.2), so the pile beside the mat
     /// is inert rather than merely empty.
+    ///
+    /// The pile is **manufactured**, because a view cannot produce one: a
+    /// library is face down to everybody, so `ZonePile::top` is always `None`
+    /// there and no tap can ever name its card. It is built anyway because a
+    /// test that tapped an object on no pile at all would pass with every
+    /// guard in `open_pile` deleted, and would then be claiming CR 401.2 while
+    /// holding nothing. Two independent readings refuse it — `is_browsable`
+    /// and `BrowseZone::of_pile` — and each has its own witness in
+    /// `baylee-client-core`; what is asserted here is the outcome a player
+    /// sees.
     #[test]
     fn a_tap_on_a_library_opens_nothing() {
+        use baylee_client_core::layout::PileKind;
         use baylee_client_core::test_support::ViewBuilder;
 
+        let top = obj(7);
         let view = ViewBuilder::new(2).build();
         let mut duel = crate::Duel::default();
         duel.receive_view(view);
         crate::rebuild_board(&mut duel);
-        super::activate_card(&mut duel, obj(999));
+        {
+            let board = duel.board.as_mut().expect("the view built a board");
+            let pile = board.pods[0]
+                .piles
+                .iter_mut()
+                .find(|pile| pile.kind == PileKind::Library)
+                .expect("every seat has a library");
+            pile.count = 60;
+            pile.top = Some(top);
+        }
+
+        super::activate_card(&mut duel, top);
         assert!(!duel.browser.is_open());
     }
 
@@ -3190,6 +3221,32 @@ mod dragging {
         let after = node_of(&app, panel);
         assert_ne!(after.width, before.width, "the corner did not stretch it");
         assert_eq!(after.left, before.left, "the corner moved the sheet");
+    }
+
+    /// The ✕ stands *on* the header, and pressing it must not start a move.
+    ///
+    /// It would be a slow leak rather than a visible bug: a hand that wobbles
+    /// a pixel between the press and the release moves the sheet a pixel, the
+    /// release saves it, and the sheet creeps a little further from where it
+    /// was put with every close.
+    #[test]
+    fn pressing_the_close_button_does_not_start_a_drag() {
+        let (mut app, panel, grip, _) = harness();
+        let close = app.world_mut().spawn((TrayClose, Node::default())).id();
+        app.world_mut().entity_mut(grip).add_children(&[close]);
+
+        press(&mut app, close);
+        app.update();
+        let before = node_of(&app, panel);
+        cursor_to(&mut app, Vec2::new(1000.0, 600.0));
+        assert_eq!(node_of(&app, panel).left, before.left);
+        assert!(
+            app.world()
+                .resource::<ClientSettings>()
+                .zone_browser
+                .is_none(),
+            "closing the sheet wrote a place nobody chose"
+        );
     }
 
     /// A press somewhere else is not a drag.

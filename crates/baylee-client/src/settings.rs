@@ -153,14 +153,20 @@ impl ClientSettings {
     /// Persists the settings (best-effort; neither a read-only home dir nor a
     /// browser with site data blocked is worth a crash).
     ///
-    /// **Not under test.** This writes to the player's real config directory,
-    /// and a test that reached it would edit the settings of whoever ran
-    /// `cargo test` — which is exactly what the zone browser's drag test did
-    /// the first time it released the pointer, moving the sheet in the
-    /// developer's own client by the delta the test had invented. The
-    /// in-memory half is what a test has business asserting; the file is the
-    /// platform's, and `settings_round_trip_through_json` proves the encoding
-    /// without one.
+    /// **Not under the crate's own unit tests.** This writes to the player's
+    /// real config directory, and a test that reached it would edit the
+    /// settings of whoever ran `cargo test` — which is exactly what the zone
+    /// browser's drag test did the first time it released the pointer, moving
+    /// the sheet in the developer's own client by the delta the test had
+    /// invented. The in-memory half is what a test has business asserting;
+    /// the file is the platform's, and `settings_round_trip_through_json`
+    /// proves the encoding without one.
+    ///
+    /// The guard reaches exactly that far and no further: `cfg(test)` is set
+    /// while this library is compiled *for* its own tests and **not** while
+    /// it is compiled as a dependency of one in `tests/`, so an integration
+    /// test that drove a system which saves would write the file for real.
+    /// None does today.
     pub fn save(&self) {
         if cfg!(test) {
             return;
