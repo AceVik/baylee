@@ -25,6 +25,16 @@ pub struct ClientSettings {
     /// The modifier key (Cmd or Alt) toggles the face for as long as it is
     /// held; this is for players who want to read text all the time.
     pub prefer_text_view: bool,
+    /// Where the zone browser was left standing, and how big.
+    ///
+    /// Here and not in `Preferences`, which travels with the account over
+    /// `/settings`: a sheet parked clear of the mat on a 1728-wide screen is
+    /// a fact about *this screen*, and following the player onto a phone
+    /// would be following them with the wrong answer. `None` means it has
+    /// never been moved, which is not the same as the default rectangle —
+    /// the default depends on the window, and this store does not know one.
+    #[serde(default)]
+    pub zone_browser: Option<baylee_client_core::browser::Placement>,
 }
 
 impl Default for ClientSettings {
@@ -33,6 +43,7 @@ impl Default for ClientSettings {
             preview_scale: 1.0,
             lang: "en".to_string(),
             prefer_text_view: false,
+            zone_browser: None,
         }
     }
 }
@@ -273,12 +284,21 @@ mod tests {
             preview_scale: 1.75,
             lang: "de".to_string(),
             prefer_text_view: true,
+            zone_browser: Some(baylee_client_core::browser::Placement {
+                left: 40.0,
+                top: 24.0,
+                width: 520.0,
+                height: 380.0,
+            }),
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
         assert!((read.preview_scale - 1.75).abs() < f32::EPSILON);
         assert_eq!(read.lang, "de");
         assert!(read.prefer_text_view);
+        let place = read.zone_browser.expect("the sheet's place survived");
+        assert!((place.left - 40.0).abs() < f32::EPSILON);
+        assert!((place.width - 520.0).abs() < f32::EPSILON);
     }
 
     /// A store written before the language field existed must still load, and

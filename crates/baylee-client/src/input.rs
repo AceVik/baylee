@@ -25,6 +25,7 @@ use crate::settings::ClientSettings;
 use crate::table::CardVisual;
 use crate::{Deed, Duel};
 use baylee_client_core::automation::AutoPilot;
+use baylee_client_core::browser::Placement;
 use baylee_client_core::interaction::{Interaction, Prompt, SelectionOutcome};
 use baylee_client_core::prefs::Action;
 use baylee_core::ids::ObjectId;
@@ -902,6 +903,94 @@ fn declare_nothing(duel: &mut Duel) {
     i.cancel();
     if let Some(action) = i.confirm() {
         duel.submit(action);
+    }
+}
+
+/// Moves and stretches the zone browser's sheet.
+///
+/// # Why this is not `Pointer<Drag>`
+///
+/// Bevy's picking backend has a perfectly good drag gesture, and the lobby
+/// uses it. The duel HUD cannot: it is a retained tree rebuilt from scratch
+/// whenever [`crate::hud::HudRevision`] changes — a new snapshot, a hover, a
+/// selection — so the header entity a drag chain was bound to is despawned
+/// mid-gesture and the drag simply stops. A press that records *what* is
+/// being held, and a per-frame read of the cursor, survive the rebuild
+/// because neither of them holds an entity.
+///
+/// # Why the geometry is not in the revision
+///
+/// For the same reason from the other side: routing a drag through
+/// `HudRevision` would rebuild two hundred nodes for every pixel of it. The
+/// system writes the sheet's own `Node` and the in-memory settings, and the
+/// next rebuild — whenever it happens, for whatever reason — reads the
+/// settings and lands where the pointer left it. Only the *release* touches
+/// the disk.
+///
+/// There is no easing here and that is deliberate: the house curve is for
+/// things that move on their own, and a sheet that lagged the hand dragging
+/// it would be wrong at every rate. `reduce_motion` therefore has nothing to
+/// gate.
+#[allow(clippy::too_many_arguments)] // two message readers, three queries, two stores
+pub fn tray_drag(
+    mut downs: MessageReader<Pointer<Press>>,
+    mut ups: MessageReader<Pointer<Release>>,
+    grips: Query<&crate::hud::TrayGrip>,
+    corners: Query<&crate::hud::TrayResize>,
+    parents: Query<&ChildOf>,
+    windows: Query<&Window>,
+    mut panels: Query<&mut Node, With<crate::hud::TrayPanel>>,
+    mut duel: ResMut<Duel>,
+    mut settings: ResMut<ClientSettings>,
+) {
+    use crate::hud::TrayDragKind;
+
+    let cursor = windows.single().ok().and_then(Window::cursor_position);
+    for down in downs.read() {
+        let kind = if find_in_lineage(down.entity, &corners, &parents).is_some() {
+            Some(TrayDragKind::Resize)
+        } else if find_in_lineage(down.entity, &grips, &parents).is_some() {
+            Some(TrayDragKind::Move)
+        } else {
+            None
+        };
+        // A press with no cursor is a press from a harness that never moved
+        // one; starting a drag from it would take the first real cursor
+        // position as a delta and throw the sheet across the band.
+        if let (Some(kind), Some(at)) = (kind, cursor) {
+            duel.tray_drag = Some((kind, at));
+        }
+    }
+    let mut ended = false;
+    for _up in ups.read() {
+        ended |= duel.tray_drag.is_some();
+        duel.tray_drag = None;
+    }
+
+    if let (Some((kind, last)), Some(at)) = (duel.tray_drag, cursor) {
+        let band = crate::hud::band_of(&windows);
+        let delta = at - last;
+        if delta != Vec2::ZERO {
+            let place = settings
+                .zone_browser
+                .map_or_else(|| Placement::centred(band), |p| p.fit(band));
+            let moved = match kind {
+                TrayDragKind::Move => place.moved_by((delta.x, delta.y), band),
+                TrayDragKind::Resize => place.resized_by((delta.x, delta.y), band),
+            };
+            settings.zone_browser = Some(moved);
+            for mut node in &mut panels {
+                node.left = px(moved.left);
+                node.top = px(moved.top);
+                node.width = px(moved.width);
+                node.height = px(moved.height);
+            }
+        }
+        duel.tray_drag = Some((kind, at));
+    }
+
+    if ended {
+        settings.save();
     }
 }
 
@@ -2926,5 +3015,191 @@ mod refusal_tests {
         super::fire_armed(&mut duel);
         assert!(duel.outbox().is_empty(), "nothing goes on the wire");
         assert_eq!(duel.last_error.as_deref(), Some(super::STALE));
+    }
+}
+
+/// The zone browser's sheet actually moves when its header is dragged.
+///
+/// A drag cannot be proved through the `dev-control` harness — `/pointer`
+/// presses and releases in one call, so there is no frame in the middle where
+/// the cursor is somewhere else — and "declared but never wired" is a bug this
+/// client has shipped before. So it is proved here instead: the system is put
+/// in an `App` with a window, a sheet and the two markers, and what is
+/// asserted is the sheet's own `Node`, not that `update()` returned.
+#[cfg(test)]
+mod dragging {
+    use super::*;
+    use crate::hud::{TrayGrip, TrayPanel, TrayResize};
+    use bevy::picking::events::{Pointer, Press, Release};
+    use bevy::picking::pointer::{Location, PointerId};
+    use bevy::window::{PrimaryWindow, WindowRef};
+
+    /// A window with a sheet in it and nothing else.
+    ///
+    /// The window is given a cursor because the system reads one: a press
+    /// with no cursor position starts no drag, which is the branch that keeps
+    /// a harness that never moved a mouse from throwing the sheet across the
+    /// band.
+    fn harness() -> (App, Entity, Entity, Entity) {
+        let mut app = App::new();
+        app.add_message::<Pointer<Press>>()
+            .add_message::<Pointer<Release>>()
+            .init_resource::<Duel>()
+            .init_resource::<ClientSettings>()
+            .add_systems(Update, tray_drag);
+        let mut window = Window::default();
+        window.resolution.set(1728.0, 1052.0);
+        window.set_cursor_position(Some(Vec2::new(800.0, 400.0)));
+        let win = app.world_mut().spawn((window, PrimaryWindow)).id();
+        // The node the overlay would have built: an explicit rectangle, so
+        // that "it moved" is a comparison of two numbers rather than of a
+        // number against `Auto`.
+        let band = (
+            1728.0,
+            1052.0 - (crate::hud::TAB_H + crate::hud::RAIL_H) - crate::hud::HAND_BAR_H,
+        );
+        let home = Placement::centred(band);
+        let panel = app
+            .world_mut()
+            .spawn((
+                TrayPanel,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(home.left),
+                    top: px(home.top),
+                    width: px(home.width),
+                    height: px(home.height),
+                    ..default()
+                },
+            ))
+            .id();
+        let grip = app.world_mut().spawn((TrayGrip, Node::default())).id();
+        let corner = app.world_mut().spawn((TrayResize, Node::default())).id();
+        app.world_mut()
+            .entity_mut(panel)
+            .add_children(&[grip, corner]);
+        let _ = win;
+        (app, panel, grip, corner)
+    }
+
+    /// Where the pointer is, as the picking backend would report it.
+    fn at(app: &mut App, position: Vec2) -> Location {
+        use bevy::camera::NormalizedRenderTarget;
+        let window = app
+            .world_mut()
+            .query_filtered::<Entity, With<PrimaryWindow>>()
+            .single(app.world())
+            .expect("the harness made a window");
+        let target = WindowRef::Entity(window)
+            .normalize(Some(window))
+            .expect("a window is a render target");
+        Location {
+            target: NormalizedRenderTarget::Window(target),
+            position,
+        }
+    }
+
+    fn press(app: &mut App, entity: Entity) {
+        let location = at(app, Vec2::ZERO);
+        let event = Press {
+            button: bevy::picking::pointer::PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
+            count: 1,
+        };
+        app.world_mut()
+            .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    }
+
+    fn release(app: &mut App, entity: Entity) {
+        let location = at(app, Vec2::ZERO);
+        let event = Release {
+            button: bevy::picking::pointer::PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
+        };
+        app.world_mut()
+            .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    }
+
+    /// Moves the cursor and runs one frame.
+    fn cursor_to(app: &mut App, position: Vec2) {
+        let window = app
+            .world_mut()
+            .query_filtered::<Entity, With<PrimaryWindow>>()
+            .single(app.world())
+            .expect("the harness made a window");
+        app.world_mut()
+            .entity_mut(window)
+            .get_mut::<Window>()
+            .expect("a window")
+            .set_cursor_position(Some(position));
+        app.update();
+    }
+
+    fn node_of(app: &App, panel: Entity) -> Node {
+        app.world()
+            .entity(panel)
+            .get::<Node>()
+            .expect("a node")
+            .clone()
+    }
+
+    #[test]
+    fn dragging_the_header_moves_the_sheet() {
+        let (mut app, panel, grip, _) = harness();
+        press(&mut app, grip);
+        app.update();
+        let before = node_of(&app, panel);
+
+        cursor_to(&mut app, Vec2::new(860.0, 430.0));
+        let after = node_of(&app, panel);
+        assert_ne!(after.left, before.left, "the sheet did not move sideways");
+        assert_ne!(after.top, before.top, "the sheet did not move down");
+        assert_eq!(after.width, before.width, "a drag resized it");
+
+        // The position is remembered, and it is the *settings* that hold it
+        // rather than the node — so a rebuild for any other reason lands
+        // where the pointer left it rather than back in the middle.
+        assert!(
+            app.world()
+                .resource::<ClientSettings>()
+                .zone_browser
+                .is_some(),
+            "nothing was remembered"
+        );
+
+        // And a release lets go: the sheet stops following the pointer.
+        release(&mut app, grip);
+        app.update();
+        let parked = node_of(&app, panel);
+        cursor_to(&mut app, Vec2::new(300.0, 200.0));
+        assert_eq!(
+            node_of(&app, panel).left,
+            parked.left,
+            "the sheet is still following a pointer nobody is holding"
+        );
+    }
+
+    #[test]
+    fn dragging_the_corner_stretches_the_sheet() {
+        let (mut app, panel, _, corner) = harness();
+        press(&mut app, corner);
+        app.update();
+        let before = node_of(&app, panel);
+
+        cursor_to(&mut app, Vec2::new(900.0, 500.0));
+        let after = node_of(&app, panel);
+        assert_ne!(after.width, before.width, "the corner did not stretch it");
+        assert_eq!(after.left, before.left, "the corner moved the sheet");
+    }
+
+    /// A press somewhere else is not a drag.
+    #[test]
+    fn pressing_the_sheet_itself_does_not_move_it() {
+        let (mut app, panel, _, _) = harness();
+        press(&mut app, panel);
+        app.update();
+        let before = node_of(&app, panel);
+        cursor_to(&mut app, Vec2::new(1000.0, 600.0));
+        assert_eq!(node_of(&app, panel).left, before.left);
     }
 }

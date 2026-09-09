@@ -153,6 +153,13 @@ pub fn sync_overlay(
     );
     let menu = (duel.can_offer_draw(), duel.concede_armed);
     let armed_deed = duel.armed.clone();
+    // Rounded to whole pixels: a window being dragged reports fractional
+    // sizes, and a revision keyed on an `f32` would rebuild the whole tree on
+    // a sub-pixel wobble.
+    #[allow(clippy::cast_possible_truncation)]
+    let canvas = windows
+        .single()
+        .map_or((1200, 800), |w| (w.width() as i32, w.height() as i32));
     let number = duel
         .interaction
         .as_ref()
@@ -178,6 +185,7 @@ pub fn sync_overlay(
         && revision.menu == menu
         && revision.armed == armed_deed
         && revision.number == number
+        && revision.window == canvas
         && !existing.is_empty()
     {
         return;
@@ -202,6 +210,7 @@ pub fn sync_overlay(
     revision.menu = menu;
     revision.armed.clone_from(&armed_deed);
     revision.number = number;
+    revision.window = canvas;
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -1255,6 +1264,15 @@ pub fn sync_overlay(
     // keyboard, or by the engine asking a question about cards the table
     // cannot show. Nothing draws a second copy of a zone to click.
     if let (true, Some(statics)) = (duel.browser.is_open(), duel.statics.as_ref()) {
+        // Where the sheet stands, decided here so that the tray takes a
+        // rectangle rather than the window and the store. `fit` is applied on
+        // every build and never written back: a window briefly dragged narrow
+        // must not overwrite where the player put the sheet on the screen
+        // they play on.
+        let band = tray::band_of(&windows);
+        let place = settings
+            .zone_browser
+            .map_or_else(|| Placement::centred(band), |p| p.fit(band));
         let tray = tray::spawn_tray(
             &mut commands,
             lang,
@@ -1268,6 +1286,7 @@ pub fn sync_overlay(
             &faces,
             sheets.as_deref(),
             cards.as_mut(),
+            place,
         );
         commands.entity(root).add_child(tray);
     }

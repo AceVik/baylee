@@ -33,7 +33,32 @@ const TRAY_CARD_H: f32 = TRAY_CARD_W * 88.0 / 63.0;
 /// It was five, and a five-wide grid pinned to the left edge is what made
 /// looking through a hundred-card library a chore: nine rows of five, most of
 /// them off the bottom of a panel that also sat over the seat tabs.
+///
+/// The sheet takes its width from [`Placement`] now, because a player can
+/// resize it. This stays as the *derivation* of that default — the arithmetic
+/// that says why eight columns is 690 and not a round number somebody liked —
+/// and `the_default_width_is_still_eight_columns` holds the two together.
+#[cfg(test)]
 const TRAY_PANEL_W: f32 = 8.0 * (TRAY_CARD_W + 8.0) + 34.0;
+
+/// The strip of screen the sheet is allowed into: below the seat tabs and the
+/// phase rail, above the hand bar.
+///
+/// One function because three places need the same answer and a band computed
+/// twice is a band that can disagree with itself — the overlay places the
+/// sheet in it, the drag clamps against it, and a resized window re-fits to
+/// it. A window that has not been created yet answers with the size the rest
+/// of the overlay falls back to.
+#[must_use]
+pub(crate) fn band_of(windows: &Query<&Window>) -> (f32, f32) {
+    let size = windows.single().map_or(Vec2::new(1200.0, 800.0), |w| {
+        Vec2::new(w.width(), w.height())
+    });
+    (
+        size.x,
+        (size.y - (TAB_H + RAIL_H) - HAND_BAR_H).max(Placement::MIN_H),
+    )
+}
 
 /// The zone browser: a sheet laid on the felt, in the middle of the table.
 ///
@@ -57,11 +82,14 @@ pub(super) fn spawn_tray(
     faces: &FaceCtx<'_>,
     sheets: Option<&UiSheets>,
     mut cards: Option<&mut UiCards<'_>>,
+    place: Placement,
 ) -> Entity {
     let rows = browser.rows(view, interaction);
-    // The centring frame: the whole band between the phase rail and the hand
-    // bar, painting nothing and answering no click, so that its one child can
-    // stand in the middle of it.
+    // The band: the whole strip between the phase rail and the hand bar,
+    // painting nothing and answering no click. It used to centre its one
+    // child; now it is the coordinate space that child is placed in, which is
+    // what makes a remembered position mean the same thing on two screens
+    // with different amounts of HUD above and below.
     let frame = commands
         .spawn((
             Node {
@@ -70,8 +98,6 @@ pub(super) fn spawn_tray(
                 right: px(0),
                 top: px(TAB_H + RAIL_H),
                 bottom: px(HAND_BAR_H),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
                 ..default()
             },
             ZIndex(3),
@@ -79,9 +105,13 @@ pub(super) fn spawn_tray(
         ))
         .id();
     let sheet_node = commands.spawn((
+        TrayPanel,
         Node {
-            max_width: px(TRAY_PANEL_W),
-            max_height: percent(92),
+            position_type: PositionType::Absolute,
+            left: px(place.left),
+            top: px(place.top),
+            width: px(place.width),
+            height: px(place.height),
             flex_direction: FlexDirection::Column,
             row_gap: px(10),
             padding: UiRect::all(px(16)),
@@ -103,16 +133,22 @@ pub(super) fn spawn_tray(
         commands.entity(panel).add_child(surface);
     }
 
-    // ---- header: what this is, and the way out of it ----
+    // ---- header: what this is, the way out of it, and the handle ----
+    //
+    // The row answers the pointer now rather than ignoring it, because it is
+    // what a drag takes hold of. The title inside it keeps `Pickable::IGNORE`,
+    // so a press anywhere on the row that is not the close button is a press
+    // on the row itself.
     let header = commands
         .spawn((
+            TrayGrip,
             Node {
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
+                flex_shrink: 0.0,
                 ..default()
             },
-            Pickable::IGNORE,
         ))
         .id();
     let title = super::overlay::slip_text(
@@ -326,12 +362,20 @@ pub(super) fn spawn_tray(
     // into the `Pointer<Scroll>` a scrolling node listens for — the same
     // reason `dev-control` has to put the pointer over a list before it can
     // send one.
+    //
+    // `min_height: px(0)` beside the `flex_grow`, and it is load-bearing: a
+    // flex item's default `min-height` is `auto`, so a hundred-card library
+    // would size the column to its own content, push the sheet past the
+    // explicit height it was given, and hand the overflow — including the
+    // resize corner — to `Overflow::clip`.
     let grid = commands
         .spawn((Node {
             flex_direction: FlexDirection::Row,
             flex_wrap: FlexWrap::Wrap,
             column_gap: px(6),
             row_gap: px(6),
+            flex_grow: 1.0,
+            min_height: px(0),
             overflow: Overflow::scroll_y(),
             ..default()
         },))
@@ -355,9 +399,38 @@ pub(super) fn spawn_tray(
         commands.entity(grid).add_child(card);
     }
 
+    // The corner, in the same shape and the same place the card preview's is:
+    // one handle, bottom right, both axes. A second handle on every edge is
+    // eight more hit targets for a gesture nobody makes on a sheet of cards.
+    let corner = commands
+        .spawn((
+            TrayResize,
+            Button,
+            Node {
+                position_type: PositionType::Absolute,
+                right: px(6),
+                bottom: px(6),
+                width: px(22),
+                height: px(22),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::SLIP_GHOST),
+            Feel::new(palette::SLIP_GHOST),
+            children![(
+                Text::new(glyph::EXPAND.to_string()),
+                icon_tf(fonts, 11.0),
+                TextColor(palette::SLIP_SOFT),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id();
+
     commands
         .entity(panel)
-        .add_children(&[header, tabs, filter_row, grid]);
+        .add_children(&[header, tabs, filter_row, grid, corner]);
     frame
 }
 
@@ -608,6 +681,34 @@ mod tests {
             }],
             prints: vec![],
         }
+    }
+
+    /// The sheet a player has never moved is still eight card columns wide.
+    ///
+    /// `Placement::DEFAULT_W` is a number in the renderer-free half, where it
+    /// can be tested but where `TRAY_CARD_W` does not exist; the arithmetic
+    /// that produced it lives here. This is the seam between them, so a card
+    /// resized on one side cannot silently leave the other showing seven
+    /// columns and a gap.
+    #[test]
+    fn the_default_width_is_still_eight_columns() {
+        assert!(
+            (Placement::DEFAULT_W - TRAY_PANEL_W).abs() < f32::EPSILON,
+            "eight columns is {TRAY_PANEL_W}, the sheet opens at {}",
+            Placement::DEFAULT_W
+        );
+    }
+
+    /// The band never claims more room than the window has.
+    #[test]
+    fn the_band_is_what_is_left_between_the_rail_and_the_hand() {
+        // A window the size the dev harness reports.
+        let tall = 1052.0 - (TAB_H + RAIL_H) - HAND_BAR_H;
+        assert!(tall > Placement::MIN_H, "the fixture is not exercising it");
+        // A window too short for a sheet still gets one: `MIN_H` wins, and a
+        // sheet clamped to nothing would be a sheet that is not there.
+        let cramped = (200.0f32 - (TAB_H + RAIL_H) - HAND_BAR_H).max(Placement::MIN_H);
+        assert!((cramped - Placement::MIN_H).abs() < f32::EPSILON);
     }
 
     /// A tab says how many cards are in it, and says it in the one register

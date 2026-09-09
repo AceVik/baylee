@@ -218,6 +218,109 @@ fn type_rank(types: TypeSet) -> u8 {
     }
 }
 
+/// Where the sheet stands, and how big it is.
+///
+/// Logical pixels, and **relative to the band** — the strip of screen between
+/// the phase rail and the hand bar, which is the only part of the window the
+/// sheet is ever allowed into. Pixels rather than fractions of the band on
+/// purpose: what is inside is a grid of cards at a fixed size, so a sheet that
+/// scaled with the window would show a different number of columns on every
+/// screen and none of them the number the player chose.
+///
+/// It lives here rather than in the renderer because the whole of it is
+/// arithmetic — clamping a rectangle into another rectangle — and arithmetic
+/// with a window in front of it is arithmetic nobody tests.
+#[derive(Clone, Copy, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Placement {
+    /// Distance from the band's left edge.
+    pub left: f32,
+    /// Distance from the band's top edge.
+    pub top: f32,
+    /// Width of the sheet.
+    pub width: f32,
+    /// Height of the sheet.
+    pub height: f32,
+}
+
+impl Placement {
+    /// Three card columns wide: `3 · 74 + 2 · 6 + 32` of padding `+ 2` of
+    /// border. Below this the grid has nowhere to put a card.
+    pub const MIN_W: f32 = 300.0;
+    /// One card row under the header, the tabs and the filter.
+    pub const MIN_H: f32 = 260.0;
+    /// Eight columns — what the sheet was fixed at before it could be
+    /// resized, and what `TRAY_PANEL_W` in the renderer still computes.
+    pub const DEFAULT_W: f32 = 690.0;
+    /// Tall enough for two rows of cards and the controls above them.
+    pub const DEFAULT_H: f32 = 520.0;
+    /// The clear the sheet keeps between itself and the band's edge.
+    const MARGIN: f32 = 12.0;
+
+    /// The sheet a player who has never moved it gets: the default size, or
+    /// as much of it as the band has room for, in the middle.
+    #[must_use]
+    pub fn centred(band: (f32, f32)) -> Self {
+        let width = Self::DEFAULT_W;
+        let height = Self::DEFAULT_H;
+        Self {
+            left: (band.0 - width) / 2.0,
+            top: (band.1 - height) / 2.0,
+            width,
+            height,
+        }
+        .fit(band)
+    }
+
+    /// The same rectangle, brought inside the band.
+    ///
+    /// Size first and position second, and that order is the whole of it: a
+    /// sheet moved before it was shrunk can be pushed off the far edge by its
+    /// own width. It never writes itself back to the store either — a window
+    /// briefly dragged small must not overwrite where the player put the
+    /// sheet on the screen they actually play on.
+    ///
+    /// A band smaller than the minimum loses: the sheet keeps its minimum and
+    /// overflows, because a sheet clamped to nothing is a sheet that is not
+    /// there.
+    #[must_use]
+    pub fn fit(self, band: (f32, f32)) -> Self {
+        let room = |band: f32, min: f32| (band - 2.0 * Self::MARGIN).max(min);
+        let width = self.width.clamp(Self::MIN_W, room(band.0, Self::MIN_W));
+        let height = self.height.clamp(Self::MIN_H, room(band.1, Self::MIN_H));
+        let place = |at: f32, size: f32, band: f32| {
+            at.clamp(Self::MARGIN, (band - Self::MARGIN - size).max(Self::MARGIN))
+        };
+        Self {
+            left: place(self.left, width, band.0),
+            top: place(self.top, height, band.1),
+            width,
+            height,
+        }
+    }
+
+    /// The same rectangle moved by a pointer delta, still inside the band.
+    #[must_use]
+    pub fn moved_by(self, delta: (f32, f32), band: (f32, f32)) -> Self {
+        Self {
+            left: self.left + delta.0,
+            top: self.top + delta.1,
+            ..self
+        }
+        .fit(band)
+    }
+
+    /// The same rectangle resized from its bottom-right corner.
+    #[must_use]
+    pub fn resized_by(self, delta: (f32, f32), band: (f32, f32)) -> Self {
+        Self {
+            width: self.width + delta.0,
+            height: self.height + delta.1,
+            ..self
+        }
+        .fit(band)
+    }
+}
+
 /// The panel's own state — what the player has said about it, nothing more.
 #[derive(Clone, Default, Debug)]
 pub struct Browser {
@@ -667,6 +770,78 @@ mod tests {
         assert!(rows.iter().all(|r| r.zone == BrowseZone::Looking));
         assert!(rows.iter().all(|r| r.selectable), "all four were offered");
         assert!(rows.iter().all(|r| r.art.is_some()), "each has a picture");
+    }
+
+    /// The sheet is put where it fits, and shrunk before it is moved.
+    #[test]
+    fn a_sheet_is_brought_inside_the_band_it_stands_in() {
+        let band = (1728.0, 776.0);
+        let home = Placement::centred(band);
+        assert!((home.width - Placement::DEFAULT_W).abs() < f32::EPSILON);
+        assert!(
+            (home.left - (band.0 - home.width) / 2.0).abs() < 0.01,
+            "a sheet nobody has moved stands in the middle"
+        );
+
+        // A remembered position from a wider screen comes home rather than
+        // hanging off the edge, taking its resize handle with it.
+        let strayed = Placement {
+            left: 3000.0,
+            top: 2000.0,
+            ..home
+        };
+        let back = strayed.fit(band);
+        assert!(back.left + back.width <= band.0, "off the right edge");
+        assert!(back.top + back.height <= band.1, "off the bottom edge");
+
+        // Size before position: a sheet wider than the band is narrowed
+        // first, so its own width cannot then push it off the far side.
+        let huge = Placement {
+            left: 900.0,
+            top: 600.0,
+            width: 5000.0,
+            height: 5000.0,
+        }
+        .fit(band);
+        assert!(huge.width < band.0 && huge.height < band.1);
+        assert!(huge.left + huge.width <= band.0);
+        assert!(huge.top + huge.height <= band.1);
+
+        // And the minimum wins over a band with no room for it: a sheet
+        // clamped to nothing is a sheet that is not there.
+        let cramped = Placement::centred((120.0, 90.0));
+        assert!((cramped.width - Placement::MIN_W).abs() < f32::EPSILON);
+        assert!((cramped.height - Placement::MIN_H).abs() < f32::EPSILON);
+    }
+
+    /// Dragging moves it, the corner resizes it, and neither can leave the
+    /// band — which is what keeps the resize handle reachable.
+    #[test]
+    fn a_sheet_cannot_be_dragged_or_stretched_out_of_reach() {
+        let band = (1728.0, 776.0);
+        let home = Placement::centred(band);
+
+        let nudged = home.moved_by((40.0, -25.0), band);
+        assert!((nudged.left - (home.left + 40.0)).abs() < 0.01);
+        assert!((nudged.top - (home.top - 25.0)).abs() < 0.01);
+        assert!(
+            (nudged.width - home.width).abs() < f32::EPSILON,
+            "a drag is not a resize"
+        );
+
+        let shoved = home.moved_by((-9999.0, -9999.0), band);
+        assert!(shoved.left >= 0.0 && shoved.top >= 0.0);
+
+        let stretched = home.resized_by((60.0, 40.0), band);
+        assert!((stretched.width - (home.width + 60.0)).abs() < 0.01);
+        assert!(
+            (stretched.left - home.left).abs() < f32::EPSILON,
+            "the corner drags the corner, not the sheet"
+        );
+
+        let squashed = home.resized_by((-9999.0, -9999.0), band);
+        assert!((squashed.width - Placement::MIN_W).abs() < f32::EPSILON);
+        assert!((squashed.height - Placement::MIN_H).abs() < f32::EPSILON);
     }
 
     /// A reveal with no question attached opens the sheet by itself.

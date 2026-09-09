@@ -237,6 +237,16 @@ pub struct Duel {
     pub hand_scroll: f32,
     /// Whether the preview resize handle is being dragged.
     pub resize_drag: bool,
+    /// The zone browser's sheet being moved or stretched, and where the
+    /// pointer was on the frame before.
+    ///
+    /// The cursor is recorded at the press rather than the delta being read
+    /// from `MouseMotion`, because the two are different units: motion events
+    /// are raw device counts and a `Node`'s `left` is logical pixels. The
+    /// preview's resize gets away with the raw ones only because it multiplies
+    /// them by an arbitrary constant and clamps; a sheet that has to end up
+    /// under the pointer cannot.
+    pub tray_drag: Option<(crate::hud::TrayDragKind, Vec2)>,
     /// The taps the client is making on the player's behalf, if any.
     pub mana_run: Option<ManaRun>,
     /// Cards in hand that are not castable yet and would be after tapping.
@@ -607,6 +617,7 @@ impl Plugin for DuelPlugin {
                     input::pointer_hover,
                     input::camera_controls,
                     input::preview_resize,
+                    input::tray_drag,
                     face::track_modifier,
                 )
                     .in_set(DuelSet::Input)

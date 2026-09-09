@@ -23,6 +23,7 @@ use crate::ambience::Feel;
 use crate::cardmat::{CardLook, CardUiMaterial, UiCardMaterials, UiCards, finish_of};
 use crate::textures::CardTextures;
 use baylee_client_core::automation::{AutoPilot, RailRow};
+use baylee_client_core::browser::Placement;
 use baylee_client_core::card_face::CardFace;
 use baylee_client_core::images::{ArtSize, FinishTreatment, ImageKey};
 use baylee_client_core::interaction::CombatFocus;
@@ -282,6 +283,39 @@ pub struct TrayTab {
 #[derive(Component)]
 pub struct TrayClose;
 
+/// The browser's sheet itself — the node a drag or a resize writes to.
+///
+/// Marked so that `crate::input::tray_drag` can find one node per frame and
+/// move it *without* going through [`HudRevision`]. The overlay is a retained
+/// tree rebuilt from scratch whenever the revision changes, and rebuilding
+/// two hundred nodes for every pixel of a drag would make the sheet
+/// unusable — the same reason the deckbuilder's hover preview is not part of
+/// its list.
+#[derive(Component)]
+pub struct TrayPanel;
+
+/// The sheet's title row: what a drag takes hold of.
+///
+/// The header and not a separate grip glyph, which is the convention every
+/// window in every desktop follows and therefore needs no explaining. The
+/// title text keeps `Pickable::IGNORE`, so the whole row minus the close
+/// button is the handle.
+#[derive(Component)]
+pub struct TrayGrip;
+
+/// The sheet's resize corner.
+#[derive(Component)]
+pub struct TrayResize;
+
+/// Which of the two a pointer is holding.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TrayDragKind {
+    /// The header: the sheet moves.
+    Move,
+    /// The corner: the sheet grows and shrinks.
+    Resize,
+}
+
 /// The browser's filter box.
 ///
 /// A `Button` because it is a field a player *gives* the keyboard to: a box
@@ -453,6 +487,16 @@ pub struct HudRevision {
     /// which always arrives with a new `seq`, this never leaves the client at
     /// all — so without it here the armed row would never be drawn.
     armed: Option<crate::Armed>,
+    /// The window's logical size, rounded to whole pixels.
+    ///
+    /// Nothing in this struct followed the *window* before, so a HUD built
+    /// for one size stood there unchanged after a resize — latent everywhere
+    /// the overlay reads `windows` (the hand bar does, at
+    /// `overlay.rs`'s `spawn_hand_bar`), and no longer latent at all once the
+    /// zone browser is placed from a band whose height is the window's. A
+    /// rebuild on resize is cheaper than a system clamping the sheet every
+    /// frame, and it fixes the hand bar on the way past.
+    window: (i32, i32),
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -741,3 +785,4 @@ pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
 pub use rail::{RAIL_H, light_the_current_step};
 pub use stack::{StackMotion, ease_the_stack_in};
+pub(crate) use tray::band_of;
