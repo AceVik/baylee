@@ -463,8 +463,45 @@ mod tests {
     /// rather than asserted one at a time, so a run names *every* offender
     /// instead of stopping at the first.
     fn play_every_implemented_card(cap: usize) -> Vec<String> {
+        let cards: Vec<&'static baylee_cards_dsl::CardDef> =
+            baylee_cards::all().filter(|d| d.is_implemented()).collect();
+        // The games share nothing — the registry is a static, the engine
+        // keeps no process-global mutable state (the one `OnceLock` in it
+        // holds an empty default), and every seed is the probe preset's own,
+        // taken per card rather than per run — so the sweep is cut into one
+        // chunk per core and what a chunk plays does not depend on how the
+        // pool was divided. The offender lists are concatenated in chunk
+        // order, which keeps the report in card order however the threads
+        // finish.
+        //
+        // It is worth the split because this is the longest test in the
+        // rules gate by a factor of ten (38.5 s against 3.8 s, measured
+        // 2026-09-09), and it is the only per-card guard over generated
+        // cards — the pool's weakest surface. Making it cheap is what keeps
+        // it running on every commit instead of joining its own `#[ignore]`d
+        // twin below.
+        let threads = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+        let chunk = cards.len().div_ceil(threads).max(1);
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = cards
+                .chunks(chunk)
+                .map(|slice| scope.spawn(move || probe_chunk(slice, cap)))
+                .collect();
+            handles
+                .into_iter()
+                .flat_map(|handle| handle.join().expect("a probe chunk does not panic"))
+                .collect()
+        })
+    }
+
+    /// Plays one game per card in `slice` and names the cards that broke it.
+    ///
+    /// The `catch_unwind` is what makes a chunk safe to join: a card that
+    /// panics is the finding, so the panic must not travel out of the
+    /// thread and take the other chunks' results with it.
+    fn probe_chunk(slice: &[&'static baylee_cards_dsl::CardDef], cap: usize) -> Vec<String> {
         let mut offenders = Vec::new();
-        for def in baylee_cards::all().filter(|d| d.is_implemented()) {
+        for def in slice {
             let Some(preset) = baylee_cards::decks::probe_preset(9, def.index) else {
                 continue; // no basics registered: nothing to pad with
             };
