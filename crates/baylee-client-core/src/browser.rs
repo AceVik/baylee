@@ -89,6 +89,25 @@ impl BrowseZone {
         }
     }
 
+    /// How many cards are in it.
+    ///
+    /// The one number the deleted pile chips carried that nothing else on the
+    /// sheet did. Read from the same fields [`Browser::zones`] reads, so a tab
+    /// that exists is a tab with a non-zero count.
+    #[must_use]
+    pub fn count_in(self, view: &PlayerView) -> usize {
+        let pile = |zones: &[Vec<baylee_view::PublicObject>], seat: PlayerId| {
+            zones.get(seat.get() as usize).map_or(0, Vec::len)
+        };
+        match self {
+            Self::Looking => view.looking_at.len(),
+            Self::Stack => view.stack.len(),
+            Self::Graveyard(p) => pile(&view.graveyards, p),
+            Self::Exile(p) => pile(&view.exile, p),
+            Self::Command(p) => pile(&view.command, p),
+        }
+    }
+
     /// What the zone is called.
     #[must_use]
     pub fn label(self) -> Phrase {

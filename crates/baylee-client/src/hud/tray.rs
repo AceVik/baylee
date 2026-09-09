@@ -115,32 +115,45 @@ pub(super) fn spawn_tray(
             Pickable::IGNORE,
         ))
         .id();
-    let title = commands
-        .spawn((
-            Text::new(Phrase::BrowseTitle.text(lang)),
-            tf(fonts, 13.0),
-            TextColor(palette::PARCHMENT_INK),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let title = super::overlay::slip_text(
+        commands,
+        fonts,
+        Phrase::BrowseTitle.text(lang),
+        16.0,
+        palette::SLIP_INK,
+        false,
+    );
+    commands.entity(title).insert(Pickable::IGNORE);
+    // The way out.
+    //
+    // It was a squat pill — 26.5 by 21.5 — with a 6.5 px cross adrift in the
+    // middle of it, no fill, and nothing that answered the pointer: a stray
+    // mark on the sheet rather than a control. Square, so the cross has a
+    // centre to sit in; the glyph large enough to read as a cross; and a
+    // `Feel`, because every other button in this client breathes and these
+    // were the only ones that did not.
     let close = commands
         .spawn((
             TrayClose,
             Button,
             Node {
-                padding: UiRect::axes(px(8), px(3)),
+                width: px(24),
+                height: px(24),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 border: UiRect::all(px(1)),
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
+            BackgroundColor(palette::SLIP_GHOST),
             BorderColor::all(palette::PARCHMENT_EDGE),
+            Feel::new(palette::SLIP_GHOST),
             children![(
                 // The icon font's own cross. Inter has no U+2715, which is
                 // why the button drew as a thin bar for one build.
                 Text::new(glyph::CLOSE.to_string()),
-                icon_tf(fonts, 11.0),
-                TextColor(palette::PARCHMENT_SOFT),
+                icon_tf(fonts, 13.0),
+                TextColor(palette::SLIP_INK),
                 Pickable::IGNORE,
             )],
         ))
@@ -160,6 +173,8 @@ pub(super) fn spawn_tray(
             Pickable::IGNORE,
         ))
         .id();
+    // "All" carries no count: a sum of a graveyard, a stack and a reveal is a
+    // number about nothing.
     let mut chips = vec![spawn_tab(
         commands,
         fonts,
@@ -208,6 +223,25 @@ pub(super) fn spawn_tray(
             Pickable::IGNORE,
         ))
         .id();
+    let said = typing || !browser.filter().trim().is_empty();
+    let filter_fill = if typing {
+        Color::srgba(0.0, 0.0, 0.0, 0.10)
+    } else {
+        palette::SLIP_GHOST
+    };
+    let filter_text = super::overlay::slip_text(
+        commands,
+        fonts,
+        &hint,
+        12.0,
+        if said {
+            palette::SLIP_INK
+        } else {
+            palette::SLIP_SOFT
+        },
+        false,
+    );
+    commands.entity(filter_text).insert(Pickable::IGNORE);
     let filter_line = commands
         .spawn((
             TrayFilter,
@@ -218,28 +252,26 @@ pub(super) fn spawn_tray(
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(if typing {
-                Color::srgba(0.0, 0.0, 0.0, 0.10)
-            } else {
-                Color::NONE
-            }),
-            children![(
-                Text::new(hint),
-                tf(fonts, 11.0),
-                TextColor(if typing || !browser.filter().trim().is_empty() {
-                    palette::BRASS
-                } else {
-                    palette::PARCHMENT_SOFT
-                }),
-                Pickable::IGNORE,
-            )],
+            BackgroundColor(filter_fill),
+            Feel::new(filter_fill),
         ))
         .id();
+    commands.entity(filter_line).add_child(filter_text);
     // A library is a hundred cards and a long graveyard is thirty, so "look
     // through this pile" is not a question the pile's own order answers on
     // its own. The key and the direction are two buttons because they are two
     // questions, and the arrow says which way the current one runs rather
     // than being a third state of the key.
+    let sort_fill = Color::srgba(0.0, 0.0, 0.0, 0.10);
+    let key_text = super::overlay::slip_text(
+        commands,
+        fonts,
+        browser.sort().label().text(lang),
+        12.0,
+        palette::SLIP_INK,
+        false,
+    );
+    commands.entity(key_text).insert(Pickable::IGNORE);
     let sort_key = commands
         .spawn((
             TraySort { reverse: false },
@@ -249,15 +281,24 @@ pub(super) fn spawn_tray(
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.10)),
-            children![(
-                Text::new(browser.sort().label().text(lang)),
-                tf(fonts, 10.0),
-                TextColor(palette::PARCHMENT_INK),
-                Pickable::IGNORE,
-            )],
+            BackgroundColor(sort_fill),
+            Feel::new(sort_fill),
         ))
         .id();
+    commands.entity(sort_key).add_child(key_text);
+    let dir_text = super::overlay::slip_text(
+        commands,
+        fonts,
+        if browser.descending() {
+            "\u{2193}"
+        } else {
+            "\u{2191}"
+        },
+        12.0,
+        palette::SLIP_INK,
+        false,
+    );
+    commands.entity(dir_text).insert(Pickable::IGNORE);
     let sort_dir = commands
         .spawn((
             TraySort { reverse: true },
@@ -267,19 +308,11 @@ pub(super) fn spawn_tray(
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.10)),
-            children![(
-                Text::new(if browser.descending() {
-                    "\u{2193}"
-                } else {
-                    "\u{2191}"
-                }),
-                tf(fonts, 10.0),
-                TextColor(palette::PARCHMENT_INK),
-                Pickable::IGNORE,
-            )],
+            BackgroundColor(sort_fill),
+            Feel::new(sort_fill),
         ))
         .id();
+    commands.entity(sort_dir).add_child(dir_text);
     commands
         .entity(filter_row)
         .add_children(&[filter_line, sort_key, sort_dir]);
@@ -304,14 +337,15 @@ pub(super) fn spawn_tray(
         },))
         .id();
     if rows.is_empty() {
-        let empty = commands
-            .spawn((
-                Text::new(Phrase::BrowseEmpty.text(lang)),
-                tf(fonts, 11.0),
-                TextColor(palette::PARCHMENT_SOFT),
-                Pickable::IGNORE,
-            ))
-            .id();
+        let empty = super::overlay::slip_text(
+            commands,
+            fonts,
+            Phrase::BrowseEmpty.text(lang),
+            12.0,
+            palette::SLIP_SOFT,
+            false,
+        );
+        commands.entity(empty).insert(Pickable::IGNORE);
         commands.entity(grid).add_child(empty);
     }
     for row in &rows {
@@ -335,7 +369,18 @@ fn spawn_tab(
     label: String,
     current: bool,
 ) -> Entity {
-    commands
+    // Brass is a *light* on this sheet and not a letter: measured against
+    // parchment it carries 1.9:1, which is why the current tab read fainter
+    // than the ones beside it. The ink says which tab is current; the fill
+    // under it says it a second time.
+    let (fill, ink) = if current {
+        (Color::srgba(0.0, 0.0, 0.0, 0.10), palette::SLIP_INK)
+    } else {
+        (palette::SLIP_GHOST, palette::SLIP_SOFT)
+    };
+    let text = super::overlay::slip_text(commands, fonts, &label, 12.0, ink, false);
+    commands.entity(text).insert(Pickable::IGNORE);
+    let tab = commands
         .spawn((
             TrayTab { zone },
             Button,
@@ -344,23 +389,12 @@ fn spawn_tab(
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(if current {
-                Color::srgba(0.0, 0.0, 0.0, 0.10)
-            } else {
-                Color::NONE
-            }),
-            children![(
-                Text::new(label),
-                tf(fonts, 10.0),
-                TextColor(if current {
-                    palette::BRASS
-                } else {
-                    palette::PARCHMENT_SOFT
-                }),
-                Pickable::IGNORE,
-            )],
+            BackgroundColor(fill),
+            Feel::new(fill),
         ))
-        .id()
+        .id();
+    commands.entity(tab).add_child(text);
+    tab
 }
 
 /// One card in the grid: its picture, its selection state, and — for an
@@ -454,7 +488,7 @@ fn spawn_row(
                 },
                 children![(
                     Text::new(row.name.clone()),
-                    tf(fonts, 9.0),
+                    tf(fonts, 10.0),
                     TextColor(palette::PARCHMENT_INK),
                     Pickable::IGNORE,
                 )],
@@ -483,7 +517,7 @@ fn spawn_row(
                 BackgroundColor(palette::BRASS),
                 children![(
                     Text::new(place.to_string()),
-                    tf(fonts, 10.0),
+                    tf(fonts, 11.0),
                     TextColor(palette::PANEL),
                     Pickable::IGNORE,
                 )],
@@ -516,7 +550,7 @@ fn spawn_row(
                 BackgroundColor(palette::PANEL),
                 children![(
                     Text::new(Phrase::IsToken.text(lang)),
-                    tf(fonts, 8.0),
+                    tf(fonts, 9.0),
                     TextColor(palette::MUTED),
                     Pickable::IGNORE,
                 )],
@@ -529,10 +563,17 @@ fn spawn_row(
 }
 
 /// What a zone tab reads. A pile belonging to a seat says whose it is,
-/// because at a table of four "Graveyard" alone names nothing.
+/// because at a table of four "Graveyard" alone names nothing — and every tab
+/// says how many cards are in it, which is the one thing the deleted pile
+/// chips carried that nothing else on the sheet does.
+///
+/// The count goes in brackets rather than after a separator because the
+/// sheet's typography already means something by a bracket: `slip_text` hands
+/// a bracketed run to [`palette::SLIP_ASIDE`], so "Graveyard (12)" is drawn as
+/// a name with a grey aside beside it and reads as one.
 fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameStatic) -> String {
     let name = zone.label().text(lang).to_string();
-    match zone.seat() {
+    let named = match zone.seat() {
         None => name,
         Some(seat) if seat == view.seat => name,
         Some(seat) => {
@@ -541,6 +582,93 @@ fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameSta
                 |s| s.display_name.clone(),
             );
             Phrase::BrowseZoneOf.fill(lang, &[&name, &who])
+        }
+    };
+    Phrase::BrowseTabCount.fill(lang, &[&named, &zone.count_in(view).to_string()])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::prose::bracketed;
+    use baylee_client_core::test_support::{ViewBuilder, printed};
+    use baylee_core::ids::PlayerId;
+
+    fn statics() -> GameStatic {
+        GameStatic {
+            view_version: baylee_view::VIEW_VERSION,
+            game_id: "g".into(),
+            your_seat: PlayerId::new(0),
+            seats: vec![baylee_view::SeatIdentity {
+                player: PlayerId::new(1),
+                display_name: "House AI".into(),
+                is_ai: true,
+                away: false,
+                team: None,
+            }],
+            prints: vec![],
+        }
+    }
+
+    /// A tab says how many cards are in it, and says it in the one register
+    /// the sheet greys.
+    ///
+    /// Two claims in one, because they are one decision: the count is drawn
+    /// as an aside rather than as part of the name, and `slip_text` decides
+    /// that by finding a bracket. A count appended with a separator would
+    /// read at full ink weight and make every tab look twice as long.
+    #[test]
+    fn a_zone_tab_carries_its_count_as_an_aside() {
+        let view = ViewBuilder::new(2)
+            .with_graveyard(0, vec![printed(1, 0, "Llanowar Elves", 1)])
+            .with_graveyard(1, vec![printed(2, 1, "Ponder", 2)])
+            .build();
+        let mine = zone_label(
+            Lang::En,
+            BrowseZone::Graveyard(PlayerId::new(0)),
+            &view,
+            &statics(),
+        );
+        assert_eq!(mine, "Graveyard (1)", "my own pile does not say whose");
+
+        let runs: Vec<_> = bracketed(&mine).collect();
+        assert_eq!(
+            runs,
+            vec![("Graveyard ", false), ("(1)", true)],
+            "the count is not in the aside register the sheet greys"
+        );
+
+        let theirs = zone_label(
+            Lang::En,
+            BrowseZone::Graveyard(PlayerId::new(1)),
+            &view,
+            &statics(),
+        );
+        assert_eq!(
+            theirs, "Graveyard · House AI (1)",
+            "somebody else's pile says whose, and still counts"
+        );
+    }
+
+    /// Nothing on the parchment says anything in brass.
+    ///
+    /// `BRASS` on `PARCHMENT` measures 1.9:1 — below every legibility floor —
+    /// which is why the *current* zone tab read fainter than the ones beside
+    /// it. Brass keeps its job as a light: the card glow and the ordering
+    /// badge, both of which sit on their own fill. The check is on the source
+    /// because what is being held is a rule about the whole file, not about
+    /// one node.
+    #[test]
+    fn the_sheet_writes_no_letters_in_brass() {
+        // Assembled rather than written out, or the needle is in the
+        // haystack and this test fails on its own source line.
+        let ink_in = format!("TextColor(palette::{}", "BRASS");
+        for line in include_str!("tray.rs").lines() {
+            let code = line.split("//").next().unwrap_or(line);
+            assert!(
+                !code.contains(&ink_in),
+                "brass is a light on this sheet, not a letter: {line}"
+            );
         }
     }
 }

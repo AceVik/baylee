@@ -1459,10 +1459,38 @@ fn slip_line(
     size: f32,
     ink: Color,
 ) -> Entity {
+    slip_text(commands, fonts, text, size, ink, true)
+}
+
+/// The same treatment, upright.
+///
+/// Three of the four decisions above are about the *sheet* — ink with a
+/// little parchment through it, the faint warm shadow a letter lying on one
+/// casts, bracketed asides in grey — and one of them is about the slip's
+/// voice, which is the slant. The zone browser is the same sheet and not the
+/// same voice: a question is written on the parchment, a graveyard is merely
+/// listed on it. So the posture is the argument and everything else is
+/// shared, rather than the browser growing a second treatment that would
+/// drift from this one the first time either was adjusted.
+pub(super) fn slip_text(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    ink: Color,
+    italic: bool,
+) -> Entity {
+    let face = |fonts: &UiFonts, size| {
+        if italic {
+            tf_italic(fonts, size)
+        } else {
+            tf(fonts, size)
+        }
+    };
     let line = commands
         .spawn((
             Text::default(),
-            tf_italic(fonts, size),
+            face(fonts, size),
             TextColor(ink),
             TextShadow {
                 offset: Vec2::new(0.0, 1.0),
@@ -1474,7 +1502,7 @@ fn slip_line(
         let span = commands
             .spawn((
                 TextSpan::new(run.to_string()),
-                tf_italic(fonts, size),
+                face(fonts, size),
                 TextColor(if aside { palette::SLIP_ASIDE } else { ink }),
             ))
             .id();

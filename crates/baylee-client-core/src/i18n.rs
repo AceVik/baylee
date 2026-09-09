@@ -1152,6 +1152,15 @@ messages! {
     },
     /// A zone belonging to a seat. `{0}` is the zone, `{1}` the seat.
     BrowseZoneOf { en: "{0} · {1}", de: "{0} · {1}" },
+    /// A zone tab with how many cards are in it. `{0}` is the zone's name,
+    /// `{1}` the count.
+    ///
+    /// Bracketed on purpose: the sheet's own typography greys what a sentence
+    /// says in brackets, and a count is exactly that kind of aside — a fact
+    /// the pile itself already shows, riding along beside the name rather
+    /// than being part of it. It is also the one thing the deleted pile chips
+    /// said that nothing else on the sheet did.
+    BrowseTabCount { en: "{0} ({1})", de: "{0} ({1})" },
 }
 
 impl Phrase {
