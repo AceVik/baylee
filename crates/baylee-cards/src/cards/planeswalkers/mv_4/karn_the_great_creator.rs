@@ -35,18 +35,25 @@ card! {
             modifier: Modifier::CantActivateArtifacts,
             cross_zone: false,
         }),
+        // Both halves name **the target** and nothing else. They were written
+        // with the same filter the targeting used, which reads as the same
+        // sentence and is not: a filter says "every noncreature artifact",
+        // so the animation and the mana-value P/T landed on every one of
+        // them on every battlefield. Pointed at an artifact land — mana value
+        // nought — that made a 0/0 of every noncreature artifact in the game
+        // and the next state-based check swept them all up.
         loyalty!(1, &[
                 Effect::CreateContinuousEffect {
                     layer: Layer::Type,
-                    filter: &NONCREATURE_ARTIFACT,
+                    filter: &Filter::This,
                     modifier: Modifier::AddType(TypeSet::CREATURE),
-                    duration: Duration::UntilEndOfTurn,
+                    duration: Duration::UntilYourNextTurn,
                 },
                 Effect::SetPTFilter {
-                    filter: &NONCREATURE_ARTIFACT,
+                    filter: &Filter::This,
                     power: Amount::TargetCmc,
                     toughness: Amount::TargetCmc,
-                    duration: Duration::UntilEndOfTurn,
+                    duration: Duration::UntilYourNextTurn,
                 },
             ], target: Some(TargetSpec::Object(&NONCREATURE_ARTIFACT))),
         loyalty!(-2, &[Effect::WishToHand {

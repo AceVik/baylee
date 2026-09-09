@@ -122,7 +122,24 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 layer: baylee_cards_dsl::Layer::PtSet,
                 timestamp: ts,
                 duration,
-                filter: crate::effects::EffectFilter::Dsl(filter),
+                // `This` means the target here, exactly as it does in
+                // `CreateContinuousEffect` — the two are written as one
+                // sentence on a card ("becomes a creature with power and
+                // toughness equal to its mana value") and had to be able to
+                // name the same object. Without this arm the only way to
+                // write the P/T half was a filter describing the *kind* of
+                // permanent, which then set the P/T of every permanent of
+                // that kind on every battlefield. Karn's +1 on an artifact
+                // land is what found it: the land's mana value is nought, so
+                // every noncreature artifact in the game became a 0/0 and
+                // was put into a graveyard by the next state-based check.
+                filter: if matches!(filter, baylee_cards_dsl::Filter::This) {
+                    crate::effects::EffectFilter::ObjectIs(
+                        res.targets.first().copied().unwrap_or(res.source),
+                    )
+                } else {
+                    crate::effects::EffectFilter::Dsl(filter)
+                },
                 modifier: baylee_cards_dsl::Modifier::SetPT(p, t),
             });
             None

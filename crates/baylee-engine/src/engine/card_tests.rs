@@ -1040,3 +1040,136 @@ fn rogue_s_passage_takes_its_target_out_of_the_blockers_offer() {
         "the Passage's target is not among the attackers it may be paired with"
     );
 }
+
+fn mox_opal() -> baylee_core::ids::CardIndex {
+    card_index("de2440de-e948-4811-903c-0bbe376ff64d")
+}
+
+/// Karn, the Great Creator +1: "up to **one target** noncreature artifact
+/// becomes an artifact creature with power and toughness each equal to its
+/// mana value."
+///
+/// It animated *every* noncreature artifact on every battlefield, because
+/// both halves of the sentence were written with the same filter the
+/// targeting used — which reads like the same claim and is not. Pointed at a
+/// nought-cost artifact it was a one-sided board wipe: everything it touched
+/// became a 0/0 and the next state-based check swept it up. Reported from a
+/// game as "all lands and artifacts were removed from all fields, except
+/// creatures", which is this filter exactly — an artifact *creature* is not
+/// a noncreature artifact and was the only thing left standing.
+#[test]
+fn karn_plus_one_animates_the_target_and_nothing_else() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(43, forest())
+        .battlefield(
+            0,
+            &[karn_the_great_creator(), mox_opal(), chromatic_lantern()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    let mox = on_battlefield(&engine, p0, mox_opal()).expect("the mox is out");
+    let lantern = on_battlefield(&engine, p0, chromatic_lantern()).expect("the lantern is out");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: karn,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&mox) && options.contains(&lantern),
+        "both noncreature artifacts are targetable: {options:?}"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![mox] })
+        .unwrap();
+    pass_until(&mut engine, |e| on_battlefield(e, p0, mox_opal()).is_none());
+
+    // The mox is a nought-cost artifact, so it animated into a 0/0 and died
+    // to a state-based action. That is the rules answer for the card the
+    // ability was pointed at, and it is how the fault was noticed at all.
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .iter()
+            .any(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == mox_opal()))
+            }),
+        "the target became a 0/0 and was put into its owner's graveyard"
+    );
+    // And the bystander is untouched: still on the battlefield, and still
+    // not a creature. Before the fix it was a 0/0 in the graveyard beside
+    // the mox, along with every other noncreature artifact in the game.
+    let still = engine
+        .state()
+        .object(lantern)
+        .expect("the lantern was never targeted and is still on the table");
+    assert!(
+        !still.characteristics().types.intersects(TypeSet::CREATURE),
+        "an untargeted artifact was animated too"
+    );
+    assert!(
+        on_battlefield(&engine, p0, chromatic_lantern()).is_some(),
+        "and it is still on the battlefield"
+    );
+}
+
+/// And the −2 offers the sideboard and exile, never the library.
+///
+/// Filed beside the wish's own test because the two failures look identical
+/// from the client: a dialog full of artifact cards the player did not
+/// expect. This one fills the library with the very artifact the wish
+/// matches, so a version that read `Library(you)` would offer sixty of them.
+#[test]
+fn karn_minus_two_never_offers_the_library() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(44, chromatic_lantern())
+        .battlefield(0, &[karn_the_great_creator()])
+        .sideboard(0, &[mox_opal()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: karn,
+                ability_index: 2,
+            },
+        )
+        .unwrap();
+    let offered = loop {
+        match engine.pending().clone() {
+            Pending::ChooseCards { options, .. } => break options,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while resolving the wish: {other:?}"),
+        }
+    };
+    for id in &offered {
+        let zone = engine.state().object(*id).map(|o| o.zone);
+        assert!(
+            matches!(
+                zone,
+                Some(crate::zone::Zone::OutsideGame | crate::zone::Zone::Exile)
+            ),
+            "the wish offered a card in {zone:?}"
+        );
+    }
+    assert_eq!(offered.len(), 1, "only the mox is outside the game");
+}
