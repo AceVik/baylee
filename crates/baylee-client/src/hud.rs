@@ -750,3 +750,4 @@ pub use hand::{HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W, TAB_H};
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
 pub use rail::{RAIL_H, light_the_current_step};
+pub use stack::{StackMotion, ease_the_stack_in};

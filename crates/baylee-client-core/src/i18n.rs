@@ -951,6 +951,8 @@ messages! {
     StackAbilityBare { en: "Ability", de: "Fähigkeit" },
     /// Ability · {0}
     StackAbility { en: "Ability · {0}", de: "Fähigkeit · {0}" },
+    /// +{0} more
+    StackMore { en: "+{0} more", de: "+{0} weitere" },
     /// Seat {0}
     SeatNumbered { en: "Seat {0}", de: "Platz {0}" },
     /// You ({0})

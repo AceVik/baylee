@@ -546,6 +546,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::HomeRig>()
             .init_resource::<Reconnect>()
             .init_resource::<hud::HudRevision>()
+            .init_resource::<hud::StackMotion>()
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
             .init_resource::<face::FaceMode>()
@@ -621,6 +622,11 @@ impl Plugin for DuelPlugin {
                     hud::sync_overlay,
                     hud::apply_hand_scroll,
                     hud::light_the_current_step,
+                    // After the rebuild, and deliberately: a stack row
+                    // spawned this frame is spawned at rest, so without
+                    // the ordering it is drawn once at full strength
+                    // before its arrival is ever applied.
+                    hud::ease_the_stack_in.after(hud::sync_overlay),
                     textures::drive_preloads,
                     textures::load_the_card_back,
                     textures::note_load_states,

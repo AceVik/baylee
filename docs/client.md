@@ -346,10 +346,58 @@ is already enough to point at the right card on the board.
 `hud::spawn_stack_panel` is where that stops being theory. Each entry is a
 card, not a line of text: the spell's own picture, or — for an ability, which
 has no card at all — the picture of the permanent it came from, borrowed
-through `StackKind::Ability { source }`. Under the name sits what kind of
-thing it is and whose (`Ability · Llanowar Elves — You`), and under that a row
-of everything it points at, each target drawn as its own smaller card with an
-arrow between.
+through `StackKind::Ability { source }`.
+
+**The entries are not peers.** The next thing to resolve is a *full* row — a
+66-pixel card, the name at reading size, what kind of thing it is and whose
+(`Ability · Llanowar Elves — *You*`, the seat in the slant because it is the
+one word that names a person), then an arrow and a picture of everything it
+points at. Everything under it is a *compact* row at two thirds of that: a
+44-pixel card, one line of name cut to fit rather than wrapped, smaller
+thumbnails, no arrow and no subtitle. The size ramp **is** the depth cue,
+which is why there is no numeral beside the rows — position already carries
+the order and the badge already carries the count.
+
+The arithmetic is what forces it rather than taste. The panel is
+`max_height: 62%`; a full row is about 104 logical pixels and a laptop leaves
+about 598 after the title, so six uniform rows fit and the seventh is clipped
+with nothing to say it was — and a stack of ten is an ordinary storm turn. One
+full row and six compact ones fit the same space, and what still does not fit
+is *counted* on a last line (`+3 more`). Under the title sits one more line
+the prompt slip cannot carry: whose answer the table is waiting for, from
+`PlayerView::priority`, and nothing at all while the stack is resolving and
+nobody holds it.
+
+**A row arrives rather than appearing**: it lifts 14 pixels into place, grows
+from 0.96, and its ink, its fills and its accent rail come up from nothing
+over about a fifth of a second (`ARRIVE_RATE`, the same `1 - e^(-rate·dt)`
+everything else in this client eases with). Three things about that are
+load-bearing.
+
+The progress cannot live in the row. The HUD is retained and rebuilt whenever
+`HudRevision` changes, and *hover* is part of that gate, so a pointer twitch
+mid-arrival despawns the row and spawns it again; progress kept in the entity
+would restart on every one of those. It lives in the `StackMotion` resource,
+keyed by `(ObjectId, is the row full)` — the shape is part of the key so that
+a **promotion**, which is what a resolution looks like from the panel's side,
+eases into the full row instead of cutting to it. Departure is not animated at
+all, and deliberately: the object that resolved is gone from the view, and
+drawing a ghost of it would be drawing something the view no longer carries.
+
+The card picture is faded by a **veil**, not by an alpha. The art is a
+`MaterialNode` on a material shared with every card that looks the same
+(`a_look_is_shared_by_exactly_what_looks_the_same`), so an alpha written there
+would fade the player's hand along with it; an absolutely-positioned child the
+colour of the empty slot fades exactly this one card and costs one node.
+
+And every faded node says *which* colour it fades. `Node` requires a
+`BackgroundColor` and a `BorderColor`, so a line of text carries a transparent
+background whether it draws one or not — a system that wrote whichever colour
+it found multiplied that transparent black's alpha back up and gave every
+label in the panel an opaque plate. The first live shot of the panel was eight
+of them where the words should be, while every arithmetic test passed;
+`fading_a_label_does_not_give_it_a_plate` is the test that would have caught
+it.
 
 The resolution happens in `baylee-client-core`, not in the renderer:
 `BoardModel::from_view` turns each `TargetRef` into a `StackTarget { what,
