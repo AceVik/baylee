@@ -1432,8 +1432,19 @@ fn aim_at_their_elf(
     spell: baylee_core::ids::CardIndex,
     pay_extra: bool,
 ) -> baylee_core::ids::ObjectId {
+    aim_at_theirs(engine, spell, llanowar_elves(), pay_extra)
+}
+
+/// The same, at whichever of seat 1's permanents `victim` names.
+#[track_caller]
+fn aim_at_theirs(
+    engine: &mut Engine<RegistryLookup>,
+    spell: baylee_core::ids::CardIndex,
+    victim: baylee_core::ids::CardIndex,
+    pay_extra: bool,
+) -> baylee_core::ids::ObjectId {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let victim = on_battlefield(engine, p1, llanowar_elves()).expect("their elf");
+    let victim = on_battlefield(engine, p1, victim).expect("their permanent");
     cast_from_hand(engine, p0, spell);
     let mut aimed = false;
     loop {
@@ -1851,6 +1862,76 @@ fn the_copy_a_rite_makes_enters_the_battlefield_too() {
         counters_on_the_dovehawk(&engine, p1),
         0,
         "the copy entered under my control, not next to the creature it copies"
+    );
+}
+
+fn baleful_strix() -> baylee_core::ids::CardIndex {
+    card_index("37688720-03de-4eca-a82d-a0afe8d58adc")
+}
+
+/// How many cards are left in seat `seat`'s library.
+///
+/// The measurement a draw is read off here, rather than the hand: the spell
+/// doing the copying leaves the hand on its way to the stack, so a hand
+/// counted before and after would be back where it started and would say
+/// the same thing whether or not anything was drawn.
+fn library_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(seat))
+        .len()
+}
+
+/// Where the two halves meet: a copy is handed the original's rules text
+/// *and* its arrival is an event, so the copy fires **its own** enters
+/// trigger (CR 707.2, CR 603.6a).
+///
+/// Neither half alone reaches this. Rules text with no event is a card that
+/// can be tapped for mana and never triggers; an event with no rules text is
+/// a body the watchers see and that has nothing of its own to say. Baleful
+/// Strix draws a card as it enters and asks for no target, so the whole
+/// claim is one number.
+///
+/// The card is drawn by the seat that controls the **copy**, which is the
+/// seat that cast the spell and not the one whose Strix is being copied —
+/// so their library is the bystander, and it is the same size afterwards as
+/// it was before.
+#[test]
+fn the_copy_fires_the_enters_trigger_it_copied() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(96, forest())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[rite_of_replication()])
+        .battlefield(1, &[baleful_strix(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let (mine, theirs) = (library_of(&engine, p0), library_of(&engine, p1));
+
+    let victim = aim_at_theirs(&mut engine, rite_of_replication(), baleful_strix(), false);
+    let copy = the_copy_on(&engine, p0);
+
+    assert_eq!(
+        library_of(&engine, p0),
+        mine - 1,
+        "the copy entered and drew me a card, exactly once"
+    );
+    assert_eq!(
+        library_of(&engine, p1),
+        theirs,
+        "the Strix that was copied did not enter again"
+    );
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .is_some_and(|o| o.card.is_none() && o.controller == p0),
+        "and the thing that drew it is a token of mine (CR 707.10)"
+    );
+    assert!(
+        engine.state().object(victim).is_some(),
+        "their Strix is still on the battlefield"
     );
 }
 

@@ -248,7 +248,7 @@ impl<L: CardLookup> Engine<L> {
                 {
                     self.trigger_queue.pop_front();
                     let controller = self.state.object(source).map_or(player, |o| o.controller);
-                    self.push_ability_to_stack(controller, source, ability_index, SmallVec::new())?;
+                    self.push_ability_to_stack(controller, source, ability_index, SmallVec::new());
                     // Set the chosen mode on the fresh stack object.
                     let top = self
                         .state
@@ -486,7 +486,7 @@ impl<L: CardLookup> Engine<L> {
                             return Ok(());
                         }
                         let controller = self.state.object(source).map_or(player, |o| o.controller);
-                        self.push_ability_to_stack(controller, source, ability_index, targets)?;
+                        self.push_ability_to_stack(controller, source, ability_index, targets);
                         // Player targets ride beside the object ones. The
                         // ability is on the stack now, so the seats are
                         // written onto it directly rather than threaded

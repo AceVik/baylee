@@ -651,12 +651,18 @@ impl<L: CardLookup> Engine<L> {
                 .object(source)
                 .map_or(NameRef::new(0), |o| o.base.name);
             let base = self.state.bare_base(name);
+            // The same sentinel as `push_ability_to_stack`, and the same
+            // reason: an ability a continuous effect *granted* belongs to
+            // whatever it was granted to, which need not have a card.
+            // Nothing in the pool reaches this with a card-less permanent
+            // today — the three granting cards all name lands, and no token
+            // in the pool is one — so this is the wall taken down rather
+            // than a bug being fixed.
             let card = self
                 .state
                 .object(source)
                 .and_then(|o| o.card)
-                .map(|c| c.index)
-                .ok_or(EngineError::IllegalAction("source not card-backed"))?;
+                .map_or(baylee_core::ids::CardIndex::new(0), |c| c.index);
             let id = self.state.arena.insert_with(|id| {
                 GameObject::new_ability_on_stack(
                     id,
@@ -874,7 +880,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         } else {
-            self.push_ability_to_stack(player, source, ability_index, targets)?;
+            self.push_ability_to_stack(player, source, ability_index, targets);
         }
         self.after_action(player);
         Ok(())
@@ -1174,65 +1180,35 @@ impl<L: CardLookup> Engine<L> {
         Ok(())
     }
 
-    /// Pushes an emblem's triggered ability onto the stack (command-zone
-    /// source, not card-backed).
-    pub(crate) fn push_emblem_ability_to_stack(
-        &mut self,
-        controller: PlayerId,
-        source: ObjectId,
-        ability_index: u32,
-        targets: SmallVec<[ObjectId; 2]>,
-    ) {
-        let name = self
-            .state
-            .object(source)
-            .map_or(NameRef::new(0), |o| o.base.name);
-        let base = self.state.bare_base(name);
-        let abilities = self
-            .state
-            .object(source)
-            .map_or(&[][..], |o| o.abilities(&self.lookup));
-        let id = self.state.arena.insert_with(|id| {
-            let mut obj = GameObject::new_ability_on_stack(
-                id,
-                controller,
-                AbilityLoc {
-                    // Sentinel: an emblem has no card, so the handle a
-                    // client is given names none. What resolves is the
-                    // list captured below (CR 608.2), as for any ability.
-                    card: baylee_core::ids::CardIndex::new(0),
-                    index: ability_index,
-                    source,
-                },
-                targets,
-                base,
-            );
-            obj.own_abilities = Some(abilities);
-            obj
-        });
-        self.state
-            .zones
-            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
-        self.state.journal.record(GameEvent::AbilityTriggered {
-            object: id,
-            source,
-            ability_index,
-            controller,
-        });
-    }
-
+    /// Puts one of `source`'s abilities on the stack (CR 603.3 for a
+    /// trigger, CR 602.2a for an activation).
+    ///
+    /// It cannot fail, and that is the point. It used to refuse a source
+    /// with no card — and both of its trigger callers discarded the refusal
+    /// with `let _ =`, so a token's triggered ability was thrown away
+    /// silently and the line after the call then wrote the trigger's
+    /// `event_object` onto whatever happened to be on top of the stack
+    /// instead, which is a bystander's target context taking a stranger's.
+    /// The emblem case was walked around rather than fixed: a second,
+    /// almost identical function existed for it and the callers chose
+    /// between them on `ObjectKind::Emblem`, which is the wrong question —
+    /// what this needs to know is whether the source has a card, and an
+    /// emblem is only one of the things that has none.
     pub(crate) fn push_ability_to_stack(
         &mut self,
         controller: PlayerId,
         source: ObjectId,
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
-    ) -> Result<(), EngineError> {
+    ) {
+        // Sentinel: an emblem (CR 114.2), a token and a token copy have no
+        // card, so the handle a client is given names none. What resolves
+        // is the list captured below (CR 608.2), as for any ability.
         let card = self
             .state
             .object(source)
             .and_then(|o| o.card)
-            .ok_or(EngineError::IllegalAction("source is not card-backed"))?;
+            .map_or(baylee_core::ids::CardIndex::new(0), |c| c.index);
         let name = self
             .state
             .object(source)
@@ -1263,7 +1239,7 @@ impl<L: CardLookup> Engine<L> {
                 id,
                 controller,
                 AbilityLoc {
-                    card: card.index,
+                    card,
                     index: ability_index,
                     source,
                 },
@@ -1282,6 +1258,5 @@ impl<L: CardLookup> Engine<L> {
             ability_index,
             controller,
         });
-        Ok(())
     }
 }

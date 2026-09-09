@@ -143,6 +143,20 @@ and held by nothing outside that game, which is why an ability the engine puts
 on the stack carries `AbilityRef::SYNTHETIC` rather than the slot it was
 offered under.
 
+The other half of that handle is **not** yet honest, and this is the note
+saying so. `AbilityLoc.card`, which is what a `StackItem::Ability` carries out
+as its `AbilityRef`, is a `CardIndex`, and a card-less source has none — an
+emblem (CR 114.2), a token, and since token copies were handed the rules text
+they copy (CR 707.2) a copy of anything. All three are given
+`CardIndex::new(0)`, which is not a free sentinel: index 0 is a real card in
+the ledger, so a client looking that handle up labels the ability with a
+stranger's text. It draws the right *picture* regardless, because
+`StackKind::Ability { source }` names the permanent rather than the card, so
+the fault is a wrong line of text and not a wrong card on the table. The fix
+is `AbilityLoc.card: Option<CardIndex>` through `StackItem::Ability` and a
+`VIEW_VERSION` bump — a change the rules gate cannot see, so it wants the full
+one.
+
 ## Priority holds (view version 9)
 
 The other half of `SetStandingAnswer` is `PlayerAction::SetPriorityHold`, and
