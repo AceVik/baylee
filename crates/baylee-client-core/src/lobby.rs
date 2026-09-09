@@ -333,6 +333,16 @@ pub struct SeatHandover {
     /// The bearer of that seat. Not the account token — losing it costs one
     /// game, not the account.
     pub seat_token: String,
+    /// Whether the game this seat belongs to runs in this process.
+    ///
+    /// The lobby itself never reads it: a seat is a seat, and every screen
+    /// above here is written once. It is here because the *shell* installs a
+    /// host for it and the two hosts are not interchangeable — an offline
+    /// table has no socket to dial, no ticket a gateway would honour and
+    /// nothing to reconnect to. Defaulted on the wire, so a gateway that has
+    /// never heard of the field grants an ordinary networked seat.
+    #[serde(default)]
+    pub local: bool,
 }
 
 /// What a new table is opened against.
@@ -557,6 +567,27 @@ pub enum LobbyEvent {
     Failed(String),
 }
 
+/// Who performs the requests this lobby produces.
+///
+/// Three states, not a token beside a flag, which is four — and the fourth
+/// is a lobby holding an account it never sends anything to. It also splits
+/// the two questions the token alone was answering: "is there an account"
+/// (a keymap and standing orders to attach, which the shell asks) and "is
+/// there anybody at all to ask", which every intent method here asks. Online
+/// those are one question. Offline they are not, and reading the first as
+/// the second left the deck list as the last screen offline — the builder,
+/// the room, ready and start one dead button each.
+#[derive(Clone, Debug, Default)]
+enum Performer {
+    /// Nobody yet: the sign-in screen.
+    #[default]
+    Nobody,
+    /// A gateway, holding the account's bearer token.
+    Gateway(String),
+    /// This process, with no account behind it.
+    Offline,
+}
+
 /// The lobby's whole state.
 ///
 /// One request is in flight at a time ([`Lobby::busy`]): every intent method
@@ -570,7 +601,7 @@ pub struct Lobby {
     password: String,
     room_password: String,
     search: String,
-    token: Option<String>,
+    performer: Performer,
     decks: Vec<DeckSummary>,
     games: Vec<GameSummary>,
     /// How many tables the current search matched, of which `games` is a page.
@@ -674,7 +705,10 @@ impl Lobby {
     /// The account bearer token, once there is one.
     #[must_use]
     pub fn token(&self) -> Option<&str> {
-        self.token.as_deref()
+        match &self.performer {
+            Performer::Gateway(token) => Some(token),
+            Performer::Nobody | Performer::Offline => None,
+        }
     }
 
     /// Whether a request is in flight.
@@ -912,7 +946,7 @@ impl Lobby {
     /// This is the starter-deck button; the builder saves through
     /// [`Lobby::save_deck`].
     pub fn create_deck(&mut self, name: &str, cards: Vec<String>) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() || cards.is_empty() {
+        if self.busy || !self.has_a_performer() || cards.is_empty() {
             return None;
         }
         self.busy = true;
@@ -943,7 +977,9 @@ impl Lobby {
     /// cards every time, and a player who steps out to look at the tables
     /// should not pay for it again on the way back.
     pub fn build_deck(&mut self) -> Option<LobbyRequest> {
-        self.token.as_ref()?;
+        if !self.has_a_performer() {
+            return None;
+        }
         self.builder.start_new();
         self.screen = Screen::Build;
         self.needs_pool()
@@ -951,7 +987,7 @@ impl Lobby {
 
     /// Opens the builder on a saved deck.
     pub fn edit_deck(&mut self, index: usize) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         let deck_id = self.decks.get(index)?.id.clone();
@@ -963,7 +999,7 @@ impl Lobby {
 
     /// Deletes a saved deck.
     pub fn delete_deck(&mut self, index: usize) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         let deck_id = self.decks.get(index)?.id.clone();
@@ -980,7 +1016,7 @@ impl Lobby {
 
     /// Saves whatever the builder holds.
     pub fn save_deck(&mut self) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         let request = self.builder.save()?;
@@ -1032,7 +1068,7 @@ impl Lobby {
     /// From the first page: a search is a different list, and the row that
     /// was fourth in the old one is not the fourth in this one.
     pub fn search_again(&mut self) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.offset = 0;
@@ -1059,7 +1095,7 @@ impl Lobby {
 
     /// Steps one page forwards or back, if there is one to step onto.
     pub fn page(&mut self, forwards: bool) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         let next = if forwards {
@@ -1076,7 +1112,7 @@ impl Lobby {
 
     /// Re-reads decks and tables. Decks first: the answer chains into games.
     pub fn refresh(&mut self) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.busy = true;
@@ -1158,7 +1194,7 @@ impl Lobby {
     /// started, and the open-table veil is a different screen from the seat
     /// one.
     pub fn rematch(&mut self, game_id: &str) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.busy = true;
@@ -1190,7 +1226,7 @@ impl Lobby {
 
     /// Says whether this player is ready to play.
     pub fn set_ready(&mut self, game_id: &str, ready: bool) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.busy = true;
@@ -1212,7 +1248,7 @@ impl Lobby {
     /// cases, and this is only about not offering a player a button that does
     /// nothing.
     pub fn start_room(&mut self, game_id: &str) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.busy = true;
@@ -1224,7 +1260,7 @@ impl Lobby {
 
     /// Hands the room to another chair.
     pub fn hand_over(&mut self, game_id: &str, seat: u32) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.busy = true;
@@ -1247,7 +1283,7 @@ impl Lobby {
         kind: Option<SeatKind>,
         ai: Option<String>,
     ) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.busy = true;
@@ -1267,7 +1303,7 @@ impl Lobby {
     /// The host's, not the player's: a side is the format, and one the people
     /// at the table can change is not a format. The gateway says so again.
     pub fn seat_team(&mut self, game_id: &str, seat: u32, team: u8) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.busy = true;
@@ -1299,7 +1335,7 @@ impl Lobby {
 
     /// Gets up from a table, or closes it when this account is the host.
     pub fn leave_table(&mut self, game_id: &str) -> Option<LobbyRequest> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         self.busy = true;
@@ -1329,10 +1365,29 @@ impl Lobby {
         self.status = why.into();
     }
 
+    /// Goes to the table screen with no account behind it.
+    ///
+    /// Every screen from here on asks the same questions and reads the same
+    /// answers; what differs is only who performs the requests, and that is
+    /// the shell's to know. The one thing the lobby learns is that somebody
+    /// will — see [`Performer`].
+    ///
+    /// [`Lobby::token`] stays `None` on purpose, and is a different question
+    /// from this one: it is what the shell reads to decide whether to attach
+    /// the account's keymap and standing orders, and there is no account here
+    /// to attach.
+    pub fn play_offline(&mut self) -> Option<LobbyRequest> {
+        self.performer = Performer::Offline;
+        self.screen = Screen::Table;
+        self.note(Phrase::PlayingOffline);
+        self.busy = true;
+        Some(LobbyRequest::ListDecks)
+    }
+
     /// Forgets the account. Called on a log-out button, and by the shell when
     /// the gateway rejects the token it holds.
     pub fn sign_out(&mut self) {
-        self.token = None;
+        self.performer = Performer::Nobody;
         self.decks.clear();
         self.games.clear();
         self.deck = None;
@@ -1379,7 +1434,7 @@ impl Lobby {
                 })
             }
             LobbyEvent::LoggedIn { token } => {
-                self.token = Some(token);
+                self.performer = Performer::Gateway(token);
                 self.password.clear();
                 self.screen = Screen::Table;
                 self.note(Phrase::SignedIn);
@@ -1492,6 +1547,11 @@ impl Lobby {
         self.screen == (Screen::SignIn { registering: true })
     }
 
+    /// Whether there is anybody to perform a request — see [`Performer`].
+    fn has_a_performer(&self) -> bool {
+        !matches!(self.performer, Performer::Nobody)
+    }
+
     fn field_mut(&mut self, field: Field) -> &mut String {
         match field {
             Field::Email => &mut self.email,
@@ -1504,7 +1564,7 @@ impl Lobby {
 
     /// The id of the selected deck, or `None` with a nudge on the status line.
     fn picked_deck(&mut self) -> Option<String> {
-        if self.busy || self.token.is_none() {
+        if self.busy || !self.has_a_performer() {
             return None;
         }
         let Some(deck) = self.deck.and_then(|i| self.decks.get(i)) else {
@@ -1544,6 +1604,56 @@ mod tests {
         );
         lobby.apply(LobbyEvent::Games(GameListing::default()));
         lobby
+    }
+
+    /// The same lobby offline: no account, one deck, the tables listed.
+    fn offline_lobby() -> Lobby {
+        let mut lobby = Lobby::new();
+        assert_eq!(lobby.play_offline(), Some(LobbyRequest::ListDecks));
+        assert_eq!(
+            lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
+                sideboard: 0,
+                id: "d1".to_string(),
+                name: "Allytifact".to_string(),
+                cards: 60,
+                commander: None,
+            }])),
+            Some(LobbyRequest::ListGames(lobby.query()))
+        );
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
+        lobby
+    }
+
+    /// Offline reaches the builder, with no account behind it.
+    ///
+    /// Every intent method used to read the token as its proof that a request
+    /// could go anywhere at all, and offline play holds none — so the builder,
+    /// the room and the start button were one dead press each, on a screen
+    /// that went on drawing all three.
+    #[test]
+    fn offline_play_reaches_the_builder() {
+        let mut lobby = offline_lobby();
+        assert_eq!(lobby.token(), None, "there is no account behind this");
+        assert!(lobby.build_deck().is_some(), "and it asks for the pool");
+        assert_eq!(*lobby.screen(), Screen::Build);
+    }
+
+    /// And it reaches a room, which is the other half of the same rule.
+    #[test]
+    fn offline_play_reaches_a_room() {
+        let mut lobby = offline_lobby();
+        assert!(matches!(
+            lobby.open_room(GameMode::Open, 4, "Kitchen".to_string()),
+            Some(LobbyRequest::CreateGame { chairs: 4, .. })
+        ));
+    }
+
+    /// Signing out of offline play puts the sign-in screen back in charge.
+    #[test]
+    fn leaving_offline_play_takes_the_performer_with_it() {
+        let mut lobby = offline_lobby();
+        lobby.sign_out();
+        assert_eq!(lobby.refresh(), None, "there is nobody to ask again");
     }
 
     #[test]
@@ -1683,6 +1793,7 @@ mod tests {
             game_id: "g1".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         };
         assert_eq!(lobby.apply(LobbyEvent::Seated(handover.clone())), None);
         assert_eq!(*lobby.screen(), Screen::Seated(handover));
@@ -1696,6 +1807,7 @@ mod tests {
             game_id: "g1".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         }));
         lobby.unseat("the table did not answer");
         assert_eq!(*lobby.screen(), Screen::Table);
@@ -1842,6 +1954,7 @@ mod tests {
             game_id: "g1".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         };
         assert_eq!(
             lobby.apply(LobbyEvent::Seated(handover.clone())),
@@ -1903,6 +2016,7 @@ mod tests {
             game_id: "g1".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         }));
         lobby.want_rematch("g1");
         lobby.unseat_because(Phrase::GameEnded, &[]);
@@ -1938,6 +2052,7 @@ mod tests {
             game_id: "g1".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         }));
         assert!(matches!(lobby.screen(), Screen::Seated(_)));
         assert_eq!(lobby.awaiting(), None);
@@ -1954,6 +2069,7 @@ mod tests {
             game_id: "g7".to_string(),
             seat: 1,
             seat_token: "st".to_string(),
+            local: false,
         }));
         assert!(matches!(lobby.screen(), Screen::Seated(_)));
     }
@@ -1966,6 +2082,7 @@ mod tests {
             game_id: "g1".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         }));
         lobby.sign_out();
         assert_eq!(lobby.awaiting(), None);

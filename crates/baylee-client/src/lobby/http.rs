@@ -11,10 +11,25 @@ use super::*;
 // ------------------------------------------------------------------ HTTP
 
 /// Performs a request the state machine asked for, if it asked for one.
-pub(super) fn dispatch(state: &LobbyState, mailbox: &Mailbox, request: Option<LobbyRequest>) {
+///
+/// Two performers, one protocol. A gateway answers over a socket and leaves
+/// its reply in the mailbox for a later frame; offline answers out of the
+/// registry and a file, in this call. The immediate answer is *posted into
+/// the mailbox* rather than returned, which is what makes those the same
+/// thing to everything above here: no caller has to know which performer it
+/// got, and an offline reply goes round exactly the loop a networked one
+/// does.
+pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Option<LobbyRequest>) {
     let Some(request) = request else {
         return;
     };
+    if let Some(offline) = state.offline.as_mut() {
+        let event = offline.perform(request);
+        if let Ok(mut box_) = mailbox.0.lock() {
+            box_.push(Reply::Event(event));
+        }
+        return;
+    }
     let token = state.lobby.token();
     let (request, expect) = build(&state.gateway, token, &state.lang, request);
     fetch(

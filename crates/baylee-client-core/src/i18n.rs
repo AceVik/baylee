@@ -139,8 +139,13 @@ messages! {
     WantAnAccount { en: "Create an account", de: "Konto erstellen" },
     /// Swaps the form back to signing in.
     HaveAnAccount { en: "I already have an account", de: "Ich habe schon ein Konto" },
-    /// Plays the house AI with no account at all.
-    PlayOffline { en: "Play the house AI offline", de: "Offline gegen die Haus-KI" },
+    /// Opens the lobby with no account and no gateway.
+    PlayOffline { en: "Play offline", de: "Offline spielen" },
+    /// The status line while offline play is on.
+    PlayingOffline {
+        en: "Offline: your decks and a table of house AI",
+        de: "Offline: deine Decks und ein Tisch voll Haus-KI",
+    },
     /// Opens the settings screen.
     Settings { en: "Settings", de: "Einstellungen" },
     /// The button that changes the interface language.

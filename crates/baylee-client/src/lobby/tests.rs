@@ -358,6 +358,7 @@ fn the_gateways_own_answers_decode() {
             game_id: "g1".to_string(),
             seat: 1,
             seat_token: "st".to_string(),
+            local: false,
         })
     );
     assert_eq!(
@@ -568,6 +569,108 @@ fn the_table_screen_builds_once_there_is_a_deck() {
     }
 }
 
+/// Finds the control carrying a press this predicate accepts, and taps it.
+///
+/// By what the press *is*, not by which entity holds it: a room's buttons
+/// carry the row they belong to and the chair they point at, and a test that
+/// went looking for an entity would be asserting about the tree rather than
+/// about the control.
+fn tap_control(app: &mut App, what: &str, pick: impl Fn(&Press) -> bool) {
+    let entity = {
+        let mut query = app.world_mut().query::<(Entity, &Press)>();
+        let found: Vec<(Entity, Press)> = query
+            .iter(app.world())
+            .map(|(e, p)| (e, *p))
+            .filter(|(_, p)| pick(p))
+            .collect();
+        assert_eq!(found.len(), 1, "controls that are {what}: {found:?}");
+        found[0].0
+    };
+    tap(app, entity);
+    // The mailbox is drained one frame at a time and an answer chains into
+    // the next request, so one press settles over several frames.
+    for _ in 0..6 {
+        app.update();
+    }
+}
+
+/// Offline play, pressed all the way through to a table.
+///
+/// Every decision in this sequence has a test of its own — the lobby's
+/// screens, the performer's room, the preset the start button builds — and
+/// not one of them says the buttons are wired to any of it. This is the path
+/// a player's finger takes: the same `clicks` system, the same mailbox a
+/// gateway's answers would arrive through, and at the end a host actually
+/// installed for a table of four.
+#[test]
+fn offline_play_can_be_pressed_all_the_way_to_a_table() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+
+    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    assert_eq!(
+        *app.world().resource::<LobbyState>().lobby.screen(),
+        Screen::Table,
+        "offline play opens the table screen, not a duel"
+    );
+
+    tap_control(&mut app, "a room of four", |p| *p == Press::OpenRoom(4));
+    {
+        let state = app.world().resource::<LobbyState>();
+        let room = state.lobby.games().first().expect("the room is listed");
+        assert_eq!(room.seats.len(), 4);
+        assert!(!state.connected, "nothing has started yet");
+    }
+
+    // A chair moved onto a side, to prove the room's own controls reach the
+    // performer and not only the two buttons that open and close it.
+    tap_control(&mut app, "chair one onto a side", |p| {
+        matches!(p, Press::SeatTeam(0, 0, _))
+    });
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.games()[0].seats[0].team,
+        Some(1)
+    );
+
+    tap_control(&mut app, "ready", |p| *p == Press::Ready(0, true));
+    tap_control(&mut app, "the start button", |p| *p == Press::StartRoom(0));
+
+    let state = app.world().resource::<LobbyState>();
+    let Screen::Seated(handover) = state.lobby.screen() else {
+        panic!("the start button seats you: {:?}", state.lobby.screen())
+    };
+    assert!(handover.local, "and the game it seats you at runs here");
+    assert!(state.connected, "with a host installed for it");
+    assert!(app.world().contains_resource::<InstalledHost>());
+}
+
+/// And the one-tap duel is one tap.
+///
+/// `mode: "ai"` seats you at once — the lobby takes that handover straight
+/// to the table without waiting for anybody — so a performer that opened a
+/// room and started nothing would hand over a seat with no game behind it,
+/// and this button would fail every single press.
+#[test]
+fn playing_the_house_offline_is_still_one_press() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+
+    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    tap_control(&mut app, "play the house", |p| {
+        *p == Press::Host(GameMode::Ai)
+    });
+
+    let state = app.world().resource::<LobbyState>();
+    assert!(
+        matches!(state.lobby.screen(), Screen::Seated(h) if h.local),
+        "one press seats you: {:?}",
+        state.lobby.screen()
+    );
+    assert!(state.connected, "with a host installed for it");
+}
+
 fn labels(app: &mut App) -> Vec<String> {
     let mut query = app.world_mut().query::<&Text>();
     query.iter(app.world()).map(|t| t.0.clone()).collect()
@@ -594,6 +697,7 @@ fn a_table_we_are_waiting_at_is_announced_and_not_sat_at() {
             game_id: "0123456789".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         }));
     }
     app.update();
@@ -619,6 +723,7 @@ fn a_reply_that_lands_after_the_seat_was_taken_does_not_dial_again() {
             game_id: "g1".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         }));
         // Stand in for a dial that already succeeded.
         state.connected = true;
@@ -666,6 +771,7 @@ fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
             game_id: "g1".to_string(),
             seat: 0,
             seat_token: "st".to_string(),
+            local: false,
         }));
         // Stand in for the dial that opened the game now ending.
         state.connected = true;
@@ -699,6 +805,7 @@ fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
             game_id: "g2".to_string(),
             seat: 1,
             seat_token: "st2".to_string(),
+            local: false,
         })));
     app.update();
     let Screen::Seated(handover) = app.world().resource::<LobbyState>().lobby.screen() else {

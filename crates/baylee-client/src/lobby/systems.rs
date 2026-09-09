@@ -30,7 +30,7 @@ pub(super) fn poll(
         match reply {
             Reply::Event(event) => {
                 let next = state.lobby.apply(event);
-                dispatch(&state, &mailbox, next);
+                dispatch(&mut state, &mailbox, next);
             }
             Reply::Registration(enabled) => state.lobby.set_registration_enabled(enabled),
             Reply::Expired => state.lobby.sign_out(),
@@ -48,6 +48,32 @@ pub(super) fn poll(
         return;
     };
     if state.connected {
+        return;
+    }
+    // An offline seat has no socket to dial and no ticket a gateway would
+    // honour: the game is a preset the start button already built and
+    // validated, and the host for it runs here. Everything after this point
+    // — the duel, its views, its questions — is the same code either way,
+    // which is the whole reason `DuelHost` exists.
+    if handover.local {
+        match state
+            .offline
+            .as_mut()
+            .and_then(super::offline::Offline::take_started)
+            .and_then(|preset| {
+                let names = super::offline::seat_names(&preset);
+                let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+                crate::host::LocalHost::new(&preset, PlayerId::new(0), &refs)
+            }) {
+            Some(host) => {
+                state.connected = true;
+                commands.insert_resource(InstalledHost(Box::new(host)));
+                opens.write(DuelCommand::Open);
+            }
+            None => state
+                .lobby
+                .unseat_because(Phrase::NoOfflineDuel, &[] as &[&str]),
+        }
         return;
     }
     let ticket = SeatTicket {
@@ -97,7 +123,7 @@ pub(super) fn watch(
     }
     *since = 0.0;
     let request = state.lobby.refresh();
-    dispatch(&state, &mailbox, request);
+    dispatch(&mut state, &mailbox, request);
 }
 
 /// Hands the sign-in form to the platform's own text input, where there is one.
@@ -184,7 +210,7 @@ pub(super) fn softkeys(
                 } else {
                     state.lobby.submit()
                 };
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             // Escape is "put the keyboard away", never "send the form": a
             // password field that signed you in on the key you pressed to
@@ -301,7 +327,7 @@ pub(super) fn keyboard(
                 } else {
                     state.lobby.submit()
                 };
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             // Everything else is text or nothing. `type_char` drops the
             // control characters Tab and Enter also produce.
@@ -328,8 +354,6 @@ pub(super) fn clicks(
     mut state: ResMut<LobbyState>,
     mut prefs: ResMut<crate::prefs::Prefs>,
     mailbox: Res<Mailbox>,
-    mut commands: Commands,
-    mut opens: MessageWriter<DuelCommand>,
     // Absent in a headless test, which has no settings file to write to.
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
 ) {
@@ -413,61 +437,68 @@ pub(super) fn clicks(
             Press::ToggleRegistering => state.lobby.toggle_registering(),
             Press::Submit => {
                 let request = state.lobby.submit();
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
-            Press::SignOut => state.lobby.sign_out(),
+            // Offline has no account to forget, so the same button is what
+            // leaves offline play — and the performer has to go with it, or
+            // the sign-in form's own requests would still be answered out of
+            // the local deck file.
+            Press::SignOut => {
+                state.offline = None;
+                state.lobby.sign_out();
+            }
             Press::Refresh => {
                 let request = state.lobby.refresh();
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::Search => {
                 let request = state.lobby.search_again();
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::Page(forwards) => {
                 let request = state.lobby.page(forwards);
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::StarterDeck => {
                 let rows = starter_rows();
                 let request = state.lobby.create_deck(STARTER, rows);
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::SelectDeck(index) => state.lobby.select_deck(index),
             Press::Host(mode) => {
                 let request = state.lobby.host(mode);
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::Join(index) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.join(&game);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::OpenRoom(chairs) => {
                 let request = state.lobby.open_room(GameMode::Open, chairs, String::new());
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::JoinSeat(index, seat) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.join_seat(&game, Some(seat));
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::LeaveTable(index) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.leave_table(&game);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::Ready(index, ready) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.set_ready(&game, ready);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             // The same press as the button on the veil, from the other side:
@@ -477,28 +508,28 @@ pub(super) fn clicks(
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.rematch(&game);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::StartRoom(index) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.start_room(&game);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::HandOver(index, seat) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.hand_over(&game, seat);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::SeatKind(index, seat, kind) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.set_seat(&game, seat, Some(kind), None);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::SeatAi(index, seat, profile) => {
@@ -508,31 +539,38 @@ pub(super) fn clicks(
                         state
                             .lobby
                             .set_seat(&game, seat, None, Some(profile.to_string()));
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::SeatTeam(index, seat, team) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.seat_team(&game, seat, team);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::SeatDeck(index, seat) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
                     let request = state.lobby.seat_deck(&game, seat);
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
-            Press::PlayOffline => match crate::host::house_duel() {
-                Some(host) => {
-                    state.connected = true;
-                    commands.insert_resource(InstalledHost(Box::new(host)));
-                    opens.write(DuelCommand::Open);
-                }
-                None => state.lobby.tell(Phrase::NoOfflineDuel, &[]),
-            },
+            // Not a duel any more. Offline is the lobby with a different
+            // performer behind it, so this opens the *table screen* with the
+            // player's own decks in it and a room to arrange. What the button
+            // skips is still the sign-in; what it no longer skips is choosing
+            // who you are playing and with what.
+            Press::PlayOffline => {
+                // Whatever is already here is kept. `Press::SignOut` is the only
+                // thing that clears it, so a player coming back to offline
+                // play finds the decks and the room they left.
+                state
+                    .offline
+                    .get_or_insert_with(super::offline::Offline::load);
+                let request = state.lobby.play_offline();
+                dispatch(&mut state, &mailbox, request);
+            }
             // `Leave` and `PlayAgain` are only ever spawned on the finished
             // screen, where `leave_clicks` reads them, and `PickerNothing`
             // exists to stop a tap inside the picker reaching the shade
@@ -540,16 +578,16 @@ pub(super) fn clicks(
             Press::Leave | Press::PlayAgain | Press::PickerNothing => {}
             Press::NewDeck => {
                 let request = state.lobby.build_deck();
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::EditDeck(index) => {
                 state.pane = Pane::Deck;
                 let request = state.lobby.edit_deck(index);
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::DeleteDeck(index) => {
                 let request = state.lobby.delete_deck(index);
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::CloseBuilder => {
                 if state.lobby.builder().dirty() && !state.confirm_leave {
@@ -558,12 +596,12 @@ pub(super) fn clicks(
                 } else {
                     state.confirm_leave = false;
                     let request = state.lobby.close_builder();
-                    dispatch(&state, &mailbox, request);
+                    dispatch(&mut state, &mailbox, request);
                 }
             }
             Press::SaveDeck => {
                 let request = state.lobby.save_deck();
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::FocusBuild(field) => state.lobby.builder_mut().focus_on(field),
             Press::AddCard(slot) => {
@@ -575,7 +613,7 @@ pub(super) fn clicks(
             Press::PickPrint(slot) => {
                 let zone = state.lobby.builder().zone();
                 let request = state.lobby.builder_mut().open_picker(slot, zone);
-                dispatch(&state, &mailbox, request);
+                dispatch(&mut state, &mailbox, request);
             }
             Press::PickerStep(by) => state.lobby.builder_mut().picker_step(by),
             Press::PickerGo(at) => state.lobby.builder_mut().picker_go(at),
@@ -821,7 +859,7 @@ pub(super) fn came_back(
     // new ticket arrives. A player who pressed *play again* is not shown the
     // table list on the way — the answer puts them straight back in a seat.
     let request = state.lobby.take_rematch().or_else(|| state.lobby.refresh());
-    dispatch(&state, &mailbox, request);
+    dispatch(&mut state, &mailbox, request);
 }
 
 /// A component whose click means something.

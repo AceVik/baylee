@@ -23,6 +23,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::cardmat::{CardUiMaterial, UiCardMaterials, UiCards};
+use baylee_client_core as client_core;
 use baylee_client_core::deckbuilder::{BuildField, Zone};
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
@@ -134,6 +135,13 @@ pub struct LobbyState {
     pub(crate) pane: Pane,
     /// Whether the settings screen is up, and what it is waiting for.
     settings: SettingsPane,
+    /// Offline play, once the player has asked for it.
+    ///
+    /// `Some` is the whole of "this client has no gateway": every request
+    /// the lobby makes is answered by it instead of by HTTP, and the seat it
+    /// eventually grants is marked local so the shell installs an in-process
+    /// engine rather than dialling a socket.
+    pub(crate) offline: Option<offline::Offline>,
 }
 
 /// The settings overlay's state.
@@ -199,6 +207,7 @@ impl LobbyState {
             filters_open: false,
             pane: Pane::Cards,
             settings: SettingsPane::Closed,
+            offline: None,
         }
     }
 }
@@ -259,6 +268,7 @@ enum Expect {
 
 mod feed;
 mod http;
+pub(crate) mod offline;
 mod preview;
 mod systems;
 mod ui;
