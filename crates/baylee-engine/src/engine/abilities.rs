@@ -195,7 +195,7 @@ impl<L: CardLookup> Engine<L> {
                             legal.abilities.push((id, i as u32));
                         }
                     }
-                    AbilityDef::Loyalty { cost, .. } => {
+                    AbilityDef::Loyalty { cost, target, .. } => {
                         // Loyalty abilities: sorcery timing, once per turn
                         // per walker, enough loyalty for negative costs.
                         if !sorcery_timing || self.loyalty_used_this_turn.contains(&id) {
@@ -203,6 +203,9 @@ impl<L: CardLookup> Engine<L> {
                         }
                         let loyalty = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
                         if *cost < 0 && loyalty < (-*cost) as u16 {
+                            continue;
+                        }
+                        if !self.ability_has_a_target(player, id, *target) {
                             continue;
                         }
                         legal.abilities.push((id, i as u32));
@@ -583,12 +586,7 @@ impl<L: CardLookup> Engine<L> {
         if let Some(AbilityDef::Loyalty { cost, .. }) = self
             .state
             .object(source)
-            .and_then(|o| {
-                let face = o.face_index as usize;
-                o.card
-                    .and_then(|c| self.lookup.card(c.index))
-                    .map(|def| def.abilities_for_face(face))
-            })
+            .map(|o| o.abilities(&self.lookup))
             .and_then(|abilities| abilities.get(ability_index as usize))
         {
             return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
@@ -601,10 +599,6 @@ impl<L: CardLookup> Engine<L> {
             let card = obj
                 .card
                 .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
-            let def = self
-                .lookup
-                .card(card.index)
-                .ok_or(EngineError::IllegalAction("unknown card"))?;
             // Karn's lock: "activated abilities of artifacts your *opponents*
             // control can't be activated". Not "everyone but me" — a
             // teammate is neither, and at a two-headed table the two
@@ -625,8 +619,14 @@ impl<L: CardLookup> Engine<L> {
                     "activated abilities of artifacts can't be activated (Karn)",
                 ));
             }
-            match def
-                .abilities
+            // The object's own list, which is what `legal_actions` indexed
+            // when it offered this. Reading the card's instead was the
+            // "two probes must agree" bug once more: a Glasspool Mimic
+            // copying Werefox Bodyguard was offered the sacrifice ability
+            // at index 1 and refused it with "no such ability", because
+            // Glasspool Mimic's printed list is one entry long.
+            match obj
+                .abilities(&self.lookup)
                 .get(ability_index as usize)
                 .ok_or(EngineError::IllegalAction("no such ability"))?
             {
@@ -655,6 +655,12 @@ impl<L: CardLookup> Engine<L> {
                 _ => return Err(EngineError::IllegalAction("not an activated ability")),
             }
         };
+        // Read before any cost is paid, because a cost may move the source
+        // and a moved copy is no longer one — see `Engine::activating_abilities`.
+        self.activating_abilities = self
+            .state
+            .object(source)
+            .map(|o| (source, o.abilities(&self.lookup)));
         // Zone validation (battlefield abilities vs. hand abilities).
         let in_right_zone = match zone {
             ActivationZone::Battlefield => self
@@ -783,8 +789,15 @@ impl<L: CardLookup> Engine<L> {
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
         let base = self.state.bare_base(name);
+        // CR 608.2, as in `push_ability_to_stack`. A loyalty cost never moves
+        // the walker, so the source is still there to be read.
+        let abilities = self
+            .state
+            .object(source)
+            .map_or(&[][..], |o| o.abilities(&self.lookup));
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, base);
+            obj.own_abilities = Some(abilities);
             obj.chosen_player = self.loyalty_player_choice.take();
             obj
         });
@@ -823,14 +836,10 @@ impl<L: CardLookup> Engine<L> {
             let card = obj
                 .card
                 .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
-            let def = self
-                .lookup
-                .card(card.index)
-                .ok_or(EngineError::IllegalAction("unknown card"))?;
             let AbilityDef::Loyalty {
                 effects, target, ..
-            } = def
-                .abilities
+            } = obj
+                .abilities(&self.lookup)
                 .get(ability_index as usize)
                 .ok_or(EngineError::IllegalAction("no such ability"))?
             else {
@@ -924,8 +933,15 @@ impl<L: CardLookup> Engine<L> {
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
         let base = self.state.bare_base(name);
+        // CR 608.2, as in `push_ability_to_stack`. A loyalty cost never moves
+        // the walker, so the source is still there to be read.
+        let abilities = self
+            .state
+            .object(source)
+            .map_or(&[][..], |o| o.abilities(&self.lookup));
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(id, player, loc, targets, base);
+            obj.own_abilities = Some(abilities);
             obj.chosen_player = self.loyalty_player_choice.take();
             obj
         });
@@ -1049,20 +1065,27 @@ impl<L: CardLookup> Engine<L> {
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
         let base = self.state.bare_base(name);
+        let abilities = self
+            .state
+            .object(source)
+            .map_or(&[][..], |o| o.abilities(&self.lookup));
         let id = self.state.arena.insert_with(|id| {
-            GameObject::new_ability_on_stack(
+            let mut obj = GameObject::new_ability_on_stack(
                 id,
                 controller,
                 AbilityLoc {
-                    // Sentinel: resolution reads `own_abilities` from
-                    // the source instead of a card definition.
+                    // Sentinel: an emblem has no card, so the handle a
+                    // client is given names none. What resolves is the
+                    // list captured below (CR 608.2), as for any ability.
                     card: baylee_core::ids::CardIndex::new(0),
                     index: ability_index,
                     source,
                 },
                 targets,
                 base,
-            )
+            );
+            obj.own_abilities = Some(abilities);
+            obj
         });
         self.state
             .zones
@@ -1092,8 +1115,28 @@ impl<L: CardLookup> Engine<L> {
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
         let base = self.state.bare_base(name);
+        // CR 608.2: the ability on the stack exists independently of the
+        // permanent it came from, so it takes the list `index` points into
+        // with it. Reading it back off the source at resolution time was
+        // right only while a source's abilities could not change under it —
+        // a copy that dies with its ability on the stack stops being a copy
+        // (CR 400.7), and the index would then be read against the printed
+        // card, which is a different ability or none at all.
+        //
+        // An activation captured its list before paying a cost that may
+        // already have moved the source; a trigger has no such window and
+        // reads it here.
+        let captured = self
+            .activating_abilities
+            .take()
+            .and_then(|(id, abilities)| (id == source).then_some(abilities));
+        let abilities = captured.unwrap_or_else(|| {
+            self.state
+                .object(source)
+                .map_or(&[][..], |o| o.abilities(&self.lookup))
+        });
         let id = self.state.arena.insert_with(|id| {
-            GameObject::new_ability_on_stack(
+            let mut obj = GameObject::new_ability_on_stack(
                 id,
                 controller,
                 AbilityLoc {
@@ -1103,7 +1146,9 @@ impl<L: CardLookup> Engine<L> {
                 },
                 targets,
                 base,
-            )
+            );
+            obj.own_abilities = Some(abilities);
+            obj
         });
         self.state
             .zones

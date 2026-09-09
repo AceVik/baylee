@@ -91,6 +91,21 @@ pub struct Engine<L: CardLookup> {
     pending_plan: Option<PlanKind>,
     /// A player chosen for a pending loyalty `AnyPlayer` target.
     loyalty_player_choice: Option<PlayerId>,
+    /// The activating source's ability list, read before its cost is paid.
+    ///
+    /// CR 602.2a puts an activated ability on the stack *before* its costs
+    /// are paid; this engine pays first and pushes after, which is invisible
+    /// until a cost moves the source. "Sacrifice this creature" does, and a
+    /// card-backed object stops being a copy when it moves (CR 400.7) — so a
+    /// Glasspool Mimic copying Werefox Bodyguard could no longer say what its
+    /// own ability was by the time the ability existed. Carried here rather
+    /// than threaded through four resumption points, the way
+    /// [`Engine::loyalty_player_choice`] already is.
+    ///
+    /// Keyed by the source it was read from, so an activation that is refused
+    /// after setting it cannot lend its list to the next ability anything
+    /// pushes.
+    activating_abilities: Option<(ObjectId, &'static [baylee_cards_dsl::AbilityDef])>,
     /// What each seat may do beyond answering its own choices.
     ///
     /// Not game state: it never enters the snapshot hash and never changes
@@ -265,6 +280,7 @@ impl<L: CardLookup> Engine<L> {
             pending_plan: None,
             agreed_draw: false,
             loyalty_player_choice: None,
+            activating_abilities: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
             synthetic_fx: rustc_hash::FxHashMap::default(),

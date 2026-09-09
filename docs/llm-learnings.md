@@ -113,10 +113,10 @@ Open milestones discovered tonight:
   (activation preconditions), `CostReduction` on FaceDef (with
   `state.starting_player`), `Trigger::BecomesTapped`,
   `Effect::IfControlGreatestCmc` (comparative conditions),
-  `Effect::CreateEmblem` + `obj.emblem_abilities` + command-zone trigger
+  `Effect::CreateEmblem` + `obj.own_abilities` + command-zone trigger
   scan (emblem triggers route through a DEDICATED push path —
   `push_ability_to_stack` requires card-backed sources; resolution falls
-  back to `emblem_abilities` before the card lookup), `PlayerHexproof`
+  back to `own_abilities` before the card lookup), `PlayerHexproof`
   (filtered in the wizard's ChoosePlayer stage).
 - 8 partials upgraded: Mox Opal, Bleachbone Verge, Surgical Metamorph,
   City of Brass, Padeem, Venser −8, Everybody Lives!, Reflections of

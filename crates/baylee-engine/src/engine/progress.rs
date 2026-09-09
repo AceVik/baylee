@@ -792,6 +792,12 @@ impl<L: CardLookup> Engine<L> {
         };
         {
             let obj = self.state.object_mut(id).expect("copy target exists");
+            // Kept so the copy can stop being one. A copy lasts as long as
+            // the object does (CR 707.2a), and the object ends at the next
+            // zone change (CR 400.7), which is where this is spent.
+            if obj.original_base.is_none() {
+                obj.original_base = Some(obj.base.clone());
+            }
             obj.base = target_base;
             // Abilities are copiable values too (CR 707.2), and `base` holds
             // only characteristics — a copy that took the base alone arrived
@@ -1245,14 +1251,18 @@ impl<L: CardLookup> Engine<L> {
         if kind == Some(ObjectKind::AbilityOnStack) {
             let obj = self.state.object(top).expect("stack object exists");
             let loc = obj.ability.expect("ability object has a location");
-            // The source's abilities, wherever they come from: a card face,
-            // an emblem's stored list, or a token's definition. `loc.index`
-            // indexes into that one list, so the three cases that used to be
-            // branched on here are now the same case.
-            let abilities = self
-                .state
-                .object(loc.source)
-                .map_or(&[][..], |o| o.abilities(&self.lookup));
+            // The list `loc.index` points into, captured when the ability was
+            // put on the stack — a card face, an emblem's stored list, a
+            // token's definition or a copy's, all the same case by then. It
+            // is read from the ability object rather than from the source
+            // because the two have been separate objects since it was put
+            // there (CR 608.2): the source may have died, changed face, or
+            // stopped being a copy in the meantime.
+            let abilities = obj.own_abilities.unwrap_or_else(|| {
+                self.state
+                    .object(loc.source)
+                    .map_or(&[][..], |o| o.abilities(&self.lookup))
+            });
             let effects = if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 // Synthetic keyword trigger (prowess, ward): effects live
                 // in the side map, resolved below.
@@ -2213,12 +2223,14 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
-        // Temporary copies revert (Cursed Mirror).
-        for obj in self.state.arena.iter_mut_all() {
-            if let Some(original) = obj.original_base.take() {
-                obj.base = original;
-            }
-        }
+        // A temporary copy (Cursed Mirror) reverts on the line above: it is a
+        // `Layer::Copy` continuous effect with `Duration::UntilEndOfTurn`, so
+        // expiring it is the whole revert and nothing here has to undo a base.
+        // There used to be a sweep restoring `original_base` at this point,
+        // which reverted nothing because no path ever set the field — and
+        // would now revert the *permanent* copies that do, turning a Glasspool
+        // Mimic back into a 0/0 on the turn it was cast. The field is spent at
+        // the zone change instead (CR 400.7, `GameState::move_object`).
         self.state.invalidate_projections();
         let active = self.state.turn.active;
         // Reliquary Tower & co.: no maximum hand size for this player.

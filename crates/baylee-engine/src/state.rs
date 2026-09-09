@@ -1173,6 +1173,26 @@ impl GameState {
             // anthem would otherwise sit in the graveyard still pumped,
             // and every filter reading its power would agree.
             obj.cache.clear();
+            // The same rule for the other thing a copy replaced. Copiable
+            // values are fixed while the copy exists (CR 707.2a) and the
+            // new object has none of them: the card in the graveyard is
+            // the card that was printed. Both halves go back together,
+            // because a copy took both — `base` for the characteristics
+            // and `own_abilities` for the rules text. A Glasspool Mimic
+            // that copied a Wizard and then died is the case: left as a
+            // copy it would be recast as one, and the enters-as-a-copy
+            // ability it needs to be anything at all would be gone.
+            //
+            // Only for a card-backed object, because for every other kind
+            // `own_abilities` *is* the object — an emblem (CR 114.2) and a
+            // triggered ability on the stack (CR 608.2, which is why it
+            // captured its list) have no card to fall back to.
+            if obj.card.is_some() {
+                if let Some(original) = obj.original_base.take() {
+                    obj.base = original;
+                }
+                obj.own_abilities = None;
+            }
         }
         let projectable = self
             .object(id)

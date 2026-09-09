@@ -58,6 +58,9 @@ fn earth_king_s_lieutenant() -> baylee_core::ids::CardIndex {
 fn ondu_cleric() -> baylee_core::ids::CardIndex {
     card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
 }
+fn werefox_bodyguard() -> baylee_core::ids::CardIndex {
+    card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
+}
 
 /// The one *non-mana* activated ability `source` is offering right now.
 ///
@@ -337,5 +340,206 @@ fn a_mimic_copying_an_ally_fires_what_it_copied_and_cannot_copy_across_the_table
         pt(&engine, cleric),
         (2, 2),
         "the copy's enters-trigger reached the cleric too"
+    );
+}
+
+/// Three cards, and the question the first two only half asked: a Glasspool
+/// Mimic copying a Snapcaster Mage is a *Wizard*, which is what Riptide
+/// Laboratory returns — and what comes back to the hand has to be a Mimic
+/// again.
+///
+/// A copy lasts exactly as long as the object does (CR 707.2a); the object
+/// ends at the zone change (CR 400.7). Left as a copy, the card in hand
+/// would be a Snapcaster Mage that costs `{2}{U}`, and recasting it would
+/// find no enters-as-a-copy ability at all — a 0/0 that dies on arrival.
+/// That is the cost of storing copied abilities on the object, so this is
+/// the test that says the storing is paid for.
+#[test]
+fn a_mimic_that_copied_a_wizard_comes_home_a_mimic() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(74, forest())
+        .battlefield(
+            0,
+            &[
+                riptide_laboratory(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                snapcaster_mage(),
+            ],
+        )
+        .hand(0, &[glasspool_mimic()])
+        .battlefield(1, &[snapcaster_mage()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lab = on_battlefield(&engine, p0, riptide_laboratory()).expect("the laboratory is out");
+    let mine = on_battlefield(&engine, p0, snapcaster_mage()).expect("my wizard");
+    let theirs = on_battlefield(&engine, p1, snapcaster_mage()).expect("their wizard");
+    tap_mana_except(&mut engine, p0, lab);
+
+    let mimic = in_hand(&engine, p0, glasspool_mimic()).expect("mimic in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: mimic })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let options = target_options(&engine);
+    assert!(
+        !options.contains(&theirs),
+        "the Mimic copies a creature *you* control: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| pt(e, mimic) == (2, 1));
+
+    let index = offered_ability(&engine, lab).expect("a copy of a Wizard is a Wizard");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: lab,
+                ability_index: index,
+            },
+        )
+        .unwrap();
+    let options = target_options(&engine);
+    assert!(
+        options.contains(&mimic),
+        "the copy is a Wizard the Laboratory can save: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"you control\" still does not reach across the table: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mimic],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| in_hand(e, p0, glasspool_mimic()).is_some());
+
+    let back = in_hand(&engine, p0, glasspool_mimic()).expect("the copy came home");
+    assert_eq!(back, mimic, "the same handle, one zone later");
+    let obj = engine.state().object(back).expect("it is in the hand");
+    assert_eq!(
+        (obj.base.power.unwrap_or(0), obj.base.toughness.unwrap_or(0)),
+        (0, 0),
+        "Glasspool Mimic is printed 0/0; the Snapcaster it copied was 2/1"
+    );
+    assert!(
+        obj.original_base.is_none(),
+        "the pre-copy base was spent, not kept for a second zone change"
+    );
+    assert!(
+        matches!(
+            obj.abilities(&RegistryLookup).first(),
+            Some(AbilityDef::CopyOnEnter { .. })
+        ),
+        "cast again it must still be able to enter as a copy"
+    );
+}
+
+/// The same pair from the other side: an ability outlives the copy that
+/// activated it.
+///
+/// Werefox Bodyguard's second ability sacrifices itself as part of its cost
+/// (`{1}{W}, Sacrifice this creature: You gain 2 life`), so a Glasspool Mimic
+/// copying it is in the graveyard *before* the ability resolves — and stops
+/// being a copy on the way (CR 400.7). The ability does not care: it has been
+/// its own object on the stack since it was activated (CR 608.2). Read back
+/// off the source at resolution time it would find Glasspool Mimic's own
+/// one-entry list and index 1 in it, which is nothing at all.
+#[test]
+fn an_ability_the_copy_paid_for_with_its_life_still_resolves() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(75, forest())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                plains(),
+                plains(),
+                plains(),
+                werefox_bodyguard(),
+            ],
+        )
+        .hand(0, &[glasspool_mimic()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let fox = on_battlefield(&engine, p0, werefox_bodyguard()).expect("the bodyguard is out");
+    let life = engine.state().players[0].life;
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+
+    let mimic = in_hand(&engine, p0, glasspool_mimic()).expect("mimic in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: mimic })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![fox] })
+        .unwrap();
+    pass_until(&mut engine, |e| pt(e, mimic) == (2, 2));
+    // The copied enters-trigger is "exile up to one **other** target non-Fox
+    // creature", and both creatures at the table are the same Fox: the choice
+    // arrives with nothing in it and is answered with nothing.
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { .. })
+    });
+
+    // No tap in the cost, so the copy may do this the turn it arrives.
+    let index = offered_ability(&engine, mimic).expect("the copy carries what it copied");
+    assert_eq!(index, 1, "the sacrifice ability, not the enters-trigger");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: mimic,
+                ability_index: index,
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| e.state().players[0].life != life);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        life + 2,
+        "the ability resolved from the graveyard side of its own cost"
+    );
+    let obj = engine.state().object(mimic).expect("the copy is in a zone");
+    assert_eq!(obj.zone, crate::zone::Zone::Graveyard, "sacrificed");
+    assert_eq!(
+        (obj.base.power.unwrap_or(0), obj.base.toughness.unwrap_or(0)),
+        (0, 0),
+        "the card in the graveyard is Glasspool Mimic, not the 2/2 it copied"
     );
 }

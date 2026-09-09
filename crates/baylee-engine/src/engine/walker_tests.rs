@@ -427,3 +427,50 @@ fn a_planeswalker_you_control_is_not_a_legal_defender() {
         "the engine accepted an attack on its declarer's own planeswalker"
     );
 }
+
+/// A loyalty ability with nothing to point at is not an action.
+///
+/// You cannot choose a target that is not there (CR 601.2c, reaching
+/// activations through CR 602.2b), so `LegalActions` must not offer one —
+/// the same rule the activated abilities already obey, and the loyalty arm
+/// was the one that did not. Jace's −1 returns target creature; on a table
+/// with no creature on it the +2 and the 0 stay offered and it does not.
+#[test]
+fn a_loyalty_ability_with_no_legal_target_is_not_offered() {
+    let mut engine = Engine::new(&preset(74, vec![jace()]), RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let jace = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+
+    let mut guard = 0;
+    let offered = loop {
+        match engine.pending().clone() {
+            Pending::Priority { player, legal } if player == p0 => {
+                let mine: Vec<u32> = legal
+                    .abilities
+                    .iter()
+                    .filter(|(id, _)| *id == jace)
+                    .map(|(_, index)| *index)
+                    .collect();
+                if !mine.is_empty() {
+                    break mine;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 40, "no loyalty ability offered");
+    };
+    assert!(
+        offered.contains(&0) && offered.contains(&1),
+        "the +2 targets a player and the 0 targets nothing: {offered:?}"
+    );
+    assert!(
+        !offered.contains(&2),
+        "the −1 returns target creature and there is no creature: {offered:?}"
+    );
+}

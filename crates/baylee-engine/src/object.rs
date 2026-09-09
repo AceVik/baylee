@@ -470,8 +470,8 @@ pub struct GameObject {
     /// without a card lookup (CR 707.10c). `None` for anything that does not
     /// target, and for objects that never went through the cast wizard.
     pub target_req: Option<baylee_cards_dsl::TargetReq>,
-    /// Original base before a temporary copy (Cursed Mirror); reverted at
-    /// cleanup.
+    /// What this object's base was before it became a copy; restored when it
+    /// changes zones (CR 400.7), because the new object is not a copy.
     pub original_base: Option<Arc<Characteristics>>,
     /// Which ability this is (`AbilityOnStack` objects only).
     pub ability: Option<AbilityLoc>,
@@ -495,20 +495,26 @@ pub struct GameObject {
     /// Abilities this object carries itself, instead of reading them off a
     /// card face.
     ///
-    /// Two kinds of object need it and they need the same thing. An **emblem**
-    /// is not card-backed at all (CR 114.2), so its abilities have nowhere
-    /// else to live. A **copy** has a card underneath it and must not answer
-    /// with it: abilities are copiable values (CR 707.2), `base` carries only
-    /// characteristics, and a clone that replaced its base alone arrived with
-    /// the right name, types and power and no rules text. Glasspool Mimic
-    /// copying Earth King's Lieutenant is the case that found it — the board
-    /// saw an Ally enter and the Lieutenant beside it grew, while the copy's
-    /// own enters-trigger never fired.
+    /// Three kinds of object need it and they need the same thing. An
+    /// **emblem** is not card-backed at all (CR 114.2), so its abilities have
+    /// nowhere else to live. A **copy** has a card underneath it and must not
+    /// answer with it: abilities are copiable values (CR 707.2), `base`
+    /// carries only characteristics, and a clone that replaced its base alone
+    /// arrived with the right name, types and power and no rules text.
+    /// Glasspool Mimic copying Earth King's Lieutenant is the case that found
+    /// it — the board saw an Ally enter and the Lieutenant beside it grew,
+    /// while the copy's own enters-trigger never fired. An **ability on the
+    /// stack** captures its source's list as it is put there, because it
+    /// exists independently of that source afterwards (CR 608.2) and the
+    /// source may already have stopped being a copy by the time it resolves.
     ///
     /// Stored rather than derived because the copiable values are fixed as
     /// the copy is made (CR 707.2a) and the original may leave; one field
     /// rather than two because an emblem is never a copy and the extra
     /// `Option<&[_]>` is 16 bytes on every object in every AI ply.
+    ///
+    /// A card-backed object gives it up at the next zone change, with
+    /// [`GameObject::original_base`] and for the same reason.
     pub own_abilities: Option<&'static [baylee_cards_dsl::AbilityDef]>,
     /// The definition this object was created from, if a token created it.
     ///
