@@ -23,7 +23,7 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[triggered!(Trigger::Draws(PlayerRel::Opponent), &[Effect::PlayerMayPayOr {
             player: PlayerRel::Opponent,
-            mana: 2,
+            mana: Amount::Fixed(2),
             effect: &MAKE_TREASURE,
         }])],
 }

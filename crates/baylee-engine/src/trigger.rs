@@ -137,19 +137,19 @@ static WARD_COUNTER: baylee_cards_dsl::Effect =
 static WARD2_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
     &[baylee_cards_dsl::Effect::PlayerMayPayOr {
         player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
-        mana: 2,
+        mana: baylee_cards_dsl::Amount::Fixed(2),
         effect: &WARD_COUNTER,
     }];
 static WARD1_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
     &[baylee_cards_dsl::Effect::PlayerMayPayOr {
         player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
-        mana: 1,
+        mana: baylee_cards_dsl::Amount::Fixed(1),
         effect: &WARD_COUNTER,
     }];
 static WARD3_PAY_OR_COUNTER: &[baylee_cards_dsl::Effect] =
     &[baylee_cards_dsl::Effect::PlayerMayPayOr {
         player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
-        mana: 3,
+        mana: baylee_cards_dsl::Amount::Fixed(3),
         effect: &WARD_COUNTER,
     }];
 

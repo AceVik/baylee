@@ -18,6 +18,7 @@
 
 use super::testkit::*;
 use super::*;
+use crate::choice::YesNoPrompt;
 
 fn island() -> baylee_core::ids::CardIndex {
     card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
@@ -1635,5 +1636,107 @@ fn a_kicked_rite_under_my_season_makes_ten_copies() {
         cardless_permanents(&engine, p1),
         0,
         "and none of them arrived on the side of the table the original is on"
+    );
+}
+
+fn esper_sentinel() -> baylee_core::ids::CardIndex {
+    card_index("5def9f38-0a0b-4e8d-9f9d-29dcb46520b4")
+}
+fn sword_of_hearth_and_home() -> baylee_core::ids::CardIndex {
+    card_index("913e6182-706a-4872-8c8a-e146b0ae0738")
+}
+fn brainstorm() -> baylee_core::ids::CardIndex {
+    card_index("36cd2364-d113-47d1-b2c4-b088d9eb88dd")
+}
+
+/// Seat 1 casts a noncreature spell into seat 0's Esper Sentinel, and this
+/// is the number the Sentinel asks them for.
+///
+/// The seat must be *able* to pay or there is no question to read:
+/// `PlayerMayPayOr` runs its fallback outright when the pool cannot cover
+/// the tax. Four Islands is enough for Brainstorm and the largest tax
+/// either half of this pair asks.
+#[track_caller]
+fn the_tax_the_sentinel_asks_for(seed: u64, equip: bool) -> u16 {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(seed, forest())
+        .battlefield(
+            0,
+            &[
+                esper_sentinel(),
+                sword_of_hearth_and_home(),
+                plains(),
+                plains(),
+            ],
+        )
+        .battlefield(1, &[island(), island(), island(), island()])
+        .hand(1, &[brainstorm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    if equip {
+        let sword = on_battlefield(&engine, p0, sword_of_hearth_and_home()).expect("the sword");
+        let sentinel = on_battlefield(&engine, p0, esper_sentinel()).expect("the sentinel");
+        activate(&mut engine, p0, sword);
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![sentinel],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, |e| {
+            e.state()
+                .object(sword)
+                .is_some_and(|o| o.attached_to == Some(sentinel))
+        });
+    }
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, brainstorm());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending()
+    else {
+        panic!("the Sentinel asks for its tax, got {:?}", engine.pending())
+    };
+    assert_eq!(*player, p1, "the tax is asked of the caster, not of me");
+    *mana
+}
+
+/// Esper Sentinel taxes `{X}`, where X is **its own power** — so a Sword of
+/// Hearth and Home on it turns a `{1}` tax into `{3}`.
+///
+/// The pair is the evidence, not either half. The card was written as a flat
+/// `mana: 1`, which is the right answer for an unequipped 1/1 and stays the
+/// right answer forever: the unequipped test below passes against the wrong
+/// card and the equipped one does not, so it is the equipped number that
+/// says the amount is being read off the creature at all.
+#[test]
+fn a_sword_on_the_sentinel_raises_the_tax_it_asks_for() {
+    assert_eq!(
+        the_tax_the_sentinel_asks_for(93, true),
+        3,
+        "a 1/1 wearing +2/+2 taxes {{3}}"
+    );
+}
+
+#[test]
+fn an_unequipped_sentinel_asks_for_its_printed_one() {
+    assert_eq!(
+        the_tax_the_sentinel_asks_for(94, false),
+        1,
+        "the same card with nothing on it taxes {{1}}"
     );
 }

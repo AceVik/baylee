@@ -969,6 +969,13 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             effect,
         } => {
             let player = eval::players(player, state, you).first().copied()?;
+            // Evaluated here rather than written into the card, because
+            // Esper Sentinel's tax is its own power and a creature's power
+            // is not known until the ability resolves. `u16` is what the
+            // prompt and the suspended op carry; the clamp is a formality
+            // (no power in the pool is near it) and not a rules choice.
+            let mana = u16::try_from(amount2(&mana, state, you, res.source, res.x, &res.targets))
+                .unwrap_or(u16::MAX);
             // If they can't pay, the fallback fires immediately.
             let can_pay = state.players[player.get() as usize].mana_pool.total() >= u32::from(mana);
             if !can_pay {

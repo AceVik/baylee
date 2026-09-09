@@ -164,6 +164,10 @@ pub fn amount(
             }
             u32::from(colors.len())
         }
+        Amount::SourcePower => state
+            .object(this)
+            .and_then(|o| o.characteristics().power)
+            .map_or(0, |p| p.max(0) as u32),
         Amount::TargetPower | Amount::TargetCmc => 0, // resolved in resolve.rs
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {

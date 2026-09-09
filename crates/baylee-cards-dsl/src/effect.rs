@@ -127,6 +127,15 @@ pub enum Amount {
     NegXFixed(u32),
     /// The power of the first target (last known characteristics).
     TargetPower,
+    /// The power of the ability's own source (Esper Sentinel's tax).
+    ///
+    /// Read off the *projected* characteristics, so an anthem or a counter
+    /// raises it — which is the whole reason the card prints `{X}` instead
+    /// of `{1}`. A source that is not a creature, or that has left the
+    /// battlefield, counts as zero rather than as its printed number: an
+    /// ability whose amount comes off a permanent has nothing to read when
+    /// the permanent is gone.
+    SourcePower,
     /// The mana value of the first target (Reanimate's life loss).
     TargetCmc,
     /// Number of objects matching a filter in a zone.
@@ -818,13 +827,19 @@ pub enum Effect {
         /// Life to pay.
         amount: u16,
     },
-    /// A player may pay {N}; if they don't, run `effect` (Rhystic Study,
-    /// Esper Sentinel, Smothering Tithe).
+    /// A player may pay generic mana; if they don't, run `effect` (Rhystic
+    /// Study, Esper Sentinel, Smothering Tithe, ward).
+    ///
+    /// The amount is an [`Amount`] rather than a number because one of
+    /// those cards does not print one: Esper Sentinel taxes `{X}` where X
+    /// is its own power, and writing `1` there made it a `{1}` tax that no
+    /// anthem, counter or equipment could move. It read as correct because
+    /// a 1/1 with nothing on it does cost `{1}`.
     PlayerMayPayOr {
         /// Who decides.
         player: PlayerRel,
-        /// Generic mana to pay.
-        mana: u16,
+        /// Generic mana to pay, evaluated when the ability resolves.
+        mana: Amount,
         /// What happens when they don't pay.
         effect: &'static Effect,
     },

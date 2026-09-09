@@ -22,7 +22,7 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[triggered!(Trigger::SpellCast(&Filter::ControlledByOpponent), &[Effect::PlayerMayPayOr {
             player: PlayerRel::Opponent,
-            mana: 1,
+            mana: Amount::Fixed(1),
             effect: &DRAW_ONE,
         }])],
 }
