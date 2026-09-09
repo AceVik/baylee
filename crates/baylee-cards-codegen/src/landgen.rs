@@ -141,7 +141,16 @@ fn parse_effect(sentence: &str) -> Option<Vec<String>> {
         return parse_add(rest);
     }
     if let Some(rest) = lower.strip_prefix("draw ") {
-        let n = number(rest.split_whitespace().next()?)?;
+        // The tail has to be read, not skipped. "Draw a card if you control
+        // an artifact." parsed as "draw 1" once, and the card that came out
+        // drew unconditionally — a condition dropped is a rule invented, and
+        // the deckbuilder offers an `Implemented` card as playable.
+        let mut words = rest.split_whitespace();
+        let n = number(words.next()?)?;
+        let tail = words.collect::<Vec<_>>().join(" ");
+        if tail != "card" && tail != "cards" {
+            return None;
+        }
         return Some(vec![format!(
             "Effect::DrawCards {{ amount: Amount::Fixed({n}) }}"
         )]);
@@ -661,6 +670,30 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    /// Roadside Reliquary shipped as an `Implemented` land that drew two
+    /// cards for nothing: the draw rule read the number and threw the rest of
+    /// the sentence away, so both "if you control" clauses vanished. A tail
+    /// the rule cannot say is a refusal, not a silently stronger card.
+    #[test]
+    fn a_draw_with_a_condition_on_it_is_refused_rather_than_granted() {
+        assert!(
+            recognize(
+                &card(
+                    "Land",
+                    "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Draw a card if you control an artifact. Draw a card if you control an enchantment.",
+                ),
+                &cats(),
+            )
+            .is_none()
+        );
+        // The unconditional sentence still reads.
+        let body = read(
+            "Land",
+            "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Draw a card.",
+        );
+        assert!(body.abilities[1].contains("Effect::DrawCards"));
     }
 
     /// Nonland cards, and lands that are also creatures, are not this
