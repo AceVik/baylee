@@ -141,16 +141,35 @@ pub fn defending_player(state: &GameState, defender: Defender) -> Option<PlayerI
 /// Summoning sickness (CR 302.6): a creature must be controlled
 /// continuously since the beginning of its controller's most recent turn
 /// (haste excepted).
+///
+/// A *creature*, and the test is here rather than at each call site: the
+/// rule is about creatures in both of its sentences, and a caller that
+/// forgot the type check got an answer that was true of every fresh
+/// permanent. That is what put a land the player had just played on the
+/// wrong side of the field, and it is what the view projected to clients.
+/// A Vehicle answers this the moment it is crewed and not before, because
+/// the type comes off the *projected* characteristics.
+///
+/// Measured against the controller's own turn clock, so the answer holds
+/// through an opponent's turn, and strictly, because
+/// [`Player::turn_start_timestamp`] holds the last stamp issued before the
+/// turn began rather than the first one issued during it.
+///
+/// [`Player::turn_start_timestamp`]: crate::state::Player::turn_start_timestamp
 #[must_use]
 pub fn summoning_sick(state: &GameState, obj: &GameObject) -> bool {
-    if obj
-        .characteristics()
-        .keywords
-        .contains(baylee_cards_dsl::KeywordSet::HASTE)
-    {
+    let chars = obj.characteristics();
+    if !chars.types.contains(TypeSet::CREATURE) {
         return false;
     }
-    obj.timestamp >= state.turn_start_timestamp
+    if chars.keywords.contains(baylee_cards_dsl::KeywordSet::HASTE) {
+        return false;
+    }
+    let began = state
+        .players
+        .get(obj.controller.get() as usize)
+        .map_or(0, |p| p.turn_start_timestamp);
+    obj.timestamp > began
 }
 
 /// Whether `blocker` may block `attacker` (keyword restrictions included).
@@ -798,9 +817,83 @@ mod tests {
         let wall = creature(&mut state, P0, 0, 4, KeywordSet::DEFENDER);
         let bear = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
         // Neither is summoning-sick: both were created before this turn.
-        state.turn_start_timestamp = u64::MAX;
+        for player in &mut state.players {
+            player.turn_start_timestamp = u64::MAX;
+        }
         assert!(!can_attack(&state, P0, wall), "a wall attacked");
         assert!(can_attack(&state, P0, bear), "the control could not attack");
+    }
+
+    /// CR 302.6 is a rule about creatures, in both of its sentences. The
+    /// answer for anything else is no, and it is no *here* rather than at
+    /// each call site — a caller that forgot the type test used to get
+    /// "did this permanent enter this turn", which is a different question
+    /// with the same shape.
+    #[test]
+    fn nothing_but_a_creature_is_ever_summoning_sick() {
+        let mut state = empty_state();
+        let name = state.names.intern("Test Land");
+        let land = state.create_bare(P0, ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+        state
+            .object_mut(land)
+            .expect("just created")
+            .base_mut()
+            .types = TypeSet::LAND;
+        let bear = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+
+        let land_obj = state.object(land).expect("on the battlefield");
+        assert!(
+            !summoning_sick(&state, land_obj),
+            "a land played this turn was called asleep"
+        );
+        let bear_obj = state.object(bear).expect("on the battlefield");
+        assert!(
+            summoning_sick(&state, bear_obj),
+            "a creature that entered this turn is asleep"
+        );
+    }
+
+    /// The stamp a turn records is the *last one issued before it began*,
+    /// so the comparison against it is strict. Off by one the other way,
+    /// the last permanent to enter before a turn started woke up a turn
+    /// late — which nothing noticed, because the draw step almost always
+    /// issues a stamp in between.
+    #[test]
+    fn a_creature_that_was_already_there_when_the_turn_began_is_awake() {
+        let mut state = empty_state();
+        let bear = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        // Exactly the boundary: the bear is the last thing stamped before
+        // the turn began.
+        let began = state.timestamp;
+        for player in &mut state.players {
+            player.turn_start_timestamp = began;
+        }
+        let obj = state.object(bear).expect("on the battlefield");
+        assert!(!summoning_sick(&state, obj));
+    }
+
+    /// "Continuously since *their* most recent turn began" (CR 302.6). A
+    /// creature cast on your turn is still summoning sick through every
+    /// opponent's turn that follows: one shared turn clock woke it as soon
+    /// as anybody untapped, which handed its `{T}` to its controller a
+    /// whole turn early. Combat never saw the difference, because you only
+    /// declare attackers on your own turn.
+    #[test]
+    fn an_opponents_turn_does_not_wake_your_creature() {
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        // P1's turn has begun since the creature entered; P0's has not.
+        state.players[1].turn_start_timestamp = state.timestamp;
+        let obj = state.object(mine).expect("on the battlefield");
+        assert!(
+            summoning_sick(&state, obj),
+            "an opponent untapping woke my creature"
+        );
+
+        // P0's own next turn is what wakes it.
+        state.players[0].turn_start_timestamp = state.timestamp;
+        let obj = state.object(mine).expect("on the battlefield");
+        assert!(!summoning_sick(&state, obj));
     }
 
     /// Combat damage to a planeswalker takes loyalty off it (CR 306.8),

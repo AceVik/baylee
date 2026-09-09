@@ -185,6 +185,11 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
             .chain(obj.target_players.iter().map(TargetRef::Player))
             .collect(),
         stack_item: stack_item(obj),
+        // Permanents only, because the engine's answer is about a creature
+        // *on the battlefield* and a creature card in hand would otherwise
+        // come back asleep. The creature test itself is the engine's — one
+        // reading of CR 302.6, shared with the attack legality the client
+        // is offered, so the drawing and the offer cannot disagree.
         summoning_sick: obj.kind == ObjectKind::Permanent
             && baylee_engine::combat::summoning_sick(state, obj),
         // Permanents only, for the same reason as `summoning_sick`: nothing
@@ -1407,6 +1412,47 @@ mod tests {
             other.prints().any(|p| p == print),
             "a seat told about a printing has to earn it, or it draws a hole"
         );
+    }
+
+    /// CR 302.6 is a rule about creatures, and the projection says so. The
+    /// field used to answer "did this permanent enter this turn", which is
+    /// also true of a land the player just played — so every client had to
+    /// mask it off again to avoid drawing a whole opening board asleep, and
+    /// the fact itself stayed wrong for anything that read it straight.
+    #[test]
+    fn only_a_creature_is_projected_summoning_sick() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let mut state = engine.state().clone();
+        let seat = PlayerId::new(0);
+
+        let mut fresh = |name: &str, types| {
+            let name = state.names.intern(name);
+            let id = state.create_bare(
+                seat,
+                baylee_engine::object::ObjectKind::Permanent,
+                name,
+                baylee_engine::zone::ZoneLocation::Battlefield,
+            );
+            state.object_mut(id).expect("just created").base_mut().types = types;
+            id
+        };
+        let land = fresh("Fresh Land", baylee_core::types::TypeSet::LAND);
+        let bear = fresh("Fresh Bear", baylee_core::types::TypeSet::CREATURE);
+
+        let view = player_view(&state, seat, None, 0, None, false);
+        let asleep = |id: ObjectId| {
+            view.battlefield
+                .iter()
+                .find(|o| o.id == id)
+                .expect("the permanent is in the view")
+                .summoning_sick
+        };
+        assert!(
+            !asleep(land),
+            "a land played this turn was projected summoning sick"
+        );
+        assert!(asleep(bear), "a creature that entered this turn is asleep");
     }
 
     /// The tally is a second life total (CR 903.10a), and it is public: the

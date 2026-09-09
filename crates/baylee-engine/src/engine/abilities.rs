@@ -338,11 +338,24 @@ impl<L: CardLookup> Engine<L> {
         }
         for part in cost.parts {
             match part {
-                CostPart::TapSelf => {
+                // CR 302.6, second sentence: a creature's activated ability
+                // with the tap or the untap symbol in its cost cannot be
+                // activated unless the creature has been under its
+                // controller's control since their most recent turn began.
+                // The check belongs here and not in the cost payment: a
+                // creature tapped to pay someone *else's* cost (convoke,
+                // crew) is not activating an ability of its own, and
+                // summoning sickness has never stopped that.
+                CostPart::TapSelf | CostPart::UntapSelf => {
                     let Some(obj) = self.state.object(source) else {
                         return false;
                     };
-                    if obj.status.contains(Status::TAPPED) {
+                    if crate::combat::summoning_sick(&self.state, obj) {
+                        return false;
+                    }
+                    // {T} needs it untapped. {Q} ought to need it tapped and
+                    // does not — `docs/observed-faults.md` entry 53.
+                    if matches!(part, CostPart::TapSelf) && obj.status.contains(Status::TAPPED) {
                         return false;
                     }
                 }
@@ -351,8 +364,7 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
-                CostPart::UntapSelf
-                | CostPart::SacrificeSelf
+                CostPart::SacrificeSelf
                 | CostPart::Sacrifice(_)
                 | CostPart::Discard(_)
                 | CostPart::DiscardSelf

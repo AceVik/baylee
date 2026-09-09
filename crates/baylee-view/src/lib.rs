@@ -486,8 +486,16 @@ pub struct PublicObject {
     pub targets: Vec<TargetRef>,
     /// What this is, for objects on the stack; `None` everywhere else.
     pub stack_item: Option<StackItem>,
-    /// Whether the permanent came under its controller's control this turn and
-    /// has neither haste nor an ability that ignores it.
+    /// Whether this is a creature that has *not* been under its controller's
+    /// control continuously since their most recent turn began, and has no
+    /// haste (CR 302.6) — so it cannot attack, and cannot pay `{T}` or `{Q}`
+    /// for an ability of its own.
+    ///
+    /// Creatures only, which is narrower than it reads: the field once
+    /// answered "did this permanent enter this turn", and a land played this
+    /// turn came back `true` for a question the rules never ask about lands.
+    /// It also holds through an opponent's turn, because the clock it is
+    /// measured against is the controller's own.
     pub summoning_sick: bool,
     /// Mana this permanent can make through an ability it does not print.
     ///

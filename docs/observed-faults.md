@@ -1096,3 +1096,39 @@ about the table itself rather than the rules, and both are fixed.
     - The hand bar's flat copy of the command zone is gone. It was the only
       zone that existed twice, in two sizes, in two renderers, with the 3D
       slot sitting empty underneath the copy.
+
+53. **Summoning sickness was half a rule, measured on the wrong clock.**
+    *Fixed.* CR 302.6 has two sentences and only the second one — "a
+    creature can't attack" — was ever implemented. The first is about `{T}`
+    and `{Q}` in an activation cost, and nothing checked it: a mana creature
+    cast on turn three made mana on turn three, and the engine *offered* it,
+    so this was not a client drawing an affordance that would be refused.
+    The offer and the acceptance agreed with each other and both were wrong.
+
+    Underneath it, `turn_start_timestamp` was one number for the whole game,
+    stamped at the beginning of *every* turn. The rule says "continuously
+    since **their** most recent turn began", so a creature cast on your turn
+    is still summoning sick right through the opponent's — with one shared
+    clock it woke as soon as anybody untapped. Combat could not see that,
+    because attackers are declared on your own turn, where the two readings
+    agree; it only became reachable once an activated ability was gated on
+    the same predicate. The stamp lives on `Player` now, and the comparison
+    against it is strict, because what it holds is the last stamp issued
+    *before* the turn began rather than the first one issued during it.
+
+    The third part is what the projection said. `combat::summoning_sick`
+    tested haste and the clock and left the *type* to its callers, so the
+    view reported it for every permanent that entered this turn — a land
+    played this turn came back `true`. Both client readers masked it back
+    off with a `CREATURE` test of their own, so nothing was drawn wrong, but
+    the fact a client was handed was not the fact the rule is about. The
+    type test is inside the predicate now, where both sentences of the rule
+    put it, and a Vehicle answers to it the moment it is crewed because the
+    type comes off the projected characteristics. The client keeps its mask:
+    the shape of the view did not change, so no `VIEW_VERSION` bump refuses
+    a host built before this, and one bit compare is what stops such a host
+    putting a whole opening board to sleep.
+
+    *Open, found on the way:* `CostPart::UntapSelf` does not require the
+    permanent to be tapped, so `{Q}` can be paid by something already
+    untapped. One line, but a different bug from this one.

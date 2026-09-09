@@ -271,7 +271,14 @@ impl<L: CardLookup> Engine<L> {
             cast_wizard: None,
             trigger_queue: VecDeque::new(),
         };
-        engine.state.turn_start_timestamp = engine.state.timestamp;
+        // Every seat, not just the first: a permanent the preset put on the
+        // battlefield was there before anybody's turn began, and a seat that
+        // has not had a turn yet would otherwise measure against zero and
+        // find its whole opening board asleep.
+        let stamp = engine.state.timestamp;
+        for player in &mut engine.state.players {
+            player.turn_start_timestamp = stamp;
+        }
         Ok(engine)
     }
 
@@ -491,6 +498,8 @@ mod s7c_tests;
 mod saga_tests;
 #[cfg(test)]
 mod search_tests;
+#[cfg(test)]
+mod sickness_tests;
 #[cfg(test)]
 mod team_tests;
 #[cfg(test)]

@@ -245,11 +245,13 @@ impl Offer {
 /// no caller can assemble a different subset than another — a card in hand, in
 /// the overlay and on the table must agree about what it is.
 ///
-/// Sickness is asked of creatures only. The view reports it for every
-/// permanent that entered this turn, but only a creature is stopped by it
-/// (CR 302.6); a land played this turn taps perfectly well, and a board where
-/// every fresh permanent breathed would be teaching the player something
-/// false.
+/// Sickness is asked of creatures only. The host projects CR 302.6 now and
+/// so answers this for creatures alone, but the field once meant "did this
+/// permanent enter this turn" — a land played this turn came back `true` —
+/// and the shape of the view did not change with its meaning, so no
+/// `VIEW_VERSION` bump refuses a host from before the fix. The type test is
+/// what keeps such a host from putting a whole opening board to sleep, and
+/// it costs one bit compare.
 #[must_use]
 pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 {
     let from_card = object.map_or(0, |o| {
@@ -911,11 +913,12 @@ pub(crate) mod tests {
         assert_eq!(glow_bits(all), glow::SHROUD | glow::INDESTRUCTIBLE);
     }
 
-    /// Sickness is drawn for creatures and nothing else. The view reports it
-    /// for every permanent that entered this turn, but only a creature is
-    /// stopped by it (CR 302.6) — a land played this turn taps perfectly
-    /// well, and a board where every fresh permanent breathed would be
-    /// teaching a player something false.
+    /// Sickness is drawn for creatures and nothing else, whatever a host
+    /// says. Only a creature is stopped by it (CR 302.6) — a land played
+    /// this turn taps perfectly well, and a board where every fresh
+    /// permanent breathed would be teaching a player something false. The
+    /// view carries the narrower fact today; this is what holds if it ever
+    /// carries the wider one again.
     #[test]
     fn only_a_creature_is_drawn_asleep() {
         use baylee_core::types::TypeSet;

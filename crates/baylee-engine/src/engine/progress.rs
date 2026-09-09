@@ -1552,7 +1552,12 @@ impl<L: CardLookup> Engine<L> {
             self.state.turn.active = next;
             self.state.turn.number += 1;
         }
-        self.state.turn_start_timestamp = self.state.timestamp;
+        // Only the seat whose turn this is: summoning sickness is measured
+        // against *their* most recent turn (CR 302.6), so an opponent's
+        // creature stays asleep while this turn runs.
+        let stamp = self.state.timestamp;
+        let seat = self.state.turn.active.get() as usize;
+        self.state.players[seat].turn_start_timestamp = stamp;
         self.state.turn_start_seq = self.state.journal.last_seq();
         // "Until your next turn" effects end as their controller's turn
         // begins (Elspeth's flying, Teferi's sorcery-flash).

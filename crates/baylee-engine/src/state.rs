@@ -40,6 +40,21 @@ pub struct Player {
     pub hand_modifier: i8,
     /// Lands played this turn (CR 305.2: one per turn).
     pub lands_played_this_turn: u8,
+    /// The timestamp this seat's most recent turn began at — the clock
+    /// summoning sickness is measured against (CR 302.6).
+    ///
+    /// Per seat rather than per game, because the rule says *their* most
+    /// recent turn: a creature cast on your turn is still sick through
+    /// every opponent's turn that follows, and wakes when your next turn
+    /// begins. One shared value said it woke as soon as anybody untapped,
+    /// which handed a fresh mana creature to its controller a whole turn
+    /// early — combat never saw it, because you only attack on your own
+    /// turn, where the two readings agree.
+    ///
+    /// It holds the *last issued* stamp rather than the next one, so the
+    /// comparison against it is strict: an object stamped at exactly this
+    /// value was there before the turn began.
+    pub turn_start_timestamp: u64,
     /// Set when a draw was attempted from an empty library (SBA loses).
     pub tried_empty_draw: bool,
     /// Combat damage this player has taken from each commander over the
@@ -320,8 +335,6 @@ pub struct GameState {
     pub players: Vec<Player>,
     /// Turn bookkeeping.
     pub turn: TurnInfo,
-    /// Timestamp at which the current turn began (summoning sickness).
-    pub turn_start_timestamp: u64,
     /// Journal sequence at the start of the current turn (per-turn event
     /// scans: "lost life this turn", …).
     pub turn_start_seq: u64,
@@ -486,6 +499,7 @@ impl GameState {
                     mana_pool: ManaPool::new(),
                     hand_modifier: 0,
                     lands_played_this_turn: 0,
+                    turn_start_timestamp: 0,
                     tried_empty_draw: false,
                     commander_damage: Vec::new(),
                     has_lost: false,
@@ -493,7 +507,6 @@ impl GameState {
                 })
                 .collect(),
             turn: TurnInfo::new(PlayerId::new(0)),
-            turn_start_timestamp: 0,
             turn_start_seq: 0,
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
@@ -1232,7 +1245,6 @@ impl GameState {
     pub fn snapshot_hash(&self) -> u64 {
         let mut h = Hasher::new();
         h.u64(self.timestamp);
-        h.u64(self.turn_start_timestamp);
         h.u64(self.effect_generation);
         h.u64(self.characteristics_generation);
         for fx in self.effects.iter() {
@@ -1257,6 +1269,7 @@ impl GameState {
             h.u16(p.poison);
             h.u16(p.energy);
             h.i8(p.hand_modifier);
+            h.u64(p.turn_start_timestamp);
             h.boolean(p.has_lost);
             for color in ManaColor::ALL {
                 h.u16(p.mana_pool.available(color));
