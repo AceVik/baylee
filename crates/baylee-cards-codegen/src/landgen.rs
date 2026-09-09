@@ -251,17 +251,25 @@ impl Recognizer<'_> {
                 clauses.join(",\n        ")
             )
         };
+        Some(self.named_filter(&format!(
+            "Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::LAND,\n    {inner},\n])"
+        )))
+    }
+
+    /// Hoists a filter expression into a `static` and answers with its name.
+    ///
+    /// A `Filter` in an `EnterModifier` is a `&'static`, so it cannot be
+    /// written inline; the numbering is shared so that two clauses on one
+    /// card cannot both be called `CHECK`.
+    fn named_filter(&mut self, expr: &str) -> String {
         self.filter_count += 1;
         let name = if self.filter_count == 1 {
             "CHECK".to_string()
         } else {
             format!("CHECK{}", self.filter_count)
         };
-        let _ = write!(
-            self.body.statics,
-            "static {name}: Filter = Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::LAND,\n    {inner},\n]);\n\n"
-        );
-        Some(name)
+        let _ = write!(self.body.statics, "static {name}: Filter = {expr};\n\n");
+        name
     }
 
     /// An `{T}: Add …` style line, with any rider sentences that follow.
@@ -320,6 +328,23 @@ impl Recognizer<'_> {
                 .enter_modifiers
                 .push("EnterModifier::Tapped".into());
             self.body.notes.push("enters tapped".to_string());
+            return Some(());
+        }
+        // Before the checkland below it, which claims the same prefix and
+        // would refuse the whole card on the phrase this one reads.
+        if let Some(n) = line
+            .strip_prefix("This land enters tapped unless you control ")
+            .and_then(|rest| rest.strip_suffix(" or more basic lands"))
+            .and_then(number)
+            .and_then(|n| u8::try_from(n).ok())
+        {
+            let name = self.named_filter(
+                "Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::BASIC_LAND,\n])",
+            );
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::TappedUnlessCount {{ filter: &{name}, at_least: {n} }}"
+            ));
+            self.body.notes.push("battle land".to_string());
             return Some(());
         }
         if let Some(rest) = line.strip_prefix("This land enters tapped unless you control ") {
@@ -662,13 +687,35 @@ mod tests {
             )
             .is_none()
         );
-        // …including a condition on an otherwise familiar enters-clause.
+        // …including a count the rule beside it does not read. A slow land
+        // counts *other lands* rather than basic ones, and the two sentences
+        // are one word apart, so the reader that learned the battle lands
+        // must not carry the slow lands in on the same filter.
         assert!(
             recognize(
-                &card("Land", "This land enters tapped unless you control two or more basic lands.\n{T}: Add {G}."),
+                &card("Land", "This land enters tapped unless you control two or more other lands.\n{T}: Add {G}."),
                 &cats(),
             )
             .is_none()
+        );
+    }
+
+    /// The battle lands: a condition that **counts**, and counts *basic*
+    /// lands — neither of which a checkland's sentence says.
+    #[test]
+    fn a_battle_land_counts_basic_lands() {
+        let body = read(
+            "Land \u{2014} Island Swamp",
+            "({T}: Add {U} or {B}.)\nThis land enters tapped unless you control two or more basic lands.",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }"]
+        );
+        assert!(body.statics.contains("Filter::BASIC_LAND"));
+        assert_eq!(
+            body.abilities,
+            ["mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])])"]
         );
     }
 

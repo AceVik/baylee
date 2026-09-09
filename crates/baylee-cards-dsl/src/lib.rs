@@ -294,6 +294,18 @@ pub enum EnterModifier {
     Tapped,
     /// Enters tapped unless you control a matching permanent (checklands).
     TappedUnless(&'static Filter),
+    /// Enters tapped unless you control at least `at_least` matching
+    /// permanents (the battle lands' "two or more basic lands").
+    ///
+    /// A variant of its own rather than a count on [`Self::TappedUnless`]: a
+    /// checkland asks about *a* permanent, which is what its sentence says,
+    /// and a card never restates a default.
+    TappedUnlessCount {
+        /// What each of them has to be.
+        filter: &'static Filter,
+        /// How many of them it takes.
+        at_least: u8,
+    },
     /// "You may pay N life; if you don't, this enters tapped" (shocklands).
     TappedOrPayLife(u16),
     /// "As this enters, choose a creature type" (Roaming Throne,

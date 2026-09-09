@@ -1244,3 +1244,86 @@ fn karn_minus_two_never_offers_the_library() {
     }
     assert_eq!(offered.len(), 1, "only the mox is outside the game");
 }
+
+fn sunken_hollow() -> baylee_core::ids::CardIndex {
+    card_index("cd2c90ac-2b04-461c-92f3-939871b6b6a3")
+}
+/// `Land — Plains Island`, and **nonbasic**: the bystander that separates
+/// "an Island" from "a basic land".
+fn irrigated_farmland() -> baylee_core::ids::CardIndex {
+    card_index("406eabe2-df62-49e2-bb39-c0227509d875")
+}
+
+/// Whether the land `seat` just played came in tapped.
+#[track_caller]
+fn entered_tapped(engine: &Engine<RegistryLookup>, land: baylee_core::ids::ObjectId) -> bool {
+    engine
+        .state()
+        .object(land)
+        .expect("the land is on the battlefield")
+        .status
+        .contains(crate::object::Status::TAPPED)
+}
+
+/// Plays `card` out of `seat`'s hand and answers with the object it became.
+#[track_caller]
+fn play_land(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) -> baylee_core::ids::ObjectId {
+    let land = in_hand(engine, seat, card).expect("the land is in hand");
+    engine
+        .apply(seat, PlayerAction::PlayLand { card: land })
+        .unwrap();
+    land
+}
+
+/// Sunken Hollow, a battle land: "This land enters tapped unless you control
+/// two or more basic lands."
+///
+/// The condition **counts**, and what it counts is *basic* lands — two
+/// things the checkland sentence next to it says neither of. The card was
+/// written as a checkland ("unless you control an Island or a Swamp"), which
+/// is the same answer on most boards and the wrong one on this one: two
+/// Forests are two basic lands and neither is an Island.
+#[test]
+fn a_battle_land_counts_two_basics_of_any_kind() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(111, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[sunken_hollow()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hollow = play_land(&mut engine, p0, sunken_hollow());
+    assert!(
+        !entered_tapped(&engine, hollow),
+        "two Forests are two basic lands"
+    );
+}
+
+/// The other half, and it carries both bystanders the sentence needs.
+///
+/// One basic of your own is not two; an opponent's basics are not yours; and
+/// a land that *prints* the right subtype is not basic — Irrigated Farmland
+/// is a `Plains Island` and counts for nothing here, which is the half a
+/// filter over subtypes gets exactly backwards.
+#[test]
+fn a_battle_land_counts_only_your_own_basic_lands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(112, forest())
+        .battlefield(0, &[island(), irrigated_farmland()])
+        .battlefield(1, &[forest(), forest()])
+        .hand(0, &[sunken_hollow()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hollow = play_land(&mut engine, p0, sunken_hollow());
+    assert!(
+        entered_tapped(&engine, hollow),
+        "one basic land, a nonbasic Island and two basics across the table"
+    );
+}

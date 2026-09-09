@@ -391,7 +391,11 @@ rules can supply for you.
 
 ### As-it-enters modifiers (`FaceDef::enter_modifiers`)
 
-`Tapped`, `TappedUnless(filter)`, `TappedOrPayLife(n)`, `ChooseSubtype`
+`Tapped`, `TappedUnless(filter)`,
+`TappedUnlessCount { filter, at_least }` (the battle lands' "two or more
+basic lands" — its own variant because a checkland asks about *a*
+permanent and a card never restates a default; the entering permanent
+never counts itself), `TappedOrPayLife(n)`, `ChooseSubtype`
 (Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
 on `obj.chosen_subtype`; creatures also gain the subtype in their base).
 

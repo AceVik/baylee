@@ -579,18 +579,17 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::TappedUnless(filter) => {
-                        let controlled = self
-                            .state
-                            .zones
-                            .list(ZoneLocation::Battlefield)
-                            .iter()
-                            .any(|other| {
-                                *other != id
-                                    && self.state.object(*other).is_some_and(|o| {
-                                        eval::matches(filter, &self.state, o, controller, id)
-                                    })
-                            });
-                        if !controlled && let Some(obj) = self.state.object_mut(id) {
+                        if !self.controls_at_least(filter, controller, id, 1)
+                            && let Some(obj) = self.state.object_mut(id)
+                        {
+                            obj.status.insert(Status::TAPPED);
+                            changed = true;
+                        }
+                    }
+                    EnterModifier::TappedUnlessCount { filter, at_least } => {
+                        if !self.controls_at_least(filter, controller, id, usize::from(*at_least))
+                            && let Some(obj) = self.state.object_mut(id)
+                        {
                             obj.status.insert(Status::TAPPED);
                             changed = true;
                         }
@@ -639,6 +638,41 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         changed
+    }
+
+    /// Whether `controller` controls `at_least` permanents matching `filter`,
+    /// not counting `entering` itself.
+    ///
+    /// Both enters-tapped-unless clauses ask this one question, so they share
+    /// the answer: a checkland is the count with `at_least: 1`, and two
+    /// conditions written twice would drift the first time one of them
+    /// learned something.
+    ///
+    /// The entering permanent is left out because its own clause is a
+    /// replacement applied on the way in. Nothing in the pool can see the
+    /// difference — all 42 lands with an enters-tapped-unless clause name
+    /// something they are not — and the one cycle that could says "other"
+    /// itself: Mystic Sanctuary is an Island and counts three or more
+    /// *other* Islands.
+    fn controls_at_least(
+        &self,
+        filter: &baylee_cards_dsl::Filter,
+        controller: PlayerId,
+        entering: ObjectId,
+        at_least: usize,
+    ) -> bool {
+        self.state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .filter(|other| {
+                **other != entering
+                    && self.state.object(**other).is_some_and(|o| {
+                        eval::matches(filter, &self.state, o, controller, entering)
+                    })
+            })
+            .count()
+            >= at_least
     }
 
     /// Checks a newly entered permanent for a clone-on-enter clause and
