@@ -191,7 +191,15 @@ impl<L: CardLookup> Engine<L> {
             .card(card_ref.index)
             .ok_or(EngineError::IllegalAction("unknown card"))?;
         let face = &def.faces[0];
-        let pool = &self.state.players[player.get() as usize].mana_pool;
+        // Restricted mana this spell may be paid with counts here for the
+        // same reason the convoke count below does: this probe and
+        // `casting::can_cast`'s have to be the same probe, or the Cavern's
+        // Ally is offered in `LegalActions` and refused the moment it is
+        // taken.
+        let with_restricted = casting::spendable_pool(&self.state, player, card);
+        let pool = with_restricted
+            .as_ref()
+            .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
         // Commander tax (CR 903.8): {2} more generic for each previous cast
         // of this commander from the command zone. It is a cost increase, so
         // it lands on every way of casting the card, an alternative cost

@@ -79,6 +79,55 @@ pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) ->
     wild_or_not(mana_is_wild(state), pool, cost)
 }
 
+/// The pool a *particular spell* may be paid from, or `None` when that is
+/// simply the player's pool.
+///
+/// Restricted mana — Cavern of Souls, Path of Ancestry — does not live in the
+/// pool's plain counters, and [`mana_pay::can_pay`] reads nothing else. So a
+/// player whose only mana came off a Cavern was offered **nothing to cast**,
+/// while `Engine::spend_restricted` on the far side of the wizard would have
+/// paid the cost with it without complaint. That is the whole of the fault:
+/// the offer and the payment were answering different questions about the
+/// same pool.
+///
+/// They ask the same one here. An entry counts exactly when its own filter
+/// matches this spell — the test `spend_restricted` applies, against the same
+/// `restriction_info` — so a Cavern naming Ally pays for an Ally and stays
+/// invisible to everything else at the table.
+///
+/// The card is still in a hand rather than on the stack, which is the one
+/// difference from the payment site and does not reach these filters: they
+/// read characteristics and a chosen subtype, neither of which the stack
+/// confers. A rider (uncounterable) is not consulted at all — a rider changes
+/// what the spell *becomes*, never whether it can be cast.
+/// It is `pub(crate)` because it has **two** callers and they must not
+/// disagree: the wizard enumerates the ways to cast a spell with the same
+/// probe `can_cast` used to offer it, or a spell is offered in
+/// `LegalActions` and then refused as "no way to cast this spell" — which is
+/// exactly what the convoke count above this one was written to stop
+/// happening.
+pub(crate) fn spendable_pool(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+) -> Option<ManaPool> {
+    let pool = &state.players[player.get() as usize].mana_pool;
+    if pool.restricted().is_empty() {
+        return None;
+    }
+    let spell = state.object(card)?;
+    let mut probe = pool.clone();
+    for mana in pool.restricted() {
+        let Some(&(source, filter, _)) = state.restriction_info.get(&mana.restriction.0) else {
+            continue;
+        };
+        if crate::eval::matches(filter, state, spell, player, source) {
+            probe.add(mana.color, mana.amount);
+        }
+    }
+    Some(probe)
+}
+
 /// [`affordable`] with the conversion flag already read.
 ///
 /// Payment sites need it in this shape: `pool` is borrowed mutably there,
@@ -107,6 +156,7 @@ pub(crate) fn pay_with(wild: bool, pool: &mut ManaPool, cost: &ManaCost) -> bool
 ///
 /// # Errors
 /// [`CastError`] describing the first legality violation.
+#[allow(clippy::too_many_lines)] // one gate per rule; splitting hides the list
 pub fn can_cast(
     state: &GameState,
     lookup: &impl crate::state::CardLookup,
@@ -189,7 +239,12 @@ pub fn can_cast(
             return Err(CastError::BadTiming);
         }
     }
-    let pool = &state.players[player.get() as usize].mana_pool;
+    // Restricted mana this spell may be paid with counts towards it; see
+    // [`spendable_pool`].
+    let with_restricted = spendable_pool(state, player, card);
+    let pool = with_restricted
+        .as_ref()
+        .unwrap_or(&state.players[player.get() as usize].mana_pool);
     // Commander tax (CR 903.8). A cost *increase*, so it lands on every way
     // of casting the card — printed cost, alternative cost and mode alike
     // (CR 601.2f) — which is why it is folded into each probe below rather

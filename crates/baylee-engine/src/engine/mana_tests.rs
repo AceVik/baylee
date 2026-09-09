@@ -25,6 +25,32 @@ fn command_tower() -> CardIndex {
 fn cavern_of_souls() -> CardIndex {
     card_index("89ca686a-7c72-4d8f-9290-e89635624a83")
 }
+fn plains() -> CardIndex {
+    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+}
+/// The battlefield permanent a seat's copy of `card` is.
+#[track_caller]
+fn land_object(engine: &Engine<RegistryLookup>, card: CardIndex) -> baylee_core::ids::ObjectId {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+        .expect("the permanent is on the battlefield")
+}
+fn kazandu_blademaster() -> CardIndex {
+    card_index("133f5d30-d883-493e-93a1-cf9583db460b")
+}
+fn charming_prince() -> CardIndex {
+    card_index("c48d844c-3976-4fa5-8e0d-3f0e535e7619")
+}
 fn reflecting_pool() -> CardIndex {
     card_index("67f43ac6-2a58-4b53-b5d7-0330e2a252e2")
 }
@@ -117,6 +143,102 @@ fn command_tower_without_a_commander_makes_colorless() {
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.available(ManaColor::Colorless), 1);
     assert_eq!(pool.total(), 1);
+}
+
+/// Reported from a game: a Cavern of Souls naming Ally, two of them
+/// untapped, and Kazandu Blademaster sat in hand refusing to be cast.
+///
+/// The mana was made and the mana matched. What could not see it was
+/// `casting::can_cast` — restricted mana is not in the pool's plain counters
+/// and `mana_pay::can_pay` reads nothing else, so the spell was never
+/// *offered*, while `spend_restricted` on the far side of the cast wizard
+/// would have paid for it without complaint. Both halves ask the same
+/// question now, and the counter-half of this test is the one that says the
+/// answer is still a restriction: Charming Prince is no Ally and the same
+/// two mana buy it nothing.
+#[test]
+fn a_cavern_naming_ally_pays_for_an_ally() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(13, forest())
+        .battlefield(0, &[cavern_of_souls(), plains()])
+        .hand(0, &[kazandu_blademaster(), charming_prince()])
+        .start();
+    // The Cavern's "choose a creature type" lands in among the mulligans.
+    for _ in 0..4 {
+        match engine.pending().clone() {
+            Pending::Priority { .. } => break,
+            Pending::Mulligan { player, .. } => {
+                engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+            }
+            Pending::ChooseSubtype { player, options } => {
+                let ally = options
+                    .iter()
+                    .copied()
+                    .find(|s| *s == baylee_core::generated::subtypes::creature::ALLY)
+                    .expect("Ally is a creature type a Cavern may name");
+                engine
+                    .apply(player, PlayerAction::ChooseSubtype(ally))
+                    .expect("a creature type is chosen");
+            }
+            other => panic!("expected a mulligan or the type choice, got {other:?}"),
+        }
+    }
+    reach_main_phase(&mut engine, p0);
+
+    // One white off the Cavern's restricted ability, one off the Plains, so
+    // the two halves of the cost are paid from the two halves of the pool.
+    activate(&mut engine, p0, cavern_of_souls(), 1);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("colour chosen");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: land_object(&engine, plains()),
+            },
+        )
+        .expect("a Plains taps for white");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::White), 1, "the Plains' white");
+    let restricted: u16 = pool.restricted().iter().map(|m| m.amount).sum();
+    assert_eq!(restricted, 1, "the Cavern's white, still restricted");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let named = |id: baylee_core::ids::ObjectId| {
+        engine
+            .state()
+            .object(id)
+            .and_then(|o| o.card)
+            .map(|c| c.index)
+    };
+    let castable: Vec<_> = legal.castable.iter().copied().filter_map(named).collect();
+    assert!(
+        castable.contains(&kazandu_blademaster()),
+        "an Ally is what this mana is for, and {{W}}{{W}} of it is floating"
+    );
+    assert!(
+        !castable.contains(&charming_prince()),
+        "a Human Noble is not an Ally — the restriction still holds"
+    );
+
+    // And it is an offer that survives being taken.
+    let spell = legal
+        .castable
+        .iter()
+        .copied()
+        .find(|id| named(*id) == Some(kazandu_blademaster()))
+        .expect("the Blademaster is offered");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .expect("the Blademaster is cast with the Cavern's mana");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "both restricted mana were spent on it"
+    );
 }
 
 /// "Spend this mana only to cast a creature spell of the chosen type, and
