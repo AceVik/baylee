@@ -1129,7 +1129,14 @@ pub fn sync_overlay(
                         overflow: Overflow::clip(),
                         ..default()
                     },
-                    BackgroundColor(palette::PANEL_LIT),
+                    // Transparent, like the hand bar under it and for the
+                    // same reason: the preview is a *card* held up to the
+                    // light, and it was drawn as a card inside a dark tile
+                    // six pixels bigger on every side. The padding stays —
+                    // it is the gap the shadow needs in order to read as a
+                    // shadow rather than as a rim — and the card's own alpha
+                    // cut keeps the scan's white corners off the screen.
+                    BackgroundColor(Color::NONE),
                     upward_shadow(),
                     ZIndex(10),
                     Pickable::IGNORE,

@@ -39,13 +39,19 @@ pub(super) fn spawn_hand_bar(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
-            // The phase rail's shadow, thrown the other way. Both strips are
-            // pinned to an edge and stand at the same height over the same
-            // felt; the only thing that differs is which way the light falls
-            // past them, which is the whole argument `elevation_shadow` is
-            // one function rather than two constants.
-            elevation_shadow(-1.0),
+            // Nothing. The bar was 88% black across the whole bottom of the
+            // window, and a hand of cards laid on a black strip is a hand of
+            // cards in a *panel* — the one thing on this screen that is not
+            // supposed to read as an interface. The cards keep their own
+            // corner cut (`card_ui.wgsl` takes the scan's white corners out
+            // in alpha) and their own shadow, so the strip has nothing left
+            // to do but let the felt through.
+            //
+            // The shadow went with it, and had to: a `BoxShadow` is drawn
+            // from the node's rectangle and not from its paint, so a
+            // transparent bar with `elevation_shadow(-1.0)` still lays a dark
+            // band the width of the window over the table.
+            BackgroundColor(Color::NONE),
             ZIndex(2),
             Pickable::IGNORE,
         ))
