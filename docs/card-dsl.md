@@ -380,7 +380,7 @@ abilities: &[activated!(
     },
     &[Effect::SearchLibrary {
         filter: &LAND_TYPE_PAIR,
-        finds: &[Find::BATTLEFIELD_TAPPED],
+        finds: &[Find::BATTLEFIELD],
         optional: false,
     }]
 )],
@@ -389,6 +389,16 @@ abilities: &[activated!(
 Note what is *not* written: this ability uses the stack, is activatable at
 instant speed and functions on the battlefield, and all three are what the
 rules already say. Only the cost and the effect are the card.
+
+And note the one word that *is* the card. `Find::BATTLEFIELD` against
+`Find::BATTLEFIELD_TAPPED` is the whole difference between the two families
+of land that this example otherwise fits both of: a fetchland pays a life and
+puts its dual in untapped, Evolving Wilds pays nothing but itself and puts a
+basic in tapped. This snippet said `BATTLEFIELD_TAPPED` under the heading
+"Fetchland" until four of the ten fetchlands in the pool had copied it
+(`docs/observed-faults.md` §54). `xtask validate` now reads every `finds:`
+list against the printed "onto the battlefield tapped", so the next one fails
+the gate rather than the game.
 
 A search says *what* it looks for and *where* each find goes; the two rules
 every printed search also obeys are derived, not declared, so a card cannot

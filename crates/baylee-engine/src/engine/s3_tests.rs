@@ -35,6 +35,11 @@ fn ondu_cleric() -> CardIndex {
 fn harabaz_druid() -> CardIndex {
     card_index("ead985ec-f29f-4a3b-b8b1-061142cc5bd1")
 }
+/// A Plains Island that enters tapped — an Island a fetchland may find, and
+/// one that carries its own entry replacement.
+fn irrigated_farmland() -> CardIndex {
+    card_index("406eabe2-df62-49e2-bb39-c0227509d875")
+}
 
 fn entry(card: CardIndex) -> DeckEntry {
     DeckEntry {
@@ -46,9 +51,20 @@ fn entry(card: CardIndex) -> DeckEntry {
 /// Preset: each seat gets a fixed starting hand; the library is a
 /// forest/island mix.
 fn preset_with_hand(seed: u64, hand0: Vec<CardIndex>, hand1: Vec<CardIndex>) -> GamePreset {
-    let deck: Vec<DeckEntry> = (0..60)
-        .map(|i| entry(if i % 2 == 0 { island() } else { forest() }))
-        .collect();
+    preset_with_library(seed, hand0, hand1, |i| {
+        if i % 2 == 0 { island() } else { forest() }
+    })
+}
+
+/// The same, with the sixty-card library written by `deck` — for a test that
+/// needs a particular card to be *findable*.
+fn preset_with_library(
+    seed: u64,
+    hand0: Vec<CardIndex>,
+    hand1: Vec<CardIndex>,
+    deck: impl Fn(usize) -> CardIndex,
+) -> GamePreset {
+    let deck: Vec<DeckEntry> = (0..60).map(|i| entry(deck(i))).collect();
     let mk_seat = |hand: Vec<CardIndex>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
         capabilities: baylee_core::preset::SeatCapabilities::default(),
@@ -102,8 +118,18 @@ fn pass_to_main(engine: &mut Engine<RegistryLookup>, want_active: PlayerId) {
     }
 }
 
+/// A fetchland pays life and puts its land in **untapped**.
+///
+/// That is the whole reason it costs a life and Evolving Wilds does not, and
+/// this test asserted the opposite for as long as it existed — under the name
+/// `fetchland_searches_island_or_swamp_tapped`, holding four of the ten
+/// fetchlands in the pool at `Find::BATTLEFIELD_TAPPED` while the other six
+/// were right. Every one of those four carried a header quoting the printed
+/// "put it onto the battlefield" and a comment saying `Find::BATTLEFIELD`
+/// says so; only the code disagreed, and a test written from the code rather
+/// than from the card made the disagreement permanent.
 #[test]
-fn fetchland_searches_island_or_swamp_tapped() {
+fn a_fetchland_puts_its_land_in_untapped() {
     let mut engine = Engine::new(
         &preset_with_hand(9, vec![polluted_delta()], vec![forest()]),
         RegistryLookup,
@@ -185,16 +211,96 @@ fn fetchland_searches_island_or_swamp_tapped() {
             },
         )
         .unwrap();
-    // Chosen island is on the battlefield, tapped; library was shuffled.
+    // Chosen island is on the battlefield, untapped; library was shuffled.
     let obj = engine.state().object(chosen).unwrap();
     assert_eq!(obj.zone, Zone::Battlefield);
-    assert!(obj.status.contains(crate::object::Status::TAPPED));
+    assert!(
+        !obj.status.contains(crate::object::Status::TAPPED),
+        "a basic Island has nothing that would tap it on the way in"
+    );
     assert!(
         engine
             .journal()
             .entries()
             .iter()
             .any(|e| matches!(e.event, GameEvent::Shuffled { player, .. } if player == p0))
+    );
+}
+
+/// And a found card keeps its *own* entry replacement.
+///
+/// The search puts the card onto the battlefield itself rather than through
+/// the land-play path, so whether a fetched tapland still enters tapped is a
+/// real question about where `apply_enter_modifiers` looks. It reads the
+/// journal for zone changes rather than the way a permanent arrived, which
+/// this test says out loud instead of leaving it to a reading of the code —
+/// and it is the other half of the report that found the four cards above:
+/// a fetchland that put every land in tapped and a fetchland that put none in
+/// tapped are both wrong, and only the card being found can say which.
+#[test]
+fn a_fetched_tapland_still_enters_tapped() {
+    // A library of nothing but Irrigated Farmland: an Island the Delta may
+    // find, and one whose printed text taps it as it enters.
+    let mut engine = Engine::new(
+        &preset_with_library(11, vec![polluted_delta()], vec![forest()], |_| {
+            irrigated_farmland()
+        }),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    pass_to_main(&mut engine, p0);
+
+    let delta = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Hand(p0))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == polluted_delta())
+        })
+        .expect("the fetchland is in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: delta })
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: delta,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected priority for opponent, got {:?}", engine.pending());
+    };
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected search choice, got {:?}", engine.pending());
+    };
+    let farmland = *options.first().expect("the library is all Farmland");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![farmland],
+            },
+        )
+        .unwrap();
+
+    let obj = engine.state().object(farmland).unwrap();
+    assert_eq!(obj.zone, Zone::Battlefield);
+    assert!(
+        obj.status.contains(crate::object::Status::TAPPED),
+        "the land brought its own \"enters tapped\" with it"
     );
 }
 

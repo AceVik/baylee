@@ -1145,3 +1145,51 @@ about the table itself rather than the rules, and both are fixed.
     levels across half a breath while every other permanent on the table and
     the prompt slip are byte-identical, and its hover preview — the same
     arithmetic in the UI shader — moves 21/21/20.
+
+54. **"Fetchländer erzwingen es nicht, dass das gefatchte Land getappt rein
+    kommt. Bitte bei allen Fetchländern korrigieren."** *Fixed — in the other
+    direction, and the report was right about the family being wrong.*
+
+    A fetchland does not put its land in tapped. That is what the life
+    payment buys: Polluted Delta costs {T}, 1 life and the land itself and
+    puts an untapped dual on the table, while Evolving Wilds costs nothing
+    but the land and puts a basic in tapped. Applying the report as written
+    would have broken the six fetchlands that were right in order to match
+    the four that were not.
+
+    Because four of the ten were wrong, and in the direction that makes the
+    report make sense. `marsh_flats`, `misty_rainforest`, `polluted_delta`
+    and `scalding_tarn` searched with `Find::BATTLEFIELD_TAPPED`;
+    `arid_mesa`, `bloodstained_mire`, `flooded_strand`, `verdant_catacombs`,
+    `windswept_heath` and `wooded_foothills` searched with
+    `Find::BATTLEFIELD`. The acceptance decks — and the decks in the
+    gateway's store — hold both halves at once, so one game shows a
+    fetchland tapping the land it finds and the next shows one that does not,
+    which is exactly the observation. All four are `Find::BATTLEFIELD` now,
+    and the pool dump moves four `tapped: true` to `tapped: false` and
+    nothing else.
+
+    Each of those four carried a header quoting the printed "put it onto the
+    battlefield" *and* a comment saying "Untapped is the whole difference
+    between a fetchland and Evolving Wilds; `Find::BATTLEFIELD` says so".
+    Only the code disagreed, and nothing compared the two. The engine test
+    was worse than absent: `fetchland_searches_island_or_swamp_tapped`
+    asserted `Status::TAPPED` on the fetched Island, so the pool's own suite
+    held the bug in place. It is
+    `a_fetchland_puts_its_land_in_untapped` now and asserts the opposite.
+
+    *The half of the report that is a real question, closed by measurement.*
+    A search puts the card onto the battlefield itself rather than through
+    the land-play path, so a fetched **tapland** honouring its own "enters
+    tapped" is not something a card file can promise. It does:
+    `apply_enter_modifiers` scans the journal for zone changes rather than
+    for how a permanent arrived. `a_fetched_tapland_still_enters_tapped`
+    fetches an Irrigated Farmland with a Polluted Delta and reads the status
+    back, so that is now a test rather than a reading of the code.
+
+    *And the check that would have caught it.* `xtask validate` compares the
+    header against the `CardDef` — it just had nothing to say about this
+    word. It does now: every `finds:` list is read against the printed
+    "onto the battlefield tapped", and only a *put* counts, so a land whose
+    own text taps it as it enters is not mistaken for one that taps what it
+    finds. Re-introducing the bug in one card fails the command by name.

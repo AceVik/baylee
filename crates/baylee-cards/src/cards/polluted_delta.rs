@@ -31,11 +31,14 @@ card! {
             ],
         }, &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
-            finds: &[Find::BATTLEFIELD_TAPPED],
+            finds: &[Find::BATTLEFIELD],
             optional: false,
         }])],
 }
 
-// Engine-level test lives in baylee-engine (fetchland_works): activation
-// pays tap+sacrifice+1 life, offers only Island/Swamp options, puts the
-// chosen card onto the battlefield tapped, and shuffles.
+// Engine-level test lives in baylee-engine
+// (`a_fetchland_puts_its_land_in_untapped`): activation pays
+// tap+sacrifice+1 life, offers only Island/Swamp options, puts the chosen
+// card onto the battlefield untapped, and shuffles. Its neighbour
+// `a_fetched_tapland_still_enters_tapped` covers the other half — a found
+// card that carries its own "enters tapped" keeps it.

@@ -31,7 +31,7 @@ card! {
             ],
         }, &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
-            finds: &[Find::BATTLEFIELD_TAPPED],
+            finds: &[Find::BATTLEFIELD],
             optional: false,
         }])],
 }

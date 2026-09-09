@@ -892,6 +892,84 @@ fn check_header_matches_code(slug: &str, content: &str, problems: &mut usize) {
     }
 }
 
+/// Compares "onto the battlefield **tapped**" in the printed text against the
+/// [`Find`](baylee_cards_dsl::effect::Find) the code searches with.
+///
+/// One word, and it is the difference between two families of land that look
+/// identical in a card file: Evolving Wilds puts its basic in tapped and costs
+/// nothing, a fetchland puts its dual in untapped and costs a life. Four of
+/// the ten fetchlands in the pool shipped with `Find::BATTLEFIELD_TAPPED`
+/// while their own header quoted "put it onto the battlefield" and their own
+/// comment said `Find::BATTLEFIELD` — nothing compared the two, so the pool
+/// disagreed with itself for as long as it had fetchlands in it, and the
+/// engine test written from the code rather than from the card made it
+/// permanent.
+///
+/// The reading is deliberately narrow. Only a *put* counts, so a land whose
+/// own text says it enters the battlefield tapped is not mistaken for one
+/// that taps what it finds, and the claim is presence rather than a count:
+/// Cultivate names one destination per sentence and Sword of Hearth and Home
+/// names two cards in one, and neither is a drift this check is for.
+fn check_search_tapped_matches_text(slug: &str, content: &str, problems: &mut usize) {
+    /// The printed phrase both halves of the comparison hang off.
+    const ONTO: &str = "onto the battlefield";
+
+    // The code only. A card's comments quote both spellings while explaining
+    // which one it is, which is exactly the sentence that went stale.
+    let code: String = content
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let finds: String = code
+        .match_indices("finds:")
+        .filter_map(|(at, _)| {
+            let rest = &code[at..];
+            rest.find(']').map(|end| &rest[..end])
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    if finds.is_empty() {
+        return;
+    }
+    let code_tapped = finds.contains("Find::BATTLEFIELD_TAPPED");
+    let code_plain = finds
+        .match_indices("Find::BATTLEFIELD")
+        .any(|(at, _)| !finds[at..].starts_with("Find::BATTLEFIELD_TAPPED"));
+
+    let oracle: String = content
+        .lines()
+        .filter_map(|l| l.strip_prefix("//! Oracle:"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let (mut text_tapped, mut text_plain) = (false, false);
+    for (at, _) in oracle.match_indices(ONTO) {
+        let before: String = oracle[..at]
+            .chars()
+            .rev()
+            .take(60)
+            .collect::<String>()
+            .to_ascii_lowercase();
+        if !before.contains("tup") {
+            continue; // "put", read backwards — this is an entry, not a put.
+        }
+        if oracle[at + ONTO.len()..].starts_with(" tapped") {
+            text_tapped = true;
+        } else {
+            text_plain = true;
+        }
+    }
+
+    if code_tapped && !text_tapped {
+        println!("{slug}: code puts a found card onto the battlefield tapped, the text does not");
+        *problems += 1;
+    }
+    if code_plain && !text_plain {
+        println!("{slug}: code puts a found card onto the battlefield untapped, the text does not");
+        *problems += 1;
+    }
+}
+
 /// Validates card-file conventions across the registry.
 fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
@@ -934,6 +1012,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             }
         }
         check_header_matches_code(&slug, &content, &mut problems);
+        check_search_tapped_matches_text(&slug, &content, &mut problems);
     }
     if problems > 0 {
         anyhow::bail!("{problems} convention problem(s) found");
