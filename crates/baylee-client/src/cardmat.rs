@@ -1343,7 +1343,7 @@ pub(crate) mod tests {
             let line = src
                 .lines()
                 .find(|line| line.starts_with("#import") && line.contains("card_common.wgsl"))
-                .expect("{which} no longer imports the shared file");
+                .unwrap_or_else(|| panic!("{which} no longer imports the shared file"));
             let asked = line
                 .split_once('{')
                 .and_then(|(_, rest)| rest.split_once('}'))

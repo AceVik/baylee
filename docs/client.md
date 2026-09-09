@@ -1642,6 +1642,20 @@ description of a thing must not be able to take the pointer from it**, which
 is now one recursive `Pickable::IGNORE` in `hud/overlay.rs` rather than a
 property each face is trusted to remember.
 
+**That fix did not close the report, because the report had two causes.** The
+owner played again and said the flickering remained, and the second one was
+not a hover at all: `card_ui.wgsl` coated every card in a metallic sweep on a
+continuous six-second loop, so the whole hand bar changed a little on every
+frame with nothing hovered, nothing moving and nobody's turn. A 24-by-16 grid
+of mean absolute pixel difference over two frames of a still table read 18–30
+per cell across the hand and 0 across the felt, which is the shape of the
+answer: a repositioning bug moves cards, and the cards had not moved. The
+sweep is one-shot now (`sheen.rs`, `f8e4350`) and the same grid reads a
+maximum of 2.4 with the hand at 0–2. The lesson is the one this section
+already teaches, applied to a second reading of the same report: a fix that
+was measured on the fault it *found* still has to be measured against the
+sentence that was reported.
+
 A guard on the `Out` was tried first and is worth writing down, because it
 looked so much like the answer: a card still gliding is the thing that moved,
 so drop its `Out`. That is wrong twice over. It fires *exactly* when a pointer

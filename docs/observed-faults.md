@@ -1491,3 +1491,40 @@ about the table itself rather than the rules, and both are fixed.
     usual instinct: a generated file that cannot be regenerated is not
     protected, it is *stranded* — cut off from every fix its generator will
     ever receive, with nothing reporting that it has fallen behind.
+
+59. **"Das Flackern der Karten und anderer Sachen auf dem Feld bleibt" — the
+    report had a second cause, and it moved nothing.** *Fixed.* Entry 35 and
+    `db252ca` found a real defect behind the same sentence (a pickable preview
+    panel opening onto the pointer that opened it) and closed the report with
+    it. The owner played again and the flickering was still there.
+
+    The second cause was `card_ui.wgsl`. Every card in the hand, the preview,
+    the stack and the tray carried a metallic coat driven by `globals.time` on
+    a continuous six-second loop, so the whole hand bar changed a little on
+    every frame with nothing hovered, nothing moving and nobody's turn. What
+    named it was a 24-by-16 grid of mean absolute pixel difference over two
+    frames of a still table: 18–30 per cell across the hand bar, 0 across the
+    felt. A repositioning bug moves cards, and the cards had not moved — which
+    is why "I think it has something to do with the rerendering, repositioning
+    of cards" pointed at the wrong half of the client, and why reading the
+    glide and the hover for a second session would not have found it either.
+
+    `crates/baylee-client/src/sheen.rs` is the fix and it is also what the
+    owner asked for on its own merits: the sweep is one-shot, bottom-right to
+    top-left, on a card that is *new* — drawn, played, or opened in the
+    preview — and quicker for each card in a burst, retiring itself when the
+    band is over. The material stays metallic; only the motion is spent. The
+    same grid on a still table now reads a maximum of 2.4 and 0–2 across the
+    hand, the residue being the amber activatable border the owner asked to
+    keep.
+
+    Two lessons, both about the measurement rather than the shader. A fix
+    measured against the fault it *found* still has to be measured against the
+    sentence that was **reported**; entry 35's grid was never taken, so the
+    hand's own churn sat in plain sight through two sessions and was once
+    written off as the ambient sky. And a `/screenshot` round trip costs about
+    2.4 s in a debug build, so a sub-second animation cannot be photographed at
+    its own speed at all: the sweep had to be slowed to twelve seconds to be
+    seen, and the first attempt to read it diffed two *adjacent* frames that
+    had landed on the same phase and reported 2.8 where the widest pair of the
+    same run reported 78.7.

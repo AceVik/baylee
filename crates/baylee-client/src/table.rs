@@ -212,12 +212,13 @@ fn stack_layers(under: usize) -> usize {
 /// back, `Over` fires. The values this shipped with missed the bound by
 /// nearly double, so the assertions below are the point of the paragraph.
 ///
-/// This is **not** the flicker that was reported, though it was fixed while
-/// chasing it. That one was a pickable preview panel opening over the card it
-/// described, and it happened on cards nowhere near this bound; the fix is in
-/// `hud/overlay.rs`. `docs/client.md` ("The pointer only speaks when it
-/// moves") has the measurement that tells the two apart, and is normative on
-/// which is which.
+/// This is **not** either of the flickers that were reported, though it was
+/// fixed while chasing them. One was a pickable preview panel opening over the
+/// card it described, on cards nowhere near this bound (the fix is in
+/// `hud/overlay.rs`); the other was the metallic coat looping continuously in
+/// `card_ui.wgsl`, which moved no card at all (`sheen.rs`). `docs/client.md`
+/// ("The pointer only speaks when it moves") has the measurements that tell
+/// the three apart, and is normative on which is which.
 const HOVER_LIFT: f32 = 0.06;
 const HOVER_SCALE: f32 = 1.06;
 /// Lift and scale for a card chosen for the pending choice (clearly "in").
