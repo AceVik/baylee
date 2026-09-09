@@ -1282,6 +1282,132 @@ fn adopt(root: &Path, name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Cards whose printed "you control" or "an opponent controls" is not a
+/// filter on any object, with the reason.
+///
+/// Every entry here is a sentence the DSL says another way, and naming the
+/// way is the point: an exception with no reason is a card nobody looked at.
+const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
+    ("Bleachbone Verge", "an ActivationCondition, not a filter"),
+    ("Mox Opal", "metalcraft is an ActivationCondition"),
+    ("Fierce Guardianship", "an AlternativeCost condition"),
+    (
+        "Reflecting Pool",
+        "\"any type a land you control could produce\" is its own mana rule",
+    ),
+    ("Exotic Orchard", "the same rule, read across the table"),
+    ("Fellwar Stone", "the same rule, read across the table"),
+    (
+        "Opposition Agent",
+        "\"you control your opponents\" is the verb, not the zone",
+    ),
+    ("Urza's Saga", "the clause is printed on the token it makes"),
+    (
+        "Ashiok, Dream Render",
+        "a player-wide static with no object to filter",
+    ),
+    (
+        "Karn, the Great Creator",
+        "the lock is a player rule; see karns_lock_spares_a_teammate",
+    ),
+];
+
+/// What the card says about *whose* permanents it reaches, against what it
+/// does.
+///
+/// The owner's question, in two directions: an effect that should only touch
+/// your own side must say so, and one that reaches across the table must not
+/// be able to come back. Both are invisible in a duel played once — a wrong
+/// filter still points at *something* — and both are decidable by reading
+/// the printed sentence beside the filters the card was built from.
+///
+/// Reminder text is stripped first. It is printed in parentheses, it is not
+/// rules the card carries, and hexproof's own reminder ends "…spells or
+/// abilities your opponents control" on every card that has it.
+fn check_scope_matches_the_text(
+    root: &Path,
+    slug: &str,
+    name: &str,
+    def: &baylee_cards::dsl::CardDef,
+    problems: &mut usize,
+) {
+    if !matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented) {
+        return;
+    }
+    if SCOPE_EXCEPTIONS.iter().any(|(card, _)| *card == name) {
+        return;
+    }
+    let path = root
+        .join("data/scryfall-cache")
+        .join(format!("{slug}.json"));
+    let Ok(text) = fs::read_to_string(&path) else {
+        return;
+    };
+    let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return;
+    };
+    let mut printed = String::new();
+    let mut push = |v: Option<&serde_json::Value>| {
+        if let Some(s) = v.and_then(serde_json::Value::as_str) {
+            printed.push_str(s);
+            printed.push('\n');
+        }
+    };
+    push(payload.get("oracle_text"));
+    if let Some(faces) = payload
+        .get("card_faces")
+        .and_then(serde_json::Value::as_array)
+    {
+        for face in faces {
+            push(face.get("oracle_text"));
+        }
+    }
+    let printed = strip_reminders(&printed).to_lowercase();
+
+    // The filters the card was built from, read off the one rendering that
+    // cannot go stale as the DSL grows a variant.
+    let built = format!("{def:?}");
+    let says_you = printed.contains("you control");
+    let says_theirs =
+        printed.contains("opponent controls") || printed.contains("opponents control");
+    let filters_you = built.contains("ControlledByYou");
+    let filters_theirs = built.contains("ControlledByOpponent");
+
+    if says_you && !filters_you {
+        println!(
+            "{slug}: the text says \"you control\" and no filter does; use `Filter::ControlledByYou`, or add an entry to SCOPE_EXCEPTIONS saying why not"
+        );
+        *problems += 1;
+    }
+    if says_theirs && !filters_theirs {
+        println!(
+            "{slug}: the text says an opponent controls it and no filter does; use `Filter::ControlledByOpponent`, or add an entry to SCOPE_EXCEPTIONS"
+        );
+        *problems += 1;
+    }
+    if filters_theirs && !printed.contains("opponent") {
+        println!(
+            "{slug}: reaches only an opponent's permanents and the text never says opponent; \"you don't control\" is `Filter::Not(&Filter::ControlledByYou)`, which a teammate's permanent matches too"
+        );
+        *problems += 1;
+    }
+}
+
+/// Oracle text with its reminder text taken out.
+fn strip_reminders(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut depth = 0usize;
+    for c in text.chars() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ if depth == 0 => out.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
 fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
@@ -1301,6 +1427,11 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     // files the taxonomy filed rather than the ones a flat directory used to
     // hold. A walk that found nothing would report a clean pool.
     let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
+    // The compiled pool beside the files: the scope check reads the filters
+    // a card was built from, which no amount of reading its source text
+    // gives you.
+    let by_name: BTreeMap<&str, &'static baylee_cards::dsl::CardDef> =
+        baylee_cards::all().map(|def| (def.name(), def)).collect();
     for name in &names {
         let slug = front_face_slug(name);
         let Some(content) = files.get(&slug).and_then(|p| fs::read_to_string(p).ok()) else {
@@ -1331,6 +1462,9 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             }
         }
         check_header_matches_code(&slug, &content, &mut problems);
+        if let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) {
+            check_scope_matches_the_text(root, &slug, def.name(), def, &mut problems);
+        }
         check_search_tapped_matches_text(&slug, &content, &mut problems);
         check_code_matches_the_printing(root, &slug, &content, &mut problems);
     }

@@ -174,6 +174,13 @@ fn glasspool_shore_plays_as_back_face_land_without_choice() {
             .types
             .contains(baylee_core::types::TypeSet::LAND)
     );
+    // "This land enters tapped." — the modifier is printed on the *back*
+    // face, and `apply_enter_modifiers` used to read `faces[0]`, so the shore
+    // came in untapped and made mana the turn it landed.
+    assert!(
+        obj.status.contains(crate::object::Status::TAPPED),
+        "Glasspool Shore enters tapped"
+    );
 }
 
 #[test]

@@ -10,8 +10,14 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{self};
 
+/// "Nonland, nontoken permanent **you don't control**".
+///
+/// Not `ControlledByOpponent`, which is a smaller set: a teammate's
+/// permanent is one you do not control and is not an opponent's, so at a
+/// two-headed table the two readings differ by every permanent on your own
+/// side of the table but one.
 static TARGET_F: Filter = Filter::And(&[
-    Filter::ControlledByOpponent,
+    Filter::Not(&Filter::ControlledByYou),
     Filter::NONLAND,
     Filter::CmcAtMost(4),
 ]);

@@ -577,13 +577,24 @@ impl<L: CardLookup> Engine<L> {
             if self.check_copy_on_enter(id) {
                 return true;
             }
-            let Some(card) = self.state.object(id).and_then(|o| o.card) else {
+            let Some((card, face_index)) = self
+                .state
+                .object(id)
+                .and_then(|o| Some((o.card?, o.face_index)))
+            else {
                 continue;
             };
             let Some(def) = self.lookup.card(card.index) else {
                 continue;
             };
-            for modifier in def.faces[0].enter_modifiers {
+            // The permanent's *own* face, not the front one. A modal
+            // double-faced card enters as its back face (Glasspool Shore is a
+            // land that enters tapped), and reading `faces[0]` there asked the
+            // creature half whether the land comes in tapped.
+            let Some(face) = def.faces.get(face_index as usize) else {
+                continue;
+            };
+            for modifier in face.enter_modifiers {
                 match modifier {
                     EnterModifier::Tapped => {
                         if let Some(obj) = self.state.object_mut(id) {

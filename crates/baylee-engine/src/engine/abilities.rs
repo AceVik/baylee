@@ -567,7 +567,11 @@ impl<L: CardLookup> Engine<L> {
                 .lookup
                 .card(card.index)
                 .ok_or(EngineError::IllegalAction("unknown card"))?;
-            // Karn's lock: opponents can't activate artifact abilities.
+            // Karn's lock: "activated abilities of artifacts your *opponents*
+            // control can't be activated". Not "everyone but me" — a
+            // teammate is neither, and at a two-headed table the two
+            // readings differ by every artifact on Karn's own side of the
+            // table but Karn's controller's.
             if obj
                 .characteristics()
                 .types
@@ -576,7 +580,7 @@ impl<L: CardLookup> Engine<L> {
                     matches!(
                         fx.modifier,
                         baylee_cards_dsl::Modifier::CantActivateArtifacts
-                    ) && fx.controller != obj.controller
+                    ) && self.state.is_opponent(obj.controller, fx.controller)
                 })
             {
                 return Err(EngineError::IllegalAction(

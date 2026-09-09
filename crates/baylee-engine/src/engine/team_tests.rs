@@ -32,6 +32,20 @@ fn creature() -> CardIndex {
 
 /// A table whose seats carry the given teams, each on a plain deck.
 fn table(teams: &[Option<u8>], battlefield: &[CardIndex], seed: u64) -> Engine<RegistryLookup> {
+    let each: Vec<&[CardIndex]> = teams.iter().map(|_| battlefield).collect();
+    table_with(teams, &each, seed)
+}
+
+/// The same table with a different opening board at each seat.
+///
+/// "Whose artifact is this" is the whole question in
+/// [`karns_lock_spares_a_teammate`], and it cannot be asked of a table that
+/// deals every seat the same permanents.
+fn table_with(
+    teams: &[Option<u8>],
+    battlefields: &[&[CardIndex]],
+    seed: u64,
+) -> Engine<RegistryLookup> {
     let deck: Vec<DeckEntry> = (0..60)
         .map(|_| DeckEntry {
             card: forest(),
@@ -50,7 +64,8 @@ fn table(teams: &[Option<u8>], battlefield: &[CardIndex], seed: u64) -> Engine<R
         }],
         seats: teams
             .iter()
-            .map(|team| SeatSpec {
+            .enumerate()
+            .map(|(i, team)| SeatSpec {
                 controller: SeatController::Ai(AIProfile::default()),
                 capabilities: baylee_core::preset::SeatCapabilities::default(),
                 deck: deck.clone(),
@@ -58,7 +73,9 @@ fn table(teams: &[Option<u8>], battlefield: &[CardIndex], seed: u64) -> Engine<R
                 commanders: vec![],
                 starting_life: None,
                 starting_hand: None,
-                starting_battlefield: battlefield
+                starting_battlefield: battlefields
+                    .get(i)
+                    .unwrap_or(&&[][..])
                     .iter()
                     .map(|card| DeckEntry {
                         card: *card,
@@ -229,5 +246,115 @@ fn target_opponent_offers_neither_you_nor_your_teammate() {
     assert_eq!(
         crate::eval::target_player_options(state, &TargetSpec::AnyPlayer, a),
         vec![a, b, c]
+    );
+}
+
+fn karn_the_great_creator() -> CardIndex {
+    crate::engine::testkit::card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
+}
+
+/// Liquimetal Coating: an artifact whose only ability is activated, which
+/// is what Karn's lock is about.
+fn liquimetal_coating() -> CardIndex {
+    crate::engine::testkit::card_index("f4bdc551-c2eb-4a34-a3e3-b4a017c925af")
+}
+
+/// Passes until the named seat holds priority.
+#[track_caller]
+fn until_priority(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    for _ in 0..200 {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } if player == seat => return,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected while waiting for priority: {other:?}"),
+        }
+    }
+    panic!("{seat:?} never got priority");
+}
+
+/// The one permanent of `card` a seat controls.
+#[track_caller]
+fn theirs(engine: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> ObjectId {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
+        })
+        .expect("the permanent is on the battlefield")
+}
+
+/// Karn, the Great Creator: "activated abilities of artifacts **your
+/// opponents** control can't be activated."
+///
+/// The rule read `fx.controller != obj.controller`, which is "everybody but
+/// me" — right in a duel and wrong the moment a table has sides, because a
+/// teammate is neither Karn's controller nor an opponent. Karn's own side
+/// lost the use of its artifacts.
+#[test]
+fn karns_lock_spares_a_teammate() {
+    let (mate, foe) = (PlayerId::new(1), PlayerId::new(2));
+    let mut engine = table_with(
+        &[Some(1), Some(1), Some(2)],
+        &[
+            &[karn_the_great_creator()],
+            &[liquimetal_coating()],
+            &[liquimetal_coating()],
+        ],
+        29,
+    );
+
+    until_priority(&mut engine, mate);
+    let ours = theirs(&engine, mate, liquimetal_coating());
+    engine
+        .apply(
+            mate,
+            PlayerAction::ActivateAbility {
+                source: ours,
+                ability_index: 0,
+            },
+        )
+        .expect("a teammate's artifact is not an opponent's");
+
+    let mut engine = table_with(
+        &[Some(1), Some(1), Some(2)],
+        &[
+            &[karn_the_great_creator()],
+            &[liquimetal_coating()],
+            &[liquimetal_coating()],
+        ],
+        29,
+    );
+    until_priority(&mut engine, foe);
+    let theirs_ = theirs(&engine, foe, liquimetal_coating());
+    assert!(
+        engine
+            .apply(
+                foe,
+                PlayerAction::ActivateAbility {
+                    source: theirs_,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the lock let an opponent activate an artifact"
     );
 }

@@ -1,11 +1,17 @@
 //! Glasspool Mimic // Glasspool Shore — {2}{U} — Creature — Shapeshifter Rogue // Land
-//! Oracle: You may have Glasspool Mimic enter the battlefield as a copy of any creature on the battlefield, except it's a Shapeshifter Rogue in addition to its other types. // {T}: Add {U}.
+//! Oracle: You may have this creature enter as a copy of a creature you control, except it's a Shapeshifter Rogue in addition to its other types. // This land enters tapped.
+//! Oracle: {T}: Add {U}.
 //! Set: ZNR #60 — Zendikar Rising | Scryfall ID: 5adcb500-8c77-4925-8e2c-1243502827d1 | Oracle ID: c178953c-3888-4edd-9d0c-265bd82b1d24
 // IMPLEMENTED — clone-with-extra-subtypes front (CopyOnEnter) + MDFC
 // land back playable via the face-choice land play.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
+
+/// "A creature **you control**". The card was printed as "any creature on
+/// the battlefield" and errata'd; copying across the table is a different
+/// card, and the header here had kept the old wording.
+static MINE: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 
 static SHORE_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];
 
@@ -26,12 +32,13 @@ card! {
             name: "Glasspool Shore",
             types: TypeSet::LAND,
             abilities: SHORE_MANA,
+            enter_modifiers: &[EnterModifier::Tapped],
         },
     ],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::CopyOnEnter {
-        target: TargetSpec::Object(&Filter::CREATURE),
+        target: TargetSpec::Object(&MINE),
         mods: &[
             CopyMod::AddSubtype(creature::SHAPESHIFTER),
             CopyMod::AddSubtype(creature::ROGUE),
