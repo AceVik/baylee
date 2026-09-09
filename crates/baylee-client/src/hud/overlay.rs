@@ -954,10 +954,9 @@ pub fn sync_overlay(
             .command
             .get(view.seat.get() as usize)
             .map_or(&[][..], Vec::as_slice);
-        let cmdr_width = if commanders.is_empty() { 0.0 } else { 110.0 };
         let available = windows
             .single()
-            .map_or(1200.0, |w| (w.width() - 20.0 - cmdr_width).max(0.0));
+            .map_or(1200.0, |w| hand_available(w.width(), commanders.len()));
         let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
         let hand_bar = spawn_hand_bar(
             &mut commands,

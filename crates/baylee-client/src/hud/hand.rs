@@ -36,7 +36,7 @@ pub(super) fn spawn_hand_bar(
                 left: px(0),
                 right: px(0),
                 height: px(HAND_BAR_H),
-                padding: UiRect::axes(px(10), px(10)),
+                padding: UiRect::axes(px(HAND_BAR_PAD), px(HAND_BAR_PAD)),
                 overflow: Overflow::clip(),
                 ..default()
             },
@@ -70,7 +70,7 @@ pub(super) fn spawn_hand_bar(
                 height: px(HAND_CARD_H),
                 // Spawn already at the current scroll offset — starting at
                 // zero and correcting next frame is the hand's flicker.
-                margin: UiRect::left(px(10.0 + layout.lead - scroll)),
+                margin: UiRect::left(px(HAND_STRIP_INSET + layout.lead - scroll)),
                 ..default()
             },
             Pickable::IGNORE,
@@ -256,7 +256,15 @@ pub fn apply_hand_scroll(
     let (Some(board), Ok(window)) = (duel.board.as_ref(), windows.single()) else {
         return;
     };
-    let available = (window.width() - 20.0).max(0.0);
+    // The same width the rebuild laid the row out in, commander zone and
+    // all: this used to be `width - 20` alone, and the two answers differing
+    // is what moved the row sideways on every rebuild.
+    let commanders = duel.view.as_ref().map_or(0, |view| {
+        view.command
+            .get(view.seat.get() as usize)
+            .map_or(0, Vec::len)
+    });
+    let available = hand_available(window.width(), commanders);
     let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
     let max_scroll = (layout.content_width - available).max(0.0);
 
@@ -271,11 +279,29 @@ pub fn apply_hand_scroll(
     .clamp(0.0, max_scroll);
 
     for mut node in &mut strips {
-        let wanted = UiRect::left(px(10.0 + layout.lead - duel.hand_scroll));
+        let wanted = UiRect::left(px(HAND_STRIP_INSET + layout.lead - duel.hand_scroll));
         if node.margin != wanted {
             node.margin = wanted;
         }
     }
+}
+
+/// The middle of hand card `index`, in window pixels.
+///
+/// Every term the bar itself applies, in the order the bar applies them: its
+/// own padding, the strip's inset, the layout's centring `lead`, the scroll
+/// offset, and the card's place in the row. It exists because the preview
+/// used to compute a shorter version of this sum — inset and step, no
+/// padding and no `lead` — so the bubble opened `HAND_BAR_PAD + lead` to the
+/// left of the card it belonged to. `lead` is half the bar's spare room, so
+/// the emptier the hand, the further away the preview stood: five hundred
+/// pixels on a wide window, which reads as a panel with no connection to
+/// anything.
+#[must_use]
+pub(super) fn hand_card_x(layout: HandLayout, scroll: f32, index: usize) -> f32 {
+    HAND_BAR_PAD + HAND_STRIP_INSET + layout.lead - scroll
+        + index as f32 * layout.step
+        + HAND_CARD_W / 2.0
 }
 
 /// Where the preview panel stands.
@@ -320,8 +346,10 @@ pub(super) fn preview_anchor(
         None => PreviewAt::Loose,
     };
     if let Some(i) = board.hand.iter().position(|c| c.id == h) {
-        let x = 10.0 + i as f32 * layout.step - scroll + HAND_CARD_W / 2.0;
-        return Some((Some(board.hand[i].art), PreviewAt::Hand(x)));
+        return Some((
+            Some(board.hand[i].art),
+            PreviewAt::Hand(hand_card_x(layout, scroll, i)),
+        ));
     }
     for pod in &board.pods {
         for lane in &pod.lanes {

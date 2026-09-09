@@ -380,6 +380,41 @@ pub const HAND_CARD_H: f32 = HAND_CARD_W * 88.0 / 63.0;
 /// The fraction of a card that must stay visible when cards overlap.
 const MIN_VISIBLE: f32 = 0.3;
 
+/// The strip the commander zone takes at the right-hand end of the hand bar.
+pub const COMMAND_ZONE_W: f32 = 110.0;
+
+/// The bar's own padding, which every card in it starts after.
+///
+/// The strip is an absolutely-positioned child, so it is measured against
+/// the bar's *padding* box: a card's screen x is this, plus the strip's
+/// margin, plus its place in the row. Anything that has to point at a hand
+/// card from outside the bar has to add it too — see [`HAND_STRIP_INSET`].
+pub const HAND_BAR_PAD: f32 = 10.0;
+
+/// Where the strip's own left edge sits inside that padding box.
+///
+/// The margin the scroll system writes is this plus the layout's `lead`,
+/// less the scroll offset. It is a named constant because it was written out
+/// as a bare `10.0` in three places and read as the same ten pixels in only
+/// two of them.
+pub const HAND_STRIP_INSET: f32 = 10.0;
+
+/// How wide the hand may lay itself out.
+///
+/// One function because two callers answered it differently, and the
+/// disagreement was visible: the overlay took the commander zone off the
+/// window and the per-frame scroll system did not, so a hand with a
+/// commander was spawned centred in one width and re-centred in a wider one
+/// on the very next frame. Every rebuild moved the whole row
+/// `COMMAND_ZONE_W / 2` sideways and back — and because the hover is part of
+/// [`HudRevision`], a pointer crossing the hand rebuilt it continuously.
+/// That is the flicker.
+#[must_use]
+pub fn hand_available(window_w: f32, commanders: usize) -> f32 {
+    let zone = if commanders == 0 { 0.0 } else { COMMAND_ZONE_W };
+    (window_w - 2.0 * HAND_BAR_PAD - zone).max(0.0)
+}
+
 /// How the hand bar lays out `count` cards of `card_w` width in
 /// `available_w` pixels: the distance between card starts, the total
 /// content width, and whether scrolling is required.

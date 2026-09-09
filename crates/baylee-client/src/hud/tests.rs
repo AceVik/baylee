@@ -65,6 +65,55 @@ mod layout {
         assert!(layout.scrollable);
         assert!(layout.lead.abs() < 1e-4, "it started {} in", layout.lead);
     }
+
+    /// The commander zone costs the hand the same width whoever is asking.
+    ///
+    /// The rebuild took it off and the per-frame scroll system did not, so a
+    /// seat with a commander had its row spawned centred in one width and
+    /// re-centred in a wider one on the very next frame — half the zone,
+    /// sideways and back, on every rebuild. The hover is part of
+    /// `HudRevision`, so a pointer crossing the hand rebuilt it continuously
+    /// and the row shook.
+    #[test]
+    fn the_commander_zone_costs_the_hand_the_same_width_from_either_side() {
+        let window = 1920.0;
+        assert!(
+            (hand_available(window, 0) - hand_available(window, 1)) > 0.0,
+            "a commander has to cost the hand something, or the zone is \
+             drawn over the cards"
+        );
+        for commanders in [0, 1, 2] {
+            let width = hand_available(window, commanders);
+            assert!(
+                (width - hand_available(window, commanders)).abs() < f32::EPSILON,
+                "{commanders} commanders answered two different widths"
+            );
+        }
+    }
+
+    /// And the preview points at the card, not at where the row would have
+    /// started if it were not centred.
+    ///
+    /// `lead` is half the bar's spare room, so this grew as the hand
+    /// shrank — the fewer cards left, the further from its card the bubble
+    /// stood.
+    #[test]
+    fn the_preview_stands_on_the_card_it_describes() {
+        let available = hand_available(1920.0, 1);
+        let layout = hand_layout(7, HAND_CARD_W, available);
+        assert!(layout.lead > 100.0, "this window has room to centre in");
+        for index in 0..7 {
+            // Where the bar actually draws the card: its padding, the
+            // strip's inset and margin, then the card's place in the row.
+            let drawn = HAND_BAR_PAD + HAND_STRIP_INSET + layout.lead + index as f32 * layout.step;
+            let middle = crate::hud::hand::hand_card_x(layout, 0.0, index);
+            assert!(
+                (middle - (drawn + HAND_CARD_W / 2.0)).abs() < 1e-3,
+                "card {index} is drawn at {drawn} and the preview points at \
+                 {middle}"
+            );
+        }
+    }
 }
 
 /// Where the preview panel opens.
