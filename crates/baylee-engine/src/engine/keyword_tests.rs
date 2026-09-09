@@ -122,6 +122,8 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("unblockable", K::UNBLOCKABLE),       // combat::can_block
         ("uncounterable", K::UNCOUNTERABLE),   // resolve (counter effects)
         ("rebound", K::REBOUND),               // progress.rs (rider)
+        ("daybound", K::DAYBOUND),             // progress::day_night_statics
+        ("nightbound", K::NIGHTBOUND),         // progress::day_night_statics
     ]
 };
 
@@ -135,7 +137,7 @@ fn no_card_claims_a_keyword_the_engine_ignores() {
         enforced = enforced.union(*k);
     }
     for (oracle_id, def) in baylee_cards::generated::ALL {
-        let unknown = def.keywords.difference(enforced);
+        let unknown = def.all_keywords().difference(enforced);
         assert_eq!(
             unknown.bits(),
             0,

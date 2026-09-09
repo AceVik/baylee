@@ -76,6 +76,7 @@ impl ViewBuilder {
                 priority: Some(PlayerId::new(0)),
                 priority_held: false,
                 monarch: None,
+                day_night: None,
                 seats: (0..seats)
                     .map(|i| SeatView {
                         mana_pool: baylee_view::ManaPoolView::default(),

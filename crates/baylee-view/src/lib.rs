@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 14;
+pub const VIEW_VERSION: u32 = 15;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -58,6 +58,19 @@ pub enum Phase {
     SecondMain,
     /// Ending phase.
     Ending,
+}
+
+/// The game's day/night designation (CR 731.1).
+///
+/// Wire-stable for the reason [`Phase`] is, and `Option`al where it is
+/// carried: a game starts with neither designation and keeps having neither
+/// until a card gives it one, which is most games.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum DayNight {
+    /// It is day.
+    Day,
+    /// It is night.
+    Night,
 }
 
 /// A step within a phase (CR 500.1).
@@ -903,6 +916,12 @@ pub struct PlayerView {
     pub priority_held: bool,
     /// The monarch, if the game has one.
     pub monarch: Option<PlayerId>,
+    /// The day/night designation, if the game has one (CR 731).
+    ///
+    /// `None` for every game with no daybound card in it, which is most of
+    /// them — and a client draws nothing at all in that case rather than
+    /// reserving a slot for a designation that will never arrive.
+    pub day_night: Option<DayNight>,
     /// Per-seat public lines, in seat order.
     pub seats: Vec<SeatView>,
     /// The viewing seat's hand.
@@ -1080,6 +1099,7 @@ mod tests {
             priority: Some(PlayerId::new(0)),
             priority_held: false,
             monarch: None,
+            day_night: None,
             seats: (0..seats)
                 .map(|i| SeatView {
                     mana_pool: ManaPoolView::default(),

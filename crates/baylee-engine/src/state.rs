@@ -6,7 +6,7 @@ use crate::arena::Arena;
 use crate::event::{Cause, GameEvent, Journal};
 use crate::object::{CardRef, Characteristics, CounterKind, GameObject, ObjectKind, Rider};
 use crate::rng::GameRng;
-use crate::turn::TurnInfo;
+use crate::turn::{DayNight, TurnInfo};
 use crate::zone::{Zone, ZoneLocation, ZonePosition, Zones};
 use baylee_cards_dsl::CardDef;
 use baylee_core::ids::{CardIndex, Defender, NameRef, ObjectId, PlayerId};
@@ -236,6 +236,19 @@ impl PerTurn {
     }
 }
 
+/// What the turn before this one was, kept for CR 502.2.
+///
+/// Two numbers rather than a whole `PerTurn` snapshot: the untap step asks
+/// exactly one question of the previous turn, and copying every counter to
+/// answer it would put a per-seat allocation on every turn boundary.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct PreviousTurn {
+    /// Whose turn it was.
+    pub active: PlayerId,
+    /// How many spells that player cast during it.
+    pub spells_cast: u32,
+}
+
 /// A registered replacement rule from a permanent on the battlefield.
 #[derive(Clone, Copy, Debug)]
 pub struct ReplacementEntry {
@@ -401,6 +414,15 @@ pub struct GameState {
     pub commanders: Vec<Vec<Commander>>,
     /// The monarch designation (CR 718), if any.
     pub monarch: Option<PlayerId>,
+    /// The day/night designation (CR 731), if the game has one yet.
+    pub day_night: Option<DayNight>,
+    /// What the previous turn was, for CR 502.2's check at the untap step.
+    ///
+    /// The check needs the previous turn's active player and how many spells
+    /// *they* cast during it, and neither survives to be read: [`PerTurn`] is
+    /// reset as the next turn begins, before its untap step. So the pair is
+    /// snapshotted at that turn boundary instead of counted twice.
+    pub previous_turn: Option<PreviousTurn>,
     /// The player who took the first turn (Surgical Metamorph & co.).
     pub starting_player: PlayerId,
     /// Per-turn fire counts for once-per-turn triggers (reset each turn).
@@ -519,6 +541,8 @@ impl GameState {
             commander_redirect: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
+            day_night: None,
+            previous_turn: None,
             starting_player: PlayerId::new(0),
             ability_fires: rustc_hash::FxHashMap::default(),
             rng: GameRng::new(preset.seed),
@@ -812,9 +836,41 @@ impl GameState {
         }
     }
 
+    /// Turns a permanent over (CR 701.27) and says so in the journal.
+    ///
+    /// [`Self::switch_face`] is the other half of this and stays silent,
+    /// because its callers are not transforms: choosing which face of a
+    /// modal card to cast or to play as a land puts a card onto the stack
+    /// or the battlefield face up (CR 712.4a) — nothing turned over, and a
+    /// "transformed" entry there would fire every trigger that watches for
+    /// one. Anything that turns an existing permanent over comes here.
+    ///
+    /// Returns whether the face actually changed, which is what the
+    /// daybound/nightbound fixpoint step reads: a permanent already showing
+    /// the face it should show is not progress, and reporting it as such
+    /// would keep the fixpoint spinning.
+    pub fn transform(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
+        let face = face.min(def.faces.len() - 1);
+        if self
+            .object(id)
+            .is_none_or(|o| o.face_index as usize == face)
+        {
+            return false;
+        }
+        self.switch_face(id, def, face);
+        self.journal.record(GameEvent::Transformed {
+            object: id,
+            face: face as u8,
+        });
+        true
+    }
+
     /// Switches an object to another face of its card (MDFC cast/land
     /// play, CR 712.4): rebuilds base characteristics from the face and
     /// invalidates the layered projection cache.
+    ///
+    /// This is the mechanism, not the rules action — see [`Self::transform`]
+    /// for the one that journals.
     pub fn switch_face(&mut self, id: ObjectId, def: &CardDef, face: usize) {
         let face = face.min(def.faces.len() - 1);
         let name = self.names.intern(def.faces[face].name);
@@ -987,6 +1043,31 @@ impl GameState {
     #[must_use]
     pub fn object(&self, id: ObjectId) -> Option<&GameObject> {
         self.arena.get(id)
+    }
+
+    /// The game becomes day, or day becomes night's opposite (CR 731.1).
+    ///
+    /// Every route to the designation goes through this door and
+    /// [`Self::become_night`], so that "it becomes day" is journalled once
+    /// and in one place — CR 731.1a's "night becomes day" is the same
+    /// event, the game losing one designation and gaining the other, and a
+    /// card that triggers on it has one entry to read. Setting the field
+    /// directly would record nothing.
+    pub fn become_day(&mut self) {
+        self.set_designation(DayNight::Day);
+    }
+
+    /// The game becomes night (CR 731.1). See [`Self::become_day`].
+    pub fn become_night(&mut self) {
+        self.set_designation(DayNight::Night);
+    }
+
+    fn set_designation(&mut self, now: DayNight) {
+        if self.day_night == Some(now) {
+            return;
+        }
+        self.day_night = Some(now);
+        self.journal.record(GameEvent::DayNightChanged { now });
     }
 
     /// Sets the monarch and releases monarch-linked exiles: when a player
@@ -1259,6 +1340,9 @@ impl GameState {
         h.u8(self.turn.active.get());
         h.u8(self.turn.phase as u8);
         h.u8(self.turn.step as u8);
+        h.u8(self.day_night.map_or(255, |d| d as u8));
+        h.u8(self.previous_turn.map_or(255, |p| p.active.get()));
+        h.u32(self.previous_turn.map_or(0, |p| p.spells_cast));
         h.bytes(&self.rng.seed());
         h.bytes(&self.rng.word_pos().to_le_bytes());
         h.usize(self.names.len());
@@ -1395,6 +1479,14 @@ impl GameState {
         h.u8(self.turn.phase as u8);
         h.u8(self.turn.step as u8);
         h.u8(self.monarch.map_or(255, PlayerId::get));
+        // The designation is rules-visible and a loop that flips it is a
+        // loop that changes what daybound permanents are (CR 731). The
+        // previous turn belongs here for a subtler reason: it is what the
+        // *next* untap step will read, so two states alike in everything
+        // else but disagreeing about it are not the same state.
+        h.u8(self.day_night.map_or(255, |d| d as u8));
+        h.u8(self.previous_turn.map_or(255, |p| p.active.get()));
+        h.u32(self.previous_turn.map_or(0, |p| p.spells_cast));
         h.usize(self.players.len());
         for p in &self.players {
             h.u8(p.id.get());

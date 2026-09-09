@@ -15,11 +15,11 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::Pending;
 use baylee_engine::object::{GameObject, ObjectKind};
 use baylee_engine::state::GameState;
-use baylee_engine::turn::{Phase as EnginePhase, Step as EngineStep};
+use baylee_engine::turn::{DayNight as EngineDayNight, Phase as EnginePhase, Step as EngineStep};
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{
     AttackerView, BlockerView, CardIdentity, CombatView, CommanderDamage, CommanderView,
-    CounterEntry, CounterKind, GameStatic, HandObject, ObjectStatus, Phase, PlayerView,
+    CounterEntry, CounterKind, DayNight, GameStatic, HandObject, ObjectStatus, Phase, PlayerView,
     PublicObject, SeatView, Step, TargetRef,
 };
 
@@ -33,6 +33,14 @@ const fn phase(p: EnginePhase) -> Phase {
         EnginePhase::Combat => Phase::Combat,
         EnginePhase::SecondMain => Phase::SecondMain,
         EnginePhase::Ending => Phase::Ending,
+    }
+}
+
+/// Translates the engine's day/night designation into the wire enum.
+const fn day_night(d: EngineDayNight) -> DayNight {
+    match d {
+        EngineDayNight::Day => DayNight::Day,
+        EngineDayNight::Night => DayNight::Night,
     }
 }
 
@@ -418,6 +426,7 @@ pub fn player_view(
         priority,
         priority_held: held,
         monarch: state.monarch,
+        day_night: state.day_night.map(day_night),
         seats: state
             .players
             .iter()

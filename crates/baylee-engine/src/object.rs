@@ -180,11 +180,15 @@ impl Characteristics {
         Self {
             name,
             mana_cost: f.mana_cost,
-            colors: f.mana_cost.colors(),
+            // CR 105.2c: a face with no mana cost takes its color from the
+            // indicator printed on it. The union rather than an either/or,
+            // because the two never coexist on a printed face and a card
+            // that somehow stated both should be the sum, not one of them.
+            colors: f.mana_cost.colors().union(f.color_indicator),
             types: f.types,
             supertypes: f.supertypes,
             subtypes,
-            keywords: def.keywords,
+            keywords: def.keywords_for_face(face),
             power: f.power,
             toughness: f.toughness,
             loyalty: f.loyalty,

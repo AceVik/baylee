@@ -595,6 +595,7 @@ mod tests {
             priority: None,
             priority_held: false,
             monarch: None,
+            day_night: None,
             seats,
             hand: vec![],
             battlefield,

@@ -9,6 +9,7 @@ use crate::choice::{
     YesNoPrompt,
 };
 use crate::state::Side;
+use crate::turn::DayNight;
 use crate::win::Victor;
 use baylee_core::ids::AbilityRef;
 use baylee_core::preset::LoopPolicy;
@@ -182,6 +183,12 @@ impl<L: CardLookup> Engine<L> {
                 return;
             }
             if outcome.changed {
+                continue;
+            }
+            // 2b. Daybound and nightbound (CR 702.145c–g). Explicitly *not*
+            //     state-based actions, and they need the card lookup, so
+            //     they sit here rather than inside `sba::run`.
+            if self.day_night_statics() {
                 continue;
             }
             // 3. Triggers from new events.
@@ -439,6 +446,31 @@ impl<L: CardLookup> Engine<L> {
         self.entry_scan_seq = self.state.journal.last_seq();
         let mut changed = false;
         for (id, controller) in events {
+            // Daybound's first static ability (CR 702.145b): if it is
+            // night, a permanent represented by a double-faced card
+            // *enters* transformed. It is done here rather than left to
+            // the fixpoint's later step because "enters transformed" means
+            // the back face is what entered — the front face's own
+            // enter-the-battlefield triggers were never on the board, and
+            // `collect_triggers` runs after this in the same pass.
+            if self.state.day_night == Some(DayNight::Night)
+                && self
+                    .state
+                    .object(id)
+                    .is_some_and(|o| o.face_index == 0 && o.zone == Zone::Battlefield)
+                && let Some(def) = self
+                    .state
+                    .object(id)
+                    .and_then(|o| o.card)
+                    .and_then(|c| self.lookup.card(c.index))
+                && def.faces.len() >= 2
+                && def
+                    .keywords_for_face(0)
+                    .contains(baylee_cards_dsl::KeywordSet::DAYBOUND)
+            {
+                self.state.transform(id, def, 1);
+                changed = true;
+            }
             // Echo (CR 702.30): register the pay-or-sacrifice choice at
             // the controller's next upkeep.
             if let Some(cost) = self.state.object(id).and_then(|o| {
@@ -1361,9 +1393,101 @@ impl<L: CardLookup> Engine<L> {
                 .and_then(|o| o.card)
                 .and_then(|c| self.lookup.card(c.index))
             {
-                self.state.switch_face(id, def, face as usize);
+                self.state.transform(id, def, face as usize);
             }
         }
+    }
+
+    /// Daybound and nightbound's continuous checks (CR 702.145c–g).
+    ///
+    /// They are not state-based actions — CR 702.145c and f say so in as
+    /// many words — so they do not belong in [`sba::run`], and they need
+    /// the card definition behind a permanent to know how many faces it
+    /// has, which `sba::run` has no lookup for. They run as their own step
+    /// of the machine's fixpoint, after the state-based actions have
+    /// settled and before triggers are collected, so that a permanent that
+    /// turns over does so before anything asks what triggered.
+    ///
+    /// Returns whether anything changed, which sends the fixpoint round
+    /// again.
+    ///
+    /// The order inside is the order the rules fall in: the two that hand
+    /// a game with *neither* designation one (d, then g) come before the
+    /// two that read the designation (c and f). Otherwise a lone daybound
+    /// creature entering a fresh game would wait a whole iteration for the
+    /// day it is about to cause.
+    fn day_night_statics(&mut self) -> bool {
+        use baylee_cards_dsl::KeywordSet as K;
+        let battlefield = self.state.zones.list(ZoneLocation::Battlefield);
+        // The common case by a wide margin: no daybound card at the table,
+        // so the whole step is one scan of the battlefield and out.
+        let mut any_daybound = false;
+        let mut any_nightbound = false;
+        for &id in battlefield {
+            let Some(kw) = self.state.object(id).map(|o| o.characteristics().keywords) else {
+                continue;
+            };
+            any_daybound |= kw.contains(K::DAYBOUND);
+            any_nightbound |= kw.contains(K::NIGHTBOUND);
+        }
+        if !any_daybound && !any_nightbound {
+            return false;
+        }
+        // CR 702.145d, then g. The nightbound clause is the conditional
+        // one: it makes it night only when no daybound permanent is on the
+        // battlefield at all, which is why both flags are collected before
+        // either is acted on.
+        if self.state.day_night.is_none() {
+            if any_daybound {
+                self.state.become_day();
+                return true;
+            }
+            self.state.become_night();
+            return true;
+        }
+        // CR 702.145c and f: front face up with daybound at night, or back
+        // face up with nightbound by day, turns over. "Immediately", and by
+        // its controller — but the transform is the whole of it, so there
+        // is nobody to ask.
+        let night = self.state.day_night == Some(DayNight::Night);
+        let turning: Vec<ObjectId> = self
+            .state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|&id| {
+                let Some(obj) = self.state.object(id) else {
+                    return false;
+                };
+                let kw = obj.characteristics().keywords;
+                (night && obj.face_index == 0 && kw.contains(K::DAYBOUND))
+                    || (!night && obj.face_index == 1 && kw.contains(K::NIGHTBOUND))
+            })
+            .collect();
+        let mut changed = false;
+        for id in turning {
+            // CR 701.27c: only a permanent represented by a transforming
+            // double-faced card can transform. A token has no card, and a
+            // clone of a werewolf carries the copied keyword over a card
+            // with one face — turning either one over would rebuild its
+            // base from a face that is not there and wipe the copy. Both
+            // are skipped *without* reporting a change, or the fixpoint
+            // would find work to do forever.
+            let Some(def) = self
+                .state
+                .object(id)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+            else {
+                continue;
+            };
+            if def.faces.len() < 2 {
+                continue;
+            }
+            changed |= self.state.transform(id, def, usize::from(night));
+        }
+        changed
     }
 
     pub(crate) fn finish_resolution(&mut self, res: &Resolution) {
@@ -1542,6 +1666,18 @@ impl<L: CardLookup> Engine<L> {
     // ------------------------------------------------------------ combat
 
     pub(crate) fn begin_turn(&mut self, first_turn: bool) {
+        // CR 502.2 asks the *previous* turn how many spells its active
+        // player cast, and this turn's untap step is the first place that
+        // can ask — by which time `per_turn.reset()` below has zeroed the
+        // count and the swap under it has moved `turn.active` on. So the
+        // pair is taken here, at the one instant both are still true.
+        self.state.previous_turn = (!first_turn).then(|| {
+            let active = self.state.turn.active;
+            crate::state::PreviousTurn {
+                active,
+                spells_cast: self.state.per_turn.spells_cast[active.get() as usize],
+            }
+        });
         if !first_turn {
             // Extra turns (CR 500.7) preempt the normal successor.
             let next = self
@@ -1967,6 +2103,33 @@ impl<L: CardLookup> Engine<L> {
             })
     }
 
+    /// The untap step's second turn-based action (CR 502.2): the game looks
+    /// at the previous turn and decides whether the designation flips.
+    ///
+    /// Both halves are one-sided on purpose. Day becomes night when the
+    /// previous turn's active player cast **no** spells; night becomes day
+    /// when they cast **two or more**. One spell holds the designation
+    /// where it is, in either direction.
+    ///
+    /// A game with neither designation skips the check entirely and keeps
+    /// having neither (CR 731.2c) — which is every game in this pool that
+    /// has no daybound card in it, so the common case costs two compares.
+    ///
+    /// CR 502.2a states a variant for the shared team turns option, which
+    /// is CR 805 and something this engine does not offer: `--teams` puts
+    /// chairs on sides, and each of them still takes its own turn. The
+    /// plain rule is therefore the whole rule here.
+    fn check_day_night(&mut self) {
+        let (Some(now), Some(previous)) = (self.state.day_night, self.state.previous_turn) else {
+            return;
+        };
+        match now {
+            DayNight::Day if previous.spells_cast == 0 => self.state.become_night(),
+            DayNight::Night if previous.spells_cast >= 2 => self.state.become_day(),
+            _ => {}
+        }
+    }
+
     pub(crate) fn untap_step(&mut self) {
         let active = self.state.turn.active;
         let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
@@ -1987,6 +2150,7 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
+        self.check_day_night();
         for id in battlefield {
             let tapped = self
                 .state

@@ -248,6 +248,28 @@ pub enum GameEvent {
         /// Whether it is now phased out.
         phased_out: bool,
     },
+    /// The game became day or night (CR 731.1).
+    ///
+    /// One event for both directions, because CR 731.1a defines "night
+    /// becomes day" as a single change — losing one designation and
+    /// gaining the other — and the game's first designation is the same
+    /// change from nothing.
+    DayNightChanged {
+        /// The designation the game now has.
+        now: crate::turn::DayNight,
+    },
+    /// A permanent turned over (CR 701.27).
+    ///
+    /// Recorded by both doors that flip a face: the one a resolving effect
+    /// queues and the one daybound/nightbound take immediately. Without it
+    /// a client's `face_index` would be right while nothing that reads the
+    /// journal — triggers, replays — knew a transform had happened.
+    Transformed {
+        /// The permanent.
+        object: ObjectId,
+        /// The face it now shows.
+        face: u8,
+    },
     /// A decision-free segment was found to repeat itself: a real endless
     /// loop rather than a large-but-finite pile of work (house rule, see
     /// [`crate::loops`]).

@@ -104,6 +104,40 @@ impl CardDef {
             self.faces[face.min(self.faces.len() - 1)].abilities
         }
     }
+
+    /// Keywords of a face, with [`Self::abilities_for_face`]'s rule: face 0
+    /// falls back to the card-level set when it states none of its own, a
+    /// back face uses only what it prints.
+    ///
+    /// The fallback is what keeps every single-faced card writing its
+    /// keywords once. The *absence* of a fallback on the back is the load-
+    /// bearing half: a front face with daybound and a back face with
+    /// nightbound are opposite faces of one card (CR 702.145a), and a card
+    /// whose keywords were one set would answer "has daybound" for the
+    /// night side too — so CR 702.145g's "no permanents with daybound on
+    /// the battlefield" could never be true and CR 702.145c would turn a
+    /// permanent that is already turned over.
+    #[must_use]
+    pub fn keywords_for_face(&self, face: usize) -> KeywordSet {
+        if face == 0 {
+            let own = self.faces.first().map_or(KeywordSet::EMPTY, |f| f.keywords);
+            if own.is_empty() { self.keywords } else { own }
+        } else {
+            self.faces[face.min(self.faces.len() - 1)].keywords
+        }
+    }
+
+    /// Every keyword printed anywhere on the card.
+    ///
+    /// For the checks that ask about the card rather than the permanent —
+    /// "does any rule read this bit" — where reading one face would miss
+    /// what the other prints.
+    #[must_use]
+    pub fn all_keywords(&self) -> KeywordSet {
+        (0..self.faces.len().max(1))
+            .map(|f| self.keywords_for_face(f))
+            .fold(self.keywords, KeywordSet::union)
+    }
 }
 
 impl CardDef {
@@ -171,6 +205,23 @@ pub struct FaceDef {
     /// Per-face abilities (MDFC backs; face 0 falls back to the
     /// card-level list when empty).
     pub abilities: &'static [crate::ability::AbilityDef],
+    /// Simple keywords printed on *this* face, with the same fallback as
+    /// [`FaceDef::abilities`] — see [`CardDef::keywords_for_face`].
+    ///
+    /// A single-faced card leaves this empty and states its keywords once,
+    /// at card level. A transforming card cannot: daybound is printed on
+    /// the front face and nightbound on the back (CR 702.145a), and a card
+    /// claiming both at once would be a permanent that is simultaneously
+    /// the thing that turns over at night and the thing that turns back.
+    pub keywords: KeywordSet,
+    /// Color indicator (CR 105.2c): the dot printed on a face with no mana
+    /// cost, which is where its color comes from.
+    ///
+    /// Empty on every face that has a cost — the cost already says it. It
+    /// exists for transformed backs: Dire-Strain Brawler is green, and
+    /// nothing but this says so, so without it every werewolf stopped being
+    /// green the moment it turned over.
+    pub color_indicator: ColorSet,
     /// Whether this face can be cast from the hand (false for disturb
     /// backs — they are cast from the graveyard instead).
     pub castable_from_hand: bool,
@@ -218,6 +269,8 @@ impl FaceDef {
         mandatory_additional_costs: &[],
         enter_modifiers: &[],
         abilities: &[],
+        keywords: KeywordSet::EMPTY,
+        color_indicator: ColorSet::EMPTY,
         castable_from_hand: true,
         miracle: None,
         delve: false,
@@ -299,6 +352,8 @@ keywords! {
     UNCOUNTERABLE = 29, "Can't be countered.";
     REBOUND = 30, "Rebound.";
     PROTECTION_BLACK = 31, "Protection from black.";
+    DAYBOUND = 32, "Daybound (front faces only, CR 702.145b).";
+    NIGHTBOUND = 33, "Nightbound (back faces only, CR 702.145e).";
 }
 
 impl KeywordSet {

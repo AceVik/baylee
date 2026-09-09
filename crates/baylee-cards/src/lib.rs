@@ -81,6 +81,51 @@ mod tests {
         assert_eq!(filled, generated::ALL.len());
     }
 
+    /// Daybound sits on a front face and nightbound on a back one, and
+    /// neither is ever written at card level (CR 702.145a).
+    ///
+    /// `CardDef::keywords_for_face` falls back to the card-level set for
+    /// face 0 and never for a back face, which is what lets every ordinary
+    /// card go on stating its keywords once. These two cannot use it. A
+    /// card claiming daybound for the whole card would claim it for the
+    /// night side as well, and then CR 702.145g's "no permanents with
+    /// daybound on the battlefield" could never be true while a werewolf
+    /// was in play — the game would never become night on its own. The
+    /// mirror image is a nightbound front face, which CR 702.145f would
+    /// turn over the instant it was day, in a loop it also could not leave.
+    #[test]
+    fn daybound_and_nightbound_are_printed_on_the_face_that_has_them() {
+        use dsl::KeywordSet as K;
+        let both = K::DAYBOUND.union(K::NIGHTBOUND);
+        for (oracle_id, def) in generated::ALL {
+            assert!(
+                !def.keywords.contains(both),
+                "{} ({oracle_id}) states daybound or nightbound at card level; \
+                 they belong on a face (CR 702.145a)",
+                def.name(),
+            );
+            for (i, face) in def.faces.iter().enumerate() {
+                assert!(
+                    !(i > 0 && face.keywords.contains(K::DAYBOUND)),
+                    "{} ({oracle_id}) prints daybound on face {i}; it is a front-face keyword",
+                    def.name(),
+                );
+                assert!(
+                    !(i == 0 && face.keywords.contains(K::NIGHTBOUND)),
+                    "{} ({oracle_id}) prints nightbound on its front face; it is a back-face \
+                     keyword",
+                    def.name(),
+                );
+            }
+            assert!(
+                !(def.all_keywords().contains(both) && def.faces.len() < 2),
+                "{} ({oracle_id}) is daybound or nightbound with one face; \
+                 both keywords need a card to turn over (CR 701.27c)",
+                def.name(),
+            );
+        }
+    }
+
     /// An index is an identity, not a position: `DeckEntry` stores one, the
     /// gateway persists decks made of them, and a replay names them. They are
     /// handed out by `data/card-index.tsv` (append-only) rather than by a
