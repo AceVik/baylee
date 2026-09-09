@@ -69,6 +69,40 @@ const BORDER: f32 = 0.055;
 /// is at the use site.
 const CHASE_STILL: f32 = 0.32;
 
+/// The lacquer every card is printed on.
+///
+/// Not a finish — a *finish* is what a particular printing was made with, and
+/// three cards in four are plain. This is the coating all of them share, and
+/// the reason it exists is that nothing on this table is lit: the stage is
+/// deliberately `unlit` so scene lighting can never make a colour identity
+/// unreadable, and the price of that is a board of cards that read as printed
+/// paper lying in a vacuum. A specular term against a *virtual* lamp buys the
+/// surface back without putting a light anywhere near the art — it is
+/// arithmetic on the view vector, the same move `felt.wgsl`'s `under_lamp`
+/// makes for the cloth.
+///
+/// [`LAMP`] is a direction in world space, so the highlight is a broad pool
+/// lying across the table rather than a spot on each card, and it travels as
+/// the player orbits. Every card in the pool shares it, which is what makes
+/// it read as one room and not as three hundred separate materials.
+///
+/// The numbers are deliberately small. A gloss loud enough to notice is a
+/// gloss competing with the picture it is lying on, and the test for this one
+/// is that a player who is not looking for it sees a table with a light over
+/// it rather than a table of shiny cards.
+const LAMP: vec3<f32> = vec3<f32>(-0.32, 0.86, -0.40);
+const METAL_POWER: f32 = 18.0;
+const METAL_GLOSS: f32 = 0.20;
+const METAL_FLOOR: f32 = 0.02;
+const METAL_TONE: vec3<f32> = vec3<f32>(1.0, 0.975, 0.925);
+
+/// How much of the highlight the surface's own grain eats.
+///
+/// Brushed rather than mirrored: card stock is coated, not polished, and an
+/// unbroken specular pool reads as chrome. The grain is stretched hard along
+/// one axis so it runs *with* the card rather than sitting on it as dots.
+const METAL_GRAIN: f32 = 0.35;
+
 /// What a card's corner is inked with once the scan's white is cut away: the
 /// same near-black as the slab's edge wall, so the corner reads as the card
 /// turning away rather than as a mark printed on it.
@@ -186,6 +220,20 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         let metal = vec3<f32>(0.78, 0.74, 0.62);
         color = vec4<f32>(color.rgb + metal * etch * 0.22 * params.strength, color.a);
     }
+
+    // ---- the coating, on every card and whatever it was printed with
+    //
+    // After the finish and before everything the rules say, because it is a
+    // property of the object: a foil catches this too, and a card the rules
+    // have put to sleep is a card whose sheen dims with it.
+    let lamp = normalize(LAMP);
+    let half_way = normalize(to_view + lamp);
+    let spec = pow(max(dot(normalize(mesh.world_normal), half_way), 0.0), METAL_POWER);
+    let brushed = 1.0 - METAL_GRAIN * noise(uv * vec2<f32>(9.0, 220.0));
+    color = vec4<f32>(
+        color.rgb + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * spec) * brushed,
+        color.a,
+    );
 
     // ---- the face, when the card cannot do anything yet
     //

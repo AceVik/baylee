@@ -69,6 +69,28 @@ const CHASE_STILL: f32 = 0.32;
 /// average of the sweep it replaces.
 const STILL_TILT: f32 = 0.524;
 
+/// The lacquer every card is printed on — the table shader's twin, and the
+/// same argument: nothing here is lit, so the surface has to be given back
+/// arithmetically or a card reads as printed paper in a vacuum. The tone, the
+/// weight and the grain are the numbers used there, so a card picked up off
+/// the table keeps the coating it had on it.
+///
+/// The one difference is the one this whole file exists for: a UI node has no
+/// world position and no normal, so there is no lamp to answer. The highlight
+/// is a soft band that travels across the card instead of a pool the camera
+/// finds — and at phase zero, which is where
+/// [`Preferences::reduce_motion`](baylee_client_core::prefs) stops the clock,
+/// it lies across the middle of the card, which is an honest frame of that
+/// travel rather than its average.
+const METAL_GLOSS: f32 = 0.20;
+const METAL_FLOOR: f32 = 0.02;
+const METAL_TONE: vec3<f32> = vec3<f32>(1.0, 0.975, 0.925);
+const METAL_GRAIN: f32 = 0.35;
+/// How long the band takes to cross and come back, and how tightly it falls
+/// away from its own line.
+const METAL_SECONDS: f32 = 6.0;
+const METAL_WIDTH: f32 = 26.0;
+
 fn hash21(p: vec2<f32>) -> f32 {
     var q = fract(p * vec2<f32>(123.34, 456.21));
     q += dot(q, q + 45.32);
@@ -162,6 +184,17 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         let metal = vec3<f32>(0.78, 0.74, 0.62);
         color = vec4<f32>(color.rgb + metal * etch * 0.22 * params.strength, color.a);
     }
+
+    // ---- the coating, on every card and whatever it was printed with
+    let line = 0.5 + 0.4 * sin(t * 6.2831855 / METAL_SECONDS);
+    let along = uv.x * 0.72 + uv.y * 0.28;
+    let off = along - line;
+    let spec = exp(-off * off * METAL_WIDTH);
+    let brushed = 1.0 - METAL_GRAIN * noise(uv * vec2<f32>(9.0, 220.0));
+    color = vec4<f32>(
+        color.rgb + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * spec) * brushed,
+        color.a,
+    );
 
     // Asleep: the same breath the table draws, over the face and never on the
     // border. A card in hand is never summoning sick, but the preview of one
