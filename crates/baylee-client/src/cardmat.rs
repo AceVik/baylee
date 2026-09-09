@@ -1225,6 +1225,45 @@ pub(crate) mod tests {
         }
     }
 
+    /// The night a sick creature lies under is written out twice, and it has
+    /// to be the same night.
+    ///
+    /// A card picked up off the table keeps the sleep it was lying in, and
+    /// nothing in either compiler can notice when one copy drifts: the
+    /// permanent on the felt would draw one thing and its own hover preview
+    /// another, and both would look deliberate. So the constants are compared
+    /// as the lines they are — the block is UV and the clock only, which is
+    /// exactly what lets the UI twin run it unchanged.
+    #[test]
+    fn both_shaders_lay_the_card_down_under_the_same_night() {
+        fn night(src: &str) -> Vec<&str> {
+            src.lines()
+                .map(str::trim)
+                .filter(|line| line.starts_with("const SLEEP_"))
+                .collect()
+        }
+        let table = include_str!("shaders/card.wgsl");
+        let ui = include_str!("shaders/card_ui.wgsl");
+        let theirs = night(table);
+        assert_eq!(theirs.len(), 10, "the table shader lost a sleep constant");
+        assert_eq!(theirs, night(ui), "the two shaders sleep differently");
+
+        // And the breath runs on the constant that names its period, with
+        // phase zero — where reduce-motion stops the clock — in the *middle*
+        // of the sway rather than at an end of it.
+        let seconds = wgsl_const(table, "SLEEP_SECONDS");
+        assert!(
+            (seconds - 5.0).abs() < f32::EPSILON,
+            "the sleep period moved to {seconds}"
+        );
+        for (which, src) in [("card.wgsl", table), ("card_ui.wgsl", ui)] {
+            assert!(
+                src.contains("sin(t * 6.2831855 / SLEEP_SECONDS)"),
+                "{which} does not breathe on SLEEP_SECONDS"
+            );
+        }
+    }
+
     /// An armed card is not also inviting a tap.
     ///
     /// Both lights live in the same register on the border, and the whole

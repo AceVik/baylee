@@ -521,11 +521,25 @@ separation is the whole grammar:
   normalisation lives in Rust rather than in WGSL so that it is unit-tested
   once and both shaders inherit it.
 - **The face says what the card can do.** A creature with summoning sickness
-  (`glow::SUMMONING_SICK`) is drawn asleep: desaturated, dimmed, breathing
-  slowly, over the art and never on the border. It is not a keyword — it is a
-  fact about *this turn* — and putting it on the border would make it read as
-  one. The bit is set only for creatures, because summoning sickness is
-  visible on nothing else.
+  (`glow::SUMMONING_SICK`) is drawn asleep, over the art and never on the
+  border. It is not a keyword — it is a fact about *this turn* — and putting
+  it on the border would make it read as one. The bit is set only for
+  creatures, because summoning sickness is visible on nothing else.
+
+  What "asleep" is drawn as is a **white balance and a blanket** (`SLEEP_*`,
+  written out in both card shaders and compared by a test). The face goes
+  cold under a moon, and a soft veil lies heavier at the foot of the card than
+  at the head, its upper hem rising and falling on a five-second breath. It
+  used to be a uniform four-percent luminance dip, and that is nothing on art
+  whose own luminance varies by forty points: the two channels a face has
+  spare are *colour cast* and *shape*, and the old drawing used neither.
+  Asleep is not disabled, so desaturation — which is what reads as "greyed
+  out" — stays a minority of the effect at 22%, and the body (power,
+  toughness, marked damage, counters) is composited after this block and stays
+  crisp, which draws "still blocks perfectly well" for free. The cast is
+  bounded: red stays red, green goes teal, white goes coldest, and pushing it
+  further would start deciding a card's colour identity for it, which is the
+  one thing an unlit stage exists to protect.
 - **The perimeter says what is on offer.** `glow::ACTIVATABLE` rides in the
   same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
   `LegalActions` rather than from the card, and is drawn as a warm light

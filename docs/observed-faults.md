@@ -1132,3 +1132,16 @@ about the table itself rather than the rules, and both are fixed.
     *Open, found on the way:* `CostPart::UntapSelf` does not require the
     permanent to be tapped, so `{Q}` can be paid by something already
     untapped. One line, but a different bug from this one.
+
+    *And the drawing.* The half of the request that was not the rule: a
+    summoning-sick creature was drawn with a uniform four-percent luminance
+    breath, which is nothing on art whose own luminance already varies by
+    forty points — a player could not tell a sleeping creature from one with
+    dark art. It is a white balance and a blanket now: the face goes cold
+    under a moon, a soft veil lies heavier at the foot of the card than at
+    the head, and its upper hem rises and falls on a five-second breath —
+    a moving *edge*, which is caught where a brightness pulse of the same
+    size is not. Measured on a live duel: the sick permanent moves 7/6/3
+    levels across half a breath while every other permanent on the table and
+    the prompt slip are byte-identical, and its hover preview — the same
+    arithmetic in the UI shader — moves 21/21/20.

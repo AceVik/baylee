@@ -103,6 +103,55 @@ const METAL_TONE: vec3<f32> = vec3<f32>(1.0, 0.975, 0.925);
 /// one axis so it runs *with* the card rather than sitting on it as dots.
 const METAL_GRAIN: f32 = 0.35;
 
+/// The night a summoning-sick creature lies under.
+///
+/// This block is written out twice, here and in the UI twin, and the two
+/// copies are compared by a test: a card picked up off the table has to keep
+/// the sleep it was lying in. It uses only UV and the clock, so both can run
+/// it unchanged.
+///
+/// What it replaced was a uniform four-percent luminance breath, and that is
+/// nothing on art whose own luminance already varies by forty points. The two
+/// channels a face has to spare are *colour cast* and *shape*, and it used
+/// neither. So: a white balance and a blanket. The whole face goes cold under
+/// a moon, and a soft veil lies heavier at the foot of the card than at the
+/// head, its upper hem rising and falling as the creature breathes.
+///
+/// Asleep, not disabled — the creature wakes next turn and blocks perfectly
+/// well in the meantime. Desaturation is what reads as "greyed out", so it
+/// stays a minority of the effect and the cast carries the rest; the body —
+/// power, toughness, marked damage, counters — is composited *after* this
+/// block and stays crisp, which draws the second half of that claim for free.
+///
+/// `SLEEP_MOON` is multiplicative and bounded on purpose. Red stays red,
+/// green goes teal, and white goes coldest, which is what white does under a
+/// moon. Pushing the mix further would start deciding a card's colour
+/// identity for it, and that is the one thing an unlit stage exists to
+/// protect. `SLEEP_LIFT` is the other half of the same observation: moonlit
+/// shadows go navy rather than black.
+///
+/// Five seconds is a sleeping adult's twelve breaths a minute, and it is
+/// clear of every other clock a card can wear — the chase, the sheaths, the
+/// coating's own band — so no two of them ever beat together. The moving
+/// *hem* is what makes it legible at all: an edge that travels five percent
+/// of the card's height is caught where a brightness pulse of the same size
+/// is not.
+///
+/// At `motion == 0` the clock stops at phase zero, which is the mean of the
+/// breath rather than an extreme of it. The still frame is a cold card with
+/// a blanket over its lower half, and that alone is the whole message; the
+/// breath was only ever the confirmation.
+const SLEEP_SECONDS: f32 = 5.0;
+const SLEEP_HEM: f32 = 0.58;
+const SLEEP_SWAY: f32 = 0.05;
+const SLEEP_ABOVE: f32 = 0.30;
+const SLEEP_BELOW: f32 = 0.22;
+const SLEEP_FLOOR: f32 = 0.45;
+const SLEEP_DESAT: f32 = 0.22;
+const SLEEP_DIM: f32 = 0.22;
+const SLEEP_MOON: vec3<f32> = vec3<f32>(0.74, 0.82, 1.0);
+const SLEEP_LIFT: vec3<f32> = vec3<f32>(0.02, 0.03, 0.06);
+
 /// What a card's corner is inked with once the scan's white is cut away: the
 /// same near-black as the slab's edge wall, so the corner reads as the card
 /// turning away rather than as a mark printed on it.
@@ -240,12 +289,20 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // Summoning sickness is drawn *over the art* and never on the border,
     // and that separation is the whole grammar: the border says what the card
     // is, the face says what it can do, and a player can read both at once
-    // only while they stay in different places. A slow breath, desaturated
-    // and dimmed — the card is asleep, not disabled.
+    // only while they stay in different places. `SLEEP_*` above says what the
+    // drawing is and why every number in it is the number it is.
     if (params.glow & GLOW_SUMMONING_SICK) != 0u {
-        let breath = 0.5 + 0.5 * sin(t * 2.618);
+        // `uv.y` is 0 at the head of the card and 1 at its foot, so the hem
+        // rises up the card as `breath` falls and the veil pools downwards.
+        let breath = sin(t * 6.2831855 / SLEEP_SECONDS);
+        let hem = SLEEP_HEM + SLEEP_SWAY * breath;
+        let blanket = smoothstep(hem - SLEEP_ABOVE, hem + SLEEP_BELOW, uv.y);
+        // The moon is over the whole card; the blanket is only over its foot.
+        let weight = SLEEP_FLOOR + (1.0 - SLEEP_FLOOR) * blanket;
         let luma = dot(color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
-        let asleep = mix(color.rgb, vec3<f32>(luma), 0.34) * (0.76 - 0.06 * breath);
+        var asleep = mix(color.rgb, vec3<f32>(luma), SLEEP_DESAT);
+        asleep = mix(asleep, asleep * SLEEP_MOON, weight);
+        asleep = asleep * (1.0 - SLEEP_DIM * weight) + SLEEP_LIFT * weight;
         color = vec4<f32>(asleep, color.a);
     }
 
