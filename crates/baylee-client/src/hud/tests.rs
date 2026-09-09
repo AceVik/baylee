@@ -75,6 +75,70 @@ mod layout {
 /// the pointer, and the arithmetic that keeps the panel beside the pointer
 /// rather than on top of it, off the window's own top edge and off the hand
 /// bar, is the whole of the placement.
+/// Reported twice, as two bugs: "the hand flickers" and "cards jump on
+/// hover". They are one branch — the hand scrolling a hovered card into view
+/// for a pointer that was already on it.
+mod hand_scroll {
+    use super::*;
+    use crate::hud::hand::hand_scroll_to;
+
+    /// Thirty cards in a bar that fits about four: everything below is far
+    /// enough off the end to move if anything is going to.
+    fn crowded() -> (crate::hud::HandLayout, f32) {
+        let available = 400.0;
+        (hand_layout(30, HAND_CARD_W, available), available)
+    }
+
+    #[test]
+    fn a_pointer_hover_never_moves_the_hand() {
+        let (layout, available) = crowded();
+        for index in [0, 7, 29] {
+            let after = hand_scroll_to(300.0, Some(index), true, layout, available);
+            assert!(
+                (after - 300.0).abs() < 1e-6,
+                "card {index} is under the pointer, so it is already on the \
+                 screen — scrolling it into view is what made the hand jump, \
+                 and it moved to {after}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_keyboard_cursor_pulls_its_card_into_view_from_either_end() {
+        let (layout, available) = crowded();
+        let far = hand_scroll_to(0.0, Some(20), false, layout, available);
+        assert!(
+            far > 0.0,
+            "a card off the right-hand end is scrolled to, or the cursor is \
+             on something nobody can see"
+        );
+        let start = 20.0 * layout.step;
+        assert!(
+            (far - (start + HAND_CARD_W - available)).abs() < 1e-3,
+            "and only just far enough: its right edge lands on the bar's"
+        );
+        let back = hand_scroll_to(600.0, Some(2), false, layout, available);
+        assert!(
+            (back - 2.0 * layout.step).abs() < 1e-3,
+            "and from the other side, its left edge on the bar's"
+        );
+    }
+
+    #[test]
+    fn a_card_already_in_view_holds_the_hand_still() {
+        let (layout, available) = crowded();
+        let scroll = 5.0 * layout.step;
+        assert!(
+            (hand_scroll_to(scroll, Some(6), false, layout, available) - scroll).abs() < 1e-6,
+            "the keyboard cursor moves the hand only when it has to"
+        );
+        assert!(
+            (hand_scroll_to(scroll, None, false, layout, available) - scroll).abs() < 1e-6,
+            "and a hover on nothing in the hand moves nothing at all"
+        );
+    }
+}
+
 mod preview_place {
     use super::*;
 
@@ -207,6 +271,145 @@ mod preview_place {
                 place.y + PANEL.y <= WINDOW.y - HAND_BAR_H,
                 "a card centred at y {cy} opened a panel ending at {}",
                 place.y + PANEL.y
+            );
+        }
+    }
+
+    /// **Never cut off**, whatever the panel and whatever the window.
+    ///
+    /// Reported by the owner as the rule the placement should obey: the panel
+    /// adjusts itself so that it is wholly in the viewport, with some padding
+    /// to the edges. Every other preference here — beside the card, above the
+    /// hand bar, centred on the span — gives way to it.
+    ///
+    /// The case the old arithmetic lost is the last row: `preview_scale` goes
+    /// to 1.75, which is a panel of 551 × 765, and on a 720-pixel-high window
+    /// that does not fit above a hand bar 174 pixels tall. The band's bounds
+    /// crossed, the clamp took the wrong one, and the preview hung off the
+    /// bottom of the screen.
+    #[test]
+    fn the_panel_is_never_cut_off_by_a_window_edge() {
+        let windows = [
+            Vec2::new(1728.0, 1052.0),
+            Vec2::new(1280.0, 720.0),
+            Vec2::new(1024.0, 640.0),
+            Vec2::new(3200.0, 1738.0),
+        ];
+        // The scale slider's two ends, padding included.
+        let panels = [
+            Vec2::new(320.0, 442.0),
+            Vec2::new(551.0, 765.0),
+            Vec2::new(166.0, 227.0),
+        ];
+        for window in windows {
+            for panel in panels {
+                let card = |x: f32, y: f32| Rect {
+                    min: Vec2::new(x - 52.0, y - 73.0),
+                    max: Vec2::new(x + 52.0, y + 73.0),
+                };
+                let anchors = [
+                    PreviewAt::Loose,
+                    PreviewAt::Hand(20.0),
+                    PreviewAt::Hand(window.x - 20.0),
+                    PreviewAt::Pointer(Vec2::new(2.0, 2.0)),
+                    PreviewAt::Pointer(window - Vec2::splat(2.0)),
+                    PreviewAt::Pointer(window / 2.0),
+                    PreviewAt::Card(card(60.0, 60.0)),
+                    PreviewAt::Card(card(window.x - 60.0, window.y - 60.0)),
+                    PreviewAt::Card(card(window.x / 2.0, window.y / 2.0)),
+                ];
+                for at in anchors {
+                    let place = preview_place(at, panel, window);
+                    assert!(
+                        place.x >= 0.0 && place.y >= 0.0,
+                        "{at:?} with a {panel} panel in a {window} window opened \
+                         at {place}, off the top or the left"
+                    );
+                    // A panel bigger than the window can only obey the corner
+                    // it starts at; every one that fits obeys both edges.
+                    if panel.x + 2.0 * 8.0 <= window.x && panel.y + 2.0 * 8.0 <= window.y {
+                        assert!(
+                            place.x + panel.x <= window.x && place.y + panel.y <= window.y,
+                            "{at:?} with a {panel} panel in a {window} window \
+                             opened at {place}, which hangs off the screen"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// The other half of "never cut off": a preview larger than the window is
+    /// cut off wherever it is put, so it is not allowed to be larger.
+    ///
+    /// The scale slider goes to 1.75, which asks for a picture 539 × 753 plus
+    /// its padding. That is more than a 720-pixel window has, and no
+    /// arithmetic in `preview_place` can rescue it — the size has to give,
+    /// keeping the card's aspect, or the player reads the wrong numbers off a
+    /// squashed one.
+    #[test]
+    fn a_preview_is_never_asked_to_be_bigger_than_the_window() {
+        const PAD: f32 = 6.0;
+        let aspect = 88.0 / 63.0;
+        for window in [
+            Vec2::new(1728.0, 1052.0),
+            Vec2::new(1280.0, 720.0),
+            Vec2::new(900.0, 600.0),
+            Vec2::new(600.0, 400.0),
+        ] {
+            for scale in [0.5_f32, 1.0, 1.75] {
+                let want = Vec2::new(308.0 * scale, 308.0 * scale * aspect);
+                let got = preview_art_size(want, PAD, window);
+                let panel = got + Vec2::splat(2.0 * PAD);
+                assert!(
+                    panel.x <= window.x && panel.y <= window.y,
+                    "a {scale}× preview in a {window} window came out {panel}"
+                );
+                assert!(
+                    got.x <= want.x + 1e-3 && got.y <= want.y + 1e-3,
+                    "and it is never made *bigger* than the slider asked for"
+                );
+                assert!(
+                    (got.y / got.x - aspect).abs() < 1e-3,
+                    "a card's shape is not negotiable: {got}"
+                );
+            }
+        }
+        // The common case pays nothing at all.
+        let want = Vec2::new(308.0, 308.0 * aspect);
+        assert_eq!(
+            preview_art_size(want, PAD, Vec2::new(1728.0, 1052.0)),
+            want,
+            "a default preview on a laptop is granted whole"
+        );
+    }
+
+    /// And when it cannot clear the hand bar, it sits **as high as it can**
+    /// rather than wherever a crossed clamp lands.
+    ///
+    /// A preview at a large `preview_scale` on a modest window is taller than
+    /// the space above the hand, so something has to give. What gives is the
+    /// bar, not the window edge, and the panel takes the topmost place there
+    /// is — which is the least of the card the hand can cover.
+    #[test]
+    fn a_panel_too_tall_for_the_band_sits_at_the_top_of_the_window() {
+        let window = Vec2::new(1280.0, 720.0);
+        let panel = Vec2::new(300.0, 600.0);
+        assert!(
+            panel.y > window.y - HAND_BAR_H,
+            "the case only exists while the panel really is too tall"
+        );
+        for at in [
+            PreviewAt::Pointer(Vec2::new(640.0, 600.0)),
+            PreviewAt::Card(Rect {
+                min: Vec2::new(588.0, 527.0),
+                max: Vec2::new(692.0, 673.0),
+            }),
+        ] {
+            let place = preview_place(at, panel, window);
+            assert!(
+                (place.y - EDGE).abs() < 1e-3,
+                "{at:?} opened at {place}, and the only sensible y here is {EDGE}"
             );
         }
     }

@@ -205,6 +205,45 @@ pub(super) fn spawn_hand_bar(
     bar
 }
 
+/// Where the hand should be scrolled to, given where it is now.
+///
+/// The hovered card is brought fully into view — but **only when the hover
+/// came from the keyboard**, and that condition is the whole of this
+/// function's reason to exist.
+///
+/// The keyboard cursor can name a card scrolled off the end of the bar, and a
+/// cursor on something nobody can see is not a cursor. A pointer never can:
+/// the card is under it, so it is on the screen by construction. Scrolling it
+/// "fully into view" therefore does nothing a player asked for and slides the
+/// whole hand sideways beneath their own hand — and it does not settle, because
+/// the strip moves, a different card arrives under the stationary pointer,
+/// that card is hovered, and the strip moves again. The hand jumping and the
+/// hand flickering were one branch, running for a hover it was never meant to
+/// serve.
+///
+/// The result is unclamped: the caller owns the bounds, which depend on a
+/// window this knows nothing about.
+pub(super) fn hand_scroll_to(
+    scroll: f32,
+    hovered: Option<usize>,
+    from_pointer: bool,
+    layout: HandLayout,
+    available: f32,
+) -> f32 {
+    let Some(index) = hovered.filter(|_| !from_pointer) else {
+        return scroll;
+    };
+    let start = index as f32 * layout.step;
+    let end = start + HAND_CARD_W;
+    if start < scroll {
+        start
+    } else if end > scroll + available {
+        end - available
+    } else {
+        scroll
+    }
+}
+
 /// Applies the hand scroll offset and keeps the hovered card visible.
 ///
 /// Runs per frame instead of being part of the rebuild: wheel ticks and
@@ -221,17 +260,15 @@ pub fn apply_hand_scroll(
     let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
     let max_scroll = (layout.content_width - available).max(0.0);
 
-    // Keep the hovered card fully in view.
-    if let Some(index) = board.hand.iter().position(|c| Some(c.id) == duel.hovered) {
-        let start = index as f32 * layout.step;
-        let end = start + HAND_CARD_W;
-        if start < duel.hand_scroll {
-            duel.hand_scroll = start;
-        } else if end > duel.hand_scroll + available {
-            duel.hand_scroll = end - available;
-        }
-    }
-    duel.hand_scroll = duel.hand_scroll.clamp(0.0, max_scroll);
+    let hovered = board.hand.iter().position(|c| Some(c.id) == duel.hovered);
+    duel.hand_scroll = hand_scroll_to(
+        duel.hand_scroll,
+        hovered,
+        duel.hovered_at.is_some(),
+        layout,
+        available,
+    )
+    .clamp(0.0, max_scroll);
 
     for mut node in &mut strips {
         let wanted = UiRect::left(px(10.0 + layout.lead - duel.hand_scroll));
@@ -368,18 +405,75 @@ const PREVIEW_GAP: f32 = 18.0;
 /// How close the preview may come to an edge of the window.
 const PREVIEW_INSET: f32 = 8.0;
 
+/// The corners the panel's own corner may take and still be **wholly on the
+/// screen**, with [`PREVIEW_INSET`] left around it.
+///
+/// This is the hard bound, and it is the one thing every arm below obeys
+/// without exception: a preview is a thing the player is *reading*, and half
+/// of one hanging off an edge is worth nothing at all. `high` is floored at
+/// `low` so a panel bigger than the window still starts at the inset rather
+/// than at a bound below its own origin — the crossed-bounds clamp, which
+/// puts the panel's *top* off the screen instead of its bottom.
+fn viewport(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
+    let low = Vec2::splat(PREVIEW_INSET);
+    (low, (window - panel - Vec2::splat(PREVIEW_INSET)).max(low))
+}
+
+/// The band the panel *prefers*: the viewport, kept off the window's own top
+/// edge and out from under the hand bar.
+///
+/// A preference rather than a rule, and the difference is the whole point.
+/// The bar is 174 logical pixels of hand, and a preview at a large
+/// `preview_scale` on a modest window does not fit above it. The old code
+/// clamped into the band anyway with its bounds crossed, which is a clamp
+/// whose answer is whichever bound the library happens to apply last — a
+/// placement nobody chose.
+///
+/// So: the band while the panel fits in it, and when it does not, **as high
+/// as the panel can sit**. That is the least of the card the hand can cover,
+/// and it is a decision rather than an accident.
+fn band(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
+    let (low, high) = viewport(panel, window);
+    // Never past `high.y`: a panel taller than the window has nowhere to be
+    // but at the inset, and the top edge must not be pushed off the screen
+    // to keep a rule about the bottom one.
+    let top = EDGE.clamp(low.y, high.y);
+    let bottom = window.y - HAND_BAR_H - PREVIEW_INSET - panel.y;
+    let floor = if bottom >= top { bottom } else { top };
+    (Vec2::new(low.x, top), Vec2::new(high.x, floor))
+}
+
+/// How large the preview's picture may be drawn in this window.
+///
+/// Placement can put a panel anywhere; it cannot make one smaller than it is,
+/// and a preview taller than the screen is cut off wherever it is put. So the
+/// size is bounded here first — against the window less its padding, which is
+/// the one bound that cannot be traded away — and the aspect is kept, because
+/// a squashed card is a card a player reads the wrong number off.
+///
+/// Not against the hand bar as well: standing clear of the hand is a
+/// *preference* the placement expresses, and paying for it in picture size on
+/// a short window would make every preview smaller to protect a strip the
+/// panel is allowed to overlap anyway.
+///
+/// `want` is what `preview_scale` asked for, and is usually granted whole:
+/// this bites on a small window, a large scale, or both.
+pub(super) fn preview_art_size(want: Vec2, pad: f32, window: Vec2) -> Vec2 {
+    // The panel is the picture plus `pad` on every side, so the picture's own
+    // room is the window less the inset and that padding.
+    let room = window - Vec2::splat(2.0 * PREVIEW_INSET + 2.0 * pad);
+    if room.x <= 0.0 || room.y <= 0.0 || want.x <= 0.0 || want.y <= 0.0 {
+        return want;
+    }
+    want * (room.x / want.x).min(room.y / want.y).min(1.0)
+}
+
 /// Where the preview panel's top left corner goes, in logical pixels.
 ///
 /// Pure arithmetic on purpose — it is the whole of the placement, and the
 /// alternative is reading it off a photograph.
 pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
-    // The band the panel may stand in: the tab strip and the phase rail
-    // above, the hand bar below, and the window on both sides -- the rail
-    // used to take the right-hand edge and no longer does. Clamped so that a
-    // panel too tall for the band still starts at the top of it rather than
-    // below its bottom, which is what a naive clamp with crossed bounds does.
-    let low = Vec2::splat(PREVIEW_INSET);
-    let high = (window - panel - Vec2::splat(PREVIEW_INSET)).max(low);
+    let (low, high) = viewport(panel, window);
     let banded = |v: Vec2| v.clamp(low, high);
     match at {
         PreviewAt::Hand(x) => banded(Vec2::new(
@@ -390,22 +484,14 @@ pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
             (window.x - panel.x) / 2.0,
             window.y - HAND_BAR_H - 10.0 - panel.y,
         )),
-        PreviewAt::Card(rect) => beside(
-            rect.min.x,
-            rect.max.x,
-            rect.center().y,
-            panel,
-            low,
-            high,
-            window,
-        ),
-        // The pointer is a rectangle of no width: the same arithmetic, with
+        PreviewAt::Card(rect) => beside(rect, panel, low, high, window),
+        // The pointer is a rectangle of no size: the same arithmetic, with
         // the gap measured from the one point there is.
-        PreviewAt::Pointer(p) => beside(p.x, p.x, p.y, panel, low, high, window),
+        PreviewAt::Pointer(p) => beside(Rect::from_corners(p, p), panel, low, high, window),
     }
 }
 
-/// The panel beside a span, vertically centred on `middle`.
+/// The panel beside `card`, clear of it, and on the screen.
 ///
 /// Split out because a card and a bare pointer want exactly the same
 /// placement and differ only in how wide the thing being described is — and
@@ -413,45 +499,49 @@ pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
 /// felt is about a hundred pixels across, so a panel opened `PREVIEW_GAP`
 /// from the *pointer* opened some eighty pixels inside the card and covered
 /// it; opened from the card's own right edge it stands clear of it.
-#[allow(clippy::too_many_arguments)] // a span, a panel and the band it fits in
-fn beside(
-    from: f32,
-    to: f32,
-    middle: f32,
-    panel: Vec2,
-    low: Vec2,
-    high: Vec2,
-    window: Vec2,
-) -> Vec2 {
+fn beside(card: Rect, panel: Vec2, low: Vec2, high: Vec2, window: Vec2) -> Vec2 {
+    let (from, to) = (card.min.x, card.max.x);
+    let (top, bottom) = (card.min.y, card.max.y);
+    let middle = card.center().y;
+    // Kept clear of the window's own edge and of the hand bar while it fits
+    // there, and inside the window without exception. It used to be kept
+    // clear of the tab strip and the phase rail as well; both are on the
+    // table now, so the preview may open a hundred pixels higher than it
+    // could.
+    let (bl, bh) = band(panel, window);
+    // Centred on the span, which is what makes it read as belonging to it.
+    let y = (middle - panel.y / 2.0).clamp(bl.y, bh.y);
+
     // On whichever side it fits — a panel that always opened to the right
     // would run off the screen for everything in the right-hand third of the
     // table, and clamping it back would put it straight over the card again.
     let right = to + PREVIEW_GAP;
     let left = from - PREVIEW_GAP - panel.x;
-    let x = if right + panel.x <= high.x {
-        right
-    } else if left >= low.x {
-        left
-    } else if window.x - to >= from {
-        // Neither side has the room. The clamp below is going to slide the
-        // panel back over the card whatever happens, so it goes on the side
-        // with more space and covers as little of it as there is to cover.
-        right
-    } else {
-        left
-    };
-    // Kept clear of the window's own edge and of the hand bar. It used to be
-    // kept clear of the tab strip and the phase rail as well; both are on the
-    // table now, so the preview may open a hundred pixels higher than it
-    // could.
-    let y = middle - panel.y / 2.0;
-    Vec2::new(x, y).clamp(
-        Vec2::new(low.x, EDGE),
-        Vec2::new(
-            high.x,
-            (window.y - HAND_BAR_H - PREVIEW_INSET - panel.y).max(low.y),
-        ),
-    )
+    if right + panel.x <= high.x {
+        return Vec2::new(right, y);
+    }
+    if left >= low.x {
+        return Vec2::new(left, y);
+    }
+    // Neither side has the room across. Before settling for covering the
+    // card, try clearing it the other way: a card near the top or the bottom
+    // of a tall window has room above or below it even when it has none
+    // beside it, and a panel that clears the thing it describes is the whole
+    // point of this function.
+    let x = (f32::midpoint(from, to) - panel.x / 2.0).clamp(low.x, high.x);
+    let above = top - PREVIEW_GAP - panel.y;
+    let below = bottom + PREVIEW_GAP;
+    if above >= bl.y {
+        return Vec2::new(x, above);
+    }
+    if below <= bh.y {
+        return Vec2::new(x, below);
+    }
+    // Nothing clears it. The panel goes on the side with the most room and
+    // covers as little of the card as there is to cover — still, and above
+    // everything else, wholly on the screen.
+    let side = if window.x - to >= from { right } else { left };
+    Vec2::new(side.clamp(low.x, high.x), y)
 }
 
 /// The face for whatever the preview is pointing at.

@@ -992,14 +992,20 @@ pub fn sync_overlay(
             duel.hovered_at,
         ) {
             let scale = settings.preview_scale.clamp(0.5, 1.75);
-            let img_w = 308.0 * scale;
-            let img_h = img_w * 88.0 / 63.0;
             let window = windows.single().map_or(Vec2::new(1200.0, 800.0), |w| {
                 Vec2::new(w.width(), w.height())
             });
+            // What the scale slider asked for, and then what this window can
+            // actually show: a preview larger than the screen is cut off
+            // wherever it is placed, and no amount of arithmetic in
+            // `preview_place` can rescue it. The slider is a preference; the
+            // window is not.
+            let want = Vec2::new(308.0 * scale, 308.0 * scale * 88.0 / 63.0);
+            let art_size = preview_art_size(want, 6.0, window);
+            let (img_w, img_h) = (art_size.x, art_size.y);
             // The panel is the picture plus its six pixels of padding on
             // every side.
-            let panel = Vec2::new(img_w, img_h) + Vec2::splat(12.0);
+            let panel = art_size + Vec2::splat(12.0);
             let place = preview_place(anchor, panel, window);
             let key = art.map(|art| ImageKey {
                 size: ArtSize::Normal,
