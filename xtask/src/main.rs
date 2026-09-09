@@ -162,6 +162,26 @@ enum Cmd {
     },
     /// Validate card-file conventions (header, coverage, tests).
     Validate,
+    /// Take a generated card off the machine, so a person owns it from now on.
+    ///
+    /// A card one of the readers wrote in full is **machine-owned**: codegen
+    /// rewrites it on every run, which is what makes "fix the reader, not the
+    /// card" enforceable rather than a convention — a rule corrected in
+    /// `landgen` or `forgegen` reaches every card that rule wrote, at once.
+    /// The cost is that a hand edit to such a file is reverted on the next
+    /// run, silently as far as the editor is concerned.
+    ///
+    /// This is the way out, and it is deliberately a decision someone makes
+    /// on purpose: it strips the ownership marker, and from then on the file
+    /// is hand-owned like any card a person wrote from the stub. Reach for it
+    /// when the card genuinely needs something the reader cannot say — not to
+    /// get past a transcoding bug, which belongs in the reader where it fixes
+    /// the other cards it also broke.
+    Adopt {
+        /// Printed card name, as the pool spells it.
+        #[arg(long)]
+        name: String,
+    },
     /// Seat a dev account at a table and print (or play) its ticket.
     ///
     /// Skips the lobby's sign-in and deck-picking screens and nothing else:
@@ -231,6 +251,7 @@ fn main() -> anyhow::Result<()> {
             cache,
         } => card_batch(&root, cards.as_deref(), &out, &forge, &cache),
         Cmd::Validate => validate(&root),
+        Cmd::Adopt { name } => adopt(&root, &name),
         Cmd::DevTable {
             gateway,
             seats,
@@ -427,14 +448,19 @@ fn cards(
                 );
             }
         }
-        // Implemented cards are hand-owned: only touch files that are
-        // missing or still carry the GENERATED STUB marker. Moving one is
-        // not touching it — where a file sits is codegen's to say.
-        let implemented = fs::read_to_string(&stub_path)
-            .is_ok_and(|existing| !existing.contains("// GENERATED STUB"));
-        if implemented {
+        // Ownership decides, and the file says which it is. A stub and a card
+        // a reader wrote in full are both **machine-owned**: codegen rewrites
+        // them, so a card the transcoder got wrong is fixed in the reader and
+        // every card the fix reaches is corrected at once, rather than one
+        // file being patched while the rule that wrote it stays wrong. A card
+        // a person finished — or one `xtask adopt` took off the machine —
+        // carries neither marker and is never written here. Moving a file is
+        // not writing it: where a card sits is codegen's to say either way.
+        let hand_owned = fs::read_to_string(&stub_path)
+            .is_ok_and(|existing| !stubgen::is_machine_owned(&existing));
+        if hand_owned {
             if check {
-                println!("skip (implemented): {}", info.slug);
+                println!("skip (hand-owned): {}", info.slug);
             }
             stubs.push(info);
             continue;
@@ -1138,6 +1164,41 @@ fn check_search_tapped_matches_text(slug: &str, content: &str, problems: &mut us
 }
 
 /// Validates card-file conventions across the registry.
+/// Strips the ownership marker from one generated card, handing the file to
+/// whoever asked for it.
+///
+/// The marker line is rewritten rather than deleted, keeping the summary the
+/// reader wrote: what the card does is still true, and what changes is only
+/// who may say it from now on. A stub is refused — there is nothing to adopt
+/// in a card nobody has implemented, and taking a stub off the machine would
+/// freeze it as an `Unimplemented` card codegen can never finish.
+fn adopt(root: &Path, name: &str) -> anyhow::Result<()> {
+    let cards_dir = root.join("crates/baylee-cards/src/cards");
+    let slug = front_face_slug(name);
+    let files = card_files(&cards_dir)?;
+    let path = files
+        .get(&slug)
+        .ok_or_else(|| anyhow::anyhow!("no card file for {name} (slug {slug})"))?;
+    let text = fs::read_to_string(path)?;
+    if text.contains(stubgen::STUB_MARKER) {
+        anyhow::bail!("{name} is still a generated stub — implement it first, then adopt it");
+    }
+    let Some(line) = text.lines().find(|l| l.starts_with(stubgen::OWNED_MARKER)) else {
+        anyhow::bail!("{name} is already hand-owned");
+    };
+    let summary = line
+        .strip_prefix(stubgen::OWNED_MARKER)
+        .map(|rest| rest.trim_start_matches(':'))
+        .unwrap_or_default()
+        .trim()
+        .trim_end_matches('.');
+    let adopted = format!("// IMPLEMENTED \u{2014} {summary}, adopted from `xtask codegen`.");
+    fs::write(path, text.replacen(line, &adopted, 1))?;
+    println!("adopted {name} -> {}", relative(path, &cards_dir));
+    println!("codegen will not write this file again; it is yours now.");
+    Ok(())
+}
+
 fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
@@ -1149,6 +1210,10 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     let names = acceptance::all_names(&rows, &pool_text);
     let mut problems = 0usize;
     let mut stubs = 0usize;
+    // Who owns each finished card, which is the number to watch: a machine-
+    // owned card is a reader's output and is corrected by fixing the reader,
+    // a hand-owned one is somebody's and codegen never touches it.
+    let mut machine = 0usize;
     // `validate` reads every card's header off disk, so it has to find the
     // files the taxonomy filed rather than the ones a flat directory used to
     // hold. A walk that found nothing would report a clean pool.
@@ -1164,8 +1229,9 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         // `Unimplemented`, and writing the line out would be restating a
         // default. The header is still checked, because that is what the
         // person who finishes the card reads.
-        let is_stub = content.contains("// GENERATED STUB");
+        let is_stub = content.contains(stubgen::STUB_MARKER);
         stubs += usize::from(is_stub);
+        machine += usize::from(!is_stub && content.contains(stubgen::OWNED_MARKER));
         for check in [
             ("header name", content.contains("//!")),
             ("set line", content.contains("Set:")),
@@ -1188,9 +1254,11 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         anyhow::bail!("{problems} convention problem(s) found");
     }
     println!(
-        "validate: {} cards conform ({} finished, {stubs} stubs)",
+        "validate: {} cards conform ({} finished \u{2014} {} hand-owned, {machine} \
+         machine-owned \u{2014} and {stubs} stubs)",
         names.len(),
-        names.len() - stubs
+        names.len() - stubs,
+        names.len() - stubs - machine
     );
     Ok(())
 }
