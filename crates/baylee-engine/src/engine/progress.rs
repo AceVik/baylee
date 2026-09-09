@@ -153,7 +153,10 @@ impl<L: CardLookup> Engine<L> {
             {
                 return;
             }
-            // 0. Continuous effects: sync statics with the battlefield and
+            // 0. A token copy's rules text (CR 707.2), before anything asks
+            //    what a permanent can do.
+            self.settle_copied_rules_text();
+            // 0a. Continuous effects: sync statics with the battlefield and
             //    refresh characteristic caches (generation compare).
             self.sync_static_effects();
             self.state.refresh_characteristics();
@@ -1454,6 +1457,40 @@ impl<L: CardLookup> Engine<L> {
                 .and_then(|c| self.lookup.card(c.index))
             {
                 self.state.transform(id, def, face as usize);
+            }
+        }
+    }
+
+    /// Hands every token copy the printed rules text it was created owing
+    /// (CR 707.2), from [`GameState::pending_copied_faces`].
+    ///
+    /// The same division of labour as [`Self::day_night_statics`] below, for
+    /// the same reason: a face's abilities are behind the card registry,
+    /// `resolve` has no lookup for it and cannot be given one — the rules
+    /// kernel does not depend on `baylee-cards` — so the copy is created
+    /// naming the face it copied and is finished here, at the nearest place
+    /// that holds a lookup.
+    ///
+    /// It runs first in the pass rather than beside the daybound checks
+    /// because what follows in the same pass is what asks a permanent what
+    /// it can do: the trigger scan and the offer both read
+    /// [`GameObject::abilities`], and a copy still answering an empty list
+    /// would have its text a whole priority window late.
+    ///
+    /// `own_abilities` wins where both are set: a copy of a copy was handed
+    /// the list it is copying, and that list is the copiable one — the card
+    /// underneath it is not what it is a copy of.
+    fn settle_copied_rules_text(&mut self) {
+        if self.state.pending_copied_faces.is_empty() {
+            return;
+        }
+        for (id, card, face) in std::mem::take(&mut self.state.pending_copied_faces) {
+            let printed = self
+                .lookup
+                .card(card)
+                .map(|def| def.abilities_for_face(face as usize));
+            if let Some(obj) = self.state.object_mut(id) {
+                obj.own_abilities = obj.own_abilities.or(printed);
             }
         }
     }

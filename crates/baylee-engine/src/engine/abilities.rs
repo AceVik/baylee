@@ -721,14 +721,20 @@ impl<L: CardLookup> Engine<L> {
         {
             return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
         }
-        let (card_index, cost, effects, target, mana_ability, zone) = {
+        let (cost, effects, target, mana_ability, zone) = {
             let obj = self
                 .state
                 .object(source)
                 .ok_or(EngineError::IllegalAction("no such permanent"))?;
-            let card = obj
-                .card
-                .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
+            // Deliberately no `obj.card` here. The list this ability was
+            // offered from is the object's *own* (`GameObject::abilities`),
+            // which answers for a Treasure out of its definition and for a
+            // token copy out of the rules text it copied — so demanding a
+            // card refused an ability the engine had just offered, which is
+            // the failure mode this engine treats as worse than either half
+            // of it alone. The card index it used to read was never used
+            // for anything: it was discarded again further down.
+            //
             // The object's own list, which is what `legal_actions` indexed
             // when it offered this. Reading the card's instead was the
             // "two probes must agree" bug once more: a Glasspool Mimic
@@ -747,7 +753,7 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability,
                     zone,
                     ..
-                } => (card.index, *cost, *effects, *target, *mana_ability, *zone),
+                } => (*cost, *effects, *target, *mana_ability, *zone),
                 AbilityDef::ActivatedConditional {
                     cost,
                     effects,
@@ -760,7 +766,7 @@ impl<L: CardLookup> Engine<L> {
                     if !self.check_activation_condition(player, source, *condition) {
                         return Err(EngineError::IllegalAction("activation condition not met"));
                     }
-                    (card.index, *cost, *effects, *target, *mana_ability, *zone)
+                    (*cost, *effects, *target, *mana_ability, *zone)
                 }
                 _ => return Err(EngineError::IllegalAction("not an activated ability")),
             }
@@ -787,7 +793,6 @@ impl<L: CardLookup> Engine<L> {
                 "ability not usable from this zone",
             ));
         }
-        let _ = card_index;
         let _ = zone;
         // Targets (chosen first unless already provided).
         if targets.is_empty()

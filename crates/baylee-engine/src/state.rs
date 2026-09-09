@@ -401,6 +401,24 @@ pub struct GameState {
     /// the same event", and a wrath that bounces three commanders leaves
     /// three entries that three moves take one each.
     pub commander_redirect: Vec<(ObjectId, bool)>,
+    /// Token copies waiting to be handed the printed rules text they were
+    /// created owing: `(the copy, the card it copies, which face)`.
+    ///
+    /// CR 707.2 copies the original's abilities along with its
+    /// characteristics, and for a card-backed original those live behind the
+    /// card registry — which the rules kernel does not depend on and
+    /// `resolve` therefore has no lookup for, the same wall the daybound
+    /// checks meet in `sba::run`. So the copy is created naming the face it
+    /// copied and the machine, which does hold a lookup, fills its
+    /// `own_abilities` in at the top of the next pass, before anything asks
+    /// what the copy can do.
+    ///
+    /// A queue here rather than a field on the object: a `GameObject` is
+    /// copied once per object per ply of the AI's search, and eight bytes
+    /// there is a `tests/footprint.rs` budget and a measurable memcpy, while
+    /// a list that is empty in almost every game state costs one `Vec`
+    /// header on the state itself.
+    pub pending_copied_faces: Vec<(ObjectId, CardIndex, u8)>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -539,6 +557,7 @@ impl GameState {
             next_restriction_id: 1,
             commander_casts: vec![0; preset.seats.len()],
             commander_redirect: Vec::new(),
+            pending_copied_faces: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -1451,6 +1470,15 @@ impl GameState {
         for (object, home) in &self.commander_redirect {
             h.u32(object.slot());
             h.boolean(*home);
+        }
+        // And the same for a copy that has been created but not yet handed
+        // the rules text it copied: a resolution can suspend on a choice
+        // between the two, which is a moment this hash is taken at.
+        h.usize(self.pending_copied_faces.len());
+        for (object, card, face) in &self.pending_copied_faces {
+            h.u32(object.slot());
+            h.u32(card.get());
+            h.u8(*face);
         }
         h.finish()
     }

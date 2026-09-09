@@ -1639,6 +1639,109 @@ fn a_kicked_rite_under_my_season_makes_ten_copies() {
     );
 }
 
+/// The copy Rite of Replication makes is a copy of the creature's **rules
+/// text** as well as its characteristics (CR 707.2).
+///
+/// The proof is a colour the rest of the board cannot make: seat 0 has four
+/// Islands and nothing green, so a `{G}` in its pool came out of the copy of
+/// their Llanowar Elves or out of nowhere. The bystanders are those Islands,
+/// which were offering their own mana all along, and the Elf across the
+/// table, which is still theirs and still untapped afterwards.
+#[test]
+fn a_token_copy_carries_the_rules_text_of_the_creature_it_copies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(93, forest())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[rite_of_replication()])
+        .battlefield(1, &[llanowar_elves(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let victim = aim_at_their_elf(&mut engine, rite_of_replication(), false);
+    let copy = the_copy_on(&engine, p0);
+
+    // CR 302.6: it arrived this turn, so its `{T}` is not offered yet. The
+    // seat is named because a list belonging to the other one would be
+    // silent about the copy for a reason that has nothing to do with the
+    // claim.
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("the resolved spell hands priority back");
+    };
+    assert_eq!(player, p0, "to the seat that cast it");
+    assert!(
+        !legal.abilities.iter().any(|(id, _)| *id == copy),
+        "a creature that entered this turn cannot tap"
+    );
+
+    pass_until(&mut engine, |e| e.state().turn.active == p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the main phase grants priority");
+    };
+    let index = legal
+        .abilities
+        .iter()
+        .find_map(|(id, index)| (*id == copy).then_some(*index))
+        .expect("the copy offers the Elf's mana ability");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: copy,
+                ability_index: index,
+            },
+        )
+        .expect("an offered ability is activatable");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(baylee_core::mana::ManaColor::Green),
+        1,
+        "four Islands make no green — the copy did"
+    );
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .is_some_and(|o| o.card.is_none()),
+        "and it is a token while it does it (CR 707.10)"
+    );
+    let original = engine.state().object(victim).expect("their Elf");
+    assert_eq!(
+        original.controller, p1,
+        "the creature copied is still theirs"
+    );
+    assert!(
+        !original.status.contains(crate::object::Status::TAPPED),
+        "and tapping the copy did not tap it"
+    );
+}
+
+/// The one card-less permanent seat `seat` controls.
+///
+/// Asserting there is exactly one is the point: a test that took the first
+/// of several would pass while the rest were inert.
+#[track_caller]
+fn the_copy_on(engine: &Engine<RegistryLookup>, seat: PlayerId) -> baylee_core::ids::ObjectId {
+    let mut found: Vec<baylee_core::ids::ObjectId> = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == seat && o.card.is_none())
+        })
+        .collect();
+    assert_eq!(found.len(), 1, "exactly one token copy was created");
+    found.pop().expect("the copy")
+}
+
 fn esper_sentinel() -> baylee_core::ids::CardIndex {
     card_index("5def9f38-0a0b-4e8d-9f9d-29dcb46520b4")
 }

@@ -87,7 +87,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(id) = target_id
                 && let Some(base) = state.object(id).map(|o| o.base.clone())
             {
-                create_token_copies(state, you, &base, count);
+                create_token_copies(state, you, id, &base, count);
             }
             None
         }
@@ -109,7 +109,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(id) = token
                 && let Some(base) = state.object(id).map(|o| o.base.clone())
             {
-                create_token_copies(state, you, &base, 1);
+                create_token_copies(state, you, id, &base, 1);
             }
             None
         }
@@ -127,7 +127,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 for m in mods {
                     apply_copy_mod(&mut modified, m);
                 }
-                create_token_copies(state, you, &std::sync::Arc::new(modified), count);
+                create_token_copies(state, you, equipped, &std::sync::Arc::new(modified), count);
             }
             None
         }
@@ -258,12 +258,29 @@ pub(super) fn create_tokens(
 /// `TokenDef` and a copied set of characteristics are different inputs, and
 /// a token built from the second carries no definition, which is the
 /// engine's other notion of what a token is.
+///
+/// Carrying no card is not the same as carrying no rules text. CR 707.2
+/// copies the original's abilities along with its characteristics, and
+/// `original` is read for all three places those can live: a copy of a
+/// Treasure keeps the definition, a copy of a copy keeps the list that copy
+/// was given, and a copy of a card names the face whose printed abilities it
+/// still owes — [`GameState::pending_copied_faces`], because a face's
+/// abilities are behind the card registry and this crate has no lookup for
+/// it.
 pub(super) fn create_token_copies(
     state: &mut GameState,
     controller: PlayerId,
+    original: ObjectId,
     base: &std::sync::Arc<Characteristics>,
     count: u32,
 ) -> Vec<ObjectId> {
+    let (own, token, face) = state.object(original).map_or((None, None, None), |o| {
+        (
+            o.own_abilities,
+            o.token,
+            o.card.map(|c| (c.index, o.face_index)),
+        )
+    });
     let count = count.saturating_mul(crate::replacement::token_multiplier(state, controller));
     (0..count)
         .map(|_| {
@@ -272,8 +289,13 @@ pub(super) fn create_token_copies(
                 let mut obj =
                     GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
                 obj.timestamp = ts;
+                obj.own_abilities = own;
+                obj.token = token;
                 obj
             });
+            if let Some((card, face)) = face {
+                state.pending_copied_faces.push((id, card, face));
+            }
             state
                 .zones
                 .insert(id, ZoneLocation::Battlefield, ZonePosition::Top, true);
