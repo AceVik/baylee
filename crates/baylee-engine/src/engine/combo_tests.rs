@@ -93,6 +93,15 @@ fn lightning_greaves() -> baylee_core::ids::CardIndex {
 fn vindicate() -> baylee_core::ids::CardIndex {
     card_index("63c1ac21-e3d8-40c2-8c09-3f31c52992ef")
 }
+fn doubling_season() -> baylee_core::ids::CardIndex {
+    card_index("01546b7d-a233-4176-8843-d732074dc5b6")
+}
+fn panharmonicon() -> baylee_core::ids::CardIndex {
+    card_index("76678885-3674-443d-b9a2-2a460cf6aac0")
+}
+fn darksteel_forge() -> baylee_core::ids::CardIndex {
+    card_index("9b3bec05-441f-4fdf-8b51-69fa8613fcd4")
+}
 
 /// The one *non-mana* activated ability `source` is offering right now.
 ///
@@ -880,9 +889,7 @@ fn a_privileged_position_hides_your_board_from_them_but_not_itself() {
     let mut engine = a_table_under_a_privileged_position();
     // Not `reach_main_phase`: reaching the *other* seat's turn crosses a
     // combat phase, and that helper answers priority and nothing else.
-    pass_until(&mut engine, |e| {
-        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p1
-    });
+    reach_their_main_phase(&mut engine, p1);
 
     let position = on_battlefield(&engine, p0, privileged_position()).expect("your enchantment");
     let yours = on_battlefield(&engine, p0, llanowar_elves()).expect("your elves");
@@ -1017,5 +1024,274 @@ fn greaves_hide_the_creature_they_are_on_from_you_too() {
     assert!(
         options.contains(&across),
         "and the board across the table is untouched by any of it: {options:?}"
+    );
+}
+
+/// How many tokens `seat` controls.
+///
+/// Counted by `token` rather than by "a permanent the test did not seed": a
+/// token is the one permanent that carries its definition instead of a
+/// card, which is exactly the object Doubling Season's first sentence is
+/// about.
+#[must_use]
+fn tokens_controlled(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.controller == seat && o.token.is_some())
+        })
+        .count()
+}
+
+/// Taps everything `seat` has and activates the one non-mana ability
+/// `source` is offering, leaving it on the stack.
+#[track_caller]
+fn activate(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    source: baylee_core::ids::ObjectId,
+) {
+    tap_mana_except(engine, seat, source);
+    let index = offered_ability(engine, source).expect("the permanent is offering its ability");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: index,
+            },
+        )
+        .unwrap();
+}
+
+/// Doubling Season ("If an effect would create one or more tokens under
+/// **your** control, it creates twice that many of those tokens instead")
+/// with a Maskwood Nexus on each side of the table.
+///
+/// The same token maker on both sides is the whole design of the test: one
+/// ability, activated by two seats, so the only thing that differs between
+/// the two counts below is who controls the enchantment. A replacement that
+/// asked the *resolving* effect's own controller whether it controlled the
+/// effect — which is a question that answers yes for everyone — would double
+/// both, and a board with a single Nexus on it could never say so.
+#[test]
+fn doubling_season_doubles_your_tokens_and_not_the_ones_across_the_table() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(82, forest())
+        .battlefield(
+            0,
+            &[
+                doubling_season(),
+                maskwood_nexus(),
+                plains(),
+                swamp(),
+                forest(),
+            ],
+        )
+        .battlefield(1, &[maskwood_nexus(), plains(), swamp(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = on_battlefield(&engine, p0, maskwood_nexus()).expect("my nexus");
+    activate(&mut engine, p0, mine);
+    pass_until(&mut engine, |e| tokens_controlled(e, p0) > 0);
+    assert_eq!(
+        tokens_controlled(&engine, p0),
+        2,
+        "one Shapeshifter is created twice under my own Doubling Season"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    let theirs = on_battlefield(&engine, p1, maskwood_nexus()).expect("their nexus");
+    activate(&mut engine, p1, theirs);
+    pass_until(&mut engine, |e| tokens_controlled(e, p1) > 0);
+    assert_eq!(
+        tokens_controlled(&engine, p1),
+        1,
+        "their Nexus creates its token under *their* control, which is not \
+         what my enchantment replaces"
+    );
+    assert_eq!(
+        tokens_controlled(&engine, p0),
+        2,
+        "and nothing on their turn arrived on my side of the table"
+    );
+}
+
+/// Panharmonicon ("If an artifact or creature entering causes a triggered
+/// ability of a permanent **you control** to trigger, that ability triggers
+/// an additional time") over Earth King's Lieutenant ("When this creature
+/// enters, put a +1/+1 counter on each other Ally creature you control").
+///
+/// The counters are the readout: the Lieutenant's trigger places exactly one
+/// per firing, so an Ondu Cleric that ends at 3/3 was given two and the
+/// trigger fired twice. Both seats hold a Cleric and cast a Lieutenant, so
+/// the artifact's controller is the only difference between the two numbers
+/// — and the Cleric across the table is the bystander for the *trigger's*
+/// own "you control" at the same time.
+#[test]
+fn panharmonicon_fires_your_enters_trigger_twice_and_theirs_once() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(83, forest())
+        .battlefield(0, &[panharmonicon(), ondu_cleric(), forest(), plains()])
+        .hand(0, &[earth_king_s_lieutenant()])
+        .battlefield(1, &[ondu_cleric(), forest(), plains()])
+        .hand(1, &[earth_king_s_lieutenant()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("my cleric");
+    let their_cleric = on_battlefield(&engine, p1, ondu_cleric()).expect("their cleric");
+
+    cast_from_hand(&mut engine, p0, earth_king_s_lieutenant());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, earth_king_s_lieutenant()).is_some() && stack_is_empty(e)
+    });
+    assert_eq!(
+        pt(&engine, my_cleric),
+        (3, 3),
+        "a 1/1 Ally under two firings of \"a +1/+1 counter on each other \
+         Ally you control\""
+    );
+    assert_eq!(
+        pt(&engine, their_cleric),
+        (1, 1),
+        "the Lieutenant's own trigger says \"you control\", so their Ally \
+         was never in it"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, earth_king_s_lieutenant());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p1, earth_king_s_lieutenant()).is_some() && stack_is_empty(e)
+    });
+    assert_eq!(
+        pt(&engine, their_cleric),
+        (2, 2),
+        "their Lieutenant is not a permanent I control, so my Panharmonicon \
+         does not multiply its trigger"
+    );
+    assert_eq!(
+        pt(&engine, my_cleric),
+        (3, 3),
+        "and my own Ally took nothing from their turn"
+    );
+}
+
+/// Darksteel Forge ("**Artifacts you control** have indestructible"), a
+/// Liquimetal Coating on each side and an Elf beside the Forge, with a
+/// Vindicate ("Destroy target permanent") in each hand.
+///
+/// Indestructible is not hexproof, which is why every test below reads the
+/// battlefield rather than the options list: the permanent is still a legal
+/// target and the spell still resolves — what it fails to do is destroy it
+/// (CR 702.12b).
+fn a_table_under_a_darksteel_forge(seed: u64) -> Engine<RegistryLookup> {
+    let mut engine = Duel::new(seed, forest())
+        .battlefield(
+            0,
+            &[
+                darksteel_forge(),
+                liquimetal_coating(),
+                llanowar_elves(),
+                plains(),
+                swamp(),
+                forest(),
+            ],
+        )
+        .hand(0, &[vindicate()])
+        .battlefield(1, &[liquimetal_coating(), plains(), swamp(), forest()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    engine
+}
+
+/// Resolves `seat`'s Vindicate onto `victim` and returns whether it is still
+/// on the battlefield afterwards.
+#[track_caller]
+fn vindicated(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    victim: baylee_core::ids::ObjectId,
+) -> bool {
+    cast_from_hand(engine, seat, vindicate());
+    let options = target_options(engine);
+    assert!(
+        options.contains(&victim),
+        "indestructible does not stop targeting, so the spell has to be \
+         allowed to point at it before its failure means anything: \
+         {options:?}"
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .contains(&victim)
+}
+
+/// The Forge under their removal: my artifact survives a spell that resolved.
+#[test]
+fn a_darksteel_forge_keeps_your_artifact_through_their_removal() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_table_under_a_darksteel_forge(84);
+    reach_their_main_phase(&mut engine, p1);
+
+    let mine = on_battlefield(&engine, p0, liquimetal_coating()).expect("my coating");
+    assert!(
+        vindicated(&mut engine, p1, mine),
+        "\"artifacts you control have indestructible\" — destruction does \
+         nothing to it (CR 702.12b)"
+    );
+}
+
+/// The counter-probe on the same board: the grant is to **artifacts** I
+/// control, not to everything I control.
+///
+/// Its own game rather than a second spell in the one above, because the
+/// interesting failure is a Forge that saved the Elf too — and a test that
+/// had already spent the turn's mana could not ask.
+#[test]
+fn the_forge_is_not_a_shield_over_the_rest_of_your_board() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_table_under_a_darksteel_forge(85);
+    reach_their_main_phase(&mut engine, p1);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my elves");
+    assert!(
+        !vindicated(&mut engine, p1, elf),
+        "the Elf is not an artifact and the Forge never mentioned it"
+    );
+}
+
+/// And the direction across the table: their artifact is not mine, so my own
+/// Forge does not save it from my own Vindicate.
+#[test]
+fn the_forge_does_not_reach_the_artifact_across_the_table() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_table_under_a_darksteel_forge(86);
+    reach_main_phase(&mut engine, p0);
+
+    let theirs = on_battlefield(&engine, p1, liquimetal_coating()).expect("their coating");
+    assert!(
+        !vindicated(&mut engine, p0, theirs),
+        "\"artifacts **you** control\" is the whole scope of the grant"
     );
 }

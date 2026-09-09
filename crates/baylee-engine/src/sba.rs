@@ -95,7 +95,7 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
                 && obj.counters.get(CounterKind::Loyalty) == 0
                 && obj.kind == ObjectKind::Permanent
             {
-                destroy(state, id);
+                put_into_graveyard(state, id);
                 outcome.changed = true;
             }
             continue;
@@ -104,7 +104,7 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
         // CR 704.5f: zero or less toughness puts it in the graveyard. This
         // is not destruction, so indestructible does not save it.
         if toughness <= 0 {
-            destroy(state, id);
+            put_into_graveyard(state, id);
             outcome.changed = true;
             continue;
         }
@@ -347,7 +347,7 @@ fn run_attachment_sbas(state: &mut GameState) -> bool {
         }
     }
     for id in falling_off {
-        destroy(state, id);
+        put_into_graveyard(state, id);
         changed = true;
     }
     for id in unattaching {
@@ -375,13 +375,46 @@ pub fn apply_legend_choice(
     let _ = player;
     for &id in options {
         if id != keep {
-            destroy(state, id);
+            put_into_graveyard(state, id);
         }
     }
 }
 
-/// Moves a permanent to its owner's graveyard (destruction).
+/// Destroys a permanent (CR 701.7a), unless it can't be.
+///
+/// Indestructible is a property of the permanent and not of the spell that
+/// named it (CR 702.12b), so the question is asked once here rather than at
+/// each of the effects that destroy — `Destroy`, `DestroyAll` and the
+/// per-player choice `DestroyChosen` makes were three separate places to
+/// forget it, and all three did: Darksteel Forge granted a keyword that
+/// stopped lethal damage and nothing else, so "destroy target permanent"
+/// killed an indestructible artifact outright.
+///
+/// The lethal-damage state-based action keeps its own check because it
+/// decides more than this call does — an indestructible creature is not a
+/// state-based action *performed*, and `outcome.changed` is what tells the
+/// fixpoint whether to run again.
 pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
+    if state.object(id).is_some_and(|o| {
+        o.characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE)
+    }) {
+        return;
+    }
+    put_into_graveyard(state, id);
+}
+
+/// Moves a permanent to its owner's graveyard without destroying it.
+///
+/// The mechanical half of [`destroy`], and reachable on its own because
+/// several state-based actions put a permanent in the graveyard and are
+/// explicitly *not* destruction: zero or less toughness (CR 704.5f), a
+/// planeswalker at zero loyalty (CR 704.5i), the legend rule (CR 704.5j)
+/// and an Aura attached to nothing it could legally be attached to
+/// (CR 704.5m). Indestructible saves a permanent from destruction and from
+/// none of those.
+pub fn put_into_graveyard(state: &mut GameState, id: baylee_core::ids::ObjectId) {
     let owner = state.object(id).map_or(PlayerId::new(0), |o| o.owner);
     if let Some(obj) = state.object_mut(id) {
         obj.kind = ObjectKind::Card;

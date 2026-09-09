@@ -336,3 +336,33 @@ pub fn tap_mana_except(
             .unwrap();
     }
 }
+
+/// Advances until `seat` holds priority in their first main phase, however
+/// many turns away that is.
+///
+/// [`reach_main_phase`] answers `Pending::Priority` and nothing else, so it
+/// cannot cross a turn boundary: the combat phase on the way asks for
+/// attackers and it panics with `expected priority, got ChooseAttackers`.
+/// This is [`pass_until`] with that predicate spelled once, for the tests
+/// whose question belongs to the *other* seat's turn.
+#[track_caller]
+pub fn reach_their_main_phase(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    pass_until(engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == seat
+    });
+}
+
+/// Whether the stack has nothing on it.
+///
+/// The end of a spell is not the end of what it started: a permanent
+/// entering puts its triggers on the stack, so a test that read the board
+/// the moment the creature arrived would count the counters before they
+/// were placed.
+#[must_use]
+pub fn stack_is_empty(engine: &Engine<RegistryLookup>) -> bool {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .is_empty()
+}
