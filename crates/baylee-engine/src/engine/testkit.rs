@@ -287,3 +287,52 @@ pub fn pt(engine: &Engine<RegistryLookup>, object: baylee_core::ids::ObjectId) -
         .characteristics();
     (c.power.unwrap_or(0), c.toughness.unwrap_or(0))
 }
+
+/// Whether `card` sits in `seat`'s hand.
+///
+/// By index rather than by position: a seat's opening hand is the cards the
+/// test named *plus* seven draws off the filler deck, so `list(Hand)[0]` is
+/// only the seeded card by luck of the ordering.
+#[must_use]
+pub fn in_hand(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> Option<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(seat))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+}
+
+/// Taps everything that makes mana for `seat` except `keep`.
+///
+/// The exception is the point: a land whose *other* ability the test is
+/// about to activate (Riptide Laboratory taps for {C} and also returns a
+/// Wizard) would otherwise be spent paying for itself.
+#[track_caller]
+pub fn tap_mana_except(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    keep: baylee_core::ids::ObjectId,
+) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        if source == keep {
+            continue;
+        }
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+}

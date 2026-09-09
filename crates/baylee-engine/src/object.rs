@@ -492,14 +492,30 @@ pub struct GameObject {
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     /// Which face of the card is active (MDFC/split; 0 = front).
     pub face_index: u8,
-    /// Abilities of an emblem object (not card-backed; command zone).
-    pub emblem_abilities: Option<&'static [baylee_cards_dsl::AbilityDef]>,
+    /// Abilities this object carries itself, instead of reading them off a
+    /// card face.
+    ///
+    /// Two kinds of object need it and they need the same thing. An **emblem**
+    /// is not card-backed at all (CR 114.2), so its abilities have nowhere
+    /// else to live. A **copy** has a card underneath it and must not answer
+    /// with it: abilities are copiable values (CR 707.2), `base` carries only
+    /// characteristics, and a clone that replaced its base alone arrived with
+    /// the right name, types and power and no rules text. Glasspool Mimic
+    /// copying Earth King's Lieutenant is the case that found it — the board
+    /// saw an Ally enter and the Lieutenant beside it grew, while the copy's
+    /// own enters-trigger never fired.
+    ///
+    /// Stored rather than derived because the copiable values are fixed as
+    /// the copy is made (CR 707.2a) and the original may leave; one field
+    /// rather than two because an emblem is never a copy and the extra
+    /// `Option<&[_]>` is 16 bytes on every object in every AI ply.
+    pub own_abilities: Option<&'static [baylee_cards_dsl::AbilityDef]>,
     /// The definition this object was created from, if a token created it.
     ///
     /// The only thing that says *which* token a card-less permanent is, and
     /// the engine needs it for one reason: a token's abilities live here, so
     /// a Treasure can be cracked at all. The definition is a `'static` from
-    /// the registry — the same shape [`GameObject::emblem_abilities`]
+    /// the registry — the same shape [`GameObject::own_abilities`]
     /// already had — because the rules kernel does not depend on the card
     /// registry and cannot resolve an index into it. The client's art key is
     /// the token's position in that registry, which the view builder derives
@@ -555,7 +571,7 @@ impl GameObject {
             mode_index: None,
             chosen_subtype: None,
             face_index: 0,
-            emblem_abilities: None,
+            own_abilities: None,
             token: None,
             pending_face_change: None,
             cast_from_hand: true,
@@ -619,7 +635,8 @@ impl GameObject {
         &self,
         lookup: &impl crate::state::CardLookup,
     ) -> &'static [baylee_cards_dsl::AbilityDef] {
-        if let Some(abilities) = self.emblem_abilities {
+        // An emblem has no card, and a copy has one it must not answer with.
+        if let Some(abilities) = self.own_abilities {
             return abilities;
         }
         if let Some(card) = self.card {

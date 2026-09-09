@@ -152,12 +152,19 @@ impl<L: CardLookup> Engine<L> {
             for (i, ability) in obj.abilities(&self.lookup).iter().enumerate() {
                 match ability {
                     AbilityDef::Activated {
-                        cost, timing, zone, ..
+                        cost,
+                        timing,
+                        zone,
+                        target,
+                        ..
                     } => {
                         if *zone != ActivationZone::Battlefield {
                             continue; // hand-zone abilities are scanned below
                         }
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if !self.ability_has_a_target(player, id, *target) {
                             continue;
                         }
                         if self.can_afford(player, id, cost) {
@@ -169,6 +176,7 @@ impl<L: CardLookup> Engine<L> {
                         timing,
                         zone,
                         condition,
+                        target,
                         ..
                     } => {
                         if *zone != ActivationZone::Battlefield {
@@ -178,6 +186,9 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         if !self.check_activation_condition(player, id, *condition) {
+                            continue;
+                        }
+                        if !self.ability_has_a_target(player, id, *target) {
                             continue;
                         }
                         if self.can_afford(player, id, cost) {
@@ -281,6 +292,33 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         legal
+    }
+
+    /// Whether a targeting ability has anything legal to point at
+    /// (CR 601.2c, applied to activations by CR 602.2b).
+    ///
+    /// `apply` already refuses such an activation with "no legal targets";
+    /// this is the same probe on the offering side, because the two have to
+    /// be one probe or the client lights a permanent up and the click is
+    /// refused. Riptide Laboratory is the case that found it — "{1}{U}, {T}:
+    /// Return target Wizard you control" was offered at a table whose only
+    /// Wizard was the opponent's.
+    fn ability_has_a_target(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        target: Option<baylee_cards_dsl::TargetSpec>,
+    ) -> bool {
+        let Some(spec) = target else {
+            return true;
+        };
+        if matches!(
+            spec,
+            baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
+        ) {
+            return !eval::target_player_options(&self.state, &spec, player).is_empty();
+        }
+        !eval::target_options(&spec, &self.state, player, source).is_empty()
     }
 
     /// Precondition check for `ActivatedConditional` abilities (B1).
@@ -1016,7 +1054,7 @@ impl<L: CardLookup> Engine<L> {
                 id,
                 controller,
                 AbilityLoc {
-                    // Sentinel: resolution reads `emblem_abilities` from
+                    // Sentinel: resolution reads `own_abilities` from
                     // the source instead of a card definition.
                     card: baylee_core::ids::CardIndex::new(0),
                     index: ability_index,

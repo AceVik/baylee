@@ -60,7 +60,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
             let Some(obj) = state.object(emblem) else {
                 continue;
             };
-            let Some(abilities) = obj.emblem_abilities else {
+            let Some(abilities) = obj.own_abilities else {
                 continue;
             };
             for (index, ability) in abilities.iter().enumerate() {

@@ -463,6 +463,8 @@ mod card_tests;
 #[cfg(test)]
 mod combat_choice_tests;
 #[cfg(test)]
+mod combo_tests;
+#[cfg(test)]
 mod commander_tests;
 #[cfg(test)]
 mod convoke_tests;

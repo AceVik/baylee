@@ -783,12 +783,20 @@ impl<L: CardLookup> Engine<L> {
             }
             return;
         }
-        let Some(target_base) = self.state.object(target).map(|o| o.base.clone()) else {
+        let Some((target_base, target_abilities)) = self
+            .state
+            .object(target)
+            .map(|o| (o.base.clone(), o.abilities(&self.lookup)))
+        else {
             return;
         };
         {
             let obj = self.state.object_mut(id).expect("copy target exists");
             obj.base = target_base;
+            // Abilities are copiable values too (CR 707.2), and `base` holds
+            // only characteristics — a copy that took the base alone arrived
+            // with the right name and P/T and no rules text at all.
+            obj.own_abilities = Some(target_abilities);
         }
         for m in mods {
             let obj = self.state.object_mut(id).expect("copy target exists");
@@ -1067,7 +1075,7 @@ impl<L: CardLookup> Engine<L> {
                     if self
                         .state
                         .object(t.source)
-                        .is_some_and(|o| o.emblem_abilities.is_some())
+                        .is_some_and(|o| o.kind == crate::object::ObjectKind::Emblem)
                     {
                         self.push_emblem_ability_to_stack(
                             t.controller,
@@ -1196,7 +1204,7 @@ impl<L: CardLookup> Engine<L> {
                 if self
                     .state
                     .object(t.source)
-                    .is_some_and(|o| o.emblem_abilities.is_some())
+                    .is_some_and(|o| o.kind == crate::object::ObjectKind::Emblem)
                 {
                     self.push_emblem_ability_to_stack(
                         t.controller,

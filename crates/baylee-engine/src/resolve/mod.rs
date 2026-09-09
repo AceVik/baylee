@@ -1483,7 +1483,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             };
             let id = state.create_bare(you, ObjectKind::Emblem, name, ZoneLocation::Command(you));
             if let Some(obj) = state.object_mut(id) {
-                obj.emblem_abilities = Some(abilities);
+                obj.own_abilities = Some(abilities);
             }
             None
         }
