@@ -13,7 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, plate_layer, chip_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -35,6 +35,11 @@ struct CardParams {
     /// The clock every animated term below runs on: 1 normally, 0 for
     /// `Preferences::reduce_motion`.
     motion: f32,
+    /// When this card's one-shot sheen began, on `globals.time`'s clock.
+    sweep_at: f32,
+    /// One over how long that sheen takes, or 0 for a card that is not
+    /// sweeping — which is almost every card almost all of the time.
+    sweep_rate: f32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -76,20 +81,15 @@ const STILL_TILT: f32 = 0.524;
 /// the table keeps the coating it had on it.
 ///
 /// The one difference is the one this whole file exists for: a UI node has no
-/// world position and no normal, so there is no lamp to answer. The highlight
-/// is a soft band that travels across the card instead of a pool the camera
-/// finds — and at phase zero, which is where
-/// [`Preferences::reduce_motion`](baylee_client_core::prefs) stops the clock,
-/// it lies across the middle of the card, which is an honest frame of that
-/// travel rather than its average.
+/// world position and no normal, so there is no lamp to answer. What is left
+/// is the floor and the grain, which is the coating itself, plus the one-shot
+/// band `sweep_amount` draws when a card has just arrived — and that band is
+/// the same one the table draws, from the same shared function, so a card
+/// picked up off the table keeps the light it caught.
 const METAL_GLOSS: f32 = 0.20;
 const METAL_FLOOR: f32 = 0.02;
 const METAL_TONE: vec3<f32> = vec3<f32>(1.0, 0.975, 0.925);
 const METAL_GRAIN: f32 = 0.35;
-/// How long the band takes to cross and come back, and how tightly it falls
-/// away from its own line.
-const METAL_SECONDS: f32 = 6.0;
-const METAL_WIDTH: f32 = 26.0;
 
 /// The night a summoning-sick creature lies under.
 ///
@@ -235,13 +235,21 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     }
 
     // ---- the coating, on every card and whatever it was printed with
-    let line = 0.5 + 0.4 * sin(t * 6.2831855 / METAL_SECONDS);
-    let along = uv.x * 0.72 + uv.y * 0.28;
-    let off = along - line;
-    let spec = exp(-off * off * METAL_WIDTH);
+    //
+    // Two halves that used to be one. The floor and the grain are the card's
+    // *material* and are on it always; the travelling highlight is an event
+    // and happens once. `sweep_amount` in `card_common.wgsl` says why, and
+    // `sheen::Sheen` decides when.
+    //
+    // Not on `t`: the sweep is anchored to an absolute moment the material
+    // was given, so it has to be compared against the same clock that moment
+    // was read from. A card that is holding still does not sweep at all —
+    // `sweep_rate` is left at zero — rather than sweeping on a stopped clock.
     let brushed = 1.0 - METAL_GRAIN * noise(uv * vec2<f32>(9.0, 220.0));
+    let phase = (globals.time - params.sweep_at) * params.sweep_rate;
+    let travel = select(0.0, sweep_amount(uv, phase), params.sweep_rate > 0.0);
     color = vec4<f32>(
-        color.rgb + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * spec) * brushed,
+        color.rgb + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * travel) * brushed,
         color.a,
     );
 

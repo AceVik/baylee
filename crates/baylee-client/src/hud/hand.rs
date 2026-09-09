@@ -25,6 +25,7 @@ pub(super) fn spawn_hand_bar(
     assets: &AssetServer,
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
+    sheen: &crate::sheen::Sheen,
     mut cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let bar = commands
@@ -159,7 +160,8 @@ pub(super) fn spawn_hand_bar(
                     } else {
                         0
                     },
-            ),
+            )
+            .with_sweep(sheen.of(card.id, crate::sheen::Surface::Hand)),
             cards.as_deref_mut(),
         );
         // Positioned by the layout rule; the strip's margin carries the

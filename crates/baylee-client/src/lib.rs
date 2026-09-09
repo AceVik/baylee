@@ -62,6 +62,7 @@ pub mod net;
 pub mod prefs;
 pub mod settings;
 pub mod settingsui;
+pub mod sheen;
 pub mod sky;
 pub mod softkeys;
 pub mod table;
@@ -555,6 +556,11 @@ fn add_present_systems(app: &mut App) {
         Update,
         (
             table::track_canvas,
+            // Ahead of both things that draw a card, so a card arriving is
+            // placed with its sheen already decided rather than a frame late.
+            sheen::watch_for_arrivals
+                .before(table::sync_scene)
+                .before(hud::sync_overlay),
             table::sync_scene,
             table::sync_zones,
             table::sync_table,
@@ -639,6 +645,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::ShownRig>()
             .init_resource::<table::HomeRig>()
             .init_resource::<Reconnect>()
+            .init_resource::<sheen::Sheen>()
             .init_resource::<hud::HudRevision>()
             .init_resource::<hud::StackMotion>()
             .init_resource::<hud::DesignationFlash>()

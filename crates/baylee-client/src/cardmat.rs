@@ -307,6 +307,16 @@ pub struct CardParams {
     /// field on the materials already made — nothing is discarded, because
     /// every card entity still holds the handle either way.
     pub motion: f32,
+    /// When this card's one-shot sheen began, on the same clock the shaders'
+    /// `globals.time` runs on.
+    ///
+    /// Absolute rather than a phase, which is what lets the material be
+    /// written once and left alone: the shader subtracts and divides, and the
+    /// band crosses the card without anything touching the uniform again.
+    pub sweep_at: f32,
+    /// One over how long that sheen takes, in seconds, or `0.0` for a card
+    /// that is not sweeping. See [`crate::sheen`].
+    pub sweep_rate: f32,
     /// The colour a card with no artwork is drawn in.
     pub tint: Vec4,
 }
@@ -450,7 +460,15 @@ impl UiCardMaterials {
         }
     }
 
-    /// The material for a look, made once.
+    /// The material for a look, made once — unless it is sweeping.
+    ///
+    /// A [`CardLook::sweep`] is the one part of a key that is over in a
+    /// second, so a sweeping look is built and handed out without being
+    /// stored: this store has no eviction at all, and one entry per card per
+    /// arrival is a leak the length of a game. Nothing is lost by it. The
+    /// handle goes to the node that asked, the shader animates from what is
+    /// baked in it, and when the card stops sweeping the next rebuild asks
+    /// for the plain look and gets the shared material back.
     pub fn get(
         &mut self,
         look: CardLook,
@@ -458,6 +476,13 @@ impl UiCardMaterials {
         tint: Color,
         assets: &mut Assets<CardUiMaterial>,
     ) -> Handle<CardUiMaterial> {
+        if look.sweep.is_some() {
+            let made = material(look, art, tint, self.motion());
+            return assets.add(CardUiMaterial {
+                art: made.art,
+                params: made.params,
+            });
+        }
         if let Some(handle) = self.made.get(&look) {
             return handle.clone();
         }
@@ -547,6 +572,12 @@ impl UiCardMaterials {
                 // foil, and a sweeping rainbow is exactly the kind of motion
                 // the preference is about.
                 motion,
+                // The picker is a shelf of cardboard a player is choosing
+                // between: nothing there has just arrived, and a sheen
+                // travelling across a row of printings would be saying
+                // something about them that is not true.
+                sweep_at: 0.0,
+                sweep_rate: 0.0,
                 tint: Vec4::ONE,
             },
         });
@@ -621,6 +652,14 @@ pub struct CardLook {
     /// The flat colour, quantised, for a card with no art. `0` when it has
     /// art — a colour is not part of the key then.
     pub tint: u32,
+    /// The one-shot sheen this card is in the middle of, if any.
+    ///
+    /// In the key because it is in the material, like the plate — but unlike
+    /// the plate it is *transient*, so a look carrying one is deliberately
+    /// **not** cached: see [`UiCardMaterials::get`]. Two cards that started
+    /// sweeping on the same frame still share a material, which is the
+    /// opening hand's whole seven.
+    pub sweep: Option<crate::sheen::Sweep>,
 }
 
 impl CardLook {
@@ -634,6 +673,7 @@ impl CardLook {
             plate: 0,
             chips: [0; 2],
             tint: 0,
+            sweep: None,
         }
     }
 
@@ -647,6 +687,7 @@ impl CardLook {
             plate: 0,
             chips: [0; 2],
             tint: quantise(color),
+            sweep: None,
         }
     }
 
@@ -660,6 +701,19 @@ impl CardLook {
         let [plate, a, b] = corner.packed();
         self.plate = plate;
         self.chips = [a, b];
+        self
+    }
+
+    /// The same look catching the light once.
+    ///
+    /// `None` is the ordinary answer and the one every card gives a second
+    /// after it arrived, which is the point of the whole mechanism: the
+    /// sheen is what marks a card out as *new*, so a card that has been on
+    /// the table for a turn must give the same key as one that has been
+    /// there for ten.
+    #[must_use]
+    pub fn with_sweep(mut self, sweep: Option<crate::sheen::Sweep>) -> Self {
+        self.sweep = sweep;
         self
     }
 
@@ -681,6 +735,7 @@ impl CardLook {
             plate: 0,
             chips: [0; 2],
             tint: 0,
+            sweep: None,
         }
     }
 
@@ -742,6 +797,16 @@ pub fn material(
             has_art,
             strength: 1.0,
             motion,
+            // A card holding still does not sweep. Not "sweeps at phase
+            // zero", which is where every other term is stopped: phase zero
+            // of this one is the band sitting off the card's bottom right
+            // corner, so the honest still frame of a one-shot travel is the
+            // travel not having happened.
+            sweep_at: look.sweep.map_or(0.0, crate::sheen::Sweep::at),
+            sweep_rate: match look.sweep {
+                Some(s) if motion > 0.0 => s.rate(),
+                _ => 0.0,
+            },
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
     }
@@ -1178,7 +1243,16 @@ pub(crate) mod tests {
     fn card_params_is_the_same_struct_in_all_three_files() {
         // The order `#[derive(ShaderType)]` writes the bytes in.
         let ours = [
-            "finish", "glow", "plate", "chips_a", "chips_b", "has_art", "strength", "motion",
+            "finish",
+            "glow",
+            "plate",
+            "chips_a",
+            "chips_b",
+            "has_art",
+            "strength",
+            "motion",
+            "sweep_at",
+            "sweep_rate",
             "tint",
         ];
         for (which, src) in [
@@ -1187,6 +1261,106 @@ pub(crate) mod tests {
         ] {
             let theirs = wgsl_fields(src, "CardParams");
             assert_eq!(theirs, ours, "{which} disagrees about `CardParams`");
+        }
+    }
+
+    /// The sheen crosses a card once, the right way, and only when a card
+    /// has been given one.
+    ///
+    /// Read out of the WGSL for the reason the sleep test is: the direction
+    /// and the one-shot-ness live in the shader, nothing in Rust can observe
+    /// them, and the fault they replace was invisible in exactly that way —
+    /// a six-second loop on every card in the hand, which a player reads as
+    /// the cards flickering at rest and which no test noticed for months.
+    #[test]
+    fn the_sheen_crosses_once_from_the_bottom_right() {
+        let common = include_str!("shaders/card_common.wgsl");
+        // `uv` is 0 at the top left and 1 at the bottom right on both axes,
+        // so this diagonal is the travel and the band is across it.
+        assert!(
+            common.contains("let along = (uv.x + uv.y) * 0.5;"),
+            "the band no longer runs along the card's diagonal"
+        );
+        // 1 → 0 as the phase advances: bottom right to top left, with a
+        // margin at each end so the band starts and finishes off the card.
+        assert!(
+            common.contains("mix(1.0 + SWEEP_MARGIN, -SWEEP_MARGIN, phase)"),
+            "the band no longer travels bottom right to top left"
+        );
+        // And it is a *shot*, not a cycle: outside its phase there is
+        // nothing there at all.
+        assert!(
+            common.contains("if phase < 0.0 || phase > 1.0 {"),
+            "the sweep is no longer bounded to one pass"
+        );
+
+        for (which, src) in [
+            ("card.wgsl", include_str!("shaders/card.wgsl")),
+            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+        ] {
+            assert!(
+                src.contains(
+                    "let travel = select(0.0, sweep_amount(uv, phase), params.sweep_rate > 0.0);"
+                ),
+                "{which} draws a sheen on cards that were given none"
+            );
+            // The metal is not the sheen. A card that is not sweeping still
+            // has a coating on it, which is what makes card stock read as
+            // card stock, and the owner asked for exactly that to stay.
+            assert!(
+                src.contains("METAL_FLOOR"),
+                "{which} lost the coating along with the animation"
+            );
+        }
+    }
+
+    /// A card shader may only call what it has asked for by name.
+    ///
+    /// `card_common.wgsl` is imported with an explicit item list, so adding a
+    /// function to it and calling it from a card shader is *two* edits and
+    /// the second one is invisible: the file parses, every test that reads
+    /// the WGSL as text passes, and the composition fails at run time with
+    /// both card shaders dead — which draws the whole board wrong on the
+    /// first frame and nowhere else. `sweep_amount` shipped that way and was
+    /// caught by reading the import line, not by anything that ran.
+    #[test]
+    fn a_card_shader_imports_every_shared_helper_it_calls() {
+        let common = include_str!("shaders/card_common.wgsl");
+        let shared: Vec<&str> = common
+            .lines()
+            .filter_map(|line| line.strip_prefix("fn "))
+            .filter_map(|rest| rest.split('(').next())
+            .collect();
+        assert!(
+            shared.contains(&"sweep_amount"),
+            "the shared file no longer defines the helpers this reads"
+        );
+
+        for (which, src) in [
+            ("card.wgsl", include_str!("shaders/card.wgsl")),
+            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+        ] {
+            let line = src
+                .lines()
+                .find(|line| line.starts_with("#import") && line.contains("card_common.wgsl"))
+                .expect("{which} no longer imports the shared file");
+            let asked = line
+                .split_once('{')
+                .and_then(|(_, rest)| rest.split_once('}'))
+                .expect("the import is no longer an item list")
+                .0;
+            let asked: Vec<&str> = asked.split(',').map(str::trim).collect();
+            // The body is everything below the imports, so an import line
+            // naming a function is not itself read as a call to it.
+            let body = src.split_once("\nfn ").map_or(src, |(_, rest)| rest);
+            for name in &shared {
+                if body.contains(&format!("{name}(")) {
+                    assert!(
+                        asked.contains(name),
+                        "{which} calls {name} without importing it"
+                    );
+                }
+            }
         }
     }
 

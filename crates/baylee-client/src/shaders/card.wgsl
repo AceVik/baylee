@@ -16,7 +16,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, plate_layer, chip_layer, corner_sdf, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -39,6 +39,11 @@ struct CardParams {
     /// The clock every animated term below runs on: 1 normally, 0 for
     /// `Preferences::reduce_motion`.
     motion: f32,
+    /// When this card's one-shot sheen began, on `globals.time`'s clock.
+    sweep_at: f32,
+    /// One over how long that sheen takes, or 0 for a card that is not
+    /// sweeping — which is almost every card almost all of the time.
+    sweep_rate: f32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -279,8 +284,20 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let half_way = normalize(to_view + lamp);
     let spec = pow(max(dot(normalize(mesh.world_normal), half_way), 0.0), METAL_POWER);
     let brushed = 1.0 - METAL_GRAIN * noise(uv * vec2<f32>(9.0, 220.0));
+    // And the one-shot sheen on top of it, for a card that has just arrived
+    // — a spell resolving on to the battlefield is the whole of what this
+    // shader ever sweeps. It is *added* rather than substituted, because the
+    // lamp's pool is what the coating is and the band is a thing that happens
+    // to it. `sweep_amount` and `sheen::Sheen` are the two halves of why.
+    //
+    // On `globals.time` and not on `t`: the start is an absolute moment, so
+    // it has to be read against the clock it was written from, and a still
+    // card is given no sweep at all rather than one on a stopped clock.
+    let phase = (globals.time - params.sweep_at) * params.sweep_rate;
+    let travel = select(0.0, sweep_amount(uv, phase), params.sweep_rate > 0.0);
     color = vec4<f32>(
-        color.rgb + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * spec) * brushed,
+        color.rgb
+            + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * (spec + travel)) * brushed,
         color.a,
     );
 

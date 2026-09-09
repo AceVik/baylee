@@ -50,6 +50,50 @@ fn corner_sdf(uv: vec2<f32>) -> f32 {
     return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - PRINTED_CORNER;
 }
 
+/// How tight the travelling highlight is, as a Gaussian falloff.
+///
+/// Paired with [`SWEEP_MARGIN`]: at the margin the band is `exp(-6.5)`, which
+/// is a thousandth of its peak, so it is genuinely off the card at both ends
+/// of the travel and needs no separate fade to keep it from popping.
+const SWEEP_WIDTH: f32 = 26.0;
+
+/// How far past the card the band starts and finishes, in diagonal units.
+const SWEEP_MARGIN: f32 = 0.5;
+
+/// The one-shot sheen: a bright band crossing the card once, from its bottom
+/// right corner to its top left.
+///
+/// # Why this replaced a loop
+///
+/// The coating used to sweep continuously on every card in the hand, in the
+/// preview and in the stack panel — a six-second cycle nothing ever stopped.
+/// Measured on a still table with nothing hovered, a 24×16 frame diff put
+/// *all* of the change in the hand bar, mean 18–30 per cell against a table
+/// at zero: the "flickering" a player sees at rest is this band, and a
+/// glamour every card wears at all times is not a glamour. So it happens
+/// once, when there is something to notice — a card drawn, a card played, a
+/// preview opened — and then the card is one of the ones you already know.
+///
+/// The metal itself is untouched: `METAL_FLOOR` is added on every frame in
+/// both shaders, which is what makes card stock read as coated rather than
+/// as paper. This is only the light travelling across it.
+///
+/// `phase` runs 0 → 1 over the sweep and is outside that range at every other
+/// moment, so a card with no sweep passes any value below zero and gets
+/// nothing. `uv.y` is 0 at the head of the card, so `(u+v)/2` is 1 at the
+/// bottom right and 0 at the top left and the band is perpendicular to that
+/// diagonal — which is the direction a card catches the light when it is
+/// turned over towards you.
+fn sweep_amount(uv: vec2<f32>, phase: f32) -> f32 {
+    if phase < 0.0 || phase > 1.0 {
+        return 0.0;
+    }
+    let along = (uv.x + uv.y) * 0.5;
+    let line = mix(1.0 + SWEEP_MARGIN, -SWEEP_MARGIN, phase);
+    let off = along - line;
+    return exp(-off * off * SWEEP_WIDTH);
+}
+
 /// How many keywords can ride the rail.
 const MARK_COUNT: u32 = 11u;
 

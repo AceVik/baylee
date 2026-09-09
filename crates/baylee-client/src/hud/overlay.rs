@@ -75,6 +75,7 @@ pub fn sync_overlay(
     prefs: Res<crate::prefs::Prefs>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
+    sheen: Res<crate::sheen::Sheen>,
     // Both come from the render plugins. A headless app has neither, and
     // every card below falls back to a plain image rather than growing a
     // second code path for it.
@@ -1008,6 +1009,7 @@ pub fn sync_overlay(
             &assets,
             &fonts,
             &faces,
+            &sheen,
             cards.as_mut(),
         );
         commands.entity(root).add_child(hand_bar);
@@ -1106,14 +1108,22 @@ pub fn sync_overlay(
                     // material, and one naming the full-size art while the
                     // handle beside it holds the stopgap would hand the same
                     // material two different textures on consecutive frames.
+                    // The sweep is the preview's own, keyed on the panel
+                    // having *opened*: the permanent may have been on the
+                    // table since turn one, and the thing that is new is the
+                    // player looking at it.
+                    let sweep = hovered.and_then(|id| sheen.of(id, crate::sheen::Surface::Preview));
                     match shown {
                         Some(shown) => CardLook::art(
                             shown,
                             finish_of(statics, Some(shown)),
                             crate::cardmat::glow_of(object, crate::cardmat::Offer::NONE),
                         )
-                        .with_corner(corner),
-                        None => CardLook::back(FinishTreatment::Plain, 0).with_corner(corner),
+                        .with_corner(corner)
+                        .with_sweep(sweep),
+                        None => CardLook::back(FinishTreatment::Plain, 0)
+                            .with_corner(corner)
+                            .with_sweep(sweep),
                     }
                 },
                 cards.as_mut(),

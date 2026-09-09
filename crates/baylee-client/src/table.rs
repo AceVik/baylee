@@ -2087,6 +2087,7 @@ pub fn sync_scene(
     mode: Res<crate::face::FaceMode>,
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
+    sheen: Res<crate::sheen::Sheen>,
     fonts: Option<Res<crate::hud::UiFonts>>,
     mut cards: Query<(
         &mut Motion,
@@ -2102,6 +2103,16 @@ pub fn sync_scene(
     };
     let blank = index.blank.clone();
     let shadow = index.shadow_quad.clone().zip(index.shadow_material.clone());
+
+    // A look carrying a sweep is a key that is asked for on every frame the
+    // band is crossing and never again, so it is cached like any other look —
+    // otherwise a card arriving would mint a material and a handle sixty
+    // times a second — and swept out here once the band is over. Without
+    // this the map would gain an entry per permanent per arrival and evict
+    // none of them.
+    index
+        .materials
+        .retain(|look, _| look.sweep.is_none_or(|s| sheen.live(s)));
 
     // The back is a picture and a picture arrives late, so the one material
     // every hidden card wears is dressed in it here rather than built with it
@@ -2201,7 +2212,9 @@ pub fn sync_scene(
             // One material per look, created on first use.
             match placement.art {
                 Some(key) => {
-                    let look = CardLook::art(key, finish, glow).with_corner(placement.corner);
+                    let look = CardLook::art(key, finish, glow)
+                        .with_corner(placement.corner)
+                        .with_sweep(sheen.of(placement.object, crate::sheen::Surface::Table));
                     if let Some(handle) = index.materials.get(&look) {
                         handle.clone()
                     } else {
