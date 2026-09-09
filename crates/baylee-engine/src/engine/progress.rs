@@ -2045,7 +2045,22 @@ impl<L: CardLookup> Engine<L> {
                 (Phase::Ending, Step::End)
             }
             (_, Step::CombatBegin) => (Phase::Combat, Step::DeclareAttackers),
-            (_, Step::DeclareAttackers) => (Phase::Combat, Step::DeclareBlockers),
+            (_, Step::DeclareAttackers) => {
+                // CR 508.8: with nothing attacking, the declare blockers and
+                // combat damage steps do not happen at all. They were being
+                // walked through anyway, which is not a step nobody notices:
+                // the blockers step asks a question, so every turn where
+                // neither seat swung stopped on "Declare blockers" with an
+                // empty board and waited for an answer to a question the
+                // rules never asked. Nothing is lost by leaving them out —
+                // there is no damage to deal and no trigger can be waiting
+                // on a step that is skipped.
+                if self.state.combat.attackers.is_empty() {
+                    (Phase::Combat, Step::CombatEnd)
+                } else {
+                    (Phase::Combat, Step::DeclareBlockers)
+                }
+            }
             (_, Step::DeclareBlockers) => {
                 // Deal combat damage on entering the damage step(s).
                 if self.any_first_or_double_striker() {

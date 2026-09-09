@@ -158,3 +158,52 @@ fn a_ground_creature_is_not_offered_against_a_flier() {
         "a 1/2 without flying or reach was offered against a flier: {blockers:?}"
     );
 }
+
+/// An empty attack asks nobody to block (CR 508.8).
+///
+/// The declare blockers and combat damage steps do not happen at all on a
+/// turn where nothing was declared as an attacker, and the engine used to
+/// walk through them both anyway. That is not an invisible extra step: the
+/// blockers step *asks a question*, so every turn where neither seat swung
+/// stopped both players on "Declare blockers" over an empty board. It was
+/// reported from the client as being asked to block on turn two with no
+/// creature anywhere.
+#[test]
+fn declaring_no_attackers_skips_the_blockers_step_entirely() {
+    let mut engine = Duel::new(21, island())
+        .battlefield(0, &[island(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    let Pending::ChooseAttackers { player, .. } = reach_attackers(&mut engine) else {
+        unreachable!()
+    };
+    engine
+        .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .unwrap();
+
+    // Walk the rest of the combat phase. Nothing here may be a question
+    // about blocks, and the phase has to end somewhere other than in one.
+    let mut steps = Vec::new();
+    for _ in 0..40 {
+        steps.push(engine.state().turn.step);
+        assert!(
+            !matches!(engine.pending(), Pending::ChooseBlockers { .. }),
+            "asked to declare blockers with nothing attacking, after {steps:?}"
+        );
+        if engine.state().turn.phase != Phase::Combat {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("unexpected: {:?} after {steps:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(
+        !steps.contains(&Step::DeclareBlockers) && !steps.contains(&Step::CombatDamage),
+        "both steps are skipped, not merely answered: {steps:?}"
+    );
+    assert!(
+        steps.contains(&Step::CombatEnd),
+        "and the phase still ends properly: {steps:?}"
+    );
+}
