@@ -1,0 +1,50 @@
+# Land cycles — the names players use for lands whose type line does not say.
+#
+# `cargo xtask codegen` reads this to place a land's file: a land named here
+# goes in `cards/lands/<cycle>/`, and one that is not falls back to what its
+# type line prints and then to `cards/lands/` itself. The map is therefore
+# ADDITIVE — a missing entry costs browsing, never correctness, and no entry
+# can misfile a card. Nothing derives it: "fetchland" is printed on no card.
+#
+# Two columns, tab-separated: <cycle>\t<printed card name>.
+# Keep each cycle together and alphabetical inside it.
+fetch	Arid Mesa
+fetch	Bloodstained Mire
+fetch	Flooded Strand
+fetch	Marsh Flats
+fetch	Misty Rainforest
+fetch	Polluted Delta
+fetch	Scalding Tarn
+fetch	Verdant Catacombs
+fetch	Windswept Heath
+fetch	Wooded Foothills
+shock	Blood Crypt
+shock	Breeding Pool
+shock	Godless Shrine
+shock	Hallowed Fountain
+shock	Overgrown Tomb
+shock	Sacred Foundry
+shock	Steam Vents
+shock	Stomping Ground
+shock	Temple Garden
+shock	Watery Grave
+triome	Indatha Triome
+triome	Jetmir's Garden
+triome	Ketria Triome
+triome	Raffine's Tower
+triome	Raugrin Triome
+triome	Savai Triome
+triome	Spara's Headquarters
+triome	Xander's Lounge
+triome	Zagoth Triome
+triome	Ziatora's Proving Ground
+pathway	Barkchannel Pathway
+pathway	Blightstep Pathway
+pathway	Branchloft Pathway
+pathway	Brightclimb Pathway
+pathway	Clearwater Pathway
+pathway	Cragcrown Pathway
+pathway	Darkbore Pathway
+pathway	Hengegate Pathway
+pathway	Needleverge Pathway
+pathway	Riverglide Pathway

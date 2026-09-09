@@ -5,8 +5,10 @@ contract in `docs/card-dsl.md` exactly. Your task per card:
 
 ## Input package (provided per card)
 
-1. The generated stub file `src/cards/<slug>.rs` (header with name, mana
-   cost, type line, oracle text, set, Scryfall + Oracle IDs).
+1. The generated stub file, whose path the task package names — `cards/` is a
+   taxonomy (`instants/mv_1/lightning_bolt.rs`), so never guess it from the
+   slug and never move the file (header with name, mana cost, type line,
+   oracle text, set, Scryfall + Oracle IDs).
 2. The forge-reference script for the card (ground truth for mechanics).
 3. One similar already-implemented exemplar card file.
 4. This playbook.

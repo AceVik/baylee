@@ -14,6 +14,7 @@ pub mod error;
 pub mod forge;
 pub mod forgegen;
 pub mod landgen;
+pub mod layout;
 pub mod ledger;
 pub mod scryfall;
 pub mod stubgen;

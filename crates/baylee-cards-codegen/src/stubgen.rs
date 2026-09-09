@@ -20,6 +20,11 @@ pub struct StubInfo {
     pub oracle_id: String,
     /// Dense `CardIndex`.
     pub index: u32,
+    /// Where the file lives under `cards/`, from [`crate::layout::path_for`]
+    /// — a location only, never a module path: `cards/mod.rs` declares every
+    /// card with `#[path = …]`, so `cards::<slug>` resolves the same wherever
+    /// the file sits.
+    pub path: String,
 }
 
 /// Filesystem-safe module slug for a card name.
@@ -415,7 +420,7 @@ fn join_union_owned(bits: &[String]) -> String {
     join_union(&refs)
 }
 
-/// Renders one stub file (`crates/baylee-cards/src/cards/<slug>.rs`).
+/// Renders one stub file, and says where under `cards/` it belongs.
 ///
 /// # Errors
 /// [`CodegenError::Mana`] when a mana cost fails validation.
@@ -424,6 +429,7 @@ pub fn render_stub(
     index: u32,
     cats: &SubtypeCatalogs,
     forge: Option<&crate::forgegen::ForgeLookup>,
+    cycles: &crate::layout::LandCycles,
 ) -> Result<(StubInfo, String), CodegenError> {
     // Multi-face cards slug by their front face ("Brightclimb Pathway // …"
     // → "brightclimb_pathway").
@@ -536,6 +542,7 @@ pub fn render_stub(
 
     Ok((
         StubInfo {
+            path: crate::layout::path_for(card, &slug, cycles),
             slug,
             oracle_id,
             index,
@@ -556,12 +563,29 @@ pub fn render_cards_mod(stubs: &[StubInfo]) -> String {
          //! reads the intercaps in \"SeeD Academy\" or \"Ashiok, Dream Render\"\n\
          //! as unbackticked code. Lint levels reach the child modules from\n\
          //! here, so this is the one place that has to say so.\n\
+         //!\n\
+         //! Every card is declared with `#[path = …]`, so the module tree is\n\
+         //! flat however deep the directory is: `cards::lightning_bolt`\n\
+         //! resolves whether the file sits in `cards/` or in\n\
+         //! `cards/instants/mv_1/`. That is what makes re-filing a card whose\n\
+         //! type line was corrected cost one `git mv` and one line here —\n\
+         //! `generated.rs` and every path in the workspace stay put.\n\
          #![allow(clippy::doc_markdown)]\n\n",
     );
-    let mut slugs: Vec<&str> = stubs.iter().map(|s| s.slug.as_str()).collect();
-    slugs.sort_unstable();
-    for s in slugs {
-        out.push_str(&format!("pub mod {s};\n"));
+    let mut rows: Vec<(&str, &str)> = stubs
+        .iter()
+        .map(|s| (s.slug.as_str(), s.path.as_str()))
+        .collect();
+    rows.sort_unstable();
+    for (slug, path) in rows {
+        // A file directly in `cards/` needs no attribute; anything nested
+        // does, and stating it only where it is load-bearing keeps the diff
+        // of a re-filed card to the one line that moved.
+        if path == format!("{slug}.rs") {
+            out.push_str(&format!("pub mod {slug};\n"));
+        } else {
+            out.push_str(&format!("#[path = \"{path}\"]\npub mod {slug};\n"));
+        }
     }
     out
 }
@@ -644,11 +668,13 @@ mod tests {
                 slug: "first".into(),
                 oracle_id: "oracle-a".into(),
                 index: 0,
+                path: "first.rs".into(),
             },
             StubInfo {
                 slug: "third".into(),
                 oracle_id: "oracle-c".into(),
                 index: 2,
+                path: "third.rs".into(),
             },
         ];
         let out = render_registry(&stubs, 3);
@@ -740,7 +766,14 @@ mod tests {
     #[test]
     fn a_stub_omits_every_field_that_matches_the_default() {
         let cats = SubtypeCatalogs::default();
-        let (_, text) = render_stub(&bare_card("Nothing", "Land"), 7, &cats, None).unwrap();
+        let (_, text) = render_stub(
+            &bare_card("Nothing", "Land"),
+            7,
+            &cats,
+            None,
+            &LandCycles::default(),
+        )
+        .unwrap();
         // The tail is the macro's job now; what matters is unchanged — a
         // stub states what is printed and nothing else.
         assert!(text.contains("card! {"));
@@ -791,7 +824,7 @@ mod tests {
         let front = back("Land", None);
 
         card.card_faces = Some(vec![front.clone(), back("Creature — Demon", None)]);
-        let (_, text) = render_stub(&card, 0, &cats, None).unwrap();
+        let (_, text) = render_stub(&card, 0, &cats, None, &LandCycles::default()).unwrap();
         assert!(text.contains("castable_from_hand: false"), "{text}");
 
         // The front face is turned over, never cast as a mode — it is what
@@ -803,12 +836,12 @@ mod tests {
             front.clone(),
             back("Creature — Demon", Some("{2}{B}")),
         ]);
-        let (_, text) = render_stub(&card, 0, &cats, None).unwrap();
+        let (_, text) = render_stub(&card, 0, &cats, None, &LandCycles::default()).unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
 
         // A land back is played, not cast; the wizard skips it on its own.
         card.card_faces = Some(vec![front, back("Land", None)]);
-        let (_, text) = render_stub(&card, 0, &cats, None).unwrap();
+        let (_, text) = render_stub(&card, 0, &cats, None, &LandCycles::default()).unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
     }
 
@@ -817,7 +850,14 @@ mod tests {
     #[test]
     fn a_stub_is_unimplemented_by_omission() {
         let cats = SubtypeCatalogs::default();
-        let (_, text) = render_stub(&bare_card("Nothing", "Land"), 0, &cats, None).unwrap();
+        let (_, text) = render_stub(
+            &bare_card("Nothing", "Land"),
+            0,
+            &cats,
+            None,
+            &LandCycles::default(),
+        )
+        .unwrap();
         assert!(!text.contains("coverage:"));
     }
 
@@ -831,7 +871,7 @@ mod tests {
         card.power = Some("2".to_string());
         card.toughness = Some("3".to_string());
         card.color_identity = Some(vec!["W".to_string()]);
-        let (_, text) = render_stub(&card, 1, &cats, None).unwrap();
+        let (_, text) = render_stub(&card, 1, &cats, None, &LandCycles::default()).unwrap();
         assert!(text.contains("mana_cost: baylee_core::mana!(\"{1}{W}\"),"));
         assert!(text.contains("power: Some(2),"));
         assert!(text.contains("toughness: Some(3),"));

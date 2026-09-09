@@ -211,7 +211,7 @@ The engine is also strictly synchronous — async lives only in `engine-server`,
 `cargo xtask codegen` writes the stub, the registry tables
 (`crates/baylee-cards/src/generated.rs`, `cards/mod.rs`) and subtype constants
 (`crates/baylee-core/src/generated/subtypes.rs`). You then edit **only**
-`coverage`, `keywords`, `abilities` in `crates/baylee-cards/src/cards/<slug>.rs`;
+`coverage`, `keywords`, `abilities` in that card's file;
 `index`, `oracle_id`, `scryfall_id` and `faces` stay as generated — except
 for the three fields a face has no printed data for in the Scryfall payload
 codegen reads: `keywords`, `color_indicator` and `castable_from_hand`, which
@@ -226,6 +226,31 @@ it. A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
 `// NOT SUPPORTED:` comment; extend the DSL rather than working around it.
 `docs/card-dsl.md` is the authoring contract, `docs/llm-learnings.md` gets
 updated after every card batch.
+
+**Where a card's file sits is codegen's to say, never yours.** `cards/` is a
+taxonomy rather than a flat list of slugs —
+`<card type>/<second type or defining subtype>/mv_<mana value>/<slug>.rs`,
+with a total order over card types picking the door (Land first, Kindred
+last), the **front face** deciding whatever the layout, and lands taking a
+semantic level from `data/land-cycles.tsv` instead of an `mv_` one because
+888 of the 1124 in the pool print no subtype at all. The rule and its reasons
+are `baylee-cards-codegen/src/layout.rs`; `docs/card-dsl.md` §"Where a card's
+file lives" is normative.
+
+Two properties are what make it safe to arrange 1365 files this way, and both
+would be easy to lose. The **file moves and the module path never does** —
+`cards/mod.rs` declares every card with `#[path = …]`, so
+`cards::lightning_bolt` resolves as it did when the directory was flat and a
+re-filed card costs one `git mv` and one generated line, leaving
+`generated.rs`, the ledger and every path in the workspace alone. And
+**placement is a reconciliation**: codegen finds each card wherever it is,
+moves what has drifted, and then fails on any `.rs` under `cards/` that no
+card claims — an orphan left behind by a move compiles, is declared by
+nothing and is read by nobody, which is exactly how an empty
+`lightning_bolt.rs` once sat in the tree unnoticed. Anything that reads card
+files goes through `card_files` in `xtask` for the same reason the rules gate
+excludes only the client: a non-recursive `read_dir` over a tree finds
+nothing and reports an empty worklist as an answer.
 
 #### Two readers write finished cards
 

@@ -1,7 +1,7 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 use baylee_cards_codegen::{
-    acceptance, catalog, forge, forgegen, landgen, ledger, scryfall, stubgen,
+    acceptance, catalog, forge, forgegen, landgen, layout, ledger, scryfall, stubgen,
 };
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet};
@@ -268,6 +268,48 @@ fn format_rust(content: &str) -> anyhow::Result<String> {
     }
 }
 
+/// Every card file under `cards/`, wherever the taxonomy has put it, keyed by
+/// slug.
+///
+/// The slug is the file stem and the module name both, so two files claiming
+/// one slug is not a layout question but a broken tree — `cards/mod.rs` could
+/// only declare one of them, and which one would depend on directory order.
+/// `mod.rs` itself is the tree's own bookkeeping and is skipped at every
+/// level.
+fn card_files(dir: &Path) -> anyhow::Result<BTreeMap<String, PathBuf>> {
+    let mut out = BTreeMap::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(here) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&here) else {
+            continue;
+        };
+        for entry in entries {
+            let path = entry?.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path.extension().is_none_or(|e| e != "rs") {
+                continue;
+            }
+            let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            if stem == "mod" {
+                continue;
+            }
+            if let Some(first) = out.insert(stem.to_string(), path.clone()) {
+                anyhow::bail!(
+                    "two files claim the slug {stem}: {} and {}",
+                    first.display(),
+                    path.display()
+                );
+            }
+        }
+    }
+    Ok(out)
+}
+
 fn write_or_check(
     check: bool,
     path: &Path,
@@ -327,15 +369,52 @@ fn cards(
     let mut ledger =
         ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?;
     let before = ledger.entries().len();
+    // The taxonomy `cards/` is arranged by is computed per card
+    // (`layout::path_for`), so a card's file can be somewhere else than where
+    // it belongs — after a type-line correction, or on the run that
+    // introduced the layout. Placement is therefore a reconciliation, not a
+    // write: find every card file first, move the misplaced ones, and only
+    // then decide what to write.
+    let cards_dir = root.join("crates/baylee-cards/src/cards");
+    let cycles = layout::LandCycles::parse(
+        &fs::read_to_string(root.join("data/land-cycles.tsv")).unwrap_or_default(),
+    );
+    let mut found = card_files(&cards_dir)?;
+
     let mut stubs = Vec::with_capacity(names.len());
     for name in &names {
         let card = scryfall::fetch_named(name, agent, cache)?;
         let oracle_id = card.oracle_id.clone().unwrap_or_default();
         let index = ledger.assign(&oracle_id, &card.name);
-        let (info, content) = stubgen::render_stub(&card, index, cats, forge)?;
-        let stub_path = root.join(format!("crates/baylee-cards/src/cards/{}.rs", info.slug));
+        let (info, content) = stubgen::render_stub(&card, index, cats, forge, &cycles)?;
+        let stub_path = cards_dir.join(&info.path);
+        // A card that already exists somewhere else is *moved*, never
+        // rewritten at the new path and left behind at the old one — an
+        // orphan there would still compile, be declared by nothing, and be
+        // read by nobody.
+        if let Some(current) = found.remove(&info.slug)
+            && current != stub_path
+        {
+            if check {
+                changed.push(current.clone());
+            } else {
+                if let Some(parent) = stub_path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::rename(&current, &stub_path)?;
+                println!(
+                    "moved {} -> {}",
+                    current
+                        .strip_prefix(&cards_dir)
+                        .unwrap_or(&current)
+                        .display(),
+                    info.path
+                );
+            }
+        }
         // Implemented cards are hand-owned: only touch files that are
-        // missing or still carry the GENERATED STUB marker.
+        // missing or still carry the GENERATED STUB marker. Moving one is
+        // not touching it — where a file sits is codegen's to say.
         let implemented = fs::read_to_string(&stub_path)
             .is_ok_and(|existing| !existing.contains("// GENERATED STUB"));
         if implemented {
@@ -347,6 +426,26 @@ fn cards(
         }
         write_or_check(check, &stub_path, &content, changed)?;
         stubs.push(info);
+    }
+
+    // Whatever is left in `found` is a file no card in the registry claims.
+    // It compiles, `cargo test` is green, and nothing reads it — which is
+    // exactly how an empty `lightning_bolt.rs` sat in the tree unnoticed.
+    if !found.is_empty() {
+        let orphans: Vec<String> = found
+            .values()
+            .map(|p| {
+                p.strip_prefix(&cards_dir)
+                    .unwrap_or(p)
+                    .display()
+                    .to_string()
+            })
+            .collect();
+        anyhow::bail!(
+            "{} card file(s) under cards/ that no card claims: {}",
+            orphans.len(),
+            orphans.join(", ")
+        );
     }
     write_or_check(
         check,
@@ -486,23 +585,25 @@ fn card_batch(
     let forge_index: BTreeMap<String, String> = serde_json::from_str(
         &fs::read_to_string(root.join("data/forge_index.json")).unwrap_or_default(),
     )?;
+    // One walk of the tree rather than one per card: `cards/` is a taxonomy
+    // now, and a card is found by its slug wherever it has been filed.
+    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
     let wanted: Vec<String> = if let Some(list) = cards {
         list.split(',').map(|s| s.trim().to_string()).collect()
     } else {
         names
             .iter()
             .filter(|name| {
-                let path = root.join(format!(
-                    "crates/baylee-cards/src/cards/{}.rs",
-                    front_face_slug(name)
-                ));
+                let Some(path) = files.get(&front_face_slug(name)) else {
+                    return false;
+                };
                 // `// GENERATED STUB` and not `Coverage::Unimplemented`. A
                 // stub does not write that line at all — `CardDef::DEFAULT`
                 // is already `Unimplemented`, and restating a default is the
                 // one thing the card DSL forbids outright. Filtering on it
                 // matched nothing in the whole pool, so this command's
                 // default selection silently prepared zero packages.
-                fs::read_to_string(&path).is_ok_and(|c| c.contains("// GENERATED STUB"))
+                fs::read_to_string(path).is_ok_and(|c| c.contains("// GENERATED STUB"))
             })
             .cloned()
             .collect()
@@ -517,9 +618,18 @@ fn card_batch(
         let dir = out.join(&slug);
         fs::create_dir_all(&dir)?;
         // 1. Current stub.
-        let stub_path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
-        let stub = fs::read_to_string(&stub_path)?;
+        let stub_path = files
+            .get(&slug)
+            .ok_or_else(|| anyhow::anyhow!("no card file for {slug}"))?;
+        let stub = fs::read_to_string(stub_path)?;
         fs::write(dir.join("STUB.rs"), &stub)?;
+        // The package tells its reader which file to edit, so it has to name
+        // the real one: a slug says nothing about where the taxonomy put it.
+        let rel = stub_path
+            .strip_prefix(root)
+            .unwrap_or(stub_path)
+            .display()
+            .to_string();
         // 2. Forge script (ground truth).
         let mut has_forge = false;
         if let Some(rel) = forge_index.get(name) {
@@ -538,14 +648,13 @@ fn card_batch(
         // 4. Exemplar by type.
         let type_line = card.type_line.as_deref().unwrap_or("");
         let exemplar = exemplar_for(type_line);
-        let exemplar_path = root.join(format!("crates/baylee-cards/src/cards/{exemplar}.rs"));
-        if exemplar_path.exists() {
+        if let Some(exemplar_path) = files.get(exemplar) {
             fs::write(dir.join("EXEMPLAR.rs"), fs::read_to_string(exemplar_path)?)?;
         }
         // 5. Prompt.
         fs::write(
             dir.join("PROMPT.md"),
-            card_prompt(name, &slug, &dir, has_forge),
+            card_prompt(name, &rel, &dir, has_forge),
         )?;
     }
     Ok(())
@@ -557,10 +666,10 @@ fn card_batch(
 /// tools and reads the package itself), not for one being handed pasted
 /// text: `SCRYFALL.json` alone would dominate the budget, and most of it is
 /// printing metadata the card does not care about.
-fn card_prompt(name: &str, slug: &str, package: &Path, has_forge: bool) -> String {
+fn card_prompt(name: &str, file: &str, package: &Path, has_forge: bool) -> String {
     let prompt = format!(
         "# Implement `{name}` in this repository\n\n\
-         Edit exactly one file: `crates/baylee-cards/src/cards/{slug}.rs`.\n\
+         Edit exactly one file: `{file}`.\n\
          Touch nothing else — not `src/generated.rs`, not `src/cards/mod.rs`,\n\
          not another card, not the DSL.\n\n\
          Read first, in this order:\n\
@@ -593,7 +702,7 @@ fn card_prompt(name: &str, slug: &str, package: &Path, has_forge: bool) -> Strin
             fails, so running any of that here buys nothing and costs more\n\
             time than writing the card does.\n\n\
          Refusing is a correct outcome, not a failure. If any clause is\n\
-         inexpressible, revert your edits to `{slug}.rs` so it stays the\n\
+         inexpressible, revert your edits to that file so it stays the\n\
          generated stub, and report `status: \"refused\"`.\n\n\
          When you report a refusal, `cannot_say` must name **what the DSL\n\
          cannot express**, not which mechanic you think is missing, and\n\
@@ -664,13 +773,15 @@ fn land_report(
     // write these", and counting them would throw that away.
     let mut not_a_land: Vec<String> = Vec::new();
     let mut shapes: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
     for name in &names {
-        let path = root.join(format!(
-            "crates/baylee-cards/src/cards/{}.rs",
-            front_face_slug(name)
-        ));
-        // A finished card is nobody's worklist, whoever finished it.
-        if !fs::read_to_string(&path).is_ok_and(|c| c.contains("// GENERATED STUB")) {
+        // A finished card is nobody's worklist, whoever finished it — and a
+        // card with no file at all is not one either.
+        let is_stub = files
+            .get(&front_face_slug(name))
+            .and_then(|p| fs::read_to_string(p).ok())
+            .is_some_and(|c| c.contains("// GENERATED STUB"));
+        if !is_stub {
             continue;
         }
         let card = scryfall::fetch_named(name, &agent, &cache)?;
@@ -982,10 +1093,13 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     let names = acceptance::all_names(&rows, &pool_text);
     let mut problems = 0usize;
     let mut stubs = 0usize;
+    // `validate` reads every card's header off disk, so it has to find the
+    // files the taxonomy filed rather than the ones a flat directory used to
+    // hold. A walk that found nothing would report a clean pool.
+    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
     for name in &names {
         let slug = front_face_slug(name);
-        let path = root.join(format!("crates/baylee-cards/src/cards/{slug}.rs"));
-        let Ok(content) = fs::read_to_string(&path) else {
+        let Some(content) = files.get(&slug).and_then(|p| fs::read_to_string(p).ok()) else {
             println!("MISSING FILE: {slug}");
             problems += 1;
             continue;
@@ -1579,18 +1693,18 @@ fn coverage_set(root: &Path, forge_dir: &Path, count: usize, max_new: usize) -> 
 /// nobody can do.
 fn stub_names(cards_dir: &Path) -> anyhow::Result<BTreeSet<String>> {
     let mut out = BTreeSet::new();
-    for entry in fs::read_dir(cards_dir)? {
-        let path = entry?.path();
-        if path.extension().is_some_and(|e| e == "rs") {
-            let text = fs::read_to_string(&path)?;
-            if !text.contains("// GENERATED STUB") {
-                continue;
-            }
-            // The header's first line is `//! <name> — <cost> — <types>`.
-            if let Some(head) = text.lines().next().and_then(|l| l.strip_prefix("//! ")) {
-                let name = head.split(" \u{2014} ").next().unwrap_or(head).trim();
-                out.insert(name.to_string());
-            }
+    // Through `card_files` and never `read_dir`: `cards/` is a tree now, and
+    // a non-recursive walk over it would find nothing at all and report an
+    // empty worklist as an answer rather than as a failure.
+    for path in card_files(cards_dir)?.values() {
+        let text = fs::read_to_string(path)?;
+        if !text.contains("// GENERATED STUB") {
+            continue;
+        }
+        // The header's first line is `//! <name> — <cost> — <types>`.
+        if let Some(head) = text.lines().next().and_then(|l| l.strip_prefix("//! ")) {
+            let name = head.split(" \u{2014} ").next().unwrap_or(head).trim();
+            out.insert(name.to_string());
         }
     }
     Ok(out)

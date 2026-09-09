@@ -7,8 +7,11 @@ Never hack around the DSL; extend the DSL instead (in a new milestone).
 
 ## File standard (one file per card)
 
-Location: `crates/baylee-cards/src/cards/<slug>.rs`. Header is mandatory and
-must be kept truthful (it's the human-verification surface):
+Location: under `crates/baylee-cards/src/cards/`, in the branch the card's own
+type line puts it in — `instants/mv_1/lightning_bolt.rs`. The next section is
+the whole rule; `cargo xtask codegen` computes it, so never place or move a
+card file by hand. Header is mandatory and must be kept truthful (it's the
+human-verification surface):
 
 ```rust
 //! Lightning Bolt — {R} — Instant
@@ -39,8 +42,71 @@ Rules:
    what the card prints — see *Only state what the card prints* below.
 3. Declare layers + durations explicitly for continuous effects. The engine
    deregisters effects structurally — never hand-roll removal.
-4. Every card ships with `#[cfg(test)] mod tests` (resolution, targeting,
-   edge cases, one interaction test per non-trivial mechanic).
+4. Card behaviour is tested in `crates/baylee-engine/src/engine/*_tests.rs`,
+   where a card can be *played*. A card file carries no `#[cfg(test)]` module
+   and none in the pool has ever had one — a test beside a `CardDef` literal
+   can only re-read the literal.
+
+## Where a card's file lives
+
+`cards/` is a taxonomy a person can browse, not a flat list of slugs, and
+every part of it is computed from what the card prints:
+
+```text
+<card type>/<second type or defining subtype>/mv_<mana value>/<slug>.rs
+```
+
+```text
+creatures/artifacts/mv_2/baleful_strix.rs      Artifact Creature, {U}{B}
+creatures/mv_2/orcish_bowmasters.rs            a tribe is not a kind of card
+artifacts/equipment/mv_2/dowsing_dagger.rs     no second type, so the subtype
+enchantments/sagas/mv_3/welcome_to.rs
+instants/kindred/mv_3/crib_swap.rs             Kindred Instant
+sorceries/mv_2/curse_of_the_swine.rs           {X}{U}{U} — X counts 0
+planeswalkers/mv_4/jace_the_mind_sculptor.rs
+lands/fetch/arid_mesa.rs                       from data/land-cycles.tsv
+lands/dual/taiga.rs                            two basic land types
+lands/enchantments/urza_s_saga.rs              Enchantment Land
+lands/wasteland.rs                             nothing to say about it yet
+```
+
+Four rules, all of them in `baylee-cards-codegen/src/layout.rs`:
+
+- **One card, one home.** A total order over card types picks the door —
+  Land > Planeswalker > Creature > Artifact > Enchantment > Battle > Instant
+  > Sorcery > Kindred — and the next type the card has is the room inside, so
+  an Artifact Creature is a creature that happens to be an artifact and is
+  never in two places. Land leads because a land prints no mana cost, which
+  keeps every mana-less card in the one branch that has no `mv_` level;
+  Kindred trails so Crib Swap is an instant. CR 205.1a lists the types and
+  states no order — this one is ours.
+- **The front face decides**, whatever the layout. A transforming back is not
+  a card anyone holds and a modal back is the same card from the other side
+  (CR 712.2), so filing by either would give Westvale Abbey two homes.
+- **A `mv_` level ends every branch but lands**, `{X}` counting 0 (CR 202.3).
+- **Lands take a semantic level instead**, because a land's type line says
+  almost nothing — 888 of the 1124 in the pool print no subtype at all.
+  `data/land-cycles.tsv` names what players name (fetch, shock, triome,
+  pathway); it is **additive**, so a land missing from it falls back to its
+  printed subtype and then to `lands/` itself, and no entry can ever misfile
+  a card. Add to it freely; nothing derives it, because "fetchland" is
+  printed nowhere.
+
+Two things keep the tree honest, and both are `codegen`'s:
+
+- **The file moves; the module path never does.** `cards/mod.rs` declares
+  every card with `#[path = …]`, so `cards::lightning_bolt` resolves exactly
+  as it did when the directory was flat. `generated.rs`, the ledger and every
+  path in the workspace are untouched by a re-filing, which costs one
+  `git mv` and one generated line.
+- **Placement is a reconciliation, not a write.** `codegen` finds every card
+  file wherever it is, moves the misplaced ones, and then **fails on any
+  `.rs` under `cards/` that no card in the registry claims**. An orphan left
+  behind by a move would still compile, be declared by nothing and be read by
+  nobody — which is exactly how an empty `lightning_bolt.rs` sat in the tree
+  unnoticed. Two files claiming one slug fails for the same reason: `mod.rs`
+  could only declare one of them, and which one would depend on directory
+  order.
 
 ## Only state what the card prints
 
