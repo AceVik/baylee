@@ -236,6 +236,38 @@ mod preview {
     }
 }
 
+/// A seat tab fills its strip exactly, so nothing may be stacked into it.
+mod seat_tab {
+    /// `hand::TAB_H` is 56 and a tab comes to 44 of it — two borders, eight
+    /// of padding and two line boxes of 16.8 and 13.2 with 2 between them —
+    /// which leaves the strip's own 6 above and below and **no slack at
+    /// all**. So a third line in the tab's stacked column does not make a
+    /// taller tab in a taller strip: the strip's height is stated, the phase
+    /// rail is pinned under it and the camera frames the table against both.
+    ///
+    /// That is not hypothetical. The commander-damage track (CR 903.10a) was
+    /// a third line, and it appears only once a commander has connected — so
+    /// nothing in a normal game showed it. Forced on and measured, the tab
+    /// stood 58.5 tall: its top border cut off by the window's edge, its
+    /// bottom border drawn over the phase rail. It sits beside the life
+    /// total now, where it costs width instead.
+    ///
+    /// Anything else conditional belongs on that row too, or beside the
+    /// counts. This counts the calls rather than reading the layout, because
+    /// the layout exists only inside a running renderer — the same shape as
+    /// the shader tests, and the reason this file reads source at all.
+    #[test]
+    fn nothing_new_is_stacked_into_a_seat_tab() {
+        let overlay = include_str!("overlay.rs");
+        let stacked = overlay.matches("entity(lines).add_child(").count();
+        assert_eq!(
+            stacked, 2,
+            "a seat tab's column carries the name row and the counts row and \
+             has room for neither a third nor one fewer — see `hand::TAB_H`"
+        );
+    }
+}
+
 /// The redraw gate has to read every field it carries.
 mod revision {
     /// A field of [`HudRevision`](crate::hud::HudRevision) that is compared

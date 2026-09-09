@@ -1326,10 +1326,73 @@ The other half of "pickable" is what a button is made of. A `Text` is a
 it, and `PickingInteraction` stops at the letters: the button lit up under
 the pointer in its padding and went dead across the middle. Every label
 inside a control is `Pickable::IGNORE` — the lobby's `button` and `chip`
-always did it, the phase rail and the prompt slip did not. It is worth
+always did it, the phase rail and the prompt slip did not, and the seat tabs,
+the menu buttons, the armed row and both choosers were caught by the same
+sweep a milestone later. It is worth
 measuring rather than reading, because the symptom is indistinguishable from
 an animation that was never wired: the diff over the word was 0/0/0 and the
 diff over the same button's padding was 155/156/148.
+
+## The overlay lines up with itself
+
+Every panel that floats over the table now measures from the same two
+numbers, `hud::EDGE` and `hud::ABOVE_HAND`. Before them the tab bar held its
+tabs 8 from the window's edge, the phase rail under it held its steps 10, and
+the mana chip and the prompt slip stood 12 — three left edges down one side
+of one screen. Vertically the chip cleared the hand bar by 10 and the slip
+beside it by 12. Each was defensible on its own and wrong beside the others:
+the eye reads a shared margin as a decision and four near-misses as an
+accident.
+
+Three of the pass's findings are worth keeping, because each is a shape that
+recurs rather than a pixel that was off.
+
+**A state-dependent border moves the row it is in.** `bevy_ui` adds a border
+to an auto-sized node's box, so the seat tab's rim — one pixel at rest, two
+when active or focused — made the tab whose turn it was two pixels taller and
+wider than its neighbours, and the whole strip shifted sideways as the turn
+passed. The rim is two pixels always and says what it has to say in *colour*:
+`ACTIVE` for the turn, the seat's own identity colour for the focus, that
+same colour at 40% alpha at rest. The priority caret is the same rule from
+the other side — it is drawn whatever happens and merely goes `Color::NONE`,
+because a marker that appeared and vanished shoved every seat beside it. It
+stands in its own column rather than inline, which is what lets the tab's two
+lines share a left edge; inline, the caret indented the name by its own
+advance and left the counts hanging seventeen pixels to its left.
+
+**The strip has to state its own height.** The tab bar was auto-sized, so a
+tab that grew simply grew *under* the phase rail: measured on the running
+client, the active tab's gold bottom border read (72, 55, 31) where its top
+read (214, 163, 79) — the same gold seen through 88% black. `hand::TAB_H`
+states it now, and the number has **no slack in it**: a tab is 2 + 2 of
+border, 4 + 4 of padding and two line boxes of 16.8 and 13.2 with 2 between
+them, which is 44, and the strip's own 6 above and below make exactly 56.
+Confirmed on screen — the tab's top border is drawn at logical y 6 and the
+bottom of its bottom border at 50.
+
+That exactness is the point, and it has a consequence worth stating on its
+own: **a third line in a seat tab does not fit, and does not fail loudly
+either.** The commander-damage track (CR 903.10a) was one, and it appears
+only once a commander has connected — so no ordinary game showed it. Forced
+on and measured, the tab stood 58.5 tall, its top border cut off by the
+window's edge and its bottom border drawn over the phase rail. It sits beside
+the life total now, on the same row, where it costs width instead: which is
+also where a *second life total* belongs. `nothing_new_is_stacked_into_a_
+seat_tab` counts the calls that stack a row into a tab and expects two,
+because the layout that would prove it exists only inside a running renderer.
+
+**`Feel` owns `BackgroundColor` every frame, so a fill it does not know about
+is a fill that lasts one frame.** That is why the answer chooser's brass
+highlight belongs in `HudRevision`: `chosen_index` was the one input the
+revision never compared, so the highlight followed the pointer (which rebuilds
+the tree) and not the keyboard (which does not). `every_field_of_the_revision_
+is_both_compared_and_assigned` reads the struct's field names out of
+`hud.rs` and checks each against both halves of `overlay.rs`, so the next
+field added cannot be forgotten the same way.
+
+The fill under a control that is *off* is `palette::SLIP_GHOST` and never
+`Color::NONE`, which is not "no fill" on a node carrying a drop shadow — it
+is a hole with the shadow visible through it.
 
 ## The prompt slip is a sheet, and a sheet is a child
 

@@ -1677,8 +1677,13 @@ pub(super) fn spawn_player_tab(
         .spawn((
             PlayerTab { player },
             Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: px(2),
+                // A row, because the caret is a *marker* and stands in its
+                // own column: inline it indented the name by its own advance
+                // and left the counts under it hanging to its left, so the
+                // two lines of one tab did not share an edge.
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(4),
                 // Four and not five: the tab plus the bar's own padding is
                 // `TAB_H`, and the bar states that height now.
                 padding: UiRect::axes(px(10), px(4)),
@@ -1691,13 +1696,13 @@ pub(super) fn spawn_player_tab(
             Feel::new(background),
             soft_shadow(),
             children![(
-                // The priority marker, then the name, then life behind a
-                // heart. The marker is always drawn and merely goes
-                // invisible, because it is inline in the same line as the
-                // name: a caret that appeared and vanished changed the tab's
-                // width and shoved the seat beside it sideways every time
-                // priority moved.
-                Text::new("\u{25b6} "),
+                // The priority marker. It is always drawn and merely goes
+                // invisible, because a caret that appeared and vanished
+                // changed the tab's width and shoved the seat beside it
+                // sideways every time priority moved. In its own column that
+                // costs nothing: the marker holds the width whatever colour
+                // it is wearing.
+                Text::new("\u{25b6}"),
                 tf(fonts, 14.0),
                 TextColor(if !has_priority {
                     Color::NONE
@@ -1707,36 +1712,76 @@ pub(super) fn spawn_player_tab(
                     ink
                 }),
                 Pickable::IGNORE,
-                children![
-                    (
-                        TextSpan::new(format!("{display} ")),
-                        tf(fonts, 14.0),
-                        TextColor(if seat.has_lost { palette::DEAD } else { ink }),
-                    ),
-                    (
-                        TextSpan::new(glyph::HEART.to_string()),
-                        icon_tf(fonts, 11.0),
-                        TextColor(if seat.life <= 5 {
-                            palette::DANGER
-                        } else {
-                            palette::ACCENT
-                        }),
-                    ),
-                    (
-                        TextSpan::new(format!(" {}", seat.life)),
-                        tf(fonts, 14.0),
-                        TextColor(if seat.has_lost {
-                            palette::DEAD
-                        } else if seat.life <= 5 {
-                            palette::DANGER
-                        } else {
-                            ink
-                        }),
-                    ),
-                ],
             ),],
         ))
         .id();
+
+    // Everything the marker points at, stacked: the name with life behind a
+    // heart, the zone counts, and the commander track when there is one.
+    let lines = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(tab).add_child(lines);
+
+    // The first line is a row and not just the text, because the *second*
+    // life total (CR 903.10a) hangs off the end of it. It cannot go under the
+    // counts: the tab fills `TAB_H` exactly, so a third line grew the tab out
+    // of the strip both ways — measured with the track forced on, the tab
+    // stood 58.5 tall, its top border cut off by the window's edge and its
+    // bottom border drawn over the phase rail. Beside the life total it costs
+    // width, which the strip has, and it is where a second life total belongs
+    // anyway.
+    let head = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(6),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(lines).add_child(head);
+
+    let name_line = commands
+        .spawn((
+            Text::new(format!("{display} ")),
+            tf(fonts, 14.0),
+            TextColor(if seat.has_lost { palette::DEAD } else { ink }),
+            Pickable::IGNORE,
+            children![
+                (
+                    TextSpan::new(glyph::HEART.to_string()),
+                    icon_tf(fonts, 11.0),
+                    TextColor(if seat.life <= 5 {
+                        palette::DANGER
+                    } else {
+                        palette::ACCENT
+                    }),
+                ),
+                (
+                    TextSpan::new(format!(" {}", seat.life)),
+                    tf(fonts, 14.0),
+                    TextColor(if seat.has_lost {
+                        palette::DEAD
+                    } else if seat.life <= 5 {
+                        palette::DANGER
+                    } else {
+                        ink
+                    }),
+                ),
+            ],
+        ))
+        .id();
+    commands.entity(head).add_child(name_line);
 
     // Zone counts as icon + number pairs, with experience counters
     // (poison, energy) appearing only when a player actually has them.
@@ -1750,7 +1795,7 @@ pub(super) fn spawn_player_tab(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(tab).add_child(counts);
+    commands.entity(lines).add_child(counts);
     let mut span = |icon: char, value: String| {
         let icon_span = commands
             .spawn((
@@ -1809,7 +1854,7 @@ pub(super) fn spawn_player_tab(
                 )],
             ))
             .id();
-        commands.entity(tab).add_child(row);
+        commands.entity(head).add_child(row);
 
         // Fixed width, and the same width in every seat's tab: the eye learns
         // what full looks like once, and then reads every other seat against

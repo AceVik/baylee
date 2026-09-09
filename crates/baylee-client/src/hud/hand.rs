@@ -428,10 +428,17 @@ pub const OVERLAY_CARD_H: f32 = OVERLAY_CARD_W * 88.0 / 63.0;
 /// to the 58 its contents wanted, and the rail was drawn over its last ten
 /// pixels. Measured on the running client, the active tab's gold bottom
 /// border read (72, 55, 31) where its top read (214, 163, 79) — the same gold
-/// under 88% black. The bar states this height now, so a tab that outgrows it
-/// clips visibly instead of hiding under the strip below.
+/// under 88% black. With the height stated they agree: (203, 154, 74) against
+/// (214, 163, 79), the difference being the tab's own drop shadow.
 ///
-/// 6 (bar) + 2 (border) + 4 (tab) + 16.8 + 2 + 13.2 (two lines) + 4 + 2 + 6.
+/// There is **no slack in it**: 2 + 2 of border, 4 + 4 of padding, and two
+/// line boxes of 16.8 and 13.2 with 2 between them come to 44, and the bar's
+/// own 6 above and below make exactly 56. Confirmed on screen — the tab's
+/// top border is drawn at logical y 6 and the bottom of its bottom border at
+/// 50. So a tab that grows a pixel overflows this strip by a pixel: the bar
+/// does not clip (that would take the bottom off every tab's shadow), and it
+/// went back under the rail as quietly as it did the first time. Grow this
+/// with whatever grew in there.
 pub const TAB_H: f32 = 56.0;
 /// The hand bar's height, including its padding.
 pub const HAND_BAR_H: f32 = HAND_CARD_H + 20.0;

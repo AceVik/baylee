@@ -1288,3 +1288,72 @@ about the table itself rather than the rules, and both are fixed.
     `ClientSettings::save` is a no-op under `cfg(test)` now — the in-memory
     write is what a test has business asserting, and the encoding is proved by
     `settings_round_trip_through_json` without touching a file.
+
+56. **"Gehe noch Mal über die UI und schau, dass sie gleichmäßig und
+    ordentlich aussieht."** *Done. Four defects, and every one of them was
+    something the eye reads before it reads any single panel.*
+
+    *Four left edges down one side of one screen.* The tab bar held its tabs
+    8 logical pixels from the window's edge, the phase rail under it held its
+    steps 10, and the mana chip and the prompt slip stood 12. Vertically the
+    chip cleared the hand bar by 10 and the slip beside it by 12. Each was
+    defensible alone; together they read as carelessness, because a shared
+    margin is a decision and four near-misses are an accident. `hud::EDGE`
+    and `hud::ABOVE_HAND` are the two numbers now, and every one of those
+    panels measures from them.
+
+    *A state-dependent border moved the row it was in.* `bevy_ui` **adds** a
+    border to an auto-sized node's box, so the seat tab's rim — one pixel at
+    rest, two when active or focused — made the tab whose turn it was two
+    pixels taller and wider than its neighbours, and the whole strip shifted
+    sideways every time the turn passed. The rim is two pixels always and
+    says what it has to say in colour: `ACTIVE` for the turn, the seat's own
+    identity colour for the focus, that colour at 40% alpha at rest. Which
+    also gave `is_focused` a channel of its own — it had been carried by that
+    width and by nothing else.
+
+    *The tab bar did not state its height, so a tab that grew grew under the
+    rail.* Measured on the running client: the active tab's gold bottom
+    border read (72, 55, 31) where its top read (214, 163, 79), the same gold
+    seen through the rail's 88% black. `hand::TAB_H` states it now — 56, with
+    no slack in it: 2 + 2 of border, 4 + 4 of padding and two line boxes of
+    16.8 and 13.2 with 2 between them come to 44, and the strip's own 6 above
+    and below make exactly 56. After: (203, 154, 74) against (214, 163, 79),
+    the difference being the tab's own shadow.
+
+    *Which the pass then walked straight into.* Fixing the caret's column
+    meant reading the tab's height off the screen, and the arithmetic that
+    reproduced it said there was no room in the strip at all — so anything
+    that adds a **third** line to a tab overflows it silently. Exactly one
+    thing does: the commander-damage track (CR 903.10a), which is drawn only
+    once a commander has connected, so no ordinary game shows it. Forced on
+    and measured: the tab stood 58.5 tall, its top border cut off by the
+    window's edge and its bottom border drawn over the phase rail. It sits
+    beside the life total now, where it costs width — which the strip has —
+    and where a second life total belongs anyway.
+    `nothing_new_is_stacked_into_a_seat_tab` counts the calls that stack a
+    row into a tab and expects two; the layout that would prove it directly
+    exists only inside a running renderer.
+
+    *And the one the pass was not looking for.* `HudRevision` never compared
+    `chosen_index`, so the answer chooser's brass highlight followed the
+    pointer — which rebuilds the tree — and not the keyboard, which does not.
+    It is a field now, and `every_field_of_the_revision_is_both_compared_and_
+    assigned` reads `HudRevision`'s field names out of `hud.rs` and checks
+    each against both halves of `overlay.rs`, so the next field cannot be
+    forgotten the same way.
+
+    *Two smaller rules that came out of it.* `Feel` owns `BackgroundColor`
+    from `base` every frame, so a fill it does not know about survives one
+    frame — every control that changes fill with state needs that state in
+    the revision. And the fill under a control that is *off* is
+    `palette::SLIP_GHOST`, never `Color::NONE`: on a node carrying a drop
+    shadow that is not "no fill" but a hole with the shadow showing through.
+
+    *The trade taken knowingly.* The priority caret is drawn whatever
+    happens and merely goes `Color::NONE`, because a caret that appeared and
+    vanished shoved every seat beside it. Inline that indented the name by
+    the caret's own advance and left the counts under it hanging seventeen
+    pixels to its left — two lines of one tab that no longer shared an edge.
+    It stands in its own column now, which costs nothing vertically (the
+    marker is shorter than the stack beside it) and fixes the edge.
