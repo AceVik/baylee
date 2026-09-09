@@ -1864,3 +1864,491 @@ fn teferis_minus_three_draws_with_nothing_to_bounce() {
         "the card is drawn whether or not anything was returned"
     );
 }
+
+fn swiftfoot_boots() -> baylee_core::ids::CardIndex {
+    card_index("c8b143ad-43ec-4e0d-a440-e348daa31391")
+}
+
+/// Swiftfoot Boots ("Equipped creature has **hexproof** and haste") against
+/// the opponent's Vindicate.
+///
+/// The Boots are Lightning Greaves' shape with the other keyword in it, and
+/// the pair is why the engine keeps two bits rather than one: shroud refuses
+/// everybody, hexproof refuses opponents (CR 702.11b). Both grants arrive
+/// through an *attachment*, which is the part a static filter can get wrong
+/// in a way the Position's own tests could never see — `AttachedToBySource`
+/// reaching every creature you control reads exactly like a working Equipment
+/// while one creature is wearing it. The unequipped mage beside it is the
+/// bystander that says otherwise.
+#[test]
+fn the_boots_hide_the_creature_they_are_on_from_the_other_seat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(97, forest())
+        .battlefield(
+            0,
+            &[
+                swiftfoot_boots(),
+                llanowar_elves(),
+                snapcaster_mage(),
+                forest(),
+            ],
+        )
+        .battlefield(1, &[ondu_cleric(), plains(), swamp(), forest()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let boots = on_battlefield(&engine, p0, swiftfoot_boots()).expect("the Boots");
+    let equipped = on_battlefield(&engine, p0, llanowar_elves()).expect("your elves");
+    let bystander = on_battlefield(&engine, p0, snapcaster_mage()).expect("your mage");
+
+    // Equip is {1} here rather than the Greaves' {0}, so the mana has to be
+    // floating before the ability is offered at all.
+    tap_mana_except(&mut engine, p0, boots);
+    let equip = offered_ability(&engine, boots).expect("equip {1} is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: boots,
+                ability_index: equip,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![equipped],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().object(equipped).is_some_and(|o| {
+            o.characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::HEXPROOF)
+        })
+    });
+    assert!(
+        engine.state().object(equipped).is_some_and(|o| o
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::HASTE)),
+        "the Boots grant both halves of their sentence"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, vindicate());
+    let options = target_options(&engine);
+    assert!(
+        !options.contains(&equipped),
+        "hexproof is a refusal to the seat across the table: {options:?}"
+    );
+    assert!(
+        options.contains(&bystander),
+        "and it stops at the creature the Boots are on: {options:?}"
+    );
+    assert!(
+        options.contains(&boots),
+        "the Equipment grants to what it is attached to, never to itself: \
+         {options:?}"
+    );
+}
+
+/// The same Boots, the same creature, and the seat that put them there.
+///
+/// This is the half that tells the two keywords apart, and the one a
+/// Greaves-shaped copy-paste would take away: a creature its own controller
+/// could no longer target is a creature that can never be equipped again,
+/// auraed or pumped, and every assertion in the test above would still pass.
+#[test]
+fn your_own_spell_still_reaches_the_creature_wearing_your_boots() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(98, forest())
+        .battlefield(
+            0,
+            &[
+                swiftfoot_boots(),
+                llanowar_elves(),
+                snapcaster_mage(),
+                plains(),
+                plains(),
+                swamp(),
+                swamp(),
+                forest(),
+            ],
+        )
+        .hand(0, &[vindicate()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let boots = on_battlefield(&engine, p0, swiftfoot_boots()).expect("the Boots");
+    let equipped = on_battlefield(&engine, p0, llanowar_elves()).expect("your elves");
+
+    // Generic mana is spent white first, so the extra Plains and Swamp are
+    // what leave Vindicate's own {1}{W}{B} payable after the equip.
+    tap_mana_except(&mut engine, p0, boots);
+    let equip = offered_ability(&engine, boots).expect("equip {1} is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: boots,
+                ability_index: equip,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![equipped],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().object(equipped).is_some_and(|o| {
+            o.characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::HEXPROOF)
+        })
+    });
+
+    cast_from_hand(&mut engine, p0, vindicate());
+    let options = target_options(&engine);
+    assert!(
+        options.contains(&equipped),
+        "hexproof is not shroud: the seat that granted it may still point \
+         at the creature (CR 702.11b): {options:?}"
+    );
+}
+
+fn storm_of_saruman() -> baylee_core::ids::CardIndex {
+    card_index("cf5f4860-e805-46a3-9352-a2c583e33403")
+}
+fn reflections_of_littjara() -> baylee_core::ids::CardIndex {
+    card_index("c3fdfb94-2d10-4743-864c-a59fdd57d8b7")
+}
+
+/// How many permanents `seat` controls that were printed as `card`.
+///
+/// [`cardless_permanents`] is the instrument for *token* copies and reads
+/// nothing here: a copy of a spell keeps the card it was copied from, which
+/// is what carries its abilities into the resolution — so a copied Elf and
+/// the Elf it was copied from are told apart by counting rather than by
+/// asking either of them what it is.
+fn permanents_of(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
+        })
+        .count()
+}
+
+/// Answers every question the stack asks until it is empty again.
+///
+/// [`pass_until`] passes priority and nothing else, which is enough while a
+/// spell answers all its questions before it is on the stack. A copy effect
+/// asks *after* that — the copying trigger picks the spell it copies, and the
+/// copy may be pointed somewhere new (CR 707.10c) — so a test about copies
+/// has to answer whatever arrives, in whatever order the wizard asks.
+///
+/// A choice made *as a permanent enters* is handed back instead: it names
+/// something only the test knows — which creature type an enchantment is
+/// about — and answering it with "whatever was first" would quietly decide
+/// the thing under test.
+#[track_caller]
+fn settle(engine: &mut Engine<RegistryLookup>) {
+    for _ in 0..200 {
+        match engine.pending().clone() {
+            Pending::ChooseSubtype { .. } => return,
+            Pending::Priority { player, .. } => {
+                if stack_is_empty(engine) {
+                    return;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseTargets {
+                player,
+                options,
+                min,
+                ..
+            } => {
+                let objects = options.into_iter().take(min as usize).collect();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .unwrap();
+            }
+            other => panic!("unexpected while settling the stack: {other:?}"),
+        }
+    }
+    panic!("the stack never emptied");
+}
+
+/// Storm of Saruman ("Whenever you cast your **second** spell each turn,
+/// copy it") and two creature spells in one turn.
+///
+/// The count is the card, and it is read off a per-turn counter rather than
+/// off the stack — so the two halves have to be asked in one game: the first
+/// spell resolves alone, and the second arrives with a copy beside it. A
+/// trigger that fired on every cast would pass the second assertion and fail
+/// the first, which is why the board is measured between the two spells and
+/// not only at the end.
+#[test]
+fn storm_of_saruman_copies_your_second_spell_and_not_your_first() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(101, forest())
+        .battlefield(0, &[storm_of_saruman(), forest(), forest()])
+        .hand(0, &[llanowar_elves(), llanowar_elves()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    assert_eq!(
+        permanents_of(&engine, p0, llanowar_elves()),
+        1,
+        "the first spell of the turn is nobody's second"
+    );
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    assert_eq!(
+        permanents_of(&engine, p0, llanowar_elves()),
+        3,
+        "the second spell arrives with a copy of itself beside it"
+    );
+    assert_eq!(
+        permanents_of(&engine, p1, llanowar_elves()),
+        0,
+        "the copy arrives under the caster's control, not across the table"
+    );
+}
+
+/// Reflections of Littjara ("Whenever you cast a spell of the chosen type,
+/// copy that spell") with Storm of Saruman beside it, and one Elf cast into
+/// both of them.
+///
+/// This is the rule that a copy is **put** on the stack rather than cast
+/// (CR 707.10), and it is unreadable with one copy effect on the board: a
+/// single enchantment copying its own copy would be caught only by whatever
+/// stops a loop. Two of them make the arithmetic say it out loud. The Elf is
+/// the turn's second spell, so exactly two triggers see it and exactly two
+/// tokens arrive — while a copy that counted as a cast would be a spell of
+/// the chosen type as well, and Reflections would answer its own answer.
+#[test]
+fn a_copy_is_put_on_the_stack_and_never_cast_again() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(102, forest())
+        .battlefield(
+            0,
+            &[
+                storm_of_saruman(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                forest(),
+            ],
+        )
+        .hand(0, &[reflections_of_littjara(), llanowar_elves()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The enchantment is the turn's first spell, so nothing copies it. Its
+    // own question is asked as it enters, which is on resolution.
+    cast_from_hand(&mut engine, p0, reflections_of_littjara());
+    settle(&mut engine);
+    let Pending::ChooseSubtype { player, options } = engine.pending().clone() else {
+        panic!(
+            "the enchantment names a creature type as it enters: {:?}",
+            engine.pending()
+        )
+    };
+    let elf = baylee_core::generated::subtypes::creature::ELF;
+    assert!(
+        options.contains(&elf),
+        "Elf is a creature type: {options:?}"
+    );
+    engine
+        .apply(player, PlayerAction::ChooseSubtype(elf))
+        .unwrap();
+    settle(&mut engine);
+    assert_eq!(
+        permanents_of(&engine, p0, llanowar_elves()),
+        0,
+        "one spell so far, and it copied nothing"
+    );
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    assert_eq!(
+        permanents_of(&engine, p0, llanowar_elves()),
+        3,
+        "the Elf, one copy from each enchantment — and none from the \
+         copies, which were never cast"
+    );
+    assert_eq!(
+        permanents_of(&engine, p1, llanowar_elves()),
+        0,
+        "none of it reached the other side of the table"
+    );
+}
+
+fn helm_of_the_host() -> baylee_core::ids::CardIndex {
+    card_index("83b43aba-bf9c-4da2-967d-9daa632e97d2")
+}
+/// A legendary creature with a body and nothing that fires on its own: its
+/// enter trigger cannot go off from a battlefield the harness laid out, and
+/// its tap ability is only ever offered.
+fn loran_of_the_third_path() -> baylee_core::ids::CardIndex {
+    card_index("b3d81980-76f2-44e2-b1c9-01e30c726312")
+}
+
+/// Equips the Helm to Loran and walks to the beginning of combat, where its
+/// trigger is waiting.
+#[track_caller]
+fn a_helm_on_a_legend(seed: u64, season_for: Option<usize>) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut mine = vec![
+        helm_of_the_host(),
+        loran_of_the_third_path(),
+        plains(),
+        plains(),
+        plains(),
+        plains(),
+        plains(),
+    ];
+    let mut theirs = vec![ondu_cleric()];
+    match season_for {
+        Some(0) => mine.push(doubling_season()),
+        Some(_) => theirs.push(doubling_season()),
+        None => {}
+    }
+    let mut engine = Duel::new(seed, forest())
+        .battlefield(0, &mine)
+        .battlefield(1, &theirs)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let helm = on_battlefield(&engine, p0, helm_of_the_host()).expect("the Helm");
+    let legend = on_battlefield(&engine, p0, loran_of_the_third_path()).expect("the legend");
+    tap_mana_except(&mut engine, p0, helm);
+    let equip = offered_ability(&engine, helm).expect("equip {5} is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: helm,
+                ability_index: equip,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![legend],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(helm)
+            .is_some_and(|o| o.attached_to == Some(legend))
+    });
+    pass_until(&mut engine, |e| cardless_permanents(e, p0) > 0);
+    engine
+}
+
+/// Helm of the Host ("At the beginning of combat on your turn, create a
+/// token that's a copy of equipped creature, except the token isn't
+/// legendary") on a legendary creature, under its controller's Doubling
+/// Season.
+///
+/// Two rules meet on one trigger and each would hide the other. The copy is
+/// a **token**, so Doubling Season doubles it — and the token is **not
+/// legendary**, so the state-based action that keeps one of each legend
+/// (CR 704.5j) takes neither of them, nor the original. Drop the supertype
+/// mod and this board collapses to a single permanent with the player asked
+/// which one to keep; drop the token-ness and the Season has nothing to
+/// double.
+#[test]
+fn a_helm_on_a_legend_makes_two_copies_the_legend_rule_lets_stand() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let engine = a_helm_on_a_legend(103, Some(0));
+
+    assert_eq!(
+        cardless_permanents(&engine, p0),
+        2,
+        "one token from the Helm, doubled by the Season"
+    );
+    assert!(
+        on_battlefield(&engine, p0, loran_of_the_third_path()).is_some(),
+        "and the legend the Helm is on is still standing"
+    );
+    for id in engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+    {
+        let Some(obj) = engine.state().object(*id) else {
+            continue;
+        };
+        if obj.controller == p0 && obj.card.is_none() {
+            let c = obj.characteristics();
+            assert!(
+                !c.supertypes
+                    .contains(baylee_core::types::SupertypeSet::LEGENDARY),
+                "the printing says the token isn't legendary"
+            );
+            assert!(
+                c.keywords.contains(baylee_cards_dsl::KeywordSet::HASTE),
+                "and that it gains haste"
+            );
+        }
+    }
+    assert_eq!(
+        cardless_permanents(&engine, p1),
+        0,
+        "the tokens are the Helm controller's"
+    );
+}
+
+/// The same Helm, with the Doubling Season across the table.
+///
+/// A doubling that read "a token is created" rather than "*you* create a
+/// token" (CR 614.12) would double this too, and the test above could not
+/// tell the difference: two tokens is two tokens whichever enchantment
+/// caused them.
+#[test]
+fn their_doubling_season_does_not_double_the_helms_token() {
+    let p0 = PlayerId::new(0);
+    let engine = a_helm_on_a_legend(104, Some(1));
+    assert_eq!(
+        cardless_permanents(&engine, p0),
+        1,
+        "their Season doubles their tokens, and this one is mine"
+    );
+}
