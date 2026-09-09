@@ -84,6 +84,15 @@ fn mycosynth_lattice() -> baylee_core::ids::CardIndex {
 fn chromatic_lantern() -> baylee_core::ids::CardIndex {
     card_index("539f5396-d99a-417d-a84c-dff7930b5900")
 }
+fn privileged_position() -> baylee_core::ids::CardIndex {
+    card_index("abd62af0-c17d-4f62-af15-9ea83037b990")
+}
+fn lightning_greaves() -> baylee_core::ids::CardIndex {
+    card_index("ca204b66-8d0c-431a-8d34-282f7c2d17da")
+}
+fn vindicate() -> baylee_core::ids::CardIndex {
+    card_index("63c1ac21-e3d8-40c2-8c09-3f31c52992ef")
+}
 
 /// The one *non-mana* activated ability `source` is offering right now.
 ///
@@ -805,4 +814,208 @@ fn karn_and_the_lattice_lock_their_basic_lands_too() {
             },
         )
         .expect("Karn's controller taps their own land as before");
+}
+
+/// Both seats holding Vindicate ("Destroy target permanent"), with a
+/// Privileged Position and an Elf on your side and a Wizard on theirs.
+///
+/// Vindicate is the removal to ask with because it targets *any* permanent:
+/// the options it offers are the whole table, so what is missing from them
+/// is a statement about the grant and not about the spell's own filter.
+fn a_table_under_a_privileged_position() -> Engine<RegistryLookup> {
+    let mut engine = Duel::new(80, forest())
+        .battlefield(
+            0,
+            &[
+                privileged_position(),
+                llanowar_elves(),
+                plains(),
+                swamp(),
+                forest(),
+            ],
+        )
+        .hand(0, &[vindicate()])
+        .battlefield(1, &[snapcaster_mage(), plains(), swamp(), forest()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    engine
+}
+
+/// Taps everything that makes mana for `seat` and casts `card` from its
+/// hand, leaving the engine on the spell's target choice.
+#[track_caller]
+fn cast_from_hand(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) {
+    let spell = in_hand(engine, seat, card).expect("the spell is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+}
+
+/// Privileged Position ("**Other** permanents **you control** have
+/// hexproof") against an opponent's Vindicate.
+///
+/// Three answers on one board, and the card is wrong if any of them flips.
+/// Your Elf is hidden, because that is what the grant is for. Their Wizard
+/// is not, because a grant that reached across the table would read exactly
+/// the same on a board with one creature on it. And the Position **itself**
+/// is not, because it says "other" — the word that makes the enchantment
+/// the one thing an opponent can answer it with, and a filter written
+/// `ControlledByYou` alone would quietly protect it.
+#[test]
+fn a_privileged_position_hides_your_board_from_them_but_not_itself() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_table_under_a_privileged_position();
+    // Not `reach_main_phase`: reaching the *other* seat's turn crosses a
+    // combat phase, and that helper answers priority and nothing else.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p1
+    });
+
+    let position = on_battlefield(&engine, p0, privileged_position()).expect("your enchantment");
+    let yours = on_battlefield(&engine, p0, llanowar_elves()).expect("your elves");
+    let theirs = on_battlefield(&engine, p1, snapcaster_mage()).expect("their mage");
+
+    cast_from_hand(&mut engine, p1, vindicate());
+    let options = target_options(&engine);
+    assert!(
+        !options.contains(&yours),
+        "their Vindicate may not target a creature the Position gave \
+         hexproof (CR 702.11b): {options:?}"
+    );
+    assert!(
+        options.contains(&theirs),
+        "the grant is to permanents *you* control, so their own creature is \
+         still a legal target: {options:?}"
+    );
+    assert!(
+        options.contains(&position),
+        "the Position says \"other\" and does not protect itself: {options:?}"
+    );
+}
+
+/// The same board, the same spell, cast by the seat that owns the grant.
+///
+/// Hexproof is "can't be the target of spells or abilities *your opponents*
+/// control" (CR 702.11b), so this is the half that a `Filter::ControlledBy`
+/// mistake would take away. A creature under a Privileged Position that its
+/// own controller could no longer target would break every aura, every
+/// pump spell and every equip in the deck built around it — and no test
+/// asking the opponent's question would notice.
+#[test]
+fn your_own_removal_still_reaches_the_creature_you_gave_hexproof() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_table_under_a_privileged_position();
+    reach_main_phase(&mut engine, p0);
+
+    let yours = on_battlefield(&engine, p0, llanowar_elves()).expect("your elves");
+    let theirs = on_battlefield(&engine, p1, snapcaster_mage()).expect("their mage");
+
+    cast_from_hand(&mut engine, p0, vindicate());
+    let options = target_options(&engine);
+    assert!(
+        options.contains(&yours),
+        "hexproof stops opponents only, so your own spell still sees your \
+         own creature: {options:?}"
+    );
+    assert!(
+        options.contains(&theirs),
+        "and nothing about the Position was ever between you and their \
+         board: {options:?}"
+    );
+}
+
+/// Lightning Greaves ("Equipped creature has haste and **shroud**") and the
+/// controller's own Vindicate.
+///
+/// The counterpart to the two above, on the distinction the two keywords
+/// exist for: shroud is "can't be the target of spells or abilities"
+/// (CR 702.18b) full stop, so the same seat that granted it is refused —
+/// which is the whole reason a player equips Greaves and then complains
+/// they cannot aura the creature. The unequipped creature beside it is the
+/// bystander, and it says the refusal came from the attachment rather than
+/// from the spell.
+#[test]
+fn greaves_hide_the_creature_they_are_on_from_you_too() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(81, forest())
+        .battlefield(
+            0,
+            &[
+                lightning_greaves(),
+                llanowar_elves(),
+                snapcaster_mage(),
+                plains(),
+                swamp(),
+                forest(),
+            ],
+        )
+        .hand(0, &[vindicate()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let greaves = on_battlefield(&engine, p0, lightning_greaves()).expect("the Greaves");
+    let equipped = on_battlefield(&engine, p0, llanowar_elves()).expect("your elves");
+    let bystander = on_battlefield(&engine, p0, snapcaster_mage()).expect("your mage");
+    let across = on_battlefield(&engine, p1, ondu_cleric()).expect("their cleric");
+
+    let equip = offered_ability(&engine, greaves).expect("equip {0} is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: greaves,
+                ability_index: equip,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![equipped],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().object(equipped).is_some_and(|o| {
+            o.characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::SHROUD)
+        })
+    });
+
+    cast_from_hand(&mut engine, p0, vindicate());
+    let options = target_options(&engine);
+    assert!(
+        !options.contains(&equipped),
+        "shroud refuses its own controller as well (CR 702.18b): {options:?}"
+    );
+    assert!(
+        options.contains(&bystander),
+        "the creature beside it is wearing nothing: {options:?}"
+    );
+    assert!(
+        options.contains(&greaves),
+        "the Equipment grants to the creature it is attached to, never to \
+         itself: {options:?}"
+    );
+    assert!(
+        options.contains(&across),
+        "and the board across the table is untouched by any of it: {options:?}"
+    );
 }
