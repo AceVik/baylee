@@ -2034,28 +2034,30 @@ fn reflections_of_littjara() -> baylee_core::ids::CardIndex {
     card_index("c3fdfb94-2d10-4743-864c-a59fdd57d8b7")
 }
 
-/// How many permanents `seat` controls that were printed as `card`.
+/// How many permanents `seat` controls that a player would call `card`.
 ///
-/// [`cardless_permanents`] is the instrument for *token* copies and reads
-/// nothing here: a copy of a spell keeps the card it was copied from, which
-/// is what carries its abilities into the resolution — so a copied Elf and
-/// the Elf it was copied from are told apart by counting rather than by
-/// asking either of them what it is.
+/// By **name**, because a copy of a permanent spell becomes a token as it
+/// resolves (CR 707.10) and a token carries no card at all — so counting
+/// cards would answer "one Elf" at a board holding two, and the copy would
+/// be invisible to exactly the tests written to see it.
+/// [`cardless_permanents`] is the other half of the pair: this one says how
+/// many are there, that one says how many of them are tokens.
 fn permanents_of(
     engine: &Engine<RegistryLookup>,
     seat: PlayerId,
     card: baylee_core::ids::CardIndex,
 ) -> usize {
+    let printed = baylee_cards::by_index(card).map_or("", |def| def.faces[0].name);
     engine
         .state()
         .zones
         .list(crate::zone::ZoneLocation::Battlefield)
         .iter()
         .filter(|id| {
-            engine
-                .state()
-                .object(**id)
-                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
+            engine.state().object(**id).is_some_and(|o| {
+                o.controller == seat
+                    && engine.state().names.get(o.characteristics().name) == printed
+            })
         })
         .count()
 }
@@ -2751,4 +2753,58 @@ fn in_graveyard(
                 .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
         })
         .count()
+}
+
+/// CR 707.10: a copy of a **permanent** spell becomes a token as it
+/// resolves — the sentence Storm of Saruman prints in its own reminder
+/// text.
+///
+/// Two Elves cast in one turn puts three on the board, and until now all
+/// three were cards: the copy resolved into a permanent still carrying the
+/// card it was copied from, so `Filter::IsToken` said no, and a copy that
+/// died left a second Llanowar Elves in the graveyard for anything reading
+/// that zone to find. The board count is asserted beside the token count
+/// on purpose — a copy that simply failed to arrive would pass the second
+/// assertion on its own.
+#[test]
+fn the_copy_of_a_creature_spell_arrives_as_a_token() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(109, forest())
+        .battlefield(0, &[storm_of_saruman(), forest(), forest()])
+        .hand(0, &[llanowar_elves(), llanowar_elves()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    assert_eq!(
+        cardless_permanents(&engine, p0),
+        0,
+        "the first spell of the turn is copied by nothing"
+    );
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    assert_eq!(
+        permanents_of(&engine, p0, llanowar_elves()),
+        3,
+        "the second spell arrives with a copy of itself beside it"
+    );
+    assert_eq!(
+        cardless_permanents(&engine, p0),
+        1,
+        "and exactly one of the three is the token the copy became"
+    );
+    assert_eq!(
+        in_graveyard(&engine, p0, llanowar_elves()),
+        0,
+        "nothing was a card that should not have been one"
+    );
+    assert_eq!(
+        cardless_permanents(&engine, p1),
+        0,
+        "the token is the caster's, not the other seat's"
+    );
 }

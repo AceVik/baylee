@@ -1588,6 +1588,42 @@ impl<L: CardLookup> Engine<L> {
         self.apply_pending_face_changes();
     }
 
+    /// CR 707.10: a copy of a permanent spell stops being a copy of a spell
+    /// and becomes a **token** permanent as it resolves — which is what
+    /// Storm of Saruman's own reminder text says.
+    ///
+    /// Being a token is exactly "carries no card" here (`Filter::IsToken`),
+    /// so the card has to go, and the rules text it would have answered with
+    /// moves into `own_abilities` first: that is the slot a card-less object
+    /// keeps its abilities in, and the one `move_object` leaves alone for an
+    /// object with no card.
+    ///
+    /// The `SpellCopy` rider goes with it. It said "cease to exist off the
+    /// stack" (CR 704.5e); from here CR 704.5d says the same thing about the
+    /// token, and leaving both on would have the cleanup pass answer for one
+    /// object twice.
+    fn a_copy_becomes_a_token(&mut self, spell: ObjectId) {
+        let is_copy = self
+            .state
+            .object(spell)
+            .is_some_and(|o| o.riders.contains(&crate::object::Rider::SpellCopy));
+        if !is_copy {
+            return;
+        }
+        let printed = self.state.object(spell).and_then(|o| {
+            let face = o.face_index as usize;
+            o.card
+                .and_then(|c| self.lookup.card(c.index))
+                .map(|def| def.abilities_for_face(face))
+        });
+        if let Some(obj) = self.state.object_mut(spell) {
+            obj.own_abilities = obj.own_abilities.or(printed);
+            obj.card = None;
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::SpellCopy));
+        }
+    }
+
     pub(crate) fn finalize_spell(&mut self, spell: ObjectId) {
         let (is_permanent, owner) = {
             let Some(obj) = self.state.object(spell) else {
@@ -1623,6 +1659,7 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
+            self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
                 obj.status.remove(Status::TAPPED);
