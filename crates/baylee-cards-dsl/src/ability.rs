@@ -234,7 +234,15 @@ pub enum AbilityDef {
         /// Effect operations.
         effects: &'static [Effect],
         /// Target requirement.
-        target: Option<TargetSpec>,
+        ///
+        /// A [`crate::effect::TargetReq`] rather than a bare spec, because
+        /// two of the pool's seven walkers print "up to one target": Karn,
+        /// the Great Creator's `+1` and Teferi, Time Raveler's `−3`. Read as
+        /// *exactly* one, both were abilities a player could not activate at
+        /// all with nothing on the board to point at — which for Teferi is a
+        /// card that cannot be drawn, and for Karn a loyalty tick that cannot
+        /// be taken.
+        targets: Option<crate::effect::TargetReq>,
     },
     /// A triggered ability with modes: the controller chooses one when it
     /// triggers (Charming Prince, Aether Channeler).

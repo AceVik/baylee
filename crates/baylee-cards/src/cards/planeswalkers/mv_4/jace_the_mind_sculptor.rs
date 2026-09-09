@@ -28,7 +28,7 @@ card! {
         loyalty!(2, &[Effect::ScryFor {
                 player: PlayerRel::Chosen,
                 amount: Amount::Fixed(1),
-            }], target: Some(TargetSpec::AnyPlayer)),
+            }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
         loyalty!(0, &[
                 Effect::DrawCards {
                     amount: Amount::Fixed(3),
@@ -37,9 +37,9 @@ card! {
             ]),
         loyalty!(-1, &[Effect::ReturnToHand {
                 target: TargetSpec::Object(&Filter::CREATURE),
-            }], target: Some(TargetSpec::Object(&Filter::CREATURE))),
+            }], targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
         loyalty!(-12, &[Effect::ExileLibraryAndShuffleHand {
                 player: PlayerRel::Chosen,
-            }], target: Some(TargetSpec::AnyPlayer)),
+            }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
     ],
 }

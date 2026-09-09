@@ -1740,3 +1740,127 @@ fn an_unequipped_sentinel_asks_for_its_printed_one() {
         "the same card with nothing on it taxes {{1}}"
     );
 }
+
+fn teferi_time_raveler() -> baylee_core::ids::CardIndex {
+    card_index("ae7604bb-4818-45a3-960c-cf3d83f15964")
+}
+
+/// Whether the stack has been emptied.
+fn stack_is_clear(engine: &Engine<RegistryLookup>) -> bool {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .is_empty()
+}
+
+/// Karn, the Great Creator's `+1` with nothing to point at.
+///
+/// "Up to **one** target noncreature artifact" was written as a bare
+/// `TargetSpec`, which the engine reads as *exactly* one — so on a board
+/// with no artifact on it the ability was not offered at all, and a walker
+/// that should have ticked to 6 sat at 5. That is a loyalty the printing
+/// allows and this engine refused.
+///
+/// The assertion with teeth is the last one. `Filter::This` inside a
+/// targeted ability means *the target*, and the effect that registers it
+/// falls back to the ability's own source when there is no target: an
+/// unguarded "up to one" would make Karn himself an artifact creature with
+/// power and toughness equal to a mana value nobody chose, and the next
+/// state-based check would sweep the walker into the graveyard. Offering
+/// the ability and resolving it are two different fixes, and only this
+/// checks the second.
+#[test]
+fn karns_plus_one_ticks_up_with_nothing_to_point_at() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(95, forest())
+        .battlefield(0, &[karn_the_great_creator()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("karn deployed");
+    assert!(
+        offers_an_ability(&engine, karn),
+        "an ability that may target nothing is offered with nothing on the board"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: karn,
+                ability_index: 1,
+            },
+        )
+        .expect("the +1 may be activated with no target");
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "a choice with nothing in it is not a question: {:?}",
+        engine.pending()
+    );
+    pass_until(&mut engine, stack_is_clear);
+
+    let walker = engine
+        .state()
+        .object(karn)
+        .expect("the walker is still an object");
+    assert_eq!(
+        walker.counters.get(baylee_cards_dsl::CounterKind::Loyalty),
+        6,
+        "the +1 is the whole point of activating it with no target"
+    );
+    assert!(
+        !walker
+            .characteristics()
+            .types
+            .intersects(baylee_core::types::TypeSet::CREATURE),
+        "the animation had no target and must not have fallen back onto Karn"
+    );
+    assert!(
+        on_battlefield(&engine, p0, karn_the_great_creator()).is_some(),
+        "and Karn is still on the battlefield"
+    );
+}
+
+/// Teferi, Time Raveler's `−3` with nothing to bounce.
+///
+/// The same sentence, and the half that costs a card: "Return up to one
+/// target artifact, creature, or enchantment to its owner's hand. **Draw a
+/// card.**" Read as exactly one target, an empty board made the whole
+/// ability unactivatable — the draw included — which is a card a player
+/// simply never got.
+#[test]
+fn teferis_minus_three_draws_with_nothing_to_bounce() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(96, forest())
+        .battlefield(0, &[teferi_time_raveler()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let teferi = on_battlefield(&engine, p0, teferi_time_raveler()).expect("teferi deployed");
+    let before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: teferi,
+                ability_index: 2,
+            },
+        )
+        .expect("the -3 may be activated with nothing to return");
+    pass_until(&mut engine, stack_is_clear);
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        before + 1,
+        "the card is drawn whether or not anything was returned"
+    );
+}

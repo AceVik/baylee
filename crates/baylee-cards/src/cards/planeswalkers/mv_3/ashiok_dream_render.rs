@@ -37,6 +37,6 @@ card! {
                 Effect::ExileGraveyard {
                     player: PlayerRel::EachOpponent,
                 },
-            ], target: Some(TargetSpec::AnyPlayer)),
+            ], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
     ],
 }

@@ -36,7 +36,7 @@ card! {
             ]),
         loyalty!(-1, &[Effect::Blink {
                 target: TargetSpec::Object(&OWNED_PERMANENT),
-            }], target: Some(TargetSpec::Object(&OWNED_PERMANENT))),
+            }], targets: Some(TargetReq::one(TargetSpec::Object(&OWNED_PERMANENT)))),
         loyalty!(-6, &[Effect::ControlRotation]),
     ],
 }

@@ -28,7 +28,7 @@ card! {
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
     coverage: Coverage::Implemented,
     abilities: &[
-        loyalty!(2, &[Effect::ExileAndReturnAtEndStep], target: Some(TargetSpec::Object(&PERMANENT_YOU_OWN))),
+        loyalty!(2, &[Effect::ExileAndReturnAtEndStep], targets: Some(TargetReq::one(TargetSpec::Object(&PERMANENT_YOU_OWN)))),
         loyalty!(-1, &[Effect::CreateContinuousEffect {
                 layer: Layer::Ability,
                 filter: &Filter::CREATURE,

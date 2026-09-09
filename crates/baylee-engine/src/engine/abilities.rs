@@ -176,7 +176,11 @@ impl<L: CardLookup> Engine<L> {
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, *target) {
+                        if !self.ability_has_a_target(
+                            player,
+                            id,
+                            target.map(baylee_cards_dsl::TargetReq::one),
+                        ) {
                             continue;
                         }
                         if self.can_afford(player, id, cost) {
@@ -200,14 +204,18 @@ impl<L: CardLookup> Engine<L> {
                         if !self.check_activation_condition(player, id, *condition) {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, *target) {
+                        if !self.ability_has_a_target(
+                            player,
+                            id,
+                            target.map(baylee_cards_dsl::TargetReq::one),
+                        ) {
                             continue;
                         }
                         if self.can_afford(player, id, cost) {
                             legal.abilities.push((id, i as u32));
                         }
                     }
-                    AbilityDef::Loyalty { cost, target, .. } => {
+                    AbilityDef::Loyalty { cost, targets, .. } => {
                         // Loyalty abilities: sorcery timing, once per turn
                         // per walker, enough loyalty for negative costs.
                         if !sorcery_timing || self.loyalty_used_this_turn.contains(&id) {
@@ -217,7 +225,7 @@ impl<L: CardLookup> Engine<L> {
                         if *cost < 0 && loyalty < (-*cost) as u16 {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, *target) {
+                        if !self.ability_has_a_target(player, id, *targets) {
                             continue;
                         }
                         legal.abilities.push((id, i as u32));
@@ -329,22 +337,33 @@ impl<L: CardLookup> Engine<L> {
     /// refused. Riptide Laboratory is the case that found it — "{1}{U}, {T}:
     /// Return target Wizard you control" was offered at a table whose only
     /// Wizard was the opponent's.
+    /// Whether an ability can point at what it has to point at.
+    ///
+    /// The *count* is half the question and used not to be asked at all: a
+    /// bare spec reads as "exactly one", so "up to one target" (`min: 0`) was
+    /// an ability nobody could activate with an empty board — which on Karn,
+    /// the Great Creator hides a loyalty tick and on Teferi, Time Raveler
+    /// hides a drawn card.
     fn ability_has_a_target(
         &self,
         player: PlayerId,
         source: ObjectId,
-        target: Option<baylee_cards_dsl::TargetSpec>,
+        targets: Option<baylee_cards_dsl::TargetReq>,
     ) -> bool {
-        let Some(spec) = target else {
+        let Some(req) = targets else {
             return true;
         };
+        if req.min == 0 {
+            return true;
+        }
+        let wanted = req.min as usize;
         if matches!(
-            spec,
+            req.spec,
             baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
         ) {
-            return !eval::target_player_options(&self.state, &spec, player).is_empty();
+            return eval::target_player_options(&self.state, &req.spec, player).len() >= wanted;
         }
-        !eval::target_options(&spec, &self.state, player, source).is_empty()
+        eval::target_options(&req.spec, &self.state, player, source).len() >= wanted
     }
 
     /// Whether Karn's lock covers this permanent: "activated abilities of
@@ -563,6 +582,7 @@ impl<L: CardLookup> Engine<L> {
                 chosen_player: None,
                 target_players: baylee_core::ids::SeatSet::new(),
                 event_object: None,
+                targeted: false,
                 awaiting: None,
                 mana_ability: true,
             };
@@ -785,6 +805,7 @@ impl<L: CardLookup> Engine<L> {
                 chosen_player: None,
                 target_players: baylee_core::ids::SeatSet::new(),
                 event_object: None,
+                targeted: false,
                 awaiting: None,
                 mana_ability: true,
             };
@@ -868,7 +889,7 @@ impl<L: CardLookup> Engine<L> {
         if self.loyalty_used_this_turn.contains(&source) {
             return Err(EngineError::IllegalAction("loyalty already used this turn"));
         }
-        let (card_index, effects, target) = {
+        let (card_index, effects, wanted) = {
             let obj = self
                 .state
                 .object(source)
@@ -877,7 +898,7 @@ impl<L: CardLookup> Engine<L> {
                 .card
                 .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
             let AbilityDef::Loyalty {
-                effects, target, ..
+                effects, targets, ..
             } = obj
                 .abilities(&self.lookup)
                 .get(ability_index as usize)
@@ -885,7 +906,7 @@ impl<L: CardLookup> Engine<L> {
             else {
                 return Err(EngineError::IllegalAction("not a loyalty ability"));
             };
-            (card.index, *effects, *target)
+            (card.index, *effects, *targets)
         };
         // Loyalty cost is paid at activation (CR 606.3) — after checking
         // that required targets exist, before targeting.
@@ -895,14 +916,15 @@ impl<L: CardLookup> Engine<L> {
         if cost < 0 && old < (-cost) as u16 {
             return Err(EngineError::IllegalAction("not enough loyalty"));
         }
-        if let Some(spec) = target
+        if let Some(req) = wanted
+            && req.min > 0
             && !matches!(
-                spec,
+                req.spec,
                 baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
             )
         {
-            let options = eval::target_options(&spec, &self.state, player, source);
-            if options.is_empty() {
+            let options = eval::target_options(&req.spec, &self.state, player, source);
+            if options.len() < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
         }
@@ -925,14 +947,14 @@ impl<L: CardLookup> Engine<L> {
         self.loyalty_used_this_turn.push(source);
         // Targets first if required.
         if targets.is_empty()
-            && let Some(spec) = target
+            && let Some(req) = wanted
         {
             if matches!(
-                spec,
+                req.spec,
                 baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
             ) {
-                let options = eval::target_player_options(&self.state, &spec, player);
-                if options.is_empty() {
+                let options = eval::target_player_options(&self.state, &req.spec, player);
+                if options.len() < req.min as usize {
                     return Err(EngineError::IllegalAction("no legal targets"));
                 }
                 self.pending_plan = Some(PlanKind::LoyaltyPlayer {
@@ -943,24 +965,30 @@ impl<L: CardLookup> Engine<L> {
                 self.awaiting_answer = true;
                 return Ok(());
             }
-            let options = eval::target_options(&spec, &self.state, player, source);
-            if options.is_empty() {
+            let options = eval::target_options(&req.spec, &self.state, player, source);
+            if options.len() < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
-            self.pending_plan = Some(PlanKind::ActivateAbility {
-                source,
-                ability_index,
-            });
-            self.pending = Pending::ChooseTargets {
-                player,
-                options,
-                player_options: Vec::new(),
-                min: 1,
-                max: 1,
-                reason: TargetPrompt::Targets,
-            };
-            self.awaiting_answer = true;
-            return Ok(());
+            // "Up to one target" with nothing on the board to point at is not
+            // a question: there would be one answer to it. The ability goes
+            // on the stack targeting nothing, which is what the printing says
+            // it may do.
+            if !options.is_empty() {
+                self.pending_plan = Some(PlanKind::ActivateAbility {
+                    source,
+                    ability_index,
+                });
+                self.pending = Pending::ChooseTargets {
+                    player,
+                    options,
+                    player_options: Vec::new(),
+                    min: req.min,
+                    max: req.max,
+                    reason: TargetPrompt::Targets,
+                };
+                self.awaiting_answer = true;
+                return Ok(());
+            }
         }
         // The ability goes on the stack.
         let loc = AbilityLoc {

@@ -363,7 +363,7 @@ activated!(EQUIP, EFFECTS, timing: ActivationTiming::SorcerySpeed)
 triggered!(Trigger::EntersBattlefield(&Filter::This), EFFECTS)
 spell!(EFFECTS)
 spell!(EFFECTS, targets: Some(TargetReq::one(&Filter::CREATURE)))
-loyalty!(-3, EFFECTS, target: Some(TargetSpec::Object(&Filter::CREATURE)))
+loyalty!(-3, EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
 mode!(DRAW_EFFECTS)                                   // one arm of a modal
 ```
 
