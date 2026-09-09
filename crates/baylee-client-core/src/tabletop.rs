@@ -428,7 +428,7 @@ const _: () = assert!(MAT_RIM > 0.08);
 pub const MAT_LANES: [f32; 3] = [0.0135, 0.0105, 0.0080];
 
 /// The shelf along one long edge of a mat that the seat's bar is written
-/// on, in table units — 0.61 of a card's height.
+/// on, in table units — 0.72 of a card's height.
 ///
 /// It is a fourth band on the mat rather than a panel floating over the
 /// felt, and that is the whole of the design: the mat's rim runs round the
@@ -440,7 +440,37 @@ pub const MAT_LANES: [f32; 3] = [0.0135, 0.0105, 0.0080];
 /// It is added to [`crate::layout::POD_DEPTH`] rather than taken out of it:
 /// three lanes are still exactly a card tall each, because the ledge is
 /// furniture and a lane is where a card stands.
-pub const MAT_LEDGE: f32 = 0.95;
+///
+/// It was 0.95, which is one row of ink deep. It is 1.00 because the bar the
+/// owner asked for is **two** rows — the twelve steps alone along the mat's
+/// top edge and the seat's identity beneath them
+/// ([`crate::seatbar::Density::Split`]) — and at the reference window the
+/// shallower of a duel's two shelves projected 34.5 px at 0.95 against the
+/// 34 of ink two rows draw, which is no margin at all. It projects 36.2 at
+/// 1.00. Measured rather than reasoned:
+/// `table::camera_tests::a_duel_is_written_on_two_rows` is that number.
+///
+/// Two things about the number are worth writing down, because both are the
+/// opposite of what they look like.
+///
+/// **Deepening the ledge costs a duel no board size.** The pod grows with
+/// it, the camera frames the pod, and a duel's shelf projects *longer* at
+/// 1.00 than it did at 0.95 (1121 → 1125 px). A duel is framed by its width,
+/// and the depth the shelf gained was depth the window had going spare —
+/// which is a fact about a duel and not about the constant. Three seats and
+/// up sit on a rounder ring where the depth is what the camera is fitting,
+/// so there the same 0.85% of extra pod is about that much less board. It is
+/// small either way; it is not nothing.
+///
+/// **What stops it is `layout::MAX_RING_Y`, not the assertion
+/// below.** A ring of two *sides* — a 2v2, partners shoulder to shoulder —
+/// is the deepest table there is for its width, and it reaches that ceiling
+/// at a ledge of about 1.01: past that the ring is clamped, the table comes
+/// out 2.23 wide to 1 instead of 1.78, and `layout::tests` finds the two
+/// partners overlapping. So the ceiling on this constant is a fact about
+/// what the camera can frame, and the shelf never got near the "is it a
+/// fourth lane" bound it was written against.
+pub const MAT_LEDGE: f32 = 1.00;
 
 /// The shelf has to clear the rim on both sides with something left in the
 /// middle, or the bar is written on its own border.
@@ -453,6 +483,13 @@ const _: () = assert!(MAT_LEDGE > MAT_RIM * 4.0);
 /// a card would sit on it, not what fraction of the lane beside it the band
 /// happens to be. A lane carries a card plus air, so a bound of
 /// three-quarters of a *lane* lets the shelf grow to nine tenths of a card.
+///
+/// The owner authorised moving this fraction to buy the two-row bar, and it
+/// did not have to move: the ring ceiling above binds first, at about 1.01,
+/// and 0.75 of a card is 1.048. The bound is left where it was because it is
+/// still the one that says what a shelf *is*, and a reader who finds it
+/// slack should not conclude the rule was abandoned — it was simply not the
+/// rule that ran out.
 const _: () = assert!(MAT_LEDGE < crate::layout::CARD_HEIGHT * 0.75);
 
 /// How much of white the ledge is veiled with, on the same scale as

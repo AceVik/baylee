@@ -24,6 +24,14 @@
 //! hanging off the end of the shelf is ink on the felt. The compact form is
 //! allowed a quarter, evenly split, because by the time a shelf is that short
 //! the alternative is dropping the counts entirely.
+//!
+//! **A shelf has two measurements, and the second one only started being
+//! asked here with [`Density::Split`].** The four single-row forms are a
+//! ladder in *length*: they say the same things at four sizes, and a shelf
+//! deep enough for the tallest of them is deep enough for all four. The
+//! two-row form is the one that trades the other way — it wants half the
+//! length and twice the depth — so [`Density::for_shelf`] is what the
+//! renderer asks, and [`Density::for_length`] is the ladder underneath it.
 
 /// How much of a seat's bar is drawn, chosen by how long its shelf is on
 /// screen.
@@ -35,6 +43,22 @@
 /// anything about it is smaller.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Density {
+    /// Two rows: the twelve steps alone along the shelf's outer edge, and the
+    /// seat's identity — caret, colour, name, life, the four counts — on its
+    /// own row beneath them.
+    ///
+    /// The steps get the **whole** length of the shelf, which is the point of
+    /// the form and the reason it is worth a second row. Sharing one row with
+    /// the identity cells leaves the twelve tiles about four hundred pixels
+    /// even on a wide duel, and a tile at the end of that division is a
+    /// glyph with no room for its label; alone on the row they grow to
+    /// [`Density::tile_width_max`] and the phase line reads as a line.
+    ///
+    /// It is not a rung of the length ladder. It asks for a **shorter** shelf
+    /// than [`Self::Full`] (the two rows are as long as the longer of them,
+    /// not as long as their sum) and a **deeper** one than any single-row
+    /// form, so the two are chosen together in [`Self::for_shelf`].
+    Split,
     /// Every cell, and the step tiles carry their labels.
     Full,
     /// Every cell, and the step tiles are their glyphs alone.
@@ -125,7 +149,7 @@ impl Zone {
 pub const CELL_GAP: f32 = 6.0;
 
 /// The gap between two step tiles, per density.
-const TILE_GAP: [f32; 4] = [3.0, 3.0, 3.0, 2.0];
+const TILE_GAP: [f32; 5] = [3.0, 3.0, 3.0, 3.0, 2.0];
 
 /// How wide and how tall one step tile is drawn, per density.
 ///
@@ -134,8 +158,33 @@ const TILE_GAP: [f32; 4] = [3.0, 3.0, 3.0, 2.0];
 /// table the camera has least room for — its ledge projects under thirty
 /// pixels deep at the reference window — so a bar whose tiles were 24 tall
 /// everywhere could not be drawn on it without standing on the creature lane.
-const TILE_W: [f32; 4] = [40.0, 30.0, 11.0, 8.0];
-const TILE_H: [f32; 4] = [24.0, 24.0, 12.0, 10.0];
+const TILE_W: [f32; 5] = [36.0, 40.0, 30.0, 11.0, 8.0];
+const TILE_H: [f32; 5] = [16.0, 24.0, 24.0, 12.0, 10.0];
+
+/// The widest a [`Density::Split`] tile is drawn.
+///
+/// The split form's tiles are the only ones that **grow**: they have the
+/// shelf to themselves, so the renderer lets them take the slack rather than
+/// leaving four hundred pixels of ink centred on a twelve-hundred-pixel
+/// ledge. The cap is four times the tile's own height, past which a tile
+/// stops reading as a tile and starts reading as a ribbon — and the slack
+/// left over goes into the gaps, so the row still spans the whole shelf.
+const SPLIT_TILE_W_MAX: f32 = 64.0;
+
+/// The gap between the two rows of a [`Density::Split`] bar.
+///
+/// Two pixels, and deliberately less than [`CELL_GAP`]: the rows are one bar
+/// about one seat, and a gap wide enough to read as a division would make the
+/// phase line look like it belonged to the table rather than to the mat it is
+/// written on.
+const SPLIT_ROW_GAP: f32 = 0.0;
+
+/// How tall the identity row of a [`Density::Split`] bar is drawn.
+///
+/// It carries no tiles — only text and a three-pixel swatch — so it is sized
+/// for the tallest numeral on it rather than for a control, which is what
+/// makes the two rows fit on a shelf a single full-size row nearly fills.
+const SPLIT_IDENTITY_H: f32 = 14.0;
 
 /// How far outside a tile the now-ring stands, and how thick it is.
 ///
@@ -165,17 +214,40 @@ const HINGE_W: f32 = 36.0;
 const HINGE_W_DESIGNATED: f32 = 52.0;
 
 impl Density {
-    /// Densest first, which is the order [`Self::for_length`] tries them in.
-    pub const ALL: [Self; 4] = [Self::Full, Self::Compact, Self::Pip, Self::Mark];
+    /// Every form there is, densest first.
+    pub const ALL: [Self; 5] = [
+        Self::Split,
+        Self::Full,
+        Self::Compact,
+        Self::Pip,
+        Self::Mark,
+    ];
+
+    /// The single-row ladder, densest first — the order [`Self::for_length`]
+    /// tries them in.
+    ///
+    /// [`Self::Split`] is not on it. The ladder's whole shape is that a
+    /// denser form is a wider one, so a shelf that grows never gets a poorer
+    /// bar; the split form breaks that by being *narrower* than the full bar
+    /// and deeper than any of them, which is why it is chosen a rung above
+    /// the ladder rather than on it.
+    pub const LADDER: [Self; 4] = [Self::Full, Self::Compact, Self::Pip, Self::Mark];
 
     /// This density's index into the per-density tables above.
     const fn rank(self) -> usize {
         match self {
-            Self::Full => 0,
-            Self::Compact => 1,
-            Self::Pip => 2,
-            Self::Mark => 3,
+            Self::Split => 0,
+            Self::Full => 1,
+            Self::Compact => 2,
+            Self::Pip => 3,
+            Self::Mark => 4,
         }
+    }
+
+    /// Whether this form is written on two rows.
+    #[must_use]
+    pub const fn is_split(self) -> bool {
+        matches!(self, Self::Split)
     }
 
     /// The densest form that fits on a shelf `length` pixels long.
@@ -191,6 +263,28 @@ impl Density {
             }
         }
         Self::Mark
+    }
+
+    /// The best form a shelf `length` pixels long and `depth` pixels deep can
+    /// hold — which is what the renderer asks.
+    ///
+    /// Two measurements rather than one, because [`Self::Split`] is the only
+    /// form that wants the second: it needs less shelf along than the full
+    /// bar and more across it than any single-row form, and a shelf that
+    /// cannot hold two rows of ink would be drawing the second one on the
+    /// creature lane behind it.
+    ///
+    /// Depth is asked *only* about the split form. The four single-row forms
+    /// are a ladder in length and answering "too deep for a bar at all" with
+    /// a poorer bar would be answering the wrong question: a shelf too
+    /// shallow for the mark form is a table nothing can be written on, and
+    /// dropping to a form that is no shorter would not help.
+    #[must_use]
+    pub fn for_shelf(length: f32, depth: f32, designated: bool) -> Self {
+        if length >= Self::Split.min_length(designated) && depth >= Self::Split.ink_height() {
+            return Self::Split;
+        }
+        Self::for_length(length, designated)
     }
 
     /// The shortest shelf this density may be drawn on.
@@ -211,7 +305,7 @@ impl Density {
     #[must_use]
     pub const fn overhang(self) -> f32 {
         match self {
-            Self::Full => 0.0,
+            Self::Split | Self::Full => 0.0,
             Self::Compact | Self::Pip | Self::Mark => 0.25,
         }
     }
@@ -221,7 +315,7 @@ impl Density {
     pub fn cells(self) -> Vec<Cell> {
         let mut out = vec![Cell::Caret, Cell::Swatch];
         match self {
-            Self::Full | Self::Compact => {
+            Self::Split | Self::Full | Self::Compact => {
                 out.push(Cell::Name);
                 out.push(Cell::Life);
                 out.extend(Zone::ALL.map(Cell::Count));
@@ -242,6 +336,48 @@ impl Density {
         }
         out.push(Cell::Steps);
         out
+    }
+
+    /// The same cells, dealt into the rows they are drawn on.
+    ///
+    /// One row for every form but [`Self::Split`], which puts the steps on
+    /// the first — the one along the shelf's outer edge, furthest from the
+    /// lanes — and the seat's identity on the second. The hinge goes *with
+    /// the steps*, because that is what a hinge is for: the turn number
+    /// belongs to the seat whose bar it is and to the twelve tiles beside it,
+    /// and a two-row bar is exactly the arrangement that could let those two
+    /// halves drift into reading as two separate things.
+    ///
+    /// [`Self::cells`] stays the canonical list of what a form carries, and
+    /// `every_row_is_dealt_from_the_cells_the_form_carries` is what stops the
+    /// two from disagreeing.
+    #[must_use]
+    pub fn rows(self) -> Vec<Vec<Cell>> {
+        if !self.is_split() {
+            return vec![self.cells()];
+        }
+        let (mut steps, mut identity) = (Vec::new(), Vec::new());
+        for cell in self.cells() {
+            if matches!(cell, Cell::Hinge | Cell::Steps) {
+                steps.push(cell);
+            } else {
+                identity.push(cell);
+            }
+        }
+        vec![steps, identity]
+    }
+
+    /// How wide one row of cells is drawn, cells and the gaps between them.
+    #[must_use]
+    pub fn row_width(self, row: &[Cell], designated: bool) -> f32 {
+        if row.is_empty() {
+            return 0.0;
+        }
+        let gaps = CELL_GAP * (row.len() - 1) as f32;
+        row.iter()
+            .map(|cell| self.cell_width(*cell, designated))
+            .sum::<f32>()
+            + gaps
     }
 
     /// How wide one cell is drawn at this density.
@@ -268,7 +404,7 @@ impl Density {
     #[must_use]
     pub const fn name_width(self) -> f32 {
         match self {
-            Self::Full => 112.0,
+            Self::Split | Self::Full => 112.0,
             Self::Compact => 96.0,
             Self::Pip | Self::Mark => 56.0,
         }
@@ -278,6 +414,22 @@ impl Density {
     #[must_use]
     pub const fn tile_width(self) -> f32 {
         TILE_W[self.rank()]
+    }
+
+    /// The widest one step tile is drawn.
+    ///
+    /// The same as [`Self::tile_width`] for every form but [`Self::Split`],
+    /// whose tiles have the shelf to themselves and grow into it. This is the
+    /// only place a bar's ink is not a fixed number of pixels, and it is
+    /// allowed to be one because the tiles grow *together*: nothing on the
+    /// row can twitch relative to anything else on it.
+    #[must_use]
+    pub const fn tile_width_max(self) -> f32 {
+        if self.is_split() {
+            SPLIT_TILE_W_MAX
+        } else {
+            TILE_W[self.rank()]
+        }
     }
 
     /// How tall one step tile is drawn.
@@ -294,7 +446,24 @@ impl Density {
     /// shelf has to hold is [`Self::ink_height`].
     #[must_use]
     pub fn height(self) -> f32 {
-        self.tile_height() + 10.0
+        self.ink_height() + 10.0 - HALO_OUT * 2.0
+    }
+
+    /// How tall the identity row of a two-row bar is drawn, and zero for
+    /// every form that has no second row.
+    #[must_use]
+    pub const fn identity_height(self) -> f32 {
+        if self.is_split() {
+            SPLIT_IDENTITY_H
+        } else {
+            0.0
+        }
+    }
+
+    /// The gap between the two rows, and zero for a bar that has one row.
+    #[must_use]
+    pub const fn row_gap(self) -> f32 {
+        if self.is_split() { SPLIT_ROW_GAP } else { 0.0 }
     }
 
     /// How tall the **drawn** part of a bar is: the tile and its now-ring.
@@ -304,7 +473,7 @@ impl Density {
     /// row of creatures behind it.
     #[must_use]
     pub fn ink_height(self) -> f32 {
-        self.tile_height() + HALO_OUT * 2.0
+        self.tile_height() + HALO_OUT * 2.0 + self.row_gap() + self.identity_height()
     }
 
     /// The gap between two step tiles at this density.
@@ -318,7 +487,7 @@ impl Density {
     /// they are through the step slip on hover.
     #[must_use]
     pub const fn tiles_are_labelled(self) -> bool {
-        matches!(self, Self::Full)
+        matches!(self, Self::Split | Self::Full)
     }
 
     /// Whether a step tile carries a glyph at all.
@@ -331,7 +500,7 @@ impl Density {
     /// `a_labelled_tile_is_a_tile_with_a_glyph_on_it` holds.
     #[must_use]
     pub const fn tiles_have_glyphs(self) -> bool {
-        matches!(self, Self::Full | Self::Compact)
+        matches!(self, Self::Split | Self::Full | Self::Compact)
     }
 
     /// The twelve tiles and the eleven gaps between them.
@@ -342,15 +511,16 @@ impl Density {
     }
 
     /// How wide the whole bar is drawn at this density.
+    ///
+    /// The **longer** of the rows for a two-row bar, not their sum: the two
+    /// rows are stacked, so what the shelf has to be long enough for is
+    /// whichever of them reaches further.
     #[must_use]
     pub fn width(self, designated: bool) -> f32 {
-        let cells = self.cells();
-        let gaps = CELL_GAP * (cells.len() - 1) as f32;
-        cells
+        self.rows()
             .iter()
-            .map(|cell| self.cell_width(*cell, designated))
-            .sum::<f32>()
-            + gaps
+            .map(|row| self.row_width(row, designated))
+            .fold(0.0_f32, f32::max)
     }
 }
 
@@ -364,10 +534,15 @@ mod tests {
     /// nothing in the type says they descend: a compact bar wider than a full
     /// one would make `for_length` pick the wrong form at every length and
     /// would look, on screen, like the density logic simply not working.
+    ///
+    /// Over the **ladder**, which is what `for_length` walks.
+    /// [`Density::Split`] is deliberately narrower than the full bar — that
+    /// is what a second row buys — and is chosen by
+    /// [`Density::for_shelf`] instead.
     #[test]
     fn a_denser_bar_is_a_wider_bar() {
         for designated in [false, true] {
-            let widths: Vec<f32> = Density::ALL.map(|d| d.width(designated)).to_vec();
+            let widths: Vec<f32> = Density::LADDER.map(|d| d.width(designated)).to_vec();
             for pair in widths.windows(2) {
                 assert!(
                     pair[0] > pair[1],
@@ -384,7 +559,7 @@ mod tests {
     #[test]
     fn a_denser_bar_asks_for_a_longer_shelf() {
         for designated in [false, true] {
-            let mins: Vec<f32> = Density::ALL.map(|d| d.min_length(designated)).to_vec();
+            let mins: Vec<f32> = Density::LADDER.map(|d| d.min_length(designated)).to_vec();
             for pair in mins.windows(2) {
                 assert!(
                     pair[0] > pair[1],
@@ -398,7 +573,7 @@ mod tests {
     #[test]
     fn the_densest_form_that_fits_is_the_one_taken() {
         for designated in [false, true] {
-            for density in Density::ALL {
+            for density in Density::LADDER {
                 let min = density.min_length(designated);
                 assert_eq!(
                     Density::for_length(min, designated),
@@ -543,7 +718,7 @@ mod tests {
     #[test]
     fn the_ladder_hands_over_at_its_own_boundaries() {
         for designated in [false, true] {
-            for density in Density::ALL {
+            for density in Density::LADDER {
                 let least = density.min_length(designated);
                 assert_eq!(
                     Density::for_length(least, designated),
@@ -611,6 +786,157 @@ mod tests {
             assert!(
                 LIFE_W > zone.width(),
                 "life is not drawn wider than a count"
+            );
+        }
+    }
+
+    /// The rows of a bar hold exactly the cells the form says it carries.
+    ///
+    /// Two lists of the same thing, and the renderer builds from the rows
+    /// while every invariant above is written about the cells — so a cell
+    /// added to one and not the other is a cell that is either drawn twice
+    /// or drawn nowhere, and nothing else would notice.
+    #[test]
+    fn every_row_is_dealt_from_the_cells_the_form_carries() {
+        for density in Density::ALL {
+            let mut dealt: Vec<Cell> = density.rows().concat();
+            let mut carried = density.cells();
+            assert_eq!(
+                dealt.len(),
+                carried.len(),
+                "{density:?} deals {} cells into rows and carries {}",
+                dealt.len(),
+                carried.len()
+            );
+            // Order differs by design — the hinge leads the steps row while
+            // it trails the cell list — so this is a comparison of contents.
+            let key = |c: &Cell| format!("{c:?}");
+            dealt.sort_by_key(key);
+            carried.sort_by_key(key);
+            assert_eq!(dealt, carried, "{density:?} deals cells it does not carry");
+            assert_eq!(
+                density.rows().len(),
+                usize::from(density.is_split()) + 1,
+                "{density:?} draws the wrong number of rows"
+            );
+        }
+    }
+
+    /// The split form is the trade it claims to be: shorter and deeper.
+    ///
+    /// Both halves matter and for different reasons. Shorter is what makes it
+    /// reachable at all — a shelf that could only hold the compact bar in one
+    /// row can hold every cell in two — and deeper is what
+    /// [`Density::for_shelf`] has to check, because a bar that fits along a
+    /// ledge and not across it is a row of ink on the creature lane.
+    #[test]
+    fn the_split_bar_asks_for_a_shorter_shelf_and_a_deeper_one() {
+        for designated in [false, true] {
+            assert!(
+                Density::Split.min_length(designated) < Density::Full.min_length(designated),
+                "the split bar asks for {} of shelf and the full bar for {}",
+                Density::Split.min_length(designated),
+                Density::Full.min_length(designated)
+            );
+            for other in Density::LADDER {
+                assert!(
+                    Density::Split.ink_height() > other.ink_height(),
+                    "the split bar draws {} of ink and {other:?} draws {}",
+                    Density::Split.ink_height(),
+                    other.ink_height()
+                );
+            }
+        }
+    }
+
+    /// A shelf long enough for two rows and too shallow for them gets the
+    /// ladder, and the same shelf one pixel deeper gets the split bar.
+    ///
+    /// This is the whole of what the second measurement buys, and it is the
+    /// boundary that would silently not exist if `for_shelf` forwarded to
+    /// `for_length` — every wide duel would draw two rows of ink on a shelf
+    /// with room for one.
+    #[test]
+    fn a_shelf_too_shallow_for_two_rows_gets_the_ladder() {
+        for designated in [false, true] {
+            let long = Density::Full.min_length(designated) + 400.0;
+            let deep = Density::Split.ink_height();
+            assert_eq!(
+                Density::for_shelf(long, deep, designated),
+                Density::Split,
+                "a {long}×{deep} shelf holds two rows"
+            );
+            assert_eq!(
+                Density::for_shelf(long, deep - 0.5, designated),
+                Density::for_length(long, designated),
+                "a shelf a hair too shallow should fall back to the ladder"
+            );
+            // And too short is the ladder too, however deep the shelf is.
+            let short = Density::Split.min_length(designated) - 0.5;
+            assert_eq!(
+                Density::for_shelf(short, deep * 4.0, designated),
+                Density::for_length(short, designated),
+                "a shelf too short for two rows should fall back to the ladder"
+            );
+        }
+    }
+
+    /// Neither measurement can make a bar worse by growing.
+    ///
+    /// The ladder has this property along its one axis and
+    /// `the_ladder_hands_over_at_its_own_boundaries` holds it there. With two
+    /// axes it is easier to lose: a camera pulling back shortens *and*
+    /// shallows a shelf at once, and a form that appeared halfway through
+    /// that movement would be a bar that flickered as the player orbited.
+    #[test]
+    fn a_bigger_shelf_never_gets_a_poorer_bar() {
+        for designated in [false, true] {
+            for depth in (0..60u16).map(f32::from) {
+                let mut last = Density::Mark;
+                for length in (0..1400u16).step_by(7).map(f32::from) {
+                    let got = Density::for_shelf(length, depth, designated);
+                    assert!(
+                        got <= last,
+                        "a {length}×{depth} shelf got {got:?} after a shorter \
+                         one got {last:?}"
+                    );
+                    last = got;
+                }
+            }
+            for length in (0..1400u16).step_by(7).map(f32::from) {
+                let mut last = Density::Mark;
+                for depth in (0..60u16).map(f32::from) {
+                    let got = Density::for_shelf(length, depth, designated);
+                    assert!(
+                        got <= last,
+                        "a {length}×{depth} shelf got {got:?} after a \
+                         shallower one got {last:?}"
+                    );
+                    last = got;
+                }
+            }
+        }
+    }
+
+    /// A tile that grows never grows into a ribbon, and one that does not
+    /// grow reports the width it is drawn at.
+    #[test]
+    fn only_the_split_tile_grows() {
+        for density in Density::ALL {
+            assert!(
+                density.tile_width_max() >= density.tile_width(),
+                "{density:?} caps its tile below the width it is drawn at"
+            );
+            assert_eq!(
+                density.tile_width_max() > density.tile_width(),
+                density.is_split(),
+                "{density:?} disagrees with itself about whether it grows"
+            );
+            assert!(
+                density.tile_width_max() <= density.tile_height() * 4.0,
+                "a {density:?} tile grows to {} on a {} tall tile",
+                density.tile_width_max(),
+                density.tile_height()
             );
         }
     }

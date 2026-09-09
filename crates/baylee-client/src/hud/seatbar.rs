@@ -50,8 +50,15 @@ pub struct SeatBarRoot;
 pub struct SeatBar {
     /// Whose shelf this is written on.
     pub player: PlayerId,
-    /// Where this bar was last put — its top-left corner and its tilt — so
-    /// that a camera standing still costs nothing.
+    /// Where this bar was last put — its top-left corner, its tilt and how
+    /// wide its box was drawn — so that a camera standing still costs
+    /// nothing.
+    ///
+    /// The width is in there because of [`Density::Split`], whose box is the
+    /// shelf's own length: a camera that dollies straight in changes how long
+    /// a ledge projects without moving its middle, so a bar guarded on the
+    /// corner alone would keep the width it was born with while the shelf
+    /// under it grew.
     ///
     /// [`place_seat_bars`] writes `Node::left`/`top`, and a `Mut<Node>` marks
     /// the node changed on any write at all, so placing every bar every frame
@@ -60,7 +67,7 @@ pub struct SeatBar {
     /// same reason. What is stored is the pair actually written rather than
     /// the shelf it came from, because the corner also moves when the
     /// designation appears and widens the hinge.
-    pub placed: Option<(Vec2, f32)>,
+    pub placed: Option<(Vec2, f32, f32)>,
 }
 
 /// A step tile on a seat's bar — the seat bar's half of [`PhaseButton`].
@@ -147,8 +154,28 @@ impl Shelf {
             along,
             depth: near.distance(far),
             tilt,
-            density: Density::for_length(along, designated),
+            density: Density::for_shelf(along, near.distance(far), designated),
         }
+    }
+
+    /// How big the bar's box is drawn on this shelf.
+    ///
+    /// The form's own width for every single-row bar: a fixed-width box is
+    /// what keeps a numeral going from 9 to 10 from moving anything else.
+    /// [`Density::Split`] is the one form whose box is measured from the
+    /// **shelf** instead, because its steps are meant to have the whole
+    /// length of the ledge — the twelve tiles grow into it and the slack past
+    /// their cap goes into the gaps between them, so the row spans the shelf
+    /// at any length rather than sitting centred with felt showing at both
+    /// ends.
+    #[must_use]
+    pub fn box_size(&self, designated: bool) -> Vec2 {
+        let width = if self.density.is_split() {
+            self.along.max(self.density.width(designated))
+        } else {
+            self.density.width(designated)
+        };
+        Vec2::new(width, self.density.height())
     }
 
     /// The top-left of the bar's box before it is turned.
@@ -158,7 +185,7 @@ impl Shelf {
     /// the shelf and turning it is the whole of the placement.
     #[must_use]
     pub fn corner(&self, designated: bool) -> Vec2 {
-        self.middle - Vec2::new(self.density.width(designated), self.density.height()) * 0.5
+        self.middle - self.box_size(designated) * 0.5
     }
 }
 
@@ -268,13 +295,15 @@ pub fn place_seat_bars(
         // then: touching `Node` at all is a relayout of this bar's whole
         // subtree, so the write is guarded by where the bar already is.
         let corner = shelf.corner(designated);
-        if bar.placed == Some((corner, shelf.tilt)) {
+        let width = shelf.box_size(designated).x;
+        if bar.placed == Some((corner, shelf.tilt, width)) {
             continue;
         }
-        bar.placed = Some((corner, shelf.tilt));
+        bar.placed = Some((corner, shelf.tilt, width));
         node.display = Display::Flex;
         node.left = px(corner.x);
         node.top = px(corner.y);
+        node.width = px(width);
         turn.rotation = Rot2::radians(shelf.tilt);
     }
 }
@@ -374,6 +403,7 @@ fn spawn_bar(
 ) -> Entity {
     let density = shelf.density;
     let corner = shelf.corner(designated);
+    let size = shelf.box_size(designated);
     let player = seat.player;
     let bar = commands
         .spawn((
@@ -390,11 +420,21 @@ fn spawn_bar(
                 position_type: PositionType::Absolute,
                 left: px(corner.x),
                 top: px(corner.y),
-                width: px(density.width(designated)),
-                height: px(density.height()),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: px(CELL_GAP),
+                width: px(size.x),
+                height: px(size.y),
+                // A column of rows, one row for every form but the split one.
+                // The wrapper costs a node per bar and buys the two forms one
+                // build: a single-row bar is a column with one row in it.
+                //
+                // The box's **top** is the shelf's outer edge, away from the
+                // lanes, at every seat — `ledge_corners` winds the rectangle
+                // from that edge inwards and `Shelf::of`'s half-turn fold
+                // flips with the seat that needed it. So the first row is the
+                // one furthest from the board, which is where the steps go.
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Stretch,
+                justify_content: JustifyContent::Center,
+                row_gap: px(density.row_gap()),
                 ..default()
             },
             // No fill and no rim: the ledge is the ground and the mat's own
@@ -404,21 +444,65 @@ fn spawn_bar(
         ))
         .id();
 
-    let height = density.height();
-    for cell in density.cells() {
-        let width = density.cell_width(cell, designated);
-        let node = match cell {
-            Cell::Caret => caret(commands, view, seat, fonts, width, height),
-            Cell::Swatch => swatch(commands, view, statics, seat, width, height),
-            Cell::Name => name(commands, lang, view, statics, seat, fonts, width, height),
-            Cell::Life => life(commands, seat, fonts, width, height),
-            Cell::Count(zone) => count(commands, view, seat, zone, fonts, width, height),
-            Cell::Hinge => hinge(commands, view, seat, fonts, width, height),
-            Cell::Steps => steps(commands, view, statics, seat, orders, fonts, density),
-        };
-        commands.entity(bar).add_child(node);
+    for (index, cells) in density.rows().into_iter().enumerate() {
+        let height = row_height(density, index);
+        let row = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: px(height),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: px(CELL_GAP),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        for cell in cells {
+            let width = density.cell_width(cell, designated);
+            let node = match cell {
+                Cell::Caret => caret(commands, view, seat, fonts, width, height),
+                Cell::Swatch => swatch(commands, view, statics, seat, width, height),
+                Cell::Name => name(commands, lang, view, statics, seat, fonts, width, height),
+                Cell::Life => life(commands, seat, fonts, width, height),
+                Cell::Count(zone) => count(commands, view, seat, zone, fonts, width, height),
+                Cell::Hinge => hinge(commands, view, seat, fonts, width, height),
+                Cell::Steps => steps(commands, view, statics, seat, orders, fonts, density),
+            };
+            commands.entity(row).add_child(node);
+        }
+        commands.entity(bar).add_child(row);
     }
     bar
+}
+
+/// How tall one row of a bar is drawn.
+///
+/// The whole box for a single-row form. For [`Density::Split`] the steps take
+/// the tile and its now-ring and the identity row takes its own smaller
+/// height, which is what lets two rows stand where one full-size row nearly
+/// filled the shelf.
+/// A type size that fits the row it is written on.
+///
+/// Every identity cell asks for the size it wants and gets the size its row
+/// has room for. The identity row of a split bar is fourteen pixels tall —
+/// less than half the box a single-row bar gets — and a fourteen-point life
+/// total in a fourteen-pixel row is a numeral with its descender cut off. One
+/// rule here rather than a size table per form, so a row that changes height
+/// is the only thing that has to change.
+fn fits(pt: f32, height: f32) -> f32 {
+    pt.min(height - 2.0)
+}
+
+fn row_height(density: Density, index: usize) -> f32 {
+    if !density.is_split() {
+        density.height()
+    } else if index == 0 {
+        density.tile_height() + HALO_OUT * 2.0
+    } else {
+        density.identity_height()
+    }
 }
 
 /// How faint the ink on a lost seat's bar is drawn. It says nothing any more,
@@ -457,7 +541,7 @@ fn caret(
             cell_node(width, height),
             children![(
                 Text::new("\u{25b6}"),
-                tf(fonts, 12.0),
+                tf(fonts, fits(12.0, height)),
                 TextColor(if holding {
                     palette::ACTIVE
                 } else {
@@ -537,7 +621,7 @@ fn name(
             node,
             children![(
                 Text::new(display),
-                tf(fonts, 13.0),
+                tf(fonts, fits(13.0, height)),
                 TextColor(ink_of(seat)),
                 TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
                 Pickable::IGNORE,
@@ -558,7 +642,7 @@ fn name(
         let clock = commands
             .spawn((
                 Text::new('\u{f017}'.to_string()),
-                icon_tf(fonts, 10.0),
+                icon_tf(fonts, fits(10.0, height)),
                 TextColor(palette::PARCHMENT_EDGE),
                 Pickable::IGNORE,
             ))
@@ -597,12 +681,12 @@ fn life(
             cell_node(width, height),
             children![(
                 Text::new(glyph::HEART.to_string()),
-                icon_tf(fonts, 11.0),
+                icon_tf(fonts, fits(11.0, height)),
                 TextColor(heart),
                 Pickable::IGNORE,
                 children![(
                     TextSpan::new(format!(" {}", seat.life)),
-                    tf(fonts, 14.0),
+                    tf(fonts, fits(14.0, height)),
                     TextColor(numeral),
                 )],
             )],
@@ -647,12 +731,12 @@ fn count(
             cell_node(width, height),
             children![(
                 Text::new(icon.to_string()),
-                icon_tf(fonts, 10.0),
+                icon_tf(fonts, fits(10.0, height)),
                 TextColor(soft),
                 Pickable::IGNORE,
                 children![(
                     TextSpan::new(format!(" {value}")),
-                    tf(fonts, 13.0),
+                    tf(fonts, fits(13.0, height)),
                     TextColor(ink_of(seat)),
                 )],
             )],
@@ -698,7 +782,7 @@ fn hinge(
             Pickable::IGNORE,
             children![(
                 Text::new(format!("T{}", view.turn)),
-                tf(fonts, 13.0),
+                tf(fonts, fits(13.0, height)),
                 TextColor(palette::ACTIVE),
                 Pickable::IGNORE,
             )],
@@ -712,7 +796,7 @@ fn hinge(
         let glyph = commands
             .spawn((
                 Text::new(mark.to_string()),
-                icon_tf(fonts, 11.0),
+                icon_tf(fonts, fits(11.0, height)),
                 TextColor(tone),
                 Pickable::IGNORE,
             ))
@@ -758,12 +842,23 @@ fn steps(
     } else {
         RailSide::Theirs
     };
+    // On a split bar the steps have the shelf to themselves, so the row is
+    // what takes the slack: `flex_grow` widens the tiles to their cap and
+    // `SpaceBetween` puts whatever is left over into the gaps between them,
+    // which is what "spread across the whole edge" means for twelve tiles
+    // that must not become ribbons. Every other form is a fixed strip.
     let row = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(density.tile_gap()),
+                flex_grow: f32::from(u8::from(density.is_split())),
+                justify_content: if density.is_split() {
+                    JustifyContent::SpaceBetween
+                } else {
+                    JustifyContent::FlexStart
+                },
                 ..default()
             },
             Pickable::IGNORE,
@@ -886,7 +981,14 @@ fn spawn_tile(
         .spawn((
             Node {
                 width: px(density.tile_width()),
+                max_width: px(density.tile_width_max()),
                 height: px(density.tile_height()),
+                // The tiles of a split bar grow *together* into the row's
+                // slack, so nothing on the row can twitch relative to
+                // anything else on it — which is the same promise the
+                // fixed-width numeral cells make, kept a different way.
+                flex_grow: f32::from(u8::from(density.is_split())),
+                flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,

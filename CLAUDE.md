@@ -808,7 +808,28 @@ The bar comes in **four densities** and the fourth is not decoration — the
 shelf projects 1141 px at a duel and 151 px on an eight-player ring, so
 `seatbar::Density::for_length` drops from the full bar to a compact one to
 pips to `Mark` (a caret, the seat's colour and twelve 8×10 pips). What a
-density drops, the seat sheet carries on hover. The untap and cleanup steps are
+density drops, the seat sheet carries on hover.
+Those four are a ladder in **length**, and `Density::Split` is the fifth form
+and the one chosen a rung above them, on *two* measurements. It is the bar
+the owner asked for: the twelve steps alone along the mat's top edge, spread
+across its whole width, with the seat's identity on its own row beneath. It
+asks for a **shorter** shelf than the full bar (two stacked rows are as long
+as the longer of them) and a **deeper** one than any single-row form, which
+is why `Density::for_shelf` exists and why `Shelf::depth` is finally read
+rather than merely asserted about. Its tiles are the only ink on a bar that
+is not a fixed number of pixels: they have the row to themselves, so they
+grow together to a cap and the slack past it goes into the gaps, which is
+what lets `Shelf::box_size` measure a split bar's box from the ledge instead
+of from the form. It reaches a duel and stops there — three seats and up have
+no shelf deep enough for two rows, and the ladder takes over untouched.
+Paying for it moved `tabletop::MAT_LEDGE` from 0.95 to 1.00, and the
+interesting half of that is what stopped it: **not** the `MAT_LEDGE <
+CARD_HEIGHT * 0.75` assertion (1.00 is 0.72 of a card, so the bound never
+bit) but `layout::MAX_RING_Y` at about 1.01, where a 2v2's ring clamps and
+its partners overlap. Deepening the ledge costs *a duel* no board size — the
+pod grows with it and the camera frames the pod, so a duel's shelf projects
+*longer* at 1.00 than at 0.95; a duel is framed by its width, and three seats
+and up, framed on their depth, pay for the deeper pod as normal. The untap and cleanup steps are
 dead in the model, not merely drawn grey: `RailRow::grants_priority` is false
 there and `PhaseOrders::toggle` refuses both, so those two tiles carry no
 frame and are `Pickable::IGNORE`. The predicate is about a *standing order*,

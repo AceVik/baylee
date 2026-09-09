@@ -1520,6 +1520,38 @@ Two invariants hold the set together and are tested: a thinner form never
 carries a cell a denser one drops (four sizes of one bar, not four designs),
 and no form ever drops the caret, the colour or the steps.
 
+**A fifth form, chosen on the other measurement.** `Density::Split` writes the
+bar on two rows — the twelve steps alone along the mat's top edge, spread
+across its whole width, and the seat's identity beneath them — which is what
+the owner asked the phase line to be. It is not a rung of that ladder and
+could not be: it asks for a *shorter* shelf than the full bar (507 against
+924, because stacked rows are as long as the longer of them) and a *deeper*
+one than any single-row form (34 of ink against 28). So `Density::for_shelf`
+takes both numbers, and `Shelf::depth` — which the ladder never consulted and
+`camera_tests` only asserted about — is finally what decides something.
+Three consequences worth knowing. Its tiles **grow**: they have the row to
+themselves, so `flex_grow` widens them to `tile_width_max` and
+`SpaceBetween` puts the slack past that into the gaps, which is the only ink
+on any bar that is not a fixed number of pixels — and it is allowed because
+they grow *together*, so nothing on the row moves relative to anything else.
+Its box is therefore measured from the **shelf** rather than from the form
+(`Shelf::box_size`), and `SeatBar::placed` carries that width so a camera
+dollying straight in — which changes a ledge's length without moving its
+middle — does not leave the bar at the width it was born with. And the box's
+*top* is the shelf's outer edge at every seat: `ledge_corners` winds the
+rectangle from that edge inwards, and `Shelf::of`'s half-turn fold flips
+exactly the seats that needed flipping, so the steps are the row furthest
+from the board at a near seat, a far seat and a side seat alike.
+It reaches a duel and stops there. `a_duel_is_written_on_two_rows` is the
+test, and it reports both shelves rather than the first, because the number
+that decides the ledge is the *shallower* of the two. Those two are about a
+tenth apart (36.2 against 40.3 at 1728), so there is a band of window sizes —
+roughly 1460 to 1620 at this aspect — where a duel writes its local bar on
+two rows and its opponent's on one. That is the per-seat answer the ladder
+already gives a four-seat table, where a side seat and the seat across get
+different forms; a duel showing two is the same rule and not an exception to
+it.
+
 Three channels on a step tile, and they answer three different questions.
 The **frame** is the standing order — none at all for a dead step, gold for
 the step the game is in, accent for a stop, danger for a skip. The **ring** is

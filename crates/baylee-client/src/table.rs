@@ -2615,6 +2615,54 @@ mod camera_tests {
         }
     }
 
+    /// A duel is written on two rows, at **both** seats.
+    ///
+    /// The reason [`crate::tabletop::MAT_LEDGE`] is as deep as it is, and
+    /// therefore the test that says what the depth is for. `Density::Split`
+    /// is chosen per seat, like every other form, so a ledge deep enough for
+    /// only one of a duel's two shelves would draw the near seat a phase line
+    /// and the far seat a single crowded row — one table, two designs, and no
+    /// test would have noticed.
+    ///
+    /// Two seats and not more: three is where the shelf stops being deep
+    /// enough for two rows however the camera is framed, and
+    /// [`the_bar_fits_its_ledge_at_every_seat_of_an_eight_ring`] is what
+    /// holds the ladder that takes over there.
+    #[test]
+    fn a_duel_is_written_on_two_rows() {
+        use crate::hud::Shelf;
+        use baylee_client_core::seatbar::Density;
+        let canvas = Canvas::hud(WINDOW);
+        let layout = TableLayout::new(&seats(2), canvas.aspect(), None);
+        let rig = CameraRig::home(&layout, canvas);
+        let lens = Lens::new(rig, canvas.window);
+        let shelves: Vec<Shelf> = layout
+            .slots
+            .iter()
+            .map(|slot| {
+                let corners = lens
+                    .corners(slot.ledge_corners())
+                    .expect("both ledges of a duel are in front of the camera");
+                Shelf::of(corners, false)
+            })
+            .collect();
+        // Reported together rather than one at a time, because the number
+        // that decides the ledge is the *shallower* of the two and a test
+        // that stopped at the near seat would never print it.
+        let measured: Vec<String> = shelves
+            .iter()
+            .map(|s| format!("{:.1}×{:.1} ({:?})", s.along, s.depth, s.density))
+            .collect();
+        assert!(
+            shelves.iter().all(|s| s.density == Density::Split),
+            "a duel's shelves project {} and the two-row bar asks for \
+             {:.1}×{:.1}",
+            measured.join(", "),
+            Density::Split.min_length(false),
+            Density::Split.ink_height()
+        );
+    }
+
     /// What [`a_duel_gets_the_bar_its_window_can_hold`] promises, in one
     /// place, because these are the numbers a reader wants and not the loop
     /// around them.
@@ -2626,11 +2674,28 @@ mod camera_tests {
     /// window is therefore a squarer canvas. The full bar wants 924, so the
     /// hand-over is at about 1400 logical pixels: a 1280 laptop is the one
     /// window in the list that reads its own seat off the compact bar.
+    ///
+    /// The top of the list is a **depth** hand-over and not a length one.
+    /// Every window here is long enough for the two-row bar's 507 twice over;
+    /// what decides it is that the local ledge projects 33.6 px deep at 1440
+    /// and 40.3 at 1728, against the 34 two rows of ink draw. So the window
+    /// that gains the phase line is the one whose *height* bought the shelf a
+    /// second row, which is why a table of window widths is still the honest
+    /// shape for this: the canvas is kept the shape of [`WINDOW`].
+    ///
+    /// This list samples either side of a band it does not land in. The far
+    /// seat's shelf is about a tenth shallower than the near one (36.2
+    /// against 40.3 at 1728), so between roughly 1460 and 1620 a duel draws
+    /// its local bar on two rows and its opponent's on one. That is the same
+    /// per-seat answer the ladder already gives a four-seat table, where a
+    /// side seat and the seat across get different forms — but it is worth
+    /// knowing that a duel can show two, and worth not widening the window
+    /// list to pin it, because the exact edges move with every constant here.
     const DUEL_BARS: [(f32, baylee_client_core::seatbar::Density); 4] = [
         (1280.0, baylee_client_core::seatbar::Density::Compact),
         (1440.0, baylee_client_core::seatbar::Density::Full),
-        (1728.0, baylee_client_core::seatbar::Density::Full),
-        (1920.0, baylee_client_core::seatbar::Density::Full),
+        (1728.0, baylee_client_core::seatbar::Density::Split),
+        (1920.0, baylee_client_core::seatbar::Density::Split),
     ];
 
     /// A free-for-all of three is on the circle it is supposed to be on.
