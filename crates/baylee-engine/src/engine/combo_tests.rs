@@ -1429,6 +1429,7 @@ fn a_table_with_a_season_on_one_side(
 fn aim_at_their_elf(
     engine: &mut Engine<RegistryLookup>,
     spell: baylee_core::ids::CardIndex,
+    pay_extra: bool,
 ) -> baylee_core::ids::ObjectId {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let victim = on_battlefield(engine, p1, llanowar_elves()).expect("their elf");
@@ -1436,10 +1437,12 @@ fn aim_at_their_elf(
     let mut aimed = false;
     loop {
         match engine.pending() {
-            // Every optional additional cost declined: kicker is not what
-            // any of these tests are about.
+            // `pay_extra` answers every optional additional cost the same
+            // way, which is all these tests need: the only spell here that
+            // has one is Rite of Replication, and its kicker is the whole
+            // question in the test that pays it.
             Pending::YesNo { .. } => {
-                engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+                engine.apply(p0, PlayerAction::YesNo(pay_extra)).unwrap();
             }
             Pending::ChooseTargets { .. } => {
                 let options = target_options(engine);
@@ -1479,7 +1482,7 @@ fn my_season_does_not_double_the_shapeshifter_my_own_removal_hands_them() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine =
         a_table_with_a_season_on_one_side(88, 0, &[plains(), plains(), plains()], crib_swap());
-    aim_at_their_elf(&mut engine, crib_swap());
+    aim_at_their_elf(&mut engine, crib_swap(), false);
 
     assert_eq!(
         tokens_controlled(&engine, p1),
@@ -1505,7 +1508,7 @@ fn their_season_doubles_the_shapeshifter_my_removal_hands_them() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine =
         a_table_with_a_season_on_one_side(89, 1, &[plains(), plains(), plains()], crib_swap());
-    aim_at_their_elf(&mut engine, crib_swap());
+    aim_at_their_elf(&mut engine, crib_swap(), false);
 
     assert_eq!(
         tokens_controlled(&engine, p1),
@@ -1536,7 +1539,7 @@ fn my_season_doubles_the_copy_i_make_of_their_creature() {
         &[island(), island(), island(), island()],
         rite_of_replication(),
     );
-    let victim = aim_at_their_elf(&mut engine, rite_of_replication());
+    let victim = aim_at_their_elf(&mut engine, rite_of_replication(), false);
 
     assert_eq!(
         cardless_permanents(&engine, p0),
@@ -1579,7 +1582,7 @@ fn their_season_does_not_double_the_copy_i_make_of_their_creature() {
         &[island(), island(), island(), island()],
         rite_of_replication(),
     );
-    aim_at_their_elf(&mut engine, rite_of_replication());
+    aim_at_their_elf(&mut engine, rite_of_replication(), false);
 
     assert_eq!(
         cardless_permanents(&engine, p0),
@@ -1591,5 +1594,46 @@ fn their_season_does_not_double_the_copy_i_make_of_their_creature() {
         cardless_permanents(&engine, p1),
         0,
         "and their own board gained nothing from copying their creature"
+    );
+}
+
+/// The same Rite of Replication, kicked, under my own Doubling Season: ten
+/// copies.
+///
+/// Kicker turns "create a token that's a copy" into five of them, and the
+/// replacement multiplies the total rather than the printed one, so this is
+/// the arithmetic the doubled branch has to get right and the first test to
+/// send a kicked spell through it at all. Nine Islands is exactly
+/// {7}{U}{U}, which is also what says the wizard charged for the kicker.
+#[test]
+fn a_kicked_rite_under_my_season_makes_ten_copies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_table_with_a_season_on_one_side(
+        92,
+        0,
+        &[
+            island(),
+            island(),
+            island(),
+            island(),
+            island(),
+            island(),
+            island(),
+            island(),
+            island(),
+        ],
+        rite_of_replication(),
+    );
+    aim_at_their_elf(&mut engine, rite_of_replication(), true);
+
+    assert_eq!(
+        cardless_permanents(&engine, p0),
+        10,
+        "five copies from the kicker, doubled by my own Doubling Season"
+    );
+    assert_eq!(
+        cardless_permanents(&engine, p1),
+        0,
+        "and none of them arrived on the side of the table the original is on"
     );
 }
