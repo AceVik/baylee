@@ -16,7 +16,7 @@ card! {
         mana_cost: baylee_core::mana!("{2}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::MERFOLK, creature::WIZARD],
-        power: Some(2),
+        power: Some(3),
         toughness: Some(2),
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

@@ -19,8 +19,8 @@ card! {
             mana_cost: baylee_core::mana!("{3}{U}"),
             types: TypeSet::CREATURE,
             subtypes: &[creature::SPIRIT],
-            power: Some(2),
-            toughness: Some(2),
+            power: Some(0),
+            toughness: Some(0),
         },
         face! {
             name: "Ghastly Mimicry",

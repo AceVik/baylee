@@ -30,7 +30,7 @@ card! {
         types: TypeSet::CREATURE,
         subtypes: &[creature::ASTARTES, creature::WARRIOR],
         power: Some(3),
-        toughness: Some(3),
+        toughness: Some(2),
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     coverage: Coverage::Implemented,

@@ -1,4 +1,4 @@
-//! Inspirit, Flagship Vessel — {4} — Legendary Artifact — Spacecraft
+//! Inspirit, Flagship Vessel — {U}{R}{W} — Legendary Artifact — Spacecraft
 //! Oracle: Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 8+.)
 //! Oracle: 1+ | At the beginning of combat on your turn, put your choice of a +1/+1 counter or two charge counters on up to one other target artifact.
 //! Oracle: 8+ | Flying
@@ -23,11 +23,12 @@ card! {
     scryfall_id: "46900ec7-eb18-45c4-8e90-a48b665cfdee",
     faces: &[face! {
         name: "Inspirit, Flagship Vessel",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: baylee_core::mana!("{U}{R}{W}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[artifact::SPACECRAFT],
     }],
+    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Red]),
     coverage: Coverage::Implemented,
     abilities: &[
         // Station: tap another creature → its power in charge counters,

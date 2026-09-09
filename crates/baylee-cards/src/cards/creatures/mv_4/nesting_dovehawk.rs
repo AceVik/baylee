@@ -1,4 +1,4 @@
-//! Nesting Dovehawk — {2}{W} — Creature — Bird
+//! Nesting Dovehawk — {3}{W} — Creature — Bird
 //! Oracle: Flying
 //! Oracle: At the beginning of combat on your turn, populate. (Create a token that's a copy of a creature token you control.)
 //! Oracle: Whenever a creature token you control enters, put a +1/+1 counter on this creature.
@@ -17,7 +17,7 @@ card! {
     scryfall_id: "c58ff93f-7135-40af-92ce-358da48694dc",
     faces: &[face! {
         name: "Nesting Dovehawk",
-        mana_cost: baylee_core::mana!("{2}{W}"),
+        mana_cost: baylee_core::mana!("{3}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::BIRD],
         power: Some(2),

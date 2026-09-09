@@ -1,4 +1,4 @@
-//! Spirit Water Revival — {4}{U} — Sorcery
+//! Spirit Water Revival — {1}{U}{U} — Sorcery
 //! Oracle: As an additional cost to cast this spell, you may waterbend {6}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)
 //! Oracle: Draw two cards. If this spell's additional cost was paid, instead shuffle your graveyard into your library, draw seven cards, and you have no maximum hand size for the rest of the game.
 //! Oracle: Exile Spirit Water Revival.
@@ -31,7 +31,7 @@ card! {
     scryfall_id: "0c019e76-c88e-4d1b-a546-0f4e462ef44a",
     faces: &[face! {
         name: "Spirit Water Revival",
-        mana_cost: baylee_core::mana!("{4}{U}"),
+        mana_cost: baylee_core::mana!("{1}{U}{U}"),
         types: TypeSet::SORCERY,
         additional_costs: &[Cost {
             mana: baylee_core::mana!("{6}"),

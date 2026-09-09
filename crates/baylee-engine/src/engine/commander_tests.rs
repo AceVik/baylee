@@ -34,7 +34,7 @@ fn arcane_signet() -> CardIndex {
 fn flawless_maneuver() -> CardIndex {
     card_index("4e183439-17d2-47ff-9d99-5e22821d91e3")
 }
-/// Supreme Verdict — {1}{W}{U}{U}, "Destroy all creatures". The kill in
+/// Supreme Verdict — {1}{W}{W}{U}, "Destroy all creatures". The kill in
 /// these tests is a card someone casts, not a call to `sba::destroy`: a
 /// commander that only ever dies by the engine reaching in has never been
 /// through the path a game uses.
@@ -378,7 +378,7 @@ fn a_commander_returns_to_the_command_zone_and_costs_two_more_next_time() {
     let mut engine = Duel::new(7, forest())
         .commander(0, &[katara()])
         .battlefield(0, &[forest(), plains(), island(), forest(), island()])
-        .battlefield(1, &[plains(), island(), island(), island()])
+        .battlefield(1, &[plains(), plains(), island(), island(), island()])
         .hand(1, &[supreme_verdict()])
         .start();
     keep_mulligans(&mut engine);
@@ -472,7 +472,7 @@ fn a_declined_commander_stays_where_it_died_and_is_not_asked_again() {
     let mut engine = Duel::new(8, forest())
         .commander(0, &[katara()])
         .battlefield(0, &[forest(), plains(), island()])
-        .battlefield(1, &[plains(), island(), island(), island()])
+        .battlefield(1, &[plains(), plains(), island(), island(), island()])
         .hand(1, &[supreme_verdict()])
         .start();
     keep_mulligans(&mut engine);
@@ -579,6 +579,7 @@ fn one_wrath_that_kills_two_commanders_asks_both_owners() {
                 plains(),
                 island(),
                 plains(),
+                plains(),
                 island(),
                 island(),
                 island(),
@@ -596,8 +597,8 @@ fn one_wrath_that_kills_two_commanders_asks_both_owners() {
         .unwrap();
     pass_until(&mut engine, |e| resolved_and_back_to(e, p0, katara()));
 
-    // Seat 1 deploys their own and then wraths both: seven lands pay
-    // {G}{W}{U} and {1}{W}{U}{U} in one main phase, and the pool does not
+    // Seat 1 deploys their own and then wraths both: eight lands pay
+    // {G}{W}{U} and {1}{W}{W}{U} in one main phase, and the pool does not
     // empty between two spells in the same step.
     pass_until(&mut engine, |e| own_main_phase(e, p1));
     let second = commander_of(&engine, p1);

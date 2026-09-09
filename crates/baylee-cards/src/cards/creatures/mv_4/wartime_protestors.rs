@@ -1,4 +1,4 @@
-//! Wartime Protestors — {2}{R} — Creature — Human Rebel Ally
+//! Wartime Protestors — {3}{R} — Creature — Human Rebel Ally
 //! Oracle: Haste
 //! Oracle: Whenever another Ally you control enters, put a +1/+1 counter on that creature and it gains haste until end of turn.
 //! Set: TLA #192 — Avatar: The Last Airbender | Scryfall ID: bac81940-d717-49ff-83b2-16a22bb2c988 | Oracle ID: 6557813b-4ee7-4881-a37c-10c8ea097360
@@ -15,11 +15,11 @@ card! {
     scryfall_id: "bac81940-d717-49ff-83b2-16a22bb2c988",
     faces: &[face! {
         name: "Wartime Protestors",
-        mana_cost: baylee_core::mana!("{2}{R}"),
+        mana_cost: baylee_core::mana!("{3}{R}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::REBEL, creature::ALLY],
-        power: Some(3),
-        toughness: Some(2),
+        power: Some(4),
+        toughness: Some(4),
     }],
     color_identity: ColorSet::from_slice(&[Color::Red]),
     keywords: KeywordSet::HASTE,

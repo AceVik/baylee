@@ -1,4 +1,4 @@
-//! Sokka, Tenacious Tactician — {1}{U}{R} — Legendary Creature — Human Warrior Ally
+//! Sokka, Tenacious Tactician — {1}{U}{R}{W} — Legendary Creature — Human Warrior Ally
 //! Oracle: Menace, prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)
 //! Oracle: Other Allies you control have menace and prowess.
 //! Oracle: Whenever you cast a noncreature spell, create a 1/1 white Ally creature token.
@@ -20,14 +20,14 @@ card! {
     scryfall_id: "f0fa5897-1da7-488f-bb19-1632e969c050",
     faces: &[face! {
         name: "Sokka, Tenacious Tactician",
-        mana_cost: baylee_core::mana!("{1}{U}{R}"),
+        mana_cost: baylee_core::mana!("{1}{U}{R}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::HUMAN, creature::WARRIOR, creature::ALLY],
-        power: Some(2),
-        toughness: Some(2),
+        power: Some(3),
+        toughness: Some(3),
     }],
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::Red]),
+    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Red]),
     keywords: KeywordSet::MENACE.union(KeywordSet::PROWESS),
     commander: CommanderRule::Legendary,
     coverage: Coverage::Implemented,

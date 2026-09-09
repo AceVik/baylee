@@ -1031,6 +1031,89 @@ fn code_costs(content: &str) -> Vec<String> {
 /// data — the header is the safety net against generation drift, and it
 /// is only a net if something checks it (two cost fixes once shipped
 /// with stale headers).
+/// Compares the code's first face against the **printing** — Scryfall's own
+/// payload in `data/scryfall-cache`, which is what `codegen` reads.
+///
+/// [`check_header_matches_code`] compares two things a person wrote, so a
+/// card whose header was edited to agree with a wrong `CardDef` passes it
+/// with nothing to say. Fifteen cards in the pool had done exactly that: six
+/// wrong mana costs and nine wrong power/toughness pairs, every one of them
+/// green. Wartime Protestors was printed `{3}{R}` 4/4 and played `{2}{R}`
+/// 3/2, which is how it was reported — a card that costs one mana less than
+/// the one drawn on it.
+///
+/// Only the two fields that decide a game are checked, and only against the
+/// front face: a cost is what a player pays and a P/T is what survives
+/// combat, and both are single values a hand edit can silently move. The rest
+/// of a face (types, subtypes, oracle text) is either already checked by the
+/// header or is not a number.
+///
+/// A card with no cached payload is skipped rather than failed. The cache is
+/// a working directory that a checkout need not have filled — a hundred of
+/// the pool's cards have no file there today — and failing on its absence
+/// would turn a data-fetching problem into a build failure about card rules.
+fn check_code_matches_the_printing(root: &Path, slug: &str, content: &str, problems: &mut usize) {
+    let path = root
+        .join("data/scryfall-cache")
+        .join(format!("{slug}.json"));
+    let Ok(text) = fs::read_to_string(&path) else {
+        return;
+    };
+    let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return;
+    };
+    // A double-faced card carries its per-face costs and P/T inside
+    // `card_faces`, and its top-level `mana_cost` is the two sides joined
+    // with " // " — a string no `CardDef` face ever holds.
+    let front = payload.get("card_faces").and_then(|f| f.get(0));
+    let printed = |key: &str| -> Option<String> {
+        front
+            .and_then(|f| f.get(key))
+            .or_else(|| payload.get(key))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string)
+    };
+
+    let Some(face) = content.find("faces: &[").map(|pos| &content[pos..]) else {
+        return;
+    };
+    if let (Some(printed), Some(code)) = (printed("mana_cost"), code_costs(face).first())
+        && normalise_cost(&printed) != *code
+    {
+        println!("{slug}: the printing costs {printed} and the code costs {code}");
+        *problems += 1;
+    }
+    // A creature only. `power` on a printing with no P/T is absent, and a
+    // face that writes neither is a noncreature card the check has nothing
+    // to say about.
+    for (key, field) in [("power", "power: Some("), ("toughness", "toughness: Some(")] {
+        let (Some(printed), Some(code)) = (printed(key), field_number(face, field)) else {
+            continue;
+        };
+        if printed != code {
+            println!("{slug}: the printing has {key} {printed} and the code has {code}");
+            *problems += 1;
+        }
+    }
+}
+
+/// Scryfall's spelling of a costless card is an empty string; the pool's is
+/// the one [`code_costs`] already normalises everything else to.
+fn normalise_cost(printed: &str) -> String {
+    if printed.is_empty() || printed == "{0}" {
+        "(no cost)".to_string()
+    } else {
+        printed.to_string()
+    }
+}
+
+/// The first `field` number in `face`, as it is written.
+fn field_number(face: &str, field: &str) -> Option<String> {
+    let rest = &face[face.find(field)? + field.len()..];
+    let end = rest.find(')')?;
+    Some(rest[..end].to_string())
+}
+
 fn check_header_matches_code(slug: &str, content: &str, problems: &mut usize) {
     // First header line: `//! <Name> — <cost or "(no cost)"> — <types>`.
     let Some(header) = content.lines().find(|l| l.starts_with("//! ")) else {
@@ -1249,6 +1332,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         }
         check_header_matches_code(&slug, &content, &mut problems);
         check_search_tapped_matches_text(&slug, &content, &mut problems);
+        check_code_matches_the_printing(root, &slug, &content, &mut problems);
     }
     if problems > 0 {
         anyhow::bail!("{problems} convention problem(s) found");
