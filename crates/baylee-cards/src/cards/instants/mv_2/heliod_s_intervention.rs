@@ -24,11 +24,11 @@ card! {
         modes: &[
             mode!(&[Effect::Destroy {
                     target: TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT),
-                }], target: Some(TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT))),
+                }], targets: Some(TargetReq::one(TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT)))),
             mode!(&[Effect::GainLifeFor {
                     amount: Amount::DoubleX,
                     who: PlayerRel::Chosen,
-                }], target: Some(TargetSpec::AnyPlayer)),
+                }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
         ],
     }],
 }

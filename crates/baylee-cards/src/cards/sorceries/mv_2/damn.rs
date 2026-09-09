@@ -28,7 +28,7 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::ModalSpell {
         modes: &[
-            mode!(NORMAL_EFFECTS, target: Some(TargetSpec::Object(&Filter::CREATURE))),
+            mode!(NORMAL_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
             mode!(OVERLOAD_EFFECTS, cost_override: Some(baylee_core::mana!("{2}{W}{W}"))),
         ],
     }],

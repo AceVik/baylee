@@ -174,8 +174,9 @@ pub enum AbilityDef {
         chapter: u8,
         /// Effect operations.
         effects: &'static [crate::effect::Effect],
-        /// Target requirement.
-        target: Option<crate::effect::TargetSpec>,
+        /// Target requirement — a count as well as a filter, for the reason
+        /// [`AbilityDef::Loyalty::targets`] gives.
+        targets: Option<crate::effect::TargetReq>,
     },
     /// Prepared: while this permanent has the prepared marker, you may
     /// cast a copy of the linked spell card; doing so removes the marker
@@ -279,7 +280,12 @@ pub struct SpellMode {
     /// Effect operations of this mode.
     pub effects: &'static [crate::effect::Effect],
     /// Target requirement of this mode.
-    pub target: Option<crate::effect::TargetSpec>,
+    ///
+    /// A mode targets for itself, and it states a count as well as a filter:
+    /// Inspirit, Flagship Vessel puts a counter "on **up to one** other
+    /// target artifact", and read as exactly one that trigger vanishes off
+    /// the stack on a board with no other artifact on it.
+    pub targets: Option<crate::effect::TargetReq>,
     /// Cost override for this mode (overload); `None` = the printed cost.
     pub cost_override: Option<baylee_core::mana::ManaCost>,
 }

@@ -38,7 +38,7 @@ card! {
         modes: &[
             mode!(SCRY_EFFECTS),
             mode!(LIFE_EFFECTS),
-            mode!(BLINK_EFFECTS, target: Some(TargetSpec::Object(&OTHER_CREATURE_YOU_OWN))),
+            mode!(BLINK_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&OTHER_CREATURE_YOU_OWN)))),
         ],
         once_per_turn: false,
     }],

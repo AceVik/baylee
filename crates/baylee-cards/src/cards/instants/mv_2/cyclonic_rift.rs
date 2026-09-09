@@ -30,7 +30,7 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[AbilityDef::ModalSpell {
         modes: &[
-            mode!(NORMAL_EFFECTS, target: Some(TargetSpec::Object(&NOT_MINE))),
+            mode!(NORMAL_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&NOT_MINE)))),
             mode!(OVERLOAD_EFFECTS, cost_override: Some(baylee_core::mana!("{6}{U}"))),
         ],
     }],

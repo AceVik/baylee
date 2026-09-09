@@ -21,13 +21,22 @@ static NONTOKEN_CREATURE_OR_WALKER: Filter = Filter::And(&[
 static CREATURE_OR_WALKER: Filter = Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER]);
 
 static BACK_ABILITIES: &[AbilityDef] = &[
+    // NOT SUPPORTED: chapter I prints "For each opponent, destroy up to one
+    // target creature or planeswalker that player controls" — one target per
+    // opponent, chosen when the chapter goes on the stack. `TargetReq` states
+    // a fixed minimum and maximum, so a count that grows with the table is
+    // not a number it has, and a saga chapter carries a bare `TargetSpec`
+    // besides. `DestroyChosenForPlayers` picks one permanent per opponent on
+    // resolution instead, which reaches the same board and skips the
+    // targeting rules: hexproof, ward and protection do not answer it, and
+    // nothing triggers on becoming a target.
     AbilityDef::SagaChapter {
         chapter: 1,
         effects: &[Effect::DestroyChosenForPlayers {
             who: PlayerRel::EachOpponent,
             filter: &CREATURE_OR_WALKER,
         }],
-        target: None,
+        targets: None,
     },
     AbilityDef::SagaChapter {
         chapter: 2,
@@ -41,7 +50,7 @@ static BACK_ABILITIES: &[AbilityDef] = &[
                 target: PlayerRel::EachOpponent,
             },
         ],
-        target: None,
+        targets: None,
     },
     AbilityDef::SagaChapter {
         chapter: 3,
@@ -49,7 +58,7 @@ static BACK_ABILITIES: &[AbilityDef] = &[
             Effect::AllGraveyardCreaturesToBattlefield,
             Effect::ExileSelfReturnAsFace { face: 0 },
         ],
-        target: None,
+        targets: None,
     },
 ];
 
@@ -77,7 +86,7 @@ card! {
     ],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     keywords: KeywordSet::MENACE,
-    coverage: Coverage::Implemented,
+    coverage: Coverage::Partial("chapter I destroys one permanent per opponent without targeting"),
     abilities: &[
         triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::SacrificeFilter {
                 who: PlayerRel::EachOpponent,

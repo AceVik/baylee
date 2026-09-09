@@ -80,14 +80,17 @@ card! {
                 whose: PlayerRel::You,
             },
             modes: &[
+                // "up to one other target artifact": with nothing else on
+                // the board this trigger still goes on the stack and does
+                // nothing, where a count of exactly one would take it off.
                 mode!(&[Effect::AddCounter {
                         kind: CounterKind::P1P1,
                         amount: Amount::Fixed(1),
-                    }], target: Some(TargetSpec::Object(&OTHER_ARTIFACT))),
+                    }], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&OTHER_ARTIFACT)))),
                 mode!(&[Effect::AddCounter {
                         kind: CounterKind::Charge,
                         amount: Amount::Fixed(2),
-                    }], target: Some(TargetSpec::Object(&OTHER_ARTIFACT))),
+                    }], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&OTHER_ARTIFACT)))),
             ],
             once_per_turn: false,
         },

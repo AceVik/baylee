@@ -1039,10 +1039,8 @@ impl<L: CardLookup> Engine<L> {
                 .map(|o| o.abilities(&self.lookup))
                 .and_then(|abilities| abilities.get(t.ability_index as usize))
                 .and_then(|a| match a {
-                    AbilityDef::Triggered { targets, .. } => *targets,
-                    AbilityDef::SagaChapter { target, .. } => {
-                        target.map(baylee_cards_dsl::TargetReq::one)
-                    }
+                    AbilityDef::Triggered { targets, .. }
+                    | AbilityDef::SagaChapter { targets, .. } => *targets,
                     _ => None,
                 });
             if let Some(req) = req {
@@ -1269,15 +1267,16 @@ impl<L: CardLookup> Engine<L> {
             let targeted = match abilities.get(loc.index as usize) {
                 Some(
                     AbilityDef::Activated { target, .. }
-                    | AbilityDef::ActivatedConditional { target, .. }
-                    | AbilityDef::SagaChapter { target, .. },
+                    | AbilityDef::ActivatedConditional { target, .. },
                 ) => target.is_some(),
                 Some(
-                    AbilityDef::Loyalty { targets, .. } | AbilityDef::Triggered { targets, .. },
+                    AbilityDef::Loyalty { targets, .. }
+                    | AbilityDef::Triggered { targets, .. }
+                    | AbilityDef::SagaChapter { targets, .. },
                 ) => targets.is_some(),
                 Some(AbilityDef::ModalTriggered { modes, .. }) => modes
                     .get(obj.mode_index.map_or(0, |i| i as usize))
-                    .is_some_and(|m| m.target.is_some()),
+                    .is_some_and(|m| m.targets.is_some()),
                 _ => false,
             };
             if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
@@ -1368,7 +1367,7 @@ impl<L: CardLookup> Engine<L> {
                 def.abilities_for_face(face).iter().find_map(|a| match a {
                     AbilityDef::ModalSpell { modes } => modes
                         .get(mode_index as usize)
-                        .map(|m| (m.effects, m.target.is_some())),
+                        .map(|m| (m.effects, m.targets.is_some())),
                     _ => None,
                 })
             });

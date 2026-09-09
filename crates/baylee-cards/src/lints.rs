@@ -61,7 +61,7 @@ fn branches(ability: &AbilityDef) -> Vec<Branch> {
         modes
             .iter()
             .map(|m| Branch {
-                target: m.target,
+                target: m.targets.map(|t| t.spec),
                 effects: m.effects,
             })
             .collect()
@@ -82,11 +82,14 @@ fn branches(ability: &AbilityDef) -> Vec<Branch> {
         }
         | AbilityDef::ActivatedConditional {
             effects, target, ..
-        }
-        | AbilityDef::SagaChapter {
-            effects, target, ..
         } => vec![Branch {
             target: *target,
+            effects,
+        }],
+        AbilityDef::SagaChapter {
+            effects, targets, ..
+        } => vec![Branch {
+            target: targets.map(|req| req.spec),
             effects,
         }],
         // A loyalty ability states a count as well as a filter, and only the

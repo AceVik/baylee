@@ -1253,6 +1253,84 @@ fn check_oracle_matches_the_printing(
     *problems += 1;
 }
 
+/// A printed "up to N target" is a **count**, and the code has to be able to
+/// say it.
+///
+/// A bare `TargetSpec` reads as *exactly one*, which is a different card: an
+/// ability whose only legal answer is "none" cannot be activated at all, so
+/// the sentence after it never happens. Karn, the Great Creator's `+1` and
+/// Teferi, Time Raveler's `-3` were both written that way, and Teferi's is
+/// the one that shows what it costs — "Return up to one target artifact,
+/// creature, or enchantment to its owner's hand. **Draw a card.**" was a
+/// draw a player could not reach with an empty board.
+///
+/// The check is textual on purpose. It reads the printing's own sentence and
+/// then asks whether the card's source says a minimum of none *anywhere* —
+/// `TargetReq::up_to_one`, `up_to`, `x_targets` or a written-out `min: 0`.
+/// That is coarse: a card with two targeted abilities where only one prints
+/// "up to" passes on the other's count. It is still worth having, because the
+/// failure it is written for is a card that says "up to" in its header and
+/// nowhere in its code, and because the shapes that *cannot* say it —
+/// `Activated`, `ActivatedConditional`, `SagaChapter`, whose `target` is a
+/// bare spec — have no way to pass except by being reported.
+fn check_target_counts_match_the_printing(
+    slug: &str,
+    content: &str,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    // A stub claims nothing, so there is nothing to disagree with — and a
+    // card marked `Partial` has already said, in writing, that it diverges
+    // from its printing. That is the sanctioned answer for a sentence the
+    // DSL cannot say (Sheoldred's chapter I destroys one permanent *per
+    // opponent*, which is not a number `TargetReq` has), and a checker that
+    // reported it anyway would be asking the pool to lie the other way.
+    if content.contains(stubgen::STUB_MARKER) || content.contains("Coverage::Partial") {
+        return;
+    }
+    let printed = printed_text(payload).to_lowercase();
+    let Some(phrase) = up_to_target_phrase(&printed) else {
+        return;
+    };
+    tally.targets += 1;
+    if ["up_to_one(", "up_to(", "x_targets(", "min: 0"]
+        .iter()
+        .any(|way| content.contains(way))
+    {
+        return;
+    }
+    println!("{slug}: the printing says \"{phrase}\" and the code says exactly one");
+    *problems += 1;
+}
+
+/// The printed phrase that states a target count of "up to", if there is one.
+///
+/// Read by scanning rather than by matching a list of whole phrases, because
+/// what sits between the number and the noun varies with the card — "up to
+/// one target creature", "up to two target **other** creatures", "up to X
+/// target lands" — and a list of exact spellings would quietly stop matching
+/// the first time a card worded it a new way.
+///
+/// The window stops at a line break or a bullet, which is the difference
+/// between a count of *targets* and a count of *modes*. Ertai Resurrected
+/// prints "choose up to one —" and then two bulleted modes that each target
+/// something; the "up to one" there is about how many modes are chosen, and
+/// the card says it with an empty third mode rather than with a `TargetReq`.
+fn up_to_target_phrase(printed: &str) -> Option<String> {
+    let mut from = 0;
+    while let Some(at) = printed[from..].find("up to ") {
+        let start = from + at;
+        let rest = &printed[start..printed.len().min(start + 44)];
+        let window = rest.split(['\n', '\u{2022}']).next().unwrap_or_default();
+        if let Some(i) = window.find("target") {
+            return Some(window[..i + "target".len()].to_string());
+        }
+        from = start + "up to ".len();
+    }
+    None
+}
+
 /// Every non-blank line, trimmed — the one difference this check forgives.
 fn squash(text: &str) -> Vec<String> {
     text.lines()
@@ -1305,6 +1383,8 @@ struct PrintingTally {
     oracle: usize,
     /// Face costs compared against the printing, over the whole pool.
     costs: usize,
+    /// Cards whose printing states a target count of "up to".
+    targets: usize,
 }
 
 /// The floor under each count in [`PrintingTally`].
@@ -1343,6 +1423,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     mana: 340,
     oracle: 1300,
     costs: 1340,
+    targets: 10,
 };
 
 /// Keyword bits that have a printed spelling to look for.
@@ -2068,19 +2149,27 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         }
         check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
         check_oracle_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
+        check_target_counts_match_the_printing(
+            &slug,
+            &content,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
     }
     // Before the bail, not after it: a floor that failed is only readable
     // beside the counts that failed it.
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
-         {} keyword, {} mana, {} oracle, {} cost",
+         {} keyword, {} mana, {} oracle, {} cost, {} target count",
         tally.payloads,
         tally.loyalty,
         tally.identity,
         tally.keywords,
         tally.mana,
         tally.oracle,
-        tally.costs
+        tally.costs,
+        tally.targets
     );
     check_printing_floors(&tally, &mut problems);
     if problems > 0 {
@@ -2106,6 +2195,7 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
         ("mana", tally.mana, PRINTING_FLOOR.mana),
         ("oracle text", tally.oracle, PRINTING_FLOOR.oracle),
         ("face cost", tally.costs, PRINTING_FLOOR.costs),
+        ("target count", tally.targets, PRINTING_FLOOR.targets),
     ] {
         if seen < floor {
             println!(

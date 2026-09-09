@@ -43,7 +43,7 @@ card! {
                 },
                 duration: Duration::WhileSourceOnBattlefield,
             }],
-            target: None,
+            targets: None,
         },
         AbilityDef::SagaChapter {
             chapter: 2,
@@ -65,7 +65,7 @@ card! {
                 },
                 duration: Duration::WhileSourceOnBattlefield,
             }],
-            target: None,
+            targets: None,
         },
         AbilityDef::SagaChapter {
             chapter: 3,
@@ -74,7 +74,7 @@ card! {
                 finds: &[Find::BATTLEFIELD],
                 optional: false,
             }],
-            target: None,
+            targets: None,
         },
     ],
 }

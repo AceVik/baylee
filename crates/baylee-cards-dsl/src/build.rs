@@ -212,7 +212,7 @@ impl SpellMode {
     pub const fn new(effects: &'static [Effect]) -> Self {
         Self {
             effects,
-            target: None,
+            targets: None,
             cost_override: None,
         }
     }
@@ -376,7 +376,7 @@ macro_rules! loyalty {
 ///
 /// ```ignore
 /// mode!(DRAW_EFFECTS)
-/// mode!(BOUNCE_EFFECTS, target: Some(TargetSpec::Object(&BOUNCE_TARGET)))
+/// mode!(BOUNCE_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&BOUNCE_TARGET))))
 /// ```
 #[macro_export]
 macro_rules! mode {

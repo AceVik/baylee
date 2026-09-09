@@ -37,7 +37,7 @@ card! {
         trigger: Trigger::EntersBattlefield(&Filter::This),
         modes: &[
             mode!(TOKEN_EFFECTS),
-            mode!(BOUNCE_EFFECTS, target: Some(TargetSpec::Object(&BOUNCE_TARGET))),
+            mode!(BOUNCE_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&BOUNCE_TARGET)))),
             mode!(DRAW_EFFECTS),
         ],
         once_per_turn: false,

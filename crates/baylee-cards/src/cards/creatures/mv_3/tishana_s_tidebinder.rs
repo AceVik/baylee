@@ -3,6 +3,8 @@
 //! Oracle: When this creature enters, counter up to one target activated or triggered ability. If an ability of an artifact, creature, or planeswalker is countered this way, that permanent loses all abilities for as long as this creature remains on the battlefield. (Mana abilities can't be targeted.)
 //! Set: LCI #81 — The Lost Caverns of Ixalan | Scryfall ID: 907b3d1d-8c85-4707-80b5-c4d832df9846 | Oracle ID: 2993dc7d-723d-4a9b-94bd-4bb02a9f7243
 // IMPLEMENTED — flash + counter target ability + ability suppression until EOT.
+// The count is "up to one": a Tidebinder flashed in with an empty stack is a
+// 2/1 that enters, not a trigger the rules remove for want of a target.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -25,5 +27,5 @@ card! {
     abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[
             Effect::CounterTargetAbility,
             Effect::TargetSourceLosesAbilities,
-        ], targets: Some(TargetReq::one(TargetSpec::AbilityOnStack(&Filter::Any))))],
+        ], targets: Some(TargetReq::up_to_one(TargetSpec::AbilityOnStack(&Filter::Any))))],
 }

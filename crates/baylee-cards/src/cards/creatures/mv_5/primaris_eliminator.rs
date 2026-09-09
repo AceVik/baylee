@@ -37,7 +37,7 @@ card! {
     abilities: &[AbilityDef::ModalTriggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
         modes: &[
-            mode!(DESTROY_EFFECTS, target: Some(TargetSpec::Object(&Filter::CREATURE))),
+            mode!(DESTROY_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
             mode!(DEBUFF_EFFECTS),
         ],
         once_per_turn: false,

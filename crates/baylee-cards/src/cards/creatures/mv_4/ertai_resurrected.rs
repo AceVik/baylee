@@ -50,8 +50,8 @@ card! {
     abilities: &[AbilityDef::ModalTriggered {
         trigger: Trigger::EntersBattlefield(&Filter::This),
         modes: &[
-            mode!(COUNTER_EFFECTS, target: Some(TargetSpec::SpellOrAbility(&Filter::Any))),
-            mode!(DESTROY_EFFECTS, target: Some(TargetSpec::Object(&OTHER_CREATURE_OR_WALKER))),
+            mode!(COUNTER_EFFECTS, targets: Some(TargetReq::one(TargetSpec::SpellOrAbility(&Filter::Any)))),
+            mode!(DESTROY_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&OTHER_CREATURE_OR_WALKER)))),
             // "Choose up to one" — declining is mode 2 (no effects).
             mode!(&[]),
         ],

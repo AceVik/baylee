@@ -628,9 +628,9 @@ impl<L: CardLookup> Engine<L> {
         let abilities = def.abilities_for_face(face_index);
         match wizard.option {
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
-                AbilityDef::ModalSpell { modes } => modes
-                    .get(i)
-                    .and_then(|m: &SpellMode| m.target.map(TargetReq::one)),
+                AbilityDef::ModalSpell { modes } => {
+                    modes.get(i).and_then(|m: &SpellMode| m.targets)
+                }
                 _ => None,
             }),
             _ => abilities.iter().find_map(|a| match a {
