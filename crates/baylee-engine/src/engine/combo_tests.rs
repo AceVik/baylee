@@ -2352,3 +2352,324 @@ fn their_doubling_season_does_not_double_the_helms_token() {
         "their Season doubles their tokens, and this one is mine"
     );
 }
+
+fn emeritus_of_woe() -> baylee_core::ids::CardIndex {
+    card_index("93056597-b964-421f-be2f-e92abef1c2a4")
+}
+
+/// How many *abilities* are waiting on the stack.
+///
+/// A trigger is an object in the stack zone like a spell is, so counting the
+/// zone answers the wrong question: the test below wants to know whether the
+/// Sentinel fired a second time while two spells stand there unresolved.
+fn abilities_on_the_stack(engine: &Engine<RegistryLookup>) -> usize {
+    let state = engine.state();
+    state
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .iter()
+        .filter(|id| {
+            state
+                .object(**id)
+                .is_some_and(|o| o.kind == crate::object::ObjectKind::AbilityOnStack)
+        })
+        .count()
+}
+
+/// How many *spells* `seat` has standing on the stack.
+fn spells_on_the_stack(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    let state = engine.state();
+    state
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .iter()
+        .filter(|id| {
+            state
+                .object(**id)
+                .is_some_and(|o| o.kind == crate::object::ObjectKind::Spell && o.controller == seat)
+        })
+        .count()
+}
+
+/// Advances until `want` holds, answering a resolving trigger's target
+/// choice on the way — [`settle`] with a stop condition of its own, because
+/// these two tests want to read the stack *while* something is still on it.
+#[track_caller]
+fn advance_until(
+    engine: &mut Engine<RegistryLookup>,
+    want: impl Fn(&Engine<RegistryLookup>) -> bool,
+) {
+    for _ in 0..200 {
+        if want(engine) {
+            return;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            // One arm on purpose: both prompts are answered by
+            // `ChooseObjects` over a list of object ids, and taking `min` of
+            // them is the same shrug in both cases.
+            Pending::ChooseTargets {
+                player,
+                options,
+                min,
+                ..
+            }
+            | Pending::ChooseCards {
+                player,
+                options,
+                min,
+                ..
+            } => {
+                let objects = options.into_iter().take(min as usize).collect();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .unwrap();
+            }
+            other => panic!("unexpected while advancing: {other:?}"),
+        }
+    }
+    panic!("the game never reached what the test was waiting for");
+}
+
+/// Emeritus of Woe's prepared cast into an opponent's Esper Sentinel
+/// ("whenever an opponent casts their **first** noncreature spell each turn,
+/// draw a card unless that player pays {X}").
+///
+/// The card says "you may **cast** a copy of its spell", so a prepared cast
+/// is a cast and the turn has to count it. It did not: `start_prepared_cast`
+/// journalled `SpellCast` and left `per_turn.noncreature_spells` alone, and
+/// the two halves of that are what this test asks in one game. The Sentinel
+/// did not tax the tutor — and then taxed the Brainstorm after it, which is
+/// the turn's *second* noncreature spell and should have been free. A fix
+/// that only stopped the second wrong would pass the last assertion here and
+/// fail the first.
+#[test]
+fn the_sentinel_taxes_a_prepared_cast_and_leaves_the_spell_after_it_alone() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(105, forest())
+        .battlefield(0, &[emeritus_of_woe(), swamp(), swamp(), swamp(), island()])
+        .hand(0, &[brainstorm()])
+        .battlefield(1, &[esper_sentinel(), plains(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let emeritus = on_battlefield(&engine, p0, emeritus_of_woe()).expect("the Warlock");
+    let island = on_battlefield(&engine, p0, island()).expect("the Island");
+    // The blue stays untapped on purpose: generic mana is paid in colour
+    // order, so an Island in the pool would pay the tutor's {1} and leave
+    // Brainstorm uncastable.
+    tap_mana_except(&mut engine, p0, island);
+
+    let cast = offered_ability(&engine, emeritus).expect("the prepared cast is offered");
+    assert_eq!(
+        cast,
+        crate::choice::PREPARED_CAST,
+        "the prepared cast is the synthetic index, not a printed ability"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: emeritus,
+                ability_index: cast,
+            },
+        )
+        .unwrap();
+
+    advance_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the loop above stopped on the tax")
+    };
+    assert_eq!(player, p0, "the tax is asked of whoever cast the spell");
+    assert_eq!(mana, 1, "an unequipped Sentinel taxes {{1}}");
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+
+    // The tutor is still on the stack; Brainstorm is an instant and joins it.
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the trigger resolved and the turn's player has priority again: {:?}",
+        engine.pending()
+    );
+    cast_from_hand(&mut engine, p0, brainstorm());
+    assert_eq!(
+        spells_on_the_stack(&engine, p0),
+        2,
+        "the tutor and the Brainstorm are both waiting"
+    );
+    assert_eq!(
+        abilities_on_the_stack(&engine),
+        0,
+        "the Sentinel already had its first noncreature spell this turn"
+    );
+}
+
+/// The same prepared cast, counted by Storm of Saruman instead ("whenever
+/// you cast your **second** spell each turn, copy it").
+///
+/// This is the other counter the prepared cast walked past —
+/// `per_turn.spells_cast` — and it needs its own game, because a spell can
+/// be a creature spell and still be somebody's second. An Elf from hand is
+/// the first, the tutor is the second, and the copy beside it is the whole
+/// assertion: with the counter unbumped the trigger looks at a count of one
+/// and never fires.
+#[test]
+fn a_prepared_cast_is_the_second_spell_saruman_copies() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(106, forest())
+        .battlefield(
+            0,
+            &[
+                storm_of_saruman(),
+                emeritus_of_woe(),
+                swamp(),
+                swamp(),
+                forest(),
+            ],
+        )
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The turn's first spell. `cast_from_hand` taps everything, so the two
+    // Swamps are floating for the prepared cast that follows — a pool only
+    // empties at the end of a step, and this all happens in one main phase.
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    assert_eq!(
+        permanents_of(&engine, p0, llanowar_elves()),
+        1,
+        "the first spell of the turn is nobody's second"
+    );
+
+    let emeritus = on_battlefield(&engine, p0, emeritus_of_woe()).expect("the Warlock");
+    let cast = offered_ability(&engine, emeritus).expect("the prepared cast is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: emeritus,
+                ability_index: cast,
+            },
+        )
+        .unwrap();
+    advance_until(&mut engine, |e| spells_on_the_stack(e, p0) == 2);
+    assert_eq!(
+        spells_on_the_stack(&engine, p0),
+        2,
+        "the tutor is the turn's second spell, so a copy stands beside it"
+    );
+    assert_eq!(
+        spells_on_the_stack(&engine, p1),
+        0,
+        "the copy is the caster's, not the other seat's"
+    );
+}
+
+/// The same prepared cast, all the way through: the linked spell resolves,
+/// the tutor actually searches, and the Warlock is no longer prepared.
+///
+/// The two tests above both stop with the tutor still on the stack, which is
+/// exactly where two further defects were hiding. A fresh object starts in
+/// its owner's library and `Zones::insert` does not say otherwise, so the
+/// spell resolved *out of the library*: its id stayed on the stack and in
+/// `stack_projectable`, which the very next `refresh_characteristics` reports
+/// as drift. And `resolve_stack_top` reads a spell's effects off
+/// `GameObject::card`, which `new_bare` leaves `None`, so the tutor resolved
+/// to nothing at all — both seats passed and no library was ever searched.
+#[test]
+fn a_prepared_cast_resolves_and_unprepares_the_warlock() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(107, forest())
+        .battlefield(0, &[emeritus_of_woe(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let emeritus = on_battlefield(&engine, p0, emeritus_of_woe()).expect("the Warlock");
+    tap_mana_except(&mut engine, p0, emeritus);
+    let hand_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    let library_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+        .len();
+
+    let cast = offered_ability(&engine, emeritus).expect("the prepared cast is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: emeritus,
+                ability_index: cast,
+            },
+        )
+        .unwrap();
+
+    // Both seats pass, the tutor resolves, and the search it asks for is
+    // answered on the way through by `advance_until`.
+    advance_until(&mut engine, |e| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len()
+            > hand_before
+    });
+
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Library(p0))
+            .len(),
+        library_before - 1,
+        "the tutored card left the library"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .is_empty(),
+        "the spell left the stack rather than being destroyed underneath it"
+    );
+    assert_eq!(
+        spells_on_the_stack(&engine, p0),
+        0,
+        "and nothing of it is still standing there"
+    );
+
+    let riders = &engine.state().object(emeritus).expect("the Warlock").riders;
+    assert!(
+        !riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Prepared)),
+        "casting the prepared spell is what unprepares the card that held it"
+    );
+    assert!(
+        offered_ability(&engine, emeritus).is_none(),
+        "so it is not offered a second time"
+    );
+}

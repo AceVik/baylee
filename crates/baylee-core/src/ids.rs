@@ -64,6 +64,22 @@ id_type! {
     NameRef(u32);
 }
 
+impl PrintRef {
+    /// The printing a game's table does not have.
+    ///
+    /// Every ordinary `PrintRef` comes from a deck entry, so the table has a
+    /// row for it. A card the *rules* conjure has none — the spell Emeritus
+    /// of Woe prepares is linked by the ability and sits in nobody's deck —
+    /// and an index picked out of the air is not a harmless placeholder: it
+    /// is some other card's art under this one's name, and a seat shown it
+    /// would *earn* a printing out of an opponent's deck it has never seen.
+    ///
+    /// Saying "no printing" costs no new handling. Every lookup is already
+    /// fallible, because a seat starts entitled only to its own deck's rows,
+    /// so this reads exactly like a row that has not been earned yet.
+    pub const UNKNOWN: Self = Self(u16::MAX);
+}
+
 /// One ability of one card, addressed the same way in every game.
 ///
 /// Unlike a game object's ability instance, this carries no per-game
