@@ -85,7 +85,7 @@ pub(super) fn spawn_phase_rail(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(8),
-                padding: UiRect::axes(px(10), px(5)),
+                padding: UiRect::axes(px(EDGE), px(5)),
                 ..default()
             },
             BackgroundColor(palette::PANEL),

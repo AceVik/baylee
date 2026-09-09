@@ -957,6 +957,8 @@ messages! {
     SeatNumbered { en: "Seat {0}", de: "Platz {0}" },
     /// You ({0})
     YouNamed { en: "You ({0})", de: "Du ({0})" },
+    /// You
+    You { en: "You", de: "Du" },
     /// Aimed at {0} ({1} of {2})
     AimedAt { en: "Aimed at {0} ({1} of {2})", de: "Zielt auf {0} ({1} von {2})" },
     /// {0} declared
@@ -1196,6 +1198,28 @@ impl Phrase {
     }
 }
 
+/// What the local seat's own tab is headed.
+///
+/// [`Phrase::YouNamed`] is "You ({0})" — the pronoun, and then whatever the
+/// table calls this seat, because at a room of six "You" alone does not say
+/// which chair is yours to anybody reading over your shoulder. The offline
+/// `LocalHost` names seat 0 `"You"`, which is the pronoun itself, and the tab
+/// then read **"You (You)"**.
+///
+/// So a name that already *is* this language's pronoun is drawn once. The
+/// comparison is against [`Phrase::You`] rather than against a literal, or a
+/// German table would go on saying "Du (Du)"; it ignores case, because the
+/// name comes from a host and "you" is the same claim.
+#[must_use]
+pub fn own_seat_name(lang: Lang, name: &str) -> String {
+    let pronoun = Phrase::You.text(lang);
+    if name.trim().eq_ignore_ascii_case(pronoun) {
+        pronoun.to_string()
+    } else {
+        Phrase::YouNamed.fill(lang, &[name])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1213,6 +1237,21 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The tab over the local seat says the pronoun once.
+    #[test]
+    fn a_seat_named_for_the_pronoun_is_not_named_twice() {
+        assert_eq!(own_seat_name(Lang::En, "You"), "You");
+        assert_eq!(own_seat_name(Lang::De, "Du"), "Du");
+        // A real name still gets the pronoun in front of it: at a table of
+        // six, "You" alone does not say which chair.
+        assert_eq!(own_seat_name(Lang::En, "Viktor"), "You (Viktor)");
+        assert_eq!(own_seat_name(Lang::De, "Viktor"), "Du (Viktor)");
+        // The languages do not borrow each other's pronoun — a German table
+        // whose host still names the seat in English is two claims, not one.
+        assert_eq!(own_seat_name(Lang::De, "You"), "Du (You)");
+        assert_eq!(own_seat_name(Lang::En, "you"), "You");
     }
 
     /// Word order is the translator's; the values are not. A `{0}` that is

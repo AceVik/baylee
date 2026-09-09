@@ -251,8 +251,22 @@ impl Placement {
     /// Eight columns — what the sheet was fixed at before it could be
     /// resized, and what `TRAY_PANEL_W` in the renderer still computes.
     pub const DEFAULT_W: f32 = 690.0;
-    /// Tall enough for two rows of cards and the controls above them.
-    pub const DEFAULT_H: f32 = 520.0;
+    /// Three whole rows of cards, and not a pixel of parchment more.
+    ///
+    /// It was 520, which is three rows plus sixty-five pixels of nothing —
+    /// so a sheet with two cards in it read as *mostly empty* rather than as
+    /// a place, which is what the owner saw. A sheet is allowed to have room
+    /// left in it; it is not allowed to have most of a fourth row that can
+    /// never hold anything.
+    ///
+    /// The chrome it is derived from cannot be computed here: the header, the
+    /// zone tabs and the filter row are text line boxes, which are font
+    /// metrics rather than constants. It was **measured** on the running
+    /// client instead — 112 logical pixels from the sheet's top edge to the
+    /// first card's, and 17 more to close it underneath — and
+    /// `the_default_height_is_three_whole_rows` in the renderer holds this
+    /// number to that arithmetic.
+    pub const DEFAULT_H: f32 = 455.0;
     /// The clear the sheet keeps between itself and the band's edge.
     const MARGIN: f32 = 12.0;
 

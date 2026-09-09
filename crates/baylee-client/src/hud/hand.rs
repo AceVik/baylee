@@ -421,7 +421,18 @@ pub const OVERLAY_CARD_W: f32 = 86.0;
 /// Card height in the own-board overlay (63:88).
 pub const OVERLAY_CARD_H: f32 = OVERLAY_CARD_W * 88.0 / 63.0;
 /// Height of the tab bar at the top (the overlay starts below it).
-pub const TAB_H: f32 = 48.0;
+///
+/// It is the strip's height *and* what a seat tab adds up to plus the strip's
+/// own padding, and the phase rail is pinned at exactly this — so the two had
+/// to be made to agree. They did not: the bar carried no height at all, grew
+/// to the 58 its contents wanted, and the rail was drawn over its last ten
+/// pixels. Measured on the running client, the active tab's gold bottom
+/// border read (72, 55, 31) where its top read (214, 163, 79) — the same gold
+/// under 88% black. The bar states this height now, so a tab that outgrows it
+/// clips visibly instead of hiding under the strip below.
+///
+/// 6 (bar) + 2 (border) + 4 (tab) + 16.8 + 2 + 13.2 (two lines) + 4 + 2 + 6.
+pub const TAB_H: f32 = 56.0;
 /// The hand bar's height, including its padding.
 pub const HAND_BAR_H: f32 = HAND_CARD_H + 20.0;
 

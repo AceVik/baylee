@@ -164,6 +164,10 @@ pub fn sync_overlay(
         .interaction
         .as_ref()
         .and_then(|i| matches!(i.prompt(), Prompt::ChooseNumber { .. }).then(|| i.number()));
+    let choice = duel
+        .interaction
+        .as_ref()
+        .and_then(baylee_client_core::Interaction::chosen_index);
 
     if revision.seq == seq
         && revision.prompt == prompt
@@ -185,6 +189,7 @@ pub fn sync_overlay(
         && revision.menu == menu
         && revision.armed == armed_deed
         && revision.number == number
+        && revision.choice == choice
         && revision.window == canvas
         && !existing.is_empty()
     {
@@ -210,6 +215,7 @@ pub fn sync_overlay(
     revision.menu = menu;
     revision.armed.clone_from(&armed_deed);
     revision.number = number;
+    revision.choice = choice;
     revision.window = canvas;
 
     for entity in &existing {
@@ -257,10 +263,14 @@ pub fn sync_overlay(
                 top: px(0),
                 left: px(0),
                 right: px(0),
+                // Stated, not inferred: the rail is pinned at `TAB_H` and a
+                // bar that grew past it was drawn under the rail from there
+                // down — including the active tab's own gold border.
+                height: px(TAB_H),
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(px(8), px(6)),
+                padding: UiRect::axes(px(EDGE), px(6)),
                 ..default()
             },
             BackgroundColor(palette::PANEL),
@@ -345,8 +355,14 @@ pub fn sync_overlay(
                     ..default()
                 },
                 BackgroundColor(lit),
+                Feel::new(lit),
                 soft_shadow(),
-                children![(Text::new(label), tf(&fonts, 13.0), TextColor(ink))],
+                children![(
+                    Text::new(label),
+                    tf(&fonts, 13.0),
+                    TextColor(ink),
+                    Pickable::IGNORE,
+                )],
             ))
             .id();
         commands.entity(menu_row).add_child(button);
@@ -721,6 +737,15 @@ pub fn sync_overlay(
                 .id();
             for option in &rows {
                 let on = picked == Some(option.index);
+                // The sheet's own colour under an answer that is not the one
+                // picked, the same as every other secondary answer on this
+                // parchment. It was 5% black, which is a fourth fill for the
+                // same claim on one sheet.
+                let fill = if on {
+                    palette::BRASS
+                } else {
+                    palette::SLIP_GHOST
+                };
                 let button = commands
                     .spawn((
                         ChoiceButton {
@@ -734,16 +759,13 @@ pub fn sync_overlay(
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        BackgroundColor(if on {
-                            palette::BRASS
-                        } else {
-                            Color::srgba(0.0, 0.0, 0.0, 0.05)
-                        }),
+                        BackgroundColor(fill),
                         BorderColor::all(if on {
                             palette::BRASS
                         } else {
                             palette::PARCHMENT_EDGE
                         }),
+                        Feel::new(fill),
                     ))
                     .id();
                 if let Some(pip) = option.pip {
@@ -820,6 +842,11 @@ pub fn sync_overlay(
                 // The keyboard's entry is drawn as the chosen one, so the two
                 // ways of answering the menu are visibly the same menu.
                 let picked = index == duel.ability_pick;
+                let fill = if picked {
+                    palette::BRASS
+                } else {
+                    palette::SLIP_GHOST
+                };
                 let button = commands
                     .spawn((
                         AbilityButton { index },
@@ -829,21 +856,19 @@ pub fn sync_overlay(
                             border_radius: btn_radius(),
                             ..default()
                         },
-                        BackgroundColor(if picked {
-                            palette::BRASS
-                        } else {
-                            Color::srgba(0.0, 0.0, 0.0, 0.05)
-                        }),
+                        BackgroundColor(fill),
                         BorderColor::all(if picked {
                             palette::BRASS
                         } else {
                             palette::PARCHMENT_EDGE
                         }),
+                        Feel::new(fill),
                         soft_shadow(),
                         children![(
                             Text::new(option.label.clone()),
                             tf(&fonts, 13.0),
                             TextColor(palette::PARCHMENT_INK),
+                            Pickable::IGNORE,
                         )],
                     ))
                     .id();
@@ -881,12 +906,12 @@ pub fn sync_overlay(
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        bottom: px(HAND_BAR_H + 10.0),
-                        left: px(12),
+                        bottom: px(HAND_BAR_H + ABOVE_HAND),
+                        left: px(EDGE),
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         column_gap: px(8),
-                        padding: UiRect::axes(px(12), px(7)),
+                        padding: UiRect::axes(px(12), px(6)),
                         border_radius: btn_radius(),
                         ..default()
                     },
@@ -1336,7 +1361,12 @@ fn spawn_armed(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity
         (
             MenuAction::CancelArmed,
             Phrase::ArmedCancel.text(lang),
-            Color::NONE,
+            // The sheet's own colour and not `Color::NONE`, which is what it
+            // was: this is a lead answer in brass and a second one beside it,
+            // exactly the pair the prompt's own answers are, and two
+            // treatments of that pair on one sheet is how two halves of an
+            // interface start disagreeing. See `palette::SLIP_GHOST`.
+            palette::SLIP_GHOST,
             palette::PARCHMENT_EDGE,
             palette::PARCHMENT_SOFT,
         ),
@@ -1352,7 +1382,14 @@ fn spawn_armed(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity
                 },
                 BackgroundColor(lit),
                 BorderColor::all(edge),
-                children![(Text::new(text.to_string()), tf(fonts, 13.0), TextColor(ink))],
+                soft_shadow(),
+                Feel::new(lit),
+                children![(
+                    Text::new(text.to_string()),
+                    tf(fonts, 13.0),
+                    TextColor(ink),
+                    Pickable::IGNORE,
+                )],
             ))
             .id();
         commands.entity(row).add_child(button);
@@ -1395,11 +1432,13 @@ fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity)
                 ..default()
             },
             BackgroundColor(palette::PANEL_LIT),
+            Feel::new(palette::PANEL_LIT),
             soft_shadow(),
             children![(
                 Text::new(Phrase::HoldRelease.text(lang)),
                 tf(fonts, 13.0),
                 TextColor(palette::INK),
+                Pickable::IGNORE,
             )],
         ))
         .id();
@@ -1533,7 +1572,7 @@ pub(super) fn slip_text(
 pub(super) fn slip_row_node() -> Node {
     Node {
         position_type: PositionType::Absolute,
-        bottom: px(HAND_BAR_H + 12.0),
+        bottom: px(HAND_BAR_H + ABOVE_HAND),
         left: px(0),
         right: px(0),
         flex_direction: FlexDirection::Row,
@@ -1602,11 +1641,30 @@ pub(super) fn spawn_player_tab(
     } else {
         (palette::PANEL, palette::INK)
     };
-    let border_px = if is_active || is_focused { 2.0 } else { 1.0 };
+    // The seat's own colour, which is the one it wears on its mat: gilt for
+    // the local seat, the pie in ring order for everyone else.
+    let identity = if is_local {
+        palette::ACCENT
+    } else {
+        team_color(team)
+    };
+    // The rim is always two pixels wide and says what it has to say in
+    // colour. It used to be one pixel at rest and two when active or
+    // focused, and bevy adds a border to an auto-sized node — so the tab the
+    // turn was on stood two pixels taller and wider than the ones beside it
+    // and the whole row shifted as the turn passed. `is_focused` was carried
+    // by that width and by nothing else, which is why it needs a shade of its
+    // own here: the same colour the seat already wears, at rest drawn faint.
+    let rim = if is_active {
+        palette::ACTIVE
+    } else if is_focused {
+        identity
+    } else {
+        identity.with_alpha(0.40)
+    };
 
-    let marker = if has_priority { "▶ " } else { "" };
     let display = if is_local {
-        Phrase::YouNamed.fill(lang, &[&name])
+        baylee_client_core::i18n::own_seat_name(lang, &name)
     } else {
         name.clone()
     };
@@ -1621,26 +1679,40 @@ pub(super) fn spawn_player_tab(
             Node {
                 flex_direction: FlexDirection::Column,
                 row_gap: px(2),
-                padding: UiRect::axes(px(10), px(5)),
-                border: UiRect::all(px(border_px)),
+                // Four and not five: the tab plus the bar's own padding is
+                // `TAB_H`, and the bar states that height now.
+                padding: UiRect::axes(px(10), px(4)),
+                border: UiRect::all(px(2)),
                 border_radius: btn_radius(),
                 ..default()
             },
             BackgroundColor(background),
-            BorderColor::all(if is_active {
-                palette::ACTIVE
-            } else if is_local {
-                palette::ACCENT
-            } else {
-                team_color(team)
-            }),
+            BorderColor::all(rim),
+            Feel::new(background),
             soft_shadow(),
             children![(
-                // Name and life: name in text font, life with a heart icon.
-                Text::new(format!("{marker}{display} ")),
+                // The priority marker, then the name, then life behind a
+                // heart. The marker is always drawn and merely goes
+                // invisible, because it is inline in the same line as the
+                // name: a caret that appeared and vanished changed the tab's
+                // width and shoved the seat beside it sideways every time
+                // priority moved.
+                Text::new("\u{25b6} "),
                 tf(fonts, 14.0),
-                TextColor(if seat.has_lost { palette::DEAD } else { ink }),
+                TextColor(if !has_priority {
+                    Color::NONE
+                } else if seat.has_lost {
+                    palette::DEAD
+                } else {
+                    ink
+                }),
+                Pickable::IGNORE,
                 children![
+                    (
+                        TextSpan::new(format!("{display} ")),
+                        tf(fonts, 14.0),
+                        TextColor(if seat.has_lost { palette::DEAD } else { ink }),
+                    ),
                     (
                         TextSpan::new(glyph::HEART.to_string()),
                         icon_tf(fonts, 11.0),
@@ -1669,7 +1741,14 @@ pub(super) fn spawn_player_tab(
     // Zone counts as icon + number pairs, with experience counters
     // (poison, energy) appearing only when a player actually has them.
     let counts = commands
-        .spawn((Text::new(""), tf(fonts, 11.0), TextColor(counts_color)))
+        .spawn((
+            Text::new(""),
+            tf(fonts, 11.0),
+            TextColor(counts_color),
+            // A `Text` is a `Node`, so a label inside a button is a pickable
+            // child in front of it — see `Feel` in `ambience.rs`.
+            Pickable::IGNORE,
+        ))
         .id();
     commands.entity(tab).add_child(counts);
     let mut span = |icon: char, value: String| {

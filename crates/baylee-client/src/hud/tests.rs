@@ -236,6 +236,72 @@ mod preview {
     }
 }
 
+/// The redraw gate has to read every field it carries.
+mod revision {
+    /// A field of [`HudRevision`](crate::hud::HudRevision) that is compared
+    /// but never assigned redraws the tree on every frame; one that is
+    /// assigned but never compared is state that changes with nothing
+    /// happening on screen.
+    ///
+    /// The second is not hypothetical. `choice` — which entry of the answer
+    /// chooser is picked — was drawn and never gated, and picking one never
+    /// leaves the client until Confirm, so nothing else in the struct moved
+    /// and the brass highlight stayed on whichever entry it had been on when
+    /// the tree was last built for some other reason. There was no way to
+    /// find that by reading the struct, because the struct looked complete.
+    ///
+    /// Source-reading, for the reason the preview test above gives: the fact
+    /// is about a `Res<HudRevision>` inside a running renderer, and the
+    /// alternative is an `App` with a window in it.
+    #[test]
+    fn every_field_of_the_revision_is_both_compared_and_assigned() {
+        let hud = include_str!("../hud.rs");
+        let overlay = include_str!("overlay.rs");
+
+        let body = hud
+            .split_once("pub struct HudRevision {")
+            .expect("the struct is still called that")
+            .1;
+        let body = body.split_once("\n}").expect("and still closes").0;
+        let fields: Vec<&str> = body
+            .lines()
+            .filter_map(|line| {
+                let name = line.strip_prefix("    ")?;
+                let (name, _) = name.split_once(':')?;
+                name.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    .then_some(name)
+            })
+            .collect();
+        assert!(fields.len() > 15, "the fields did not parse: {fields:?}");
+
+        let writes = overlay
+            .find("revision.seq = seq;")
+            .expect("the assignment block is still written out field by field");
+        let (gate, assign) = overlay.split_at(writes);
+        // From the anchor itself, not past it: `seq` is the field the gate
+        // opens with.
+        let opens = gate
+            .rfind("if revision.seq == seq")
+            .expect("and the gate above it");
+        let gate = &gate[opens..];
+
+        for field in fields {
+            let needle = format!("revision.{field}");
+            assert!(
+                gate.contains(&needle),
+                "`{field}` is remembered but never compared: it can change \
+                 with nothing on screen changing"
+            );
+            assert!(
+                assign.contains(&needle),
+                "`{field}` is compared but never written, so the tree rebuilds \
+                 every frame the moment it differs once"
+            );
+        }
+    }
+}
+
 mod combat {
     use super::*;
     use baylee_client_core::test_support::{ViewBuilder, token};

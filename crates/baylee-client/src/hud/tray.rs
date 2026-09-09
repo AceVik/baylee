@@ -39,7 +39,29 @@ const TRAY_CARD_H: f32 = TRAY_CARD_W * 88.0 / 63.0;
 /// that says why eight columns is 690 and not a round number somebody liked —
 /// and `the_default_width_is_still_eight_columns` holds the two together.
 #[cfg(test)]
-const TRAY_PANEL_W: f32 = 8.0 * (TRAY_CARD_W + 8.0) + 34.0;
+const TRAY_PANEL_W: f32 = 8.0 * (TRAY_CARD_W + TRAY_GAP) + 34.0;
+
+/// The air between two cards in the grid, in both directions.
+///
+/// Named because two places were using it and disagreeing: the grid laid its
+/// cards out at 6 and [`TRAY_PANEL_W`] derived the sheet's width from 8, so
+/// "eight columns" was 22 pixels wider than eight columns and the test that
+/// held the two together was holding one of them to a number the other did
+/// not use. Eight is what the seat bar and the phase rail already put between
+/// two buttons.
+const TRAY_GAP: f32 = 8.0;
+
+/// What stands above and below the grid on the sheet.
+///
+/// Measured on the running client rather than derived, because most of it is
+/// text: one border and sixteen of padding, then the header, the zone tabs,
+/// the filter row and three ten-pixel gaps come to **112** logical pixels
+/// from the sheet's top edge to the first card's, and the bottom padding and
+/// border close it with **17**. It exists so
+/// [`Placement::DEFAULT_H`](baylee_client_core::browser::Placement::DEFAULT_H)
+/// is a number with a reason rather than one somebody liked.
+#[cfg(test)]
+const TRAY_CHROME_H: f32 = 112.0 + 17.0;
 
 /// The strip of screen the sheet is allowed into: below the seat tabs and the
 /// phase rail, above the hand bar.
@@ -372,8 +394,8 @@ pub(super) fn spawn_tray(
         .spawn((Node {
             flex_direction: FlexDirection::Row,
             flex_wrap: FlexWrap::Wrap,
-            column_gap: px(6),
-            row_gap: px(6),
+            column_gap: px(TRAY_GAP),
+            row_gap: px(TRAY_GAP),
             flex_grow: 1.0,
             min_height: px(0),
             overflow: Overflow::scroll_y(),
@@ -697,6 +719,28 @@ mod tests {
             "eight columns is {TRAY_PANEL_W}, the sheet opens at {}",
             Placement::DEFAULT_W
         );
+    }
+
+    /// And it opens three whole rows tall.
+    ///
+    /// The same seam one axis over, and the one that had gone wrong: 520 is
+    /// three rows plus sixty-five pixels, so the sheet always showed most of
+    /// a fourth row that nothing could ever be put in. The tolerance is a
+    /// pixel because [`TRAY_CHROME_H`] is a measurement and
+    /// [`Placement::DEFAULT_H`] is a whole number.
+    #[test]
+    fn the_default_height_is_three_whole_rows() {
+        let rows = 3.0;
+        let want = TRAY_CHROME_H + rows * TRAY_CARD_H + (rows - 1.0) * TRAY_GAP;
+        let off = (Placement::DEFAULT_H - want).abs();
+        assert!(
+            off <= 1.0,
+            "three rows is {want}, the sheet opens at {} ({off} out)",
+            Placement::DEFAULT_H
+        );
+        // And it is genuinely short of a fourth, which is the whole point.
+        let four = want + TRAY_CARD_H + TRAY_GAP;
+        assert!(Placement::DEFAULT_H < four - TRAY_CARD_H / 2.0);
     }
 
     /// The band never claims more room than the window has.

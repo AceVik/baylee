@@ -478,6 +478,17 @@ pub struct HudRevision {
     /// stepping X never leaves the client until Confirm — so without it the
     /// stepper would draw the opening value and then stay wrong.
     number: Option<u32>,
+    /// Which entry of the *answer* chooser is picked — a colour, a seat, a
+    /// cast option, a creature type.
+    ///
+    /// The same reason as `number`, and it was missing for the same reason it
+    /// is easy to miss: picking one never leaves the client until Confirm, so
+    /// nothing else in this struct moved and the brass highlight stayed on
+    /// whichever entry happened to be picked when the tree was last built.
+    /// It is also what makes a `Feel` safe on those buttons — `feel` owns
+    /// their `BackgroundColor` from the first frame, so a fill that depends
+    /// on state is only honest while the state is in this gate.
+    choice: Option<usize>,
     /// The two menu buttons' states: whether a draw may be offered at all,
     /// and whether concede is waiting for its second press. The first follows
     /// the pending choice, the second nothing but the pointer, and a button
@@ -719,6 +730,27 @@ fn upward_shadow() -> BoxShadow {
 pub(crate) fn btn_radius() -> BorderRadius {
     BorderRadius::all(px(6))
 }
+
+/// How far anything fixed to the edge of the window stands off it.
+///
+/// One number, because the seat bar, the phase rail under it, the mana chip
+/// and the zone browser's own margin are a single column of things down the
+/// left of the screen and were standing at 8, 10, 12 and 12. Nothing about
+/// the difference meant anything — it was three people picking a number —
+/// and an eye reading down that edge sees the disagreement long before it
+/// can name it.
+///
+/// The hand bar keeps its own ten: its edge is never seen (it is full-width
+/// and its cards are centred), and the number is load-bearing arithmetic in
+/// [`hand`]'s spread rather than an inset.
+pub(crate) const EDGE: f32 = 12.0;
+
+/// How far the two things that float above the hand bar — the prompt slip
+/// and the mana chip — stand off it.
+///
+/// One constant for the same reason [`EDGE`] is: they sit side by side at
+/// the same height and were pinned at `HAND_BAR_H + 12` and `+ 10`.
+pub(crate) const ABOVE_HAND: f32 = 12.0;
 
 /// A card's corner radius for a given rendered width.
 ///
