@@ -520,8 +520,58 @@ pub struct DuelPlugin {
     pub config: DuelConfig,
 }
 
+/// Everything the duel *draws*: the scene, the sky, the overlay, and the
+/// three animations that live above the retained tree.
+///
+/// A function of its own rather than another link in `build`'s chain,
+/// because it is the longest of the four sets and it grows every time the
+/// client learns to animate something. The inner tuple is the overlay's own
+/// animations — a system tuple holds twenty and the outer list has already
+/// outgrown one. `ease_the_stack_in` runs after the rebuild deliberately: a
+/// stack row spawned this frame is spawned at rest, so without the ordering
+/// it is drawn once at full strength before its arrival is ever applied.
+fn add_present_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            table::track_canvas,
+            table::sync_scene,
+            table::sync_zones,
+            table::sync_table,
+            sky::hang_sky,
+            sky::sync_sky,
+            // After the sky has eased its phase, so the table is lit by the
+            // light that is actually behind it this frame and not by last
+            // frame's.
+            sky::light_the_table.after(sky::sync_sky),
+            table::glide,
+            // After the glide, and deliberately: a line is welded to where
+            // its two cards *are* this frame, so it has to be computed once
+            // they have moved.
+            combatlines::sync_combat_lines.after(table::glide),
+            combatlines::sync_focus_ring.after(table::glide),
+            table::frame_table,
+            table::apply_camera_rig,
+            hud::sync_overlay,
+            hud::apply_hand_scroll,
+            (
+                hud::light_the_current_step,
+                hud::flash_the_designation,
+                hud::ease_the_stack_in.after(hud::sync_overlay),
+            ),
+            textures::drive_preloads,
+            textures::load_the_card_back,
+            textures::note_load_states,
+            textures::retry_failed_loads,
+        )
+            .in_set(DuelSet::Present)
+            .run_if(not(in_state(DuelPhase::Closed))),
+    );
+}
+
 impl Plugin for DuelPlugin {
     fn build(&self, app: &mut App) {
+        add_present_systems(app);
         // Shared with the lobby, which is a separate plugin and may already
         // have installed it.
         prefs::install(app);
@@ -571,6 +621,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<Reconnect>()
             .init_resource::<hud::HudRevision>()
             .init_resource::<hud::StackMotion>()
+            .init_resource::<hud::DesignationFlash>()
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
             .init_resource::<face::FaceMode>()
@@ -622,43 +673,6 @@ impl Plugin for DuelPlugin {
                 )
                     .in_set(DuelSet::Input)
                     .run_if(in_state(DuelPhase::Playing)),
-            )
-            .add_systems(
-                Update,
-                (
-                    table::track_canvas,
-                    table::sync_scene,
-                    table::sync_zones,
-                    table::sync_table,
-                    sky::hang_sky,
-                    sky::sync_sky,
-                    // After the sky has eased its phase, so the table is lit
-                    // by the light that is actually behind it this frame and
-                    // not by last frame's.
-                    sky::light_the_table.after(sky::sync_sky),
-                    table::glide,
-                    // After the glide, and deliberately: a line is welded to
-                    // where its two cards *are* this frame, so it has to be
-                    // computed once they have moved.
-                    combatlines::sync_combat_lines.after(table::glide),
-                    combatlines::sync_focus_ring.after(table::glide),
-                    table::frame_table,
-                    table::apply_camera_rig,
-                    hud::sync_overlay,
-                    hud::apply_hand_scroll,
-                    hud::light_the_current_step,
-                    // After the rebuild, and deliberately: a stack row
-                    // spawned this frame is spawned at rest, so without
-                    // the ordering it is drawn once at full strength
-                    // before its arrival is ever applied.
-                    hud::ease_the_stack_in.after(hud::sync_overlay),
-                    textures::drive_preloads,
-                    textures::load_the_card_back,
-                    textures::note_load_states,
-                    textures::retry_failed_loads,
-                )
-                    .in_set(DuelSet::Present)
-                    .run_if(not(in_state(DuelPhase::Closed))),
             )
             .add_systems(OnEnter(DuelPhase::Opening), table::spawn_stage)
             .add_systems(

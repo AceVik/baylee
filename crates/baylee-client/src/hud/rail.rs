@@ -8,7 +8,11 @@ use baylee_client_core::combat::{Combat, LineEnd};
 /// Icon and the short rail label for a rail row.
 fn row_visual(row: RailRow) -> (char, &'static str) {
     match row {
-        RailRow::Untap => ('\u{f185}', "UNT"),
+        // A rotate-back arrow rather than the sun it used to be: the sun is
+        // the day designation's glyph now, and two of them a hundred pixels
+        // apart in one strip would say the untap step *is* the daytime.
+        // Untapping is turning a card back, which is what this draws.
+        RailRow::Untap => ('\u{f0e2}', "UNT"),
         RailRow::Upkeep => ('\u{f0ad}', "UPK"),
         RailRow::Draw => ('\u{f063}', "DRW"),
         RailRow::Main1 => ('\u{f024}', "M1"),
@@ -43,6 +47,16 @@ const LABEL_SIZE: f32 = 8.0;
 
 /// How wide the side label at the head of each row is drawn.
 const SIDE_W: f32 = 68.0;
+
+/// The height of the blocks at the head of the rail — the turn number and
+/// the day/night designation.
+///
+/// Stated rather than left to the content, because the two say different
+/// things in different type and would otherwise be two sizes: 13px text has
+/// a 15.6 line box, a 13px glyph beside a 9px word has the same, and four of
+/// padding and two of border make 21.6 — which is what this rounds up. Both
+/// blocks fit the rail's 44 of inner height with room to spare.
+const HEAD_H: f32 = 22.0;
 
 /// The phase rail: two rows of priority controls under the player bar, the
 /// phases of *opponents'* turns above your own (and teammates').
@@ -111,24 +125,41 @@ pub(super) fn spawn_phase_rail(
     let turn = commands
         .spawn((
             Node {
-                flex_direction: FlexDirection::Column,
+                flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 min_width: px(34),
+                height: px(HEAD_H),
                 padding: UiRect::axes(px(6), px(2)),
+                border: UiRect::all(px(1)),
                 border_radius: btn_radius(),
                 ..default()
             },
             BackgroundColor(palette::PANEL_LIT),
+            BorderColor::all(Color::NONE),
             Pickable::IGNORE,
             children![(
                 Text::new(format!("T{}", view.turn)),
                 tf(fonts, 13.0),
                 TextColor(palette::INK),
+                Pickable::IGNORE,
             )],
         ))
         .id();
     commands.entity(rail).add_child(turn);
+
+    // The day/night designation, beside the turn number and in the same
+    // shape, so the head of the rail reads as one statement: which turn, and
+    // what the game is. Nothing is drawn when the game has neither (CR
+    // 731.2c) — which is most games — and no slot is held for it either: a
+    // designation never goes back to neither once the game has one (CR
+    // 731.1), so the block appears exactly once and its arrival *is* the
+    // announcement. A reserved slot would be a permanent dark box for the
+    // pool's other 1360 cards.
+    if let Some(now) = view.day_night {
+        let designation = spawn_designation(commands, lang, fonts, now);
+        commands.entity(rail).add_child(designation);
+    }
 
     let steps = commands
         .spawn((
@@ -266,6 +297,145 @@ pub(super) fn spawn_phase_rail(
     }
 
     rail
+}
+
+/// The day/night block: a glyph and its word on one line, in the turn
+/// number's shape.
+///
+/// Two colours and no third, and both of them are in the **glyph**. Day is
+/// the sun in [`palette::PARCHMENT`], the warmest light in the palette and
+/// the one colour that never means a status; night is the moon in
+/// [`palette::INK`], the cool one. Neither is [`palette::ACTIVE`] — that
+/// lights the current step a hundred pixels to the right, and a designation
+/// wearing it would read as a step the game was in.
+///
+/// The *fill* stays [`palette::PANEL_LIT`] for both, which is the second
+/// correction this block took from a screenshot. Night was drawn on
+/// [`palette::PANEL`] to sit a shade below the turn number — but the rail
+/// underneath is `PANEL` too, so the pill measured (13, 15, 21) against a
+/// (12, 14, 20) strip and simply was not there: by day a pill beside the
+/// turn number, by night a glyph floating next to one. Same fill, and the
+/// two states differ by what the block *says* rather than by whether it
+/// exists.
+///
+/// A **row**, and that is a correction rather than the first idea. Drawn as
+/// a column — the glyph over its word — the block stood 30.5 logical tall
+/// beside a turn number of 19.5, measured on screen, so the head of the rail
+/// read as two objects of different sizes rather than as one line saying
+/// which turn it is and what the game is. Laid out sideways both boxes are
+/// [`HEAD_H`] and the head is even. The turn number carries the same
+/// invisible one-pixel border for the same reason: this block needs one for
+/// the flash to write into, and a border is layout, so without it there the
+/// two would sit two pixels apart in height forever.
+fn spawn_designation(
+    commands: &mut Commands,
+    lang: Lang,
+    fonts: &UiFonts,
+    now: baylee_view::DayNight,
+) -> Entity {
+    use baylee_view::DayNight;
+    let (glyph, tone, word) = match now {
+        DayNight::Day => ('\u{f185}', palette::PARCHMENT, Phrase::DesignationDay),
+        DayNight::Night => ('\u{f186}', palette::INK, Phrase::DesignationNight),
+    };
+    commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                column_gap: px(5),
+                min_width: px(34),
+                height: px(HEAD_H),
+                padding: UiRect::axes(px(6), px(2)),
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL_LIT),
+            BorderColor::all(Color::NONE),
+            // The shadow has to exist for `flash_the_designation` to have
+            // something to write into, the way the current step's does.
+            BoxShadow::new(Color::NONE, px(0), px(0), px(0), px(0)),
+            Designation(now),
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new(glyph.to_string()),
+                    icon_tf(fonts, 13.0),
+                    TextColor(tone),
+                    Pickable::IGNORE,
+                ),
+                (
+                    Text::new(word.text(lang)),
+                    tf(fonts, 9.0),
+                    TextColor(palette::MUTED),
+                    Pickable::IGNORE,
+                ),
+            ],
+        ))
+        .id()
+}
+
+/// The designation the flash last saw, and when it changed.
+///
+/// A resource rather than a field on the block, because the block is a new
+/// entity after every HUD rebuild and the whole point is to survive one. It
+/// starts at `None`, which is also what a game with no designation has — so
+/// the first block to appear flashes, and its arrival is the announcement.
+#[derive(Resource, Default)]
+pub struct DesignationFlash {
+    /// What was on screen when the clock was last stamped.
+    seen: Option<baylee_view::DayNight>,
+    /// `Time::elapsed_secs` at the change.
+    at: f32,
+}
+
+/// How fast the flash on a designation change decays, per second. About a
+/// twentieth left after a second — a beat, not an animation.
+const FLASH_DECAY: f32 = 3.0;
+
+/// Marks a change of designation with a brief light around the block.
+///
+/// It writes the border and the shadow and leaves the background alone, for
+/// [`light_the_current_step`]'s reason: two systems writing one component is
+/// a fight the frame order decides. The decay is anchored to the change
+/// rather than to the entity's birth, so a HUD rebuilt mid-decay — which the
+/// pointer does constantly — picks the flash up where it was instead of
+/// starting it again.
+pub fn flash_the_designation(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut state: ResMut<DesignationFlash>,
+    mut blocks: Query<(&Designation, &mut BorderColor, &mut BoxShadow)>,
+) {
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let now = time.elapsed_secs();
+    for (block, mut border, mut shadow) in &mut blocks {
+        if state.seen != Some(block.0) {
+            state.seen = Some(block.0);
+            state.at = now;
+        }
+        let flash = if still {
+            0.0
+        } else {
+            (-FLASH_DECAY * (now - state.at)).exp()
+        };
+        let tone = match block.0 {
+            baylee_view::DayNight::Day => palette::PARCHMENT,
+            baylee_view::DayNight::Night => palette::INK,
+        };
+        let mut edge = tone.to_srgba();
+        edge.alpha = 0.55 * flash;
+        *border = BorderColor::all(Color::from(edge));
+        if let Some(first) = shadow.first_mut() {
+            let mut glow = tone.to_srgba();
+            glow.alpha = 0.55 * flash;
+            first.color = Color::from(glow);
+            first.blur_radius = Val::Px(NOW_GLOW * flash);
+            first.spread_radius = Val::Px(NOW_SPREAD * flash);
+        }
+    }
 }
 
 /// How fast the current step's button lights up, per second.

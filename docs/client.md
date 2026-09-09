@@ -1398,6 +1398,48 @@ The fill under a control that is *off* is `palette::SLIP_GHOST` and never
 `Color::NONE`, which is not "no fill" on a node carrying a drop shadow — it
 is a hole with the shadow visible through it.
 
+## The rail's head says which turn and what the game is
+
+The day/night designation (CR 731) is drawn as a second block beside the turn
+number, at the left of the phase rail where the eye starts. It is not drawn
+at all when the game has neither designation, which is every game with no
+daybound card in it, and no slot is held for one: a game that has become day
+or night has exactly one of the two from that point forward (CR 731.1), so
+the block appears once and its arrival *is* the announcement. The caret rule
+above — draw it always and let it go `Color::NONE` — is for a marker that
+toggles, and this one never does.
+
+Two shapes came out of photographing it, and both are the same lesson from
+opposite sides.
+
+**Two things side by side have to be the same size, and content will not make
+them so.** Built as a column — the glyph over its word — the block stood 30.5
+logical tall next to a turn number of 19.5, so the head read as two objects
+rather than one line. Laid out as a row both are `rail::HEAD_H`, measured
+identical at logical 73.0 to 92.5. The turn number carries a one-pixel
+`Color::NONE` border it has no use for, because the designation needs one for
+its flash to write into and a border is layout: without it the two would
+differ by exactly two pixels forever.
+
+**A fill is only a fill against something.** Night was drawn on
+`palette::PANEL` to sit a shade below the turn number, which is true — but
+the rail underneath is `PANEL` too, so the pill measured (13, 15, 21) on a
+(12, 14, 20) strip and was not there: a pill by day, a glyph floating beside
+one by night. Both fills are `PANEL_LIT` now and the two states differ by
+what the block *says* — a sun in `PARCHMENT`, a moon in `INK`. Neither is
+`ACTIVE`, which lights the current step a hundred pixels to the right; a
+designation wearing it would read as a step the game was in. The untap step
+gave up the sun for a rotate-back arrow on the way past, because two suns in
+one strip would have said the untap step is the daytime.
+
+The change is marked by a flash on the block's border and shadow, and it is
+anchored to the **change** rather than to the entity. `PhaseNow` can ease
+from zero at spawn because the tree is rebuilt when the step changes; this
+tree is rebuilt on every hover, so a light born with the block would fire
+whenever the pointer crossed a card. `rail::DesignationFlash` keeps the last
+designation it saw beside the clock, and `a_rebuild_does_not_restart_the_
+flash` despawns and respawns the block mid-decay to prove it.
+
 ## The prompt slip is a sheet, and a sheet is a child
 
 `hud::sheet()` inserted on a panel paints that panel's **content box**, so

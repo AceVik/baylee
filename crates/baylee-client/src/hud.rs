@@ -158,6 +158,18 @@ pub struct PhaseNow {
     pub lit: f32,
 }
 
+/// The block in the rail's head that says whether it is day or night, and
+/// which designation it was built for.
+///
+/// The value is carried on the component rather than read back out of the
+/// view, because the flash that marks a change has to be anchored to the
+/// *change* and the HUD tree is rebuilt on every hover: a light that eased
+/// from zero at spawn, the way [`PhaseNow`] does, would fire again every
+/// time the pointer crossed a card. [`rail::flash_the_designation`] keeps
+/// the last value it saw beside the clock and compares.
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub struct Designation(pub baylee_view::DayNight);
+
 /// A game-menu button at the tab bar's right end.
 #[derive(Component)]
 pub struct MenuButton {
@@ -815,6 +827,6 @@ pub use hand::apply_hand_scroll;
 pub use hand::{HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W, TAB_H};
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
-pub use rail::{RAIL_H, light_the_current_step};
+pub use rail::{DesignationFlash, RAIL_H, flash_the_designation, light_the_current_step};
 pub use stack::{StackMotion, ease_the_stack_in};
 pub(crate) use tray::band_of;

@@ -931,6 +931,10 @@ messages! {
     PassPriority { en: "Pass", de: "Passen" },
     /// Skip the rest of the turn
     SkipTheTurn { en: "Skip turn", de: "Zug überspringen" },
+    /// Day
+    DesignationDay { en: "Day", de: "Tag" },
+    /// Night
+    DesignationNight { en: "Night", de: "Nacht" },
     /// In order
     SortByPlace { en: "In order", de: "Nach Lage" },
     /// By name
