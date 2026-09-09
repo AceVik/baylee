@@ -14,11 +14,18 @@ against a document, it says so, because two of the numbers in `CLAUDE.md` were
 wrong and one of them sent an audit down the wrong path.
 
 Two facts bound every proposal here and were verified rather than assumed:
-the workspace is **Bevy 0.19** (`Cargo.toml:97`), and the wasm build renders
-through **WebGL2**, not WebGPU (`Cargo.toml:107` lists `webgl2`; there is no
-`webgpu` feature and `index.html` overrides nothing). So every shader below
-obeys what `card_common.wgsl` already obeys: uniforms only, no storage
-buffers, no compute, compile-time loop bounds.
+the workspace is **Bevy 0.19** (`Cargo.toml:97`), and the wasm build rendered
+through **WebGL2** when this was written (`Cargo.toml` listed `webgl2`). So
+every shader below obeys what `card_common.wgsl` already obeys: uniforms
+only, no storage buffers, no compute, compile-time loop bounds.
+
+That second fact has since changed — the browser build renders through
+**WebGPU**, and `Cargo.toml` lists `webgpu` — but the budget the proposals
+were written to is deliberately kept. Nothing drawn here wants a storage
+buffer, and staying inside the older envelope leaves the GL backend one
+feature away for a browser that cannot offer WebGPU. A proposal below is
+free to reach past it; it just has to say so, because that is the commit
+that closes the fallback.
 
 ---
 

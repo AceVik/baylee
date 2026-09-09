@@ -142,10 +142,9 @@ impl Plate {
     /// The whole plate as the single `u32` that rides in `CardParams`.
     ///
     /// Three ten-bit numbers and two kind bits, which is exactly thirty-two.
-    /// One uniform rather than four is not a saving for its own sake: the
-    /// browser build is WebGL2, every uniform is a member of a block that is
-    /// re-uploaded whole, and a plate is a thing that changes on the frame a
-    /// creature is blocked.
+    /// One uniform rather than four is not a saving for its own sake: every
+    /// uniform is a member of a block that is re-uploaded whole, and a plate
+    /// is a thing that changes on the frame a creature is blocked.
     ///
     /// Damage is a number here and a *fill* on the card: the plate reads
     /// `2/4` and fills from the bottom to `damage / toughness`, so what a

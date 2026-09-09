@@ -114,7 +114,14 @@ bevy = { version = "0.19", default-features = false, features = [
     # does not exist" and the table drew constructed faces on grey slabs.
     "http", "https", "web_asset_cache",
     "keyboard", "mouse", "touch", "gestures",
-    "x11", "wayland", "webgl2",
+    # The browser build renders through **WebGPU**. The two are one feature
+    # apart and mutually exclusive: `webgl2` puts wgpu on the GL backend,
+    # which caps the browser at ES 3.00 semantics — no storage buffers, no
+    # texture arrays, no compute, and no `bitCount`. Everything drawn here
+    # still obeys that older budget (uniforms only, compile-time loop
+    # bounds), so the swap costs nothing today and is what makes compute and
+    # storage buffers reachable at all tomorrow.
+    "x11", "wayland", "webgpu",
 ] }
 
 [workspace.lints.rust]

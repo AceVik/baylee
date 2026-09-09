@@ -16,12 +16,17 @@
 //! third until it loses it. That is the smallest key that draws correctly,
 //! and it keeps the sharing that made the original one worth having.
 //!
-//! # WebGL2
+//! # The browser's budget
 //!
-//! The browser build targets WebGL2, so the shader uses uniforms only — no
-//! storage buffers, no texture arrays. The animation reads `globals.time`
-//! from the view bind group, which means nothing here is written per frame:
-//! a material is created once and never touched again while it is on screen.
+//! The browser build renders through WebGPU, and this shader is nonetheless
+//! written to the older WebGL2 budget: uniforms only, no storage buffers, no
+//! texture arrays. That is a choice rather than a constraint now, and it is
+//! worth keeping while it costs nothing — a card is drawn from a handful of
+//! numbers, so nothing here would be simpler with a storage buffer, and the
+//! GL backend stays one feature away for a browser that has no WebGPU.
+//! The animation reads `globals.time` from the view bind group, which means
+//! nothing here is written per frame: a material is created once and never
+//! touched again while it is on screen.
 
 use baylee_client_core::cardrail;
 use baylee_client_core::images::{FinishTreatment, ImageKey};

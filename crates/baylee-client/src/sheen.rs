@@ -28,7 +28,8 @@
 //!
 //! The start is baked into the material and the shader does the arithmetic,
 //! so nothing touches a uniform while a card is sweeping — the constraint
-//! `cardmat`'s own header states, and the reason WebGL2 can draw any of this.
+//! `cardmat`'s own header states, and the reason a GL backend could draw any
+//! of this.
 //! A sweeping look is nonetheless transient, and the two material stores
 //! answer that differently because they are asked differently. `sync_scene`
 //! runs every frame, so a look it did not cache would be a fresh material and
