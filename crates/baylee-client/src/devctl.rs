@@ -281,6 +281,7 @@ fn pump(
     mut windows: Query<(Entity, &mut Window), With<PrimaryWindow>>,
     duel: Option<Res<Duel>>,
     settings: Option<Res<ClientSettings>>,
+    leaving: Query<&crate::table::Departing>,
 ) {
     control.frame += 1;
     // Undo last frame's injection first: a key held forever would look like a
@@ -323,7 +324,7 @@ fn pump(
                     control.frame
                 )
             }
-            "/state" => state_dump(duel.as_deref(), settings.as_deref()),
+            "/state" => state_dump(duel.as_deref(), settings.as_deref(), leaving.iter().count()),
             "/key" => {
                 let pressed = press_chord(&job.body, &mut keys, &mut typing, window);
                 match pressed {
@@ -671,7 +672,7 @@ fn write_screenshot(
 /// under test. `view` is what the host last sent, `interaction` is what the
 /// client made of it, and a disagreement between them is exactly the class of
 /// bug this endpoint exists to show.
-fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>) -> String {
+fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>, departing: usize) -> String {
     let Some(duel) = duel else {
         return "{\"duel\":null}".to_string();
     };
@@ -707,7 +708,8 @@ fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>) -> String 
         "{{\"view\":{view},\"interaction\":{interaction},\"hovered\":{hovered},\
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
          \"reachable\":{reachable},\"activatable\":{activatable},\
-         \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu}}}",
+         \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
+         \"departing\":{departing}}}",
         hovered = duel
             .hovered
             .map_or_else(|| "null".to_string(), |h| format!("\"{h:?}\"")),
@@ -716,10 +718,13 @@ fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>) -> String 
             .map_or_else(|| "null".to_string(), |a| format!("\"{a:?}\"")),
         reachable = duel.reachable.len(),
         activatable = duel.activatable.len(),
-        // Three states that answer silently and are invisible in a
+        // Four states that answer silently and are all but invisible in a
         // screenshot: an action queued but never sent, a mana run that owns
-        // the next few keys, and an ability menu that swallows the keyboard
-        // whole. Every one of them looks exactly like "the key did nothing".
+        // the next few keys, an ability menu that swallows the keyboard
+        // whole, and a card still playing its way off the table. The first
+        // three look exactly like "the key did nothing"; the fourth is the
+        // opposite problem — it is over in half a second, so a caller that
+        // wants to photograph it has to be told when to look.
         outbox = duel.outbox().len(),
         mana_run = duel.mana_run.is_some(),
         menu = duel

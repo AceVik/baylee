@@ -623,7 +623,13 @@ fn add_present_systems(app: &mut App) {
             // light that is actually behind it this frame and not by last
             // frame's.
             sky::light_the_table.after(sky::sync_sky),
-            table::glide,
+            // One entry and not two: a system tuple holds twenty and this list
+            // is at its limit. Chained rather than merely ordered because that
+            // is what the pair is — a card that left this frame is moved once
+            // before it is counted against its own clock, so a table running
+            // at ten frames a second still shows the exit instead of skipping
+            // it.
+            (table::glide, table::retire).chain(),
             // After the glide, and deliberately: a line is welded to where
             // its two cards *are* this frame, so it has to be computed once
             // they have moved.
@@ -708,6 +714,7 @@ impl Plugin for DuelPlugin {
             // Both are written by systems that run every frame; a missing
             // resource here is a panic at the table, not a compile error.
             .init_resource::<table::SceneIndex>()
+            .init_resource::<table::ZoneWatch>()
             .init_resource::<table::CameraRig>()
             .init_resource::<table::ShownRig>()
             .init_resource::<table::HomeRig>()

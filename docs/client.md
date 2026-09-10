@@ -1011,6 +1011,99 @@ purpose — a card could fly in from its owner's hand, and at four seats around
 a ring that means four directions and a card that crosses two other players'
 boards to get home.
 
+### Where a card came from, and where it went
+
+The question that makes any of this possible is one a view does not answer
+directly: a creature that died and a creature that was exiled both simply stop
+being in `view.battlefield`, and nothing about the battlefield alone tells them
+apart.
+
+`baylee-client-core/src/zones.rs` is where the difference is read. An object
+keeps its `ObjectId` across a zone change — the engine bumps a version and
+clears the projection (CR 400.7) but does not renumber the handle — so two
+consecutive views name the same card in two different lists, and the
+difference between them *is* the event. `zones::Tracker` remembers where
+everything was and answers each new view with the moves that touched the
+battlefield, in object order: by id and never by discovery, because discovery
+is a `HashMap` walk and two clients watching the same game would build
+different scenes from it. A view it has already read answers with nothing,
+which is what stops a renderer running at sixty frames a second from
+reporting the same death until the next question is asked.
+
+What it cannot answer, it says so about. A card put on the bottom of a
+library, or bounced to an opponent's hand, is in a zone this seat sees as a
+*count*: there is no object to find, so the move is reported as going nowhere
+and the table draws the neutral exit. The alternative — watching that seat's
+hand count go up in the same view — is a guess that reads exactly like a fact,
+and one wrong frame of it would show a card flying to a hand it never reached.
+Answering it properly means the view saying where a card went, which is a
+change to the engine's side of the wire and is not this branch's to make.
+
+**A `Place` carries its seat, and that is not decoration.** A graveyard is a
+pile standing beside a particular chair, so `Place::Graveyard(PlayerId)` is
+what lets a renderer answer the only question it actually has: where on the
+table to send the card. Told merely "a graveyard", it would know every fact
+about the move except that one.
+
+**Most permanents that leave the battlefield are never despawned at all**, and
+this is the fact to hold on to before reading anything else here. A pile's top
+card *is* a placement — `placements()` pushes one for each pile whose top is an
+object — so a creature that dies stays in `SceneIndex::cards` under the same
+`ObjectId` and *glides* off its lane and onto the graveyard through the
+update-in-place branch, inheriting the material cache, the hover lift and the
+arming glow along with it. The stale branch below is reached only by a card
+going somewhere with no pile drawn for it, or by a card that reached a pile and
+is not its top.
+
+So the exits are three, and which one is taken is decided by the destination's
+pile first. A card bound for a pile this table draws glides *to that pile* and
+slides `PILE_TUCK` under the card standing on it — the same point the top card
+is gliding to on the same frame. That is the whole reason `pile_stand` exists:
+two creatures dying together must not be treated differently for the accident
+of which of them sorts on top, and a version that sank the second one through
+the felt at its own lane would do exactly that. A bounce is the entrance run
+backwards, higher and smaller, because the hand bar is an overlay and there is
+no place on the felt to send it to. And a card this seat cannot follow shrinks
+in place, turning nowhere and going nowhere, so it reads as neither of the
+other two. A pile place whose stand cannot be resolved — a layout that has not
+arrived — falls back to that same neutral exit rather than inventing a
+destination.
+
+Coming back is the exit reversed: a card returning from a pile starts *on* that
+pile, at full size, because it is the card coming back and not a card being
+made. This is the branch a *buried* card takes; one that was its pile's top was
+already on the table and glides home through the update-in-place branch, from
+the same point — which is why the two are one call to `pile_stand`. Every other
+arrival is the one this table has always drawn: a creature cast from hand
+arrives from the *stack*, a token arrives from nowhere at all, and both of them
+belong dropping onto their mark.
+
+A card that does leave is not despawned at once; it loses `CardVisual`, leaves
+`SceneIndex::cards` and is marked `Departing`. Losing the component is what
+matters — it is the thing every reader finds a permanent by, so a hover, a
+preview and a combat line all stop following something on its way out of the
+game — while the entity itself stays for `EXIT_LIFE` and glides to its exit
+pose through the same one door as everything else. `retire` counts it down
+rather than asking `glide` whether it has arrived, because one exit ends at a
+scale of nearly zero and one ends behind another card: "has it arrived" is the
+wrong question for a card whose destination is nowhere.
+
+**A stale id with no move behind it is despawned on the spot**, as it always
+was, and that arm is load-bearing. It is the graveyard's old top card, covered
+by the one that landed on it this frame, or a group that re-keyed when its
+lowest-id member went — nothing about the table changed where either stands, so
+an exit played for one of them would be a card visibly sliding out from under a
+pile it never left.
+
+One case is drawn thin and is worth knowing about. `SceneIndex::cards` is
+keyed by a group's *representative*, so four Islands are one entity: an Island
+that leaves is not a departure at all, it is the count going from four to
+three. And if the one that leaves happens to be the representative — the
+lowest id, since `group_objects` sorts by name and then id — the group re-keys
+to the next member, so one card plays the exit and another is spawned in its
+place. Neither is wrong on screen; a mass token death is where it reads
+thinnest.
+
 The camera follows its rig the same way, but faster: a drag that lags behind
 the pointer feels broken where a card that snaps feels cheap. Yaw interpolates
 the short way around, or focusing the seat on your left would spin the table
@@ -2344,6 +2437,17 @@ guessed; on a Retina display a guess is wrong by a factor of two.
 it last received, beside the interaction state it built from it. A disagreement
 between the two is exactly the class of bug the endpoint exists to show, and
 one a screenshot cannot report.
+
+Four of its fields are there because they answer silently. `outbox`,
+`mana_run` and `ability_menu` all look exactly like "the key did nothing" — an
+action queued but never sent, a mana run that owns the next few keys, an
+ability chooser that swallows the keyboard whole. `departing` is the opposite
+problem: it counts the cards playing their way off the table, and they are gone
+in half a second, so a caller that wants to photograph one has to be told when
+to look. It also answers a question no screenshot can — whether the exit path
+ran at all — and that is what it was added for. Three runs failed to catch a
+graveyard sink before `departing` said, flatly, that the count never left zero;
+the cause was that a card going to a pile is never stale in the first place.
 
 ## Verification
 

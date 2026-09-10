@@ -27,8 +27,11 @@ use crate::feltmat::FeltMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
-use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH, SeatSlot, TableLayout, pack_lane};
+use baylee_client_core::layout::{
+    CARD_HEIGHT, CARD_WIDTH, PileKind, SeatSlot, TableLayout, pack_lane,
+};
 use baylee_client_core::tabletop;
+use baylee_client_core::zones::{Place, Tracker};
 use baylee_core::color::ColorSet;
 use baylee_core::ids::ObjectId;
 use baylee_core::ids::PlayerId;
@@ -951,6 +954,142 @@ fn entrance(target: &Transform) -> Transform {
     start.scale *= ENTRANCE_SCALE;
     start
 }
+
+/// How long a card that has left the board is kept on the table.
+///
+/// Long enough for [`glide`] to carry it all but the last thousandth of the
+/// way to its exit pose at [`SETTLE`], and short enough that a board being
+/// swept does not leave a drift of ghosts behind it. A player who has turned
+/// motion off never sees any of it: `glide` puts the card on its mark in one
+/// frame, and what is left is a rectangle under a pile or a speck above the
+/// felt for half a second.
+const EXIT_LIFE: f32 = 0.55;
+
+/// How far under a pile's own card a card joining that pile slides.
+///
+/// A pile draws exactly one card — its top — so a second card arriving there
+/// has to end up *behind* it or the two fight for the same depth. Half a
+/// millimetre is enough for that and small enough that the card is hidden
+/// rather than merely lower.
+const PILE_TUCK: f32 = 0.0005;
+
+/// What a card shrinks to when it leaves for somewhere with no floor.
+const VANISH_SCALE: f32 = 0.02;
+
+/// How far a bounced card rises on its way off the table.
+///
+/// Larger than [`ENTRANCE_RISE`], because this is the entrance played
+/// backwards and the card has to be *gone* by the time it is despawned rather
+/// than merely high.
+const BOUNCE_RISE: f32 = 2.6;
+
+/// A card that has left the board and is playing its way off it.
+///
+/// It is out of [`SceneIndex::cards`] and has lost its [`CardVisual`] the
+/// moment it is marked, so nothing looks it up any more: no hover, no preview,
+/// no combat line, no click. All that is left is a [`Motion`] target it is
+/// gliding towards and the time it has to get there — the component moves
+/// nothing itself, because everything on this table moves through one door.
+#[derive(Component, Clone, Copy)]
+pub struct Departing {
+    /// Seconds left before it is despawned.
+    pub left: f32,
+}
+
+/// Where the cards of one seat's pile stand, when that pile is drawn.
+///
+/// `None` for a place that has no pile on this table — the battlefield, the
+/// stack, a hand — and for a seat this layout has no slot for. It is the same
+/// call [`placements`] makes for a pile's top card, so a card sent here is
+/// sent to the pile it is really in and not to an approximation of it.
+fn pile_stand(duel: &Duel, place: Option<Place>) -> Option<Transform> {
+    let (player, kind) = match place? {
+        Place::Graveyard(player) => (player, PileKind::Graveyard),
+        Place::Exile(player) => (player, PileKind::Exile),
+        // The second commander has a slot of its own, and this sends a
+        // partner to the first one. A card is under the pile or despawned by
+        // the time it matters, so the two slots are half a card apart for a
+        // fraction of a second and never at rest.
+        Place::Command(player) => (player, PileKind::Command),
+        Place::Battlefield | Place::Stack | Place::Hand => return None,
+    };
+    let slot = duel.layout.as_ref()?.slot(player)?;
+    Some(card_transform(slot, slot.pile_center(kind), false, 0.0))
+}
+
+/// Where a card goes as it leaves the table, by where it went.
+///
+/// Three exits, and which one is taken is decided by `stand` first: a card
+/// bound for a pile this table draws glides *to that pile* and slides under
+/// its top card, which is what the pile's own top card is doing on the same
+/// frame through the update-in-place branch of [`sync_scene`]. Two creatures
+/// dying together must not be treated differently for the accident of which
+/// of them ends up on top.
+///
+/// The other two are for zones with no place on the felt. A bounce is the
+/// arrival run backwards. A card this seat cannot follow at all — put on the
+/// bottom of a library, or into an opponent's hand — gets the neutral shrink,
+/// because the only thing that can be said about it is that it is no longer
+/// here; see [`baylee_client_core::zones`] for why that is not guessed at.
+fn exit(to: Option<Place>, stand: Option<Transform>, from: &Transform) -> Transform {
+    if let Some(pile) = stand {
+        let mut out = pile;
+        out.translation.y -= PILE_TUCK;
+        return out;
+    }
+    let mut out = *from;
+    match to {
+        Some(Place::Hand) => {
+            out.translation.y += BOUNCE_RISE;
+            out.scale *= ENTRANCE_SCALE * 0.5;
+        }
+        _ => out.scale *= VANISH_SCALE,
+    }
+    out
+}
+
+/// Where a card is when it first appears, by where it came from.
+///
+/// A card coming back from a pile starts *on* that pile, so a resurrection
+/// and a flicker are the pile-bound exit run backwards. Every other arrival is
+/// the one this table has always drawn: a creature cast from hand comes from
+/// the stack, a token comes from nowhere at all, and both of them belong
+/// dropping onto their mark.
+///
+/// This is the branch a *buried* card takes. A card that was its pile's top
+/// was already on the table and glides home through the update-in-place
+/// branch, from the same point this returns — which is the whole reason the
+/// two are one call.
+fn entrance_from(stand: Option<Transform>, target: &Transform) -> Transform {
+    stand.unwrap_or_else(|| entrance(target))
+}
+
+/// Despawns cards that have finished leaving.
+///
+/// A plain countdown rather than [`glide`]'s settled test, because one exit
+/// ends at a scale of nearly zero and one ends behind another card: "has it
+/// arrived" is the wrong question for a card whose destination is nowhere.
+pub fn retire(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut leaving: Query<(Entity, &mut Departing)>,
+) {
+    for (entity, mut departing) in &mut leaving {
+        departing.left -= time.delta_secs();
+        if departing.left <= 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// Where every object was in the view before this one.
+///
+/// A resource of its own rather than a field on [`SceneIndex`], because the
+/// two answer different questions and are cleared at different moments: the
+/// index is what the scene *is*, this is what the game was. Both are wiped
+/// when a table is torn down.
+#[derive(Resource, Default)]
+pub struct ZoneWatch(pub Tracker);
 
 /// Entities currently drawn, keyed by the object they represent.
 #[derive(Resource, Default)]
@@ -2005,12 +2144,14 @@ pub fn despawn_stage(
     stage: Query<Entity, With<DuelStage>>,
     cards: Query<Entity, With<CardVisual>>,
     mut index: ResMut<SceneIndex>,
+    mut watch: ResMut<ZoneWatch>,
 ) {
     for entity in stage.iter().chain(cards.iter()) {
         commands.entity(entity).despawn();
     }
     index.cards.clear();
     index.faces.clear();
+    watch.0.clear();
     // The zones were spawned with `DuelStage`, so they have just gone with
     // it; what is left is the bookkeeping that would otherwise point at
     // entities that no longer exist.
@@ -2184,6 +2325,7 @@ pub fn sync_scene(
     mut commands: Commands,
     duel: Res<Duel>,
     mut index: ResMut<SceneIndex>,
+    mut watch: ResMut<ZoneWatch>,
     mut textures: Option<ResMut<CardTextures>>,
     mut card_materials: ResMut<Assets<CardMaterial>>,
     assets: Res<AssetServer>,
@@ -2207,6 +2349,17 @@ pub fn sync_scene(
     };
     let blank = index.blank.clone();
     let shadow = index.shadow_quad.clone().zip(index.shadow_material.clone());
+
+    // Read after the guards and not before them: a frame that bails because
+    // the quad or the print table has not arrived yet must not swallow the
+    // one batch of moves this view will ever produce. `observe` answers a
+    // view it has already read with nothing, so a board that is merely being
+    // redrawn costs a sequence-number compare.
+    let moves = duel
+        .view
+        .as_ref()
+        .map(|view| watch.0.observe(view))
+        .unwrap_or_default();
 
     // A look carrying a sweep is a key that is asked for on every frame the
     // band is crossing and never again, so it is cached like any other look —
@@ -2383,10 +2536,19 @@ pub fn sync_scene(
                     },
                     Mesh3d(quad.clone()),
                     MeshMaterial3d(material),
-                    // Appears above its mark and drops onto it; `glide` does
-                    // the rest, and a player who has turned motion off gets
-                    // the target on the very first frame.
-                    entrance(&transform),
+                    // Appears wherever it is coming from and settles onto its
+                    // mark; `glide` does the rest, and a player who has turned
+                    // motion off gets the target on the very first frame.
+                    entrance_from(
+                        pile_stand(
+                            &duel,
+                            moves
+                                .iter()
+                                .find(|m| m.object == placement.object)
+                                .and_then(|m| m.from),
+                        ),
+                        &transform,
+                    ),
                     Motion { target: transform },
                 ))
                 .id();
@@ -2470,9 +2632,32 @@ pub fn sync_scene(
     for id in stale {
         if let Some(entity) = index.cards.remove(&id) {
             // Despawning a card takes its text children with it, so the map
-            // only has to forget them.
+            // only has to forget them — and it keeps them for as long as the
+            // card is still leaving, which is what makes a named card sink
+            // into the graveyard rather than a blank one.
             index.faces.remove(&id);
-            commands.entity(entity).despawn();
+            // A stale id with no move behind it did not leave anywhere: it is
+            // a graveyard's old top card, covered by the one that landed on
+            // it this frame, or a group that re-keyed when its lowest-id
+            // member went. Nothing about the table changed where it stands,
+            // so it goes at once, as it always did — an exit played for one
+            // of those would be a card visibly sliding out from under a pile
+            // it never left.
+            let Some(to) = moves.iter().find(|m| m.object == id).map(|m| m.to) else {
+                commands.entity(entity).despawn();
+                continue;
+            };
+            if let Ok((mut motion, _, _)) = cards.get_mut(entity) {
+                motion.target = exit(to, pile_stand(&duel, to), &motion.target);
+            }
+            // It stops being a card here. `CardVisual` is what every reader
+            // finds a permanent by, so taking it away is what stops a hover,
+            // a preview or a combat line from following something that is on
+            // its way out of the game.
+            commands
+                .entity(entity)
+                .remove::<CardVisual>()
+                .insert((Pickable::IGNORE, Departing { left: EXIT_LIFE }));
         }
     }
 
@@ -3826,6 +4011,178 @@ mod tests {
         };
         assert_eq!(look(0), FinishTreatment::Foil, "its own deck's printing");
         assert_eq!(look(1), FinishTreatment::Plain, "a hole is not a foil");
+    }
+}
+
+/// The ways off the table and the ways back onto it.
+///
+/// Geometry, not implementation: what is asserted is that a card bound for a
+/// pile ends up *at that pile* and behind the card standing on it, that a card
+/// bound nowhere ends up at nothing, and that an arrival from a pile is the
+/// exit to it run backwards. Each of them has a counter-arm as well — a
+/// version that gave every zone the same pose would pass none of these.
+#[cfg(test)]
+mod exit_tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn seat() -> SeatSlot {
+        SeatSlot {
+            player: baylee_core::ids::PlayerId::new(0),
+            ring_index: 0,
+            angle: 0.0,
+            center: Vec2::ZERO,
+            facing: 0.0,
+            half_extent: Vec2::new(6.0, 3.0),
+            is_local: true,
+        }
+    }
+
+    /// A card lying flat on the near seat's board.
+    fn standing() -> Transform {
+        card_transform(&seat(), Vec2::ZERO, false, 0.0)
+    }
+
+    /// Where that seat's graveyard stands, as `placements` puts its top card.
+    fn grave() -> Transform {
+        let slot = seat();
+        card_transform(&slot, slot.pile_center(PileKind::Graveyard), false, 0.0)
+    }
+
+    /// The fault this whole pass exists to correct. A pile's top card *is* a
+    /// placement, so a creature that dies while another dies with it has one
+    /// of the two glide to the graveyard and the other marked stale — and the
+    /// two must end up in the same place, because which of them is on top is
+    /// an accident of sort order and nothing a player can see a reason for.
+    #[test]
+    fn a_permanent_that_dies_goes_to_the_pile_the_top_card_glides_to() {
+        let at = standing();
+        let pile = grave();
+        let gone = exit(Some(Place::Graveyard(seat().player)), Some(pile), &at);
+        assert!(
+            (gone.translation.xz() - pile.translation.xz()).length() < 1e-4,
+            "it belongs on the pile, not at its lane: {gone:?}"
+        );
+        assert_eq!(gone.rotation, pile.rotation, "lying as the pile lies");
+        // And behind the card already standing there, or the two fight for
+        // the same depth and the pile flickers between them.
+        assert!(gone.translation.y < pile.translation.y, "tucked under it");
+        assert!(
+            pile.translation.y - gone.translation.y < CARD_HEIGHT * 0.01,
+            "but only just: it is hidden, not dropped"
+        );
+    }
+
+    #[test]
+    fn a_bounced_permanent_leaves_the_way_a_card_arrives() {
+        let at = standing();
+        let gone = exit(Some(Place::Hand), None, &at);
+        let arriving = entrance(&at);
+        assert!(gone.translation.y > arriving.translation.y, "further up");
+        assert!(gone.scale.length() < arriving.scale.length(), "and smaller");
+        assert!(
+            gone.translation.y > at.translation.y && gone.scale.length() < at.scale.length(),
+            "which is the entrance run backwards"
+        );
+    }
+
+    /// The honest exit. It must be confusable with neither of the others, or
+    /// a card whose fate is unknown would be reported as buried.
+    #[test]
+    fn a_card_this_seat_cannot_follow_leaves_quietly() {
+        let at = standing();
+        for unknown in [None, Some(Place::Stack)] {
+            let gone = exit(unknown, None, &at);
+            assert!(
+                (gone.translation - at.translation).length() < 1e-4,
+                "it goes nowhere: {unknown:?}"
+            );
+            assert!(gone.scale.length() < at.scale.length() * 0.1, "{unknown:?}");
+            // Exactly, not nearly: `Quat::angle_between` is an `acos` and is
+            // worth about 7e-4 of noise on two identical rotations, which is
+            // more slack than this assertion has to give.
+            assert_eq!(gone.rotation, at.rotation, "and does not turn: {unknown:?}");
+        }
+    }
+
+    /// A pile place with no pile to send it to is the same unknown fate, and
+    /// has to read as one: a layout that has not arrived yet must not make a
+    /// death look like a bounce.
+    #[test]
+    fn a_pile_this_table_is_not_drawing_is_no_destination_at_all() {
+        let at = standing();
+        let nowhere = exit(Some(Place::Graveyard(seat().player)), None, &at);
+        assert_eq!(nowhere, exit(None, None, &at));
+    }
+
+    /// Coming back out is going in, run backwards — which is what makes a
+    /// resurrection read as one rather than as a fresh card being made.
+    #[test]
+    fn a_permanent_returning_from_a_pile_comes_off_that_pile() {
+        let at = standing();
+        let pile = grave();
+        let start = entrance_from(Some(pile), &at);
+        assert_eq!(start, pile);
+        let gone = exit(Some(Place::Graveyard(seat().player)), Some(pile), &at);
+        // The tuck apart and no more, compared with a hair of slack: the two
+        // differ by exactly `PILE_TUCK`, which an `f32` subtraction does not
+        // reproduce to the last bit.
+        assert!(
+            (start.translation - gone.translation).length() < PILE_TUCK * 1.01,
+            "it leaves from where it arrived: {start:?} against {gone:?}"
+        );
+        assert!(
+            (start.scale - at.scale).length() < 1e-4,
+            "at full size: it is the card coming back, not a card being made"
+        );
+    }
+
+    /// A creature cast from hand arrives from the stack; a token arrives from
+    /// nowhere. Both of them belong dropping onto their mark, which is what
+    /// this table has always done.
+    #[test]
+    fn every_other_arrival_is_the_one_the_table_has_always_drawn() {
+        let at = standing();
+        assert_eq!(entrance_from(None, &at), entrance(&at));
+    }
+
+    /// The seat is half the answer: two graveyards are two places, and a card
+    /// dying under an opponent's control belongs at *their* pile.
+    #[test]
+    fn two_seats_piles_are_two_different_places() {
+        let mut far = seat();
+        far.player = baylee_core::ids::PlayerId::new(1);
+        far.center = Vec2::new(0.0, -12.0);
+        far.facing = std::f32::consts::PI;
+        let theirs = card_transform(&far, far.pile_center(PileKind::Graveyard), false, 0.0);
+        assert!(
+            (theirs.translation - grave().translation).length() > 1.0,
+            "both graveyards drawn at the same point"
+        );
+    }
+
+    /// The exits are only worth anything if the card is still there to play
+    /// them, and only harmless if it eventually is not.
+    #[test]
+    fn a_departing_card_is_despawned_when_its_time_is_up_and_not_before() {
+        let mut app = App::new();
+        app.init_resource::<Time>().add_systems(Update, retire);
+        let card = app.world_mut().spawn(Departing { left: EXIT_LIFE }).id();
+
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs_f32(EXIT_LIFE * 0.5));
+        app.update();
+        assert!(
+            app.world().get_entity(card).is_ok(),
+            "half way through it is still leaving"
+        );
+
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs_f32(EXIT_LIFE));
+        app.update();
+        assert!(app.world().get_entity(card).is_err(), "and then it is gone");
     }
 }
 
