@@ -77,10 +77,18 @@ card! {
             toughness: Some(5),
         },
         face! {
+            // No cost and not castable: this side is reached by the {4}{B}
+            // ability above turning the card over (CR 712.2), never by
+            // paying for it. It carried a `{2}{B}{B}` the printing does not
+            // have, which is a number nobody could have read off the card —
+            // and the cost is the whole of what tells a transformed back
+            // from an MDFC's, so the pool's guard against a free back face
+            // saw a cost and let it through while the cast wizard offered
+            // The True Scriptures out of hand for five mana.
             name: "The True Scriptures",
-            mana_cost: baylee_core::mana!("{2}{B}{B}"),
             types: TypeSet::ENCHANTMENT,
             subtypes: &[enchantment::SAGA],
+            castable_from_hand: false,
             abilities: BACK_ABILITIES,
         },
     ],

@@ -1135,12 +1135,24 @@ fn check_code_matches_the_printing(
     // length, because a differing count is a modelling decision rather than
     // a typo — a split card and an adventure print two faces Scryfall's way
     // and are one `FaceDef` here. And a back face the printing gives no cost
-    // is skipped, because a `FaceDef` there carries the cost the face is
-    // actually cast for: Ghastly Mimicry's `mana_cost` is its **disturb**
-    // cost, which Scryfall writes in the oracle text and not in
+    // is skipped **only when the code calls it a disturb face**, because
+    // that is the one reason a `FaceDef` carries a cost the printing does
+    // not: Ghastly Mimicry's `mana_cost` is its **disturb** cost, which
+    // Scryfall writes in the oracle text and not in
     // `card_faces[1].mana_cost`. That is why this check would not have found
     // the `{5}{U}` it was built at — [`check_oracle_matches_the_printing`]
     // did, by comparing the sentence.
+    //
+    // The `disturb` half of that sentence was missing, and one card walked
+    // through the gap. The True Scriptures is a *transformed* back — reached
+    // by Sheoldred's `{4}{B}` ability, cast for nothing ever — and it was
+    // written with a `{2}{B}{B}` no printing has. Nothing compared it,
+    // because the tolerance covered every costless back rather than the
+    // faces that earn it; and `a_back_face_with_no_printed_cost_is_never_
+    // castable_from_the_hand` reads the *code's* cost, so an invented one is
+    // exactly what makes a transformed back look like an MDFC's to it. The
+    // cast wizard duly offered the Saga out of hand for five mana. A skipped
+    // comparison is how a hand-written number gets to mean whatever it says.
     //
     // `tally.costs` is what keeps either tolerance from quietly swallowing
     // the whole check.
@@ -1166,9 +1178,18 @@ fn check_code_matches_the_printing(
         ],
     };
     let code_costs = code_costs(face);
+    // Which of those code faces says `disturb: true`, positionally — the
+    // tolerance below is for that field and nothing else. Blocks run to the
+    // next `face! {` and the last to the end of the file, the same reach
+    // [`face_cost`] documents.
+    let code_disturb: Vec<bool> = face
+        .split("face! {")
+        .skip(1)
+        .map(|block| block.contains("disturb: true"))
+        .collect();
     if printed_costs.len() == code_costs.len() {
         for (at, (printed, code)) in printed_costs.iter().zip(&code_costs).enumerate() {
-            if at > 0 && printed.is_empty() {
+            if at > 0 && printed.is_empty() && code_disturb.get(at).copied().unwrap_or(false) {
                 continue;
             }
             tally.costs += 1;

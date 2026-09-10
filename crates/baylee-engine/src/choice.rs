@@ -209,7 +209,14 @@ pub enum CastModeKind {
     Alternative(usize),
     /// A spell mode (overload and friends).
     Mode(usize),
-    /// Cast a non-front face of an MDFC (The True Scriptures; CR 712.4).
+    /// Cast a non-front face for its own printed cost — an MDFC's back
+    /// (CR 712.4a), an adventure (CR 715), a disturb back (CR 702.112).
+    ///
+    /// It used to name The True Scriptures, which is none of those: a
+    /// *transformed* back is reached by turning the card over and never by
+    /// paying (CR 712.2), and it was on this list only because its `FaceDef`
+    /// carried a cost the printing does not have. Swift Spiral, on the back
+    /// of Twining Twins, is the pool's real example.
     Face(usize),
     /// Play a specific land face of an MDFC (pathways; CR 712.4a).
     PlayLandFace(usize),

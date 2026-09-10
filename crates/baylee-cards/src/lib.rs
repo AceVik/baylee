@@ -148,6 +148,16 @@ mod tests {
     /// nightbound instead would have guarded the five werewolves and let the
     /// next Delver of Secrets through, which is what happened: three cards in
     /// the pool were already free spells when it was written that way.
+    ///
+    /// What this cannot see is a cost that was **invented**. It reads the
+    /// compiled `FaceDef`, so a transformed back written with a cost no
+    /// printing has looks exactly like an MDFC's back to it and is waved
+    /// through — The True Scriptures carried a `{2}{B}{B}` and was on offer
+    /// out of hand for five mana. The half that answers it is in `xtask`:
+    /// `check_code_matches_the_printing` compares each face's cost against
+    /// Scryfall's, and its one tolerance for a costless back is now narrowed
+    /// to a face the code calls `disturb`. The two are a pair — this test
+    /// says what a cost *means*, that check says the cost is the card's.
     #[test]
     fn a_back_face_with_no_printed_cost_is_never_castable_from_the_hand() {
         use baylee_core::types::TypeSet;

@@ -1,5 +1,15 @@
 //! MDFC tests: land-face choice (pathways), auto back-face land play
-//! (Glasspool Shore), and back-face casting (The True Scriptures).
+//! (Glasspool Shore), and the transformed back that is *not* a cast mode
+//! (The True Scriptures).
+//!
+//! The last of those is the reason this module's name is a half-truth worth
+//! knowing about. Nothing in a `CardDef` says which layout a card was
+//! printed in, so an MDFC's back — a face a player may cast (CR 712.4a) —
+//! and a transformed back — one they may only turn the card over to reach
+//! (CR 712.2) — differ by exactly one hand-set field, `castable_from_hand`,
+//! and by the cost the printing puts on the face. Sheoldred was filed here
+//! as though it were the first kind for as long as it carried a cost the
+//! card does not print.
 
 use super::*;
 use crate::choice::CastModeKind;
@@ -183,8 +193,26 @@ fn glasspool_shore_plays_as_back_face_land_without_choice() {
     );
 }
 
+/// Sheoldred's back is turned over, never cast — and this test used to say
+/// the opposite.
+///
+/// The True Scriptures is a *transformed* back (CR 712.2): the only way to
+/// it is Sheoldred's own `{4}{B}` ability, and the card prints no cost on
+/// that side at all. The `FaceDef` carried a `{2}{B}{B}` no printing has,
+/// which is what made the Saga look like an MDFC's back to everything that
+/// reads a compiled card — including the pool-wide guard written for exactly
+/// this family, `a_back_face_with_no_printed_cost_is_never_castable_from_the_hand`,
+/// which reads the code's cost and therefore saw a cost. The wizard offered
+/// the Saga out of hand for five mana, and the test below asserted it did.
+///
+/// A test can only defend a claim; it cannot supply one. This one named
+/// nothing about the printing, so it hardened the invented number instead of
+/// the card, and the two checks that could have caught it were both looking
+/// the other way: `check_code_matches_the_printing` skipped every costless
+/// back rather than the disturb faces that earn the tolerance. It is
+/// narrowed to `disturb: true` now, so this cannot return in silence.
 #[test]
-fn true_scriptures_casts_as_back_face() {
+fn the_true_scriptures_is_turned_over_and_never_cast() {
     let mut engine = Engine::new(
         &preset(
             13,
@@ -251,29 +279,28 @@ fn true_scriptures_casts_as_back_face() {
             other => panic!("unexpected pending: {other:?}"),
         }
     }
-    // The wizard offers normal (front) and back-face options.
-    let Pending::ChooseCastMode { player, options } = engine.pending().clone() else {
-        panic!("expected cast options, got {:?}", engine.pending());
-    };
-    let face_option = options
-        .iter()
-        .position(|o| matches!(o.kind, CastModeKind::Face(1)))
-        .expect("back-face option offered");
-    engine
-        .apply(player, PlayerAction::ChooseMode(face_option))
-        .unwrap();
-    // The spell on the stack is The True Scriptures.
+    // One way to cast the card, so there is no mode question at all — and if
+    // one is ever asked here, the back face may not be in it.
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        assert!(
+            !options
+                .iter()
+                .any(|o| matches!(o.kind, CastModeKind::Face(1))),
+            "the transformed back was offered as a way to cast the card"
+        );
+    }
+    // The spell on the stack is Sheoldred, front face up.
     let stack = engine.state().zones.list(crate::zone::ZoneLocation::Stack);
     let spell = stack.last().copied().expect("spell on the stack");
     let obj = engine.state().object(spell).unwrap();
-    assert_eq!(obj.face_index, 1);
+    assert_eq!(obj.face_index, 0);
     assert_eq!(
         engine.state().names.get(obj.characteristics().name),
-        "The True Scriptures"
+        "Sheoldred"
     );
     assert!(
         obj.characteristics()
             .types
-            .contains(baylee_core::types::TypeSet::ENCHANTMENT)
+            .contains(baylee_core::types::TypeSet::CREATURE)
     );
 }
