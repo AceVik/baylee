@@ -557,7 +557,7 @@ pub fn drive_preloads(
             // is on nobody's print table either, so the sweep below can never
             // reach one: if it is not asked for here it is only ever fetched
             // at the moment it is first drawn.
-            if let Some(key) = art_of(o, ArtSize::Small, &crate::cardart::wearing) {
+            if let Some(key) = art_of(o, ArtSize::Small, crate::cardart::registry()) {
                 preload.want(key);
             }
         }

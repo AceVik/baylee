@@ -689,19 +689,18 @@ impl BoardModel {
     /// in the one case where every pod is the same size — an unfocused
     /// table — and gates every other board against a seat it is not.
     ///
-    /// `wearing` is the compiled registry, asked what card is printed under a
-    /// name. It is handed in for the reason [`crate::images::resolve`] is
-    /// handed `token_art`: the registry lives in a crate this one does not
-    /// link. Answering `None` to everything is a legal registry — a client
-    /// with nothing to ask draws what it drew before.
+    /// `reg` is the compiled registry, asked what a projected name names. It
+    /// is handed in for the reason [`crate::images::resolve`] is handed
+    /// `token_art`: the registry lives in a crate this one does not link.
+    /// Answering `None` to everything is a legal registry — a client with
+    /// nothing to ask draws what it drew before.
     #[must_use]
     pub fn from_view(
         view: &PlayerView,
         openings: Openings<'_>,
         lane_width: impl Fn(PlayerId) -> f32,
-        wearing: impl Fn(&str) -> Option<(CardIndex, u8)>,
+        reg: Registry<'_>,
     ) -> Self {
-        let wearing: NameLookup = &wearing;
         let individual = individual_objects(view);
 
         let ring = std::iter::once(view.seat)
@@ -717,7 +716,7 @@ impl BoardModel {
                     &individual,
                     openings.activatable,
                     lane_width(player),
-                    wearing,
+                    reg,
                 )
             })
             .collect();
@@ -759,14 +758,14 @@ impl BoardModel {
                 let art = match kind {
                     StackKind::Ability { source, text } => view
                         .object(source)
-                        .and_then(|s| art_of(s, ArtSize::Small, wearing))
+                        .and_then(|s| art_of(s, ArtSize::Small, reg))
                         .map(|key| {
                             text.map_or(key, |t| ImageKey {
                                 face: Face::from_index(t.face),
                                 ..key
                             })
                         }),
-                    StackKind::Spell => art_of(o, ArtSize::Small, wearing),
+                    StackKind::Spell => art_of(o, ArtSize::Small, reg),
                 };
                 StackItem {
                     id: o.id,
@@ -776,7 +775,7 @@ impl BoardModel {
                     targets: o
                         .targets
                         .iter()
-                        .map(|t| stack_target(view, *t, wearing))
+                        .map(|t| stack_target(view, *t, reg))
                         .collect(),
                     art,
                     depth: depth_base - 1 - i,
@@ -872,45 +871,128 @@ impl BoardModel {
 /// sending the seat their opponent's next draws — while a graveyard, a
 /// public exile and a command zone are lists whose length is the count.
 /// Reading a library's size off a list would give nought at every table.
-/// What card the compiled registry prints under a given name, and which of
-/// its faces carries it.
+/// What the compiled registry answers to a printed name.
+///
+/// Two answers rather than one, because a name can name two things that are
+/// drawn from two different places: a card in the pool, and one of
+/// `baylee_cards::tokens::ALL`. Without the second arm a permanent copying a
+/// *token* was unrecognisable — the lookup said `None`, which is what it also
+/// says for a permanent copying nothing at all — and a Clone on a Soldier was
+/// drawn as a Clone with "Soldier" written under it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Wears {
+    /// A card in the pool, and which of its faces carries the name. A copy of
+    /// a transformed permanent takes the name of the face that is *up*
+    /// (CR 707.2), so an answer naming only the card would draw the front of
+    /// something the table is showing the back of.
+    Card(CardIndex, u8),
+    /// A token the registry defines, by the id its art is keyed on.
+    Token(u16),
+}
+
+impl Wears {
+    /// The picture this answer is drawn from.
+    #[must_use]
+    pub fn art(self, size: ArtSize) -> ImageKey {
+        match self {
+            Self::Card(index, face) => ImageKey::card(index, face, size),
+            Self::Token(id) => ImageKey::token(id, size),
+        }
+    }
+}
+
+/// The compiled card registry, as much of it as a board needs.
 ///
 /// The seam a copy is drawn through. A permanent that has become a copy keeps
 /// its own cardboard — [`PublicObject::card`] is the Clone in every zone the
 /// Clone visits — while `name` is the projection, so the two disagree and
 /// only the second says what a player is looking at. Turning that name back
-/// into a card takes the registry, which this crate deliberately does not
-/// link, so the lookup arrives as an argument.
-pub type NameLookup<'a> = &'a dyn Fn(&str) -> Option<(CardIndex, u8)>;
-
-/// The registry a test that is not about copies brings: empty.
+/// into a picture takes the registry, which this crate deliberately does not
+/// link, so the lookups arrive as arguments.
 ///
-/// A board built against it draws exactly what a board drew before a copy was
-/// noticed at all, which is what keeps every other test in this file about
-/// the thing it is about.
+/// Two of them, and the second is not symmetry for its own sake. A card is
+/// known by its name alone, because no two cards in the pool share one and
+/// that is a test rather than a hope. Two *tokens* are both named
+/// "Shapeshifter", so a token's own name has to be asked for by id — a name
+/// answers with the first of the two, and a token compared against that
+/// answer would be judged a copy of its own twin.
+#[derive(Clone, Copy)]
+pub struct Registry<'a> {
+    /// What the registry prints under a name: a card, a token, or nothing.
+    pub named: &'a dyn Fn(&str) -> Option<Wears>,
+    /// The name a registry token is printed with.
+    pub token_name: &'a dyn Fn(u16) -> Option<&'static str>,
+}
+
 #[cfg(test)]
-fn no_registry(_: &str) -> Option<(CardIndex, u8)> {
+fn nothing_named(_: &str) -> Option<Wears> {
     None
 }
 
-/// The card an object is *wearing the face of*, when that is not its own.
+#[cfg(test)]
+fn no_token_named(_: u16) -> Option<&'static str> {
+    None
+}
+
+impl Registry<'_> {
+    /// The registry a test that is not about copies brings: empty.
+    ///
+    /// A board built against it draws exactly what a board drew before a copy
+    /// was noticed at all, which is what keeps every other test in this file
+    /// about the thing it is about.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn none() -> Registry<'static> {
+        static NAMED: fn(&str) -> Option<Wears> = nothing_named;
+        static TOKEN_NAME: fn(u16) -> Option<&'static str> = no_token_named;
+        Registry {
+            named: &NAMED,
+            token_name: &TOKEN_NAME,
+        }
+    }
+
+    /// A registry that only answers about cards, for the tests that are about
+    /// copies of cards and want to say so in one line.
+    #[cfg(test)]
+    #[must_use]
+    fn of(named: &dyn Fn(&str) -> Option<Wears>) -> Registry<'_> {
+        static TOKEN_NAME: fn(u16) -> Option<&'static str> = no_token_named;
+        Registry {
+            named,
+            token_name: &TOKEN_NAME,
+        }
+    }
+}
+
+/// The face an object is *wearing*, when that is not its own.
 ///
-/// The one judgement, made once, that both the picture and the mark are built
-/// on. No view field says "this is a copy" — `docs/observed-faults.md` entry
-/// 16 is that — so the test is a disagreement: the registry is asked what card
-/// is printed with the name the object is projecting, and an answer that is
-/// not the card on the table is a copy effect at work.
+/// The one judgement, made once, that the picture, the mark and the card
+/// underneath are all built on. No view field says "this is a copy" —
+/// `docs/observed-faults.md` entry 16 is that — so the test is a
+/// disagreement: what the registry says the projected name is, against what
+/// the object actually is.
 ///
-/// A registry token is never asked. Its name is a token's rather than a
-/// card's, it already has a picture of its own, and a token named for a card
-/// the pool happens to print would otherwise be read as copying it.
+/// The two arms compare different things, and that is the whole of it. A card
+/// is compared by **index**, because a name and an index are the same handle
+/// in a pool where no two cards are printed alike. A registry token is
+/// compared by **name**, because two of them are printed alike: the 1/1 and
+/// the 2/2 Shapeshifter both answer to "Shapeshifter", a name answers with
+/// the first of the two, and the second compared against that answer would be
+/// judged a copy of its own twin.
+///
+/// A permanent with neither — a token a copy effect made out of nothing — has
+/// no own name to disagree with, so its projected name is taken at face value
+/// and is the only thing it was ever going to be drawn from.
 #[must_use]
-pub fn worn(obj: &PublicObject, wearing: NameLookup) -> Option<(CardIndex, u8)> {
-    obj.token
-        .is_none()
-        .then(|| wearing(&obj.name))
-        .flatten()
-        .filter(|(index, _)| obj.card.is_none_or(|c| c.index != *index))
+pub fn worn(obj: &PublicObject, reg: Registry<'_>) -> Option<Wears> {
+    let projected = (reg.named)(&obj.name);
+    match obj.token {
+        Some(mine) if (reg.token_name)(mine) == Some(obj.name.as_str()) => None,
+        Some(_) => projected,
+        None => projected.filter(
+            |w| !matches!((w, obj.card), (Wears::Card(index, _), Some(c)) if *index == c.index),
+        ),
+    }
 }
 
 /// The picture an object wears.
@@ -919,9 +1001,9 @@ pub fn worn(obj: &PublicObject, wearing: NameLookup) -> Option<(CardIndex, u8)> 
 /// question asked of three different fields, and three arms that each read
 /// one of them is how a copy came to be drawn as the card it is not.
 #[must_use]
-pub fn art_of(obj: &PublicObject, size: ArtSize, wearing: NameLookup) -> Option<ImageKey> {
-    worn(obj, wearing)
-        .map(|(index, face)| ImageKey::card(index, face, size))
+pub fn art_of(obj: &PublicObject, size: ArtSize, reg: Registry<'_>) -> Option<ImageKey> {
+    worn(obj, reg)
+        .map(|w| w.art(size))
         .or_else(|| obj.card.map(|c| ImageKey::new(c.print, c.face, size)))
         .or_else(|| obj.token.map(|t| ImageKey::token(t, size)))
 }
@@ -936,12 +1018,19 @@ pub fn art_of(obj: &PublicObject, size: ArtSize, wearing: NameLookup) -> Option<
 /// else, including a token — a token has no original to go and look at, which
 /// is the same sentence [`Provenance`] tells.
 ///
+/// The question it actually asks is [`art_of`]'s answer, not [`worn`]'s: the
+/// card underneath is offered exactly when the picture being drawn is not the
+/// object's own. That is the same set for every copy the registry can name,
+/// and it is the right answer for the one it cannot — a copy of something no
+/// lookup resolves is drawn as its own card, and a second copy of that same
+/// picture beside it would explain nothing.
+///
 /// The size is the caller's because this is drawn small beside a preview and
 /// preloaded small by the board; nothing wants it at [`ArtSize::Normal`].
 #[must_use]
-pub fn original_of(obj: &PublicObject, size: ArtSize, wearing: NameLookup) -> Option<ImageKey> {
-    worn(obj, wearing)?;
-    obj.card.map(|c| ImageKey::new(c.print, c.face, size))
+pub fn original_of(obj: &PublicObject, size: ArtSize, reg: Registry<'_>) -> Option<ImageKey> {
+    let own = obj.card.map(|c| ImageKey::new(c.print, c.face, size))?;
+    (art_of(obj, size, reg)? != own).then_some(own)
 }
 
 /// What is underneath a permanent, when it is not the card its face shows.
@@ -979,12 +1068,12 @@ pub enum Provenance {
 
 /// Which of the three [`Provenance`] cases one object is.
 #[must_use]
-pub fn provenance_of(obj: &PublicObject, wearing: NameLookup) -> Provenance {
+pub fn provenance_of(obj: &PublicObject, reg: Registry<'_>) -> Provenance {
     if obj.status.is_face_down() {
         Provenance::Printed
     } else if obj.card.is_none() {
         Provenance::Token
-    } else if worn(obj, wearing).is_some() {
+    } else if worn(obj, reg).is_some() {
         Provenance::Copy
     } else {
         Provenance::Printed
@@ -1059,7 +1148,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
 }
 
 /// Resolves a target handle into something drawable.
-fn stack_target(view: &PlayerView, what: TargetRef, wearing: NameLookup) -> StackTarget {
+fn stack_target(view: &PlayerView, what: TargetRef, reg: Registry<'_>) -> StackTarget {
     let object = match what {
         TargetRef::Object(id) => view.object(id),
         TargetRef::Player(_) => None,
@@ -1067,7 +1156,7 @@ fn stack_target(view: &PlayerView, what: TargetRef, wearing: NameLookup) -> Stac
     StackTarget {
         what,
         name: object.map(|o| o.name.clone()),
-        art: object.and_then(|o| art_of(o, ArtSize::Small, wearing)),
+        art: object.and_then(|o| art_of(o, ArtSize::Small, reg)),
     }
 }
 
@@ -1105,7 +1194,7 @@ fn build_pod(
     individual: &HashMap<ObjectId, Individual>,
     activatable: &HashSet<ObjectId>,
     pod_width: f32,
-    wearing: NameLookup,
+    reg: Registry<'_>,
 ) -> SeatPod {
     let seat = view.seat(player);
     let permanents: Vec<&PublicObject> = view
@@ -1141,7 +1230,7 @@ fn build_pod(
             // seventy cards, so forty Soldiers would fan at a third of a card
             // apiece.
             let crowded = pack_lane(members.len(), pod_width).fanned;
-            let groups = group_objects(&members, individual, activatable, crowded, wearing);
+            let groups = group_objects(&members, individual, activatable, crowded, reg);
             // Measured again on what is actually drawn, and against the
             // harder bound: forty Soldiers collapse to one card and the row
             // is no longer overflowing, while forty *distinct* creatures
@@ -1186,7 +1275,7 @@ fn group_objects(
     individual: &HashMap<ObjectId, Individual>,
     activatable: &HashSet<ObjectId>,
     collapse: bool,
-    wearing: NameLookup,
+    reg: Registry<'_>,
 ) -> Vec<CardGroup> {
     let mut groups: Vec<CardGroup> = Vec::new();
     let mut index: HashMap<baylee_view::ObjectSummaryKey, usize> = HashMap::new();
@@ -1206,7 +1295,7 @@ fn group_objects(
         // travels either way: it is why a card is drawn on its own, and a
         // roomy row does not make an aura stop mattering.
         if !collapse || reason.is_some() {
-            groups.push(card_group(obj, reason, can_act, wearing));
+            groups.push(card_group(obj, reason, can_act, reg));
             continue;
         }
         let key = obj.summary_key();
@@ -1216,7 +1305,7 @@ fn group_objects(
             groups[i].activatable &= can_act;
         } else {
             index.insert(key, groups.len());
-            groups.push(card_group(obj, None, can_act, wearing));
+            groups.push(card_group(obj, None, can_act, reg));
         }
     }
 
@@ -1230,7 +1319,7 @@ fn card_group(
     obj: &PublicObject,
     individual: Option<Individual>,
     activatable: bool,
-    wearing: NameLookup,
+    reg: Registry<'_>,
 ) -> CardGroup {
     CardGroup {
         representative: obj.id,
@@ -1250,9 +1339,9 @@ fn card_group(
         // the object for exactly this, and `PublicObject::token` says so —
         // and a token some copy effect made carries neither, which is what
         // `art_of` asks the registry about.
-        art: art_of(obj, ArtSize::Small, wearing),
-        provenance: provenance_of(obj, wearing),
-        original: original_of(obj, ArtSize::Small, wearing),
+        art: art_of(obj, ArtSize::Small, reg),
+        provenance: provenance_of(obj, reg),
+        original: original_of(obj, ArtSize::Small, reg),
         summoning_sick: obj.summoning_sick,
         activatable,
         commander: obj.commander,
@@ -1498,11 +1587,11 @@ mod tests {
     }
 
     fn model(view: &PlayerView) -> BoardModel {
-        BoardModel::from_view(view, Openings::none(), |_| WIDE, no_registry)
+        BoardModel::from_view(view, Openings::none(), |_| WIDE, Registry::none())
     }
 
     fn crowded_model(view: &PlayerView) -> BoardModel {
-        BoardModel::from_view(view, Openings::none(), |_| CROWDED, no_registry)
+        BoardModel::from_view(view, Openings::none(), |_| CROWDED, Registry::none())
     }
 
     #[test]
@@ -1769,7 +1858,7 @@ mod tests {
                 activatable: &HashSet::new(),
             },
             |_| WIDE,
-            no_registry,
+            Registry::none(),
         );
         let names: Vec<&str> = m.hand.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(
@@ -1860,7 +1949,7 @@ mod tests {
                 b.status = ObjectStatus::TAPPED;
             }
             let view = ViewBuilder::new(2).with_battlefield(0, vec![a, b]).build();
-            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, no_registry);
+            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, Registry::none());
             m.pod(PlayerId::new(0))
                 .and_then(|p| p.lane(LaneKind::Lands))
                 .expect("lane")
@@ -1881,7 +1970,7 @@ mod tests {
             let view = ViewBuilder::new(2)
                 .with_battlefield(0, (1..=n).map(forest).collect::<Vec<_>>())
                 .build();
-            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, no_registry);
+            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, Registry::none());
             let lane = m
                 .pod(PlayerId::new(0))
                 .and_then(|p| p.lane(LaneKind::Lands))
@@ -1912,7 +2001,7 @@ mod tests {
             &view,
             Openings::none(),
             |_| WIDE,
-            |name| (name == "Bear").then_some((bear, 0)),
+            Registry::of(&|name: &str| (name == "Bear").then_some(Wears::Card(bear, 0))),
         );
         let art = |m: &BoardModel, name: &str| {
             m.pod(PlayerId::new(0))
@@ -1948,7 +2037,7 @@ mod tests {
         // to ask is in: a lookup that answers nothing leaves the copy token
         // exactly where it was — its own face with its own name on it, never
         // somebody else's picture.
-        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, no_registry);
+        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, Registry::none());
         assert_eq!(art(&blind, "Bear"), None);
         assert_eq!(
             art(&blind, "Soldier"),
@@ -1981,7 +2070,7 @@ mod tests {
             &view,
             Openings::none(),
             |_| WIDE,
-            |name| (name == "Llanowar Elves").then_some((elves, 0)),
+            Registry::of(&|name: &str| (name == "Llanowar Elves").then_some(Wears::Card(elves, 0))),
         );
         let lane = m
             .pod(PlayerId::new(0))
@@ -2012,7 +2101,7 @@ mod tests {
 
         // The counter-test: with no registry to ask, both fall back to their
         // own printings and the Clone is once again drawn as a Clone.
-        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, no_registry);
+        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, Registry::none());
         let blind_lane = blind
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -2057,7 +2146,7 @@ mod tests {
             &view,
             Openings::none(),
             |_| WIDE,
-            |name| (name == "Llanowar Elves").then_some((elves, 0)),
+            Registry::of(&|name: &str| (name == "Llanowar Elves").then_some(Wears::Card(elves, 0))),
         );
         let lane = m
             .pod(PlayerId::new(0))
@@ -2084,7 +2173,7 @@ mod tests {
         // The counter-test. A client with nothing to ask still knows a token
         // from a card — that half needs no registry — and simply never finds
         // a copy, which is what it did before any of this existed.
-        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, no_registry);
+        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, Registry::none());
         let blind_lane = blind
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -2124,7 +2213,7 @@ mod tests {
             &view,
             Openings::none(),
             |_| WIDE,
-            |name| (name == "Llanowar Elves").then_some((elves, 0)),
+            Registry::of(&|name: &str| (name == "Llanowar Elves").then_some(Wears::Card(elves, 0))),
         );
         let lane = m
             .pod(PlayerId::new(0))
@@ -2154,7 +2243,7 @@ mod tests {
 
         // The counter-arm. A client with nothing to ask finds no copies, so
         // no card on its board carries a second picture at all.
-        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, no_registry);
+        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, Registry::none());
         assert!(
             blind
                 .pod(PlayerId::new(0))
@@ -2164,6 +2253,116 @@ mod tests {
                 .iter()
                 .all(|g| g.original.is_none())
         );
+    }
+
+    /// A permanent copying a *token* is a copy, and is drawn as the chit.
+    ///
+    /// The case entry 16 of `docs/observed-faults.md` was still getting
+    /// wrong. Both the mark and the picture were found by handing the
+    /// projected name to a lookup that only knew cards, so a Clone on a
+    /// Soldier answered the same `None` a permanent copying nothing answers:
+    /// no mark, no card underneath, and a Clone on the table with "Soldier"
+    /// written under it.
+    #[test]
+    fn a_permanent_copying_a_token_wears_the_token() {
+        const SOLDIER: u16 = 9;
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![printed(3, 0, "Soldier", 5)])
+            .build();
+        let named = |name: &str| (name == "Soldier").then_some(Wears::Token(SOLDIER));
+        let token_name = |id: u16| (id == SOLDIER).then_some("Soldier");
+        let group = |m: &BoardModel| {
+            m.pod(PlayerId::new(0))
+                .and_then(|p| p.lane(LaneKind::Creatures))
+                .expect("lane")
+                .groups[0]
+                .clone()
+        };
+
+        let m = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| WIDE,
+            Registry {
+                named: &named,
+                token_name: &token_name,
+            },
+        );
+        let g = group(&m);
+        assert_eq!(g.provenance, Provenance::Copy, "it is copying something");
+        assert_eq!(
+            g.art,
+            Some(ImageKey::token(SOLDIER, ArtSize::Small)),
+            "and what it is copying is a chit, which has its own picture"
+        );
+        let cardboard = ImageKey::new(PrintRef::new(5), 0, ArtSize::Small);
+        assert_eq!(g.original, Some(cardboard), "the Clone is still underneath");
+        assert!(m.required_images().contains(&cardboard));
+
+        // The counter-arm, and it is the bug this test is about: a registry
+        // that cannot name the token draws the Clone as itself and says
+        // nothing is unusual.
+        let blind = group(&BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| WIDE,
+            Registry::none(),
+        ));
+        assert_eq!(blind.provenance, Provenance::Printed);
+        assert_eq!(blind.art, Some(cardboard));
+        assert_eq!(blind.original, None);
+    }
+
+    /// A token is never a copy of its own twin.
+    ///
+    /// Two tokens in the registry are printed "Shapeshifter", so a name
+    /// answers with the first of them and an identity test made of names
+    /// would call the second a copy of the first — and draw the 2/2 as the
+    /// 1/1. A token's own name is asked for by *id* for exactly this reason,
+    /// which is the one asymmetry between the two arms of [`worn`].
+    #[test]
+    fn a_token_is_not_a_copy_of_the_twin_that_shares_its_name() {
+        const ONE_ONE: u16 = 6;
+        const TWO_TWO: u16 = 7;
+        let mut chit = token(3, 0, "Shapeshifter", 2, 2);
+        chit.token = Some(TWO_TWO);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![chit, printed(4, 0, "Shapeshifter", 5)])
+            .build();
+        let named = |name: &str| (name == "Shapeshifter").then_some(Wears::Token(ONE_ONE));
+        let token_name = |id: u16| (id == ONE_ONE || id == TWO_TWO).then_some("Shapeshifter");
+        let m = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| WIDE,
+            Registry {
+                named: &named,
+                token_name: &token_name,
+            },
+        );
+        let group = |id: u32| {
+            m.pod(PlayerId::new(0))
+                .and_then(|p| p.lane(LaneKind::Creatures))
+                .expect("lane")
+                .groups
+                .iter()
+                .find(|g| g.representative == ObjectId::new(id, 0))
+                .expect("group")
+        };
+        assert_eq!(group(3).provenance, Provenance::Token);
+        assert_eq!(
+            group(3).art,
+            Some(ImageKey::token(TWO_TWO, ArtSize::Small)),
+            "the 2/2 is drawn from its own id and not from its name"
+        );
+        assert_eq!(group(3).original, None, "a chit has nothing underneath it");
+
+        // And the tie the other way round, which is the documented one: a
+        // *card* copying either Shapeshifter is drawn as the first of them,
+        // because a projected name is all there is to go on and two tokens
+        // with one name are one name.
+        assert_eq!(group(4).provenance, Provenance::Copy);
+        assert_eq!(group(4).art, Some(ImageKey::token(ONE_ONE, ArtSize::Small)));
     }
 
     #[test]
@@ -2197,7 +2396,7 @@ mod tests {
             |p| {
                 if p == PlayerId::new(0) { WIDE } else { CROWDED }
             },
-            no_registry,
+            Registry::none(),
         );
         assert_eq!(groups(&m, 0), 4, "the roomy pod kept its cards apart");
         assert_eq!(groups(&m, 1), 1, "the cramped pod collapsed its own row");
@@ -2209,7 +2408,7 @@ mod tests {
             |p| {
                 if p == PlayerId::new(0) { CROWDED } else { WIDE }
             },
-            no_registry,
+            Registry::none(),
         );
         assert_eq!(groups(&m, 0), 1);
         assert_eq!(groups(&m, 1), 4);
@@ -2223,7 +2422,7 @@ mod tests {
             .map(|i| token(i, 0, &format!("Creature {i}"), 1, 1))
             .collect();
         let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, no_registry);
+        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, Registry::none());
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -2237,7 +2436,7 @@ mod tests {
         // The same forty permanents, all identical: one group, no overflow.
         let objs: Vec<PublicObject> = (0..40).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
         let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, no_registry);
+        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, Registry::none());
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -2453,17 +2652,17 @@ mod tests {
             activatable: set,
         };
 
-        let lit = BoardModel::from_view(&view, openings(&both), |_| CROWDED, no_registry);
+        let lit = BoardModel::from_view(&view, openings(&both), |_| CROWDED, Registry::none());
         let group = &lit.pods[0].lanes[0].groups[0];
         assert_eq!(group.count(), 2, "identical permanents still merge");
         assert!(group.activatable);
 
         // One of the two cannot be tapped, so the card standing for both must
         // not claim it can — the player would click it and be told no.
-        let half = BoardModel::from_view(&view, openings(&one), |_| CROWDED, no_registry);
+        let half = BoardModel::from_view(&view, openings(&one), |_| CROWDED, Registry::none());
         assert!(!half.pods[0].lanes[0].groups[0].activatable);
 
-        let dark = BoardModel::from_view(&view, openings(&empty), |_| CROWDED, no_registry);
+        let dark = BoardModel::from_view(&view, openings(&empty), |_| CROWDED, Registry::none());
         assert!(!dark.pods[0].lanes[0].groups[0].activatable);
     }
 

@@ -1272,7 +1272,7 @@ pub fn rebuild_board(duel: &mut Duel) {
         // What card a projected name belongs to, so a permanent that has
         // become a copy is drawn as the card it copies rather than as the
         // cardboard underneath it.
-        crate::cardart::wearing,
+        crate::cardart::registry(),
     ));
     duel.layout = Some(layout);
 }

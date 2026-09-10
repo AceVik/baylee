@@ -317,7 +317,7 @@ pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 
 /// `board::provenance_of` is still where the judgement is made. Nothing is
 /// decided here.
 fn provenance_bit(object: &baylee_view::PublicObject) -> u32 {
-    match baylee_client_core::board::provenance_of(object, &crate::cardart::wearing) {
+    match baylee_client_core::board::provenance_of(object, crate::cardart::registry()) {
         baylee_client_core::board::Provenance::Printed => 0,
         baylee_client_core::board::Provenance::Token => glow::TOKEN,
         baylee_client_core::board::Provenance::Copy => glow::COPY,

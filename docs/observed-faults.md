@@ -254,17 +254,21 @@ not by the order they were told, and nothing here is fixed yet.
     change. Beside the *preview* is the third reading, is what is drawn, and
     commits to neither.
 
-    *One case is still drawn wrong, and it is this entry's own.* Both the mark
-    and the art are found by handing the **projected** name to the registry,
-    so a permanent copying a *token* — a Clone on a Soldier — answers
-    `Printed`: `wearing("Soldier")` is `None`, the art falls back to the
-    Clone's own picture, and the table shows a Clone with "Soldier" under it.
-    Reaching it takes two lookups this seam does not carry. The mark wants the
-    card's *own* printed name (`by_index(card.index).faces[card.face]`), which
-    is a different question from "what is it wearing" and needs to know
-    nothing about the target; the art wants a name to token lookup answering
-    `ImageSource::Token`. Both widen the registry seam, so they are their own
-    commit rather than a rider on this one.
+    *And a copy of a token is a copy too, which it was not.* Both the mark and
+    the art were found by handing the **projected** name to a lookup that knew
+    only cards, so a permanent copying a *token* — a Clone on a Soldier —
+    answered `Printed`: no card is printed "Soldier", the art fell back to the
+    Clone's own picture, and the table showed a Clone with "Soldier" under it.
+    The seam is widened rather than doubled: `board::Registry` carries the
+    lookups and `board::Wears` is what they answer, `Card(index, face)` or
+    `Token(id)`, so one judgement covers a copy of either and the picture
+    comes out of whichever table named it. The second lookup is
+    `tokenart::name` and it is not symmetry — the card arm compares indices,
+    which is sound only because no two cards in the pool are printed alike,
+    and two *tokens* are: a chit is compared by the name its own id carries or
+    the 2/2 Shapeshifter would be judged a copy of the 1/1 and drawn as it.
+    What stays: a copy of *either* Shapeshifter is drawn as the 1/1, because a
+    projected name is the whole of what a copy carries.
 
 17. **Copy tokens are indistinguishable from the real card.** A token needs a
     mark that says token.

@@ -14,6 +14,7 @@
 //! harder half missing: it has no card and no registry token either, so its
 //! name was all there ever was to go on and it drew as a coloured rectangle.
 
+use baylee_client_core::board::{Registry, Wears};
 use baylee_core::ids::CardIndex;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -68,9 +69,41 @@ pub fn wearing(name: &str) -> Option<(CardIndex, u8)> {
         .copied()
 }
 
+/// What the registry prints under a name: a card, a token, or nothing.
+///
+/// Cards are asked first, and the order is the answer to a collision rather
+/// than an accident of writing. No token name is a card name in today's pool
+/// and `no_token_is_named_after_a_card` is what says so; were one, the card
+/// is what a player means — a token is named for what it *is* and a card for
+/// what it is *called*, so a card printed "Soldier" is a Soldier in a way a
+/// Soldier chit is not.
+#[must_use]
+pub fn named(name: &str) -> Option<Wears> {
+    wearing(name)
+        .map(|(index, face)| Wears::Card(index, face))
+        .or_else(|| crate::tokenart::wearing(name).map(Wears::Token))
+}
+
+/// The compiled registry, as a board asks for it.
+///
+/// One function so that no caller can bring half of it. The two lookups are
+/// answers to one question asked of two tables, and a board handed a card
+/// lookup with no token lookup would draw a copy of a token as its own card
+/// and say nothing was wrong.
+#[must_use]
+pub fn registry() -> Registry<'static> {
+    static NAMED: fn(&str) -> Option<Wears> = named;
+    static TOKEN_NAME: fn(u16) -> Option<&'static str> = crate::tokenart::name;
+    Registry {
+        named: &NAMED,
+        token_name: &TOKEN_NAME,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{of, wearing};
+    use super::{named, of, registry, wearing};
+    use baylee_client_core::board::Wears;
 
     /// The two halves have to meet: a name is looked up, and the index that
     /// comes back has to be one `of` can turn into a picture. This is the
@@ -118,6 +151,40 @@ mod tests {
         assert_eq!(wearing(""), None);
         assert_eq!(wearing("Llanowar  Elves"), None, "and it is not fuzzy");
         assert_eq!(of(baylee_core::ids::CardIndex::new(u32::MAX)), None);
+    }
+
+    /// No token in the registry is named after a card in it.
+    ///
+    /// A claim about the *pool*, not about the lookup, and the reason
+    /// [`named`] asks the card table first has no consequence today. Were a
+    /// card ever printed with a token's name, every one of those chits would
+    /// answer with that card's picture and a board full of Soldiers would be
+    /// drawn as a board full of whatever the card is — which is why this is a
+    /// test and not a sentence in a doc comment.
+    #[test]
+    fn no_token_is_named_after_a_card() {
+        for token in baylee_cards::tokens::ALL {
+            let answer = named(token.name);
+            assert!(
+                matches!(answer, Some(Wears::Token(_))),
+                "{} answers {answer:?} rather than a token",
+                token.name
+            );
+        }
+    }
+
+    /// The two tables meet in one answer, and a name reaches the right one.
+    #[test]
+    fn a_name_finds_the_card_first_and_then_the_token() {
+        let (elves, face) = wearing("Llanowar Elves").expect("the pool has it");
+        assert_eq!(named("Llanowar Elves"), Some(Wears::Card(elves, face)));
+        assert_eq!(
+            named("Soldier"),
+            crate::tokenart::wearing("Soldier").map(Wears::Token),
+            "no card is printed Soldier, so the chit answers"
+        );
+        assert_eq!(named("Not A Card Or A Token"), None);
+        assert!((registry().named)("Llanowar Elves").is_some());
     }
 
     /// The case the whole module exists for, spelled out with a card that is

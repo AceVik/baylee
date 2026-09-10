@@ -805,16 +805,12 @@ fn pile(zones: &[Vec<baylee_view::PublicObject>], seat: PlayerId) -> &[baylee_vi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::{BoardModel, Openings};
-
-    /// The registry this file has no use for: a zone browser lists cards in
-    /// hidden zones, and a card that arrives in one is a new object with no
-    /// memory of its previous existence (CR 400.7), so whatever it was
-    /// copying on the battlefield it is not copying in a graveyard. Nothing a
-    /// browser draws is ever wearing another card's face.
-    fn no_registry(_: &str) -> Option<(baylee_core::ids::CardIndex, u8)> {
-        None
-    }
+    // The registry here is the empty one, and deliberately: a zone browser
+    // lists cards in hidden zones, and a card that arrives in one is a new
+    // object with no memory of its previous existence (CR 400.7), so whatever
+    // it was copying on the battlefield it is not copying in a graveyard.
+    // Nothing a browser draws is ever wearing another card's face.
+    use crate::board::{BoardModel, Openings, Registry};
     use crate::test_support::{ViewBuilder, printed};
     use baylee_engine::choice::{ChoicePrompt, Pending, TargetPrompt};
 
@@ -829,7 +825,7 @@ mod tests {
     /// Everything a client can already click without the browser: the
     /// battlefield as drawn cards, and the seat's own hand.
     fn drawn_on_the_table(view: &PlayerView) -> Vec<ObjectId> {
-        let board = BoardModel::from_view(view, Openings::none(), |_| 100.0, no_registry);
+        let board = BoardModel::from_view(view, Openings::none(), |_| 100.0, Registry::none());
         let mut ids: Vec<ObjectId> = board
             .pods
             .iter()

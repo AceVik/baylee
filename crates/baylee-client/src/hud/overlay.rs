@@ -1267,7 +1267,11 @@ pub fn sync_overlay(
             // putting the picture in `required_images` — a hover has no
             // frame to spend fetching one.
             if let Some(under) = hovered.and_then(|id| view.object(id)).and_then(|o| {
-                baylee_client_core::board::original_of(o, ArtSize::Small, &crate::cardart::wearing)
+                baylee_client_core::board::original_of(
+                    o,
+                    ArtSize::Small,
+                    crate::cardart::registry(),
+                )
             }) {
                 let thumb_w = (img_w * 0.34).max(56.0);
                 let thumb_h = thumb_w * 88.0 / 63.0;

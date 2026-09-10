@@ -518,20 +518,23 @@ not exist; a token some copy effect made was worse still, carrying neither a
 print nor a registry token id, and drew as a coloured rectangle with a name
 on it.
 
-The handle both have is the name, so `ImageSource::Card` names a registry
-index and `baylee-client`'s `cardart::wearing` is the lookup that gets there
-from a projected name — the second thing handed to a board model that this
-crate cannot answer for itself, beside the lane widths, and the same shape
-`resolve` already used for `token_art` one paragraph up.
+The handle both have is the name, so `board::Registry` is what a board model
+is handed to turn one back into a picture — the second thing it cannot answer
+for itself, beside the lane widths, and the same shape `resolve` already used
+for `token_art` one paragraph up. Its `named` closure is
+`baylee-client`'s `cardart::named`, which answers `board::Wears`:
+`Card(index, face)` for a card in the pool, `Token(id)` for one of
+`baylee_cards::tokens::ALL`, `None` for a name neither table prints.
 Three details decide whether it is right:
 
 - **The answer only counts when it disagrees.** A permanent copying nothing
-  answers with its own card, so the disagreement between the registry's index
-  and `card.index` *is* the test for a copy, and `board::art_of` asks it of
-  every permanent rather than looking for a flag no view carries.
-- **A registry token is never asked.** Its name is a token's rather than a
-  card's and it already has a picture; only a permanent with a card and a
-  token with neither go to the registry.
+  answers with its own card, so the disagreement between what the registry
+  says the name is and what the object *is* is the test for a copy, and
+  `board::art_of` asks it of every permanent rather than looking for a flag no
+  view carries.
+- **A registry token is asked about its own name, by id.** It is the one arm
+  that cannot compare handles, and the paragraph on copies of tokens below is
+  why.
 - **The face travels with the index.** A copy of a transformed permanent takes
   the name the *back* is printed with, so the lookup answers `(index, face)`
   and a card the table is showing the back of is not drawn front-up.
@@ -582,10 +585,14 @@ table.
 
 **And the copy's own card stands beside its preview.** The mark says *that* a
 permanent is a copy; the little card at the preview's foot, captioned
-`Phrase::CardUnderneath`, says of what. `board::original_of` is the third
-reader of `worn` and the shortest — the physical print, at `Small`, and `None`
-for everything else including a token, which has no original to go and look
-at. `hud::hand::underneath_place` decides where it stands, a pure function for
+`Phrase::CardUnderneath`, says of what. `board::original_of` asks
+`board::art_of`'s answer rather than `worn`'s: the card underneath is offered
+exactly when the picture being drawn is not the object's own. That is the same
+set for every copy the registry can name, and it is the right answer for the
+one it cannot — a copy of something no lookup resolves is drawn as its own
+card, and a second copy of that same picture beside it would explain nothing.
+A token has no cardboard to offer and is `None` on the first line.
+`hud::hand::underneath_place` decides where it stands, a pure function for
 `preview_place`'s reason: the preview is *already* against whichever window
 edge had the room, so "beside it" is off the screen about half the time, and
 on a phone there is no beside to be had at all and overlapping is the right
@@ -610,15 +617,36 @@ fallback-closing kind of decision a commit has to state. Beside the *preview*
 is the third reading and the one shipped: it is the cheapest, it answers the
 question the ask is about, and it commits to neither of the others.
 
-**One permanent is still drawn wrong, and it is a copy.** Both the mark and
-the art hand the *projected* name to the registry, so a permanent copying a
-**token** — a Clone on a Soldier — answers `Printed` and draws as a Clone with
-"Soldier" under it, which is the card that does not exist this section opened
-with. Reaching it takes two lookups the seam does not carry: the mark wants
-the card's own printed name (`by_index(card.index).faces[card.face]`), a
-different question from "what is it wearing" that needs to know nothing about
-the target, and the art wants a name-to-token lookup answering
-`ImageSource::Token`. `docs/observed-faults.md` entry 16.
+**And a copy of a token is a copy too.** The seam used to know one table. A
+permanent copying a **token** — a Clone on a Soldier — projects a name no card
+is printed with, so the lookup answered `None`, which is the same answer it
+gives for a permanent copying nothing: the table drew a Clone, wearing no
+mark, with "Soldier" written under it. `board::Registry` is the widened seam
+and `board::Wears` is what it answers — `Card(index, face)` or `Token(id)` —
+so one judgement covers a copy of either, and `cardart::named` asks the card
+table first because a card printed with a token's name is what a player would
+mean (`no_token_is_named_after_a_card` says the pool has no such card today).
+
+The second lookup is the interesting one, and it is `tokenart::name`. The card
+arm compares **indices**, because a name and an index are the same handle in a
+pool where no two cards are printed alike — `7a7da76` is the test that says
+so. Two *tokens* are printed alike: `ALL` holds a 1/1 and a 2/2 Shapeshifter,
+a name answers with the first of them, and a token compared against that
+answer would be judged a copy of its own twin and drawn as it. So a chit is
+compared by the name its own **id** carries, which is the one asymmetry
+between the two arms of `worn` and the reason `Registry` carries two closures
+rather than one. What is left is the tie itself: a *copy* of either
+Shapeshifter is drawn as the 1/1, because a projected name is the whole of
+what a copy carries and two tokens with one name are one name.
+
+Photographed on a running table: a Jasmine Dragon Tea Shop made a 1/1 white
+Ally, a Spark Double entered as a copy of it, and the hover draws the Ally
+token's own printing with the copy mark top-left and the Spark Double at its
+foot under one word. One thing to read there and not mistake for a fault: the
+type line says "Token Creature — Ally", because a preview of a copy draws the
+copied *printing* and that printing is a token card. The permanent is not a
+token, and the mark in the corner is what says so — the copy mark, not the
+token disc.
 
 **Where the bytes come from is one process-wide setting.** By default the
 Scryfall CDN; when `GET /auth/config` says `art_cache`, the gateway's own
