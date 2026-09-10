@@ -187,13 +187,28 @@ pub fn play_game<L: CardLookup>(
 /// without anything ever self-playing it, and a rule that only bites with
 /// more than one opponent had nowhere to fail.
 ///
-/// An AI cast that fails late legality checks (e.g. "not enough legal
-/// targets" discovered only in the wizard) falls back to passing; any
-/// other error is an engine bug and panics.
+/// An AI action the engine refuses is counted (`Tally::refused_cost` /
+/// `refused_other`) and the game carries on from whatever the engine
+/// published — a cast that fails late legality checks ("not enough legal
+/// targets", discovered only in the wizard) is AI mis-evaluation rather
+/// than an engine bug, and the engine has already put itself back on its
+/// feet. The exception is an **ability the engine offered**: `LegalActions`
+/// enumerated it, so refusing it is an engine bug and panics.
+///
+/// That last check is a **tripwire**, and its reach is whatever the agent
+/// is willing to press. The paragraph it replaces claimed every refusal but
+/// a late legality miss panicked; none of them did, they were counted into
+/// a tally nothing asserted on. Neither of the two offer/apply
+/// disagreements found by hand was sitting in that tally either:
+/// reintroducing the land bug leaves this sweep green, because
+/// `HeuristicAgent` never activates those lands inside the action cap and
+/// no acceptance deck holds one. The systematic version is
+/// `baylee-engine`'s `offer_tests`, which presses every ability the engine
+/// draws whether or not anything would want to.
 ///
 /// # Panics
-/// On engine-internal invariant violations (an illegal action that is not
-/// a late legality miss), or when `agents` does not have one agent per seat.
+/// When the engine refuses an ability it had just offered, or when
+/// `agents` does not have one agent per seat.
 pub fn play_report<L: CardLookup>(
     lookup: L,
     preset: &GamePreset,
@@ -272,7 +287,34 @@ pub fn play_report<L: CardLookup>(
             }
             _ => {}
         }
+        // The one refusal that is never the agent's fault, remembered before
+        // the action is consumed. `LegalActions::abilities` is an
+        // *enumeration*: the engine listed this exact pair as something the
+        // seat may do right now, so refusing it is the two-probes
+        // disagreement — the offer and the activation answering different
+        // questions about the same permanent.
+        //
+        // A cast is deliberately not held to this. `castable` is a
+        // shallower promise: modes, X and per-mode targets are only chosen
+        // inside the wizard, so "not enough legal targets" can be discovered
+        // there without either side being wrong. An activation chooses none
+        // of those before it starts.
+        let offered = match (&pending, &action) {
+            (
+                Pending::Priority { legal, .. },
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index,
+                },
+            ) if legal.abilities.contains(&(*source, *ability_index)) => {
+                Some((*source, *ability_index))
+            }
+            _ => None,
+        };
         if let Err(err) = engine.apply(player, action) {
+            if let Some(pair) = offered {
+                panic!("the engine offered {pair:?} and then refused it: {err}");
+            }
             // Late legality/payment misses are AI mis-evaluation, not engine
             // bugs, and the engine has already recovered: a cast that fails
             // mid-wizard drops the wizard and re-publishes a decision point
