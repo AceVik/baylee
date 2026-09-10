@@ -86,6 +86,37 @@ fn no_card_names_a_dsl_variant_the_engine_does_not_read() {
     }
 }
 
+/// The tokens the recursion above cannot reach.
+///
+/// The `Debug` dump follows a `CreateToken` into the `TokenDef` it carries,
+/// which covers every token some card makes — and `tokens::ALL` holds three
+/// that no card makes at all. Blood, Clue and Food are defined, given stable
+/// ids and left waiting for the card that will create one, so their
+/// abilities are read by nothing here: the walk starts at the card registry,
+/// and `tokens.rs` sits beside `cards/`.
+///
+/// That door is worth a test of its own rather than a note, because it has
+/// already swallowed one defect —
+/// `offer_tests::no_token_carries_an_ability_the_engine_will_never_offer`
+/// exists because a pool-wide grep scoped to `cards/` reported Recurring
+/// Nightmare as the only card of its class while the Blood token sat one
+/// directory up carrying the same cost.
+#[test]
+fn no_token_names_a_dsl_variant_the_engine_does_not_read() {
+    for token in baylee_cards::tokens::ALL {
+        let dump = format!("{:?}", token.abilities);
+        for (variant, site) in SILENT {
+            assert!(
+                !names(&dump, variant),
+                "the {} token names `{variant}`, which the engine parses and \
+                 never acts on ({site}); implement it and take the row out of \
+                 SILENT, or take the effect off the token",
+                token.name,
+            );
+        }
+    }
+}
+
 /// The word test, both ways round — the assertion above is worthless if this
 /// is wrong in the permissive direction, and noisy if it is wrong in the
 /// other.

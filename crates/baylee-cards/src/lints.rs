@@ -564,6 +564,55 @@ mod tests {
         );
     }
 
+    /// Both of those lints, over the permanents no card prints.
+    ///
+    /// A `TokenDef` carries `abilities: &[AbilityDef]` that the engine reads
+    /// through the very path a card face's are read by, so both shapes are
+    /// decidable there and neither sweep above can see one: they start at
+    /// [`crate::all`], the card registry, and `tokens.rs` sits beside
+    /// `cards/`. It is a door that has already swallowed a defect —
+    /// `offer_tests::no_token_carries_an_ability_the_engine_will_never_offer`
+    /// exists because a pool-wide grep scoped to `cards/` missed the Blood
+    /// token entirely.
+    ///
+    /// CR 605.1 is the half that is not hypothetical here. The Treasure's
+    /// `{T}, Sacrifice this artifact: Add one mana of any color` really is a
+    /// mana ability, and every token's flag is written out by hand in
+    /// `tokens.rs` — a `false` there is a Treasure that cannot be cracked
+    /// while paying for a spell, which is the whole of what a Treasure is
+    /// for.
+    #[test]
+    fn no_token_breaks_a_lint_the_cards_are_held_to() {
+        let mut wrong = Vec::new();
+        let mut seen = 0_usize;
+        for token in crate::tokens::ALL {
+            for ability in token.abilities {
+                seen += 1;
+                if let Some(filter) = target_reuse(ability) {
+                    wrong.push(format!("{} sweeps with {filter:?}", token.name));
+                }
+                if let Some(fault) = mana_ability_fault(ability) {
+                    wrong.push(format!("{} {fault}", token.name));
+                }
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "{} token ability/abilities are built in a shape that cannot be \
+             right:\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
+        // The floor, as in the sweeps above: the four artifact tokens each
+        // carry one ability, and a walk that inspected none of them would
+        // pass exactly as loudly as this one.
+        assert!(
+            seen >= 4,
+            "only {seen} token abilities were looked at; the sweep is not \
+             reaching `tokens::ALL`"
+        );
+    }
+
     /// And the mana lint bites in both directions.
     #[test]
     fn the_mana_lint_catches_both_halves_of_cr_605_1() {

@@ -127,15 +127,21 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
     ]
 };
 
+/// [`ENFORCED`] as one set.
+fn enforced() -> baylee_cards_dsl::KeywordSet {
+    let mut enforced = baylee_cards_dsl::KeywordSet::EMPTY;
+    for (_, k) in ENFORCED {
+        enforced = enforced.union(*k);
+    }
+    enforced
+}
+
 /// A card may not claim a keyword no rule reads: it would look supported
 /// on the card, in the view, and in the roadmap, and change nothing at the
 /// table.
 #[test]
 fn no_card_claims_a_keyword_the_engine_ignores() {
-    let mut enforced = baylee_cards_dsl::KeywordSet::EMPTY;
-    for (_, k) in ENFORCED {
-        enforced = enforced.union(*k);
-    }
+    let enforced = enforced();
     for (oracle_id, def) in baylee_cards::generated::ALL {
         let unknown = def.all_keywords().difference(enforced);
         assert_eq!(
@@ -144,6 +150,36 @@ fn no_card_claims_a_keyword_the_engine_ignores() {
             "{} ({oracle_id}) declares a keyword no engine rule reads (bits {:#x}); \
              implement it and add it to ENFORCED, or take it off the card",
             def.faces[0].name,
+            unknown.bits(),
+        );
+    }
+}
+
+/// The same claim, for the permanents no card prints.
+///
+/// A `TokenDef` carries a `KeywordSet` the layer system reads exactly as it
+/// reads a face's — which is what a 1/1 white Bird with flying *is* — so a
+/// token claiming a keyword no rule reads is inert in the same way a card
+/// would be, and `generated::ALL` above cannot see it. `tokens.rs` sits
+/// beside `cards/` rather than inside it, and that is the door a sweep keeps
+/// walking past: it is how the Blood token kept an ability the engine will
+/// never offer through a whole commit written to find exactly that
+/// (`offer_tests::no_token_carries_an_ability_the_engine_will_never_offer`).
+///
+/// Four of the fourteen tokens claim anything at all — flying on the Bird
+/// and the Angel, changeling on both Shapeshifters — so this passes today
+/// and is here for the fifteenth.
+#[test]
+fn no_token_claims_a_keyword_the_engine_ignores() {
+    let enforced = enforced();
+    for token in baylee_cards::tokens::ALL {
+        let unknown = token.keywords.difference(enforced);
+        assert_eq!(
+            unknown.bits(),
+            0,
+            "the {} token declares a keyword no engine rule reads (bits {:#x}); \
+             implement it and add it to ENFORCED, or take it off the token",
+            token.name,
             unknown.bits(),
         );
     }
