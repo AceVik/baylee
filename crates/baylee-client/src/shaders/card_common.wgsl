@@ -576,6 +576,120 @@ fn crest_layer(uv: vec2<f32>, on: bool, color: vec3<f32>) -> vec3<f32> {
     return out;
 }
 
+// ------------------------------------------------------- the provenance mark
+//
+// The second thing on the card's top edge, which means the crest's own
+// argument has to be re-stated rather than quietly kept. Putting exactly one
+// thing up there meant the silhouette alone answered "is that a commander",
+// and that is no longer true. What survives is the weaker and still useful
+// form: the crest is *centred* and this is hard against the left corner, so
+// at the distance where both have collapsed to pips their positions still
+// tell them apart — and a card may honestly wear both at once, a commander
+// that has become a copy of something being a real thing that happens.
+//
+// It answers one question a board cannot otherwise answer: is that really a
+// Llanowar Elves? A disc says token — no cardboard at all (CR 111.1), the
+// chit a player would actually be reaching for. Two offset cards say copy:
+// there is cardboard, and it belongs to somebody else. No mark is the third
+// answer, and it is almost every card almost all of the time, which is what
+// lets this one be as loud as it is on the few that wear it.
+//
+// Round against rectilinear is the whole of the distinction, deliberately.
+// At sixty pixels across the slot is seven and neither pictogram resolves;
+// what a player still reads there is a round blob or a wide squarish one.
+// That is the rail's honest degradation stated once more for a mark that is
+// not in the rail.
+//
+// It does not breathe, for the crest's reason: a permanent stops being a copy
+// only by ceasing to be that permanent (CR 400.7), so there is nothing here
+// that could stop being true while the card is being looked at.
+//
+// What it costs, measured on a live table rather than guessed: the plate
+// covers about the first two characters of the *printed* name, a printing
+// putting its title hard against the card's left edge. The crest pays the
+// same toll in the middle of the same bar and pays it more cheaply, the
+// middle of a title bar usually being empty. It is a real cost, taken for one
+// reason — the printed name is the thing this client repeats everywhere else
+// (the hover preview, the stack, both seat bars), and what the mark says is
+// said nowhere else at all.
+
+/// The gap cut between the two cards of the copy mark, in cell units.
+///
+/// Load-bearing rather than styling. Both cards are filled INK on one plate,
+/// so a front card drawn over a back card of the same colour is one blob with
+/// a step in its outline; subtracting the *grown* front is what leaves a line
+/// of plate between them, and that line is the only thing in the glyph saying
+/// "two".
+const COPY_GAP: f32 = 0.045;
+
+/// A chit: one filled disc.
+///
+/// Filled for `crest_sdf`'s reason — a ring at eight pixels closes up into a
+/// blob, and a blob is what this is anyway, so it may as well be an honest
+/// one. It is also the only round mark this client draws, which is what
+/// carries it against the copy glyph beside it at any distance.
+fn token_sdf(p: vec2<f32>) -> f32 {
+    return sd_circle(p, 0.30);
+}
+
+/// Two cards, the front one offset down and to the right of the back one.
+fn copy_sdf(p: vec2<f32>) -> f32 {
+    let front = sd_round_box(p - vec2<f32>(0.08, 0.07), vec2<f32>(0.19, 0.25), 0.04);
+    let back = sd_round_box(p + vec2<f32>(0.08, 0.07), vec2<f32>(0.19, 0.25), 0.04);
+    return min(front, max(back, -(front - COPY_GAP)));
+}
+
+/// The provenance layer: one still mark in the card's top-left corner.
+///
+/// Two bools rather than the glow word, exactly as `crest_layer` takes one:
+/// which bit of that word means what is the Rust half's business
+/// (`cardmat::glow::TOKEN` and `::COPY`). They are exclusive already —
+/// `board::provenance_of` returns one value of three — and `is_token` wins
+/// here regardless, because "no cardboard at all" is the stronger claim and a
+/// slot drawing both glyphs at once would be saying neither.
+///
+/// The slot and inset are the crest's, which are the rail's: one alphabet,
+/// four corners, and a mark that measured itself differently would read as a
+/// second design rather than as another letter.
+fn provenance_layer(uv: vec2<f32>, is_token: bool, is_copy: bool, color: vec3<f32>) -> vec3<f32> {
+    if !is_token && !is_copy {
+        return color;
+    }
+
+    // Width-units, so the slot is square — the rail's change of variables.
+    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
+    let slot = CREST_SLOT;
+    let x0 = CREST_INSET;
+    let x1 = x0 + slot;
+    let y0 = CREST_INSET;
+    let y1 = y0 + slot;
+
+    // Uniform control flow, before any branch on where the fragment landed.
+    let aa = max(fwidth(p.x), 0.0015);
+
+    // The crest's plate at the crest's weight, and for the crest's reason:
+    // this corner is title bar too, and it is pale on most printings.
+    let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
+    let half = vec2<f32>(slot * 0.5 + 0.014, slot * 0.5 + 0.014);
+    let plate = sd_round_box(p - mid, half, slot * 0.30);
+    var out = mix(color, PLATE, (1.0 - smoothstep(-aa, aa, plate)) * 0.82);
+
+    if p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1 {
+        return out;
+    }
+
+    let cell = vec2<f32>((p.x - x0) / slot, (p.y - y0) / slot) - vec2<f32>(0.5);
+    var d = copy_sdf(cell);
+    if is_token {
+        d = token_sdf(cell);
+    }
+
+    // Cell units, so the edge is as soft in the preview as across the table.
+    let e = max(aa / slot, 0.02);
+    out = mix(out, INK, 1.0 - smoothstep(-e, e, d));
+    return out;
+}
+
 // ------------------------------------------------------------------ the plate
 //
 // The bottom-right corner the rail has been reserving: a creature's power and

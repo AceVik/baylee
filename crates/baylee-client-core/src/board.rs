@@ -254,8 +254,15 @@ pub struct CardGroup {
     pub badges: Vec<KeywordBadge>,
     /// Card art, when the seat may know what the card is.
     pub art: Option<ImageKey>,
-    /// Whether the object has no backing card (a token or an emblem).
-    pub is_token: bool,
+    /// What is under the card, when it is not the card being drawn.
+    ///
+    /// This was `is_token: bool`, computed as `card.is_none()` and read by
+    /// nothing, which is the only reason it was never wrong out loud: `card`
+    /// is also `None` for a face-down permanent a seat may not look at, so
+    /// every opponent's morph was a token in the model.
+    /// [`provenance_of`] is where that is decided now, and it says which of
+    /// the two noes this is.
+    pub provenance: Provenance,
     /// Whether the permanent entered too recently to attack.
     pub summoning_sick: bool,
     /// Whether *every* permanent in the group has an ability the engine
@@ -873,28 +880,84 @@ fn no_registry(_: &str) -> Option<(CardIndex, u8)> {
     None
 }
 
-/// The picture an object wears.
+/// The card an object is *wearing the face of*, when that is not its own.
 ///
-/// One answer in one place because a card, a token and a copy are the same
-/// question asked of three different fields, and three arms that each read
-/// one of them is how a copy came to be drawn as the card it is not.
+/// The one judgement, made once, that both the picture and the mark are built
+/// on. No view field says "this is a copy" — `docs/observed-faults.md` entry
+/// 16 is that — so the test is a disagreement: the registry is asked what card
+/// is printed with the name the object is projecting, and an answer that is
+/// not the card on the table is a copy effect at work.
 ///
-/// A registry token is never asked: its name is a token's rather than a
-/// card's, and it already has a picture of its own. Everything else is, and
-/// the answer only counts when it *disagrees* with the card on the table — a
-/// permanent copying nothing answers with itself, and asking that question of
-/// every permanent on every frame is what makes the disagreement the whole
-/// test for a copy.
+/// A registry token is never asked. Its name is a token's rather than a
+/// card's, it already has a picture of its own, and a token named for a card
+/// the pool happens to print would otherwise be read as copying it.
 #[must_use]
-pub fn art_of(obj: &PublicObject, size: ArtSize, wearing: NameLookup) -> Option<ImageKey> {
+pub fn worn(obj: &PublicObject, wearing: NameLookup) -> Option<(CardIndex, u8)> {
     obj.token
         .is_none()
         .then(|| wearing(&obj.name))
         .flatten()
         .filter(|(index, _)| obj.card.is_none_or(|c| c.index != *index))
+}
+
+/// The picture an object wears.
+///
+/// One answer in one place because a card, a token and a copy are the same
+/// question asked of three different fields, and three arms that each read
+/// one of them is how a copy came to be drawn as the card it is not.
+#[must_use]
+pub fn art_of(obj: &PublicObject, size: ArtSize, wearing: NameLookup) -> Option<ImageKey> {
+    worn(obj, wearing)
         .map(|(index, face)| ImageKey::card(index, face, size))
         .or_else(|| obj.card.map(|c| ImageKey::new(c.print, c.face, size)))
         .or_else(|| obj.token.map(|t| ImageKey::token(t, size)))
+}
+
+/// What is underneath a permanent, when it is not the card its face shows.
+///
+/// The question a player asks of a board and cannot answer from it: *is that
+/// really a Llanowar Elves?* Two different noes — a token has no cardboard at
+/// all (CR 111.1), a copy has cardboard belonging to somebody else — and one
+/// yes, which is almost every card almost all of the time and wears no mark.
+///
+/// They are exclusive by construction rather than by care, which is why this
+/// is one function returning one value and not two booleans: a token has no
+/// card to disagree with the registry, so the first arm settles it. A token
+/// that a copy effect made is a **token**, and deliberately — the chit is the
+/// whole truth about it, there is no original to go and look at, and marking
+/// it as a copy would promise one.
+///
+/// A face-down permanent (CR 708.2: it has no characteristics but the ones
+/// the ability that turned it down lists) is [`Provenance::Printed`] and
+/// wears nothing. Its `card` is `None` for a seat
+/// not entitled to look, which is the same shape a token has and is not the
+/// same fact at all; a token mark on an opponent's morph would be this
+/// client's own invention. What it should wear is a card *back*, which
+/// nothing in the client draws yet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Provenance {
+    /// The card on the table is the card the player is looking at.
+    #[default]
+    Printed,
+    /// No card at all: a token (CR 111.1), whether the engine minted it from
+    /// the registry or a copy effect made it out of nothing.
+    Token,
+    /// A permanent whose own card is one thing and whose face is another.
+    Copy,
+}
+
+/// Which of the three [`Provenance`] cases one object is.
+#[must_use]
+pub fn provenance_of(obj: &PublicObject, wearing: NameLookup) -> Provenance {
+    if obj.status.is_face_down() {
+        Provenance::Printed
+    } else if obj.card.is_none() {
+        Provenance::Token
+    } else if worn(obj, wearing).is_some() {
+        Provenance::Copy
+    } else {
+        Provenance::Printed
+    }
 }
 
 fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
@@ -1157,7 +1220,7 @@ fn card_group(
         // and a token some copy effect made carries neither, which is what
         // `art_of` asks the registry about.
         art: art_of(obj, ArtSize::Small, wearing),
-        is_token: obj.card.is_none(),
+        provenance: provenance_of(obj, wearing),
         summoning_sick: obj.summoning_sick,
         activatable,
         commander: obj.commander,
@@ -1729,7 +1792,7 @@ mod tests {
             .and_then(|p| p.lane(LaneKind::Creatures))
             .expect("lane")
             .groups[0];
-        assert!(group.is_token);
+        assert_eq!(group.provenance, Provenance::Token);
         assert!(group.art.is_none());
         assert!(m.required_images().is_empty());
     }
@@ -1931,6 +1994,79 @@ mod tests {
                 .art,
             Some(ImageKey::new(PrintRef::new(5), 0, ArtSize::Small))
         );
+    }
+
+    /// The same disagreement, read as the mark rather than as the picture.
+    ///
+    /// Four permanents, one of each answer, in one board — because the three
+    /// arms are a chain and a test that asked them one at a time would not
+    /// notice an arm swallowing the case below it. The face-down one is the
+    /// arm that costs something to get right: its `card` is `None` for the
+    /// same reason a token's is, and reading only that field marks every
+    /// opponent's morph as a token.
+    #[test]
+    fn a_permanent_says_whether_it_is_a_token_a_copy_or_the_card_it_looks_like() {
+        let elves = CardIndex::new(9);
+        let mut face_down = printed(6, 0, "Face-down", 12);
+        face_down.card = None;
+        face_down.status = ObjectStatus::FACE_DOWN;
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    printed(3, 0, "Llanowar Elves", 5),  // a Clone
+                    printed(4, 0, "Llanowar Elves", 9),  // the card itself
+                    token(5, 0, "Llanowar Elves", 1, 1), // a copy token
+                    face_down,
+                ],
+            )
+            .build();
+        let m = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| WIDE,
+            |name| (name == "Llanowar Elves").then_some((elves, 0)),
+        );
+        let lane = m
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane");
+        let of = |id: u32| {
+            lane.groups
+                .iter()
+                .find(|g| g.representative == ObjectId::new(id, 0))
+                .expect("group")
+                .provenance
+        };
+        assert_eq!(of(3), Provenance::Copy, "cardboard belonging to a Clone");
+        assert_eq!(of(4), Provenance::Printed, "the card it looks like");
+        // A token a copy effect made is a token and not a copy: there is no
+        // original to go and look at, so a copy mark would promise one.
+        assert_eq!(of(5), Provenance::Token, "a chit, whatever is drawn on it");
+        assert_eq!(
+            of(6),
+            Provenance::Printed,
+            "a morph is not a token, however alike the two look in the view"
+        );
+
+        // The counter-test. A client with nothing to ask still knows a token
+        // from a card — that half needs no registry — and simply never finds
+        // a copy, which is what it did before any of this existed.
+        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, no_registry);
+        let blind_lane = blind
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane");
+        let blind_of = |id: u32| {
+            blind_lane
+                .groups
+                .iter()
+                .find(|g| g.representative == ObjectId::new(id, 0))
+                .expect("group")
+                .provenance
+        };
+        assert_eq!(blind_of(3), Provenance::Printed);
+        assert_eq!(blind_of(5), Provenance::Token);
     }
 
     #[test]

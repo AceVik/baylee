@@ -112,6 +112,29 @@ pub mod glow {
 
     /// The twelve mark bits, in place.
     pub const MARK_MASK: u32 = 0xfff << MARK_SHIFT;
+
+    /// This permanent has no card under it at all: a token (CR 111.1).
+    ///
+    /// The first of the two provenance bits, and they are the first thing in
+    /// this word *above* the rail's field rather than below it — the eight
+    /// low bits were full, and a bit that landed in [`MARK_MASK`] would grow
+    /// a keyword mark on every token on the table.
+    ///
+    /// Provenance is the [`COMMANDER`] question asked a second way: not what
+    /// a card can do but what it *is*, true in every zone and for the whole
+    /// game, so it is drawn on the face beside the crest and never in the
+    /// border. `baylee_client_core::board::Provenance` is where the two are
+    /// decided, in one place, which is what makes them exclusive.
+    pub const TOKEN: u32 = 1 << 20;
+
+    /// This permanent's own card is one thing and the face it is showing is
+    /// another: a copy effect is at work (CR 707.2).
+    ///
+    /// Never set together with [`TOKEN`]. A token that a copy effect made is
+    /// a token — the chit is the whole truth about it and there is no
+    /// original to go and look at — and that is settled in the model rather
+    /// than here.
+    pub const COPY: u32 = 1 << 21;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -266,6 +289,7 @@ pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 
         glow_bits(o.keywords)
             | if sick { glow::SUMMONING_SICK } else { 0 }
             | if o.commander { glow::COMMANDER } else { 0 }
+            | provenance_bit(o)
     });
     // An armed card is not also inviting a tap: the invitation was accepted,
     // and drawing both would put a travelling light and a steady one on the
@@ -278,6 +302,26 @@ pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 
         0
     };
     from_card | offered | if offer.will_tap { glow::WILL_TAP } else { 0 }
+}
+
+/// The provenance mark for one object, as its bit in the glow word.
+///
+/// The registry is reached from inside [`glow_of`] rather than handed to it,
+/// which is the opposite of what `BoardModel::from_view` does one crate down —
+/// and deliberately. That seam exists because `baylee-client-core` does not
+/// link `baylee-cards`; this crate does, and every one of `glow_of`'s three
+/// callers would otherwise pass the same closure to get the same answer, which
+/// is three chances for a card in the hand bar to disagree with the same card
+/// on the table.
+///
+/// `board::provenance_of` is still where the judgement is made. Nothing is
+/// decided here.
+fn provenance_bit(object: &baylee_view::PublicObject) -> u32 {
+    match baylee_client_core::board::provenance_of(object, &crate::cardart::wearing) {
+        baylee_client_core::board::Provenance::Printed => 0,
+        baylee_client_core::board::Provenance::Token => glow::TOKEN,
+        baylee_client_core::board::Provenance::Copy => glow::COPY,
+    }
 }
 
 /// What the shader needs to know about one card.
@@ -908,7 +952,16 @@ pub(crate) mod tests {
         baylee_view::PublicObject {
             mana_value: 0,
             id: ObjectId::new(1, 0),
-            card: None,
+            // A card, and it matters: `card: None` is a *token*, and every
+            // test below that reads a keyword or an offer would be handed a
+            // token mark along with it. The name is one no card is printed
+            // with, so the registry answers nothing and this is an ordinary
+            // permanent — which is what all of them meant by "a permanent".
+            card: Some(baylee_view::CardIdentity {
+                index: baylee_core::ids::CardIndex::new(0),
+                print: baylee_core::ids::PrintRef::new(0),
+                face: 0,
+            }),
             name: "Test".to_string(),
             controller: PlayerId::new(0),
             owner: PlayerId::new(0),
@@ -1392,6 +1445,8 @@ pub(crate) mod tests {
             ("GLOW_ARMED", glow::ARMED),
             ("GLOW_WILL_TAP", glow::WILL_TAP),
             ("GLOW_COMMANDER", glow::COMMANDER),
+            ("GLOW_TOKEN", glow::TOKEN),
+            ("GLOW_COPY", glow::COPY),
         ] {
             for (which, src) in [("card.wgsl", table), ("card_ui.wgsl", ui)] {
                 let theirs = wgsl_const(src, name);
@@ -1404,6 +1459,59 @@ pub(crate) mod tests {
             // keyword mark for something that is not a keyword.
             assert_eq!(ours & glow::MARK_MASK, 0, "{name} overlaps the rail");
         }
+    }
+
+    /// The two provenance bits stand alone in the word, and never together on
+    /// one card.
+    ///
+    /// Two claims, and the second is the one worth a test. A bit that
+    /// collided would draw a token mark on something that is not a token,
+    /// which a player has no way to check; a card carrying both would draw
+    /// one glyph and leave the other silently unsaid, which is worse — the
+    /// mark would be *there*, so it would be believed. `provenance_of` is
+    /// what makes that impossible, by answering with one value of three
+    /// instead of two booleans, and this is what says the packing kept it so.
+    #[test]
+    fn a_card_is_marked_a_token_or_a_copy_and_never_both() {
+        let others = glow::INDESTRUCTIBLE
+            | glow::HEXPROOF
+            | glow::SHROUD
+            | glow::ACTIVATABLE
+            | glow::SUMMONING_SICK
+            | glow::ARMED
+            | glow::WILL_TAP
+            | glow::COMMANDER
+            | glow::MARK_MASK;
+        assert_eq!(glow::TOKEN & others, 0, "the token bit is somebody else's");
+        assert_eq!(glow::COPY & others, 0, "the copy bit is somebody else's");
+        assert_eq!(glow::TOKEN & glow::COPY, 0, "and they are not each other");
+
+        // A Clone wearing another card's face, and a token wearing the same
+        // one. Both are drawn from the same registry answer and exactly one
+        // bit comes back each time.
+        let elves = |card: Option<baylee_view::CardIdentity>| {
+            let mut o = baylee_client_core::test_support::token(1, 0, "Llanowar Elves", 1, 1);
+            o.card = card;
+            crate::cardmat::glow_of(Some(&o), Offer::NONE)
+        };
+        let (real, _) = crate::cardart::wearing("Llanowar Elves").expect("the pool has it");
+        let identity = |index: baylee_core::ids::CardIndex| baylee_view::CardIdentity {
+            index,
+            print: baylee_core::ids::PrintRef::new(1),
+            face: 0,
+        };
+        assert_eq!(
+            elves(Some(identity(baylee_core::ids::CardIndex::new(
+                real.get() + 1
+            )))),
+            glow::COPY
+        );
+        assert_eq!(elves(None), glow::TOKEN);
+        assert_eq!(
+            elves(Some(identity(real))),
+            0,
+            "and a Llanowar Elves that is one wears no mark at all"
+        );
     }
 
     /// The night a sick creature lies under is written out twice, and it has

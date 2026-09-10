@@ -3766,7 +3766,7 @@ mod tests {
 
     #[test]
     fn only_counted_groups_get_a_badge() {
-        use baylee_client_core::board::KeywordBadge;
+        use baylee_client_core::board::{KeywordBadge, Provenance};
         use baylee_view::ObjectStatus;
 
         let mut group = CardGroup {
@@ -3781,7 +3781,7 @@ mod tests {
             counters: vec![],
             badges: Vec::<KeywordBadge>::new(),
             art: None,
-            is_token: true,
+            provenance: Provenance::Token,
             summoning_sick: false,
             activatable: false,
             commander: false,
@@ -3837,7 +3837,7 @@ mod tests {
 #[cfg(test)]
 mod combat_tests {
     use super::*;
-    use baylee_client_core::board::{BoardModel, Lane, SeatPod};
+    use baylee_client_core::board::{BoardModel, Lane, Provenance, SeatPod};
     use baylee_client_core::interaction::Interaction;
     use baylee_client_core::layout::LaneKind;
     use baylee_core::ids::Defender;
@@ -3861,7 +3861,7 @@ mod combat_tests {
             counters: Vec::new(),
             badges: Vec::new(),
             art: None,
-            is_token: true,
+            provenance: Provenance::Token,
             summoning_sick: false,
             activatable: false,
             commander: false,

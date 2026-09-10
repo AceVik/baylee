@@ -13,7 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, provenance_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -61,6 +61,8 @@ const GLOW_SUMMONING_SICK: u32 = 16u;
 const GLOW_ARMED: u32 = 32u;
 const GLOW_WILL_TAP: u32 = 64u;
 const GLOW_COMMANDER: u32 = 128u;
+const GLOW_TOKEN: u32 = 1048576u;
+const GLOW_COPY: u32 = 2097152u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
@@ -423,6 +425,23 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // command-zone card beside it is the same card in a zone that taxes it.
     color = vec4<f32>(
         crest_layer(uv, (params.glow & GLOW_COMMANDER) != 0u, color.rgb),
+        color.a,
+    );
+
+    // ---- the provenance mark, in the other top corner
+    //
+    // After the crest and before the plate: the two share the top edge and
+    // never the same slot, so the order between them decides nothing — it is
+    // written this way round because the crest is the older mark and the one
+    // whose region this is borrowing. No `t` either, and for the same reason
+    // the crest gets none.
+    color = vec4<f32>(
+        provenance_layer(
+            uv,
+            (params.glow & GLOW_TOKEN) != 0u,
+            (params.glow & GLOW_COPY) != 0u,
+            color.rgb,
+        ),
         color.a,
     );
 

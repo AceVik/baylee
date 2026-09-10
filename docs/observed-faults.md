@@ -233,18 +233,36 @@ not by the order they were told, and nothing here is fixed yet.
     `baylee-client/src/cardart.rs` is the registry lookup that turns a
     projected name back into a card. A Clone wearing Llanowar Elves is a
     Llanowar Elves on the table, and a copy token that had no picture at all
-    has one. What is still missing is the *provenance* the entry is named
-    for: a player cannot see that the card in front of them is a Clone. The
-    original is in hand for it — `PublicObject::card` never stopped being
-    the Clone — so that half is a mark on the card and not a protocol
-    change. The *exact printing* copied is the one thing that would need a
+    has one. The *exact printing* copied is the one thing that would need a
     view change, and it is worth nothing: a printing is not a characteristic
     (CR 109.3) and so is not copiable (CR 707.2).
     The abilities clause is the engine half of this entry and is not what
     the drawing touched.
 
+    *And the provenance the entry is named for is drawn now* — two offset
+    cards in the top-left corner, `board::Provenance::Copy`. It is a mark on
+    the card rather than a protocol change because the original never left:
+    `PublicObject::card` is still the Clone. What is left of the drawing half
+    is reaching that original, which the owner asked for as a hoverable
+    symbol-sized card and is the next rider.
+
 17. **Copy tokens are indistinguishable from the real card.** A token needs a
     mark that says token.
+
+    *Fixed.* A filled disc in the same top-left slot — round against the copy
+    mark's rectilinear two cards, which is what still separates the pair at
+    the distance where neither glyph resolves. `board::provenance_of` answers
+    both with one value of three, and that is what makes them exclusive: a
+    token a copy effect made is a **token**, because the chit is the whole
+    truth about it and there is no original to go and look at.
+
+    Fixing it turned up a second fault in the same field. `CardGroup` had
+    `is_token: bool`, computed as `card.is_none()` and read by nothing — and
+    `card` is also `None` for a face-down permanent a seat may not look at,
+    so every opponent's morph was a token in the model. It answers
+    `Provenance::Printed` now and wears no mark. What it *should* wear is a
+    card back, which nothing here draws: no file in `baylee-client` or
+    `baylee-client-core` reads `ObjectStatus::is_face_down` at all.
 
 18. **A creature entering as a copy from another card's effect** arrives on
     the stack with no explanation of why.

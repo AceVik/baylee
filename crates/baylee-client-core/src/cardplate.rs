@@ -560,6 +560,7 @@ const fn glyph(rows: [u32; GLYPH_H as usize]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::board::Provenance;
     use baylee_core::ids::ObjectId;
     use baylee_view::ObjectStatus;
 
@@ -590,7 +591,7 @@ mod tests {
             counters: Vec::new(),
             badges: Vec::new(),
             art: None,
-            is_token: false,
+            provenance: Provenance::Printed,
             summoning_sick: false,
             activatable: false,
             commander: false,

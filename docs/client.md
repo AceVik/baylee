@@ -540,8 +540,45 @@ What it does not do is pick the *printing*. There is none to pick: a printing
 is not a characteristic, so codegen's reference printing is as true a Llanowar
 Elves as any other. An exact printing would need the view to carry what the
 permanent copies, which is a `VIEW_VERSION` change and gamehost's to make —
-`docs/observed-faults.md` entry 16 is where that half stays open, together
-with the mark that says *token*.
+`docs/observed-faults.md` entry 16 is where that half stays open.
+
+**And the same judgement says so on the card.** Drawing a copy correctly means
+the board no longer admits that it *is* a copy, which is the fault the entry is
+actually named for, so `board::worn` — the disagreement, factored out of
+`art_of` — also answers `board::provenance_of`: `Printed`, `Token` or `Copy`,
+one value of three, which is what makes the last two exclusive. A token some
+copy effect made is a **token**: the chit is the whole truth about it and there
+is no original to go and look at, so a copy mark would promise one. A
+face-down permanent is `Printed` and wears nothing — its `card` is `None` for
+the same reason a token's is and is not the same fact at all, and `is_token`,
+which was that field, called every opponent's morph a token for as long as
+nothing read it.
+
+The mark is drawn in the card's **top-left** corner, in the crest's alphabet
+and at the crest's weight: a filled disc for a token, two offset cards for a
+copy. Both still, for the crest's reason — a permanent stops being a copy only
+by ceasing to be that permanent (CR 400.7). It costs the crest the strongest
+form of its own argument, which was that putting exactly one thing on the top
+edge let the silhouette alone answer "is that a commander"; what is left is
+that the crest is centred and this is hard against the corner, so their
+*positions* separate them once both have collapsed to pips. Round against
+rectilinear is what separates the two glyphs at that size, and a card may
+honestly wear a crest and a mark at once. It costs about the first two
+characters of the *printed* name, which a printing puts hard against the
+card's left edge — a real toll, taken because the printed name is the one
+thing this client repeats everywhere else and the mark is said nowhere.
+
+Proved on a running table rather than argued: Llanowar Elves, a Spark Double
+that entered as a copy of it and a Rite of Replication token of it, drawn side
+by side — no mark, two cards, a disc.
+
+The bits are `cardmat::glow::TOKEN` and `::COPY`, the first two in that word
+above the rail's twelve-bit field. `glow_of` reaches the registry itself here
+rather than being handed it — the opposite of the seam one crate down, and
+deliberately: this crate links `baylee-cards`, and all three of its callers
+would otherwise pass the same closure to get the same answer, which is three
+chances for a card in the hand bar to disagree with the same card on the
+table.
 
 **Where the bytes come from is one process-wide setting.** By default the
 Scryfall CDN; when `GET /auth/config` says `art_cache`, the gateway's own
