@@ -524,6 +524,77 @@ mod preview_place {
             place.x + PANEL.x / 2.0
         );
     }
+
+    /// The card underneath a copy stands beside the preview, clear of it, and
+    /// on the screen — wherever the preview itself ended up.
+    ///
+    /// The last of those is the whole reason this is a function: a preview is
+    /// already placed against whichever window edge had the room, so "beside
+    /// it" is off the screen about half the time. Every anchor is walked
+    /// across the window rather than one convenient case being asserted.
+    #[test]
+    fn the_card_underneath_stands_beside_the_preview_and_on_the_screen() {
+        let thumb = Vec2::new(105.0, 160.0);
+        let mut on_the_left = 0;
+        let mut on_the_right = 0;
+        for x in [12.0_f32, 200.0, 864.0, 1400.0, 1716.0] {
+            for y in [60.0_f32, 300.0, 526.0, 870.0] {
+                let place = preview_place(PreviewAt::Pointer(Vec2::new(x, y)), PANEL, WINDOW);
+                let preview = Rect::from_corners(place, place + PANEL);
+                let at = underneath_place(preview, thumb, WINDOW);
+                let it = Rect::from_corners(at, at + thumb);
+                assert!(
+                    it.min.x >= 0.0
+                        && it.min.y >= 0.0
+                        && it.max.x <= WINDOW.x
+                        && it.max.y <= WINDOW.y,
+                    "at {at} it hangs off a {WINDOW} window"
+                );
+                assert!(
+                    it.max.x <= preview.min.x || it.min.x >= preview.max.x,
+                    "at {at} it lies over the preview at {place}"
+                );
+                if it.max.x <= preview.min.x {
+                    on_the_left += 1;
+                } else {
+                    on_the_right += 1;
+                }
+                assert!(
+                    (it.max.y - preview.max.y).abs() < 1e-3,
+                    "its foot is at {} and the preview's at {}",
+                    it.max.y,
+                    preview.max.y
+                );
+            }
+        }
+        // Both flanks are reached, which is what says the branch is doing
+        // something: a version that always went right would satisfy every
+        // assertion above on a window this wide.
+        assert!(
+            on_the_left > 0 && on_the_right > 0,
+            "{on_the_left}/{on_the_right}"
+        );
+    }
+
+    /// A window with no room on either flank still puts it on the screen.
+    ///
+    /// `preview_art_size` shrinks the preview to fit the window, so a phone
+    /// gets a panel nearly as wide as the screen and there is no "beside" to
+    /// be had. Overlapping is then the right answer and hanging off the edge
+    /// is not.
+    #[test]
+    fn a_window_with_no_room_beside_the_preview_keeps_it_on_the_screen() {
+        let window = Vec2::new(390.0, 844.0);
+        let panel = Vec2::new(360.0, 500.0);
+        let thumb = Vec2::new(122.0, 184.0);
+        let place = preview_place(PreviewAt::Loose, panel, window);
+        let at = underneath_place(Rect::from_corners(place, place + panel), thumb, window);
+        assert!(
+            at.x >= 0.0 && at.x + thumb.x <= window.x,
+            "at {at} it hangs off a {window} window"
+        );
+        assert!(at.y >= 0.0 && at.y + thumb.y <= window.y, "and vertically");
+    }
 }
 
 mod closing {

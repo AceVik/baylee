@@ -263,6 +263,13 @@ pub struct CardGroup {
     /// [`provenance_of`] is where that is decided now, and it says which of
     /// the two noes this is.
     pub provenance: Provenance,
+    /// The card *under* a copy, when the card being drawn is not it.
+    ///
+    /// Constant across a group without any help: `ObjectSummaryKey` already
+    /// carries the physical card, so a Spark Double and a Clone both wearing
+    /// Llanowar Elves are two groups and not one, and every member of a group
+    /// is the same piece of cardboard.
+    pub original: Option<ImageKey>,
     /// Whether the permanent entered too recently to attack.
     pub summoning_sick: bool,
     /// Whether *every* permanent in the group has an ability the engine
@@ -829,6 +836,12 @@ impl BoardModel {
         for pod in &self.pods {
             for lane in &pod.lanes {
                 keys.extend(lane.groups.iter().filter_map(|g| g.art));
+                // The card under a copy is drawn beside its preview, which is
+                // a hover and therefore has no frame to spare for a fetch. It
+                // is also the one key on the board that nothing else can be
+                // holding: the copy is drawing the card it *wears*, and the
+                // cardboard underneath is by definition a different picture.
+                keys.extend(lane.groups.iter().filter_map(|g| g.original));
             }
             // A pile's top card is drawn face up on the table beside the mat,
             // and it is very often a card nothing else is drawing — the last
@@ -911,6 +924,24 @@ pub fn art_of(obj: &PublicObject, size: ArtSize, wearing: NameLookup) -> Option<
         .map(|(index, face)| ImageKey::card(index, face, size))
         .or_else(|| obj.card.map(|c| ImageKey::new(c.print, c.face, size)))
         .or_else(|| obj.token.map(|t| ImageKey::token(t, size)))
+}
+
+/// The piece of cardboard actually on the table, when it is not the card
+/// being drawn.
+///
+/// [`art_of`] spends the one thing a player could previously read off a copy:
+/// a Spark Double wearing Llanowar Elves *is* a Llanowar Elves on the table
+/// now, and the Spark Double is nowhere. The mark in the corner says that it
+/// is a copy; this is what says of what. It answers `None` for everything
+/// else, including a token — a token has no original to go and look at, which
+/// is the same sentence [`Provenance`] tells.
+///
+/// The size is the caller's because this is drawn small beside a preview and
+/// preloaded small by the board; nothing wants it at [`ArtSize::Normal`].
+#[must_use]
+pub fn original_of(obj: &PublicObject, size: ArtSize, wearing: NameLookup) -> Option<ImageKey> {
+    worn(obj, wearing)?;
+    obj.card.map(|c| ImageKey::new(c.print, c.face, size))
 }
 
 /// What is underneath a permanent, when it is not the card its face shows.
@@ -1221,6 +1252,7 @@ fn card_group(
         // `art_of` asks the registry about.
         art: art_of(obj, ArtSize::Small, wearing),
         provenance: provenance_of(obj, wearing),
+        original: original_of(obj, ArtSize::Small, wearing),
         summoning_sick: obj.summoning_sick,
         activatable,
         commander: obj.commander,
@@ -2067,6 +2099,71 @@ mod tests {
         };
         assert_eq!(blind_of(3), Provenance::Printed);
         assert_eq!(blind_of(5), Provenance::Token);
+    }
+
+    /// The card underneath a copy is offered beside the one it is wearing.
+    ///
+    /// Two claims, and the second is the one that would rot quietly: the key
+    /// is the *physical* printing rather than the worn card, and the board
+    /// asks for it to be resident — a preview opens on a hover and has no
+    /// frame to spend on a fetch.
+    #[test]
+    fn a_copy_offers_the_card_underneath_it() {
+        let elves = CardIndex::new(9);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    printed(3, 0, "Llanowar Elves", 5),  // a Clone
+                    printed(4, 0, "Llanowar Elves", 9),  // the card itself
+                    token(5, 0, "Llanowar Elves", 1, 1), // a copy token
+                ],
+            )
+            .build();
+        let m = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| WIDE,
+            |name| (name == "Llanowar Elves").then_some((elves, 0)),
+        );
+        let lane = m
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane");
+        let group = |id: u32| {
+            lane.groups
+                .iter()
+                .find(|g| g.representative == ObjectId::new(id, 0))
+                .expect("group")
+        };
+        let cardboard = ImageKey::new(PrintRef::new(5), 0, ArtSize::Small);
+        assert_eq!(group(3).original, Some(cardboard), "the Clone's own print");
+        assert_eq!(group(4).original, None, "a card stands in for nothing");
+        assert_eq!(group(5).original, None, "a chit has nothing underneath it");
+        // A second key beside the first and never a replacement for it: what
+        // the table draws is still the card the copy is wearing.
+        assert_eq!(
+            group(3).art,
+            Some(ImageKey::card(elves, 0, ArtSize::Small)),
+            "the copy is still drawn as what it copies"
+        );
+        assert!(
+            m.required_images().contains(&cardboard),
+            "the hover would have to fetch it"
+        );
+
+        // The counter-arm. A client with nothing to ask finds no copies, so
+        // no card on its board carries a second picture at all.
+        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, no_registry);
+        assert!(
+            blind
+                .pod(PlayerId::new(0))
+                .and_then(|p| p.lane(LaneKind::Creatures))
+                .expect("lane")
+                .groups
+                .iter()
+                .all(|g| g.original.is_none())
+        );
     }
 
     #[test]

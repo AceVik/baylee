@@ -242,9 +242,29 @@ not by the order they were told, and nothing here is fixed yet.
     *And the provenance the entry is named for is drawn now* — two offset
     cards in the top-left corner, `board::Provenance::Copy`. It is a mark on
     the card rather than a protocol change because the original never left:
-    `PublicObject::card` is still the Clone. What is left of the drawing half
-    is reaching that original, which the owner asked for as a hoverable
-    symbol-sized card and is the next rider.
+    `PublicObject::card` is still the Clone — and that original is reachable
+    now: hovering a copy stands its own card, captioned, at the foot of the
+    preview (`board::original_of`, `hud::hand::underneath_place`). The ask
+    was "a symbol-sized card beside it, hoverable into the card preview",
+    and *beside it* still has two readings nothing here has chosen between:
+    beside the permanent **on the felt** is a second card entity placed
+    through `sync_scene` and a hover path that previews an `ImageKey` rather
+    than an `ObjectId` — scene and HUD work; **on** the card face is a second
+    texture binding on `CardMaterial` and both card shaders, a material
+    change. Beside the *preview* is the third reading, is what is drawn, and
+    commits to neither.
+
+    *One case is still drawn wrong, and it is this entry's own.* Both the mark
+    and the art are found by handing the **projected** name to the registry,
+    so a permanent copying a *token* — a Clone on a Soldier — answers
+    `Printed`: `wearing("Soldier")` is `None`, the art falls back to the
+    Clone's own picture, and the table shows a Clone with "Soldier" under it.
+    Reaching it takes two lookups this seam does not carry. The mark wants the
+    card's *own* printed name (`by_index(card.index).faces[card.face]`), which
+    is a different question from "what is it wearing" and needs to know
+    nothing about the target; the art wants a name to token lookup answering
+    `ImageSource::Token`. Both widen the registry seam, so they are their own
+    commit rather than a rider on this one.
 
 17. **Copy tokens are indistinguishable from the real card.** A token needs a
     mark that says token.

@@ -910,6 +910,7 @@ mod tests;
 use card::{FaceCtx, spawn_card_art};
 use hand::{
     PreviewAt, preview_anchor, preview_art_size, preview_face, preview_place, spawn_hand_bar,
+    underneath_place,
 };
 use rail::{combat_line, incoming_line};
 use stack::spawn_stack_panel;

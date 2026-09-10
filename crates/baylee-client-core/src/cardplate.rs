@@ -592,6 +592,7 @@ mod tests {
             badges: Vec::new(),
             art: None,
             provenance: Provenance::Printed,
+            original: None,
             summoning_sick: false,
             activatable: false,
             commander: false,

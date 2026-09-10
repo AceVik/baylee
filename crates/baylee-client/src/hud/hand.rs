@@ -524,6 +524,33 @@ pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
     }
 }
 
+/// Where the little card underneath a copy stands, given where its preview
+/// ended up.
+///
+/// Beside the preview and never on it — the preview is the picture being
+/// explained, and half of it behind a thumbnail explains nothing. Its foot
+/// sits on the preview's, which is what makes the two read as one thing.
+///
+/// A pure function for the same reason [`preview_place`] is one: this is the
+/// half that can be quietly wrong, because a preview is *already* placed near
+/// whichever window edge had the room, so "beside it" is very often outside
+/// the window.
+pub(super) fn underneath_place(preview: Rect, thumb: Vec2, window: Vec2) -> Vec2 {
+    let gap = PREVIEW_GAP / 3.0;
+    let x = if preview.max.x + gap + thumb.x + gap <= window.x {
+        preview.max.x + gap
+    } else {
+        preview.min.x - gap - thumb.x
+    };
+    // Inside the window without exception, which is the clamp the branch
+    // above cannot make on its own: a preview wide enough to fill the window
+    // leaves no room on either flank.
+    Vec2::new(
+        x.clamp(gap, (window.x - thumb.x - gap).max(gap)),
+        (preview.max.y - thumb.y).clamp(gap, (window.y - thumb.y - gap).max(gap)),
+    )
+}
+
 /// The panel beside `card`, clear of it, and on the screen.
 ///
 /// Split out because a card and a bare pointer want exactly the same

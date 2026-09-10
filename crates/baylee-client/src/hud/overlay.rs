@@ -40,6 +40,13 @@ const BUTTON_GAP: f32 = 8.0;
 /// size, which is also what stops the slip jumping about between steps.
 const SLIP_MIN_W: f32 = 380.0;
 
+/// The caption over the card underneath a copy, one line of nine-pixel type.
+///
+/// Named because it is the difference between bottom-aligning the *pair* with
+/// the preview and bottom-aligning the card alone, which would leave the two
+/// feet a caption apart.
+const CAPTION_H: f32 = 13.0;
+
 /// Removes the overlay when the duel hands the screen back.
 ///
 /// The 3D stage has always been torn down on `Close`; the overlay was not,
@@ -1235,6 +1242,90 @@ pub fn sync_overlay(
                 .entity(frame)
                 .insert_recursive::<Children>(Pickable::IGNORE);
             commands.entity(root).add_child(tooltip);
+
+            // ---- the card underneath a copy ---------------------------
+            //
+            // The preview above draws what this permanent *is*: a Spark
+            // Double wearing Llanowar Elves is a Llanowar Elves, corner mark
+            // and all. That is backlog item 1, and it spends the one thing
+            // the table used to say plainly — which piece of cardboard is
+            // actually lying there. The mark says *that* it is a copy; this
+            // says of what.
+            //
+            // It stands beside the preview rather than on the card. The
+            // owner asked for it on the card, and that is a second texture
+            // binding on `CardMaterial` and both card shaders — a material
+            // change, and not one to make silently inside a pass about how
+            // the table looks.
+            //
+            // Resolved from the view here rather than read off the board
+            // model, for the same reason `cardmat::glow_of` reaches the
+            // registry itself: this block already resolves everything else
+            // about the hovered object, and two lookups that could disagree
+            // would be two answers for one card. `CardGroup::original` is
+            // the same judgement made once more, and it earns its place by
+            // putting the picture in `required_images` — a hover has no
+            // frame to spend fetching one.
+            if let Some(under) = hovered.and_then(|id| view.object(id)).and_then(|o| {
+                baylee_client_core::board::original_of(o, ArtSize::Small, &crate::cardart::wearing)
+            }) {
+                let thumb_w = (img_w * 0.34).max(56.0);
+                let thumb_h = thumb_w * 88.0 / 63.0;
+                let at = underneath_place(
+                    Rect::from_corners(place, place + panel),
+                    Vec2::new(thumb_w, thumb_h + CAPTION_H),
+                    window,
+                );
+                let image = textures.get(under, statics, &assets);
+                let card = spawn_card_art(
+                    &mut commands,
+                    lang,
+                    image,
+                    None,
+                    thumb_w,
+                    thumb_h,
+                    crate::face::Detail::Compact,
+                    &fonts,
+                    // No corner and no glow: power, toughness and counters
+                    // belong to the permanent on the table, and the
+                    // permanent on the table is the big card. This is a
+                    // picture of a printing.
+                    CardLook::art(under, finish_of(statics, Some(under)), 0),
+                    cards.as_mut(),
+                );
+                commands.entity(card).insert(upward_shadow());
+                let beside = commands
+                    .spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: px(at.x),
+                            top: px(at.y),
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            row_gap: px(2),
+                            ..default()
+                        },
+                        BackgroundColor(Color::NONE),
+                        ZIndex(10),
+                        Pickable::IGNORE,
+                        children![(
+                            Text::new(Phrase::CardUnderneath.text(lang).to_string()),
+                            tf(&fonts, 9.0),
+                            TextColor(palette::MUTED),
+                            Pickable::IGNORE,
+                        )],
+                    ))
+                    .id();
+                commands.entity(beside).add_child(card);
+                // For the reason the preview itself is unpickable, and it is
+                // the worse case here: this panel stands *beside* the
+                // preview, which on a board card means directly over the
+                // neighbouring permanent.
+                commands
+                    .entity(beside)
+                    .insert_recursive::<Children>(Pickable::IGNORE);
+                commands.entity(root).add_child(beside);
+            }
 
             // The speech-bubble tail, pointing down at the hovered card —
             // and only for a hand card, which is the only one the tail can

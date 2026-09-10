@@ -812,6 +812,13 @@ messages! {
 
 
     // ---- the table
+    /// Caption over the small card beside a copy's preview.
+    ///
+    /// The preview draws what the permanent *is* — a copy is a Llanowar
+    /// Elves, mark and all — and the little card beside it is the cardboard
+    /// actually lying there. One word, because the picture says the rest and
+    /// the caption is no wider than the card it labels.
+    CardUnderneath { en: "UNDERNEATH", de: "DARUNTER" },
     /// Waiting for seat {0}
     WaitingForSeat { en: "Waiting for seat {0}", de: "Warte auf Platz {0}" },
     /// Waiting
