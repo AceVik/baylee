@@ -678,8 +678,8 @@ impl<L: CardLookup> Engine<L> {
     /// itself. Mystic Sanctuary is a generated stub carrying no
     /// enter-modifier at all, so it was standing in for the ten cards that
     /// really do this — while
-    /// `card_tests::a_slow_land_counts_the_other_lands_and_never_itself`,
-    /// four hundred lines away, played one and asserted the opposite.
+    /// `card_tests::a_slow_land_counts_the_other_lands_and_never_itself` had
+    /// been playing one all along and asserting the opposite.
     ///
     /// A card *could* say it for itself: `Filter::Another` is read by `eval`
     /// as `obj.id != this`, and the `this` passed below is the entering

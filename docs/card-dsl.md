@@ -330,6 +330,9 @@ express at all yet.
   Only its `mana` is read; `parts` is paid by nothing and is held empty.
 - `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`. Pays
   `PayLifeX` and `PayLife`, and is the one cost list nothing gates at all.
+  `PayLifeX` is bounded where it is asked instead — the wizard offers X up to
+  the caster's life total (CR 119.4) and never up to a constant. A `PayLife(n)`
+  written here is bounded by nothing and would be paid past zero.
 - `Cost { mana, parts }` — parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`,
   `Sacrifice(filter)`, `Discard(filter)`, `DiscardSelf` (cycling),
   `PayLife(n)`, `PayLifeX`, `ExileSelf`, `ExileFromHand(filter)`.

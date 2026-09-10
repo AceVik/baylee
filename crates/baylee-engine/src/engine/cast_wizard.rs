@@ -16,6 +16,15 @@ use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec}
 use baylee_core::ids::NameRef;
 use baylee_core::mana::{ManaColor, ManaCost};
 
+/// The largest X the wizard will offer, before anything narrows it.
+///
+/// A ceiling rather than a rule: X has no printed bound and the mana for a
+/// printed `{X}` is validated when the wizard finishes, so this only keeps the
+/// question finite for a client that has to draw it. A cost that *can* be
+/// bounded — a life payment, which CR 119.4 caps at the caster's own total —
+/// narrows it in the stage below.
+pub(crate) const X_CEILING: u32 = 50;
+
 /// Where the wizard currently is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum WizardStage {
@@ -79,9 +88,17 @@ pub(crate) struct CastWizard {
 /// so "the wizard pays it" is a claim that has to name which list. This one is
 /// gated on the way in — `can_afford` at the option scan refuses
 /// [`abilities::choice_cost_unpayable`], which is why Recurring Nightmare's
-/// shape on an alternative cost is a dead offer rather than a free spell —
+/// shape on an alternative cost is a refused mode rather than a free spell —
 /// and everything the gate lets through and this predicate does not name is
 /// paid by nobody.
+///
+/// It is a *dead offer* only when the printed cost is unaffordable, which is
+/// the one case `casting.rs` reads this list at all: its `any_alt` probe sits
+/// inside `if !probe(printed)`, so a card whose mana cost is payable is
+/// castable on its own and a refused alternative costs it one mode. A card
+/// that had nothing else is put in `legal.castable` by that probe and then
+/// finds the wizard with no option to give it — the shape the
+/// `AltCondition::CommanderControlled` bug had.
 ///
 /// Held pool-wide by
 /// `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`.
@@ -98,6 +115,12 @@ pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
 /// the alternative-cost list above it does not even refuse the choice costs —
 /// a `Sacrifice(_)` written here would be cast past rather than declined.
 /// Toxic Deluge's `PayLifeX` is the whole of the pool's use of it.
+///
+/// Which is why the one bound this list has is on the *question* instead: the
+/// `XValue` stage caps X at the caster's life total (CR 119.4), because
+/// `finish_cast` below subtracts what it is given and reads no total. A
+/// `PayLife(n)` written here has no such stage and would still be paid past
+/// zero — it belongs beside the X the day a card prints one.
 pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
     matches!(part, CostPart::PayLifeX | CostPart::PayLife(_))
 }
@@ -427,16 +450,32 @@ impl<L: CardLookup> Engine<L> {
                 let cost = chosen_option_cost(&wizard);
                 // X is asked when the cost has a variable OR a mandatory
                 // part scales with it (Toxic Deluge's pay-X-life).
-                let needs_x = cost.has_variable()
-                    || self
-                        .wizard_face(&wizard)
-                        .mandatory_additional_costs
-                        .contains(&CostPart::PayLifeX);
+                let pays_life_x = self
+                    .wizard_face(&wizard)
+                    .mandatory_additional_costs
+                    .contains(&CostPart::PayLifeX);
+                let needs_x = cost.has_variable() || pays_life_x;
                 if needs_x {
+                    // A printed `{X}` is bounded by nothing here on purpose:
+                    // the mana is validated when the wizard finishes. Life is
+                    // not, and cannot be — `mandatory_additional_costs` is the
+                    // one cost list no `can_afford` reads (see
+                    // [`paid_as_a_mandatory_additional_cost`]) and
+                    // `finish_cast` subtracts what comes back without looking
+                    // at the total. So CR 119.4 is enforced on the *question*,
+                    // which is where this engine puts every other legality:
+                    // Toxic Deluge for X = 25 at twenty life used to be
+                    // accepted, take the caster to -5, and lose them the game
+                    // to a state-based action on the way to resolving.
+                    let mut max = X_CEILING;
+                    if pays_life_x {
+                        let life = self.state.players[wizard.player.get() as usize].life;
+                        max = max.min(u32::try_from(life).unwrap_or(0));
+                    }
                     self.pending = Pending::ChooseNumber {
                         player: wizard.player,
                         min: 0,
-                        max: 50,
+                        max,
                     };
                     self.awaiting_answer = true;
                     return Ok(());

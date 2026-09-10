@@ -648,6 +648,113 @@ fn toxic_deluge_rejects_x_outside_the_offered_range() {
     assert_eq!(engine.state().players[0].life, life_start);
 }
 
+/// The X of a pay-X-life cost is bounded by the caster, not by a constant.
+///
+/// CR 119.4: a payment of more than zero life is legal only while the life
+/// total is at least the amount. The range above is the *offer's* range and
+/// it was `max: 50` for every X the wizard has ever asked about — printed in
+/// a mana cost, where the mana is validated when the wizard finishes, or paid
+/// in life, where nothing validated anything. `finish_cast` subtracts what
+/// comes back and does not look at the total, so Toxic Deluge for X = 25 at
+/// twenty life was accepted, took the caster to -5, and lost them the game to
+/// a state-based action on the way to resolving.
+///
+/// That it landed on this cost is not chance:
+/// `FaceDef.mandatory_additional_costs` is the one list with no `can_afford`
+/// in front of it, which
+/// `cast_wizard::paid_as_a_mandatory_additional_cost` says out loud. The
+/// bound belongs on the question rather than on the answer, because the
+/// engine advances only through choices it enumerated — a client cannot name
+/// a number that was never offered.
+#[test]
+fn toxic_deluge_asks_for_no_more_life_than_the_caster_has() {
+    let mut engine = Engine::new(
+        &preset(
+            34,
+            vec![toxic_deluge()],
+            vec![swamp(), swamp(), swamp()],
+            vec![],
+            vec![ondu_cleric()],
+        ),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let life_start = engine.state().players[0].life;
+    assert!(
+        life_start < 50,
+        "the caster has to be poorer than the old constant for this to say anything"
+    );
+
+    let mut guard = 0;
+    while !matches!(engine.state().turn.phase, Phase::FirstMain) || engine.state().turn.active != p0
+    {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        guard += 1;
+        assert!(guard < 20);
+    }
+
+    let mut guard = 0;
+    loop {
+        match engine.pending().clone() {
+            Pending::Priority { player, legal } if player == p0 => {
+                if !legal.mana_abilities.is_empty() {
+                    let sources = legal.mana_abilities.clone();
+                    for source in sources {
+                        engine
+                            .apply(player, PlayerAction::ActivateManaAbility { source })
+                            .unwrap();
+                    }
+                    continue;
+                }
+                let deluge = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
+                engine
+                    .apply(player, PlayerAction::CastSpell { card: deluge })
+                    .unwrap();
+                break;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 40);
+    }
+
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the X choice, got {:?}", engine.pending())
+    };
+    assert_eq!(min, 0, "paying no life is legal at any total (CR 119.4b)");
+    assert_eq!(
+        max,
+        u32::try_from(life_start).expect("a positive starting life"),
+        "the whole life total is payable, and not one point of it more"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::ChooseNumber(max + 1))
+            .is_err(),
+        "one life more than the caster has must be refused, not paid"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_start,
+        "the refused answer paid nothing"
+    );
+
+    // And the whole total still goes through: a player may pay every point
+    // they have, and then lose to the state-based action that follows.
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(max))
+        .expect("paying the whole life total is a legal payment");
+    assert_eq!(engine.state().players[0].life, 0);
+}
+
 /// A spell with `{X}` in its *printed* cost is asked what X is.
 ///
 /// Toxic Deluge above reaches the same question through its mandatory
