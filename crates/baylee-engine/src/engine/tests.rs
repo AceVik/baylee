@@ -317,3 +317,66 @@ fn combat_kills_and_wins() {
         assert!(guard < 200, "game did not end");
     }
 }
+
+/// CR 504.1 is the draw step's *first* item and CR 504.2 its second: the
+/// active player draws a card, and only then gets priority.
+///
+/// `advance_step` names an arm for the step being left and runs the
+/// turn-based actions of the step being entered, and the draw had been put
+/// in the `Draw` arm — which is the transition into the **first main
+/// phase**. So a player held priority in their own draw step with the card
+/// still in their library, and anything cast or activated there saw a hand
+/// one card short of the one the rules give it. The upkeep step has no
+/// turn-based actions of its own (CR 503.1), so its arm is where the draw
+/// belongs.
+#[test]
+fn the_active_player_has_drawn_before_they_have_priority_in_their_draw_step() {
+    let mut engine = Engine::new(&preset_2p(42, &[forest()]), RegistryLookup).unwrap();
+    keep_all(&mut engine);
+
+    // Seat 1's draw step, not seat 0's: the starting player skips the first
+    // draw of the game (CR 103.8), so seat 0's could never tell the two
+    // readings apart.
+    let mut at_upkeep = None;
+    let mut guard = 0;
+    loop {
+        guard += 1;
+        assert!(guard < 60, "seat 1's draw step never came round");
+        let (active, step) = {
+            let turn = engine.state().turn;
+            (turn.active, turn.step)
+        };
+        let hand = engine.state().zones.list(ZoneLocation::Hand(active)).len();
+        if active.get() == 1 {
+            match step {
+                Step::Upkeep => at_upkeep = Some(hand),
+                Step::Draw => {
+                    let before = at_upkeep.expect("the upkeep step came first");
+                    assert_eq!(
+                        hand,
+                        before + 1,
+                        "the card is drawn before the priority the draw step grants"
+                    );
+                    return;
+                }
+                _ => {}
+            }
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected pending: {other:?}"),
+        }
+    }
+}

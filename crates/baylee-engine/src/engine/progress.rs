@@ -2336,10 +2336,12 @@ impl<L: CardLookup> Engine<L> {
                 self.queue_upkeep_delayed();
                 (Phase::Beginning, Step::Upkeep)
             }
-            (_, Step::Upkeep) => (Phase::Beginning, Step::Draw),
-            (_, Step::Draw) => {
-                // Turn-based action: draw (first player skips on turn 1 in
-                // two-player games, CR 103.8).
+            (_, Step::Upkeep) => {
+                // The draw step's turn-based action, which comes first and
+                // before the active player has priority (CR 504.1, then
+                // CR 504.2) — the upkeep step itself has none at all
+                // (CR 503.1). The first player skips it on turn 1 of a
+                // two-player game (CR 103.8).
                 let skip = self.state.turn.number == 1
                     && self.state.players.len() == 2
                     && self.state.turn.active.get() == 0;
@@ -2347,6 +2349,9 @@ impl<L: CardLookup> Engine<L> {
                     let active = self.state.turn.active;
                     self.state.draw_cards(active, 1);
                 }
+                (Phase::Beginning, Step::Draw)
+            }
+            (_, Step::Draw) => {
                 // The precombat main phase's own turn-based actions, which
                 // happen before anybody holds priority in it (CR 505.4 and
                 // CR 505.6, in that order): each Saga the active player
