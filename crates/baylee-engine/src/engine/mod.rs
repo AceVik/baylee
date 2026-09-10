@@ -486,6 +486,8 @@ mod card_rider_tests;
 #[cfg(test)]
 mod card_tests;
 #[cfg(test)]
+mod cast_face_tests;
+#[cfg(test)]
 mod combat_choice_tests;
 #[cfg(test)]
 mod combo_tests;

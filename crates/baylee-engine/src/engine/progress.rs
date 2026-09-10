@@ -1828,19 +1828,29 @@ impl<L: CardLookup> Engine<L> {
         };
         // Adventure (CR 715): an Adventure spell resolves to exile; the
         // front face may then be cast from exile.
-        let is_adventure = self
-            .state
-            .object(spell)
-            .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))
-            .is_some_and(|def| {
-                let face = self
-                    .state
-                    .object(spell)
-                    .map_or(0, |o| o.face_index as usize);
-                def.faces.get(face).is_some_and(|f| f.adventure)
-            });
-        if is_adventure {
+        let adventure_def = {
+            let face = self
+                .state
+                .object(spell)
+                .map_or(0, |o| o.face_index as usize);
+            self.state
+                .object(spell)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .filter(|def| def.faces.get(face).is_some_and(|f| f.adventure))
+        };
+        if let Some(def) = adventure_def {
+            // The card is exiled *on an adventure*, and an adventurer card
+            // has its normal characteristics in every zone but the stack: it
+            // is the creature that sits in exile, not the instant that just
+            // resolved. The face was left where the cast put it, so the
+            // exiled card kept Swift Spiral's name, its instant type and its
+            // `{1}{W}`. Everything downstream reads the object: `can_cast`
+            // probed `{1}{W}` and asked the timing of an *instant*, and the
+            // wizard's back-face loop priced the same face, so the adventure
+            // was castable out of its own exile for two white mana, at
+            // instant speed, every turn, for as long as the card sat there.
+            self.state.switch_face(spell, def, 0);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Card;
                 obj.riders.push(crate::object::Rider::Adventure);

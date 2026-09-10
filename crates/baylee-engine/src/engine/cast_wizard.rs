@@ -288,7 +288,10 @@ impl<L: CardLookup> Engine<L> {
             && def.faces.iter().any(|f| f.disturb);
         if disturb_cast {
             for (i, back) in def.faces.iter().enumerate().skip(1) {
-                if back.disturb && afford(&back.mana_cost.with_x(0)) {
+                if back.disturb
+                    && afford(&back.mana_cost.with_x(0))
+                    && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
+                {
                     options.push(CastModeDesc {
                         index: (options.len()) as u8,
                         kind: CastModeKind::Face(i),
@@ -334,12 +337,22 @@ impl<L: CardLookup> Engine<L> {
                 cost: alt.cost.mana.with_more_generic(tax),
             });
         }
-        // MDFC: castable non-front faces (non-land backs, CR 712.4).
-        for (i, back) in def.faces.iter().enumerate().skip(1) {
-            if back.types.contains(baylee_core::types::TypeSet::LAND) || !back.castable_from_hand {
-                continue; // land faces are played; disturb backs come from the graveyard
-            }
-            if afford(&back.mana_cost.with_x(0)) {
+        // MDFC backs (CR 712.4a) and adventures (CR 715), through the reader
+        // `can_cast` uses — land faces are played and disturb backs came out
+        // above. This loop asked the faces and nothing else, so the adventure
+        // was offered again out of the exile its own resolution had put the
+        // card in, and at instant speed forever: the offer read the exiled
+        // object's *current* face, which was still the instant, so Swift
+        // Spiral was `{1}{W}` in `LegalActions` every turn and the wizard
+        // priced and cast it. CR 715.3d is the rule it broke.
+        let on_adventure = self.state.object(card).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Exile
+                && o.riders.contains(&crate::object::Rider::Adventure)
+        });
+        for (i, back) in casting::castable_back_faces(def, on_adventure) {
+            if afford(&back.mana_cost.with_x(0))
+                && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
+            {
                 options.push(CastModeDesc {
                     index: (options.len()) as u8,
                     kind: CastModeKind::Face(i),

@@ -135,6 +135,103 @@ pub fn printed_reduction(
     }
 }
 
+/// The non-front faces that are a way of *casting* the card, in face order.
+///
+/// Two readers ask this — [`can_cast`], deciding whether the card belongs in
+/// `LegalActions`, and the wizard's `cast_options`, listing the ways of
+/// paying once it has been pressed — and every divergence between them is one
+/// of two defects: a card offered and then refused with "no way to cast this
+/// spell", or a card never offered that the player would have paid for.
+///
+/// A land back is *played* rather than cast (CR 305.1) and a disturb back is
+/// cast from the graveyard on its own branch (CR 702.112), so what is left is
+/// an MDFC's back (CR 712.4a) and an adventure (CR 715). Whether the card may
+/// be cast from where it lies at all is settled before this is asked, so the
+/// only zone question left is the one CR 715.3d asks: a card exiled *on its
+/// adventure* may be cast as the creature and not as the adventure again —
+/// "It can't be cast as an Adventure this way", the rule adds, "although
+/// other effects that allow a player to cast it may allow a player to cast it
+/// as an Adventure". So the gate is the `Adventure` rider the resolution put
+/// on the card *and* the exile it put it in, which is not the same as asking
+/// the zone: an Opposition Agent exile and a commander in the command zone
+/// are effects of exactly that other kind, and a plain "is it in the hand"
+/// test would refuse both the back face the rule grants them. The exile half
+/// is there because nothing takes the rider off again — `move_object` clears
+/// a copy's characteristics (CR 400.7) and leaves the rider list alone — so
+/// a Twining Twins that was cast off its adventure and then bounced would
+/// arrive in the hand still wearing it.
+pub fn castable_back_faces(
+    def: &baylee_cards_dsl::CardDef,
+    on_adventure: bool,
+) -> impl Iterator<Item = (usize, &baylee_cards_dsl::FaceDef)> {
+    def.faces.iter().enumerate().skip(1).filter(move |(_, f)| {
+        f.castable_from_hand && !f.types.contains(TypeSet::LAND) && !(on_adventure && f.adventure)
+    })
+}
+
+/// Whether one face of `card` has enough legal targets to be cast at all.
+///
+/// A spell whose only target requirement cannot be met is a cast that ends
+/// at the targeting step with nothing paid and nothing on the stack, so a
+/// card offered on that footing is a button that only ever errors and an
+/// agent picks it again on every pass, the state being unchanged.
+///
+/// Deliberately conservative, and answers `true` whenever it cannot be sure:
+/// a modal spell chooses targets per mode, an X-counted requirement depends
+/// on a number nobody has picked yet, and a player is not an object. All
+/// three stay the wizard's problem.
+///
+/// The `face` parameter is the whole reason this is not a method on the
+/// engine any more. It used to ask face 0 and nothing else, which was the
+/// same answer for every way of casting a card — and an adventure
+/// (CR 715) is a *different spell* with its own target line on the back of a
+/// creature that has none. Swift Spiral has to find a nontoken creature;
+/// Twining Twins in front of it has nothing to target, so the front face
+/// answered "no requirement, therefore yes" for a mode that would then be
+/// refused.
+#[must_use]
+pub fn face_has_a_legal_target(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    face: usize,
+) -> bool {
+    let Some(def) = state
+        .object(card)
+        .and_then(|o| o.card)
+        .and_then(|c| lookup.card(c.index))
+    else {
+        return true;
+    };
+    let abilities = def.abilities_for_face(face);
+    if abilities
+        .iter()
+        .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+    {
+        return true;
+    }
+    let Some(req) = abilities.iter().find_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::Spell { targets, .. } => *targets,
+        _ => None,
+    }) else {
+        return true;
+    };
+    if req.min == 0
+        || req.count_is_x
+        || matches!(
+            req.spec,
+            baylee_cards_dsl::TargetSpec::AnyPlayer
+                | baylee_cards_dsl::TargetSpec::AnyOpponent
+                | baylee_cards_dsl::TargetSpec::Player(_)
+                | baylee_cards_dsl::TargetSpec::ThisObject
+        )
+    {
+        return true;
+    }
+    crate::eval::target_options(&req.spec, state, player, card).len() >= req.min as usize
+}
+
 /// Whether `pool` covers `cost`, honouring a mana-conversion effect.
 pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) -> bool {
     wild_or_not(mana_is_wild(state), pool, cost)
@@ -292,9 +389,9 @@ pub fn can_cast(
             .and_then(|c| lookup.card(c.index))
             .is_some_and(|def| def.faces.iter().any(|f| f.disturb));
     // Adventure (CR 715): a card on an adventure may be cast from exile.
-    let adventure_ok = !in_hand
-        && obj.zone == Zone::Exile
-        && obj.riders.contains(&crate::object::Rider::Adventure);
+    let on_adventure =
+        obj.zone == Zone::Exile && obj.riders.contains(&crate::object::Rider::Adventure);
+    let adventure_ok = !in_hand && on_adventure;
     // Opposition Agent: cards exiled by the takeover are playable by the
     // agent from exile.
     let takeover_ok = !in_hand
@@ -341,10 +438,8 @@ pub fn can_cast(
     // Convoke and delve are *reductions* of the generic part, so they go on
     // the same probes the tax does and in the other direction. Read off the
     // printed face: a granted convoke does not exist.
-    let printed_face = obj
-        .card
-        .and_then(|c| lookup.card(c.index))
-        .map(|def| &def.faces[0]);
+    let printed = obj.card.and_then(|c| lookup.card(c.index));
+    let printed_face = printed.map(|def| &def.faces[0]);
     let reduction = printed_face.map_or(0, |face| keyword_reduction(state, face, player));
     let probe = |cost: &ManaCost| {
         affordable(
@@ -353,6 +448,28 @@ pub fn can_cast(
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
     };
+    // A disturb cast is not the front face at any price. CR 702.112 casts the
+    // card *transformed*, for the back's disturb cost, and `cast_options` has
+    // always known it — its disturb branch returns the backs and nothing
+    // else, so there is no front-cost option here for this probe to be
+    // agreeing with. It asked about the front's mana cost anyway: Mirrorhall
+    // Mimic is `{3}{U}` in front of a `{3}{U}{U}` disturb, so four mana put
+    // it in `legal.castable` and the wizard then refused it with "no way to
+    // cast this spell".
+    if disturb_ok {
+        let affordable_disturb = printed.is_some_and(|def| {
+            def.faces.iter().enumerate().skip(1).any(|(i, f)| {
+                f.disturb
+                    && probe(&f.mana_cost.with_x(0))
+                    && face_has_a_legal_target(state, lookup, player, card, i)
+            })
+        });
+        return if affordable_disturb {
+            Ok(())
+        } else {
+            Err(CastError::NotEnoughMana)
+        };
+    }
     // Printed cost probed with X = 0, and after a reduction printed on the
     // card itself; the full payment is validated when the wizard finishes.
     let normal_cost = c
@@ -399,7 +516,29 @@ pub fn can_cast(
                 .any(|m| probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))),
             _ => false,
         });
-        if !any_alt && !any_mode {
+        // And every other face the wizard would offer, which this probe knew
+        // nothing about. Twining Twins is a `{2}{U}{U}` creature in front of
+        // a `{1}{W}` instant, so the adventure was unreachable on exactly the
+        // boards it is for: the ones where the creature cannot be paid for.
+        //
+        // Timing is still the front face's alone, here and in the wizard, so
+        // a `{1}{W}` instant on the back of a creature is a sorcery-speed
+        // instant. The two agree about that, which is what this probe is for;
+        // that they agree on something wrong is a separate fault.
+        //
+        // The target line is asked per face and beside the price, because
+        // both have to hold of the *same* face for it to be a way of casting
+        // the card. What is still coarse is the other direction:
+        // `compute_legal` asks `has_a_legal_target` about face 0 before it
+        // gets here, so a front that cannot be targeted keeps a targetable
+        // back off the offer. No card in the pool is that shape, and closing
+        // it means folding the face-0 question into the probes below and
+        // giving `CastError` a variant that does not call a target problem
+        // "not enough mana".
+        let any_face = castable_back_faces(def, on_adventure).any(|(i, f)| {
+            probe(&f.mana_cost.with_x(0)) && face_has_a_legal_target(state, lookup, player, card, i)
+        });
+        if !any_alt && !any_mode && !any_face {
             return Err(CastError::NotEnoughMana);
         }
     }

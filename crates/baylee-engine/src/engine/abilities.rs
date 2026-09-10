@@ -76,40 +76,13 @@ impl<L: CardLookup> Engine<L> {
     /// a value nobody has picked yet, and player targets are not objects. All
     /// three stay the wizard's problem.
     fn has_a_legal_target(&self, player: PlayerId, card: ObjectId) -> bool {
-        let Some(def) = self
-            .state
-            .object(card)
-            .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))
-        else {
-            return true;
-        };
-        let abilities = def.abilities_for_face(0);
-        if abilities
-            .iter()
-            .any(|a| matches!(a, AbilityDef::ModalSpell { .. }))
-        {
-            return true;
-        }
-        let Some(req) = abilities.iter().find_map(|a| match a {
-            AbilityDef::Spell { targets, .. } => *targets,
-            _ => None,
-        }) else {
-            return true;
-        };
-        if req.min == 0
-            || req.count_is_x
-            || matches!(
-                req.spec,
-                baylee_cards_dsl::TargetSpec::AnyPlayer
-                    | baylee_cards_dsl::TargetSpec::AnyOpponent
-                    | baylee_cards_dsl::TargetSpec::Player(_)
-                    | baylee_cards_dsl::TargetSpec::ThisObject
-            )
-        {
-            return true;
-        }
-        eval::target_options(&req.spec, &self.state, player, card).len() >= req.min as usize
+        // The front face's own line, which is what this gate has always
+        // asked. The other faces a card may be cast as are asked in
+        // `casting::can_cast`, beside the probe that says whether each of
+        // them can be paid for — the two belong together, because a face
+        // that cannot be paid for is not a way of casting the card whatever
+        // it targets.
+        casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
     }
 }
 
