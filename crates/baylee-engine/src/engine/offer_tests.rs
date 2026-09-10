@@ -49,10 +49,10 @@ const SEED: u64 = 4_211;
 ///
 /// This is the lesson the gamehost soak taught: a pool-wide test that
 /// reaches nothing passes exactly as loudly as one that reaches everything.
-/// The number is 446 measured on 2026-09-10, less a tenth, so ordinary pool
+/// The number is 457 measured on 2026-09-10, less a tenth, so ordinary pool
 /// growth never touches it and a setup change that stops part of the pool
 /// from arriving at its main phase fails here instead of silently.
-const COVERAGE_FLOOR: usize = 400;
+const COVERAGE_FLOOR: usize = 411;
 
 /// The floor under the deeds driven all the way back to a quiet priority.
 ///
@@ -60,11 +60,11 @@ const COVERAGE_FLOOR: usize = 400;
 /// enumerated is the point of the drive, and a drive that stops at the first
 /// question it cannot answer checks nothing past the press. This is the
 /// second half of [`COVERAGE_FLOOR`]: that one says the sweep still reaches
-/// the pool, this one says it still gets through it. Every one of the 630
+/// the pool, this one says it still gets through it. Every one of the 642
 /// deeds rested when this was measured on 2026-09-10, with nothing stalled
 /// and no question the driver could not answer; the floor is that less a
 /// tenth.
-const RESTED_FLOOR: usize = 560;
+const RESTED_FLOOR: usize = 577;
 
 /// One thing an object was offered, in the two lists an offer can live in.
 ///
@@ -129,6 +129,23 @@ fn is_permanent(def: &baylee_cards_dsl::CardDef) -> bool {
 /// know how to answer on the way is a card this sweep cannot probe rather
 /// than a failure. The distinction is kept honest by [`COVERAGE_FLOOR`],
 /// which notices when "cannot probe" starts meaning "most of the pool".
+///
+/// Three of those questions are asked by a permanent *on the way in*, and
+/// the walker answers them rather than abandoning the board — twenty-five
+/// implemented cards, the ten shocklands among them, had no probe at all
+/// until it did. What it must not do is answer them the way
+/// [`drive_to_rest`] does: the driver is exercising an effect and takes an
+/// option wherever one is offered, and this is setup, which wants the card
+/// the pool prints. So an optional choice is **declined** — exactly `min`
+/// targets, which is none of them for the copy clause on Phantasmal Image
+/// and its relatives, because a Cursed Mirror that entered as a copy of
+/// something else is not the card the sweep came to probe.
+///
+/// The shockland's question is the one that has no "decline": both answers
+/// are legal and one of them puts the land onto the battlefield tapped,
+/// where it offers nothing and the probe is pointless. It is answered yes,
+/// which is also the answer that leaves the land in the state every other
+/// land on this board is already in.
 fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> bool {
     for _ in 0..60 {
         if matches!(engine.state().turn.phase, Phase::FirstMain)
@@ -150,6 +167,31 @@ fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> bool
             Pending::ChooseBlockers { player, .. } => engine
                 .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
                 .is_err(),
+            Pending::ChooseTargets {
+                player,
+                options,
+                min,
+                ..
+            } => engine
+                .apply(
+                    player,
+                    PlayerAction::ChooseTargets {
+                        objects: options.into_iter().take(usize::from(min)).collect(),
+                        players: Vec::new(),
+                    },
+                )
+                .is_err(),
+            Pending::ChooseSubtype { player, options } => match options.first().copied() {
+                Some(first) => engine
+                    .apply(player, PlayerAction::ChooseSubtype(first))
+                    .is_err(),
+                None => return false,
+            },
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { .. },
+                ..
+            } => engine.apply(player, PlayerAction::YesNo(true)).is_err(),
             _ => return false,
         };
         if refused {
