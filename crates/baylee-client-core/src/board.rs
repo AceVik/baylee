@@ -66,6 +66,13 @@ pub mod keyword_bits {
     pub const VIGILANCE: u128 = 1 << 11;
     /// Defender.
     pub const DEFENDER: u128 = 1 << 12;
+    /// Prowess.
+    ///
+    /// The one mark on the rail that is not a combat keyword. It is here
+    /// because it is a keyword a creature *is* — a printed word on the card
+    /// that changes what it does — and because a player who casts a spell
+    /// wants to see which of their creatures just grew.
+    pub const PROWESS: u128 = 1 << 23;
 }
 
 /// A keyword worth an icon on a card face, in display order.
@@ -97,6 +104,8 @@ pub enum KeywordBadge {
     Vigilance,
     /// Defender.
     Defender,
+    /// Prowess.
+    Prowess,
 }
 
 impl KeywordBadge {
@@ -117,11 +126,12 @@ impl KeywordBadge {
             Self::Trample => "T",
             Self::Vigilance => "V",
             Self::Defender => "D",
+            Self::Prowess => "PW",
         }
     }
 
     /// Every badge, in display order.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Flying,
         Self::FirstStrike,
         Self::DoubleStrike,
@@ -135,6 +145,7 @@ impl KeywordBadge {
         Self::Trample,
         Self::Vigilance,
         Self::Defender,
+        Self::Prowess,
     ];
 
     /// The engine's keyword bit this badge stands for.
@@ -160,6 +171,7 @@ impl KeywordBadge {
             Self::Trample => k::TRAMPLE,
             Self::Vigilance => k::VIGILANCE,
             Self::Defender => k::DEFENDER,
+            Self::Prowess => k::PROWESS,
         }
     }
 

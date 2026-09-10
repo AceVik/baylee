@@ -16,8 +16,10 @@
 // The border band is a *material* — indestructible is what the card is made
 // of, hexproof and shroud are what lies over it — and a material composes
 // with at most one other material before it stops saying either thing. The
-// combat keywords are not like that. There are eleven of them, they are
-// equal, a creature can carry six at once, and what a player needs is to
+// keywords on the rail are not like that. There are twelve of them —
+// eleven combat words and prowess, which earns its slot by being the one
+// a player most wants to watch fire — they are equal, a creature can carry
+// six at once, and what a player needs is to
 // *count* them and name them. Paint cannot count. Marks can: one slot each,
 // always in the same order, so the row is read the way a row of icons is read
 // and not the way a colour is guessed at.
@@ -95,7 +97,7 @@ fn sweep_amount(uv: vec2<f32>, phase: f32) -> f32 {
 }
 
 /// How many keywords can ride the rail.
-const MARK_COUNT: u32 = 11u;
+const MARK_COUNT: u32 = 12u;
 
 /// Where the marks begin in the glow word, and how wide the field is.
 ///
@@ -106,7 +108,7 @@ const MARK_COUNT: u32 = 11u;
 /// `cardmat::glow::MARK_SHIFT`, and a test reads this file to check that the
 /// two still agree.
 const MARK_SHIFT: u32 = 8u;
-const MARK_FIELD: u32 = 0x7ffu;
+const MARK_FIELD: u32 = 0xfffu;
 
 /// How far the rail sits in from the printed edge, in card widths.
 const RAIL_INSET: f32 = 0.052;
@@ -148,7 +150,7 @@ fn sd_round_box(p: vec2<f32>, b: vec2<f32>, r: f32) -> f32 {
 }
 
 /// Distance to a line segment. Every stroke in every mark is one of these,
-/// which is what gives eleven pictograms one stroke width.
+/// which is what gives twelve pictograms one stroke width.
 fn sd_segment(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
     let pa = p - a;
     let ba = b - a;
@@ -171,12 +173,12 @@ fn sd_tri(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
     return max(da, max(db, dc));
 }
 
-// ---- the eleven marks
+// ---- the twelve marks
 //
 // Cell coordinates run -0.5..0.5 with **y downward**, the way the card's UV
 // does. Every mark stays inside a radius of about 0.36 so that neighbouring
 // slots never touch, and every stroke is 0.055 wide so the row reads as one
-// alphabet rather than eleven drawings.
+// alphabet rather than twelve drawings.
 
 /// Flying: a chevron lifted off the ground it no longer touches.
 fn mark_flying(p: vec2<f32>, ph: f32) -> f32 {
@@ -306,6 +308,28 @@ fn mark_defender(p: vec2<f32>, ph: f32) -> f32 {
     return max(outer, -inner);
 }
 
+/// Prowess: a pip that lifts off its own baseline and settles back.
+///
+/// It is the only mark that draws what the keyword *does* rather than what
+/// the creature is, because that is the only thing prowess is: +1/+1 until
+/// end of turn. So the pip rises, hangs, and comes down again — the shape
+/// of a bonus with a deadline, and the one silhouette on the rail that is a
+/// diamond over a line, which is what keeps it apart from the two chevrons
+/// (flying, reach) and the wedge (trample) at pip scale.
+fn mark_prowess(p: vec2<f32>, ph: f32) -> f32 {
+    // -y is up here, as everywhere on this rail.
+    let lift = 0.17 * pow(0.5 + 0.5 * sin(ph * 0.85), 5.0);
+    let q = p + vec2<f32>(0.0, lift);
+    // A box turned a quarter turn is a diamond, and costs no second helper.
+    let r = vec2<f32>(
+        (q.x - q.y) * 0.70710678,
+        (q.x + q.y) * 0.70710678,
+    );
+    let pip = sd_box(r - vec2<f32>(0.0, -0.06), vec2<f32>(0.125, 0.125)) - 0.030;
+    let base = sd_segment(p, vec2<f32>(-0.26, 0.30), vec2<f32>(0.26, 0.30)) - 0.036;
+    return min(pip, base);
+}
+
 /// The distance field for one mark, by slot.
 fn mark_sdf(which: u32, p: vec2<f32>, ph: f32) -> f32 {
     switch which {
@@ -320,6 +344,7 @@ fn mark_sdf(which: u32, p: vec2<f32>, ph: f32) -> f32 {
         case 8u: { return mark_trample(p, ph); }
         case 9u: { return mark_vigilance(p, ph); }
         case 10u: { return mark_defender(p, ph); }
+        case 11u: { return mark_prowess(p, ph); }
         default: { return 1.0; }
     }
 }
@@ -328,7 +353,7 @@ fn mark_sdf(which: u32, p: vec2<f32>, ph: f32) -> f32 {
 ///
 /// Bright enough to survive the plate, and far enough apart that the row
 /// still separates once the marks are too small to read as drawings — which
-/// is the honest failure mode: at board scale eleven keywords are eleven
+/// is the honest failure mode: at board scale twelve keywords are twelve
 /// coloured pips, and zooming in turns them back into pictures.
 fn mark_color(which: u32) -> vec3<f32> {
     switch which {
@@ -343,13 +368,14 @@ fn mark_color(which: u32) -> vec3<f32> {
         case 8u: { return vec3<f32>(0.86, 0.66, 0.34); }
         case 9u: { return vec3<f32>(0.78, 0.92, 1.00); }
         case 10u: { return vec3<f32>(0.66, 0.74, 0.84); }
+        case 11u: { return vec3<f32>(0.36, 0.90, 0.86); }
         default: { return INK; }
     }
 }
 
 /// Draws the rail over `color` and returns what is left.
 ///
-/// `bits` is the eleven-bit mark field, already shifted down out of the glow
+/// `bits` is the twelve-bit mark field, already shifted down out of the glow
 /// word: this file never sees the engine's keyword numbering, or the client's
 /// either. `t` is `globals.time`, which the two shaders read from two
 /// different bind groups — the reason it is a parameter and not a binding.
@@ -358,7 +384,7 @@ fn mark_layer(uv: vec2<f32>, bits: u32, t: f32, color: vec3<f32>) -> vec3<f32> {
     // naga lowers that to GLSL's `bitCount`, which arrived in ES 3.10, and it
     // lowers it *unguarded* — WebGL2 compiles ES 3.00, so the browser would
     // reject this shader, the card pipeline would fail to build, and the
-    // table would draw no cards at all. The rail has to walk these eleven
+    // table would draw no cards at all. The rail has to walk these twelve
     // bits below in any case.
     var n = 0u;
     for (var i = 0u; i < MARK_COUNT; i = i + 1u) {
@@ -439,7 +465,7 @@ fn mark_layer(uv: vec2<f32>, bits: u32, t: f32, color: vec3<f32>) -> vec3<f32> {
 //
 // What it is *not* is a twelfth rail slot, and the difference is the whole
 // reason it has its own corner. The rail is what a creature can do in combat;
-// eleven equal facts a player counts. Being a commander is not one of those
+// twelve equal facts a player counts. Being a commander is not one of those
 // and would not sort among them — it is an identity, true in every zone, for
 // the whole game, before a single attack is declared.
 //
@@ -670,7 +696,7 @@ fn plate_digits(v: u32) -> u32 {
 /// The `i`-th digit of `v` from the left, given it is drawn in `n` of them.
 ///
 /// The loop is bounded at two because three digits is the ceiling — the same
-/// discipline as the rail's eleven: WebGL2 wants every bound at compile time.
+/// discipline as the rail's twelve: WebGL2 wants every bound at compile time.
 fn plate_digit_at(v: u32, n: u32, i: u32) -> u32 {
     var p = 1u;
     for (var k = 0u; k < 2u; k = k + 1u) {
@@ -945,7 +971,7 @@ fn chip_layer(uv: vec2<f32>, a: u32, b: u32, color: vec3<f32>) -> vec3<f32> {
     let aa = max(fwidth(p.x), 0.0015);
 
     var out = color;
-    // Bounded at four at compile time, like the rail's eleven: WebGL2 will
+    // Bounded at four at compile time, like the rail's twelve: WebGL2 will
     // not compile a loop whose count it cannot see.
     for (var i = 0u; i < 4u; i = i + 1u) {
         var word = a;

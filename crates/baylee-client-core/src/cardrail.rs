@@ -1,6 +1,6 @@
 //! Where a permanent's keyword marks sit on its card.
 //!
-//! The marks themselves are drawn by the card shader — eleven procedural
+//! The marks themselves are drawn by the card shader — twelve procedural
 //! pictograms in `baylee-client/src/shaders/card_common.wgsl`, so that a
 //! creature with six keywords is still one draw. *Where* they sit is
 //! arithmetic, and arithmetic belongs somewhere it can be tested without a
@@ -41,7 +41,7 @@ pub const RAIL_SPAN: f32 = 0.70;
 /// hexproof and indestructible are a *material* on the card's edge, and a
 /// mark repeating them would be the same claim twice in two languages.
 /// Shroud is not a badge at all.
-pub const MARK_ORDER: [KeywordBadge; 11] = [
+pub const MARK_ORDER: [KeywordBadge; 12] = [
     KeywordBadge::Flying,
     KeywordBadge::FirstStrike,
     KeywordBadge::DoubleStrike,
@@ -53,6 +53,9 @@ pub const MARK_ORDER: [KeywordBadge; 11] = [
     KeywordBadge::Trample,
     KeywordBadge::Vigilance,
     KeywordBadge::Defender,
+    // Appended, never inserted: a slot that moved would move the mark under
+    // it on every card in every screenshot ever taken of this client.
+    KeywordBadge::Prowess,
 ];
 
 /// Which slot a badge occupies, or `None` for one the border draws.
@@ -73,7 +76,7 @@ pub fn marks(badges: &[KeywordBadge]) -> Vec<KeywordBadge> {
 
 /// How big one slot is when `n` marks share the rail, in card widths.
 ///
-/// Marks shrink rather than spill: eleven of them are eleven coloured pips
+/// Marks shrink rather than spill: twelve of them are twelve coloured pips
 /// where six are six pictograms, which is the honest failure — a row that ran
 /// off the card, or a row that hid its tail, would both be lying about what
 /// the creature is.

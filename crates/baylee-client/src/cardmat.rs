@@ -101,17 +101,17 @@ pub mod glow {
     /// the overlay would be the same card disagreeing with itself.
     pub const COMMANDER: u32 = 128;
 
-    /// Where the keyword rail's eleven marks begin in the word.
+    /// Where the keyword rail's twelve marks begin in the word.
     ///
-    /// The rail is a *field* and not eleven more flags, because the shader
+    /// The rail is a *field* and not twelve more flags, because the shader
     /// has to walk it: which mark a fragment is inside is the k-th set bit,
     /// found in one loop bound at compile time. Slot order is
     /// `baylee_client_core::cardrail::MARK_ORDER`, and nothing on the GPU
     /// side ever sees the engine's keyword numbering.
     pub const MARK_SHIFT: u32 = 8;
 
-    /// The eleven mark bits, in place.
-    pub const MARK_MASK: u32 = 0x7ff << MARK_SHIFT;
+    /// The twelve mark bits, in place.
+    pub const MARK_MASK: u32 = 0xfff << MARK_SHIFT;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -1540,6 +1540,10 @@ pub(crate) mod tests {
         assert_eq!(slot(KeywordSet::FLYING), 1 << 0);
         assert_eq!(slot(KeywordSet::DEATHTOUCH), 1 << 3);
         assert_eq!(slot(KeywordSet::DEFENDER), 1 << 10);
+        // Prowess is bit 23 of the engine's word and slot 11 of the rail,
+        // which is the whole reason the two numberings are pinned rather
+        // than assumed to be the same list.
+        assert_eq!(slot(KeywordSet::PROWESS), 1 << 11);
         // The band's three keep the band and stay off the rail.
         assert_eq!(slot(KeywordSet::HEXPROOF), 0);
         assert_eq!(slot(KeywordSet::INDESTRUCTIBLE), 0);
