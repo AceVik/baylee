@@ -1104,6 +1104,46 @@ to the next member, so one card plays the exit and another is spawned in its
 place. Neither is wrong on screen; a mass token death is where it reads
 thinnest.
 
+**A move that both ends of are visible is a door**, and the card is dressed in
+it on the way through. `zones::Passage` is the taxonomy — bounce, exiled,
+flickered, destroyed, returned — read off a `Move` by `Move::passage()`, which
+is `None` for an ordinary arrival and `None` again for either end the seat
+cannot see, so the paragraph above about counts holds unchanged: no door is
+invented for a card whose destination is a number. Three of the five are
+departures (`Passage::is_departure`) and two are the same doors opening the
+other way, which is the point of naming them in pairs. Exile and flicker are
+one ring drawn at `mix(REACH, 0, phase)` and `mix(0, REACH, phase)`; a
+screenshot of each at the two phases that should mirror came back byte for
+byte identical, which is the only proof worth having that a reversal is one
+figure run twice and not two figures that happen to look alike.
+
+The wiring is split by where the card is at the moment it needs dressing, and
+there is no third option. An **arrival** is still in the board model, so
+`Sheen::usher` stamps the door on to the sweep `Sheen::observe` started on that
+same frame. A **departure** is already gone — it has left `SceneIndex::cards`,
+lost `CardVisual` and will never be handed a `CardLook` again — so
+`table::dress_the_exit` writes the door on to the material the card is already
+wearing, on the one frame that is possible. Both go through `cardmat::wear`,
+which is where `reduce_motion` is answered once instead of at each end.
+
+That split is what makes one ordering edge load-bearing: a view's batch of
+moves exists exactly once, and `watch_for_arrivals` has to stamp it before
+`sync_scene` drains it. Read in the other order the tracker answers the second
+reader with nothing, because that view has already been read, and every
+arrival door stops being drawn with no error anywhere.
+`schedule_order_tests` asserts the edge for that reason, with a counter-test,
+because nothing else in the suite would notice it going.
+
+The three constants in `card_common.wgsl` are worth their doc comments,
+because all three were first written wrong in the same direction — too much of
+everything. `DOOR_WIDTH` at 11 spread the band over the whole card and read as
+a permanent turned amber rather than as something crossing it; `DOOR_GLOSS` at
+0.85 saturated every channel it touched; `DOOR_REACH` at 1.15 kept the ring
+off the card for the first third of its phase, so the exile door began by
+doing nothing. 40 / 0.60 / 0.95 is what a forced door through hot shader
+reload looked right at, and the ring carries `DOOR_WIDTH * 2.0` of its own
+because a circle crosses a pixel twice where a line crosses it once.
+
 The camera follows its rig the same way, but faster: a drag that lags behind
 the pointer feels broken where a card that snaps feels cheap. Yaw interpolates
 the short way around, or focusing the seat on your left would spin the table
