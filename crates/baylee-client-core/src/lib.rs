@@ -81,7 +81,7 @@ pub use deckbuilder::{
 };
 pub use i18n::{Lang, Phrase};
 pub use images::{ArtSize, ImageKey, ImageRequest, TextureBudget};
-pub use interaction::{CombatFocus, Interaction, Prompt, SelectionOutcome};
+pub use interaction::{CombatFocus, Interaction, Prompt, SelectionOutcome, Turn};
 pub use layout::{LaneKind, PileKind, SeatSlot, TableLayout};
 pub use lobby::{
     DeckSummary, Field, FieldKind, GameListing, GameMode, GameQuery, GameSeat, GameSummary, Lobby,

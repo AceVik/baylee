@@ -968,6 +968,11 @@ messages! {
     IsToken { en: "Token", de: "Spielstein" },
     /// Your move
     YourMove { en: "Your move", de: "Du bist dran" },
+    /// You may respond
+    ///
+    /// The same priority window, on somebody else's turn. "Your move" there
+    /// reads as "it is your turn", which it is not.
+    YouMayRespond { en: "You may respond", de: "Du kannst reagieren" },
     /// Stack
     StackTitle { en: "Stack", de: "Stapel" },
     /// Spell

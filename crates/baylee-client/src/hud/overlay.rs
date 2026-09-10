@@ -124,7 +124,20 @@ pub fn sync_overlay(
             lang, result, seat, team,
         ))
     });
-    let prompt = ending.or_else(|| duel.interaction.as_ref().map(|i| i.prompt().headline(lang)));
+    // Whose turn it is, for the one line that changes with it. A seat holds
+    // priority on every turn at the table, so the bar has to be told which
+    // one this is or it says "Your move" through the whole game.
+    let turn = duel
+        .view
+        .as_ref()
+        .map_or(baylee_client_core::Turn::Mine, |v| {
+            baylee_client_core::Turn::of(v.active, v.seat)
+        });
+    let prompt = ending.or_else(|| {
+        duel.interaction
+            .as_ref()
+            .map(|i| i.prompt().headline(lang, turn))
+    });
     // A refusal used to *stand in* for the headline, which meant it was only
     // ever seen when nothing was being asked — and the engine refuses an
     // answer precisely while a question is standing. The player clicked, the

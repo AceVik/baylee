@@ -167,10 +167,40 @@ pub enum Prompt {
     GameOver,
 }
 
+/// Whose turn it is, for the one line that has to know.
+///
+/// A priority window is not a turn: on an opponent's turn a seat still gets
+/// asked, and the prompt bar was answering "Your move" — "Du bist dran" —
+/// which every player reads as *it is your turn*. Two different sentences
+/// for the same question, so the fact has to reach [`Prompt::headline`].
+///
+/// It is a two-value enum rather than a `bool` because the call site reads
+/// `Turn::Theirs` and a `false` reads as nothing at all. The client answers
+/// it with `view.active == view.seat`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Turn {
+    /// The viewing seat is the active player.
+    Mine,
+    /// Somebody else is.
+    Theirs,
+}
+
+impl Turn {
+    /// Which one a seat is looking at.
+    #[must_use]
+    pub fn of(active: PlayerId, seat: PlayerId) -> Self {
+        if active == seat {
+            Self::Mine
+        } else {
+            Self::Theirs
+        }
+    }
+}
+
 impl Prompt {
     /// A short line for the prompt bar.
     #[must_use]
-    pub fn headline(&self, lang: Lang) -> String {
+    pub fn headline(&self, lang: Lang, turn: Turn) -> String {
         match self {
             Self::Waiting { on: Some(p) } => Phrase::WaitingForSeat.fill(lang, &[&p.to_string()]),
             Self::Waiting { on: None } => Phrase::JustWaiting.text(lang).to_string(),
@@ -185,7 +215,15 @@ impl Prompt {
             // Not "You have priority". A priority window is an invitation, and
             // stating the rules term for it — next to a button labelled OK —
             // read as a modal that had to be dismissed before play could go on.
-            Self::Priority { .. } => Phrase::YourMove.text(lang).to_string(),
+            //
+            // And not "Your move" on an opponent's turn, which is the same
+            // invitation and a different sentence: a player reads "Du bist
+            // dran" over the Pass button as *it is your turn*, and then reads
+            // the phase rail and the seat bars as disagreeing with it.
+            Self::Priority { .. } => match turn {
+                Turn::Mine => Phrase::YourMove.text(lang).to_string(),
+                Turn::Theirs => Phrase::YouMayRespond.text(lang).to_string(),
+            },
             Self::DeclareAttackers => Phrase::DeclareAttackers.text(lang).to_string(),
             Self::DeclareBlockers { .. } => Phrase::DeclareBlockers.text(lang).to_string(),
             Self::Discard { count } => Phrase::DiscardCards.fill(lang, &[&count.to_string()]),
@@ -1855,6 +1893,45 @@ mod tests {
         assert!(i.legal_actions().is_some());
     }
 
+    /// A priority window on somebody else's turn does not say it is yours.
+    ///
+    /// The same `Pending`, the same buttons under it, two sentences — and
+    /// the German is where it was worst: "Du bist dran" over Pass and Skip
+    /// says *it is your turn* in a way "Your move" only implies. Both
+    /// languages are asserted because a phrase that reads right in one and
+    /// wrong in the other is exactly what `Phrase` exists to stop.
+    #[test]
+    fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
+        let i = interaction(Pending::Priority {
+            player: me(),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                lands: vec![],
+                castable: vec![],
+                mana_abilities: vec![],
+                abilities: vec![],
+                suspendable: vec![],
+            }),
+        });
+        assert_eq!(i.prompt().headline(Lang::En, Turn::Mine), "Your move");
+        assert_eq!(i.prompt().headline(Lang::De, Turn::Mine), "Du bist dran");
+        assert_eq!(
+            i.prompt().headline(Lang::En, Turn::Theirs),
+            "You may respond"
+        );
+        assert_eq!(
+            i.prompt().headline(Lang::De, Turn::Theirs),
+            "Du kannst reagieren"
+        );
+    }
+
+    /// And `Turn` is read off the seat, not guessed at.
+    #[test]
+    fn a_turn_belongs_to_the_seat_that_is_active() {
+        assert_eq!(Turn::of(me(), me()), Turn::Mine);
+        assert_eq!(Turn::of(PlayerId::new(1), me()), Turn::Theirs);
+    }
+
     #[test]
     fn playing_a_card_maps_to_the_right_action_and_refuses_illegal_ones() {
         let legal = LegalActions {
@@ -2108,14 +2185,20 @@ mod tests {
             max: 2,
             reason: TargetPrompt::Targets,
         });
-        assert_eq!(i.prompt().headline(Lang::En), "Choose up to 2 target(s)");
+        assert_eq!(
+            i.prompt().headline(Lang::En, Turn::Mine),
+            "Choose up to 2 target(s)"
+        );
 
         let i = interaction(Pending::ChooseNumber {
             player: me(),
             min: 0,
             max: 50,
         });
-        assert_eq!(i.prompt().headline(Lang::En), "Choose a number (0–50)");
+        assert_eq!(
+            i.prompt().headline(Lang::En, Turn::Mine),
+            "Choose a number (0–50)"
+        );
 
         let i = interaction(Pending::YesNo {
             player: me(),
@@ -2123,7 +2206,7 @@ mod tests {
             source: None,
         });
         assert_eq!(
-            i.prompt().headline(Lang::En),
+            i.prompt().headline(Lang::En, Turn::Mine),
             "Pay 2 life? Otherwise it enters tapped"
         );
     }
@@ -2215,7 +2298,7 @@ mod tests {
         ];
         for pending in all {
             let i = interaction(pending);
-            assert!(!i.prompt().headline(Lang::En).is_empty());
+            assert!(!i.prompt().headline(Lang::En, Turn::Mine).is_empty());
         }
     }
 
@@ -2253,9 +2336,9 @@ mod tests {
             reason: TargetPrompt::Targets,
         });
         for lang in [Lang::En, Lang::De] {
-            let target_line = targeting.prompt().headline(lang);
+            let target_line = targeting.prompt().headline(lang, Turn::Mine);
             for asking in [&convoke, &delve] {
-                let line = asking.prompt().headline(lang);
+                let line = asking.prompt().headline(lang, Turn::Mine);
                 assert!(!line.is_empty());
                 assert_ne!(
                     line, target_line,
