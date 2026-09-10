@@ -23,11 +23,14 @@ Two locks before the socket exists — the feature and the variable:
 BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control
 ```
 
-That is `LocalHost`: a duel in process against the house AI, from
-`data/acceptance-decks.txt`, needing no gateway, no account and no agent. It is
-the fastest way to a board. For a *networked* seat add `BAYLEE_GATEWAY`,
-`BAYLEE_GAME` and `BAYLEE_SEAT_TOKEN` (a `SeatTicket`, most easily made with
-`cargo run -p xtask -- dev-table --seats 2 --ai sharp`).
+That reaches `LocalHost` — a duel in process against the house AI, from
+`data/acceptance-decks.txt`, needing no gateway, no account and no agent — but
+not on its own: without a `SeatTicket` the binary adds `LobbyPlugin` and opens
+the **lobby**, so `/state` answers `"view":null` until two clicks have been
+made. "Play offline", then "Play the house". For a *networked* seat add
+`BAYLEE_GATEWAY`, `BAYLEE_GAME` and `BAYLEE_SEAT_TOKEN` (a `SeatTicket`, most
+easily made with `cargo run -p xtask -- dev-table --seats 2 --ai sharp`), and
+the lobby is skipped.
 
 The binary is slow to link. Build it first, wait for the window, then poll
 until it answers rather than assuming:
@@ -61,9 +64,11 @@ not understood. Every route answers `{"ok":true,…}` or
 an error in it, so `curl -f` will not catch it.
 
 `name` for `/key` is whatever `crates/baylee-client/src/keys.rs` accepts, plus
-the modifiers. Keys go into `ButtonInput<KeyCode>`, so they travel through the
-account's `Keymap` exactly as a real press does — which is the part most worth
-exercising, and why `docs/keyboard-map.md` is the list of what to send.
+the modifiers — and those are **physical** key names, `KeyK` and not the `K`
+`docs/keyboard-map.md` prints. Keys go into `ButtonInput<KeyCode>`, so they
+travel through the account's `Keymap` exactly as a real press does, which is
+the part most worth exercising and why the keyboard map is the list of what to
+send.
 
 ## Playing a duel through it
 
@@ -80,11 +85,17 @@ k() { curl -s -XPOST localhost:28770/key -d "{\"name\":\"$1\"}"; }
 the `Space` action until `pending` becomes the choice you are after, then
 answer it. A duel reaches combat in a handful of passes.
 
+`legal.castable` and `legal.abilities` are what the seat can pay for **now**,
+out of mana already floating. A land in play is not mana, so an ability costing
+{5} is offered by neither list until five lands have been tapped by hand — walk
+the cursor onto each and press the take key. An empty `abilities` on a
+permanent that obviously has one is nearly always this and not a client fault.
+
 To act on a card, find its screen position rather than guessing: `/state.view`
 gives you the object, the board gives you the lane, and a screenshot gives you
 the pixels. Clicking blind wastes more turns than measuring once.
 
-## The five things that go wrong
+## The six things that go wrong
 
 **A click is three frames.** `/pointer` writes a `CursorMoved`, then the press,
 then the release, mirrored into `WindowEvent` the way `bevy_winit` does,
@@ -116,6 +127,18 @@ nothing".** `/state` reports them for exactly that reason:
 Check those three before concluding that a handler is unwired. `last_error`
 carries the engine's refusal of the last action, which is the fourth thing that
 looks like silence.
+
+**Two questions answer with keys that are not the card cursor's.** An open
+ability chooser owns the keyboard: `KeyA`/`KeyD` step `ability_pick` and not
+the card cursor, `KeyE` or Enter takes the entry, `Escape` closes it. `/state`
+says only that the menu is open and which object it belongs to — there is no
+field for the pick — so count presses from zero and read the entries off
+`legal.abilities` in the order they appear there. And `ChooseTargets` is *two*
+keys: `KeyE` on the hovered object toggles it into `interaction.selected`, and
+`Space` sends whatever is selected. `Space` with `selected: 0` and a `min` of 0
+answers "no targets", silently and legally — which is how a Spark Double
+resolves as a 0/0 and dies to a state-based action with nothing in
+`last_error` to say why.
 
 **A held key is not a tapped one.** `{"hold":true}` presses and leaves the key
 down; `{"release":true}` lifts it. Part of the client is about a key *being*
