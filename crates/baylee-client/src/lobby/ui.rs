@@ -454,7 +454,7 @@ fn sign_in(
         .spawn((
             Text::new(lobby.status()),
             tf(fonts, metrics.small),
-            TextColor(palette::MUTED),
+            TextColor(status_ink(lobby.tone())),
             Pickable::IGNORE,
         ))
         .id();
@@ -557,7 +557,7 @@ fn table(
         .spawn((
             Text::new(lobby.status()),
             tf(fonts, metrics.small),
-            TextColor(palette::MUTED),
+            TextColor(status_ink(lobby.tone())),
             Pickable::IGNORE,
         ))
         .id();
@@ -1630,6 +1630,19 @@ pub(crate) fn text_field(
     commands.entity(column).add_child(caption);
     commands.entity(column).add_child(boxed);
     column
+}
+
+/// What colour the line under a form is written in.
+///
+/// The only thing a [`Tone`] changes: a refusal is the one line a player has
+/// to do something about, and in the same grey as "signing in…" it was read
+/// straight past. `DANGER` is this palette's word for *this is what went
+/// wrong* — the same one the table writes lethal damage in.
+pub(super) fn status_ink(tone: Tone) -> Color {
+    match tone {
+        Tone::Note => palette::MUTED,
+        Tone::Refusal => palette::DANGER,
+    }
 }
 
 /// The eye at the end of a password box.

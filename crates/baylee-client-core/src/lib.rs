@@ -85,7 +85,7 @@ pub use interaction::{CombatFocus, Interaction, Prompt, SelectionOutcome};
 pub use layout::{LaneKind, PileKind, SeatSlot, TableLayout};
 pub use lobby::{
     DeckSummary, Field, FieldKind, GameListing, GameMode, GameQuery, GameSeat, GameSummary, Lobby,
-    LobbyEvent, LobbyRequest, Screen, SeatHandover,
+    LobbyEvent, LobbyRequest, Screen, SeatHandover, Tone,
 };
 pub use prefs::{Action, AutoRule, AutoRules, Chord, Keymap, Preferences};
 

@@ -668,7 +668,7 @@ pub(super) fn clicks(
             Press::CloseBuilder => {
                 if state.lobby.builder().dirty() && !state.confirm_leave {
                     state.confirm_leave = true;
-                    state.lobby.tell(Phrase::UnsavedChanges, &[]);
+                    state.lobby.tell_refusal(Phrase::UnsavedChanges, &[]);
                 } else {
                     state.confirm_leave = false;
                     let request = state.lobby.close_builder();
@@ -683,7 +683,7 @@ pub(super) fn clicks(
             Press::AddCard(slot) => {
                 let zone = state.lobby.builder().zone();
                 if !state.lobby.builder_mut().add(slot, zone) {
-                    state.lobby.tell(Phrase::NoRoomForCopy, &[]);
+                    state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
                 }
             }
             Press::PickPrint(slot) => {
@@ -708,7 +708,7 @@ pub(super) fn clicks(
             Press::PickerFinish(finish) => state.lobby.builder_mut().picker_set_finish(finish),
             Press::PickerConfirm => {
                 if !state.lobby.builder_mut().picker_confirm() {
-                    state.lobby.tell(Phrase::NoRoomForCopy, &[]);
+                    state.lobby.tell_refusal(Phrase::NoRoomForCopy, &[]);
                 }
             }
             Press::PickerClose => state.lobby.builder_mut().close_picker(),

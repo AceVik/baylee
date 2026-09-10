@@ -59,6 +59,24 @@ pub enum Field {
     Search,
 }
 
+/// How the line under the form should read.
+///
+/// Two, and not more. A status line is either the lobby getting on with
+/// something or the lobby declining to, and only the second is one a player
+/// has to act on — a refusal drawn in the same grey as "signing in…" is a
+/// refusal that gets read past. Progress and success share a tone
+/// deliberately: three shades on one line is a legend to learn, and "deck
+/// saved" needs no colour to be good news.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Tone {
+    /// Something is happening, or has happened.
+    #[default]
+    Note,
+    /// Something was refused, and nothing more will happen until the player
+    /// does something about it.
+    Refusal,
+}
+
 /// Which way the Tab key moves the caret between fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Tab {
@@ -629,6 +647,9 @@ pub struct Lobby {
     /// a box that was revealed is never found revealed later.
     revealed: Option<Field>,
     status: String,
+    /// How that line reads. Written with it and never apart from it, which
+    /// is what [`Lobby::write`] is for.
+    tone: Tone,
     busy: bool,
     registration_enabled: bool,
     /// The deck builder. Kept across visits so its pool is fetched once.
@@ -801,6 +822,12 @@ impl Lobby {
         &self.status
     }
 
+    /// How that line should read — see [`Tone`].
+    #[must_use]
+    pub fn tone(&self) -> Tone {
+        self.tone
+    }
+
     /// The account's decks.
     #[must_use]
     pub fn decks(&self) -> &[DeckSummary] {
@@ -848,20 +875,48 @@ impl Lobby {
     ///
     /// Words the *gateway* chose come through here: it is the gateway that
     /// knows why it said no, and translating its refusals means sending a
-    /// code beside the prose, which is a protocol change and not this.
+    /// code beside the prose, which is a protocol change and not this. A
+    /// refusal, because that is what a gateway sends prose for.
     pub fn say(&mut self, message: impl Into<String>) {
-        self.status = message.into();
+        self.write(message.into(), Tone::Refusal);
     }
 
     /// Says one of the client's own sentences, in the language it is set to.
     pub(crate) fn note(&mut self, phrase: Phrase) {
-        self.status = phrase.text(self.lang).to_string();
+        let said = phrase.text(self.lang).to_string();
+        self.write(said, Tone::Note);
+    }
+
+    /// The same, for a sentence that is a *no* — see [`Tone`].
+    pub(crate) fn refuse(&mut self, phrase: Phrase) {
+        let said = phrase.text(self.lang).to_string();
+        self.write(said, Tone::Refusal);
     }
 
     /// The same, for the shell — which has its own sentences to say and no
     /// business knowing which language this lobby is in.
     pub fn tell(&mut self, phrase: Phrase, args: &[&str]) {
-        self.status = phrase.fill(self.lang, args);
+        let said = phrase.fill(self.lang, args);
+        self.write(said, Tone::Note);
+    }
+
+    /// The shell's own refusals: a change it will not throw away unasked, a
+    /// deck with no room left in it.
+    pub fn tell_refusal(&mut self, phrase: Phrase, args: &[&str]) {
+        let said = phrase.fill(self.lang, args);
+        self.write(said, Tone::Refusal);
+    }
+
+    /// The one door the status line is written through, so that a line and
+    /// its tone can never be set apart from each other.
+    fn write(&mut self, said: String, tone: Tone) {
+        self.status = said;
+        self.tone = tone;
+    }
+
+    /// Takes the line away. A blank line has no tone to read.
+    fn clear_status(&mut self) {
+        self.write(String::new(), Tone::Note);
     }
 
     /// The language this lobby speaks.
@@ -1036,7 +1091,7 @@ impl Lobby {
             self.screen = Screen::SignIn {
                 registering: !registering,
             };
-            self.status.clear();
+            self.clear_status();
             if registering && self.focus == Field::DisplayName {
                 self.focus = Field::Password;
                 self.focus_epoch += 1;
@@ -1048,7 +1103,7 @@ impl Lobby {
                 self.focus_epoch += 1;
             }
         } else {
-            self.note(Phrase::NoSignUps);
+            self.refuse(Phrase::NoSignUps);
         }
     }
 
@@ -1061,11 +1116,11 @@ impl Lobby {
             return None;
         }
         if self.email.text().trim().is_empty() || self.password.is_empty() {
-            self.note(Phrase::NeedEmailAndPassword);
+            self.refuse(Phrase::NeedEmailAndPassword);
             return None;
         }
         if registering && self.display_name.text().trim().is_empty() {
-            self.note(Phrase::NeedDisplayName);
+            self.refuse(Phrase::NeedDisplayName);
             return None;
         }
         self.busy = true;
@@ -1514,7 +1569,7 @@ impl Lobby {
         self.busy = false;
         self.awaiting = None;
         self.asked_for = None;
-        self.status = why.into();
+        self.write(why.into(), Tone::Refusal);
     }
 
     /// Goes to the table screen with no account behind it.
@@ -1605,7 +1660,7 @@ impl Lobby {
             }
             LobbyEvent::Pool { cards, has_text } => {
                 self.builder.set_pool(cards, has_text);
-                self.status = String::new();
+                self.clear_status();
                 None
             }
             LobbyEvent::Printings {
@@ -1625,7 +1680,7 @@ impl Lobby {
             } => {
                 self.builder
                     .load(&id, &name, &cards, &sideboard, commander.as_deref());
-                self.status = String::new();
+                self.clear_status();
                 // The pool may not have arrived yet — the rows are held by
                 // name until it does, which is why loading is safe either way.
                 self.needs_pool()
@@ -1645,7 +1700,7 @@ impl Lobby {
                 // The seat we were holding at that table is gone with it, so
                 // nothing is being waited for any more.
                 self.awaiting = None;
-                self.status = String::new();
+                self.clear_status();
                 self.list()
             }
             LobbyEvent::Moved => self.list(),
@@ -1695,7 +1750,7 @@ impl Lobby {
                 None
             }
             LobbyEvent::Failed(why) => {
-                self.status = why;
+                self.write(why, Tone::Refusal);
                 // A failed fetch may have been the pool's; letting it be asked
                 // for again costs one request and un-wedges the builder.
                 self.pool_requested = self.builder.loaded();
@@ -1730,7 +1785,7 @@ impl Lobby {
             return None;
         }
         let Some(deck) = self.deck.and_then(|i| self.decks.get(i)) else {
-            self.note(Phrase::PickADeckFirst);
+            self.refuse(Phrase::PickADeckFirst);
             return None;
         };
         Some(deck.id.clone())
@@ -2313,6 +2368,32 @@ mod tests {
         assert_eq!(lobby.field(Field::Email), "pasted@example.com");
         lobby.set_field(Field::Email, "");
         assert_eq!(lobby.field(Field::Email), "", "clearing works too");
+    }
+
+    #[test]
+    fn a_refusal_reads_differently_from_a_note() {
+        let mut lobby = Lobby::new();
+        assert_eq!(lobby.tone(), Tone::Note, "an empty line is no refusal");
+        assert!(lobby.submit().is_none());
+        assert_eq!(
+            lobby.tone(),
+            Tone::Refusal,
+            "a form with no address in it is a form that was refused"
+        );
+        lobby.set_field(Field::Email, "a@b.c");
+        lobby.set_field(Field::Password, "pw");
+        assert!(lobby.submit().is_some());
+        assert_eq!(
+            lobby.tone(),
+            Tone::Note,
+            "and signing in is the lobby getting on with it"
+        );
+        lobby.apply(LobbyEvent::Failed("wrong password".to_string()));
+        assert_eq!(
+            lobby.tone(),
+            Tone::Refusal,
+            "the gateway saying no is the plainest refusal there is"
+        );
     }
 
     #[test]
