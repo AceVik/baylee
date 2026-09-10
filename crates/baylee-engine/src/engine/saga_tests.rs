@@ -1,5 +1,12 @@
-//! Saga tests (CR 714): lore counters on ETB + after the draw step,
-//! chapter triggers, sacrifice after the final chapter.
+//! Saga tests (CR 714): lore counters as the Saga enters and as its
+//! controller's precombat main phase begins, chapter triggers, sacrifice
+//! after the final chapter.
+//!
+//! "After your draw step" is the reminder text a Saga is printed with and is
+//! where this module's old wording came from. The rule is CR 714.3b and
+//! CR 505.4 — a turn-based action of the precombat main phase, before
+//! anybody has priority in it — and the engine used to do it a whole phase
+//! later still, as combat began.
 
 use super::*;
 use baylee_core::ids::{CardIndex, PrintRef};
@@ -206,11 +213,14 @@ fn saga_ticks_through_chapters_and_sacrifices_after_final() {
             .get(baylee_cards_dsl::CounterKind::Lore),
         1
     );
-    // Let chapter I resolve, then drive through two more of p0's turns
-    // (each draw step adds a lore counter; chapter III ends the saga).
+    // Let chapter I resolve, then drive on through p0's later turns — each
+    // of their precombat main phases begins by adding a lore counter, and
+    // chapter III ends the saga.
     drive(&mut engine, 200);
-    // After p0's draw step: lore counter 2; after the next: 3, then the
-    // saga is sacrificed (counters >= final chapter after III resolves).
+    // The saga is played *during* a main phase, so it takes no turn-based
+    // counter that turn: lore 2 at the start of p0's next precombat main
+    // and 3 at the one after, then the saga is sacrificed (counters >= the
+    // final chapter once III has resolved).
     let still_there = saga_object(&engine);
     let in_graveyard = engine
         .state()
@@ -336,4 +346,166 @@ fn a_saga_granted_two_abilities_offers_and_runs_both() {
         "the `{{2}}` was spent — an engine that ran chapter I instead would \
          have paid nothing and added a colorless"
     );
+}
+
+fn doubling_season() -> CardIndex {
+    card_index("01546b7d-a233-4176-8843-d732074dc5b6")
+}
+
+/// Continuous effects the Saga is the source of.
+///
+/// Every chapter Urza's Saga has grants it an ability, so this is "how
+/// many chapters have resolved" without asking the trigger queue — and
+/// unlike the offer below it does not depend on the mana to pay for one.
+fn grants_from(engine: &Engine<RegistryLookup>, saga: ObjectId) -> usize {
+    engine
+        .state()
+        .effects
+        .iter()
+        .filter(|fx| fx.source == Some(saga))
+        .count()
+}
+
+fn lore(engine: &Engine<RegistryLookup>, saga: ObjectId) -> u16 {
+    engine
+        .state()
+        .object(saga)
+        .expect("the saga is on the battlefield")
+        .counters
+        .get(baylee_cards_dsl::CounterKind::Lore)
+}
+
+/// Drives until p0 holds priority in their own precombat main phase on a
+/// turn later than `after`, and stops **without** passing it.
+///
+/// Stopping there is the whole point: the lore counter of CR 505.4 is placed
+/// before anybody has priority (CR 505.6), so the first offer p0 is made in
+/// that phase is where the count can be read without having agreed to
+/// anything first.
+fn reach_p0_precombat_main(engine: &mut Engine<RegistryLookup>, p0: PlayerId, after: u32) {
+    let mut guard = 0;
+    loop {
+        guard += 1;
+        assert!(guard < 400, "no precombat main window");
+        let turn = engine.state().turn;
+        if turn.active == p0
+            && turn.phase == Phase::FirstMain
+            && turn.number > after
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0)
+        {
+            return;
+        }
+        drive(engine, 1);
+    }
+}
+
+/// CR 714.3 puts a Saga's two lore counters on opposite sides of CR 614.16,
+/// and this is the board that reads both halves at once.
+///
+/// The one it takes **as it enters** (CR 714.3a) is a replacement effect
+/// (CR 614.1c), so a Doubling Season doubles it: the Saga arrives on two
+/// counters and owes chapters I *and* II, which is CR 714.2b's window — "was
+/// less than N and became at least N" — rather than "the next chapter".
+///
+/// The one it takes **as the precombat main phase begins** (CR 714.3b,
+/// CR 505.4) is a turn-based action, which is neither of the two things
+/// CR 614.16 names, so the same enchantment does not touch it: the count
+/// goes to three and not four. That number is the whole test in one
+/// assertion — four says the turn-based path went through the doubling door,
+/// two says the counter is still landing a phase late.
+#[test]
+fn a_saga_under_a_doubling_season_enters_on_two_and_still_ticks_by_one() {
+    use crate::choice::granted_ability;
+
+    let mut preset = preset(5, vec![urzas_saga()]);
+    // Chapter II's granted ability costs `{2}`, and an ability nobody can
+    // pay for is not offered — so without the Islands the second half of
+    // "both chapters ran" could not be seen at all.
+    preset.seats[0].starting_battlefield =
+        vec![entry(doubling_season()), entry(island()), entry(island())];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    drive_and_play_saga(&mut engine, p0);
+
+    let saga = saga_object(&engine).expect("saga on the battlefield");
+    assert_eq!(lore(&engine, saga), 2, "one counter, put twice");
+
+    // Both chapters, not just the first. The board says so rather than the
+    // trigger queue: chapter I grants the Saga `{T}: Add {C}` and chapter II
+    // grants it the Construct ability, so two granted slots offered is two
+    // chapter abilities having resolved.
+    //
+    // Driven to the *grants* and not to an idle stack, because a played land
+    // hands priority back before `collect_triggers` has run: the stack is
+    // briefly empty with both chapters still owed, and a test that stopped
+    // there would read a board nothing had happened to yet.
+    let mut guard = 0;
+    while grants_from(&engine, saga) < 2 {
+        guard += 1;
+        assert!(guard < 60, "chapters I and II did not both resolve");
+        drive(&mut engine, 1);
+    }
+    let mut guard = 0;
+    while !(engine.state().zones.stack_is_empty()
+        && matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0))
+    {
+        guard += 1;
+        assert!(guard < 40, "the two chapters never finished resolving");
+        drive(&mut engine, 1);
+    }
+    let islands: Vec<_> = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == island())
+        })
+        .collect();
+    for source in islands {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .expect("an Island taps for mana");
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority")
+    };
+    assert!(
+        legal.abilities.contains(&(saga, granted_ability(0)))
+            && legal.abilities.contains(&(saga, granted_ability(1))),
+        "chapters I and II both resolved on the way in: {:?}",
+        legal.abilities
+    );
+
+    // The turn-based half, read at the first offer of p0's next precombat
+    // main phase — before anything could have been done about it.
+    reach_p0_precombat_main(&mut engine, p0, 1);
+    let saga = saga_object(&engine).expect("the saga is still on the battlefield");
+    assert_eq!(
+        lore(&engine, saga),
+        3,
+        "a turn-based action is not an effect, so the Season does not see it"
+    );
+
+    // And chapter III resolves, and CR 714.4 sacrifices the Saga, inside the
+    // phase whose beginning placed the counter. That is what the move buys:
+    // all of it used to happen as combat began, a whole phase after the
+    // rules put it.
+    let mut guard = 0;
+    while saga_object(&engine).is_some() {
+        guard += 1;
+        assert!(guard < 40, "the saga was never sacrificed");
+        assert_eq!(
+            engine.state().turn.phase,
+            Phase::FirstMain,
+            "chapter III belongs to the precombat main phase, not to combat"
+        );
+        drive(&mut engine, 1);
+    }
 }

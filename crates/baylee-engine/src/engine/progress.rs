@@ -488,38 +488,42 @@ impl<L: CardLookup> Engine<L> {
                     action: crate::state::DelayedAction::PayCostOrSacrifice { cost, card: id },
                 });
             }
-            // Sagas enter with a lore counter, triggering chapter I
-            // (CR 714.2a/b).
-            let chapter_one = self.state.object(id).and_then(|o| {
-                o.abilities(&self.lookup)
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, a)| match a {
-                        baylee_cards_dsl::AbilityDef::SagaChapter { chapter: 1, .. } => {
-                            Some(i as u32)
-                        }
-                        _ => None,
-                    })
-            });
-            if let Some(ability_index) = chapter_one {
+            // A Saga takes a lore counter as it enters (CR 714.3a), and
+            // "As [this permanent] enters …" is named as a replacement
+            // effect in CR 614.1c — so the counter goes through the door
+            // that applies the multiplying replacements, exactly as a
+            // planeswalker's starting loyalty does forty lines below. CR
+            // 614.16 says nothing about Sagas; what it gives is the shape,
+            // and this engine had already read it that way once.
+            //
+            // Which chapters that triggers is then a window and not a
+            // number — see [`Self::queue_saga_chapters`]. Under a Doubling
+            // Season two counters land at once and chapters I *and* II are
+            // owed; this site matched `chapter: 1` and would have run the
+            // first one only.
+            if self.is_saga(id)
+                && let Some(old) = self
+                    .state
+                    .object(id)
+                    .map(|o| o.counters.get(baylee_cards_dsl::CounterKind::Lore))
+            {
                 let ts = self.state.next_timestamp();
+                crate::replacement::put_counters(
+                    &mut self.state,
+                    id,
+                    baylee_cards_dsl::CounterKind::Lore,
+                    1,
+                );
+                let new = self
+                    .state
+                    .object(id)
+                    .map_or(old, |o| o.counters.get(baylee_cards_dsl::CounterKind::Lore));
                 if let Some(obj) = self.state.object_mut(id) {
-                    obj.counters.add(baylee_cards_dsl::CounterKind::Lore, 1);
                     obj.timestamp = ts;
                 }
-                self.state.invalidate_projections();
-                self.trigger_queue
-                    .push_back(crate::trigger::PendingTrigger {
-                        source: id,
-                        ability_index,
-                        controller,
-                        timestamp: ts,
-                        event_object: None,
-                        synthetic_effects: None,
-                        once_per_turn: false,
-                        synthetic_target: None,
-                    });
-                changed = true;
+                if self.queue_saga_chapters(id, controller, old, new, ts) {
+                    changed = true;
+                }
             }
             // Planeswalkers enter with their printed loyalty counters
             // (CR 306.5b).
@@ -2083,53 +2087,111 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    /// After the draw step, each saga the active player controls gets a
-    /// lore counter, triggering its next chapter (CR 714.2b).
-    pub(crate) fn saga_draw_step_counters(&mut self) {
+    /// Whether `id` is a Saga.
+    ///
+    /// "Has a chapter ability" rather than "has the Saga subtype", because
+    /// that is already how CR 714.4's sacrifice is recognised further down
+    /// this file, and two sites answering the same question two ways is how
+    /// a permanent gets a counter nobody then reads. It is also the reading
+    /// that survives a copy: [`Object::abilities`] follows `own_abilities`,
+    /// so a permanent that has become a copy of a Saga answers with the
+    /// chapters it has become.
+    fn is_saga(&self, id: ObjectId) -> bool {
+        self.state.object(id).is_some_and(|o| {
+            o.abilities(&self.lookup)
+                .iter()
+                .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::SagaChapter { .. }))
+        })
+    }
+
+    /// Queues every chapter ability the lore count just crossed, and says
+    /// whether it queued any.
+    ///
+    /// CR 714.2b writes a chapter symbol out in full as "when one or more
+    /// lore counters are put onto this Saga, **if the number of lore
+    /// counters on it was less than N and became at least N**, [effect]".
+    /// So the question is a window, `old < N <= new`, and not "which chapter
+    /// is next". Both callers used to ask the second question — one matched
+    /// `chapter: 1` and the other `lore + 1` — and a Saga that took two
+    /// counters at once therefore ran one chapter and dropped the other on
+    /// the floor. A Doubling Season is the way into that today; any effect
+    /// that adds two lore counters would be another.
+    fn queue_saga_chapters(
+        &mut self,
+        id: ObjectId,
+        controller: PlayerId,
+        old: u16,
+        new: u16,
+        timestamp: u64,
+    ) -> bool {
+        let Some(object) = self.state.object(id) else {
+            return false;
+        };
+        let hits: Vec<u32> = object
+            .abilities(&self.lookup)
+            .iter()
+            .enumerate()
+            .filter_map(|(i, a)| match a {
+                baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. }
+                    if old < u16::from(*chapter) && u16::from(*chapter) <= new =>
+                {
+                    Some(i as u32)
+                }
+                _ => None,
+            })
+            .collect();
+        for ability_index in &hits {
+            self.trigger_queue
+                .push_back(crate::trigger::PendingTrigger {
+                    source: id,
+                    ability_index: *ability_index,
+                    controller,
+                    timestamp,
+                    event_object: None,
+                    synthetic_effects: None,
+                    once_per_turn: false,
+                    synthetic_target: None,
+                });
+        }
+        !hits.is_empty()
+    }
+
+    /// As the active player's precombat main phase begins, each Saga they
+    /// control takes a lore counter and every chapter that count crosses
+    /// triggers (CR 505.4, CR 714.3b, CR 714.2b).
+    ///
+    /// This counter is **not** doubled, which is the whole reason
+    /// [`crate::replacement::record_counters`] exists beside `put_counters`:
+    /// CR 614.16 reaches what a resolving spell or ability's effect places
+    /// and what another replacement effect places, and a turn-based action
+    /// is neither. The counter a Saga takes as it *enters* is a replacement
+    /// effect and is doubled — the two halves of CR 714.3 land on opposite
+    /// sides of the same rule.
+    pub(crate) fn saga_precombat_main_counters(&mut self) {
         let active = self.state.turn.active;
         for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
-            let Some(obj) = self.state.object(id) else {
+            let Some(old) = self
+                .state
+                .object(id)
+                .filter(|o| o.controller == active)
+                .map(|o| o.counters.get(baylee_cards_dsl::CounterKind::Lore))
+            else {
                 continue;
             };
-            if obj.controller != active {
+            if !self.is_saga(id) {
                 continue;
             }
-            let next_chapter = obj.counters.get(baylee_cards_dsl::CounterKind::Lore) + 1;
-            let hit = obj.card.and_then(|c| {
-                let face = obj.face_index as usize;
-                self.lookup.card(c.index).and_then(|def| {
-                    def.abilities_for_face(face)
-                        .iter()
-                        .enumerate()
-                        .find_map(|(i, a)| match a {
-                            baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. }
-                                if u16::from(*chapter) == next_chapter =>
-                            {
-                                Some(i as u32)
-                            }
-                            _ => None,
-                        })
-                })
-            });
-            if let Some(ability_index) = hit {
-                let ts = self.state.next_timestamp();
-                if let Some(obj) = self.state.object_mut(id) {
-                    obj.counters.add(baylee_cards_dsl::CounterKind::Lore, 1);
-                    obj.timestamp = ts;
-                }
-                self.state.invalidate_projections();
-                self.trigger_queue
-                    .push_back(crate::trigger::PendingTrigger {
-                        source: id,
-                        ability_index,
-                        controller: active,
-                        timestamp: ts,
-                        event_object: None,
-                        synthetic_effects: None,
-                        once_per_turn: false,
-                        synthetic_target: None,
-                    });
+            let ts = self.state.next_timestamp();
+            crate::replacement::record_counters(
+                &mut self.state,
+                id,
+                baylee_cards_dsl::CounterKind::Lore,
+                1,
+            );
+            if let Some(obj) = self.state.object_mut(id) {
+                obj.timestamp = ts;
             }
+            self.queue_saga_chapters(id, active, old, old + 1, ts);
         }
     }
 
@@ -2257,6 +2319,16 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Ends the current step and begins the next one.
+    ///
+    /// **An arm is named for the step being left, and its block runs the
+    /// turn-based actions of the step being entered** — it fires after that
+    /// step's last priority round and before anyone has priority in the
+    /// next. Reading it the other way round is what put the precombat main
+    /// phase's two turn-based actions in the `FirstMain` arm, where they
+    /// fired as *combat* began: a Saga took its lore counter a whole phase
+    /// late and Mana Drain's mana arrived after the main phase it was cast
+    /// to pay for.
     pub(crate) fn advance_step(&mut self) {
         let (phase, step) = (self.state.turn.phase, self.state.turn.step);
         let (next_phase, next_step) = match (phase, step) {
@@ -2275,13 +2347,17 @@ impl<L: CardLookup> Engine<L> {
                     let active = self.state.turn.active;
                     self.state.draw_cards(active, 1);
                 }
+                // The precombat main phase's own turn-based actions, which
+                // happen before anybody holds priority in it (CR 505.4 and
+                // CR 505.6, in that order): each Saga the active player
+                // controls takes a lore counter. The delayed triggers go
+                // second because they are triggered abilities and wait for
+                // the stack, which the turn-based action does not use.
+                self.saga_precombat_main_counters();
+                self.queue_first_main_delayed();
                 (Phase::FirstMain, Step::Main)
             }
-            (Phase::FirstMain, Step::Main) => {
-                self.queue_first_main_delayed();
-                self.saga_draw_step_counters();
-                (Phase::Combat, Step::CombatBegin)
-            }
+            (Phase::FirstMain, Step::Main) => (Phase::Combat, Step::CombatBegin),
             (Phase::SecondMain, Step::Main) => {
                 self.queue_end_step_delayed();
                 (Phase::Ending, Step::End)

@@ -101,6 +101,27 @@ pub fn put_counters(
     n: u16,
 ) {
     let n = n.saturating_mul(counter_multiplier(state, id));
+    record_counters(state, id, kind, n);
+}
+
+/// The same door with the multiplying replacements left out: `n` counters
+/// land, recorded and with the projections invalidated, and nothing gets to
+/// say otherwise.
+///
+/// There is one caller, and CR 614.16 is why it is separate. A
+/// counter-doubling replacement applies to what "the effect of a resolving
+/// spell or ability" places and to what another replacement effect places —
+/// and a **turn-based action** is neither of those. The lore counter a Saga
+/// takes as its controller's precombat main phase begins is exactly that
+/// (CR 505.4, CR 714.3b, both of which say it does not use the stack), so it
+/// comes through here. The counter it takes as it *enters* is a replacement
+/// effect (CR 614.1c) and goes through [`put_counters`] like everything else.
+pub fn record_counters(
+    state: &mut GameState,
+    id: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+) {
     if let Some(obj) = state.object_mut(id) {
         let old = obj.counters.get(kind);
         let new = obj.counters.add(kind, n);
