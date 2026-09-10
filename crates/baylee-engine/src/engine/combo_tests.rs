@@ -4346,6 +4346,18 @@ const COPIES_KEEPING_A_PRINTED_STATIC: &[(&str, &str)] = &[(
 ///
 /// Tokens too, through the door `tokens::ALL` keeps opening — nothing there
 /// enters as a copy today, and the walk costs one loop.
+///
+/// What it keys on is `CopyOnEnter*` in a card's **own** ability list, and
+/// that is complete only for as long as a card's own text is the one way a
+/// permanent becomes a copy. `Modifier::BecomeCopyOf` takes an
+/// `ObjectId`, which no card text can name — `apply_copy_choice` is its only
+/// writer and `CopyOnEnter*` is what sends it there — so the permanent that
+/// becomes a copy is always the one whose text said it would. (A
+/// `CreateTokenCopyOf` is a different shape: the token is made as a copy and
+/// never had a static of its own to keep.) The day the DSL can say "target
+/// permanent becomes a copy of another", this walk stops seeing the card that
+/// says it and needs a second arm reading that effect — and it would go on
+/// passing, which is the failure a pool-wide guard has instead of a red test.
 #[test]
 fn no_card_becomes_a_copy_carrying_a_printed_static_unnoticed() {
     let becomes_a_copy = |abilities: &[AbilityDef]| {

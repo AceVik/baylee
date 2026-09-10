@@ -325,7 +325,9 @@ express at all yet.
   (generic, color, hybrid, 2-or, Phyrexian, hybrid-Phyrexian, snow, X/Y/Z).
 - `FaceDef.alternative_costs: &[AlternativeCost { cost, condition }]` —
   pitch/evoke/conditional-free (conditions: `Always`, `NotYourTurn`,
-  `CommanderControlled`). Its `parts` pay `PayLife` and `ExileFromHand`.
+  `CommanderControlled`). Its `parts` pay `PayLife` and `ExileFromHand`, and
+  both are asked about before the card is offered: a pitch with nothing in
+  hand to exile is not a cast the engine lists.
 - `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast).
   Only its `mana` is read; `parts` is paid by nothing and is held empty.
 - `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`. Pays

@@ -37,12 +37,17 @@ pub(crate) const fn choice_cost_unpayable(part: &CostPart) -> bool {
 ///
 /// The twin of [`choice_cost_unpayable`], and the worse half of the pair.
 /// Both of these are paid in `cast_wizard` — the pitch of Force of Will, the
-/// X of Toxic Deluge — which is a path neither `can_afford` nor `pay_cost` is
-/// ever shown, so both of them treat the pair as nothing at all: one accepts
-/// it, the other walks past it. For a spell's alternative or additional cost
-/// that is exactly right. For an **activated** ability there is no wizard,
-/// and the ability is offered, pressed, and its part silently not paid — a
-/// pitch cost that exiles nothing.
+/// X of Toxic Deluge — which is a path `pay_cost` is never shown, so it walks
+/// past both. For a spell's alternative or additional cost that is exactly
+/// right. For an **activated** ability there is no wizard, and the ability is
+/// offered, pressed, and its part silently not paid — a pitch cost that
+/// exiles nothing.
+///
+/// `can_afford` is no longer the other half of that sentence. It reads
+/// `ExileFromHand` for real now (there has to be a card to exile, or the
+/// offer is dead), and the wizard caps `PayLifeX` at the caster's life — so
+/// what is left here is a part that would be *accepted and then skipped*,
+/// which is still the whole of the danger for an activation.
 ///
 /// So the two failures are opposites, and this one is invisible from further
 /// away. A choice cost is offered and then refused, which at least ends in an
@@ -572,23 +577,33 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
+                // A pitch cost with nothing to pitch is not an offer. The
+                // list is `casting::pitchable`, the same one the wizard's
+                // `PitchChoice` stage puts in front of the player, because a
+                // mode this accepts and that stage then refuses is a cast
+                // that reverses itself under the player's hands.
+                CostPart::ExileFromHand(filter) => {
+                    if casting::pitchable(&self.state, player, source, filter).is_empty() {
+                        return false;
+                    }
+                }
                 // Already refused, by [`choice_cost_unpayable`] above. Named
                 // here rather than swept into a `_` so that a new `CostPart`
                 // is still a compile error in this match.
                 CostPart::Sacrifice(_) | CostPart::Discard(_) => return false,
                 // The first four are paid off the source alone, so there is
-                // nothing about the board to ask. The last two are
+                // nothing about the board to ask. `PayLifeX` is
                 // [`paid_by_the_casting_wizard`]: accepted here and skipped
-                // by `pay_cost`, which is right for a spell and would hand an
-                // activation half its cost for free. Nothing in the pool
-                // prints one on an activated ability, and
+                // by `pay_cost`, which is right for a spell — the wizard caps
+                // it at the caster's life — and would hand an activation half
+                // its cost for free. Nothing in the pool prints one on an
+                // activated ability, and
                 // `offer_tests::nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`
                 // is what keeps it that way.
                 CostPart::SacrificeSelf
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
-                | CostPart::ExileFromHand(_)
                 | CostPart::PayLifeX => {}
             }
         }

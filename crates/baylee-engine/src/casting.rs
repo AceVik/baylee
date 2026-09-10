@@ -295,8 +295,9 @@ pub fn can_cast(
     // Printed cost probed with X = 0; the full payment is validated when
     // the wizard finishes.
     if !probe(&c.mana_cost.with_x(0)) {
-        // Alternative costs may still make it castable (pitch/evoke) —
-        // the wizard computes the exact options.
+        // Alternative costs may still make it castable (pitch/evoke). The
+        // wizard computes the exact options; this decides only whether there
+        // is one, and asks about the whole cost to do it.
         let Some(card_ref) = obj.card else {
             return Err(CastError::NotEnoughMana);
         };
@@ -304,6 +305,12 @@ pub fn can_cast(
             return Err(CastError::NotEnoughMana);
         };
         let face = &def.faces[0];
+        // Mana is not the whole of an alternative cost, and this probe used
+        // to behave as though it were: a Force of Will with no other blue
+        // card in hand has a zero mana cost, so it went into
+        // `legal.castable` and the wizard then reversed the cast at the pitch
+        // stage. Every part is asked about here, the way every condition is
+        // asked about below — the two halves of the same offer.
         let any_alt = face.alternative_costs.iter().any(|alt| {
             // Every condition, not merely the one that was written first.
             // `CommanderControlled` fell through the old `!matches!` as
@@ -318,7 +325,9 @@ pub fn can_cast(
                     controls_a_commander(state, player)
                 }
             };
-            condition_ok && probe(&alt.cost.mana)
+            condition_ok
+                && probe(&alt.cost.mana)
+                && alternative_parts_payable(state, player, card, alt.cost.parts)
         });
         let any_mode = def.abilities.iter().any(|a| match a {
             baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes
@@ -467,6 +476,78 @@ pub fn controls_a_commander(state: &GameState, player: PlayerId) -> bool {
                     .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == player)
             })
         })
+}
+
+/// The cards that could be exiled from `player`'s hand to pay an
+/// `ExileFromHand` cost on `card` — Force of Will's blue card, Solitude's
+/// white one.
+///
+/// One reader, three callers, and that is the whole point of it being a
+/// function. `cast_wizard`'s `PitchChoice` stage builds its prompt from this
+/// list; [`can_cast`] asks whether the list is empty before calling the card
+/// castable; `Engine::can_afford` asks the same before offering the
+/// alternative cost as a mode. The two askers used to answer "yes" without
+/// looking, so a Force of Will with no other blue card was lit up as castable
+/// and then reversed itself on reaching the pitch stage — the shape a dead
+/// offer always has, and the one a second predicate written to *agree* with
+/// the stage would have kept, because it would have agreed with itself.
+///
+/// The card being cast is not a candidate: it is what is being paid for, and
+/// it is what `eval::matches` is handed as `this`, so a filter saying
+/// "another" reads the same word here as anywhere else.
+#[must_use]
+pub fn pitchable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    filter: &baylee_cards_dsl::Filter,
+) -> Vec<ObjectId> {
+    state
+        .zones
+        .list(ZoneLocation::Hand(player))
+        .iter()
+        .copied()
+        .filter(|id| {
+            *id != card
+                && state
+                    .object(*id)
+                    .is_some_and(|o| crate::eval::matches(filter, state, o, player, card))
+        })
+        .collect()
+}
+
+/// Whether the non-mana parts of an alternative cost could be paid right now.
+///
+/// [`can_cast`] reaches this only when the printed cost is unaffordable and
+/// the face prints an alternative cost, which in this pool is four cards, so
+/// the hand scan costs nothing anybody can measure. `zones.list` is ordered,
+/// so it costs no determinism either.
+///
+/// The nine parts that answer `true` are named rather than swept into a
+/// wildcard: `cast_wizard::paid_as_an_alternative_cost` says which two of
+/// them the payment ever pays, and `offer_tests` holds the rest off this list
+/// entirely — so a twelfth `CostPart` has to be looked at here too rather
+/// than being quietly declared payable.
+fn alternative_parts_payable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    parts: &[baylee_cards_dsl::CostPart],
+) -> bool {
+    use baylee_cards_dsl::CostPart;
+    parts.iter().all(|part| match part {
+        CostPart::PayLife(n) => state.can_pay_life(player, i32::from(*n)),
+        CostPart::ExileFromHand(filter) => !pitchable(state, player, card, filter).is_empty(),
+        CostPart::TapSelf
+        | CostPart::UntapSelf
+        | CostPart::SacrificeSelf
+        | CostPart::Sacrifice(_)
+        | CostPart::Discard(_)
+        | CostPart::DiscardSelf
+        | CostPart::ExileSelf
+        | CostPart::ReturnSelfToHand
+        | CostPart::PayLifeX => true,
+    })
 }
 
 /// Whether the intrinsic mana ability of `source` can be activated now.

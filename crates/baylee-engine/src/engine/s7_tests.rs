@@ -648,6 +648,191 @@ fn toxic_deluge_rejects_x_outside_the_offered_range() {
     assert_eq!(engine.state().players[0].life, life_start);
 }
 
+/// Walks a duel to p1's priority with a creature spell of p0's on the stack,
+/// and answers with p1's Force of Will and whether the engine calls it
+/// castable.
+///
+/// The scenario `force_of_will_pitch_cast_without_mana` builds, kept in one
+/// place so the two tests below differ in a hand and a battlefield and in
+/// nothing else.
+fn fow_offered_at_p1s_priority(
+    seed: u64,
+    hand1: Vec<CardIndex>,
+    bf1: Vec<CardIndex>,
+) -> (Engine<RegistryLookup>, ObjectId, bool) {
+    let mut engine = Engine::new(
+        &preset(
+            seed,
+            vec![ondu_cleric(), plains(), forest()],
+            vec![],
+            hand1,
+            bf1,
+        ),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+
+    let mut guard = 0;
+    loop {
+        match engine.pending().clone() {
+            Pending::Priority { player, legal } if player == p0 => {
+                if !legal.lands.is_empty() {
+                    engine
+                        .apply(
+                            player,
+                            PlayerAction::PlayLand {
+                                card: legal.lands[0],
+                            },
+                        )
+                        .unwrap();
+                } else if !legal.mana_abilities.is_empty() {
+                    let sources = legal.mana_abilities.clone();
+                    for source in sources {
+                        engine
+                            .apply(player, PlayerAction::ActivateManaAbility { source })
+                            .unwrap();
+                    }
+                } else if let Some(&card) = legal.castable.iter().find(|c| {
+                    engine
+                        .state()
+                        .object(**c)
+                        .is_some_and(|o| o.card.is_some_and(|d| d.index == ondu_cleric()))
+                }) {
+                    engine
+                        .apply(player, PlayerAction::CastSpell { card })
+                        .unwrap();
+                    break;
+                } else {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+        guard += 1;
+        assert!(guard < 100, "the cleric was never cast");
+    }
+    pass_once(&mut engine);
+
+    let p1 = PlayerId::new(1);
+    let Pending::Priority { player, legal, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1);
+    let fow = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Hand(p1))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == force_of_will()))
+        })
+        .expect("Force of Will in p1's hand");
+    let castable = legal.castable.contains(&fow);
+    (engine, fow, castable)
+}
+
+/// A pitch cost with nothing to pitch is not an offer.
+///
+/// Force of Will's alternative cost is `{0}`, so the legality probe — which
+/// asked the alternative list about its *mana* and nothing else — put the
+/// card in `legal.castable` whenever the printed `{3}{U}{U}` was out of
+/// reach. Press it with no second blue card in hand and the wizard reached
+/// `PitchChoice`, found no candidate and reversed the whole cast (CR 601.2h):
+/// a card drawn as playable that answers a click by putting the game back
+/// where it was. The same shape as the `AltCondition::CommanderControlled`
+/// bug, one field over.
+///
+/// The deck under this preset is islands and forests, which are lands and so
+/// have no colour at all (CR 202.2) — nothing p1 draws can match
+/// `HasColor(Blue)` by accident.
+#[test]
+fn force_of_will_with_nothing_blue_to_pitch_is_not_offered() {
+    let (engine, fow, castable) =
+        fow_offered_at_p1s_priority(31, vec![force_of_will(), plains()], vec![]);
+    assert!(
+        !castable,
+        "Force of Will was offered as castable with no blue card to exile"
+    );
+
+    // And the refusal is the engine's, not the offer list's alone: naming
+    // the card anyway is an error rather than a reversed cast.
+    let mut engine = engine;
+    assert!(
+        engine
+            .apply(PlayerId::new(1), PlayerAction::CastSpell { card: fow })
+            .is_err(),
+        "casting it anyway must be refused"
+    );
+
+    // The positive control lives in `force_of_will_pitch_cast_without_mana`:
+    // the same seat with a Counterspell in hand casts it for free.
+}
+
+/// The second half of the same offer, and the one the legality probe cannot
+/// see: with the printed cost payable the card is castable either way, and
+/// what must not appear is the *mode*.
+///
+/// `cast_options` runs `can_afford` over each alternative cost, which
+/// accepted `ExileFromHand` without looking at the hand — so a Force of Will
+/// held up on five islands offered "pay {3}{U}{U}" and "pay {0}, exile a blue
+/// card" alike, and the second reversed the cast when taken.
+#[test]
+fn a_pitch_mode_with_nothing_to_pitch_is_not_a_cast_option() {
+    let five_islands = vec![island(), island(), island(), island(), island()];
+    let (mut engine, fow, _) =
+        fow_offered_at_p1s_priority(32, vec![force_of_will(), plains()], five_islands);
+    let p1 = PlayerId::new(1);
+
+    // `legal.castable` reads the *pool*, so the islands have to be tapped
+    // before the printed cost is payable at all.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p1, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&fow),
+        "five islands pay the printed {{3}}{{U}}{{U}}"
+    );
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: fow })
+        .expect("the printed cost is payable");
+
+    // One option, so the wizard never asks which — it goes straight to the
+    // spell it counters. A pitch mode here would be a second option and this
+    // would be `ChooseCastMode`.
+    assert!(
+        matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "the pitch mode was offered with nothing to pitch: {:?}",
+        engine.pending()
+    );
+}
+
 /// The X of a pay-X-life cost is bounded by the caster, not by a constant.
 ///
 /// CR 119.4: a payment of more than zero life is legal only while the life

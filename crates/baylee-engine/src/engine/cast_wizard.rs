@@ -88,9 +88,10 @@ pub(crate) struct CastWizard {
 /// so "the wizard pays it" is a claim that has to name which list. This one is
 /// gated on the way in — `can_afford` at the option scan refuses
 /// [`abilities::choice_cost_unpayable`], which is why Recurring Nightmare's
-/// shape on an alternative cost is a refused mode rather than a free spell —
-/// and everything the gate lets through and this predicate does not name is
-/// paid by nobody.
+/// shape on an alternative cost is a refused mode rather than a free spell,
+/// and refuses an `ExileFromHand` with nothing in hand to match it — and
+/// everything the gate lets through and this predicate does not name is paid
+/// by nobody.
 ///
 /// It is a *dead offer* only when the printed cost is unaffordable, which is
 /// the one case `casting.rs` reads this list at all: its `any_alt` probe sits
@@ -98,7 +99,9 @@ pub(crate) struct CastWizard {
 /// castable on its own and a refused alternative costs it one mode. A card
 /// that had nothing else is put in `legal.castable` by that probe and then
 /// finds the wizard with no option to give it — the shape the
-/// `AltCondition::CommanderControlled` bug had.
+/// `AltCondition::CommanderControlled` bug had, and the shape a Force of Will
+/// with nothing blue to pitch had until that probe learned to ask about the
+/// cost's parts as well as its mana.
 ///
 /// Held pool-wide by
 /// `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`.
@@ -597,25 +600,12 @@ impl<L: CardLookup> Engine<L> {
             WizardStage::PitchChoice => {
                 let filter = self.wizard_pitch_filter(&wizard);
                 if let Some(filter) = filter {
-                    let options: Vec<ObjectId> = self
-                        .state
-                        .zones
-                        .list(ZoneLocation::Hand(wizard.player))
-                        .iter()
-                        .copied()
-                        .filter(|id| {
-                            *id != wizard.card
-                                && self.state.object(*id).is_some_and(|o| {
-                                    eval::matches(
-                                        filter,
-                                        &self.state,
-                                        o,
-                                        wizard.player,
-                                        wizard.card,
-                                    )
-                                })
-                        })
-                        .collect();
+                    // The same scan `can_afford` and `casting::can_cast` now
+                    // run before this cast was ever offered: one reader, so
+                    // the offer and the prompt cannot disagree about what is
+                    // in the hand.
+                    let options =
+                        casting::pitchable(&self.state, wizard.player, wizard.card, filter);
                     if options.is_empty() {
                         self.cast_wizard = None;
                         return Err(EngineError::IllegalAction(

@@ -917,9 +917,13 @@ fn nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip() {
 /// - `alternative_costs[i].cost.parts` pays `PayLife` and `ExileFromHand` —
 ///   Force of Will's pitch. It is the only one with a gate: `cast_options`
 ///   runs `can_afford` over it, so a `Sacrifice(_)` written here is *refused*.
-///   That is not safety. `casting::can_cast` probes only the alternative's
-///   mana, so the card is listed castable and the wizard then has no option to
-///   offer — a dead offer, the shape the `CommanderControlled` bug had.
+///   That is not safety. It is a refusal at the mode, and it took a second
+///   fix for it to be a refusal at all: `casting::can_cast` probed the
+///   alternative's *mana* and nothing else, so a pitch with nothing to pitch
+///   was listed as castable and the wizard then had no option to offer — a
+///   dead offer, the shape the `CommanderControlled` bug had. Both askers now
+///   read `casting::pitchable`, and a part neither of them understands is
+///   still one this list must never carry.
 /// - `mandatory_additional_costs` pays `PayLifeX` and `PayLife` — Toxic
 ///   Deluge's X. Nothing gates it at all, so anything else there is not
 ///   refused but skipped, and the spell is cast without paying it.
