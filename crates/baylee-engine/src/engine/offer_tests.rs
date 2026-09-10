@@ -1073,6 +1073,16 @@ fn a_suspend_card_is_offered_only_once_its_cost_is_on_the_table() {
         "Suspend 4—{{U}} was offered with nothing in the pool: {:?}",
         legal.suspendable
     );
+    // And it is not castable either, at any point in this test. Ancestral
+    // Vision prints *no* mana cost, which CR 202.1a says is not a cost of
+    // zero: the only way it leaves this hand is the suspend ability. It was
+    // in `castable` here — a free "target player draws three cards" for
+    // anybody who reached their own main phase.
+    assert!(
+        legal.castable.is_empty(),
+        "a card with no mana cost was castable for nothing: {:?}",
+        legal.castable
+    );
 
     // The Island is untapped and the timing is right, so the only thing
     // between the two assertions is the {U} itself.
@@ -1089,6 +1099,11 @@ fn a_suspend_card_is_offered_only_once_its_cost_is_on_the_table() {
         "with {{U}} floating the card is suspendable: {:?}",
         legal.suspendable
     );
+    assert!(
+        legal.castable.is_empty(),
+        "a blank cost is not paid by floating a mana either: {:?}",
+        legal.castable
+    );
 
     // The other half of this module's claim: what is offered is accepted.
     engine
@@ -1099,4 +1114,81 @@ fn a_suspend_card_is_offered_only_once_its_cost_is_on_the_table() {
             },
         )
         .expect("offered, then refused");
+}
+
+/// A cost of `{0}` is still a cost, and still buys a spell.
+///
+/// The other side of `casting::has_a_printed_cost`, and the reason it is a
+/// predicate rather than a comparison against `ManaCost::ZERO`: Mox Opal
+/// prints `{0}` and is cast by paying nothing, which is an entirely ordinary
+/// thing for a spell to do. A guard that could not tell it from a blank would
+/// have made four cards in this pool uncastable instead of two.
+#[test]
+fn a_printed_zero_is_a_cost_and_the_spell_is_still_castable() {
+    let seat = PlayerId::new(0);
+    let opal = card_index("de2440de-e948-4811-903c-0bbe376ff64d");
+    let island = card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373");
+    let mut engine = Duel::new(SEED, island).hand(0, &[opal]).start();
+    assert!(
+        walk_to_own_main(&mut engine, seat),
+        "the board never reached seat 0's own main phase"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        legal.castable.len(),
+        1,
+        "Mox Opal costs {{0}} and an empty pool pays it: {:?}",
+        legal.castable
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::CastSpell {
+                card: legal.castable[0],
+            },
+        )
+        .expect("offered, then refused");
+}
+
+/// Only a card with another way out of the hand prints no mana cost.
+///
+/// The pool-wide half of CR 202.1a, and the guard on the data rather than on
+/// the rule: `face!`'s default cost is the *blank* one, so a hand-written
+/// card that prints `{0}` and simply omits the field used to be
+/// indistinguishable from Ancestral Vision — and is now uncastable instead of
+/// free, which is the quieter of the two failures and the reason this is
+/// asserted rather than commented. Mox Opal and Pact of Negation were both
+/// sitting here when it was written.
+///
+/// What is allowed to be blank is a card that names another way to be cast:
+/// suspend (`AbilityDef::Suspend`) or a printed alternative cost. Lands and
+/// the backs of transforming cards are not cast from a hand at all.
+#[test]
+fn a_face_with_no_mana_cost_has_another_way_out_of_the_hand() {
+    let mut blank: Vec<&str> = Vec::new();
+    for def in baylee_cards::all() {
+        let suspends = def
+            .abilities
+            .iter()
+            .any(|a| matches!(a, AbilityDef::Suspend { .. }));
+        for face in def.faces {
+            if face.mana_cost.symbols().next().is_some()
+                || !face.castable_from_hand
+                || face.types.contains(TypeSet::LAND)
+            {
+                continue;
+            }
+            if !suspends && face.alternative_costs.is_empty() {
+                blank.push(face.name);
+            }
+        }
+    }
+    assert!(
+        blank.is_empty(),
+        "these faces print no mana cost and no other way to be cast, so they \
+         can never leave a hand — a `{{0}}` card that omitted `mana_cost` \
+         looks exactly like this: {blank:?}"
+    );
 }

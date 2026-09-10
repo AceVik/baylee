@@ -310,7 +310,11 @@ impl<L: CardLookup> Engine<L> {
             face.mana_cost
                 .with_less_generic(casting::printed_reduction(&self.state, face, player));
         // Normal cost (X probed with 0; the real check happens at payment).
-        if afford(&normal_cost.with_x(0)) {
+        // Guarded by the same CR 202.1a question `can_cast` asks, and for the
+        // reason every probe in this function is paired with one there: an
+        // option offered here that the offer does not know about is a mode a
+        // player can pick and be refused for.
+        if casting::has_a_printed_cost(&face.mana_cost) && afford(&normal_cost.with_x(0)) {
             options.push(CastModeDesc {
                 index: 0,
                 kind: CastModeKind::Normal,

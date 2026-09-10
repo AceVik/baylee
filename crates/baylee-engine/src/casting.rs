@@ -301,6 +301,31 @@ pub(crate) fn wild_or_not(wild: bool, pool: &ManaPool, cost: &ManaCost) -> bool 
 /// Pays `cost` from `pool`, honouring a mana-conversion effect.
 ///
 /// `wild` comes from [`mana_is_wild`], read before the pool is borrowed.
+/// Whether a face prints a mana cost at all (CR 202.1a).
+///
+/// A card with **no** mana cost cannot be cast unless something else gives it
+/// a cost or lets it be cast without paying one — and that is a different
+/// thing from a cost of `{0}`, which is paid by paying nothing and is a
+/// perfectly ordinary spell. `ManaCost` keeps the two apart and always has:
+/// Ornithopter's `{0}` is one `Generic(0)` symbol, Ancestral Vision's blank
+/// is no symbols at all, and `to_string` writes them as `"{0}"` and `""`.
+///
+/// Nothing read that difference. Every probe here asks only whether the pool
+/// covers the cost, and a pool covers a blank cost trivially, so Ancestral
+/// Vision — a card whose entire text is a suspend ability and three drawn
+/// cards — sat in `legal.castable` from the hand of anybody who reached their
+/// main phase, castable for nothing.
+///
+/// Ask it of a **printed** cost and never of one that has been through the
+/// cost arithmetic: `with_less_generic` rebuilds a cost symbol by symbol and
+/// does not write back a `Generic(0)`, so `{0}` reduced by nothing comes out
+/// blank. Both callers ask before any reduction, which is also what the rule
+/// means — a discount that takes `{1}` down to nothing leaves a spell that is
+/// cast for free and was never in question here.
+pub(crate) fn has_a_printed_cost(cost: &ManaCost) -> bool {
+    cost.symbols().next().is_some()
+}
+
 pub(crate) fn pay_with(wild: bool, pool: &mut ManaPool, cost: &ManaCost) -> bool {
     if wild {
         mana_pay::pay_wild(pool, cost)
@@ -472,10 +497,19 @@ pub fn can_cast(
     }
     // Printed cost probed with X = 0, and after a reduction printed on the
     // card itself; the full payment is validated when the wizard finishes.
+    // A face with no printed cost has no normal way to be cast at all
+    // (CR 202.1a) and falls straight through to the alternatives.
     let normal_cost = c
         .mana_cost
         .with_less_generic(printed_face.map_or(0, |face| printed_reduction(state, face, player)));
-    if !probe(&normal_cost.with_x(0)) {
+    // `c.mana_cost` and not `normal_cost`: the question is what the card
+    // *prints*, and cost arithmetic does not preserve the answer —
+    // `with_less_generic` rebuilds a cost symbol by symbol and drops a
+    // `Generic(0)`, so `{0}` reduced by nothing is indistinguishable from a
+    // blank. Asking before the arithmetic is also the right rule, because a
+    // reduction that takes `{1}` down to nothing leaves a spell that is cast
+    // for free and was always castable.
+    if !has_a_printed_cost(&c.mana_cost) || !probe(&normal_cost.with_x(0)) {
         // Alternative costs may still make it castable (pitch/evoke). The
         // wizard computes the exact options; this decides only whether there
         // is one, and asks about the whole cost to do it.

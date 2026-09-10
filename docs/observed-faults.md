@@ -1649,6 +1649,48 @@ nothing in the pool as it stands is misrepresented. A suspend cost with a
 `CostPart` in it wants `cost: Cost` here and `pay_cost` on the apply path,
 which is the change to make when a card that needs it arrives.
 
+### 32. A card with no mana cost was castable for nothing — FIXED
+
+Found while wiring entry 31's client half, on the same card. Ancestral Vision
+prints **no** mana cost, which CR 202.1a says is not the same thing as a cost
+of `{0}`: a card with no mana cost cannot be cast unless something gives it an
+alternative cost or lets it be cast without paying one. Every affordability
+probe in `casting.rs` asks only whether the pool covers the cost, and a pool
+covers a blank cost trivially — so a card whose entire text is a suspend
+ability and "target player draws three cards" sat in `legal.castable` from the
+hand of anybody who reached their own main phase, for free, and the suspend
+ability was the *worse* of the two things to click.
+
+`ManaCost` had the distinction all along and nothing read it: Ornithopter's
+`{0}` is one `Generic(0)` symbol, a blank is no symbols at all, and
+`to_string` has always written them as `"{0}"` and `""`.
+`casting::has_a_printed_cost` is that question, asked by `can_cast` and by
+`cast_wizard::cast_options` — the two probes that must agree — and asked of
+the **printed** cost, because `with_less_generic` rebuilds a cost symbol by
+symbol and does not write back a `Generic(0)`, so `{0}` reduced by nothing
+comes out blank. That trap cost one debugging pass: guarding `normal_cost`
+instead of `c.mana_cost` made Mox Opal uncastable.
+
+The pool half is the same class as entry 31's DSL note and was live rather
+than theoretical: `face!`'s default cost is the *blank* one, and **Mox Opal**
+and **Pact of Negation** both print `{0}` and both omitted the field, so both
+were sitting in the blank set. They now say `mana_cost: mana!("{0}")`.
+Codegen has always emitted the distinction correctly — these two are
+hand-written files. `offer_tests::a_face_with_no_mana_cost_has_another_way_
+out_of_the_hand` is the guard: a face may print no cost only if the card
+suspends or the face has an alternative cost, so the next hand-written `{0}`
+card that forgets the field fails the build instead of becoming quietly
+uncastable.
+
+The client mirrors the rule in `reachable` for the reason it mirrors the
+timing one: a blank cost is payable by an empty pool, so a suspend-only card
+was lit indigo with a plan of no taps at all, and the click armed a run that
+finished at once and asked the engine to cast a card it will never offer.
+
+Noted and not fixed: `progress.rs` cites CR 702.61 for the suspend countdown
+and `actions.rs` cites CR 702.62 for the suspend cost. One of the two is
+wrong; neither was verified here.
+
 ### 33. The self-play harness was calling finished games loops — FIXED
 
 Found because an engine change (entry 32, which lands next) tripped the

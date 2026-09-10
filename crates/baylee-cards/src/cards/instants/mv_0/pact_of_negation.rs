@@ -12,6 +12,9 @@ card! {
     scryfall_id: "1ed4c0bb-b710-44a1-b8bc-6bd11c27b8b8",
     faces: &[face! {
         name: "Pact of Negation",
+        // Printed `{0}`; `face!`'s default is *no* cost, which is a
+        // different card (CR 202.1a). See `casting::has_a_printed_cost`.
+        mana_cost: baylee_core::mana!("{0}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
