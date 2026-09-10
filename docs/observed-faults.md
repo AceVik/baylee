@@ -1616,3 +1616,35 @@ Not fixed here. The change that found it made the card-less half of an
 ability handle honest, which is what let a copy of a warded creature be
 *queued* a trigger at all; that it then fires for nobody is a second fault
 underneath the first.
+
+## Fifth pass, 2026-09-10 — from the owner's UX report
+
+### 31. Suspend was offered before it could be paid for — FIXED
+
+Reported as *"Suspend works different. The text says: Rather then cast this
+spell from your hand, PAY x and exile …, so first tap and pay mana, then
+suspend."* — which is exactly what the card says and exactly what the engine
+half of it did not ask.
+
+`abilities.rs`'s hand-zone scan offers cycling and suspend. Every activation
+branch there goes through `can_afford` before it pushes; the suspend branch
+was `AbilityDef::Suspend { .. } if sorcery_timing`, matching on the turn and
+on nothing else. `actions.rs` **does** charge the cost — `mana_pay::pay`,
+answering `cannot pay the suspend cost` when the pool is short — so the offer
+and the answer disagreed: a card with suspend was listed as suspendable off
+an empty pool and refused on the click. Suspend's first ability is an
+activated one with a cost (CR 702.62a), so it belongs to the same rule as its
+siblings, and `can_afford`'s mana half is now `can_pay_mana`, called by both.
+`offer_tests::a_suspend_card_is_offered_only_once_its_cost_is_on_the_table`
+holds it; with the old guard back the first assertion fails.
+
+The report's parenthesis — *"(There are other suspension costs not only
+mana)"* — is true of Magic and is **not fixed**, because it is a DSL
+limitation rather than a defect in this pool. `AbilityDef::Suspend { counters:
+u8, cost: ManaCost }` (`baylee-cards-dsl/src/ability.rs`) can say only mana,
+and the pool prints exactly two suspend cards — Ancestral Vision
+(`sorceries/mv_0/ancestral_vision.rs`, Suspend 4—`{U}`) and Profane Tutor
+(`.../profane_tutor.rs`, Suspend 2—`{1}{B}`) — both of them mana-only. So
+nothing in the pool as it stands is misrepresented. A suspend cost with a
+`CostPart` in it wants `cost: Cost` here and `pay_cost` on the apply path,
+which is the change to make when a card that needs it arrives.

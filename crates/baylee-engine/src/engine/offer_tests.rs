@@ -1037,3 +1037,66 @@ fn a_permanent_that_makes_mana_two_ways_is_offered_once() {
             .unwrap_or_else(|err| panic!("{source:?} was offered, then: {err:?}"));
     }
 }
+
+/// Suspend is offered on the same two conditions as any other activation.
+///
+/// Its first ability is an activated one — "rather than cast this card from
+/// your hand, **pay {U}** and exile it" — with "activate only as a sorcery"
+/// on it (CR 702.62a). The offer used to ask only about the turn, so a
+/// suspend card sat lit in an opponent's hand-zone list with an empty pool,
+/// and `apply` then answered `cannot pay the suspend cost`. That is the
+/// shape this whole module exists for, and it was the one branch in the
+/// hand-zone scan that did not go through `can_afford`.
+///
+/// The pool and not the untapped Island is deliberately what decides it:
+/// every activation in this engine is offered against mana that is already
+/// floating, which is why the client plans a run of taps first.
+#[test]
+fn a_suspend_card_is_offered_only_once_its_cost_is_on_the_table() {
+    let seat = PlayerId::new(0);
+    let vision = card_index("9728dec9-d482-4c7a-8cdc-44d010dc878d");
+    let island = card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373");
+    let mut engine = Duel::new(SEED, island)
+        .hand(0, &[vision])
+        .battlefield(0, &[island])
+        .start();
+    assert!(
+        walk_to_own_main(&mut engine, seat),
+        "the board never reached seat 0's own main phase"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.suspendable.is_empty(),
+        "Suspend 4—{{U}} was offered with nothing in the pool: {:?}",
+        legal.suspendable
+    );
+
+    // The Island is untapped and the timing is right, so the only thing
+    // between the two assertions is the {U} itself.
+    let source = legal.mana_abilities[0];
+    engine
+        .apply(seat, PlayerAction::ActivateManaAbility { source })
+        .expect("an untapped Island taps for {U}");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        legal.suspendable.len(),
+        1,
+        "with {{U}} floating the card is suspendable: {:?}",
+        legal.suspendable
+    );
+
+    // The other half of this module's claim: what is offered is accepted.
+    engine
+        .apply(
+            seat,
+            PlayerAction::Suspend {
+                card: legal.suspendable[0],
+            },
+        )
+        .expect("offered, then refused");
+}

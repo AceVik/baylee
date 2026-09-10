@@ -386,7 +386,21 @@ impl<L: CardLookup> Engine<L> {
                             legal.abilities.push((card, i as u32));
                         }
                     }
-                    AbilityDef::Suspend { .. } if sorcery_timing => {
+                    // Suspend's first ability is an activated one with a cost
+                    // and "activate only as a sorcery" on it (CR 702.62a) —
+                    // "rather than cast this card from your hand, **pay
+                    // {U}** and exile it", as Ancestral Vision's reminder
+                    // text puts it. So it is offered on the same two
+                    // conditions as every other activation above, and this
+                    // was the one branch here that asked only about the
+                    // turn: a card with suspend was offered as suspendable
+                    // off an empty pool, and `actions.rs` — which *does* pay
+                    // the cost — then refused it. An offer the answer
+                    // disagrees with is worse than no offer, because the
+                    // client draws it as something to click.
+                    AbilityDef::Suspend { cost, .. }
+                        if sorcery_timing && self.can_pay_mana(player, cost) =>
+                    {
                         legal.suspendable.push(card);
                     }
                     _ => {}
@@ -507,16 +521,30 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    pub(crate) fn can_afford(&self, player: PlayerId, source: ObjectId, cost: &Cost) -> bool {
+    /// Whether `player`'s pool covers a bare mana cost.
+    ///
+    /// Split out of [`Self::can_afford`] for suspend, whose cost is a
+    /// `ManaCost` and not a `Cost` — it has no parts to check. An offer that
+    /// asked the same question a second way would be free to answer it
+    /// differently, and this one is asked against a pool the apply path then
+    /// spends.
+    pub(crate) fn can_pay_mana(
+        &self,
+        player: PlayerId,
+        cost: &baylee_core::mana::ManaCost,
+    ) -> bool {
         let pool = &self.state.players[player.get() as usize].mana_pool;
         // Mycosynth Lattice: mana spends as though it were any colour, so a
         // five-colour activation cost is payable off five Islands.
-        let payable = if casting::mana_is_wild(&self.state) {
-            mana_pay::can_pay_wild(pool, &cost.mana)
+        if casting::mana_is_wild(&self.state) {
+            mana_pay::can_pay_wild(pool, cost)
         } else {
-            mana_pay::can_pay(pool, &cost.mana)
-        };
-        if !payable {
+            mana_pay::can_pay(pool, cost)
+        }
+    }
+
+    pub(crate) fn can_afford(&self, player: PlayerId, source: ObjectId, cost: &Cost) -> bool {
+        if !self.can_pay_mana(player, &cost.mana) {
             return false;
         }
         for part in cost.parts {
