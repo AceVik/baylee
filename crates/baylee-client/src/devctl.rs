@@ -36,7 +36,20 @@
 //! POST /pointer  {"x":100,"y":200,"button":"left","press":true}
 //! POST /scroll   {"y":-3}   (wheel lines, over wherever the pointer is)
 //! POST /screenshot {"path":"/tmp/table.png"}   (replies once written)
+//! POST /timescale {"speed":0.1}   (the whole picture, a tenth as fast)
+//! POST /pause    {"paused":false}   (absent or true stops the clock)
+//! POST /step     {"frames":6}   (replies once they have run)
 //! ```
+//!
+//! The last three are one tool. Almost everything worth photographing here is
+//! over before a screenshot can be asked for — a card's exit lives 0.55 s —
+//! so pause the clock, step it a handful of frames at a time and photograph
+//! each one, or slow the whole picture to a tenth and watch it at leisure.
+//! Both work on `Time<Virtual>`, which is what `table::glide`, `table::retire`,
+//! the sheen clock and every shader's `globals.time` read through, so the
+//! parts of one movement stay together. `pump` counts frames rather than
+//! seconds, which is what keeps the harness answering while the clock is
+//! stopped.
 //!
 //! Run it with `BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client
 //! --features dev-control`, then `curl -s localhost:28770/state`.
@@ -104,6 +117,7 @@ impl Plugin for DevControlPlugin {
             jobs: Mutex::new(jobs),
             held: Vec::new(),
             clicking: Vec::new(),
+            stepping: None,
             frame: 0,
         })
         // After `InputSystem`: bevy has already cleared last frame's
@@ -125,7 +139,25 @@ struct DevControl {
     held: Vec<KeyCode>,
     /// Clicks in flight, one stage per frame.
     clicking: Vec<Click>,
+    /// A `/step` running: the clock has been let go until it counts out.
+    stepping: Option<Stepping>,
     frame: u64,
+}
+
+/// A run of frames the clock was let go for.
+///
+/// Counted in frames rather than in seconds, because the request after a step
+/// is always a screenshot and a screenshot is a frame. Asking for a tenth of
+/// a second would leave the caller to work out how many frames that was, and
+/// get a different answer on a different machine.
+struct Stepping {
+    /// What was asked for, kept so the answer can say it back.
+    frames: u32,
+    /// How many are left.
+    left: u32,
+    /// Held until the last of them has run, so a caller that got its answer
+    /// knows the frames have happened rather than merely been scheduled.
+    reply: Sender<String>,
 }
 
 /// A click being played out over three frames.
@@ -266,6 +298,138 @@ fn flag(body: &str, key: &str) -> bool {
     field(body, key) == Some("true")
 }
 
+/// Everything the socket thread has queued since the last frame.
+///
+/// Collected rather than iterated in place: the loop that answers these needs
+/// the resource back for `/step`, and a poisoned lock is an empty frame
+/// rather than a panic — a harness that took the client down when its own
+/// mutex went wrong would be the worst possible failure mode for a debugging
+/// tool.
+fn waiting(control: &mut DevControl) -> Vec<Job> {
+    control
+        .jobs
+        .get_mut()
+        .map(|rx| rx.try_iter().collect())
+        .unwrap_or_default()
+}
+
+/// What `/health` says, given the frame count, the window's `(width, height,
+/// scale)` and the clock.
+///
+/// The window's size comes with it because `/pointer` speaks logical pixels
+/// while a screenshot is physical: without the scale factor a caller has to
+/// guess the ratio between the two, and on a Retina display the guess is
+/// wrong by a factor of two. The clock is there for the same kind of reason —
+/// a harness that had slowed or stopped the picture and then reconnected
+/// would otherwise have no way to ask what it had left running.
+fn health(frame: u64, size: (f32, f32, f32), clock: &Time<Virtual>) -> String {
+    let (w, h, scale) = size;
+    format!(
+        "{{\"ok\":true,\"frame\":{frame},\"width\":{w},\"height\":{h},\"scale\":{scale},\
+         \"speed\":{},\"paused\":{}}}",
+        clock.relative_speed(),
+        clock.is_paused(),
+    )
+}
+
+/// Lets the clock go for `frames` frames, and takes the caller's reply
+/// channel with it.
+///
+/// It answers rather than returning an answer, for the reason `/screenshot`
+/// does the same: the reply belongs after the frames have run, and a
+/// function that returned a string here would have said they had.
+fn start_step(
+    body: &str,
+    control: &mut DevControl,
+    clock: &mut Time<Virtual>,
+    reply: Sender<String>,
+) {
+    let frames = field(body, "frames")
+        .and_then(|f| f.parse::<u32>().ok())
+        .unwrap_or(1);
+    if frames == 0 {
+        let _ = reply.send("{\"error\":\"a step of no frames is not a step\"}".to_string());
+        return;
+    }
+    if control.stepping.is_some() {
+        let _ = reply.send("{\"error\":\"a step is already running\"}".to_string());
+        return;
+    }
+    clock.unpause();
+    control.stepping = Some(Stepping {
+        frames,
+        left: frames,
+        reply,
+    });
+}
+
+/// Counts a running `/step` down by a frame and stops the clock at the end
+/// of it.
+///
+/// The countdown runs at the top of `PreUpdate`, before the jobs are drained,
+/// so the frame that started the step is the first of the frames it asked
+/// for and `frames: 1` advances the picture exactly once.
+fn catch_the_clock(control: &mut DevControl, clock: &mut Time<Virtual>) {
+    let counted_out = control.stepping.as_mut().is_some_and(|step| {
+        step.left = step.left.saturating_sub(1);
+        step.left == 0
+    });
+    if !counted_out {
+        return;
+    }
+    clock.pause();
+    if let Some(step) = control.stepping.take() {
+        let _ = step
+            .reply
+            .send(format!("{{\"ok\":true,\"frames\":{}}}", step.frames));
+    }
+}
+
+/// The two clock routes that answer at once, and the reason all three exist:
+/// almost everything this client does that is worth photographing is over
+/// before a screenshot can be asked for. A card's exit lives 0.55 s, a sheen
+/// sweep less, and a `/screenshot` round trip is a frame plus a file write —
+/// so the harness could prove an animation had *finished* and never that it
+/// had happened.
+///
+/// `Time<Virtual>` is the right lever because everything the table draws with
+/// reads through it: `table::glide`, `table::retire`, the sheen clock and
+/// every shader's `globals.time` all take `Res<Time>`, which bevy sets from
+/// the virtual clock each frame. A tenth speed therefore slows the whole
+/// picture together and keeps it consistent, where a per-system knob would
+/// have pulled the parts of one movement apart.
+fn set_clock(path: &str, body: &str, clock: &mut Time<Virtual>) -> String {
+    if path == "/pause" {
+        if field(body, "paused").is_some_and(|v| v == "false" || v == "0") {
+            clock.unpause();
+        } else {
+            clock.pause();
+        }
+        return clock_answer(clock);
+    }
+    match field(body, "speed").and_then(|s| s.parse::<f32>().ok()) {
+        Some(speed) if speed > 0.0 && speed.is_finite() => {
+            clock.set_relative_speed(speed);
+            clock_answer(clock)
+        }
+        // Zero is refused rather than taken as a pause: they are different
+        // states, and a caller who could stop the clock two ways would have
+        // to remember which one to undo.
+        _ => "{\"error\":\"speed must be a finite number above zero\"}".to_string(),
+    }
+}
+
+/// The clock as the harness reports it, which is two numbers because either
+/// one alone is a lie: a speed of 0.1 on a paused clock is still stopped, and
+/// a running clock says nothing about how fast.
+fn clock_answer(clock: &Time<Virtual>) -> String {
+    format!(
+        "{{\"ok\":true,\"speed\":{},\"paused\":{}}}",
+        clock.relative_speed(),
+        clock.is_paused()
+    )
+}
+
 /// Drains the request queue once per frame and answers it.
 #[allow(clippy::too_many_arguments)]
 fn pump(
@@ -282,8 +446,10 @@ fn pump(
     duel: Option<Res<Duel>>,
     settings: Option<Res<ClientSettings>>,
     leaving: Query<&crate::table::Departing>,
+    mut clock: ResMut<Time<Virtual>>,
 ) {
     control.frame += 1;
+    catch_the_clock(&mut control, &mut clock);
     // Undo last frame's injection first: a key held forever would look like a
     // stuck keyboard, and every consumer reads `just_pressed`.
     for key in control.held.drain(..) {
@@ -300,29 +466,17 @@ fn pump(
         );
     }
 
-    let jobs: Vec<Job> = control
-        .jobs
-        .get_mut()
-        .map(|rx| rx.try_iter().collect())
-        .unwrap_or_default();
-    for job in jobs {
+    for job in waiting(&mut control) {
         let answer = match job.path.as_str() {
-            // The window's size comes with it because `/pointer` speaks
-            // logical pixels while a screenshot is physical: without the
-            // scale factor a caller has to guess the ratio between the two,
-            // and on a Retina display the guess is wrong by a factor of two.
             "/health" => {
-                let (w, h, scale) = windows.single().map_or((0.0, 0.0, 0.0), |(_, window)| {
+                let size = windows.single().map_or((0.0, 0.0, 0.0), |(_, window)| {
                     (
                         window.width(),
                         window.height(),
                         window.resolution.scale_factor(),
                     )
                 });
-                format!(
-                    "{{\"ok\":true,\"frame\":{},\"width\":{w},\"height\":{h},\"scale\":{scale}}}",
-                    control.frame
-                )
+                health(control.frame, size, &clock)
             }
             "/state" => state_dump(duel.as_deref(), settings.as_deref(), leaving.iter().count()),
             "/key" => {
@@ -398,6 +552,11 @@ fn pump(
                 commands
                     .spawn(Screenshot::primary_window())
                     .observe(write_screenshot(path, job.reply));
+                continue;
+            }
+            "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
+            "/step" => {
+                start_step(&job.body, &mut control, &mut clock, job.reply);
                 continue;
             }
             other => format!("{{\"error\":\"no such endpoint: {other}\"}}"),
@@ -761,15 +920,63 @@ mod tests {
             .add_message::<WindowEvent>()
             .add_message::<CursorMoved>()
             .add_message::<bevy::input::mouse::MouseWheel>()
+            .init_resource::<Time<Virtual>>()
             .insert_resource(DevControl {
                 jobs: Mutex::new(rx),
                 held: Vec::new(),
                 clicking: Vec::new(),
+                stepping: None,
                 frame: 0,
             })
             .add_systems(Update, pump);
         app.world_mut().spawn((Window::default(), PrimaryWindow));
         (app, tx)
+    }
+
+    /// Queues one request and hands back the channel its answer will arrive
+    /// on — which is not always the same frame.
+    fn ask(tx: &Sender<Job>, path: &str, body: &str) -> Receiver<String> {
+        let (reply, answers) = channel();
+        tx.send(Job {
+            path: path.to_string(),
+            body: body.to_string(),
+            reply,
+        })
+        .unwrap();
+        answers
+    }
+
+    /// A hundred milliseconds, which is what one frame of the clock harness
+    /// is worth in raw time.
+    const RAW: std::time::Duration = std::time::Duration::from_millis(100);
+
+    /// The harness with a real clock in it, wound by hand.
+    ///
+    /// `TimeUpdateStrategy` is bevy's own seam for this, and it is what lets
+    /// the three clock routes be tested on what the picture does rather than
+    /// on a flag. It is a *second* harness rather than the first one grown,
+    /// because `TimePlugin` also takes over when message buffers are swapped
+    /// — it holds them an extra frame so a fixed-update schedule cannot miss
+    /// one — and the click and wheel tests read exactly that buffer.
+    fn clock_harness() -> (App, Sender<Job>) {
+        let (mut app, tx) = harness();
+        app.add_plugins(bevy::time::TimePlugin)
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(RAW));
+        (app, tx)
+    }
+
+    /// How far the virtual clock moved on the frame just run.
+    ///
+    /// The assertion that matters is on the *delta*, never on the flag: a
+    /// route that set `paused` and left the clock running would pass every
+    /// test written against `is_paused`, and the whole point of these three
+    /// endpoints is what the picture does.
+    ///
+    /// It lags a request by one frame, and honestly so. Bevy sets the clock
+    /// in `First` and `pump` runs in `PreUpdate`, so the frame a route is
+    /// answered on already has its delta.
+    fn advanced(app: &App) -> std::time::Duration {
+        app.world().resource::<Time<Virtual>>().delta()
     }
 
     /// Everything the window events of one frame said, as short tags.
@@ -902,5 +1109,96 @@ mod tests {
         let keys = app.world().resource::<ButtonInput<KeyCode>>();
         assert!(!keys.pressed(KeyCode::Space));
         assert!(!keys.pressed(KeyCode::ShiftLeft));
+    }
+
+    /// A tenth speed is a tenth of the picture, not a flag saying so.
+    #[test]
+    fn a_slowed_clock_moves_a_tenth_as_far() {
+        let (mut app, tx) = clock_harness();
+        let answers = ask(&tx, "/timescale", r#"{"speed":0.1}"#);
+        app.update();
+        assert!(answers.try_recv().unwrap().contains("\"speed\":0.1"));
+        app.update();
+        assert_eq!(advanced(&app), RAW / 10);
+
+        // Zero is not a pause, and a refused request must leave the clock
+        // where it was rather than half-applying itself.
+        let refused = ask(&tx, "/timescale", r#"{"speed":0}"#);
+        app.update();
+        assert!(refused.try_recv().unwrap().contains("\"error\""));
+        app.update();
+        assert_eq!(advanced(&app), RAW / 10);
+    }
+
+    /// The harness has to keep answering while the picture is stopped, which
+    /// is why `pump` counts frames and not seconds. A paused clock that took
+    /// the harness with it would be a screenshot nobody could ever ask for.
+    #[test]
+    fn a_pause_stops_the_picture_and_not_the_harness() {
+        let (mut app, tx) = clock_harness();
+        let paused = ask(&tx, "/pause", "{}");
+        app.update();
+        assert!(paused.try_recv().unwrap().contains("\"paused\":true"));
+        app.update();
+        assert_eq!(advanced(&app), std::time::Duration::ZERO);
+
+        let health = ask(&tx, "/health", "{}");
+        app.update();
+        let answer = health.try_recv().expect("a stopped clock still answers");
+        assert!(answer.contains("\"paused\":true"), "got {answer}");
+        assert!(answer.contains("\"frame\":3"), "got {answer}");
+
+        let running = ask(&tx, "/pause", r#"{"paused":false}"#);
+        app.update();
+        assert!(running.try_recv().unwrap().contains("\"paused\":false"));
+        app.update();
+        assert_eq!(advanced(&app), RAW);
+    }
+
+    /// A step is counted in frames and answered at the end of them, for the
+    /// reason a click is: a caller that was told "ok" up front would take its
+    /// screenshot of the frame it started from.
+    #[test]
+    fn a_step_runs_the_frames_it_asked_for_and_then_stops_again() {
+        let (mut app, tx) = clock_harness();
+        app.world_mut().resource_mut::<Time<Virtual>>().pause();
+
+        let stepped = ask(&tx, "/step", r#"{"frames":3}"#);
+        app.update();
+        for frame in 1..=3 {
+            assert!(
+                stepped.try_recv().is_err(),
+                "answered before frame {frame} of 3"
+            );
+            app.update();
+            assert_eq!(
+                advanced(&app),
+                RAW,
+                "the clock was still stopped on frame {frame} of 3"
+            );
+        }
+
+        assert!(stepped.try_recv().unwrap().contains("\"frames\":3"));
+        app.update();
+        assert_eq!(
+            advanced(&app),
+            std::time::Duration::ZERO,
+            "the clock was left running after the step counted out"
+        );
+    }
+
+    /// Two steps at once would share one countdown and one reply channel, so
+    /// the second is refused rather than quietly stealing the first.
+    #[test]
+    fn a_second_step_is_refused_while_the_first_is_running() {
+        let (mut app, tx) = clock_harness();
+        app.world_mut().resource_mut::<Time<Virtual>>().pause();
+        let first = ask(&tx, "/step", r#"{"frames":4}"#);
+        app.update();
+
+        let second = ask(&tx, "/step", r#"{"frames":1}"#);
+        app.update();
+        assert!(second.try_recv().unwrap().contains("\"error\""));
+        assert!(first.try_recv().is_err(), "the first step lost its answer");
     }
 }

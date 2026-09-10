@@ -2393,9 +2393,12 @@ curl -s -XPOST localhost:28770/pointer   -d '{"x":864,"y":655,"press":true}'
 curl -s -XPOST localhost:28770/key       -d '{"name":"Space","shift":false}'
 curl -s -XPOST localhost:28770/scroll    -d '{"y":-6}'
 curl -s -XPOST localhost:28770/screenshot -d '{"path":"/tmp/table.png"}'
+curl -s -XPOST localhost:28770/timescale -d '{"speed":0.1}'
+curl -s -XPOST localhost:28770/pause     -d '{}'
+curl -s -XPOST localhost:28770/step      -d '{"frames":6}'
 ```
 
-Five things about it are load-bearing.
+Six things about it are load-bearing.
 
 **It is a compile-time feature, not a runtime switch.** A remote-control socket
 inside a game binary is a cheat vector, and the only guarantee worth having is
@@ -2432,6 +2435,27 @@ untested.
 **Coordinates are logical pixels, screenshots are physical.** `/health` reports
 `width`, `height` and `scale` so the ratio between the two is read rather than
 guessed; on a Retina display a guess is wrong by a factor of two.
+
+**The clock is a lever, because almost nothing worth photographing here waits.**
+A card's exit lives 0.55 s, a sheen sweep less, and one `/screenshot` round trip
+is a frame plus a file write — so the harness could prove an animation had
+*finished* and never that it had happened. `/timescale` sets
+`Time<Virtual>`'s relative speed, `/pause` stops and starts it, and `/step`
+lets it go for a fixed number of frames and answers once they have run. Three
+things make that the right lever rather than a knob per system. The whole
+picture reads through the virtual clock — `table::glide`, `table::retire`, the
+sheen clock and every shader's `globals.time` all take `Res<Time>`, which bevy
+sets from it each frame — so a tenth speed slows the parts of one movement
+together instead of pulling them apart. `pump` counts frames rather than
+seconds, so the harness keeps answering while the picture is stopped. And a
+step is counted in **frames**, because the request after a step is always a
+screenshot and a screenshot is a frame; asking for a tenth of a second would
+leave the caller to work out how many frames that was and get a different
+answer on a different machine. Zero is refused by `/timescale` rather than
+taken as a pause: a caller who could stop the clock two ways would have to
+remember which one to undo. `/health` reports `speed` and `paused` for the same
+reason it reports the scale factor — a harness that reconnected would otherwise
+have no way to ask what it had left running.
 
 `/state` is deliberately the *client's* answer and not the engine's — the view
 it last received, beside the interaction state it built from it. A disagreement
