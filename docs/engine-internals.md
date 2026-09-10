@@ -91,7 +91,23 @@ collection, and both halves of that placement are deliberate.
 
 They are not SBAs — CR 702.145c and f say "this happens immediately and
 isn't a state-based action" in as many words — and they need the card
-definition behind a permanent, which `sba::run` has no lookup for. They run
+definition behind a permanent, which `sba::run` has no lookup for.
+
+The step immediately above them, `Progress::finished_sagas`, is there for
+only the second of those two reasons. Sacrificing a Saga whose lore counters
+have reached its final chapter (CR 714.4) *is* a state-based action, and it
+sits outside `sba::run` because it has to read the permanent's abilities to
+find out what that chapter number is. It used to sit somewhere else
+entirely — on the way out of the last chapter's resolution — which left a
+Saga on the battlefield for the rest of the game if that chapter was
+countered. CR 714.4's second clause is why it still cannot fire from there:
+a Saga is spared while it "isn't the source of a chapter ability that has
+triggered but not yet left the stack", and a chapter that has triggered is
+in the trigger queue before it is on the stack, which is why
+`a_chapter_of_it_has_triggered` consults both. Reading only the stack would
+sacrifice the Saga one step before CR 117.5 puts its last chapter on it.
+
+Daybound and nightbound run
 after the SBAs have settled so that a permanent about to die does not turn
 over first, and before triggers are collected so that a permanent which does
 turn over has done so before anything asks what triggered.
