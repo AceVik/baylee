@@ -344,10 +344,18 @@ exiles nothing. Both are guarded pool-wide in
 `baylee-engine/src/engine/offer_tests.rs`
 (`no_implemented_card_hides_an_ability_the_engine_will_never_offer`, its token
 twin, and `nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`).
-A card that prints such an activation takes `Coverage::Partial("…")` with the
-reason on it and a `// NOT SUPPORTED:` comment, like any other unread clause —
-Recurring Nightmare is the one in the pool, and it goes back to `Implemented`
-the day an activation can suspend on a choice during cost payment.
+The way out differs between the two pairs, and what separates them is the
+deckbuilder. A `Sacrifice`/`Discard` activation may stay on the card under
+`Coverage::Partial("…")` with a `// NOT SUPPORTED:` comment, like any other
+unread clause: the ability is never offered, so the card plays exactly as
+though the line were not printed, which is what `Partial` promises about it.
+An `ExileFromHand`/`PayLifeX` activation may not. A partial card is offered as
+playable and dealt into real decks, so the label would ship a pitch cost that
+exiles nothing rather than excuse it — that ability comes **off** the card,
+leaving the `// NOT SUPPORTED:` line to say what was dropped. Recurring
+Nightmare is the one partial card of the first kind in the pool, and it goes
+back to `Implemented` the day an activation can suspend on a choice during
+cost payment.
 
 ### Ability kinds
 

@@ -861,8 +861,17 @@ fn no_token_carries_an_ability_the_engine_will_never_offer() {
 /// Both doors in one test, because neither has anything to excuse. No card
 /// and no token prints such a cost today, so there is no [`INERT_TOKENS`]
 /// half to keep honest — the message says which one arrived and that is
-/// enough. A card that wants to print one says `Coverage::Partial` with the
-/// reason on it, exactly as the other half of this class demands.
+/// enough.
+///
+/// Every card, and deliberately not only the implemented ones — which is the
+/// one place this parts company with the pair above. `Coverage::Partial` is a
+/// real answer there: a refused cost is never offered, so the ability is
+/// inert, which is exactly what `Partial` promises about the clause it names.
+/// It is no answer at all here. A partial card *plays* — the deckbuilder
+/// offers it, marked — so a `Partial` card carrying `ExileFromHand` on an
+/// activation ships a pitch cost that exiles nothing into somebody's deck,
+/// and the label would be documenting the cheat rather than preventing it.
+/// The ability comes off the card with a `// NOT SUPPORTED:` line instead.
 #[test]
 fn nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip() {
     let mut offenders = Vec::new();
@@ -878,7 +887,7 @@ fn nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip() {
             }
         }
     };
-    for def in baylee_cards::all().filter(|d| d.is_implemented()) {
+    for def in baylee_cards::all() {
         for face in 0..def.faces.len() {
             for ability in def.abilities_for_face(face) {
                 check(def.name(), ability);
@@ -893,7 +902,9 @@ fn nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip() {
     assert!(
         offenders.is_empty(),
         "an activated ability carries a cost part `pay_cost` skips, so the \
-         engine offers the ability and then never charges for it: {offenders:?}"
+         engine offers the ability and then never charges for it — and \
+         `Coverage::Partial` does not excuse it, because a partial card is \
+         dealt into a deck and played: {offenders:?}"
     );
 }
 
