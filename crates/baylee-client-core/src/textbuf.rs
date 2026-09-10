@@ -110,6 +110,19 @@ impl TextBuffer {
     /// that out.
     pub fn set(&mut self, text: &str, cursor: usize, anchor: Option<usize>) {
         self.text = text.to_string();
+        self.place(cursor, anchor);
+    }
+
+    /// Moves the caret and the selection without touching the text.
+    ///
+    /// The other half of [`TextBuffer::set`], for the same mirror: an arrow
+    /// key inside a browser's own `<input>` moves that element's caret and
+    /// changes nothing else, and a caret drawn from a value that did not
+    /// change would sit still while the real one walked away from it.
+    ///
+    /// Clamped onto `char` boundaries exactly as `set` is, and for the same
+    /// reason.
+    pub fn place(&mut self, cursor: usize, anchor: Option<usize>) {
         self.cursor = self.boundary(cursor);
         self.anchor = anchor
             .map(|a| self.boundary(a))
@@ -278,6 +291,31 @@ impl TextBuffer {
     }
 }
 
+/// Where a UTF-16 offset falls in a Rust string, as a byte offset.
+///
+/// The one conversion between this module and a browser: the DOM counts an
+/// `<input>`'s `selectionStart` in UTF-16 code units and everything here
+/// counts bytes, and the two agree for exactly as long as a player types
+/// ASCII. An address with an umlaut in it is where they stop agreeing, and a
+/// caret that is off by one from the character it is drawn beside deletes the
+/// wrong letter.
+///
+/// An offset past the end answers the end, and one that falls *inside* a
+/// surrogate pair — which no selection a browser reports should ever be —
+/// answers the boundary after that character rather than a byte offset no
+/// `char` starts at.
+#[must_use]
+pub fn byte_of_utf16(text: &str, units: usize) -> usize {
+    let mut seen = 0;
+    for (byte, ch) in text.char_indices() {
+        if seen >= units {
+            return byte;
+        }
+        seen += ch.len_utf16();
+    }
+    text.len()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -434,5 +472,59 @@ mod tests {
         let mut buf = TextBuffer::new("");
         buf.set("abc", 3, Some(3));
         assert_eq!(buf.selection(), None);
+    }
+
+    #[test]
+    fn a_caret_can_move_without_the_text_changing() {
+        let mut buf = TextBuffer::new("mail@example.com");
+        buf.place(4, Some(0));
+        assert_eq!(buf.text(), "mail@example.com", "place writes no text");
+        assert_eq!(buf.cursor(), 4);
+        assert_eq!(buf.selection(), Some(0..4));
+        buf.place(2, None);
+        assert_eq!(buf.selection(), None, "an anchor of None drops it");
+    }
+
+    #[test]
+    fn a_placed_caret_is_clamped_like_a_set_one() {
+        let mut buf = TextBuffer::new("mär");
+        buf.place(2, Some(99));
+        assert_eq!(buf.cursor(), 1, "inside the a-umlaut, so back to before it");
+        assert_eq!(buf.selection(), Some(1..4), "and the anchor to the end");
+    }
+
+    #[test]
+    fn a_utf16_offset_is_read_as_bytes() {
+        assert_eq!(byte_of_utf16("abc", 0), 0);
+        assert_eq!(
+            byte_of_utf16("abc", 2),
+            2,
+            "ASCII counts the same either way"
+        );
+        // "mär": m is one unit and one byte, a-umlaut is one unit and two.
+        assert_eq!(byte_of_utf16("mär", 1), 1);
+        assert_eq!(byte_of_utf16("mär", 2), 3, "after the a-umlaut");
+        assert_eq!(byte_of_utf16("mär", 3), 4);
+    }
+
+    #[test]
+    fn an_astral_character_is_two_units_and_four_bytes() {
+        let text = "a🜁b";
+        assert_eq!(byte_of_utf16(text, 1), 1, "before the sigil");
+        assert_eq!(
+            byte_of_utf16(text, 3),
+            5,
+            "after it: 1 + 2 units, 1 + 4 bytes"
+        );
+        assert_eq!(
+            byte_of_utf16(text, 2),
+            5,
+            "halfway through a surrogate pair is no caret at all, so the far side"
+        );
+        assert_eq!(
+            byte_of_utf16(text, 99),
+            text.len(),
+            "past the end is the end"
+        );
     }
 }

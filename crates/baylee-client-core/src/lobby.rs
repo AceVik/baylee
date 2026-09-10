@@ -59,20 +59,6 @@ pub enum Field {
     Search,
 }
 
-impl Field {
-    /// What kind of text this field holds, for a platform that can help with
-    /// it. A phone raises a different keyboard for an address than for a
-    /// password, and a password manager has to be told which is which.
-    #[must_use]
-    pub fn kind(self) -> FieldKind {
-        match self {
-            Self::Email => FieldKind::Email,
-            Self::DisplayName | Self::Search => FieldKind::Name,
-            Self::Password | Self::RoomPassword => FieldKind::Password,
-        }
-    }
-}
-
 /// Which way the Tab key moves the caret between fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Tab {
@@ -84,14 +70,29 @@ pub enum Tab {
 }
 
 /// What a shell should ask its platform for when a [`Field`] takes the caret.
+///
+/// A phone raises a different keyboard for an address than for a password,
+/// and a password manager has to be told which is which — but "which" is a
+/// finer question than "is this masked", which is why the three masked
+/// answers below are three variants and not a flag. Asked to fill a password
+/// in, a manager offers the one it has; asked for a *new* one, it offers to
+/// make one; asked for neither, it stays out of the way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FieldKind {
     /// An e-mail address: the address keyboard, and the username to autofill.
     Email,
     /// A plain name.
     Name,
-    /// A password: masked, and the password to autofill.
+    /// The account's password, as it already is: masked, and the saved
+    /// password to fill in.
     Password,
+    /// A password being *chosen*: masked, and a manager should offer to make
+    /// one rather than put the old one back.
+    NewPassword,
+    /// A masked field that is nobody's credential — a room's password, which
+    /// a table hands out and everyone at it types. Offering the account's
+    /// password here is offering it to the wrong door.
+    Secret,
 }
 
 /// One of the account's saved decks, as `GET /decks` lists it.
@@ -717,6 +718,30 @@ impl Lobby {
         self.buffer_mut(field).set(value, cursor, anchor);
     }
 
+    /// Moves the caret inside a field whose text a platform owns, leaving the
+    /// text alone — an arrow key pressed inside a browser's own `<input>`.
+    pub fn set_caret(&mut self, field: Field, cursor: usize, anchor: Option<usize>) {
+        self.buffer_mut(field).place(cursor, anchor);
+    }
+
+    /// What kind of text a field holds, for a platform that can help with it.
+    ///
+    /// It hangs off the lobby rather than off [`Field`] because one field is
+    /// two different things depending on the form it is on: the password box
+    /// asks a password manager to *fill a password in* on the sign-in form
+    /// and to *offer a new one* on the sign-up form, and those are opposite
+    /// requests. Only the form knows which is being asked.
+    #[must_use]
+    pub fn field_kind(&self, field: Field) -> FieldKind {
+        match field {
+            Field::Email => FieldKind::Email,
+            Field::DisplayName | Field::Search => FieldKind::Name,
+            Field::Password if self.registering() => FieldKind::NewPassword,
+            Field::Password => FieldKind::Password,
+            Field::RoomPassword => FieldKind::Secret,
+        }
+    }
+
     /// The text in one field.
     #[must_use]
     pub fn field(&self, field: Field) -> &str {
@@ -985,6 +1010,12 @@ impl Lobby {
             self.status.clear();
             if registering && self.focus == Field::DisplayName {
                 self.focus = Field::Password;
+                self.focus_epoch += 1;
+            } else if self.focus == Field::Password {
+                // The caret has not moved, but the field under it has become
+                // a different *kind* of field — see [`Lobby::field_kind`] —
+                // and a platform holding it was told the old one. Counting
+                // this as a placement is what makes it ask again.
                 self.focus_epoch += 1;
             }
         } else {
@@ -2256,9 +2287,36 @@ mod tests {
 
     #[test]
     fn a_field_says_what_kind_of_keyboard_it_wants() {
-        assert_eq!(Field::Email.kind(), FieldKind::Email);
-        assert_eq!(Field::DisplayName.kind(), FieldKind::Name);
-        assert_eq!(Field::Password.kind(), FieldKind::Password);
+        let lobby = Lobby::new();
+        assert_eq!(lobby.field_kind(Field::Email), FieldKind::Email);
+        assert_eq!(lobby.field_kind(Field::DisplayName), FieldKind::Name);
+        assert_eq!(lobby.field_kind(Field::Password), FieldKind::Password);
+        assert_eq!(
+            lobby.field_kind(Field::RoomPassword),
+            FieldKind::Secret,
+            "a room's password is not the account's and must not autofill as it"
+        );
+    }
+
+    #[test]
+    fn the_password_box_asks_for_a_new_password_on_the_sign_up_form() {
+        let mut lobby = Lobby::new();
+        assert_eq!(lobby.field_kind(Field::Password), FieldKind::Password);
+        let before = lobby.focus_epoch();
+        lobby.toggle_registering();
+        assert_eq!(
+            lobby.field_kind(Field::Password),
+            FieldKind::NewPassword,
+            "the same box, and the opposite request to a password manager"
+        );
+        lobby.focus_on(Field::Password);
+        let placed = lobby.focus_epoch();
+        lobby.toggle_registering();
+        assert!(
+            lobby.focus_epoch() > placed,
+            "flipping the form under the caret has to re-point the platform's input"
+        );
+        assert!(before < placed, "the premise: placing the caret counts");
     }
 
     #[test]

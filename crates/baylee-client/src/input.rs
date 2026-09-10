@@ -507,7 +507,10 @@ pub fn browser_softkeys(
     for key in keys.drain() {
         match key {
             // Not a keystroke: autofill and paste arrive as a whole value.
-            crate::softkeys::SoftKey::Text(value) => duel.browser.set_filter(value),
+            crate::softkeys::SoftKey::Text { value, .. } => duel.browser.set_filter(value),
+            // The filter box is a string with no caret drawn in it, so a
+            // caret that moved inside the element changes nothing here.
+            crate::softkeys::SoftKey::Caret { .. } => {}
             // Nothing to submit — the rows are already narrowed, so the
             // action key means "done".
             crate::softkeys::SoftKey::Submit => {

@@ -156,13 +156,18 @@ pub(super) fn softkeys(
         }
         for key in keys.drain() {
             match key {
-                SoftKey::Text(value) => {
+                SoftKey::Text { value, .. } => {
                     let searching = state.lobby.builder().focus() == BuildField::Search;
                     state.lobby.builder_mut().set_focused(&value);
                     if searching {
                         scrolled.set(List::Pool, 0.0);
                     }
                 }
+                // The builder's boxes are strings and the browser draws no
+                // caret in them, so there is nothing here a moved caret
+                // changes. Answering it by writing the value back would
+                // scroll the pool home on every arrow key.
+                SoftKey::Caret { .. } => {}
                 // Nothing to submit: a deck is saved from the bar, and
                 // closing the keyboard is what "done" means here.
                 SoftKey::Submit | SoftKey::Dismiss => keys.close(),
@@ -186,7 +191,7 @@ pub(super) fn softkeys(
         *epoch = state.lobby.focus_epoch();
         if state.lobby.typing_here() {
             let field = state.lobby.focus();
-            keys.open(field.kind(), state.lobby.field(field));
+            keys.open(state.lobby.field_kind(field), state.lobby.field(field));
         } else {
             keys.close();
         }
@@ -198,9 +203,20 @@ pub(super) fn softkeys(
     }
     for key in keys.drain() {
         match key {
-            SoftKey::Text(value) => {
+            // The element's caret comes with it: the browser is the authority
+            // on where the next character goes, and this client draws that
+            // caret rather than letting the invisible input draw it.
+            SoftKey::Text {
+                value,
+                cursor,
+                anchor,
+            } => {
                 let field = state.lobby.focus();
-                state.lobby.set_field(field, &value);
+                state.lobby.set_field_at(field, &value, cursor, anchor);
+            }
+            SoftKey::Caret { cursor, anchor } => {
+                let field = state.lobby.focus();
+                state.lobby.set_caret(field, cursor, anchor);
             }
             SoftKey::Submit => {
                 let request = if matches!(state.lobby.screen(), Screen::Table) {
