@@ -108,27 +108,38 @@ const DOOR_RETURNED: u32 = 5u;
 
 /// How tight a door's figure is, as a Gaussian falloff.
 ///
-/// Looser than [`SWEEP_WIDTH`] on purpose. The arrival band is a highlight on
-/// a coating and wants to read as a specular line; a door is a thing
-/// *happening to* the card and wants to read as light in the air around it,
-/// which a hard edge kills.
-const DOOR_WIDTH: f32 = 11.0;
-
-/// How far a ring travels past the card's corner before it is gone.
+/// Looser than [`SWEEP_WIDTH`]'s 26 on purpose: the arrival band is a
+/// highlight on a coating and wants to read as a specular line, while a door
+/// is a thing *happening to* the card and wants some air around it.
 ///
-/// The card's half-diagonal in width units is about 0.87, so a ring reaching
-/// 1.15 has left the card entirely at the end of its phase — which is what
-/// makes the closing one a portal that *shuts* rather than one that fades.
-const DOOR_REACH: f32 = 1.15;
+/// It was 11, which is what the first screenshot of a forced door was for.
+/// At 11 the falloff is a fifth of the card wide at half strength and the
+/// band did not cross the card at all — it washed the whole of it amber, art
+/// and text and border together, which reads as "this card is now orange"
+/// rather than as anything travelling. 40 puts the band at about a tenth of
+/// the card and leaves the face legible on both sides of it.
+const DOOR_WIDTH: f32 = 40.0;
+
+/// How far a ring travels before it is gone, in card widths from the middle.
+///
+/// The card's half-diagonal in these units is about 0.86, so 0.95 is just
+/// past the corners: a closing ring spends its whole phase somewhere on the
+/// card and shuts on the middle, rather than spending the first half of it
+/// off the edge where nothing can be seen. It was 1.15, and the difference
+/// is one screenshot: at 1.15 the ring only arrives on the card at the very
+/// end and reads as a glow that appears, not as a portal that closes.
+const DOOR_REACH: f32 = 0.95;
 
 /// How strongly a door's colour is laid over the card.
 ///
 /// It is an addition, like the sheen, so this is a peak and not a mix: the
-/// art underneath keeps its colour and the door happens on top of it. Higher
-/// than the coating's gloss because a door is a *statement* — a player who
-/// missed it has missed the only thing the client will ever say about where
-/// that card went.
-const DOOR_GLOSS: f32 = 0.85;
+/// art underneath keeps its colour and the door happens on top of it. Three
+/// times the coating's `METAL_GLOSS` because a door is a *statement* — a
+/// player who missed it has missed the only thing the client will ever say
+/// about where that card went — and no more than that, because 0.85 (the
+/// first guess) saturates every channel it touches and takes the card with
+/// it.
+const DOOR_GLOSS: f32 = 0.60;
 
 /// A ring travelling out from the middle of the card, or in towards it.
 ///
@@ -140,7 +151,9 @@ fn door_ring(uv: vec2<f32>, radius: f32) -> f32 {
     // — a card is 88 tall for every 63 across, and a circle in UV is an egg.
     let p = (uv - vec2<f32>(0.5, 0.5)) * vec2<f32>(1.0, 1.0 / CARD_ASPECT);
     let off = length(p) - radius;
-    return exp(-off * off * DOOR_WIDTH * 4.0);
+    // Twice as tight as the bands: a ring is a closed curve, so at the band's
+    // own width it is a filled disc long before it reaches the middle.
+    return exp(-off * off * DOOR_WIDTH * 2.0);
 }
 
 /// A band crossing the card along one axis, from `head` to `foot`.
