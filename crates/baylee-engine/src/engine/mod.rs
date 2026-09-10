@@ -541,6 +541,8 @@ mod search_tests;
 #[cfg(test)]
 mod sickness_tests;
 #[cfg(test)]
+mod target_tests;
+#[cfg(test)]
 mod team_tests;
 #[cfg(test)]
 pub(crate) mod testkit;
