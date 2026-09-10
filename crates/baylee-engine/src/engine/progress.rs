@@ -1717,40 +1717,38 @@ impl<L: CardLookup> Engine<L> {
             .object(res.on_stack)
             .is_some_and(|o| o.kind == ObjectKind::AbilityOnStack)
         {
-            // Sagas (CR 714.4): when a chapter ability has resolved and
-            // the source's lore counters cover its final chapter,
-            // sacrifice it.
+            // Sagas (CR 714.4): a Saga whose lore counters cover its final
+            // chapter is sacrificed. Read through [`Object::abilities`] and
+            // not through the printed face, so this asks the same question
+            // [`Self::is_saga`] does and a permanent that has *become* a
+            // Saga answers it.
             let source = res.source;
-            let is_chapter = self
-                .state
-                .object(source)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .is_some_and(|def| {
-                    let face = self
-                        .state
-                        .object(source)
-                        .map_or(0, |o| o.face_index as usize);
-                    let max = def
-                        .abilities_for_face(face)
-                        .iter()
-                        .filter_map(|a| match a {
-                            baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. } => {
-                                Some(*chapter)
-                            }
-                            _ => None,
-                        })
-                        .max()
-                        .unwrap_or(0);
-                    max > 0
-                        && self.state.object(source).is_some_and(|o| {
-                            o.counters.get(baylee_cards_dsl::CounterKind::Lore) >= u16::from(max)
-                        })
-                });
+            let saga_is_finished = self.state.object(source).is_some_and(|o| {
+                let max = o
+                    .abilities(&self.lookup)
+                    .iter()
+                    .filter_map(|a| match a {
+                        baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. } => Some(*chapter),
+                        _ => None,
+                    })
+                    .max()
+                    .unwrap_or(0);
+                max > 0 && o.counters.get(baylee_cards_dsl::CounterKind::Lore) >= u16::from(max)
+            });
             // Abilities on the stack simply cease to exist (CR 608.2k).
             self.state.zones.remove(res.on_stack, ZoneLocation::Stack);
             let _ = self.state.arena.remove(res.on_stack);
-            if is_chapter {
+            // The rest of CR 714.4, and it is asked *after* the removal
+            // above because the sentence is about what is still there: the
+            // Saga goes only when it "isn't the source of a chapter ability
+            // that has triggered but not yet left the stack". One chapter
+            // at a time made that clause unreachable, so it was never
+            // written; a Saga can now arrive on several counters at once
+            // and owe several chapters, and the stack is last-in-first-out,
+            // so the *highest* one resolves first and would otherwise carry
+            // the Saga to the graveyard with its earlier chapters still
+            // waiting to resolve on a permanent that is no longer there.
+            if saga_is_finished && !self.a_chapter_of_it_is_still_on_the_stack(source) {
                 let owner = self
                     .state
                     .object(source)
@@ -2104,6 +2102,37 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
+    /// Whether a chapter ability of `source` has triggered and not yet left
+    /// the stack — the clause that holds CR 714.4's sacrifice back.
+    ///
+    /// An ability on the stack carries the list its source had when it
+    /// triggered (`own_abilities`), so the index in its [`AbilityLoc`] is
+    /// read against *that* and not against the permanent as it stands now:
+    /// the question is what this ability is, and it stopped being the
+    /// permanent's business the moment it went on the stack (CR 113.7a).
+    /// An ability with no such entry — a synthetic one, whose index is
+    /// [`baylee_core::ids::AbilityRef::SYNTHETIC`] — is not a chapter.
+    ///
+    /// [`AbilityLoc`]: crate::object::AbilityLoc
+    fn a_chapter_of_it_is_still_on_the_stack(&self, source: ObjectId) -> bool {
+        self.state
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .filter_map(|id| self.state.object(*id))
+            .filter(|o| o.kind == ObjectKind::AbilityOnStack)
+            .any(|o| {
+                o.ability.is_some_and(|loc| {
+                    loc.source == source
+                        && o.abilities(&self.lookup)
+                            .get(loc.index as usize)
+                            .is_some_and(|a| {
+                                matches!(a, baylee_cards_dsl::AbilityDef::SagaChapter { .. })
+                            })
+                })
+            })
+    }
+
     /// Queues every chapter ability the lore count just crossed, and says
     /// whether it queued any.
     ///
@@ -2116,6 +2145,14 @@ impl<L: CardLookup> Engine<L> {
     /// counters at once therefore ran one chapter and dropped the other on
     /// the floor. A Doubling Season is the way into that today; any effect
     /// that adds two lore counters would be another.
+    ///
+    /// They are queued low chapter first and the stack is
+    /// last-in-first-out, so chapter II resolves before chapter I. That is
+    /// legal — CR 603.3b lets a player put simultaneous triggers they
+    /// control on the stack in any order they choose, and this engine has
+    /// no `Pending` for that choice yet — and it is a consequence of the
+    /// queue's order rather than a decision, so nothing here should be read
+    /// as preferring it.
     fn queue_saga_chapters(
         &mut self,
         id: ObjectId,

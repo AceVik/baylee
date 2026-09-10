@@ -509,3 +509,76 @@ fn a_saga_under_a_doubling_season_enters_on_two_and_still_ticks_by_one() {
         drive(&mut engine, 1);
     }
 }
+
+/// Chapter abilities of `saga` that have triggered and are still on the
+/// stack.
+///
+/// Everything Urza's Saga puts on the stack is a chapter — the two abilities
+/// it grants are activated and are activated by nobody here — so this counts
+/// what the source owns rather than decoding each index.
+fn chapters_on_the_stack(engine: &Engine<RegistryLookup>, saga: ObjectId) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .and_then(|o| o.ability)
+                .is_some_and(|loc| loc.source == saga)
+        })
+        .count()
+}
+
+/// CR 714.4 has a second clause, and until a Saga could owe more than one
+/// chapter at a time nothing could reach it: the Saga is sacrificed only
+/// when it "isn't the source of a chapter ability that has triggered but not
+/// yet left the stack".
+///
+/// Two Doubling Seasons put four lore counters on Urza's Saga as it enters
+/// (the card is not legendary, so this is an ordinary board), and all three
+/// chapters are owed at once. The stack is last-in-first-out, so **III
+/// resolves first** — and a sacrifice check that asked only "are the lore
+/// counters at the final chapter" would answer yes there and put the Saga
+/// into the graveyard with chapters I and II still waiting to resolve on a
+/// permanent that had left.
+///
+/// The assertion is the invariant rather than a step count: at no point is
+/// the Saga off the battlefield while a chapter of it is still on the stack.
+#[test]
+fn a_saga_owing_three_chapters_at_once_outlives_the_first_one_to_resolve() {
+    let mut preset = preset(7, vec![urzas_saga()]);
+    preset.seats[0].starting_battlefield = vec![entry(doubling_season()), entry(doubling_season())];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    drive_and_play_saga(&mut engine, p0);
+
+    let saga = saga_object(&engine).expect("saga on the battlefield");
+    assert_eq!(lore(&engine, saga), 4, "one counter, doubled twice");
+
+    let mut deepest = 0;
+    let mut guard = 0;
+    loop {
+        guard += 1;
+        assert!(guard < 80, "the saga was never sacrificed");
+        let waiting = chapters_on_the_stack(&engine, saga);
+        deepest = deepest.max(waiting);
+        if saga_object(&engine).is_none() {
+            assert_eq!(
+                waiting, 0,
+                "CR 714.4: the saga was sacrificed with {waiting} of its own \
+                 chapters still on the stack"
+            );
+            break;
+        }
+        drive(&mut engine, 1);
+    }
+    assert_eq!(
+        deepest, 3,
+        "all three chapters were owed at once — a lower number means the \
+         board never reached the state this test is about"
+    );
+}
