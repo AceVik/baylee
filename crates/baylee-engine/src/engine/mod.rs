@@ -501,10 +501,13 @@ mod day_night_tests;
 mod draw_tests;
 #[cfg(test)]
 mod enter_tests;
+
 #[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
 mod keyword_tests;
+#[cfg(test)]
+mod land_mana_tests;
 #[cfg(test)]
 mod loop_tests;
 #[cfg(test)]

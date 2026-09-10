@@ -366,3 +366,73 @@ pub fn stack_is_empty(engine: &Engine<RegistryLookup>) -> bool {
         .list(crate::zone::ZoneLocation::Stack)
         .is_empty()
 }
+
+/// A basic Forest, the filler every pool-wide sweep builds its deck from.
+///
+/// It prints no `enter_modifiers`, one basic land type and one mana ability,
+/// so a sweep can never mistake its own filler for the card under test.
+#[must_use]
+pub fn basic_forest() -> CardIndex {
+    card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+}
+
+/// Plays `card` as a land on turn one, taking face `face` when the engine
+/// offers the choice, and hands back the game with the permanent in it.
+///
+/// This is the board every land sweep starts from, and it has to be a real
+/// `PlayLand`. `SeatSpec::starting_battlefield` seeds a permanent with
+/// `move_object(.., Cause::Setup)`, which is a placement rather than an
+/// entry: no replacement effect looks at it, so a board built that way
+/// arrives untapped whatever the card says. A sweep resting on it would
+/// measure nothing and pass.
+///
+/// # Errors
+/// Anything that stopped the card reaching the battlefield as `face`, spelled
+/// as prose a sweep can print beside the card's name. A land in an opening
+/// hand, on an empty board, in a first main phase has nothing standing
+/// between it and play, so every one of these is a finding rather than a
+/// reason to skip.
+pub fn play_land_face(
+    card: CardIndex,
+    face: usize,
+) -> Result<(Engine<RegistryLookup>, baylee_core::ids::ObjectId), String> {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(7, basic_forest()).hand(0, &[card]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+
+    let object = in_hand(&engine, seat, card).ok_or("never reached the hand")?;
+    engine
+        .apply(seat, PlayerAction::PlayLand { card: object })
+        .map_err(|err| format!("was refused the land drop: {err:?}"))?;
+
+    // A card printing two land faces is asked which one is being played, and
+    // the answer decides which face's modifiers and abilities are the ones
+    // in play.
+    if let Pending::ChooseCastMode { player, options } = engine.pending().clone() {
+        let slot = options
+            .iter()
+            .position(
+                |o| matches!(o.kind, crate::choice::CastModeKind::PlayLandFace(f) if f == face),
+            )
+            .ok_or_else(|| format!("was never offered its own land face {face}"))?;
+        engine
+            .apply(player, PlayerAction::ChooseMode(slot))
+            .map_err(|err| format!("refused the face choice: {err:?}"))?;
+    }
+
+    let landed = engine
+        .state()
+        .object(object)
+        .ok_or("was played and then vanished")?;
+    if landed.zone != crate::zone::Zone::Battlefield {
+        return Err(format!("was played and is in {:?}", landed.zone));
+    }
+    if usize::from(landed.face_index) != face {
+        return Err(format!(
+            "was played as face {} when face {face} was asked for",
+            landed.face_index
+        ));
+    }
+    Ok((engine, object))
+}

@@ -25,20 +25,10 @@
 //! that says nothing and arrives tapped anyway is the one a sweep written in
 //! a single direction never sees.
 
-use super::testkit::{Duel, card_index, in_hand, keep_mulligans, reach_main_phase};
+use super::testkit::{basic_forest, card_index, play_land_face};
 use super::*;
-use crate::choice::CastModeKind;
 use baylee_cards_dsl::{CardDef, EnterModifier, FaceDef};
 use baylee_core::ids::CardIndex;
-
-/// The card every deck in this sweep is built out of.
-///
-/// A basic Forest, so the filler can never be the thing under test in
-/// disguise: it prints no `enter_modifiers` at all and is the untapped arm's
-/// own control case.
-fn forest() -> CardIndex {
-    card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
-}
 
 /// Bojuka Bog: a tapland that also carries an enters-the-battlefield
 /// trigger, so the fixture is not the easiest possible case.
@@ -88,50 +78,20 @@ fn land_faces(def: &CardDef) -> Vec<usize> {
         .collect()
 }
 
-/// Plays `card` as a land on turn one, taking face `face` when the engine
-/// offers the choice, and says whether it arrived tapped.
+/// Whether `card` arrived tapped, played as land face `face` on turn one.
 ///
-/// `Err` is a card that never reached the battlefield, which is a finding in
-/// its own right rather than something to skip past: a land in an opening
-/// hand, on an empty board, in a first main phase, has nothing standing
-/// between it and play.
+/// The board is [`testkit::play_land_face`], which is shared with the land
+/// mana sweep: one builder means one answer to "was this card actually put
+/// into play", and the face-aware half of it is what makes this sweep see
+/// Glasspool Shore at all.
 fn played_tapped(card: CardIndex, face: usize) -> Result<bool, String> {
-    let seat = PlayerId::new(0);
-    let mut engine = Duel::new(7, forest()).hand(0, &[card]).start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, seat);
-
-    let object = in_hand(&engine, seat, card).ok_or("never reached the hand")?;
-    engine
-        .apply(seat, PlayerAction::PlayLand { card: object })
-        .map_err(|err| format!("was refused the land drop: {err:?}"))?;
-
-    // A card printing two land faces is asked which one is being played
-    // (CR 712.4b), and the answer decides which face's modifiers run.
-    if let Pending::ChooseCastMode { player, options } = engine.pending().clone() {
-        let slot = options
-            .iter()
-            .position(|o| matches!(o.kind, CastModeKind::PlayLandFace(f) if f == face))
-            .ok_or_else(|| format!("was never offered its own land face {face}"))?;
-        engine
-            .apply(player, PlayerAction::ChooseMode(slot))
-            .map_err(|err| format!("refused the face choice: {err:?}"))?;
-    }
-
-    let landed = engine
+    let (engine, land) = play_land_face(card, face)?;
+    Ok(engine
         .state()
-        .object(object)
-        .ok_or("was played and then vanished")?;
-    if landed.zone != crate::zone::Zone::Battlefield {
-        return Err(format!("was played and is in {:?}", landed.zone));
-    }
-    if usize::from(landed.face_index) != face {
-        return Err(format!(
-            "was played as face {} when face {face} was asked for",
-            landed.face_index
-        ));
-    }
-    Ok(landed.status.contains(Status::TAPPED))
+        .object(land)
+        .ok_or("was played and then vanished")?
+        .status
+        .contains(Status::TAPPED))
 }
 
 /// The comparison, with the card's data on one side and the game on the
@@ -280,7 +240,7 @@ fn every_land_in_the_pool_arrives_the_way_its_own_card_says_it_does() {
 #[test]
 fn the_comparison_notices_when_the_card_and_the_game_are_not_the_same_card() {
     let bog = baylee_cards::by_index(bojuka_bog()).expect("Bojuka Bog is in the pool");
-    let wood = baylee_cards::by_index(forest()).expect("Forest is in the pool");
+    let wood = baylee_cards::by_index(basic_forest()).expect("Forest is in the pool");
     let bog_face = &bog.faces[0];
     let wood_face = &wood.faces[0];
     assert_eq!(arrival(bog_face), Arrival::Tapped);
@@ -291,7 +251,7 @@ fn the_comparison_notices_when_the_card_and_the_game_are_not_the_same_card() {
         "the fixture this counter-test rests on stopped entering tapped"
     );
     assert!(
-        !played_tapped(forest(), 0).expect("the Forest is played"),
+        !played_tapped(basic_forest(), 0).expect("the Forest is played"),
         "the fixture this counter-test rests on started entering tapped"
     );
 
