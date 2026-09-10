@@ -16,9 +16,19 @@
 //! It has to be a real `PlayLand`, and that is the whole reason this module
 //! is not four lines. `SeatSpec::starting_battlefield` seeds a permanent with
 //! `move_object(.., Cause::Setup)` (`state.rs`), which is a placement rather
-//! than an entry: no replacement effect looks at it, so a board built that
-//! way arrives untapped whatever the card says. A test that used it would
-//! have measured nothing and passed.
+//! than an entry: no replacement effect looks at it. A board built that way
+//! is nonetheless untapped by the time anybody can look at it, and the
+//! reason is worth stating exactly, because the obvious reading is wrong.
+//! Measured on a seeded Bojuka Bog: `apply_enter_modifiers` *does* reach it —
+//! it is tapped after the first mulligan is kept — and then the first turn's
+//! untap step untaps it (CR 502.1, journalled as `ObjectUntapped { cause:
+//! TurnBased }`) before the first priority. So a test built on `Cause::Setup`
+//! would have measured nothing and passed, but not because the modifier was
+//! skipped. [`printed_tests`] leans on the half of that which survives: a
+//! modifier that *asks* — `TappedOrPayLife`, `ChooseSubtype` — interrupts on
+//! that same pass and has to be answered.
+//!
+//! [`printed_tests`]: super::printed_tests
 //!
 //! Both arms run, because only one of them is the bug anybody expects. A
 //! card that says it enters tapped and does not is the obvious fault; a card
