@@ -757,10 +757,30 @@ impl<L: CardLookup> Engine<L> {
     /// One thing neither branch does: a permanent with a *printed* static
     /// ability that becomes a copy keeps that static registered, because
     /// `sync_static_effects` registered it at step 0a of the pass this runs
-    /// in at 0b, and only a departure un-registers one. No card in the pool
-    /// can reach it — the three permanents that become copies here (Cursed
-    /// Mirror, Glasspool Mimic, and a token copy, which is new) print no
-    /// static of their own — so it is recorded rather than fixed.
+    /// in at 0b, and only a departure un-registers one.
+    ///
+    /// This used to say no card in the pool could reach that, and named the
+    /// three permanents it had in mind. Ten cards carry an enters-as-a-copy
+    /// ability, and one of them — **Sakashima of a Thousand Faces** — prints
+    /// exactly such a static: "the legend rule doesn't apply to permanents
+    /// you control". It reaches this on every cast.
+    ///
+    /// It is nonetheless still recorded rather than fixed, because for that
+    /// one card the two errors cancel *exactly*. The card says "…except it
+    /// has Sakashima's other abilities", which no [`CopyMod`] can express —
+    /// its `mods` list is empty — and the static nothing un-registers is
+    /// precisely the ability that clause keeps. So copy your own legend with
+    /// a Sakashima and you keep both, which is what the card does. A card
+    /// wanting the opposite would be wrong here, and the pool has none.
+    ///
+    /// Both halves are held by tests rather than by this paragraph:
+    /// `combo_tests::a_sakashima_copying_my_own_legend_keeps_the_legend_rule_off`
+    /// plays it out and asserts the mechanism (the copy no longer *has* the
+    /// static; the effect is still in the table), and
+    /// `combo_tests::no_card_becomes_a_copy_carrying_a_printed_static_unnoticed`
+    /// is the pool-wide claim this comment used to make on its own.
+    ///
+    /// [`CopyMod`]: baylee_cards_dsl::CopyMod
     #[allow(clippy::too_many_lines)]
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
         let (mods, until_eot): (Vec<baylee_cards_dsl::CopyMod>, bool) = {

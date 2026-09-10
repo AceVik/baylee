@@ -115,6 +115,12 @@ fn thief_of_blood() -> baylee_core::ids::CardIndex {
 fn spark_double() -> baylee_core::ids::CardIndex {
     card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
 }
+fn sakashima_of_a_thousand_faces() -> baylee_core::ids::CardIndex {
+    card_index("8ecdaf4b-4442-42da-9714-4257a83faf50")
+}
+fn padeem_consul_of_innovation() -> baylee_core::ids::CardIndex {
+    card_index("0c7ba712-6a99-4d2f-9242-a2163a11f69c")
+}
 
 /// The one *non-mana* activated ability `source` is offering right now.
 ///
@@ -4163,6 +4169,234 @@ fn a_spark_double_copying_an_elf(seed: u64, season: bool) -> ((i16, i16), u16) {
         .counters
         .get(baylee_cards_dsl::CounterKind::Loyalty);
     (pt(&engine, copy), loyalty)
+}
+
+/// The permanent that becomes a copy and keeps its **own** printed static,
+/// which `progress::apply_copy_choice` records as unreachable and is not.
+///
+/// The mechanism is written down there: `sync_static_effects` registers a
+/// permanent's statics at step 0a and only a *departure* un-registers one,
+/// while the copy is applied at 0b and merely rewrites `own_abilities`. So a
+/// permanent that becomes a copy goes on carrying the continuous effect its
+/// printed text asked for, and the note says no card in the pool can reach
+/// that — the three it names print no static of their own.
+///
+/// Sakashima of a Thousand Faces is the tenth card with an enters-as-a-copy
+/// ability and the one the note missed, because it prints exactly such a
+/// static: "the legend rule doesn't apply to permanents you control". It
+/// reaches the path on every cast.
+///
+/// And it is right by accident, which is why this is a test and not a fix.
+/// The card says "…except it has Sakashima's other abilities", and the DSL
+/// has no `CopyMod` that can say so — `mods: &[]` is the whole of what the
+/// card carries. The clause that cannot be expressed and the effect that is
+/// never un-registered cancel out exactly here: copy your own legend with a
+/// Sakashima and you keep both, which is what the card does. A card wanting
+/// the *opposite* — a printed static that should stop when the copy starts —
+/// would be wrong, and the pool has none.
+///
+/// Padeem is the legend copied because she asks nothing on the way in: no
+/// enters-trigger, no target, and her artifact hexproof reaches a board with
+/// no artifact on it. What is being watched is the seat's own two
+/// permanents, both legendary and both named Padeem after the copy lands —
+/// a pair CR 704.5j would put one of into a graveyard.
+#[test]
+fn a_sakashima_copying_my_own_legend_keeps_the_legend_rule_off() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(101, forest())
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                padeem_consul_of_innovation(),
+            ],
+        )
+        .hand(0, &[sakashima_of_a_thousand_faces()])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let padeem =
+        on_battlefield(&engine, p0, padeem_consul_of_innovation()).expect("my legend deployed");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the main phase grants priority")
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .expect("four Islands, four mana");
+    }
+    let sakashima =
+        in_hand(&engine, p0, sakashima_of_a_thousand_faces()).expect("Sakashima in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: sakashima })
+        .expect("{3}{U} off four Islands");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    let options = target_options(&engine);
+    assert!(
+        options.contains(&padeem),
+        "another creature I control may be copied: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![padeem],
+            },
+        )
+        .expect("the copy choice is answered");
+
+    // The pair exists: two permanents, one controller, the same name, both
+    // legendary. Without that the assertion below would pass on a board the
+    // legend rule was never asked about.
+    let chars = |id| {
+        engine
+            .state()
+            .object(id)
+            .expect("on the battlefield")
+            .characteristics()
+    };
+    assert_eq!(
+        chars(sakashima).name,
+        chars(padeem).name,
+        "the copy took the legend's name"
+    );
+    assert!(
+        chars(sakashima)
+            .supertypes
+            .contains(baylee_core::types::SupertypeSet::LEGENDARY),
+        "and its legendary supertype with it"
+    );
+
+    // And the mechanism, stated rather than left to the outcome: the copy no
+    // longer *has* the printed static — `own_abilities` is the legend's list
+    // now — while the continuous effect it registered on the way in is still
+    // in the table. That is the whole of the note in `apply_copy_choice`, and
+    // the day a copy stops carrying its own printed statics this fails here
+    // rather than at the assertion below, which is the more useful place: it
+    // says the fix has to arrive with a `CopyMod` for "except it has its
+    // other abilities", or Sakashima loses what the card prints.
+    let copied_abilities = engine
+        .state()
+        .object(sakashima)
+        .expect("the copy")
+        .abilities(&RegistryLookup);
+    assert!(
+        !copied_abilities.iter().any(|a| matches!(
+            a,
+            AbilityDef::Static(sa) if matches!(sa.modifier, baylee_cards_dsl::Modifier::LegendRuleOff)
+        )),
+        "the copy took the legend's abilities, so its own printed static is \
+         not among them"
+    );
+    assert!(
+        engine.state().effects.iter().any(|fx| {
+            fx.source == Some(sakashima)
+                && matches!(fx.modifier, baylee_cards_dsl::Modifier::LegendRuleOff)
+        }),
+        "the static registered on the way in is still in the effect table"
+    );
+
+    assert!(
+        !matches!(engine.pending(), Pending::LegendChoice { .. }),
+        "the legend rule was applied to a seat Sakashima's static exempts: \
+         {:?}",
+        engine.pending()
+    );
+    for id in [sakashima, padeem] {
+        assert_eq!(
+            engine.state().object(id).map(|o| o.zone),
+            Some(Zone::Battlefield),
+            "both legends stay on the battlefield"
+        );
+    }
+}
+
+/// The cards that reach that path, and why each is not a live defect.
+///
+/// A name and a reason, the way `offer_tests::INERT_TOKENS` is a token and
+/// the sentence excusing it: nobody grows this list without writing down
+/// what they are excusing, and both halves are checked below, so an entry
+/// that stops being true fails as loudly as a card that stops being listed.
+const COPIES_KEEPING_A_PRINTED_STATIC: &[(&str, &str)] = &[(
+    "Sakashima of a Thousand Faces",
+    "\"…except it has Sakashima's other abilities\" is a clause no `CopyMod` \
+     can say, and the static that is never un-registered supplies exactly it \
+     — the legend rule stays off for its controller, which is what the card \
+     prints. Played out in \
+     `a_sakashima_copying_my_own_legend_keeps_the_legend_rule_off`",
+)];
+
+/// No card becomes a copy carrying a printed static without somebody having
+/// looked at it.
+///
+/// The note in `progress::apply_copy_choice` said the pool could not reach
+/// this, and named the three permanents it had in mind. There are ten cards
+/// with an enters-as-a-copy ability, and the count is exactly why a
+/// pool-wide claim belongs in a test rather than in a comment: a sentence
+/// that was true when it was written goes on reading as checked long after a
+/// card batch has made it false.
+///
+/// Tokens too, through the door `tokens::ALL` keeps opening — nothing there
+/// enters as a copy today, and the walk costs one loop.
+#[test]
+fn no_card_becomes_a_copy_carrying_a_printed_static_unnoticed() {
+    let becomes_a_copy = |abilities: &[AbilityDef]| {
+        abilities.iter().any(|a| {
+            matches!(
+                a,
+                AbilityDef::CopyOnEnter { .. } | AbilityDef::CopyOnEnterUntilEot { .. }
+            )
+        })
+    };
+    let printed_static =
+        |abilities: &[AbilityDef]| abilities.iter().any(|a| matches!(a, AbilityDef::Static(_)));
+
+    let mut offenders = Vec::new();
+    let mut still_true = Vec::new();
+    let mut check = |who: &str, abilities: &[AbilityDef]| {
+        if !becomes_a_copy(abilities) || !printed_static(abilities) {
+            return;
+        }
+        if COPIES_KEEPING_A_PRINTED_STATIC
+            .iter()
+            .any(|(name, _)| *name == who)
+        {
+            still_true.push(who.to_string());
+        } else {
+            offenders.push(who.to_string());
+        }
+    };
+    for def in baylee_cards::all() {
+        for face in 0..def.faces.len() {
+            check(def.name(), def.abilities_for_face(face));
+        }
+    }
+    for token in baylee_cards::tokens::ALL {
+        check(token.name, token.abilities);
+    }
+    assert!(
+        offenders.is_empty(),
+        "a permanent prints a static ability and becomes a copy, so it keeps \
+         that static registered after the copy takes its rules text away — \
+         decide whether that is what the card says, and either fix \
+         `apply_copy_choice` or write the reason into \
+         COPIES_KEEPING_A_PRINTED_STATIC: {offenders:?}"
+    );
+    for (name, why) in COPIES_KEEPING_A_PRINTED_STATIC {
+        assert!(
+            still_true.iter().any(|n| n == name),
+            "{name} is excused here for a shape it no longer has — {why}; \
+             take the entry out of COPIES_KEEPING_A_PRINTED_STATIC"
+        );
+    }
 }
 
 /// "…except it enters with an additional +1/+1 counter on it" is a
