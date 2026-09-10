@@ -26,9 +26,10 @@ use crate::eval;
 use crate::object::{Characteristics, GameObject};
 use crate::state::GameState;
 use baylee_cards_dsl::{Filter, KeywordSet, LAYERS, Layer, Modifier};
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::types::SubtypeSet;
 use smallvec::SmallVec;
+use std::sync::Arc;
 
 /// Number of layers (CR 613.1 sublayers included).
 const LAYER_COUNT: usize = LAYERS.len();
@@ -193,6 +194,71 @@ fn apply_pt_counters(c: &mut Characteristics, obj: &GameObject) {
     if let Some(t) = &mut c.toughness {
         *t = t.saturating_add(delta);
     }
+}
+
+/// The largest chain of copies [`copiable_values`] will walk.
+///
+/// A cycle is unreachable in the rules — a copy effect names an object that
+/// was already on the battlefield when the copy was made, so the chain is
+/// as old as the game and cannot bend back on itself. This is a bound on
+/// the effect table as *data*, not on anything a player can do.
+const MAX_COPY_DEPTH: u8 = 8;
+
+/// The copiable values of an object (CR 707.2).
+///
+/// Not its projection. A copy takes the printed values as modified by other
+/// **copy** effects and by nothing else: an anthem, a +1/+1 counter and a
+/// control-change all live in layers past 1 and none of them come across.
+/// So this reads `base` and the effect table and **never a cache** — which
+/// is what makes the answer the same whichever object was projected first,
+/// and is the whole reason it is not `target.characteristics()`.
+///
+/// The [`Arc`] is the common path: nothing is copying most objects, so the
+/// answer is `base` and costs a refcount. `None` means the object is gone,
+/// which every caller already had to answer for — a copy effect whose
+/// target has left the battlefield changes nothing.
+///
+/// Two things it gets wrong, and they are one thing. `Modifier::BecomeCopyOf`
+/// carries an `ObjectId` and this dereferences it at projection time, so the
+/// copy is re-derived from whatever the target is *now* rather than from
+/// what it was when the copy was made. A Mirror that became an Elf and
+/// whose Elf then died reverts to being an artifact, and a copy of that
+/// Mirror misses the "except it has haste" the Mirror's own copy effect
+/// granted — CR 706.2 makes an except clause copiable, and the mods are
+/// registered as their own effects in layers 4 and 6 where nothing marks
+/// them as part of a copy. Both want the same change: the effect should
+/// carry a snapshot, not an id.
+#[must_use]
+pub fn copiable_values(state: &GameState, id: ObjectId) -> Option<Arc<Characteristics>> {
+    copiable_values_at(state, id, 0)
+}
+
+fn copiable_values_at(state: &GameState, id: ObjectId, depth: u8) -> Option<Arc<Characteristics>> {
+    let obj = state.object(id)?;
+    if depth >= MAX_COPY_DEPTH {
+        return Some(obj.base.clone());
+    }
+    let mut out: Option<Arc<Characteristics>> = None;
+    // Timestamp order, taken rather than sorted: every `register` stamps
+    // with `next_timestamp` and the table is only ever appended to and
+    // retained, so its own order is that order. Layer 1 also needs no
+    // dependency sort — CR 613.8 orders an effect against effects whose
+    // filters it could change, and there is no layer before this one.
+    for fx in state.effects.as_slice() {
+        if fx.layer != Layer::Copy {
+            continue;
+        }
+        let so_far = out.as_deref().unwrap_or(&obj.base);
+        if !applies(state, fx, obj, so_far) {
+            continue;
+        }
+        if let Modifier::BecomeCopyOf(target) = fx.modifier {
+            // A target that is gone leaves the copy as it was, which is what
+            // the arm in `apply` did when it read the object directly.
+            out = copiable_values_at(state, target, depth + 1).or(out);
+        }
+    }
+    Some(out.unwrap_or_else(|| obj.base.clone()))
 }
 
 fn applies(
@@ -387,10 +453,13 @@ fn apply(
         // permanent, for exactly as long as the effect lasts.
         Modifier::GainControl => *controller = fx.controller,
         Modifier::BecomeCopyOf(id) => {
-            // Layer 1: copiable values of the target (its own projection
-            // included, CR 707.2).
-            if let Some(target) = state.object(*id) {
-                *c = target.characteristics().clone();
+            // Layer 1: the target's copiable values (CR 707.2), which are
+            // its base as other copy effects have rewritten it and nothing
+            // else. It used to be `target.characteristics()` — the whole
+            // projection — so a Mirror copying a creature that was holding
+            // a +1/+1 counter came down a 2/2.
+            if let Some(values) = copiable_values(state, *id) {
+                *c = (*values).clone();
             }
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {

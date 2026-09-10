@@ -849,10 +849,19 @@ impl<L: CardLookup> Engine<L> {
             }
             return;
         }
-        let Some((target_base, target_abilities)) = self
-            .state
-            .object(target)
-            .map(|o| (o.base.clone(), o.abilities(&self.lookup)))
+        // The target's copiable values rather than its `base`, because the
+        // two disagree exactly when the target is *itself* a temporary copy:
+        // a Cursed Mirror that became a Llanowar Elf has an artifact's base
+        // and an Elf's copiable values, and the Mimic's own ruling says a
+        // Mimic copying it "enters the battlefield as whatever the chosen
+        // creature copied". The abilities beside it already read through
+        // `abilities`, which follows `own_abilities` and so has always
+        // answered with what the target became — the two halves of one
+        // object were being read from two different places.
+        let Some(target_base) = crate::layers::copiable_values(&self.state, target) else {
+            return;
+        };
+        let Some(target_abilities) = self.state.object(target).map(|o| o.abilities(&self.lookup))
         else {
             return;
         };

@@ -84,8 +84,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             };
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
+            // Copiable values, not `base`: a token copy of a Cursed Mirror
+            // that became an Elf is a copy of the Elf (CR 707.2), and `base`
+            // is the artifact underneath it.
             if let Some(id) = target_id
-                && let Some(base) = state.object(id).map(|o| o.base.clone())
+                && let Some(base) = crate::layers::copiable_values(state, id)
             {
                 create_token_copies(state, you, id, &base, count);
             }
@@ -107,7 +110,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     })
                 });
             if let Some(id) = token
-                && let Some(base) = state.object(id).map(|o| o.base.clone())
+                && let Some(base) = crate::layers::copiable_values(state, id)
             {
                 create_token_copies(state, you, id, &base, 1);
             }
@@ -117,7 +120,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
             if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to)
-                && let Some(base) = state.object(equipped).map(|o| o.base.clone())
+                && let Some(base) = crate::layers::copiable_values(state, equipped)
             {
                 // The modifications are applied once and the result copied,
                 // rather than per token: they do not depend on how many

@@ -2551,6 +2551,215 @@ fn the_mirror_multiplies_the_trigger_its_own_arrival_caused() {
     );
 }
 
+/// Taps only the lands of one printing that `seat` controls.
+///
+/// [`tap_mana_except`] keeps a single source back; this keeps a whole
+/// printing, which is what a test casting two spells in one main phase
+/// needs — `cast_from_hand` taps everything, so the second spell finds an
+/// empty board.
+#[track_caller]
+fn tap_only(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        let is_it = engine
+            .state()
+            .object(source)
+            .is_some_and(|o| o.card.is_some_and(|c| c.index == card));
+        if is_it {
+            engine
+                .apply(seat, PlayerAction::ActivateManaAbility { source })
+                .unwrap();
+        }
+    }
+}
+
+/// A copy of a copy, where the first copy is the temporary kind.
+///
+/// The Mimic's own ruling: "If the chosen creature is copying something
+/// else, then Glasspool Mimic enters the battlefield as whatever the chosen
+/// creature copied." A Mirror that has become a Llanowar Elf is a creature
+/// you control, so its controller's Mimic is offered it — and what the
+/// Mimic must come down as is an Elf, not an artifact named Cursed Mirror.
+///
+/// This is the question [`layers::copiable_values`] answers (CR 707.2), and
+/// `apply_copy_choice` had no such thing: the permanent branch took the
+/// target's `base`, which is layer 0 and knows nothing about a copy that
+/// lives in the effect table, while the abilities beside it came through
+/// [`GameObject::abilities`], which follows `own_abilities` and so does
+/// know. Two halves of one object, read from two different places — and
+/// they disagree only when the target is a *temporary* copy, which is why
+/// nothing noticed until Cursed Mirror started carrying its rules text.
+///
+/// [`layers::copiable_values`]: crate::layers::copiable_values
+/// [`GameObject::abilities`]: crate::object::GameObject::abilities
+#[test]
+fn a_mimic_copying_a_mirror_that_became_an_elf_comes_down_an_elf() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(104, forest())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[cursed_mirror(), glasspool_mimic()])
+        .battlefield(1, &[llanowar_elves(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf");
+
+    // The Mirror's {2}{R} out of the Mountains and the Mimic's {2}{U} out
+    // of the Islands, in one main phase, because the Mirror stops being an
+    // Elf at this turn's cleanup and there is no later one to ask in.
+    tap_only(&mut engine, p0, mountain());
+    let mirror_card = in_hand(&engine, p0, cursed_mirror()).expect("the Mirror is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: mirror_card })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let mirror = on_battlefield(&engine, p0, cursed_mirror()).expect("the Mirror arrived");
+
+    tap_only(&mut engine, p0, island());
+    let mimic_card = in_hand(&engine, p0, glasspool_mimic()).expect("the Mimic is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: mimic_card })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    assert!(
+        target_options(&engine).contains(&mirror),
+        "the Mirror is a creature I control for as long as it is an Elf"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mirror],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let copy = on_battlefield(&engine, p0, glasspool_mimic()).expect("the Mimic arrived");
+    let types = engine
+        .state()
+        .object(copy)
+        .expect("a permanent on the battlefield is an object")
+        .characteristics()
+        .types;
+    assert!(
+        types.intersects(TypeSet::CREATURE),
+        "what the chosen creature copied was a creature: {types:?}"
+    );
+    assert_eq!(
+        pt(&engine, copy),
+        (1, 1),
+        "and the body it came down with is the Elf's"
+    );
+
+    // And it stays one after the Mirror stops being an Elf, which is the
+    // other half of the same ruling: the Mimic's copy is the permanent
+    // kind and was *written* to its base, not re-derived on demand from a
+    // Mirror that has since gone back to being an artifact.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .expect("still standing")
+            .characteristics()
+            .types
+            .intersects(TypeSet::CREATURE),
+        "a copy lasts as long as the object does (CR 707.2a)"
+    );
+    assert_eq!(pt(&engine, copy), (1, 1), "and keeps the body with it");
+}
+
+fn harabaz_druid() -> baylee_core::ids::CardIndex {
+    card_index("ead985ec-f29f-4a3b-b8b1-061142cc5bd1")
+}
+
+/// A copy takes the printed body, not the one the counters made.
+///
+/// A +1/+1 counter is not a copiable value (CR 707.2): it is applied in
+/// layer 7d, long after the copy effect in layer 1, and a copy of a
+/// creature bearing one arrives without it. The Mirror's other half is the
+/// one that could get this wrong — `Modifier::BecomeCopyOf` assigns the
+/// target's `characteristics()`, which is every layer projected and not the
+/// copiable values alone, so what it takes depends on what the projection
+/// has already reached rather than on the rules.
+///
+/// The Ally is chosen for how quietly it can be given a counter: Earth
+/// King's Lieutenant counts another Ally entering, and Harabaz Druid is the
+/// one in the pool that enters without a rally trigger of its own to answer.
+#[test]
+fn a_mirror_copying_a_countered_creature_leaves_the_counter_behind() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(105, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[cursed_mirror()])
+        .battlefield(1, &[earth_king_s_lieutenant(), forest(), forest()])
+        .hand(1, &[harabaz_druid()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    reach_their_main_phase(&mut engine, p1);
+
+    cast_from_hand(&mut engine, p1, harabaz_druid());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p1, harabaz_druid()).is_some() && stack_is_empty(e)
+    });
+    let ekl = on_battlefield(&engine, p1, earth_king_s_lieutenant()).expect("their Lieutenant");
+    assert_eq!(
+        plus_one_counters(&engine, p1, earth_king_s_lieutenant()),
+        1,
+        "another Ally entered, so the Lieutenant rallied"
+    );
+    assert_eq!(pt(&engine, ekl), (2, 2), "and is a 2/2 while it holds it");
+
+    reach_their_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, cursed_mirror());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![ekl] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let mirror = on_battlefield(&engine, p0, cursed_mirror()).expect("the Mirror arrived");
+    assert_eq!(
+        plus_one_counters(&engine, p0, cursed_mirror()),
+        0,
+        "a counter is not a copiable value, so none came across"
+    );
+    assert_eq!(
+        pt(&engine, mirror),
+        (1, 1),
+        "and the body is the printed one, not the one the counter made"
+    );
+}
+
 fn esper_sentinel() -> baylee_core::ids::CardIndex {
     card_index("5def9f38-0a0b-4e8d-9f9d-29dcb46520b4")
 }
