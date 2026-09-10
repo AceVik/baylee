@@ -1365,8 +1365,20 @@ impl<L: CardLookup> Engine<L> {
                 &[][..]
             } else {
                 match abilities.get(loc.index as usize) {
+                    // `ActivatedConditional` belongs here beside `Activated`:
+                    // the condition is a restriction on *activating* it —
+                    // CR 602.5, "a player can't begin to activate an ability
+                    // that's prohibited from being activated" — checked once
+                    // in `start_activation` and spent there. What reaches the
+                    // stack is an ordinary ability,
+                    // and leaving it out of this arm meant every conditional
+                    // ability that uses the stack panicked the engine as it
+                    // resolved — Wizard Class could be levelled and not
+                    // survive it. The `targeted` match just below had it all
+                    // along, which is why nothing else noticed.
                     Some(
                         AbilityDef::Activated { effects, .. }
+                        | AbilityDef::ActivatedConditional { effects, .. }
                         | AbilityDef::Triggered { effects, .. }
                         | AbilityDef::Loyalty { effects, .. }
                         | AbilityDef::SagaChapter { effects, .. },

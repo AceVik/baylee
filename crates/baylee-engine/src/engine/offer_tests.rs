@@ -54,6 +54,18 @@ const SEED: u64 = 4_211;
 /// from arriving at its main phase fails here instead of silently.
 const COVERAGE_FLOOR: usize = 400;
 
+/// The floor under the deeds driven all the way back to a quiet priority.
+///
+/// Pressing a button and watching the engine refuse the very answer it just
+/// enumerated is the point of the drive, and a drive that stops at the first
+/// question it cannot answer checks nothing past the press. This is the
+/// second half of [`COVERAGE_FLOOR`]: that one says the sweep still reaches
+/// the pool, this one says it still gets through it. Every one of the 630
+/// deeds rested when this was measured on 2026-09-10, with nothing stalled
+/// and no question the driver could not answer; the floor is that less a
+/// tenth.
+const RESTED_FLOOR: usize = 560;
+
 /// One thing an object was offered, in the two lists an offer can live in.
 ///
 /// A mana ability belongs here on the same footing as any other: CR 605.1
@@ -227,41 +239,236 @@ fn deeds(legal: &LegalActions, objects: &[ObjectId]) -> Vec<(usize, Deed)> {
     }
     found
 }
-
-/// Presses every button the engine draws on one card, one fresh board per
-/// button, and names the ones it takes back.
+/// Where driving one activation to a rest ended.
 ///
-/// A board per deed because the first activation moves the game on: a cost
-/// is paid, a permanent taps, the stack fills. Asking the second question of
-/// that state would be asking a different question.
-fn refusals(def: &'static baylee_cards_dsl::CardDef) -> (Vec<String>, bool) {
-    let seat = PlayerId::new(0);
-    let Some((_, objects, legal)) = probe(def.index) else {
-        return (Vec::new(), false);
-    };
-    let wanted = deeds(&legal, &objects);
-    let mut offenders = Vec::new();
-    for (slot, deed) in &wanted {
-        let Some((mut engine, objects, _)) = probe(def.index) else {
-            continue;
+/// Every answer the driver gives is one the question itself enumerated, so
+/// [`Rest::Refused`] is the offer contradiction one question further in: the
+/// engine listed an answer and then rejected it.
+#[derive(Debug)]
+enum Rest {
+    /// Back to a quiet priority: the stack is empty and the seat holds it.
+    Reached,
+    /// The game ended on the way, which is a rest of its own.
+    Over,
+    /// A pending this driver has no arm for. Not a failure — the driver is
+    /// deliberately not a second house AI — but counted, because "cannot
+    /// answer this one" growing into "cannot answer anything" is how a sweep
+    /// dies quietly.
+    Unanswered(&'static str),
+    /// The step cap ran out.
+    Stalled,
+    /// An answer taken from the enumeration was refused.
+    Refused(String),
+}
+
+/// Answers whatever the engine asks — always out of what the question itself
+/// enumerated — until the activation has resolved and `seat` is back at a
+/// quiet priority.
+///
+/// This is the offer invariant carried through the wizard. `LegalActions` is
+/// not the only enumeration the engine publishes: `ChooseTargets` carries the
+/// legal targets, `ChooseCards` the legal cards, `ChooseColor` the legal
+/// colours. Each is a promise of the same kind, and an answer lifted straight
+/// out of one and then refused is the same two-probes disagreement.
+///
+/// The match is exhaustive on purpose. A new `Pending` variant is a new
+/// question the engine can ask, and the choice of whether this sweep answers
+/// it or counts it as unreached should be made when it is added, not
+/// inherited from a `_` arm.
+///
+/// The two departures are `DiscardChoice` and `MulliganBottom`, which
+/// enumerate a *count* and leave the cards to the seat's own hand — so the
+/// hand is where those answers come from, exactly as a client reads them.
+#[allow(clippy::too_many_lines)] // one flat arm per question the engine asks
+fn drive_to_rest(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> Rest {
+    for _ in 0..200 {
+        if engine.state().zones.stack_is_empty()
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat)
+        {
+            return Rest::Reached;
+        }
+        let (player, action) = match engine.pending().clone() {
+            Pending::GameOver(_) => return Rest::Over,
+            Pending::Mulligan { .. } => return Rest::Unanswered("Mulligan"),
+            Pending::Priority { player, .. } => (player, PlayerAction::PassPriority),
+            Pending::ChooseAttackers { player, .. } => {
+                (player, PlayerAction::DeclareAttackers { attackers: vec![] })
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                (player, PlayerAction::DeclareBlockers { blockers: vec![] })
+            }
+            Pending::ChooseTargets {
+                player,
+                options,
+                player_options,
+                min,
+                max,
+                ..
+            } => {
+                // An "up to" prompt (`min` 0) is answered with one anyway:
+                // choosing nothing is legal and exercises nothing.
+                let want = usize::from(min).max(1).min(usize::from(max));
+                let objects: Vec<_> = options.into_iter().take(want).collect();
+                let players = player_options
+                    .into_iter()
+                    .take(want.saturating_sub(objects.len()))
+                    .collect();
+                (player, PlayerAction::ChooseTargets { objects, players })
+            }
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                max,
+                ..
+            } => {
+                let want = usize::from(min).max(1).min(usize::from(max));
+                (
+                    player,
+                    PlayerAction::ChooseObjects {
+                        objects: options.into_iter().take(want).collect(),
+                    },
+                )
+            }
+            Pending::LegendChoice { player, options } => (
+                player,
+                PlayerAction::ChooseObjects {
+                    objects: options.into_iter().take(1).collect(),
+                },
+            ),
+            Pending::DiscardChoice { player, count }
+            | Pending::MulliganBottom { player, count } => {
+                let hand = engine
+                    .state()
+                    .zones
+                    .list(crate::zone::ZoneLocation::Hand(player))
+                    .clone();
+                (
+                    player,
+                    PlayerAction::ChooseObjects {
+                        objects: hand.into_iter().take(usize::from(count)).collect(),
+                    },
+                )
+            }
+            Pending::ChooseSubtype { player, options } => {
+                let Some(first) = options.first().copied() else {
+                    return Rest::Unanswered("ChooseSubtype");
+                };
+                (player, PlayerAction::ChooseSubtype(first))
+            }
+            Pending::ChooseColor { player, options } => {
+                let Some(first) = options.first().copied() else {
+                    return Rest::Unanswered("ChooseColor");
+                };
+                (player, PlayerAction::ChooseColor(first))
+            }
+            Pending::ChoosePlayer { player, options } => {
+                let Some(first) = options.first().copied() else {
+                    return Rest::Unanswered("ChoosePlayer");
+                };
+                (player, PlayerAction::ChoosePlayer(first))
+            }
+            Pending::ChooseCastMode { player, options } => {
+                let Some(first) = options.first() else {
+                    return Rest::Unanswered("ChooseCastMode");
+                };
+                (player, PlayerAction::ChooseMode(first.index as usize))
+            }
+            Pending::ChooseNumber { player, min, .. } => (player, PlayerAction::ChooseNumber(min)),
+            Pending::YesNo { player, .. } => (player, PlayerAction::YesNo(true)),
+            Pending::OrderObjects { player, objects } => {
+                (player, PlayerAction::OrderObjects { objects })
+            }
         };
-        if let Err(err) = engine.apply(seat, deed.action(objects[*slot])) {
-            offenders.push(format!(
-                "{} — {deed:?} was offered, then: {err:?}",
-                def.name()
+        if let Err(err) = engine.apply(player, action.clone()) {
+            return Rest::Refused(format!(
+                "{action:?} came out of the question, then: {err:?}"
             ));
         }
     }
-    (offenders, !wanted.is_empty())
+    Rest::Stalled
+}
+
+/// What one chunk of the pool managed, so the sweep can say how far it got
+/// rather than only whether it found anything.
+#[derive(Default)]
+struct Tally {
+    /// Cards with at least one deed to press.
+    cards: usize,
+    /// Deeds pressed.
+    deeds: usize,
+    /// Deeds driven all the way back to a quiet priority.
+    rested: usize,
+    /// Questions [`drive_to_rest`] has no arm for, by name rather than by
+    /// count: a report that says *which* one stopped it is the difference
+    /// between a taxonomy finding and a number nobody can act on.
+    unanswered: Vec<&'static str>,
+    /// Deeds still asking questions when the step cap ran out.
+    stalled: usize,
+}
+
+impl Tally {
+    fn absorb(&mut self, other: &Self) {
+        self.cards += other.cards;
+        self.deeds += other.deeds;
+        self.rested += other.rested;
+        self.unanswered.extend(other.unanswered.iter().copied());
+        self.stalled += other.stalled;
+    }
+}
+
+/// Presses every button the engine draws on one card, drives each press to a
+/// rest, and names what the engine took back.
+///
+/// A board per deed because the first activation moves the game on: a cost is
+/// paid, a permanent taps, the stack fills. Asking the second question of that
+/// state would be asking a different question.
+///
+/// A panic inside the rules is named here rather than taking the whole sweep
+/// down, for `probe_chunk`'s reason: a run should say *every* card it found,
+/// not stop at the first.
+fn refusals(def: &'static baylee_cards_dsl::CardDef) -> (Vec<String>, Tally) {
+    let seat = PlayerId::new(0);
+    let mut tally = Tally::default();
+    let Some((_, objects, legal)) = probe(def.index) else {
+        return (Vec::new(), tally);
+    };
+    let wanted = deeds(&legal, &objects);
+    if wanted.is_empty() {
+        return (Vec::new(), tally);
+    }
+    tally.cards = 1;
+    tally.deeds = wanted.len();
+    let mut offenders = Vec::new();
+    for (slot, deed) in &wanted {
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let (mut engine, objects, _) = probe(def.index)?;
+            if let Err(err) = engine.apply(seat, deed.action(objects[*slot])) {
+                return Some(Rest::Refused(format!(
+                    "{deed:?} was offered, then: {err:?}"
+                )));
+            }
+            Some(drive_to_rest(&mut engine, seat))
+        }));
+        match outcome {
+            Err(_) => offenders.push(format!("{} — {deed:?} panicked the engine", def.name())),
+            Ok(None) => {}
+            Ok(Some(Rest::Refused(what))) => offenders.push(format!("{} — {what}", def.name())),
+            Ok(Some(Rest::Reached | Rest::Over)) => tally.rested += 1,
+            Ok(Some(Rest::Unanswered(what))) => tally.unanswered.push(what),
+            Ok(Some(Rest::Stalled)) => tally.stalled += 1,
+        }
+    }
+    (offenders, tally)
 }
 
 /// The sweep, cut into one chunk per core for the reason the gamehost soak
-/// gives: a board is built and walked once per deed and there are hundreds
-/// of cards, and a test that is cheap is a test that keeps running on every
-/// commit. The chunks share nothing — the registry is a static and every
-/// board is built from the same constant seed — so what a chunk finds does
-/// not depend on how the pool was divided.
-fn sweep() -> (Vec<String>, usize) {
+/// gives: a board is built and walked once per deed and there are hundreds of
+/// cards, and a test that is cheap is a test that keeps running on every
+/// commit. The chunks share nothing — the registry is a static and every board
+/// is built from the same constant seed — so what a chunk finds does not
+/// depend on how the pool was divided.
+fn sweep() -> (Vec<String>, Tally) {
     let cards: Vec<&'static baylee_cards_dsl::CardDef> =
         baylee_cards::all().filter(|d| d.is_implemented()).collect();
     let threads = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
@@ -272,38 +479,64 @@ fn sweep() -> (Vec<String>, usize) {
             .map(|slice| {
                 scope.spawn(move || {
                     let mut offenders = Vec::new();
-                    let mut probed = 0;
+                    let mut tally = Tally::default();
                     for def in slice {
-                        let (found, reached) = refusals(def);
+                        let (found, one) = refusals(def);
                         offenders.extend(found);
-                        probed += usize::from(reached);
+                        tally.absorb(&one);
                     }
-                    (offenders, probed)
+                    (offenders, tally)
                 })
             })
             .collect();
         handles
             .into_iter()
             .map(|h| h.join().expect("probe chunk"))
-            .fold((Vec::new(), 0), |(mut all, total), (found, probed)| {
-                all.extend(found);
-                (all, total + probed)
-            })
+            .fold(
+                (Vec::new(), Tally::default()),
+                |(mut all, mut total), (found, one)| {
+                    all.extend(found);
+                    total.absorb(&one);
+                    (all, total)
+                },
+            )
     })
 }
 
 #[test]
 fn every_offered_ability_can_be_activated() {
-    let (offenders, probed) = sweep();
+    let (offenders, tally) = sweep();
     assert!(
         offenders.is_empty(),
-        "the engine offered {} abilit(ies) and then refused them:\n  {}",
+        "the engine offered {} thing(s) and then took them back:\n  {}\n\
+         (of {} deeds on {} cards: {} rested, {} unanswered, {} stalled)",
         offenders.len(),
         offenders.join("\n  "),
+        tally.deeds,
+        tally.cards,
+        tally.rested,
+        tally.unanswered.len(),
+        tally.stalled,
     );
     assert!(
-        probed >= COVERAGE_FLOOR,
-        "only {probed} implemented cards had any ability offered at all \
-         (floor {COVERAGE_FLOOR}) — the sweep is no longer reaching the pool",
+        tally.cards >= COVERAGE_FLOOR,
+        "only {} implemented cards had any ability offered at all (floor \
+         {COVERAGE_FLOOR}) — the sweep is no longer reaching the pool",
+        tally.cards,
+    );
+    assert!(
+        tally.rested >= RESTED_FLOOR,
+        "only {} of {} deeds resolved all the way back to a quiet priority \
+         (floor {RESTED_FLOOR}): {} were still asking when the step cap ran \
+         out, and these questions have no arm in the driver: {:?}",
+        tally.rested,
+        tally.deeds,
+        tally.stalled,
+        {
+            let mut kinds = tally.unanswered.clone();
+            kinds.sort_unstable();
+            kinds.dedup();
+            kinds
+        },
     );
 }
