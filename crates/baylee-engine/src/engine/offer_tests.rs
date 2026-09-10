@@ -49,10 +49,14 @@ const SEED: u64 = 4_211;
 ///
 /// This is the lesson the gamehost soak taught: a pool-wide test that
 /// reaches nothing passes exactly as loudly as one that reaches everything.
-/// The number is 457 measured on 2026-09-10, less a tenth, so ordinary pool
+/// The number is 459 measured on 2026-09-10, less a tenth, so ordinary pool
 /// growth never touches it and a setup change that stops part of the pool
 /// from arriving at its main phase fails here instead of silently.
-const COVERAGE_FLOOR: usize = 411;
+///
+/// It is now every implemented card that has anything to press: no board is
+/// abandoned on the way in and none is abandoned tapping its mana. The rest
+/// of the pool is cards with no activated ability at all.
+const COVERAGE_FLOOR: usize = 413;
 
 /// The floor under the deeds driven all the way back to a quiet priority.
 ///
@@ -60,11 +64,11 @@ const COVERAGE_FLOOR: usize = 411;
 /// enumerated is the point of the drive, and a drive that stops at the first
 /// question it cannot answer checks nothing past the press. This is the
 /// second half of [`COVERAGE_FLOOR`]: that one says the sweep still reaches
-/// the pool, this one says it still gets through it. Every one of the 642
+/// the pool, this one says it still gets through it. Every one of the 645
 /// deeds rested when this was measured on 2026-09-10, with nothing stalled
 /// and no question the driver could not answer; the floor is that less a
 /// tenth.
-const RESTED_FLOOR: usize = 577;
+const RESTED_FLOOR: usize = 580;
 
 /// One thing an object was offered, in the two lists an offer can live in.
 ///
@@ -249,9 +253,16 @@ fn probe(card: CardIndex) -> Option<(Engine<RegistryLookup>, Vec<ObjectId>, Lega
             continue;
         }
         // A mana ability the engine offered and then refused is the same
-        // contradiction this module is about, so the board is abandoned
-        // rather than unwrapped through: these are the basics, and a basic
-        // that cannot tap for mana is a failure the mana tests own.
+        // contradiction this module is about, and the board is abandoned
+        // rather than unwrapped through — which is tolerance in the same
+        // sense as `walk_to_own_main`'s, and cost exactly as much. It used
+        // to say that these are the basics and a basic that cannot tap for
+        // mana is the mana tests' problem. They are not always the basics:
+        // Chromatic Lantern and Great Divide Guide grant every land a second
+        // mana ability, the same land came back in this list twice, and the
+        // second press was refused. Both cards left the sweep here, silently,
+        // and it took reading the delta to notice. See
+        // [`a_permanent_that_makes_mana_two_ways_is_offered_once`].
         engine
             .apply(seat, PlayerAction::ActivateManaAbility { source })
             .ok()?;
@@ -674,4 +685,57 @@ fn an_ability_the_engine_cannot_pay_for_is_never_offered() {
         ),
         "the activation should agree with the offer, and answered {refused:?}"
     );
+}
+
+/// A permanent that makes mana two ways is offered once.
+///
+/// `mana_abilities` is addressed by `PlayerAction::ActivateManaAbility
+/// { source }`, which names no index, so the list is a list of *permanents*:
+/// a second entry for one of them is an offer nothing can accept. The first
+/// press takes whichever ability the engine prefers, the permanent is
+/// tapped, and the duplicate is then refused by the very list that put it
+/// there — this module's whole subject, one line lower down than usual.
+///
+/// Chromatic Lantern is where the pool says it. It grants every land
+/// "{T}: Add one mana of any color" on top of the CR 305.6 shortcut a basic
+/// already has, and entered each of them in the list twice.
+///
+/// Every reader had to know that on its own. `testkit::tap_mana_except`
+/// unwraps and would have panicked; [`probe`] gave up on the board, which is
+/// why Chromatic Lantern and Great Divide Guide were the last two implemented
+/// cards the sweep could not reach; and the client survived only because
+/// `manasources::sources` dedupes by object id for a reason of its own.
+#[test]
+fn a_permanent_that_makes_mana_two_ways_is_offered_once() {
+    let seat = PlayerId::new(0);
+    let lantern = card_index("539f5396-d99a-417d-a84c-dff7930b5900");
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6");
+    let mut engine = Duel::new(SEED, forest)
+        .battlefield(0, &[lantern, forest, forest])
+        .start();
+    assert!(
+        walk_to_own_main(&mut engine, seat),
+        "the board never reached seat 0's own main phase"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let offered = legal.mana_abilities.clone();
+    let mut once = offered.clone();
+    once.sort_unstable();
+    once.dedup();
+    assert_eq!(
+        once.len(),
+        offered.len(),
+        "a permanent was offered as a mana source more than once: {offered:?}"
+    );
+    assert_eq!(offered.len(), 2, "two Forests under a Lantern: {offered:?}");
+    // The other half of the same claim: every entry in the list is one the
+    // action will take. Pressed in the order the engine listed them, which
+    // is how `HeuristicAgent` and the client's planner both read it.
+    for source in offered {
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap_or_else(|err| panic!("{source:?} was offered, then: {err:?}"));
+    }
 }

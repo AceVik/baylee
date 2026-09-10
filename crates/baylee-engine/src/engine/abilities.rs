@@ -286,7 +286,19 @@ impl<L: CardLookup> Engine<L> {
                 legal
                     .abilities
                     .push((id, crate::choice::granted_ability(n as u32)));
-                if granted.mana_ability {
+                // Once per permanent, not once per ability.
+                // `PlayerAction::ActivateManaAbility` names a *source* and no
+                // index, so a second entry for the same permanent is an offer
+                // nothing can accept: the first press takes whichever ability
+                // `activate_mana` prefers, the permanent is tapped, and the
+                // duplicate is refused by the list that put it there. A
+                // Chromatic Lantern entered every land on the board twice.
+                //
+                // Which one the single entry stands for is settled in
+                // `apply`: intrinsic first, and the granted ability is
+                // reached by naming `GRANTED_ABILITY` in `legal.abilities`,
+                // where it also appears.
+                if granted.mana_ability && !legal.mana_abilities.contains(&id) {
                     legal.mana_abilities.push(id);
                 }
             }
