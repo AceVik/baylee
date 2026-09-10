@@ -1894,15 +1894,22 @@ middle — does not leave the bar at the width it was born with. And the box's
 rectangle from that edge inwards, and `Shelf::of`'s half-turn fold flips
 exactly the seats that needed flipping, so the steps are the row furthest
 from the board at a near seat, a far seat and a side seat alike.
-It reaches a duel and stops there. `a_duel_is_written_on_two_rows` is the
-test, and it reports both shelves rather than the first, because the number
-that decides the ledge is the *shallower* of the two. Those two are about a
-tenth apart (36.2 against 40.3 at 1728), so there is a band of window sizes —
-roughly 1460 to 1620 at this aspect — where a duel writes its local bar on
-two rows and its opponent's on one. That is the per-seat answer the ladder
-already gives a four-seat table, where a side seat and the seat across get
-different forms; a duel showing two is the same rule and not an exception to
-it.
+It reaches a duel and stops there, and what stops it is **length**.
+`a_duel_is_written_on_two_rows` is the test, and it reports both shelves
+rather than the first, because the number that decides the ledge is the
+*shallower* of the two. Those two are about a tenth apart (55.0 against 61.1
+at 1728), so there is a band of window sizes — roughly 1150 to 1250 at this
+aspect — where a duel writes its local bar on two rows and its opponent's on
+one. That is the per-seat answer the ladder already gives a four-seat table,
+where a side seat and the seat across get different forms; a duel showing two
+is the same rule and not an exception to it.
+
+Three seats and up have shelves that are deep enough and far too short: at
+1728 they project 372×46, 337×44 and 337×44 against the 507 px the two-row
+bar is wide, so the length ladder takes over untouched. Both halves of that
+sentence used to read the other way — the depth was the thing that ran out —
+and that was the shelf being measured a printed border short of the one the
+mat draws. See "Where a bar is measured from", below.
 
 Three channels on a step tile, and they answer three different questions.
 The **frame** is the standing order — none at all for a dead step, gold for
@@ -1933,6 +1940,56 @@ invisible on your own bar until an opponent is taking one — and a player
 arranging stops wants the whole arrangement in front of them. `PhaseOrders` is
 keyed by `RailSide` and not by seat, so one tile on one seat's bar sets an
 order every other seat's bar then draws.
+
+### Where a bar is measured from
+
+A mat is drawn larger than the board it carries: `tabletop::MAT_MARGIN` past
+the playing extent on all four sides, a printed border like the one round a
+real playmat. That constant used to be `table::ZONE_MARGIN` and lived in the
+renderer, where nothing else could see it — and everything else about a mat
+is a *fraction* of its depth. So the shelf and the three lanes were laid out
+over `layout::POD_DEPTH` and painted over `POD_DEPTH + 2·MAT_MARGIN`: every
+band stretched by 18.5%, the shelf 0.46 units from where the geometry had
+reserved it, the two lane seams 0.06 and 0.25 units off the rows of cards
+they fence.
+
+Nothing failed. The bar followed `SeatSlot::ledge_corners` to the pixel and
+`ledge_corners` was not describing the band on screen, which is a defect no
+screenshot can name and no assertion about the drawing can catch. What found
+it was `/state.shelves` against a photograph: the model reported `mid_y` 605.9
+over a 49.0 px shelf, the picture put the drawn ledge at 560..611 and the ink
+at 591..620. Ink where the model says, model where the mat does not — so the
+projection was the half that was wrong, and the seat's identity row was
+standing on its own creature lane.
+
+There is one rectangle now. `MAT_MARGIN` is in `client-core::tabletop`,
+`LEDGE_FRAC`, `LANE_FRAC` and `MARGIN_FRAC` are fractions of
+`MAT_DRAWN_DEPTH`, and they sum to 1 under a `const _` — the shelf, three
+lanes and the border beyond the last of them are the whole mat, so a band
+left over is a band in the wrong place. The border at the shelf's own end is
+part of the shelf: nothing stands on either, they are contiguous, and the only
+other reading paints a stripe of creature lane outside the shelf at the very
+edge of the mat, which says a card could stand there. `ledge_corners` returns
+that same rectangle, `MAT_MARGIN + MAT_LEDGE` deep. Its *length* still stops
+at the playing extent, deliberately — the border is a margin for the ink to
+stop inside, and a bar written out to the corner would be written across the
+rim that carries the seat's colour.
+
+`tabletop::the_mat_fences_its_bands_where_the_layout_put_them` is what would
+have caught it, and it reads the fences out of the **texture** rather than out
+of the constants the texture was built from: a number written down twice is
+the whole of the fault, so asking one copy whether it equals itself proves
+nothing. Its mutant is the old lane arithmetic — split what the shelf leaves
+in three instead of taking `SeatSlot::lane_height` — which moves the first
+seam 0.06 units and fails it.
+
+The bar the shelf can hold changed with it, and in the direction the owner
+asked for: a duel's local shelf projects 61.1 px deep at 1728 where it read
+40.3, so the two-row bar now reaches any laptop rather than only a wide
+window. `MAT_LEDGE` was moved from 0.95 to 1.00 to buy that bar under the old
+reading and would probably not have needed to be; it is left where it is,
+because the tables were tuned there and a shelf's depth is a look rather than
+an arithmetic.
 
 ## The bar's hinge says which turn and what the game is
 

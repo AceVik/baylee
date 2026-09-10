@@ -108,7 +108,13 @@ const MEDALLION_SIZE: f32 = 2.2;
 const WASH_RATE: f32 = 3.0;
 /// Margin around a seat's pod, so its mat is a table the cards sit on rather
 /// than a box drawn tight around them.
-const ZONE_MARGIN: f32 = 0.55;
+///
+/// It lives in `client-core` now, beside the bands that are fractions of the
+/// quad it widens: a renderer-only margin meant the ledge and the lanes were
+/// laid out over a rectangle 18.5% shallower than the one they were painted
+/// on. Re-exported under the old name because everything else here reads it
+/// as a margin around a pod, which is what it still is.
+use baylee_client_core::tabletop::MAT_MARGIN as ZONE_MARGIN;
 /// How far past the mat the glow beneath it spreads.
 const GLOW_SPREAD: f32 = 2.4;
 /// How much of a seat's colour the glow beneath its mat spills onto the table.
@@ -2888,8 +2894,14 @@ mod camera_tests {
     /// and the far seat a single crowded row — one table, two designs, and no
     /// test would have noticed.
     ///
-    /// Two seats and not more: three is where the shelf stops being deep
-    /// enough for two rows however the camera is framed, and
+    /// Two seats and not more, and what stops it is the shelf's **length**
+    /// rather than its depth. Measured at [`WINDOW`]: a duel's shelves
+    /// project 1127×61 and 1069×55, and three seats project 372×46, 337×44,
+    /// 337×44 — deep enough for the 34 px of ink two rows draw, and nowhere
+    /// near the 507 px the two-row bar is wide. It used to be the depth that
+    /// ran out first; that was the shelf being measured a printed border
+    /// short of the one the mat draws, and the number that moved when they
+    /// were reconciled was the depth.
     /// [`the_bar_fits_its_ledge_at_every_seat_of_an_eight_ring`] is what
     /// holds the ladder that takes over there.
     #[test]
@@ -2932,33 +2944,36 @@ mod camera_tests {
     /// around them.
     ///
     /// Measured, at a window kept the shape of [`WINDOW`]: the local ledge
-    /// projects to 842, 942, 1122 and 1241 pixels, which is 0.658 down to
-    /// 0.646 of the window's width — a ratio rather than a constant, because
-    /// `Canvas::hud` takes a *fixed* hand bar off the bottom and a small
-    /// window is therefore a squarer canvas. The full bar wants 924, so the
-    /// hand-over is at about 1400 logical pixels: a 1280 laptop is the one
-    /// window in the list that reads its own seat off the compact bar.
+    /// projects 548, 688, 768 and 1247 pixels long and 21.1, 30.7, 36.2 and
+    /// 69.4 deep. The length is 0.65 of the window's width throughout — a
+    /// ratio rather than a constant, because `Canvas::hud` takes a *fixed*
+    /// hand bar off the bottom and a small window is therefore a squarer
+    /// canvas.
     ///
-    /// The top of the list is a **depth** hand-over and not a length one.
-    /// Every window here is long enough for the two-row bar's 507 twice over;
-    /// what decides it is that the local ledge projects 33.6 px deep at 1440
-    /// and 40.3 at 1728, against the 34 two rows of ink draw. So the window
-    /// that gains the phase line is the one whose *height* bought the shelf a
-    /// second row, which is why a table of window widths is still the honest
-    /// shape for this: the canvas is kept the shape of [`WINDOW`].
+    /// Every hand-over in the list is a **depth** one, and that is the shape
+    /// of the whole ladder now: the two-row bar wants 507 px of length, which
+    /// an 800-wide window already has, so what decides the form is whether
+    /// the shelf is deep enough to write two rows on — 34 px of ink against
+    /// the 21.1, 30.7 and 36.2 above. A window of the shape here gains the
+    /// phase line at about 1150, and it is its *height* that buys it.
     ///
-    /// This list samples either side of a band it does not land in. The far
-    /// seat's shelf is about a tenth shallower than the near one (36.2
-    /// against 40.3 at 1728), so between roughly 1460 and 1620 a duel draws
-    /// its local bar on two rows and its opponent's on one. That is the same
-    /// per-seat answer the ladder already gives a four-seat table, where a
-    /// side seat and the seat across get different forms — but it is worth
-    /// knowing that a duel can show two, and worth not widening the window
-    /// list to pin it, because the exact edges move with every constant here.
+    /// This list used to start at the compact bar at 1280 and reach the
+    /// two-row one at 1728, and every number in it moved when the shelf
+    /// stopped being measured a border short of the one that is drawn: the
+    /// same 1728 window that projected a 40.3 px shelf projects 61.1. A duel
+    /// is now written on two rows on any laptop, which is what the shelf
+    /// could always hold and not a change of mind about what it should.
+    ///
+    /// The far seat's shelf stays about a tenth shallower than the near one
+    /// (55.0 against 61.1 at 1728), so there is still a band — around 1150 to
+    /// 1250 — where a duel draws its local bar on two rows and its
+    /// opponent's on one. That is the same per-seat answer the ladder gives a
+    /// four-seat table, and the list deliberately does not try to pin its
+    /// edges: they move with every constant here.
     const DUEL_BARS: [(f32, baylee_client_core::seatbar::Density); 4] = [
-        (1280.0, baylee_client_core::seatbar::Density::Compact),
-        (1440.0, baylee_client_core::seatbar::Density::Full),
-        (1728.0, baylee_client_core::seatbar::Density::Split),
+        (800.0, baylee_client_core::seatbar::Density::Pip),
+        (1024.0, baylee_client_core::seatbar::Density::Compact),
+        (1152.0, baylee_client_core::seatbar::Density::Split),
         (1920.0, baylee_client_core::seatbar::Density::Split),
     ];
 
@@ -3470,6 +3485,8 @@ mod camera_tests {
             ("LANE_FAR", tabletop::MAT_LANES[2]),
             ("LANE_LEDGE", tabletop::MAT_LEDGE_VALUE),
             ("LEDGE_FRAC", tabletop::LEDGE_FRAC),
+            ("LANE_FRAC", tabletop::LANE_FRAC),
+            ("MARGIN_FRAC", tabletop::MARGIN_FRAC),
             ("LEDGE_SEAM", tabletop::MAT_LEDGE_SEAM),
             ("SEAM", tabletop::MAT_SEAM),
             ("SEAM_W", tabletop::MAT_SEAM_WIDTH),

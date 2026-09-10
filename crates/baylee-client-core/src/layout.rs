@@ -393,8 +393,22 @@ impl SeatSlot {
         // length, its depth, the order of its corners — is the same either
         // way, which is why this is a sign and not a second branch.
         let reach = if self.ledge_is_outer() { -1.0 } else { 1.0 };
-        let near = self.center + away * (reach * self.half_extent.y);
+        // Out to the edge of the mat as it is *drawn*, which is
+        // `MAT_MARGIN` past the playing extent. The shelf and the border at
+        // its own end are one band: nothing stands on either, and the mat
+        // paints them as one for want of anything else to say about a strip
+        // of ground outside the shelf. Measuring to `half_extent` instead is
+        // what put a bar 0.46 units inside its own ledge — the ink followed
+        // this rectangle to the pixel and this rectangle was not the one on
+        // screen.
+        let near =
+            self.center + away * (reach * (self.half_extent.y + crate::tabletop::MAT_MARGIN));
         let far = self.center + away * (reach * (self.half_extent.y - crate::tabletop::MAT_LEDGE));
+        // The length stops at the playing extent even though the band drawn
+        // there runs the whole width of the mat, and that is deliberate: the
+        // border is a margin for the ink to stop inside, and a bar running
+        // out to the corner would be written across the rim that carries the
+        // seat's colour.
         let out = side * self.half_extent.x;
         [near - out, near + out, far + out, far - out]
     }

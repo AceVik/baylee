@@ -76,7 +76,19 @@ const LANE_FAR: f32 = 0.0080;
 /// Dimmer than the quietest lane, because the ink on it is meant to be the
 /// brightest thing on a seat's ground.
 const LANE_LEDGE: f32 = 0.0060;
-const LEDGE_FRAC: f32 = 0.16819783;
+const LEDGE_FRAC: f32 = 0.22000233;
+
+/// One lane and one end of the printed border, as fractions of the same
+/// depth. `tabletop::LANE_FRAC`, `tabletop::MARGIN_FRAC`.
+///
+/// Every fraction here is over the mat that is **drawn**, which is
+/// `tabletop::MAT_MARGIN` deeper than the playing extent at each end. They
+/// were over the playing extent, which stretched all four bands by 18.5% and
+/// is why the shelf and the bar written on it disagreed by 0.46 units.
+/// `LEDGE_FRAC + 3·LANE_FRAC + MARGIN_FRAC` is 1: the shelf, the three rows
+/// and the border beyond the last of them are the whole mat.
+const LANE_FRAC: f32 = 0.23397744;
+const MARGIN_FRAC: f32 = 0.07806534;
 
 /// The hairline between two lanes, and how wide it runs as a fraction of the
 /// mat's depth. `tabletop::MAT_SEAM`, `tabletop::MAT_SEAM_WIDTH`.
@@ -172,17 +184,20 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // from.
     //
     // The lanes always run from that end outwards; only the shelf moves. So
-    // the block of three starts at `first` — one shelf in when the shelf is
-    // at this end, at zero when it is at the other — while `from_shelf` is
+    // the block of three starts at `first` — one border in, and one shelf
+    // further when the shelf is standing at this end — while `from_shelf` is
     // the depth read from whichever end the shelf took, which answers both
     // "is this the shelf" and "how far is the fence" without a second case.
+    //
+    // The printed border is not a band of its own: at the shelf's end it is
+    // the shelf, and past the last lane it is that lane running out to the
+    // rim, which is what `LANE_FAR` being the default leaves it as.
     let v = in.uv.y;
     let outer = params.ledge_outer > 0.5;
-    let lanes = 1.0 - LEDGE_FRAC;
-    let first = select(LEDGE_FRAC, 0.0, outer);
+    let first = MARGIN_FRAC + select(LEDGE_FRAC - MARGIN_FRAC, 0.0, outer);
     let from_shelf = select(v, 1.0 - v, outer);
-    let a = first + lanes / 3.0;
-    let b = first + lanes * 2.0 / 3.0;
+    let a = first + LANE_FRAC;
+    let b = first + LANE_FRAC * 2.0;
     var lane = LANE_FAR;
     if from_shelf < LEDGE_FRAC {
         lane = LANE_LEDGE;

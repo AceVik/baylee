@@ -913,7 +913,23 @@ is not a fixed number of pixels: they have the row to themselves, so they
 grow together to a cap and the slack past it goes into the gaps, which is
 what lets `Shelf::box_size` measure a split bar's box from the ledge instead
 of from the form. It reaches a duel and stops there — three seats and up have
-no shelf deep enough for two rows, and the ladder takes over untouched.
+shelves deep enough and far too short (372×46 against the 507 px two rows are
+wide), and the length ladder takes over untouched.
+**A mat is drawn `tabletop::MAT_MARGIN` wider than its playing extent on all
+four sides**, and every band on it is a fraction of a depth — so while that
+constant was `table::ZONE_MARGIN` and lived in the renderer, the shelf and
+the three lanes were laid out over `POD_DEPTH` and painted over `POD_DEPTH +
+2·MAT_MARGIN`. Every band was stretched 18.5%: the shelf sat 0.46 units from
+where the geometry reserved it, with the bar following `ledge_corners`
+faithfully off its own ledge and onto the creature lane, and the lane seams
+missed the rows of cards they fence by 0.06 and 0.25 units. Nothing failed,
+because nothing had ever measured the drawn mat against the layout in the
+same unit; `/state.shelves` against a photograph is what found it. There is
+one rectangle now — `MAT_MARGIN` in `client-core::tabletop`, `LEDGE_FRAC` /
+`LANE_FRAC` / `MARGIN_FRAC` fractions of `MAT_DRAWN_DEPTH` summing to 1 under
+a `const _`, `ledge_corners` returning that same band — and
+`the_mat_fences_its_bands_where_the_layout_put_them` reads the fences out of
+the texture rather than out of the constants it was built from.
 Paying for it moved `tabletop::MAT_LEDGE` from 0.95 to 1.00, and the
 interesting half of that is what stopped it: **not** the `MAT_LEDGE <
 CARD_HEIGHT * 0.75` assertion (1.00 is 0.72 of a card, so the bound never

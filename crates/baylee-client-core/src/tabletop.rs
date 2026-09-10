@@ -450,6 +450,17 @@ pub const MAT_LANES: [f32; 3] = [0.0135, 0.0105, 0.0080];
 /// 1.00. Measured rather than reasoned:
 /// `table::camera_tests::a_duel_is_written_on_two_rows` is that number.
 ///
+/// Both of those numbers were **short by a printed border**, and the deeper
+/// ledge was bought under them. The shelf a bar is hung on is
+/// `MAT_MARGIN + MAT_LEDGE` — see [`LEDGE_FRAC`] — and the same shallower
+/// duel shelf projects 55.0 px, not 36.2. So the margin that reading found
+/// so tight was never that tight, and this constant would probably have been
+/// left at 0.95 had anyone been able to see it. It is not moved back: 1.00 is
+/// what the tables above were tuned at, the ring ceiling below is what binds
+/// it either way, and a shelf is furniture whose depth is a look and not an
+/// arithmetic. What is worth knowing is that the reason it moved was a
+/// measurement, and the measurement was of the wrong rectangle.
+///
 /// Two things about the number are worth writing down, because both are the
 /// opposite of what they look like.
 ///
@@ -505,16 +516,70 @@ pub const MAT_LEDGE_VALUE: f32 = 0.0060;
 /// strip of bare table with a rim round it.
 const _: () = assert!(MAT_LEDGE_VALUE < MAT_LANES[2] && MAT_LEDGE_VALUE > 0.0);
 
-/// How much of a mat's depth the ledge takes, as a fraction.
+/// How much wider than the playing extent a mat is drawn, on every side.
+///
+/// A mat is a table the cards sit on and not a box drawn tight around them,
+/// so the quad is [`crate::layout::SeatSlot::half_extent`] plus this on all
+/// four sides — a printed border, which is exactly what the margin round a
+/// real playmat is.
+///
+/// It lives here, beside the bands, rather than in the renderer that draws
+/// the quad, and that is the whole point of moving it. It used to be
+/// `table::ZONE_MARGIN` and nothing outside the renderer could see it, so
+/// the bands below were fractions of [`crate::layout::POD_DEPTH`] laid over
+/// a quad that is `2 · MAT_MARGIN` deeper — every band stretched by 18.5%,
+/// the shelf 0.46 units out of place, and the lane seams a fifth of a unit
+/// off the rows they are supposed to fence. Two modules measuring two
+/// different rectangles is not a thing a comment can hold together; there is
+/// one rectangle now and this is the constant that says how big it is.
+pub const MAT_MARGIN: f32 = 0.55;
+
+/// The depth of a mat **as it is drawn**: the playing extent plus its border
+/// on both sides.
+///
+/// Every fraction below is over this and not over
+/// [`crate::layout::POD_DEPTH`], because a fraction of the wrong rectangle is
+/// a band in the wrong place.
+pub const MAT_DRAWN_DEPTH: f32 = crate::layout::POD_DEPTH + MAT_MARGIN * 2.0;
+
+/// How much of the drawn mat the border takes at one end, as a fraction.
+pub const MARGIN_FRAC: f32 = MAT_MARGIN / MAT_DRAWN_DEPTH;
+
+/// How much of the drawn mat the shelf takes, as a fraction.
 ///
 /// Which end it takes it from is
 /// [`SeatSlot::ledge_is_outer`](crate::layout::SeatSlot::ledge_is_outer)'s
 /// to say, and the three lanes fill what is left from the centre-facing
 /// edge outwards either way.
 ///
+/// The border at the shelf's own end is part of it. The two are contiguous,
+/// nothing stands on either, and the alternative is a stripe of creature
+/// lane painted outside the shelf at the very edge of the mat — which says
+/// a card could stand there. So the shelf a bar is written on is
+/// `MAT_MARGIN + MAT_LEDGE` deep, and
+/// [`SeatSlot::ledge_corners`](crate::layout::SeatSlot::ledge_corners)
+/// returns that same rectangle.
+///
 /// Derived rather than written down, so the shelf cannot end up a different
 /// size in the shader than in the geometry that reserved room for it.
-pub const LEDGE_FRAC: f32 = MAT_LEDGE / crate::layout::POD_DEPTH;
+pub const LEDGE_FRAC: f32 = (MAT_MARGIN + MAT_LEDGE) / MAT_DRAWN_DEPTH;
+
+/// How much of the drawn mat one lane takes, as a fraction.
+///
+/// A lane is exactly [`SeatSlot::lane_height`](crate::layout::SeatSlot) —
+/// the playing extent less the shelf, in three — so a lane seam falls on the
+/// boundary the layout puts the row of cards against. Splitting *what is
+/// left* of the mat in three instead is what drifted them: the border at the
+/// far end is not a lane, and dividing it in with them stretched each row by
+/// a fifth of a unit more than the last.
+pub const LANE_FRAC: f32 = (crate::layout::POD_DEPTH - MAT_LEDGE) / (3.0 * MAT_DRAWN_DEPTH);
+
+/// The shelf, the three lanes and the border at the far end are the whole
+/// mat: a band left over is a band drawn in the wrong place.
+const _: () = assert!({
+    let sum = LEDGE_FRAC + LANE_FRAC * 3.0 + MARGIN_FRAC;
+    sum > 1.0 - 1e-6 && sum < 1.0 + 1e-6
+});
 
 /// How bright the hairline between two lanes is, on the same scale as
 /// [`MAT_LANES`].
@@ -618,15 +683,22 @@ pub fn seat_mat(
             // the near end for a seat drawn near the camera and the far one
             // for a seat across the table, so every bar is above the board it
             // describes on the screen somebody is looking at.
+            //
+            // The border the mat is drawn with is not a fourth band: at the
+            // shelf's end it *is* the shelf, and at the other end it is the
+            // far lane running out to the rim. So the three lanes start one
+            // border in from the centre-facing edge, and one more shelf in
+            // when the shelf is standing there.
             let v = py / h;
-            let span = 1.0 - LEDGE_FRAC;
-            let first = if ledge_outer { 0.0 } else { LEDGE_FRAC };
-            let on_ledge = if ledge_outer {
-                v > span
-            } else {
-                v < LEDGE_FRAC
-            };
-            let below = ((v - first) / span).clamp(0.0, 1.0);
+            let from_shelf = if ledge_outer { 1.0 - v } else { v };
+            let first = MARGIN_FRAC
+                + if ledge_outer {
+                    0.0
+                } else {
+                    LEDGE_FRAC - MARGIN_FRAC
+                };
+            let on_ledge = from_shelf < LEDGE_FRAC;
+            let below = ((v - first) / (LANE_FRAC * 3.0)).clamp(0.0, 1.0);
             #[expect(clippy::cast_possible_truncation, reason = "three lanes")]
             let lane = (below * 3.0).floor().clamp(0.0, 2.0) as usize;
             // Quiet, not absent. The mat's job is to say where a seat's
@@ -666,8 +738,12 @@ pub fn seat_mat(
             // and starts being a shelf they are described on.
             let seam_width = (h * MAT_SEAM_WIDTH).max(1.0);
             let lanes = h * first;
-            let step = h * span / 3.0;
-            let fence = h * if ledge_outer { span } else { LEDGE_FRAC };
+            let step = h * LANE_FRAC;
+            let fence = h * if ledge_outer {
+                1.0 - LEDGE_FRAC
+            } else {
+                LEDGE_FRAC
+            };
             let seam = [lanes + step, lanes + step * 2.0]
                 .iter()
                 .map(|edge| (py - edge).abs())
@@ -1907,7 +1983,7 @@ mod tests {
         #[expect(clippy::cast_possible_truncation, reason = "a row of a texture")]
         let row = |v: f32| (v * H as f32) as u32;
         let lanes = LEDGE_FRAC;
-        let step = (1.0 - lanes) / 3.0;
+        let step = LANE_FRAC;
         let seam = mat.pixel(128, row(lanes + step))[3];
         let mid_lane = mat.pixel(128, row(lanes + step * 0.5))[3];
         assert!(
@@ -1975,7 +2051,7 @@ mod tests {
         // And the creature lane is nearest the middle of the table on both,
         // which is the half that must *not* move: on the flipped mat it
         // starts at the very edge, where the unflipped one has its shelf.
-        let creature = span / 6.0;
+        let creature = MARGIN_FRAC + LANE_FRAC * 0.5;
         assert!(
             outer.pixel(128, row(creature))[3] > inner.pixel(128, row(creature))[3],
             "the flipped mat plays creatures where the unflipped one writes"
@@ -1984,13 +2060,68 @@ mod tests {
         // brighter" with one strict step across the whole run, because two
         // neighbouring lanes are 0.0135 and 0.0105 and eight bits cannot
         // always tell them apart either.
-        for (mat, first, name) in [(&inner, LEDGE_FRAC, "inner"), (&outer, 0.0, "outer")] {
-            let lane = |i: f32| mat.pixel(128, row((i + 0.5).mul_add(span / 3.0, first)))[3];
+        for (mat, first, name) in [
+            (&inner, LEDGE_FRAC, "inner"),
+            (&outer, MARGIN_FRAC, "outer"),
+        ] {
+            let lane = |i: f32| mat.pixel(128, row((i + 0.5).mul_add(LANE_FRAC, first)))[3];
             let (near, mid, far) = (lane(0.0), lane(1.0), lane(2.0));
             assert!(
                 near >= mid && mid >= far && near > far,
                 "the {name} mat's lanes should dim outwards: {near}, {mid}, {far}"
             );
+        }
+    }
+
+    /// The bands the mat draws are the bands the layout laid out.
+    ///
+    /// Both halves of this existed and neither could see the other. A mat is
+    /// banded in fractions of its own depth, and the depth it is *drawn* at
+    /// is the playing extent plus a printed border only the renderer knew
+    /// about — so every fraction was taken over a rectangle 18.5% too
+    /// shallow. The shelf came out 0.46 units from where the geometry had
+    /// reserved it, with the seat's bar following the geometry faithfully off
+    /// its own ledge and onto the creature lane; the two lane seams came out
+    /// 0.06 and 0.25 units from the rows of cards they are there to fence.
+    /// Nothing said so, because nothing had ever measured the drawn mat
+    /// against the layout in the same unit.
+    ///
+    /// This does, and off the **texture** rather than off the constants the
+    /// texture was built from: a band written down twice is the mistake, so
+    /// reading the number back out of one of the copies would only ask
+    /// whether it equalled itself.
+    #[test]
+    fn the_mat_fences_its_bands_where_the_layout_put_them() {
+        const H: u32 = 512;
+        // Tall, because a fence is a hairline: `MAT_SEAM_WIDTH` of a mat
+        // 96 rows deep is one row, and one row cannot be told from its
+        // neighbour.
+        let mat = seat_mat(256, H, 0.1, 0.02, ACCENT, false);
+        let lane = (crate::layout::POD_DEPTH - MAT_LEDGE) / 3.0;
+        #[expect(clippy::cast_possible_truncation, reason = "a row of a texture")]
+        let row = |t: f32| (t / MAT_DRAWN_DEPTH * H as f32) as u32;
+        // Measured from the mat's centre-facing edge, in table units, which
+        // is the unit `SeatSlot::ledge_corners` and `lane_center` answer in.
+        // The shelf is the border plus `MAT_LEDGE`, and the three lanes are
+        // each exactly `SeatSlot::lane_height` — the same rectangle a card is
+        // placed against.
+        for (what, at) in [
+            ("the shelf's own fence", MAT_MARGIN + MAT_LEDGE),
+            ("the first lane seam", MAT_MARGIN + MAT_LEDGE + lane),
+            ("the second lane seam", MAT_MARGIN + MAT_LEDGE + lane * 2.0),
+        ] {
+            let here = mat.pixel(128, row(at))[3];
+            for away in [-12, 12] {
+                let there = mat.pixel(128, row(at).saturating_add_signed(away))[3];
+                assert!(
+                    here > there,
+                    "{what} belongs {at} table units in from the centre-facing \
+                     edge, which is row {}: it reads {here} there and {there} \
+                     a dozen rows {}",
+                    row(at),
+                    if away < 0 { "before" } else { "after" }
+                );
+            }
         }
     }
 
