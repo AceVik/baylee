@@ -1,7 +1,7 @@
 //! Crib Swap — {2}{W} — Kindred Instant — Shapeshifter
 //! Oracle: Changeling (This card is every creature type.)
 //! Oracle: Exile target creature. Its controller creates a 1/1 colorless Shapeshifter creature token with changeling.
-//! Set: C18 #12 — Commander 2018 | Scryfall ID: 8f2fb3c6-af75-47a3-9f97-521872c32890 | Oracle ID: 2987c385-011a-4032-a516-a46d1e9dc9e8
+//! Set: ECL #11 — Lorwyn Eclipsed | Scryfall ID: 8f2fb3c6-af75-47a3-9f97-521872c32890 | Oracle ID: 2987c385-011a-4032-a516-a46d1e9dc9e8
 // IMPLEMENTED — kindred/changeling + exile with shapeshifter token.
 
 use baylee_cards_dsl::prelude::*;

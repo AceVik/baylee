@@ -1,7 +1,7 @@
 //! Homeward Path — (no cost) — Land
 //! Oracle: {T}: Add {C}.
 //! Oracle: {T}: Each player gains control of all creatures they own.
-//! Set: C13 #262 — Commander 2013 | Scryfall ID: 54734347-eee7-4c52-b514-7342afeccabd | Oracle ID: cb8ec2e4-8223-4172-8f2c-37c918a573fa
+//! Set: C16 #301 — Commander 2016 | Scryfall ID: 54734347-eee7-4c52-b514-7342afeccabd | Oracle ID: cb8ec2e4-8223-4172-8f2c-37c918a573fa
 // IMPLEMENTED.
 
 use baylee_cards_dsl::prelude::*;

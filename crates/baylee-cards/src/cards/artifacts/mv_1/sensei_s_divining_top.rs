@@ -1,7 +1,7 @@
 //! Sensei's Divining Top — {1} — Artifact
 //! Oracle: {1}: Look at the top three cards of your library, then put them back in any order.
 //! Oracle: {T}: Draw a card, then put this artifact on top of its owner's library.
-//! Set: EMA #232 — Eternal Masters | Scryfall ID: e5142b7a-e580-4737-a4aa-2590f6610ceb | Oracle ID: 13575cf9-65c1-4861-b21e-eb2155e07766
+//! Set: 2X2 #314 — Double Masters 2022 | Scryfall ID: e5142b7a-e580-4737-a4aa-2590f6610ceb | Oracle ID: 13575cf9-65c1-4861-b21e-eb2155e07766
 // IMPLEMENTED — top-3 reorder + draw-and-replace.
 
 use baylee_cards_dsl::prelude::*;

@@ -2,7 +2,7 @@
 //! Oracle: Flash
 //! Oracle: Flying
 //! Oracle: When Vendilion Clique enters, look at target player's hand. You may choose a nonland card from it. If you do, that player reveals the chosen card, puts it on the bottom of their library, then draws a card.
-//! Set: SLD #110 — Secret Lair Drop | Scryfall ID: cd702cf1-10ca-4448-9fb1-b6de635e839c | Oracle ID: 244d4807-0802-41bc-9460-55ac38a28a72
+//! Set: A25 #76 — Masters 25 | Scryfall ID: cd702cf1-10ca-4448-9fb1-b6de635e839c | Oracle ID: 244d4807-0802-41bc-9460-55ac38a28a72
 // IMPLEMENTED — flash/flying + hand-attack (choose a nonland card from
 // the target player's hand, bottom it, draw). The hand reveal is a
 // protocol presentation item; the choice itself is engine-complete.

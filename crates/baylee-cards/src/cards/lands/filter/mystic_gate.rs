@@ -2,7 +2,7 @@
 //! Oracle: {T}: Add {C}.
 //! Oracle: {W/U}, {T}: Add {W}{W}, {W}{U}, or {U}{U}.
 //! {1}, {T}: Add two mana in any combination of {White} and/or {Blue}.
-//! Set: SHM #277 — Shadowmoor | Scryfall ID: 6f99714f-43bc-4048-b650-97dfef4c10fe | Oracle ID: e9f5feb2-2c1a-46ce-885a-4f378d7d10af
+//! Set: CMM #1013 — Commander Masters | Scryfall ID: 6f99714f-43bc-4048-b650-97dfef4c10fe | Oracle ID: e9f5feb2-2c1a-46ce-885a-4f378d7d10af
 // IMPLEMENTED — filter land (colorless tap + {1},{T} for two combination mana).
 
 use baylee_cards_dsl::prelude::*;

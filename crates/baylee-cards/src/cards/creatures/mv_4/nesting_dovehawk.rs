@@ -2,7 +2,7 @@
 //! Oracle: Flying
 //! Oracle: At the beginning of combat on your turn, populate. (Create a token that's a copy of a creature token you control.)
 //! Oracle: Whenever a creature token you control enters, put a +1/+1 counter on this creature.
-//! Set: EOC #25 — Edge of Eternities Commander | Scryfall ID: c58ff93f-7135-40af-92ce-358da48694dc | Oracle ID: fe8fc442-ed17-40b2-8624-69f2eed3f9be
+//! Set: MOC #17 — March of the Machine Commander | Scryfall ID: c58ff93f-7135-40af-92ce-358da48694dc | Oracle ID: fe8fc442-ed17-40b2-8624-69f2eed3f9be
 // IMPLEMENTED — populate (token-only copy) + token-ETB growth.
 
 use baylee_cards_dsl::prelude::*;

@@ -1,7 +1,7 @@
 //! Karakas — (no cost) — Land
 //! Oracle: {T}: Add {W}.
 //! Oracle: {T}: Return target legendary creature to its owner's hand.
-//! Set: EMA #240 — Eternal Masters | Scryfall ID: e52214e1-404a-405a-b08e-20e13c087338 | Oracle ID: 59119143-c0fa-49dd-adf0-e2fd3029c48b
+//! Set: UMA #244 — Ultimate Masters | Scryfall ID: e52214e1-404a-405a-b08e-20e13c087338 | Oracle ID: 59119143-c0fa-49dd-adf0-e2fd3029c48b
 // IMPLEMENTED.
 
 use baylee_cards_dsl::prelude::*;

@@ -2,7 +2,7 @@
 //! Oracle: Menace, prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)
 //! Oracle: Other Allies you control have menace and prowess.
 //! Oracle: Whenever you cast a noncreature spell, create a 1/1 white Ally creature token.
-//! Set: TLA #241 — Avatar: The Last Airbender | Scryfall ID: f0fa5897-1da7-488f-bb19-1632e969c050 | Oracle ID: 6b68acc2-b9d5-495b-8054-c04bae1349f1
+//! Set: TLA #242 — Avatar: The Last Airbender | Scryfall ID: f0fa5897-1da7-488f-bb19-1632e969c050 | Oracle ID: 6b68acc2-b9d5-495b-8054-c04bae1349f1
 // IMPLEMENTED — menace + prowess (engine-level keyword trigger) + Ally
 // grants (layer 6) + token on noncreature spells.
 

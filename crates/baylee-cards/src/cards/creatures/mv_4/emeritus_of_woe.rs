@@ -3,7 +3,7 @@
 //! Oracle: At the beginning of your end step, if two or more creatures died this turn, this creature becomes prepared.
 //! Oracle: Search your library for a card, put that card into your hand, then shuffle.
 //! (Its spell: Demonic Tutor — {1}{B} — Sorcery: Search your library for a card, put that card into your hand, then shuffle.)
-//! Set: MH2 #92 — Modern Horizons 2 | Scryfall ID: 7eb9e83d-515d-4911-a06b-9982200277b2 | Oracle ID: 93056597-b964-421f-be2f-e92abef1c2a4
+//! Set: SOS #80 — Secrets of Strixhaven | Scryfall ID: 7eb9e83d-515d-4911-a06b-9982200277b2 | Oracle ID: 93056597-b964-421f-be2f-e92abef1c2a4
 // IMPLEMENTED — the real prepared mechanic: enters prepared (cast a copy
 // of Demonic Tutor from the registry while prepared, unpreparing it),
 // and re-prepares at your end step when 2+ creatures died this turn.

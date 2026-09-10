@@ -3,7 +3,7 @@
 //! Oracle: 1+ | At the beginning of combat on your turn, put your choice of a +1/+1 counter or two charge counters on up to one other target artifact.
 //! Oracle: 8+ | Flying
 //! Oracle: Other artifacts you control have hexproof and indestructible.
-//! Set: EOC #39 — Edge of Eternities Commander | Scryfall ID: 46900ec7-eb18-45c4-8e90-a48b665cfdee | Oracle ID: 554df866-3dbb-4811-8573-6033481591aa
+//! Set: EOC #2 — Edge of Eternities Commander | Scryfall ID: 46900ec7-eb18-45c4-8e90-a48b665cfdee | Oracle ID: 554df866-3dbb-4811-8573-6033481591aa
 // IMPLEMENTED — station (tap another creature for power-many charge
 // counters, sorcery speed), artifact-creature at 8+, 8+ flying, the
 // artifact hexproof/indestructible grant, and the 1+ modal counter

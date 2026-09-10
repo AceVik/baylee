@@ -1,6 +1,6 @@
 //! Recruiter of the Guard — {2}{W} — Creature — Human Soldier
 //! Oracle: When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.
-//! Set: CN2 #90 — Conspiracy: Take the Crown | Scryfall ID: 8e4c6ba1-1abc-478f-9b7c-97e9e3c92fb0 | Oracle ID: d521a329-a53a-4962-810a-2abed80df260
+//! Set: MH3 #266 — Modern Horizons 3 | Scryfall ID: 8e4c6ba1-1abc-478f-9b7c-97e9e3c92fb0 | Oracle ID: d521a329-a53a-4962-810a-2abed80df260
 // IMPLEMENTED — ETB tutor with the real toughness filter
 // (Filter::ToughnessAtMost).
 

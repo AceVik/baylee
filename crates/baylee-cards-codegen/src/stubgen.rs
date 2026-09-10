@@ -446,6 +446,32 @@ fn join_union_owned(bits: &[String]) -> String {
     join_union(&refs)
 }
 
+/// The header line naming the printing a card was built from, ending in a
+/// newline.
+///
+/// It is a function rather than a `format!` at the one place that writes it
+/// because there are two: `codegen` writes it into a machine-owned file and
+/// `xtask refresh-oracle` rewrites it in a hand-owned one, and a second
+/// spelling would drift on the two details that are easy to get wrong — the
+/// set code is upper-cased here and nowhere in the payload, and the
+/// separator is an em dash. Forty hand-owned cards named a printing that was
+/// not the one their own Scryfall id points at, and nothing read the line,
+/// so nothing said so.
+#[must_use]
+pub fn set_line(
+    set: &str,
+    collector_number: &str,
+    set_name: &str,
+    scryfall_id: &str,
+    oracle_id: &str,
+) -> String {
+    format!(
+        "//! Set: {} #{collector_number} \u{2014} {set_name} | Scryfall ID: {scryfall_id} | \
+         Oracle ID: {oracle_id}\n",
+        set.to_uppercase(),
+    )
+}
+
 /// Renders one stub file, and says where under `cards/` it belongs.
 ///
 /// # Errors
@@ -502,13 +528,12 @@ pub fn render_stub(
         .collect::<Vec<_>>()
         .join("\n");
     doc_lines(&mut out, "Oracle: ", &oracle);
-    out.push_str(&format!(
-        "//! Set: {} #{} \u{2014} {} | Scryfall ID: {} | Oracle ID: {}\n",
-        card.set.as_deref().unwrap_or("?").to_uppercase(),
+    out.push_str(&set_line(
+        card.set.as_deref().unwrap_or("?"),
         card.collector_number.as_deref().unwrap_or("?"),
         card.set_name.as_deref().unwrap_or("?"),
-        card.id,
-        oracle_id,
+        &card.id,
+        &oracle_id,
     ));
     if faces.len() > 1 {
         for f in &faces {

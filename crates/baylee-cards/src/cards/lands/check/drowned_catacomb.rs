@@ -2,7 +2,7 @@
 //! Oracle: This land enters tapped unless you control an Island or a Swamp.
 //! Oracle: {T}: Add {U} or {B}.
 //! {T}: Add Blue or Black.
-//! Set: XLN #252 — Ixalan | Scryfall ID: ebea49ab-e5cf-46d9-ae35-226a7321ede0 | Oracle ID: 819fc966-434e-470f-91e9-a38df974ad17
+//! Set: MSC #239 — Marvel Super Heroes Commander | Scryfall ID: ebea49ab-e5cf-46d9-ae35-226a7321ede0 | Oracle ID: 819fc966-434e-470f-91e9-a38df974ad17
 // IMPLEMENTED — checkland (ETB tapped unless you control a ISLAND/SWAMP) + 2-color mana.
 
 use baylee_cards_dsl::prelude::*;

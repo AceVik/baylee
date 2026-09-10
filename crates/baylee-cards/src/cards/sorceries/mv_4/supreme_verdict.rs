@@ -1,7 +1,7 @@
 //! Supreme Verdict — {1}{W}{W}{U} — Sorcery
 //! Oracle: This spell can't be countered.
 //! Oracle: Destroy all creatures.
-//! Set: RVR #67 — Ravnica Remastered | Scryfall ID: 3892f1c5-937e-4ef4-b6f9-e0c0ded070d0 | Oracle ID: 0230de18-8d15-4cfa-9d42-7ccddd9f9570
+//! Set: CLU #211 — Ravnica: Clue Edition | Scryfall ID: 3892f1c5-937e-4ef4-b6f9-e0c0ded070d0 | Oracle ID: 0230de18-8d15-4cfa-9d42-7ccddd9f9570
 // IMPLEMENTED — uncounterable wrath.
 
 use baylee_cards_dsl::prelude::*;

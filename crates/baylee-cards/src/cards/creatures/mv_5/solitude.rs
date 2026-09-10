@@ -3,7 +3,7 @@
 //! Oracle: Lifelink
 //! Oracle: When this creature enters, exile up to one other target creature. That creature's controller gains life equal to its power.
 //! Oracle: Evoke—Exile a white card from your hand.
-//! Set: MSC #37 — Marvel Super Heroes Commander | Scryfall ID: 47a6234f-309f-4e03-9263-66da48b57153 | Oracle ID: dcb9c2a7-ae54-4ddc-a567-640bf4bf4366
+//! Set: MH2 #32 — Modern Horizons 2 | Scryfall ID: 47a6234f-309f-4e03-9263-66da48b57153 | Oracle ID: dcb9c2a7-ae54-4ddc-a567-640bf4bf4366
 // IMPLEMENTED — flash/lifelink, exile ETB with life, pitch-evoke.
 
 static WHITE_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White]));

@@ -2,7 +2,7 @@
 //! Oracle: This land enters tapped.
 //! Oracle: {T}: Add {W}, {U}, or {B}.
 //! {T}: Add White, Blue, or Black.
-//! Set: C16 #281 — Commander 2016 | Scryfall ID: c75eeb97-3249-4762-84b0-387f27fb255f | Oracle ID: 7d7cf15c-06b9-4062-a1eb-32614c458a3b
+//! Set: DSC #259 — Duskmourn: House of Horror Commander | Scryfall ID: c75eeb97-3249-4762-84b0-387f27fb255f | Oracle ID: 7d7cf15c-06b9-4062-a1eb-32614c458a3b
 // IMPLEMENTED — 3-color tapland (ETB tapped).
 
 use baylee_cards_dsl::prelude::*;

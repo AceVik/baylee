@@ -4,7 +4,7 @@
 //! Oracle: {3}{W}, {T}: Put a +1/+1 counter on each creature you control.
 //! {T}: Add {W}.
 //! {3}{W}, {T}: Put a +1/+1 counter on each creature you control.
-//! Set: TLA #260 — Avatar: The Last Airbender | Scryfall ID: 9c0433f9-8f1e-4a19-a83f-a41925f1b1a9 | Oracle ID: 9575d7ce-f26d-4b90-87a3-6329e9799572
+//! Set: TLA #263 — Avatar: The Last Airbender | Scryfall ID: 9c0433f9-8f1e-4a19-a83f-a41925f1b1a9 | Oracle ID: 9575d7ce-f26d-4b90-87a3-6329e9799572
 // IMPLEMENTED — checkland variant + team pump activation.
 
 static BASIC_LAND_YOU: Filter = Filter::And(&[

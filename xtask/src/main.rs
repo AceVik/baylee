@@ -1253,6 +1253,44 @@ fn check_oracle_matches_the_printing(
     *problems += 1;
 }
 
+/// The `//! Set:` line against the printing it claims to name.
+///
+/// `validate` checked that this line *existed* and never what it said, which
+/// is the whole of its job: the Scryfall id in it is carried in three places
+/// and agreed everywhere, so the set code, the collector number and the set
+/// name beside that id were prose nobody read. Forty hand-owned cards named
+/// the wrong printing — Sensei's Divining Top said "EMA #232 — Eternal
+/// Masters" over an id that is Double Masters 2022 #314 — and a person
+/// checking the card by eye would have looked up a different piece of
+/// cardboard and found it agreed.
+///
+/// It compares the whole line rather than the fields, because the line has
+/// one author ([`baylee_cards_codegen::stubgen::set_line`]) and `xtask
+/// refresh-oracle` writes exactly what this reads.
+fn check_set_line_matches_the_printing(
+    slug: &str,
+    content: &str,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    let Some(want) = set_header_line(payload) else {
+        return;
+    };
+    let want = want.trim_end();
+    tally.printings += 1;
+    let Some(have) = content.lines().find(|l| l.starts_with("//! Set:")) else {
+        return; // the "set line" check above already reported the absence
+    };
+    if have == want {
+        return;
+    }
+    println!("{slug}: the header names a printing its own Scryfall id does not");
+    println!("    header  {have}");
+    println!("    printing {want}");
+    *problems += 1;
+}
+
 /// A printed "up to N target" is a **count**, and the code has to be able to
 /// say it.
 ///
@@ -1385,6 +1423,8 @@ struct PrintingTally {
     costs: usize,
     /// Cards whose printing states a target count of "up to".
     targets: usize,
+    /// Cards whose `Set:` header line was held against the printing.
+    printings: usize,
 }
 
 /// The floor under each count in [`PrintingTally`].
@@ -1424,6 +1464,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     oracle: 1300,
     costs: 1340,
     targets: 10,
+    printings: 1300,
 };
 
 /// Keyword bits that have a printed spelling to look for.
@@ -1926,9 +1967,23 @@ fn refresh_oracle(root: &Path, dry_run: bool) -> anyhow::Result<()> {
             continue;
         };
         let text = fs::read_to_string(path)?;
-        let Some(next) = with_oracle_header(&text, &printed_text(&payload)) else {
+        // Two derived lines, one pass. The Set line rode along here rather
+        // than getting a command of its own because it is the same claim as
+        // the Oracle block — "this is the printing the card below was built
+        // from" — and a card whose printing moved needs both rewritten or
+        // the header names one printing and quotes another.
+        let mut next = text.clone();
+        if let Some(oracle) = with_oracle_header(&next, &printed_text(&payload)) {
+            next = oracle;
+        }
+        if let Some(line) = set_header_line(&payload)
+            && let Some(set) = with_set_header(&next, &line)
+        {
+            next = set;
+        }
+        if next == text {
             continue;
-        };
+        }
         changed += 1;
         println!("{}", relative(path, &cards_dir));
         if !dry_run {
@@ -1942,6 +1997,34 @@ fn refresh_oracle(root: &Path, dry_run: bool) -> anyhow::Result<()> {
     };
     println!("{verb} {changed} of {} headers", names.len());
     Ok(())
+}
+
+/// The `//! Set:` line the payload calls for, or `None` when the payload is
+/// missing a piece of it.
+///
+/// Spelled by [`baylee_cards_codegen::stubgen::set_line`] and not here, so
+/// the line a refresh writes into a hand-owned file is byte-for-byte the one
+/// `codegen` writes into a machine-owned one.
+fn set_header_line(payload: &serde_json::Value) -> Option<String> {
+    let field = |k: &str| payload.get(k).and_then(serde_json::Value::as_str);
+    Some(baylee_cards_codegen::stubgen::set_line(
+        field("set")?,
+        field("collector_number")?,
+        field("set_name")?,
+        field("id")?,
+        field("oracle_id").unwrap_or_default(),
+    ))
+}
+
+/// `text` with its `//! Set:` line replaced by `line`, or `None` when it
+/// already says exactly that.
+///
+/// Replaced where it stands rather than moved: the Oracle block above is
+/// rewritten by dropping and re-emitting it, because its *length* changes
+/// with the printing, and this line's does not.
+fn with_set_header(text: &str, line: &str) -> Option<String> {
+    let old = text.lines().find(|l| l.starts_with("//! Set:"))?;
+    (old != line.trim_end()).then(|| text.replacen(old, line.trim_end(), 1))
 }
 
 /// `text` with its `//! Oracle:` block replaced by `printed`, or `None` when
@@ -2149,6 +2232,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         }
         check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
         check_oracle_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
+        check_set_line_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
         check_target_counts_match_the_printing(
             &slug,
             &content,
@@ -2161,7 +2245,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     // beside the counts that failed it.
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
-         {} keyword, {} mana, {} oracle, {} cost, {} target count",
+         {} keyword, {} mana, {} oracle, {} cost, {} target count, {} printing",
         tally.payloads,
         tally.loyalty,
         tally.identity,
@@ -2169,7 +2253,8 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         tally.mana,
         tally.oracle,
         tally.costs,
-        tally.targets
+        tally.targets,
+        tally.printings
     );
     check_printing_floors(&tally, &mut problems);
     if problems > 0 {
@@ -2196,6 +2281,7 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
         ("oracle text", tally.oracle, PRINTING_FLOOR.oracle),
         ("face cost", tally.costs, PRINTING_FLOOR.costs),
         ("target count", tally.targets, PRINTING_FLOOR.targets),
+        ("printing", tally.printings, PRINTING_FLOOR.printings),
     ] {
         if seen < floor {
             println!(

@@ -3,7 +3,7 @@
 //! Oracle: • Scry 2.
 //! Oracle: • You gain 3 life.
 //! Oracle: • Exile another target creature you own. Return it to the battlefield under your control at the beginning of the next end step.
-//! Set: TDS #8 — Tarkir: Dragonstorm | Scryfall ID: aa7b47e1-7e32-4f2f-aecf-bac7ca197081 | Oracle ID: c48d844c-3976-4fa5-8e0d-3f0e535e7619
+//! Set: FDN #568 — Foundations | Scryfall ID: aa7b47e1-7e32-4f2f-aecf-bac7ca197081 | Oracle ID: c48d844c-3976-4fa5-8e0d-3f0e535e7619
 // IMPLEMENTED — all three modes (scry, lifegain, end-step blink).
 
 use baylee_cards_dsl::prelude::*;

@@ -2,7 +2,7 @@
 //! Oracle: As an additional cost to cast this spell, you may waterbend {6}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)
 //! Oracle: Draw two cards. If this spell's additional cost was paid, instead shuffle your graveyard into your library, draw seven cards, and you have no maximum hand size for the rest of the game.
 //! Oracle: Exile Spirit Water Revival.
-//! Set: TLA #74 — Avatar: The Last Airbender | Scryfall ID: 0c019e76-c88e-4d1b-a546-0f4e462ef44a | Oracle ID: 68979160-b5ce-4787-8a1e-1f40e614c3b0
+//! Set: TLA #73 — Avatar: The Last Airbender | Scryfall ID: 0c019e76-c88e-4d1b-a546-0f4e462ef44a | Oracle ID: 68979160-b5ce-4787-8a1e-1f40e614c3b0
 // IMPLEMENTED — waterbend (kicker-style additional cost paid via
 // convoke taps on artifacts AND creatures), kick-branched outcome,
 // self-exile always.

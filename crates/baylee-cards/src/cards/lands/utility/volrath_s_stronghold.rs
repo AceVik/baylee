@@ -1,7 +1,7 @@
 //! Volrath's Stronghold — (no cost) — Land
 //! Oracle: {T}: Add {C}.
 //! Oracle: {1}{B}, {T}: Put target creature card from your graveyard on top of your library.
-//! Set: PD3 #352 — Premium Deck Series: Graveborn | Scryfall ID: f465ae5f-61f0-42c4-978f-841ba1226f56 | Oracle ID: 73b8cf90-3c71-4f8b-a29f-61894b7f27c9
+//! Set: TPR #248 — Tempest Remastered | Scryfall ID: f465ae5f-61f0-42c4-978f-841ba1226f56 | Oracle ID: 73b8cf90-3c71-4f8b-a29f-61894b7f27c9
 // IMPLEMENTED.
 
 use baylee_cards_dsl::prelude::*;

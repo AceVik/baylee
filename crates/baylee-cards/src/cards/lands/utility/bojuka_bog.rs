@@ -3,7 +3,7 @@
 //! Oracle: When this land enters, exile target player's graveyard.
 //! Oracle: {T}: Add {B}.
 //! When Bojuka Bog enters, exile all cards from target player's graveyard.
-//! Set: C18 #259 — Commander 2018 | Scryfall ID: 55b5b094-9d2d-4d96-b90c-78fecdae725a | Oracle ID: 04b7362d-0490-4cb0-b5d7-2a7732f659ce
+//! Set: SOC #363 — Secrets of Strixhaven Commander | Scryfall ID: 55b5b094-9d2d-4d96-b90c-78fecdae725a | Oracle ID: 04b7362d-0490-4cb0-b5d7-2a7732f659ce
 // IMPLEMENTED — ETB tapped + exile target player's graveyard (opponent
 // auto-resolves heads-up; multiplayer player choice is a protocol M3 item).
 

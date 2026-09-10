@@ -1,6 +1,6 @@
 //! Smothering Tithe — {3}{W} — Enchantment
 //! Oracle: Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token. (It's an artifact with "{T}, Sacrifice this token: Add one mana of any color.")
-//! Set: 2X2 #32 — Double Masters 2022 | Scryfall ID: 861b5889-0183-4bee-afeb-a4b2aa700a8e | Oracle ID: 153376c9-dffd-458c-8ce3-a4c8269bc4e9
+//! Set: CMM #57 — Commander Masters | Scryfall ID: 861b5889-0183-4bee-afeb-a4b2aa700a8e | Oracle ID: 153376c9-dffd-458c-8ce3-a4c8269bc4e9
 // IMPLEMENTED — opponent-choice {2} tax → Treasure tokens.
 
 use baylee_cards_dsl::prelude::*;

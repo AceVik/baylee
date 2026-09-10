@@ -1,7 +1,7 @@
 //! Wasteland — (no cost) — Land
 //! Oracle: {T}: Add {C}.
 //! Oracle: {T}, Sacrifice this land: Destroy target nonbasic land.
-//! Set: C17 #264 — Commander 2017 | Scryfall ID: aaafb9bc-7cea-4624-a227-595544fa42b0 | Oracle ID: 09a70ae8-3859-4a09-901d-dce063fa3b5f
+//! Set: EMA #248 — Eternal Masters | Scryfall ID: aaafb9bc-7cea-4624-a227-595544fa42b0 | Oracle ID: 09a70ae8-3859-4a09-901d-dce063fa3b5f
 // IMPLEMENTED.
 
 use baylee_cards_dsl::prelude::*;
