@@ -325,15 +325,17 @@ express at all yet.
   (generic, color, hybrid, 2-or, Phyrexian, hybrid-Phyrexian, snow, X/Y/Z).
 - `FaceDef.alternative_costs: &[AlternativeCost { cost, condition }]` —
   pitch/evoke/conditional-free (conditions: `Always`, `NotYourTurn`,
-  `CommanderControlled`).
+  `CommanderControlled`). Its `parts` pay `PayLife` and `ExileFromHand`.
 - `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast).
-- `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`.
+  Only its `mana` is read; `parts` is paid by nothing and is held empty.
+- `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`. Pays
+  `PayLifeX` and `PayLife`, and is the one cost list nothing gates at all.
 - `Cost { mana, parts }` — parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`,
   `Sacrifice(filter)`, `Discard(filter)`, `DiscardSelf` (cycling),
   `PayLife(n)`, `PayLifeX`, `ExileSelf`, `ExileFromHand(filter)`.
 
-Four of those are **spell-only today**, and an *activated* ability that carries
-one fails the build rather than shipping. `Sacrifice(filter)` and
+Four of those may not appear on an **activated** ability, and one that carries
+them fails the build rather than shipping. `Sacrifice(filter)` and
 `Discard(filter)` name something to choose and an activation has nowhere to ask
 the question, so `can_afford` refuses the cost and the ability is never offered
 at all — the card is inert while the deckbuilder lists it as playable.
@@ -356,6 +358,19 @@ leaving the `// NOT SUPPORTED:` line to say what was dropped. Recurring
 Nightmare is the one partial card of the first kind in the pool, and it goes
 back to `Implemented` the day an activation can suspend on a choice during
 cost payment.
+
+On a **spell** the four are not interchangeable either, because a spell has
+three cost lists and no two of them are paid by the same code. Each pays
+exactly what its bullet above says and walks past the rest, so a part written
+on the wrong list is a spell cast without paying it —
+`offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past` is the
+build failure, and `cast_wizard`'s two predicates are what it reads, so the
+guard and the payment cannot drift. `Sacrifice(filter)` and `Discard(filter)`
+are paid on **no** list at all: an alternative cost is the one list `can_afford`
+gates, so writing one there is refused rather than skipped — but the offer is
+computed from the alternative's *mana* alone, so the card is listed as castable
+and the wizard then has nothing to offer. A dead offer instead of a free spell
+is not an improvement worth having.
 
 ### Ability kinds
 

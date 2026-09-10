@@ -908,6 +908,79 @@ fn nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip() {
     );
 }
 
+/// The same class once more, on the side of the line where the parts above
+/// *are* paid — because "the casting wizard pays it" turned out to be a claim
+/// that has to name **which** of a spell's three cost lists.
+///
+/// They are paid in three different places and none of them by the same code:
+///
+/// - `alternative_costs[i].cost.parts` pays `PayLife` and `ExileFromHand` —
+///   Force of Will's pitch. It is the only one with a gate: `cast_options`
+///   runs `can_afford` over it, so a `Sacrifice(_)` written here is *refused*.
+///   That is not safety. `casting::can_cast` probes only the alternative's
+///   mana, so the card is listed castable and the wizard then has no option to
+///   offer — a dead offer, the shape the `CommanderControlled` bug had.
+/// - `mandatory_additional_costs` pays `PayLifeX` and `PayLife` — Toxic
+///   Deluge's X. Nothing gates it at all, so anything else there is not
+///   refused but skipped, and the spell is cast without paying it.
+/// - `additional_costs[i].parts` is paid by **nothing**: `finish_cast`
+///   combines `add.mana` and never looks at the parts. The field exists, a
+///   card can fill it, and a kicker taken with it costs exactly its mana.
+///
+/// So the rule is per list, and each half of it is held by the predicate the
+/// payment itself reads ([`cast_wizard::paid_as_an_alternative_cost`],
+/// [`cast_wizard::paid_as_a_mandatory_additional_cost`]) — the arrangement
+/// that stopped the activated-ability twin from drifting.
+///
+/// Every card, not the implemented ones only, for `93ed903`'s reason: a
+/// partial card is dealt into decks and played, and a spell cast for free is
+/// not something `Coverage::Partial` should be able to hide. No token half —
+/// `TokenDef` carries none of these three lists, having no cost to cast — so
+/// the door beside the pool is checked here and found not to exist.
+///
+/// [`cast_wizard::paid_as_an_alternative_cost`]: super::cast_wizard
+/// [`cast_wizard::paid_as_a_mandatory_additional_cost`]: super::cast_wizard
+#[test]
+fn no_spell_cost_list_carries_a_part_its_payment_walks_past() {
+    let mut offenders = Vec::new();
+    for def in baylee_cards::all() {
+        for face in def.faces {
+            for alt in face.alternative_costs {
+                for part in alt.cost.parts {
+                    if !crate::engine::cast_wizard::paid_as_an_alternative_cost(part) {
+                        offenders.push(format!(
+                            "{} — alternative cost {part:?}, which `finish_cast` does not pay",
+                            face.name,
+                        ));
+                    }
+                }
+            }
+            for part in face.mandatory_additional_costs {
+                if !crate::engine::cast_wizard::paid_as_a_mandatory_additional_cost(part) {
+                    offenders.push(format!(
+                        "{} — mandatory additional cost {part:?}, which `finish_cast` skips",
+                        face.name,
+                    ));
+                }
+            }
+            for add in face.additional_costs {
+                for part in add.parts {
+                    offenders.push(format!(
+                        "{} — kicker part {part:?}, and a kicker's parts are read by nothing",
+                        face.name,
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "a spell prints a cost part on a list whose payment never reads it, so \
+         the spell is cast without paying it (or, on an alternative cost the \
+         gate refuses, is offered and then uncastable): {offenders:?}"
+    );
+}
+
 /// A permanent that makes mana two ways is offered once.
 ///
 /// `mana_abilities` is addressed by `PlayerAction::ActivateManaAbility

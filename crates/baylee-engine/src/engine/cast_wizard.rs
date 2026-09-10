@@ -72,6 +72,36 @@ pub(crate) struct CastWizard {
     pub free: bool,
 }
 
+/// The cost parts [`Engine::finish_cast`] pays out of a chosen **alternative**
+/// cost.
+///
+/// A spell has three cost lists and no two of them are paid by the same code,
+/// so "the wizard pays it" is a claim that has to name which list. This one is
+/// gated on the way in — `can_afford` at the option scan refuses
+/// [`abilities::choice_cost_unpayable`], which is why Recurring Nightmare's
+/// shape on an alternative cost is a dead offer rather than a free spell —
+/// and everything the gate lets through and this predicate does not name is
+/// paid by nobody.
+///
+/// Held pool-wide by
+/// `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`.
+///
+/// [`abilities::choice_cost_unpayable`]: super::abilities
+pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
+    matches!(part, CostPart::PayLife(_) | CostPart::ExileFromHand(_))
+}
+
+/// The cost parts [`Engine::finish_cast`] pays out of
+/// `FaceDef.mandatory_additional_costs`.
+///
+/// The list with no gate at all: nothing runs `can_afford` over it, so unlike
+/// the alternative-cost list above it does not even refuse the choice costs —
+/// a `Sacrifice(_)` written here would be cast past rather than declined.
+/// Toxic Deluge's `PayLifeX` is the whole of the pool's use of it.
+pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
+    matches!(part, CostPart::PayLifeX | CostPart::PayLife(_))
+}
+
 impl<L: CardLookup> Engine<L> {
     /// Starts the casting wizard for `card` (validated castable).
     pub(crate) fn start_cast_wizard(
@@ -754,6 +784,9 @@ impl<L: CardLookup> Engine<L> {
         if let Some(CastModeKind::Alternative(i)) = wizard.option {
             let alt = &face.alternative_costs[i];
             for part in alt.cost.parts {
+                if !paid_as_an_alternative_cost(part) {
+                    continue;
+                }
                 match part {
                     CostPart::PayLife(n) => {
                         let p = &mut self.state.players[player.get() as usize];
@@ -778,12 +811,28 @@ impl<L: CardLookup> Engine<L> {
                             )?;
                         }
                     }
-                    _ => {}
+                    // Already skipped, by [`paid_as_an_alternative_cost`]
+                    // above. Named rather than swept into a `_` so that a new
+                    // `CostPart` is still a compile error in this match: the
+                    // question "and is the new one paid here?" has to be asked
+                    // once per list, and a wildcard answers it with silence.
+                    CostPart::TapSelf
+                    | CostPart::UntapSelf
+                    | CostPart::SacrificeSelf
+                    | CostPart::Sacrifice(_)
+                    | CostPart::Discard(_)
+                    | CostPart::DiscardSelf
+                    | CostPart::ExileSelf
+                    | CostPart::ReturnSelfToHand
+                    | CostPart::PayLifeX => {}
                 }
             }
         }
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
         for part in face.mandatory_additional_costs {
+            if !paid_as_a_mandatory_additional_cost(part) {
+                continue;
+            }
             match part {
                 CostPart::PayLifeX => {
                     let p = &mut self.state.players[player.get() as usize];
@@ -809,7 +858,20 @@ impl<L: CardLookup> Engine<L> {
                         cause: Cause::Cost,
                     });
                 }
-                _ => {}
+                // Already skipped, by [`paid_as_a_mandatory_additional_cost`]
+                // above, and named for the reason the alternative-cost match
+                // names its own — with the sharper edge that no `can_afford`
+                // guards this list, so the two choice costs are skipped here
+                // rather than refused.
+                CostPart::TapSelf
+                | CostPart::UntapSelf
+                | CostPart::SacrificeSelf
+                | CostPart::Sacrifice(_)
+                | CostPart::Discard(_)
+                | CostPart::DiscardSelf
+                | CostPart::ExileSelf
+                | CostPart::ReturnSelfToHand
+                | CostPart::ExileFromHand(_) => {}
             }
         }
         // Move the card to the stack as a spell. The targeting requirement
