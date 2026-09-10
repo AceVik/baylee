@@ -929,9 +929,16 @@ messages! {
     HoldRelease { en: "Ask me again", de: "Wieder fragen" },
     /// The armed button for a spell or a land: pressing it sends the card.
     ArmedPlay { en: "Play this card", de: "Diese Karte spielen" },
-    /// The armed button for a spell whose mana still has to be tapped;
-    /// `{0}` is how many sources the plan will tap.
-    ArmedTapAndCast { en: "Tap {0}, then cast", de: "{0} antippen, dann zaubern" },
+    /// The armed button for a spell whose mana still has to be tapped.
+    ///
+    /// `{0}` is the *price* — the spell's mana cost, tax and all — and it is
+    /// the one placeholder here that is never filled with a string: the row
+    /// splits the phrase at it and draws the cost as mana pips, so a
+    /// translation is free to put the price first (as the German does) and
+    /// still gets the discs in the right place. It used to read "Tap 3",
+    /// which counted the client's own lands instead of naming what the
+    /// spell costs.
+    ArmedPayAndCast { en: "Pay {0} and cast", de: "{0} zahlen und zaubern" },
     /// The button that puts an armed deed back, with nothing sent.
     ArmedCancel { en: "Not yet", de: "Doch nicht" },
     /// Aim next

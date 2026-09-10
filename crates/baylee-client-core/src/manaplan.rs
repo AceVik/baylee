@@ -105,6 +105,14 @@ pub struct Step {
 pub struct Plan {
     /// In the order they should be sent.
     pub steps: Vec<Step>,
+    /// What the taps are for.
+    ///
+    /// Carried rather than re-derived, because the cost [`plan`] was asked
+    /// about is not always the one printed on the card: a commander's is the
+    /// printed cost plus its tax, and a prompt that went back to the face to
+    /// name a price would quote a player two mana under what they are about
+    /// to pay. [`plan`] is the only thing that sets it.
+    pub cost: ManaCost,
 }
 
 impl Plan {
@@ -133,7 +141,10 @@ pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<
     for generic_twobrid in [false, true] {
         let needs = needs(cost, generic_twobrid)?;
         if let Some(found) = assign(&needs, pool, sources) {
-            return Some(found);
+            return Some(Plan {
+                cost: *cost,
+                ..found
+            });
         }
     }
     None
@@ -369,6 +380,9 @@ fn steps(needs: &[ColorMask], units: &[Unit], taken: &[Option<usize>], sources: 
     }
 
     Plan {
+        // `plan` overwrites this with the cost the taps were found for;
+        // the matching itself has no idea what it was asked to pay.
+        cost: ManaCost::ZERO,
         steps: used
             .into_iter()
             .map(|index| {
@@ -477,6 +491,37 @@ mod tests {
         ];
         let found = plan(&cost("{2}{G}"), &empty(), &sources).expect("three lands is enough");
         assert_eq!(found.taps(), 3);
+    }
+
+    /// A plan remembers the price it was found for.
+    ///
+    /// The prompt bar quotes it — "Pay {2}{G} and cast", drawn as mana pips
+    /// — and it must be the cost `plan` was *asked* about rather than the one
+    /// printed on the card: a commander's is the printed cost plus two mana
+    /// per previous cast, and a bar that went back to the face would quote a
+    /// player a price they are not being charged. The bar used to say "Tap
+    /// 3", which named the client's own lands instead of the spell's cost.
+    #[test]
+    fn a_plan_carries_the_cost_it_was_found_for() {
+        let sources = [
+            land(1, ManaColor::Green),
+            land(2, ManaColor::Green),
+            land(3, ManaColor::Green),
+        ];
+        let asked = cost("{2}{G}");
+        let found = plan(&asked, &empty(), &sources).expect("three lands is enough");
+        assert_eq!(found.cost, asked);
+        assert_eq!(found.cost.to_string(), "{2}{G}");
+
+        // And a plan that taps nothing carries it too, because the price is
+        // what the row says and floating mana is still spent.
+        let pool = ManaPoolView {
+            green: 3,
+            ..empty()
+        };
+        let free = plan(&asked, &pool, &[]).expect("already payable");
+        assert!(free.is_empty());
+        assert_eq!(free.cost, asked);
     }
 
     #[test]

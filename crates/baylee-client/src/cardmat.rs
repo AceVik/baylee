@@ -1500,6 +1500,7 @@ pub(crate) mod tests {
                     tap: Tap::Intrinsic,
                     color: None,
                 }],
+                ..default()
             }),
         };
         let offer = Offer::on(Some(&run), &forests, false);
@@ -1515,6 +1516,7 @@ pub(crate) mod tests {
                     tap: Tap::Intrinsic,
                     color: None,
                 }],
+                ..default()
             }),
         };
         assert_eq!(

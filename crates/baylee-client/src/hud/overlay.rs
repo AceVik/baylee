@@ -777,7 +777,7 @@ pub fn sync_overlay(
         // What is armed, and the way back out of it. Its own row, above the
         // chooser it replaces: arming is where the chooser ends, and the two
         // are never open at once.
-        if let Some(label) = duel
+        if let Some(words) = duel
             .armed
             .as_ref()
             .and_then(|a| armed_label(&duel, lang, a))
@@ -793,7 +793,7 @@ pub fn sync_overlay(
                     Pickable::IGNORE,
                 ))
                 .id();
-            spawn_armed(&mut commands, &fonts, lang, row, &label);
+            spawn_armed(&mut commands, &fonts, lang, row, &words);
             commands.entity(bar).add_child(row);
         }
 
@@ -1314,6 +1314,22 @@ pub fn sync_overlay(
     }
 }
 
+/// What an armed deed calls itself: the words, and the mana those words name.
+///
+/// The two are separate because a cost is **drawn** and not spelled. A `Text`
+/// node can hold the characters `{4}{U}{U}`, and that is what the deck
+/// builder deliberately does not do — `manaui::spawn_pip` sets each symbol on
+/// its own coloured disc, and this row now says the price the same way every
+/// other price in this client is said.
+struct ArmedWords {
+    /// The phrase. When [`Self::cost`] is `Some`, its `{0}` marks where the
+    /// pips go and the two halves are laid out either side of them; a phrase
+    /// with no `{0}` simply takes the pips after its last word.
+    text: String,
+    /// The mana this deed spends, or `None` when it spends none.
+    cost: Option<baylee_core::mana::ManaCost>,
+}
+
 /// What an armed deed calls itself, or `None` when the engine no longer
 /// offers it.
 ///
@@ -1322,21 +1338,39 @@ pub fn sync_overlay(
 /// offering something that has since been withdrawn. The row simply
 /// disappears; the state itself is cleared by the next key or tap, both of
 /// which run the same resolution.
-fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<String> {
+fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<ArmedWords> {
     match &armed.deed {
         crate::Deed::Play => duel
             .interaction
             .as_ref()
             .and_then(|i| i.play_card(armed.object))
-            .map(|_| Phrase::ArmedPlay.text(lang).to_string()),
+            .map(|_| ArmedWords {
+                text: Phrase::ArmedPlay.text(lang).to_string(),
+                // The engine offered this cast, so the mana is already
+                // floating (`casting::can_cast` checks the pool): there is no
+                // price left to quote.
+                cost: None,
+            }),
+        // An ability's label already carries its whole cost as prose —
+        // "{T}, Sacrifice this, Pay 1 life" — because most of that cost is
+        // not mana and there are no discs for a sacrifice. Drawing pips
+        // beside it would say the mana half twice.
         crate::Deed::Ability(action) => super::ability_options(duel, lang, armed.object)?
             .into_iter()
             .find(|o| o.action == *action)
-            .map(|o| o.label),
-        crate::Deed::Run(plan) => duel
-            .reachable
-            .contains(&armed.object)
-            .then(|| Phrase::ArmedTapAndCast.fill(lang, &[&plan.taps().to_string()])),
+            .map(|o| ArmedWords {
+                text: o.label,
+                cost: None,
+            }),
+        // The owner's report: this said "Tap 3, then cast", which is a fact
+        // about the client's plan and not about the spell. What a player
+        // needs to read before spending a turn's lands is the *price* —
+        // `{4}{U}{U}` — so the plan carries the cost it was built for and
+        // the row draws it.
+        crate::Deed::Run(plan) => duel.reachable.contains(&armed.object).then(|| ArmedWords {
+            text: Phrase::ArmedPayAndCast.text(lang).to_string(),
+            cost: Some(plan.cost),
+        }),
     }
 }
 
@@ -1346,18 +1380,28 @@ fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<String> 
 /// label — a row that read "Play this card" beside a button called "Send"
 /// would be saying the same thing twice and leaving a player to work out
 /// which half was the button.
-fn spawn_armed(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity, label: &str) {
-    for (action, text, lit, edge, ink) in [
+fn spawn_armed(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    row: Entity,
+    words: &ArmedWords,
+) {
+    let cancel = ArmedWords {
+        text: Phrase::ArmedCancel.text(lang).to_string(),
+        cost: None,
+    };
+    for (action, words, lit, edge, ink) in [
         (
             MenuAction::SendArmed,
-            label,
+            words,
             palette::BRASS,
             palette::BRASS,
             palette::PARCHMENT_INK,
         ),
         (
             MenuAction::CancelArmed,
-            Phrase::ArmedCancel.text(lang),
+            &cancel,
             // The sheet's own colour and not `Color::NONE`, which is what it
             // was: this is a lead answer in brass and a second one beside it,
             // exactly the pair the prompt's own answers are, and two
@@ -1372,6 +1416,12 @@ fn spawn_armed(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity
             .spawn((
                 MenuButton { action },
                 Node {
+                    // A row, because the label is no longer one string: a
+                    // price is drawn, so the words come in two pieces with
+                    // the discs standing between them.
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: px(4),
                     padding: UiRect::axes(px(12), px(5)),
                     border: UiRect::all(px(1)),
                     border_radius: btn_radius(),
@@ -1381,16 +1431,44 @@ fn spawn_armed(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity
                 BorderColor::all(edge),
                 soft_shadow(),
                 Feel::new(lit),
-                children![(
-                    Text::new(text.to_string()),
-                    tf(fonts, 13.0),
-                    TextColor(ink),
-                    Pickable::IGNORE,
-                )],
             ))
             .id();
+        // The phrase splits at its `{0}`; a phrase with none (or a button
+        // with no price to quote) is one piece and the pips are skipped.
+        let (head, tail) = words
+            .cost
+            .and_then(|_| words.text.split_once("{0}"))
+            .unwrap_or((words.text.as_str(), ""));
+        put_words(commands, fonts, button, head.trim(), ink);
+        if let Some(cost) = words.cost {
+            for pip in baylee_client_core::manapip::cost(&cost) {
+                let mark = crate::manaui::spawn_pip(commands, fonts, pip, 15.0);
+                commands.entity(button).add_child(mark);
+            }
+        }
+        put_words(commands, fonts, button, tail.trim(), ink);
         commands.entity(row).add_child(button);
     }
+}
+
+/// One piece of a button's words, or nothing at all when the piece is empty.
+///
+/// `Pickable::IGNORE`, like every label inside a control here: a `Text` is a
+/// `Node`, so a label left pickable sits in front of the button and `Feel`
+/// animates the padding while the middle goes dead.
+fn put_words(commands: &mut Commands, fonts: &UiFonts, button: Entity, text: &str, ink: Color) {
+    if text.is_empty() {
+        return;
+    }
+    let node = commands
+        .spawn((
+            Text::new(text.to_string()),
+            tf(fonts, 13.0),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(button).add_child(node);
 }
 
 /// The chip that says this seat is not being asked, and the button out of it.
