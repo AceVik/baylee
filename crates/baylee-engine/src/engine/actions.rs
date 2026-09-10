@@ -346,7 +346,14 @@ impl<L: CardLookup> Engine<L> {
                     })
                     .ok_or(EngineError::IllegalAction("not a suspend card"))?;
                 // Suspending costs the printed suspend cost (CR 702.62).
-                if !mana_pay::pay(
+                // Through `pay_with`, because the offer asks `can_pay_mana`,
+                // which reads Mycosynth Lattice: a bare `mana_pay::pay` here
+                // would refuse a suspend that this seat's every mana is
+                // allowed to pay for, which is the offer disagreeing with the
+                // answer on a second axis.
+                let wild = casting::mana_is_wild(&self.state);
+                if !casting::pay_with(
+                    wild,
                     &mut self.state.players[player.get() as usize].mana_pool,
                     &cost,
                 ) {

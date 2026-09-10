@@ -1192,3 +1192,73 @@ fn a_face_with_no_mana_cost_has_another_way_out_of_the_hand() {
          looks exactly like this: {blank:?}"
     );
 }
+
+/// The suspend offer and the suspend payment agree under Mycosynth Lattice.
+///
+/// Suspend's cost is a bare `ManaCost` rather than a `Cost`, so it reaches
+/// the pool through `can_pay_mana` on the offer side and `casting::pay_with`
+/// on the apply side. Both branch on `casting::mana_is_wild`, and that is
+/// exactly the split that was there before: the offer probed
+/// `can_pay_wild` while the payment called `mana_pay::pay`, so a Lattice on
+/// the table made the two halves disagree about which mana counts.
+///
+/// Nothing else in this module reaches it — the sweep's probe board has no
+/// Lattice on it, and a rule that is only ever exercised on one side of a
+/// branch is a rule with no test at all.
+#[test]
+fn wild_mana_pays_a_suspend_cost_the_offer_also_accepts() {
+    let seat = PlayerId::new(0);
+    let vision = card_index("9728dec9-d482-4c7a-8cdc-44d010dc878d");
+    let lattice = card_index("ae1f2ab5-c6a5-4d49-a746-3cb4668bf805");
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6");
+    let mut engine = Duel::new(SEED, forest)
+        .hand(0, &[vision])
+        .battlefield(0, &[lattice, forest])
+        .start();
+    assert!(
+        walk_to_own_main(&mut engine, seat),
+        "the board never reached seat 0's own main phase"
+    );
+
+    // A Forest and a {U} cost: without the Lattice this is unpayable, which
+    // is what makes the tap the whole of the test.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.suspendable.is_empty(),
+        "Suspend 4—{{U}} was offered with nothing in the pool: {:?}",
+        legal.suspendable
+    );
+    // The Lattice makes every permanent an artifact and none of them a mana
+    // source, so the Forest is the only entry there is.
+    assert_eq!(
+        legal.mana_abilities.len(),
+        1,
+        "the Forest is the board's only mana source: {:?}",
+        legal.mana_abilities
+    );
+    let source = legal.mana_abilities[0];
+    engine
+        .apply(seat, PlayerAction::ActivateManaAbility { source })
+        .expect("an untapped Forest taps for {G}");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        legal.suspendable.len(),
+        1,
+        "under a Lattice the floating {{G}} pays {{U}}: {:?}",
+        legal.suspendable
+    );
+    // The half that was broken: offered, then refused by the payment.
+    engine
+        .apply(
+            seat,
+            PlayerAction::Suspend {
+                card: legal.suspendable[0],
+            },
+        )
+        .expect("what the engine offers, the engine accepts");
+}
