@@ -89,6 +89,53 @@ mod layout {
         );
     }
 
+    /// The bar clips its children, so its headroom is a promise about the
+    /// tallest thing that can stand out of a card.
+    ///
+    /// A glow cut off flat along a horizontal line is not a subtle fault — it
+    /// stops reading as a light and starts reading as a box drawn round the
+    /// card — and the promise is made by three numbers that can each move on
+    /// their own.
+    #[test]
+    fn the_bar_keeps_room_for_a_raised_card_and_its_glow() {
+        use super::super::hand::{ARMED_RAISE, HALO_REACH, HAND_FOOTROOM};
+        let room = HAND_BAR_H - HAND_CARD_H - HAND_FOOTROOM;
+        assert!(
+            room >= ARMED_RAISE + HALO_REACH,
+            "a card raised by {ARMED_RAISE} with a halo reaching {HALO_REACH} \
+             has {room} to stand in"
+        );
+    }
+
+    /// A glow is not a shadow in another colour.
+    ///
+    /// This is exactly what went wrong. The playable glow was one
+    /// `BoxShadow`, blur six, **spread zero** — and `soft_shadow`, which
+    /// every un-lit card in the bar wears, is blur six. Identical geometry;
+    /// and once the bar stopped painting an 88%-black strip behind them, very
+    /// nearly identical pictures, which is why the owner reported the glow as
+    /// gone. A light has to begin outside the card's edge, where the shadow
+    /// has already finished, and carry further than it does.
+    #[test]
+    fn a_glow_stands_off_the_card_further_than_its_own_shadow() {
+        let Val::Px(plain) = soft_shadow()[0].blur_radius else {
+            panic!("the drop shadow is measured in pixels");
+        };
+        let lit = super::super::hand::halo(palette::ACTIVE, 1.0);
+        let (Val::Px(spread), Val::Px(blur)) = (lit[0].spread_radius, lit[0].blur_radius) else {
+            panic!("so is the halo");
+        };
+        assert!(
+            spread > 0.0,
+            "a glow with no spread starts falling off at the card's own edge, \
+             which is where the shadow starts too"
+        );
+        assert!(
+            blur > plain,
+            "and it has to carry further than the shadow: {blur} against {plain}"
+        );
+    }
+
     /// And the preview points at the card, not at where the row would have
     /// started if it were not centred.
     ///

@@ -40,21 +40,37 @@ pub(super) fn spawn_hand_bar(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            // Nothing. The bar was 88% black across the whole bottom of the
-            // window, and a hand of cards laid on a black strip is a hand of
-            // cards in a *panel* — the one thing on this screen that is not
-            // supposed to read as an interface. The cards keep their own
-            // corner cut (`card_ui.wgsl` takes the scan's white corners out
-            // in alpha) and their own shadow, so the strip has nothing left
-            // to do but let the felt through.
+            // The bar was 88% black across the whole bottom of the window,
+            // and a hand of cards laid on a black strip is a hand of cards in
+            // a *panel* — the one thing on this screen that is not supposed
+            // to read as an interface. So it was made transparent, and the
+            // cards ended up lying directly on the sky. Two things were lost
+            // with the strip and only one of them was meant to go: the panel,
+            // yes; but also the dark ground every card's glow was being read
+            // against, which is why the owner reports the hand glow as
+            // missing (`halo` has the measurement).
             //
-            // The shadow went with it, and had to: a `BoxShadow` is drawn
-            // from the node's rectangle and not from its paint, so a
-            // transparent bar with an elevation shadow under it still lays a
-            // dark band the width of the window over the table. The function
-            // that cast it is gone too — the phase rail was its other caller,
-            // and the rail is on the table now.
+            // This is the ground back without the panel. A vertical gradient
+            // from nothing at the top edge to a soft blue-black at the
+            // bottom: it has no top edge to read as a frame, it darkens where
+            // the cards actually are, and it stops well short of the strip's
+            // 88% — a veil over the table rather than a lid on it, and
+            // `VEIL_ALPHA` has the measurement. The hue is `palette::PANEL`'s, one
+            // step cooler — the felt and the sky are both saturated and a
+            // neutral grey over either of them reads as dirt.
+            //
+            // No `BoxShadow` here, ever: a shadow is drawn from a node's
+            // rectangle and not from its paint, so even a transparent bar
+            // with an elevation shadow lays a hard dark band the width of the
+            // window across the table. That is the trap this node has already
+            // fallen into once, and a gradient is what a soft edge costs
+            // instead.
             BackgroundColor(Color::NONE),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                ColorStop::percent(VEIL.with_alpha(0.0), 0.0),
+                ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA * 0.45), 38.0),
+                ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA), 100.0),
+            ])),
             ZIndex(2),
             Pickable::IGNORE,
         ))
@@ -66,7 +82,7 @@ pub(super) fn spawn_hand_bar(
             Node {
                 position_type: PositionType::Absolute,
                 left: px(0),
-                top: px(10),
+                top: px(HAND_HEADROOM),
                 height: px(HAND_CARD_H),
                 // Spawn already at the current scroll offset — starting at
                 // zero and correcting next frame is the hand's flicker.
@@ -92,36 +108,31 @@ pub(super) fn spawn_hand_bar(
         // No border: the card is rounded like a real one; hover/selection
         // read as a soft accent glow instead of a frame.
         let shadow = if is_selected {
-            BoxShadow::new(
-                palette::ACCENT,
-                Val::Px(0.0),
-                Val::Px(0.0),
-                Val::Px(2.0),
-                Val::Px(10.0),
-            )
+            halo(palette::ACCENT, 1.0)
         } else if is_hovered || is_offered || card.playable || card.reachable {
-            // Three different claims, three different glows. Gold is the
-            // engine saying yes; indigo is this client offering to tap lands
-            // first, which is a weaker thing and reads as one.
-            let (tint, spread) = if is_hovered {
-                (palette::ACCENT, 8.0)
+            // Four different claims, and the two that matter are the two the
+            // player reads without being told: gold is the engine saying yes,
+            // indigo is this client offering to tap lands first. Weight, not
+            // hue, separates a claim from an answer — a hover is the same
+            // accent as a selection, one step quieter.
+            let (tint, weight) = if is_hovered {
+                (palette::ACCENT, 0.85)
             } else if is_offered {
                 // The same gold as an offer from the engine, because that
                 // is exactly what it is -- weaker only so a card already
                 // picked still stands out from the ones that could be.
-                (palette::ACCENT, 5.0)
+                (palette::ACCENT, 0.70)
             } else if card.playable {
-                (palette::ACTIVE, 6.0)
+                (palette::ACTIVE, 1.0)
             } else {
-                (palette::REACHABLE, 5.0)
+                // Not the afterthought it was. "Enough mana to cast it" is
+                // what a player means by a card glowing, and for anything
+                // that is not already paid for that is *this* light, not the
+                // gold one — so it is the same halo, cooled rather than
+                // dimmed away.
+                (palette::REACHABLE, 0.88)
             };
-            BoxShadow::new(
-                tint,
-                Val::Px(0.0),
-                Val::Px(0.0),
-                Val::Px(0.0),
-                Val::Px(spread),
-            )
+            halo(tint, weight)
         } else {
             soft_shadow()
         };
@@ -584,17 +595,117 @@ pub(super) fn preview_face(
     faces.object(view.object(hovered)?, textures, art)
 }
 
+/// The hand zone's own ground: `palette::PANEL`'s hue, one step cooler and
+/// carrying no alpha of its own — the gradient's stops supply that.
+const VEIL: Color = Color::srgb(0.04, 0.055, 0.085);
+
+/// How dark the veil gets at the window's bottom edge.
+///
+/// Under two thirds deliberately: the felt, the sky and a seat's mat all
+/// still read through it, which is the difference between a ground and a
+/// panel and is what the owner asked for in the same breath as asking for it
+/// at all — *slightly* transparent.
+///
+/// The number is bigger than the picture, and that is worth knowing before
+/// reaching for it: **the gradient composites in linear space**, so an alpha
+/// here buys much less darkening than sRGB arithmetic predicts. Measured
+/// against the sky at the bottom edge, `0.44` took 136 to 108 rather than the
+/// 81 the naive sum gives. This value takes it to about 94, a third down,
+/// which is a ground a card's glow can be read against.
+const VEIL_ALPHA: f32 = 0.58;
+
+/// A card's glow: a wide soft halo with a tight bright ring inside it.
+///
+/// This was one `BoxShadow` with a blur of five or six and **no spread**,
+/// which is to say a light that started falling off at the card's own edge —
+/// the same shape, and very nearly the same size, as the drop shadow every
+/// other card in the bar wears. It read as a glow for as long as the bar
+/// painted an 88%-black strip behind it. With the strip gone the hand lies on
+/// sky, and gold at 16% over pale blue is nothing at all; the owner reported
+/// it as the glow having been *removed*, which is a fair reading of what is
+/// on screen.
+///
+/// So: two shadows, because a light has a source. The ring says where it
+/// comes from and the halo says how far it carries, and `spread_radius`
+/// pushes both out past the card's edge before either begins to fall off,
+/// which is the part that was missing.
+///
+/// `weight` scales the alpha of both, and is the only thing that separates
+/// the three claims that share [`palette::ACCENT`]. Hue separates the two
+/// that do not.
+pub(super) fn halo(tint: Color, weight: f32) -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: tint.with_alpha(HALO_ALPHA * weight),
+            x_offset: px(0.0),
+            y_offset: px(0.0),
+            spread_radius: px(HALO_SPREAD),
+            blur_radius: px(HALO_BLUR),
+        },
+        ShadowStyle {
+            color: tint.with_alpha(RING_ALPHA * weight),
+            x_offset: px(0.0),
+            y_offset: px(0.0),
+            spread_radius: px(0.0),
+            blur_radius: px(RING_BLUR),
+        },
+    ])
+}
+
+/// How far past the card's edge the halo is pushed before it starts to fall
+/// off.
+pub(super) const HALO_SPREAD: f32 = 2.0;
+/// The halo's falloff, and the reason [`HALO_REACH`] is not this number.
+pub(super) const HALO_BLUR: f32 = 8.0;
+/// The halo's strongest alpha, at the card's edge.
+const HALO_ALPHA: f32 = 0.62;
+/// The ring's falloff: short, so the card keeps a hard edge to be lit from.
+const RING_BLUR: f32 = 3.0;
+/// The ring's alpha. Brighter than the halo and over far fewer pixels.
+const RING_ALPHA: f32 = 0.88;
+
+/// How far a halo actually carries, which is what the bar has to keep clear
+/// of its own clip.
+///
+/// `blur_radius` is the gaussian's σ and `box_shadow.wgsl` integrates the
+/// real thing, so the alpha at one σ past the edge is about 16% of the tint,
+/// at one and a half about 7%, and at two about 2%.
+///
+/// Two, measured rather than argued. At one and a half the armed card — the
+/// one raised by [`ARMED_RAISE`], so the one with the least room left — was
+/// photographed with a step of 8 in the red channel across the bar's clip
+/// line, against 72 at the card's own edge: an eleven-percent seam, faint but
+/// there. Two σ puts that under one 8-bit level, and costs four pixels of
+/// table.
+pub(super) const HALO_REACH: f32 = HALO_SPREAD / 2.0 + 2.0 * HALO_BLUR;
+
 /// Card width in the own-board overlay.
 pub const OVERLAY_CARD_W: f32 = 86.0;
 /// Card height in the own-board overlay (63:88).
 pub const OVERLAY_CARD_H: f32 = OVERLAY_CARD_W * 88.0 / 63.0;
 /// The hand bar's height, including its padding.
-pub const HAND_BAR_H: f32 = HAND_CARD_H + 20.0;
+pub const HAND_BAR_H: f32 = HAND_CARD_H + HAND_HEADROOM + HAND_FOOTROOM;
+
+/// How much room the bar keeps above a card, and why it is not ten.
+///
+/// The bar clips its children, and a `BoxShadow` is a child's paint like any
+/// other — so a gap shorter than the tallest thing that can stand out of a
+/// card cuts a glow off flat, which reads as a rectangle drawn round the card
+/// rather than as a light coming off it. Two things stand out: the halo, and
+/// an armed card raised by [`ARMED_RAISE`] with its halo still on. Both at
+/// once is the bound.
+pub const HAND_HEADROOM: f32 = ARMED_RAISE + HALO_REACH;
+
+/// The room under a card, which nothing has to clear: below the bottom edge
+/// is the window's own edge, and a halo cut off there is cut off by the
+/// screen.
+pub const HAND_FOOTROOM: f32 = 10.0;
 
 /// How far an armed card stands out of the row.
 ///
-/// Bounded by the bar's own padding: the strip sits ten pixels down inside a
-/// clipping container, so anything up to ten is headroom that already exists
-/// and anything past it would take the top off the card instead of raising
-/// it.
-const ARMED_RAISE: f32 = 8.0;
+/// This used to be bounded by the bar's padding — ten pixels of headroom that
+/// happened to already exist. [`HAND_HEADROOM`] is derived from it now rather
+/// than the other way round: a raise that has to fit inside a gap and a gap
+/// sized to hold a raise are the same statement, written in the direction
+/// that cannot silently go wrong.
+pub(super) const ARMED_RAISE: f32 = 8.0;
