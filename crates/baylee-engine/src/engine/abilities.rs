@@ -319,6 +319,33 @@ impl<L: CardLookup> Engine<L> {
                             legal.abilities.push((card, i as u32));
                         }
                     }
+                    AbilityDef::ActivatedConditional {
+                        cost,
+                        timing,
+                        zone,
+                        condition,
+                        ..
+                    } => {
+                        // The same ability with a precondition on it — the
+                        // battlefield scan above has both arms, and this one
+                        // had only the first, so a cycling ability behind an
+                        // "activate only if…" clause would never be offered
+                        // at all. No card in the pool prints one today; the
+                        // hole is closed rather than recorded, because the
+                        // arm is four lines longer than the note would be.
+                        if *zone != ActivationZone::Hand {
+                            continue;
+                        }
+                        if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if !self.check_activation_condition(player, card, *condition) {
+                            continue;
+                        }
+                        if self.can_afford(player, card, cost) {
+                            legal.abilities.push((card, i as u32));
+                        }
+                    }
                     AbilityDef::Suspend { .. } if sorcery_timing => {
                         legal.suspendable.push(card);
                     }

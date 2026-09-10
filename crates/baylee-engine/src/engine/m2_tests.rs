@@ -19,6 +19,7 @@ const PUMP_SPELL: u32 = 1003;
 const STEAL_SPELL: u32 = 1004;
 const KROSA_SPELL: u32 = 1005;
 const BOLT_SPELL: u32 = 1006;
+const CONDITIONAL_CYCLER: u32 = 1007;
 
 static CREATURE_F: Filter = Filter::HasType(TypeSet::CREATURE);
 static CREATURE_YOU: Filter =
@@ -81,6 +82,7 @@ struct TestLookup {
     steal_spell: &'static CardDef,
     krosa_spell: &'static CardDef,
     bolt_spell: &'static CardDef,
+    conditional_cycler: &'static CardDef,
 }
 
 static ANTHEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
@@ -149,6 +151,27 @@ static BOLT_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     targets: Some(TargetReq::one(TargetSpec::AnyTarget)),
 }];
 
+/// Cycling behind a precondition: no card in the pool prints one, and the
+/// hand-zone scan in `abilities.rs` read `Activated` alone until it did.
+static LAND_F: Filter = Filter::HasType(TypeSet::LAND);
+
+static CYCLER_EFFECTS: &[Effect] = &[Effect::DrawCards {
+    amount: baylee_cards_dsl::Amount::Fixed(1),
+}];
+
+static CYCLER_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
+    cost: baylee_cards_dsl::Cost {
+        mana: baylee_core::mana::ManaCost::ZERO,
+        parts: &[baylee_cards_dsl::CostPart::DiscardSelf],
+    },
+    effects: CYCLER_EFFECTS,
+    target: None,
+    timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
+    mana_ability: false,
+    zone: baylee_cards_dsl::ActivationZone::Hand,
+    condition: baylee_cards_dsl::ActivationCondition::ControlCount(&LAND_F, 1),
+}];
+
 impl TestLookup {
     fn new() -> Self {
         let anthem_lord: &'static CardDef = Box::leak(Box::new(def(
@@ -186,6 +209,16 @@ impl TestLookup {
             face("Bolt Spell", "{G}", TypeSet::INSTANT, None),
             BOLT_ABILITIES,
         )));
+        let conditional_cycler: &'static CardDef = Box::leak(Box::new(def(
+            CONDITIONAL_CYCLER,
+            face(
+                "Conditional Cycler",
+                "{2}{G}",
+                TypeSet::CREATURE,
+                Some((1, 1)),
+            ),
+            CYCLER_ABILITIES,
+        )));
         Self {
             anthem_lord,
             fake_lattice,
@@ -194,6 +227,7 @@ impl TestLookup {
             steal_spell,
             krosa_spell,
             bolt_spell,
+            conditional_cycler,
         }
     }
 }
@@ -208,6 +242,7 @@ impl CardLookup for TestLookup {
             STEAL_SPELL => Some(self.steal_spell),
             KROSA_SPELL => Some(self.krosa_spell),
             BOLT_SPELL => Some(self.bolt_spell),
+            CONDITIONAL_CYCLER => Some(self.conditional_cycler),
             _ => baylee_cards::by_index(index),
         }
     }
@@ -807,5 +842,119 @@ fn any_target_can_be_a_creature_or_a_face() {
         power_toughness(&engine, bear),
         (2, 2),
         "and the creature it could have hit is untouched"
+    );
+}
+
+/// The cycler in seat 0's hand.
+fn cycler(engine: &Engine<TestLookup>, seat: PlayerId) -> ObjectId {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Hand(seat))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index.get() == CONDITIONAL_CYCLER))
+        })
+        .expect("cycler in hand")
+}
+
+/// Passes until `seat` holds priority, and hands back what it was offered.
+#[track_caller]
+fn offer_to(engine: &mut Engine<TestLookup>, seat: PlayerId) -> LegalActions {
+    for _ in 0..20 {
+        let Pending::Priority { player, legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        if player == seat {
+            return *legal;
+        }
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    panic!("{seat:?} never held priority");
+}
+
+/// A hand-zone ability with a precondition on it is offered exactly when
+/// the precondition holds — and then activates.
+///
+/// The battlefield scan in `abilities.rs` has read both `Activated` and
+/// `ActivatedConditional` since conditional abilities existed; the
+/// hand-zone scan beside it read only the first, so an ability like this
+/// one appeared nowhere, however plainly its condition was met.
+/// `start_activation` would have taken it: it checks the condition and the
+/// zone and had every arm it needed. Nothing in the pool prints cycling
+/// behind a condition today, which is why the sweep in `offer_tests` — and
+/// every game ever played here — could not have found it.
+#[test]
+fn a_conditional_hand_ability_is_offered_once_its_condition_holds() {
+    let p0 = PlayerId::new(0);
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6").get();
+
+    // No land, no offer.
+    let mut bare = Engine::new(
+        &preset_bf(31, &[], &[CONDITIONAL_CYCLER]),
+        TestLookup::new(),
+    )
+    .unwrap();
+    keep_mulligans(&mut bare);
+    let held = cycler(&bare, p0);
+    let legal = offer_to(&mut bare, p0);
+    assert!(
+        !legal.abilities.iter().any(|(id, _)| *id == held),
+        "the condition is unmet, so the ability is not offered"
+    );
+
+    // One land and the same card is offered.
+    let mut ready = Engine::new(
+        &preset_bf(31, &[forest], &[CONDITIONAL_CYCLER]),
+        TestLookup::new(),
+    )
+    .unwrap();
+    keep_mulligans(&mut ready);
+    let held = cycler(&ready, p0);
+    let legal = offer_to(&mut ready, p0);
+    let (_, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(id, _)| *id == held)
+        .expect("a land is on the battlefield, so the ability is offered");
+
+    // And what was offered is accepted: the card is discarded to its own
+    // cost and the ability draws.
+    let hand_before = ready.state().zones.list(ZoneLocation::Hand(p0)).len();
+    ready
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: held,
+                ability_index,
+            },
+        )
+        .expect("the engine takes the ability it offered");
+    for _ in 0..10 {
+        if ready.state().zones.stack_is_empty() {
+            break;
+        }
+        let Pending::Priority { player, .. } = ready.pending().clone() else {
+            panic!("expected priority, got {:?}", ready.pending())
+        };
+        ready.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(
+        ready
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .contains(&held),
+        "the cycler discarded itself to pay"
+    );
+    assert_eq!(
+        ready.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before,
+        "one card left the hand as a cost and one was drawn"
     );
 }

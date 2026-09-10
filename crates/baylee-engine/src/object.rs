@@ -116,12 +116,16 @@ impl Characteristics {
         for ability in all_abilities {
             // A conditional mana ability counts, and counts unconditionally.
             // CR 106.7 asks what an ability "would produce if the ability
-            // were to resolve at that time" and tells the reader to ignore
-            // whether its costs could be paid; an "activate only if…" clause
-            // is a restriction on *beginning* the activation (CR 602.5) and
-            // is not part of resolving it either. So Bleachbone Verge could
-            // produce {W} whether or not a Plains is on the table — and a
-            // Fellwar Stone across from it was being offered {B} alone.
+            // were to resolve at that time", and the only thing it says to
+            // ignore is whether the costs could be paid. An "activate only
+            // if…" clause is not a cost — it is a restriction on
+            // *beginning* the activation (CR 602.5) — so reading it as no
+            // part of what 106.7 asks about is this engine's inference and
+            // not a sentence of the rule. The alternative makes the answer
+            // depend on the board, and the whole point of the field is that
+            // it does not. So Bleachbone Verge could produce {W} whether or
+            // not a Plains is on the table — and a Fellwar Stone across
+            // from it was being offered {B} alone.
             let (baylee_cards_dsl::AbilityDef::Activated {
                 mana_ability: true,
                 effects,
