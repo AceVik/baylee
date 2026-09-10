@@ -2198,6 +2198,20 @@ fn a_mimic_copying_a_protected_creature_is_protected_too() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
+    // The question is asked with the Mimic already on the battlefield —
+    // `check_copy_on_enter` runs from `apply_enter_modifiers`, after the
+    // permanent has arrived — so "any creature you control" reaches it, and
+    // a Mimic offered as a copy of itself would be a choice that leaves it
+    // a 0/0 shapeshifter and dies to the same state-based action that
+    // brought it there. Asserted where the offer is made rather than in a
+    // test of its own, because this is the one place the offer exists.
+    assert!(
+        !target_options(&engine).contains(
+            &on_battlefield(&engine, p0, glasspool_mimic())
+                .expect("the Mimic is standing there while it asks")
+        ),
+        "the permanent doing the copying is not among the things it may copy"
+    );
     engine
         .apply(
             p0,

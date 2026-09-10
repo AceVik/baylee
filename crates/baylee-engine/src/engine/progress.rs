@@ -695,7 +695,26 @@ impl<L: CardLookup> Engine<L> {
             };
             (spec, obj.controller)
         };
-        let options = eval::target_options(&spec, &self.state, controller, id);
+        let mut options = eval::target_options(&spec, &self.state, controller, id);
+        // Never itself, whatever the filter says. The rules make this choice
+        // *as* the permanent enters, so the permanent is not there yet to be
+        // chosen; Glasspool Mimic's own ruling spells the consequence out —
+        // "You may choose only a creature that's already on the
+        // battlefield." This function runs from `apply_enter_modifiers`, one
+        // step after the object has arrived, so what the rules exclude by
+        // timing has to be excluded by name here.
+        //
+        // The Mimic is the one that reaches it: its errata'd filter is "a
+        // creature you control", and the permanent asking the question is
+        // one. Answering with itself made it a copy of a 0/0 Shapeshifter
+        // Rogue, which is the printed face and dies to the state-based
+        // action that follows. Cursed Mirror cannot: it asks as an artifact
+        // and its filter wants a creature.
+        //
+        // The other half of that ruling — a creature entering at the same
+        // time is not a legal choice either — needs nothing, because
+        // permanents arrive here one at a time.
+        options.retain(|&o| o != id);
         if options.is_empty() {
             return false; // optional: simply doesn't copy
         }
@@ -714,8 +733,21 @@ impl<L: CardLookup> Engine<L> {
 
     /// Applies the clone-on-enter choice: the permanent's copiable base is
     /// replaced by the target's base, with the card's modifications. For
-    /// `CopyOnEnterUntilEot` (Cursed Mirror), the copy is a layer-1
+    /// `CopyOnEnterUntilEot` (Cursed Mirror), that half is a layer-1
     /// continuous effect with `UntilEndOfTurn` duration instead.
+    ///
+    /// Only that half differs. Both branches write the copied abilities onto
+    /// the object, because nothing about an ability is layer-projected, and
+    /// the temporary branch flags the write so [`Self::cleanup_step`] knows
+    /// to take it back.
+    ///
+    /// One thing neither branch does: a permanent with a *printed* static
+    /// ability that becomes a copy keeps that static registered, because
+    /// `sync_static_effects` registered it at step 0a of the pass this runs
+    /// in at 0b, and only a departure un-registers one. No card in the pool
+    /// can reach it — the three permanents that become copies here (Cursed
+    /// Mirror, Glasspool Mimic, and a token copy, which is new) print no
+    /// static of their own — so it is recorded rather than fixed.
     #[allow(clippy::too_many_lines)]
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
         let (mods, until_eot): (Vec<baylee_cards_dsl::CopyMod>, bool) = {
