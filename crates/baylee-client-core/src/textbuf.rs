@@ -44,6 +44,27 @@ pub enum Dir {
     Right,
 }
 
+/// A field's text, cut where the caret and the selection cut it.
+///
+/// Drawn in order — `head`, `selected`, `tail` — with the caret between the
+/// first two or between the last two, which is what `caret_after_selection`
+/// says. Any of the three can be empty; all three are with the caret at the
+/// start of an empty field.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Segments<'a> {
+    /// Everything before the selection — or before the caret, when nothing
+    /// is selected.
+    pub head: &'a str,
+    /// The selected run, and `""` when nothing is.
+    pub selected: &'a str,
+    /// Everything after it.
+    pub tail: &'a str,
+    /// Which end of the selection the caret is at: ⇧→ leaves it at the far
+    /// end and ⇧← at the near one. Always `false` with nothing selected,
+    /// where the caret is the seam between `head` and `tail`.
+    pub caret_after_selection: bool,
+}
+
 /// A single-line text field's contents, caret and selection.
 ///
 /// The caret is `cursor`. `anchor` is the other end of a selection and is
@@ -85,6 +106,30 @@ impl TextBuffer {
         let anchor = self.anchor?;
         let (lo, hi) = (anchor.min(self.cursor), anchor.max(self.cursor));
         (lo < hi).then_some(lo..hi)
+    }
+
+    /// The text as the caret and the selection divide it.
+    ///
+    /// What a renderer needs and the only thing it needs: hand the three runs
+    /// to a layout engine in order with a bar between two of them and the
+    /// caret lands where the letters put it, with no glyph metrics anywhere
+    /// and nothing to keep in step with the font.
+    #[must_use]
+    pub fn segments(&self) -> Segments<'_> {
+        match self.selection() {
+            Some(sel) => Segments {
+                head: &self.text[..sel.start],
+                selected: &self.text[sel.start..sel.end],
+                tail: &self.text[sel.end..],
+                caret_after_selection: self.cursor == sel.end,
+            },
+            None => Segments {
+                head: &self.text[..self.cursor],
+                selected: "",
+                tail: &self.text[self.cursor..],
+                caret_after_selection: false,
+            },
+        }
     }
 
     /// Whether the field is empty — what a placeholder is drawn for.
@@ -526,5 +571,54 @@ mod tests {
             text.len(),
             "past the end is the end"
         );
+    }
+
+    #[test]
+    fn an_unselected_field_is_cut_at_the_caret() {
+        let mut buf = TextBuffer::new("mail@example.com");
+        buf.place(4, None);
+        let seg = buf.segments();
+        assert_eq!(seg.head, "mail");
+        assert_eq!(seg.selected, "");
+        assert_eq!(seg.tail, "@example.com");
+        assert!(!seg.caret_after_selection);
+    }
+
+    #[test]
+    fn an_empty_field_is_three_empty_runs() {
+        let buf = TextBuffer::new("");
+        let seg = buf.segments();
+        assert_eq!((seg.head, seg.selected, seg.tail), ("", "", ""));
+        assert!(!seg.caret_after_selection);
+    }
+
+    #[test]
+    fn which_end_of_a_selection_the_caret_is_at_is_answered() {
+        let mut buf = TextBuffer::new("abcdef");
+        buf.place(4, Some(2));
+        let seg = buf.segments();
+        assert_eq!((seg.head, seg.selected, seg.tail), ("ab", "cd", "ef"));
+        assert!(
+            seg.caret_after_selection,
+            "the caret is the far end, so it is drawn there"
+        );
+        buf.place(2, Some(4));
+        assert!(
+            !buf.segments().caret_after_selection,
+            "selected backwards, so the caret is at the near end"
+        );
+        assert_eq!(
+            buf.segments().selected,
+            "cd",
+            "and the run itself is the same run either way"
+        );
+    }
+
+    #[test]
+    fn the_runs_of_a_selection_are_cut_on_character_boundaries() {
+        let mut buf = TextBuffer::new("mär chen");
+        buf.place(1, Some(4));
+        let seg = buf.segments();
+        assert_eq!((seg.head, seg.selected, seg.tail), ("m", "är", " chen"));
     }
 }

@@ -2048,3 +2048,126 @@ fn a_card_with_no_printing_previews_nothing() {
     };
     assert!(hover_of_card(&card).url.is_none());
 }
+
+/// What a field's box holds, in order: each run of text as itself, and the
+/// caret as a bar.
+///
+/// Reading the *children* rather than a string is the whole point — the caret
+/// is a node between two runs now, and where it sits in that row is where it
+/// is drawn on screen.
+fn drawn_field(app: &mut App, field: Field) -> Vec<String> {
+    let mut boxes = app.world_mut().query::<(&Press, &Children)>();
+    let kids: Vec<Entity> = boxes
+        .iter(app.world())
+        .find(|(press, _)| **press == Press::Focus(field))
+        .map(|(_, children)| children.iter().collect())
+        .unwrap_or_default();
+    kids.into_iter()
+        .map(|kid| {
+            if app.world().get::<Caret>(kid).is_some() {
+                "|".to_string()
+            } else {
+                app.world()
+                    .get::<Text>(kid)
+                    .map_or_else(String::new, |text| text.0.clone())
+            }
+        })
+        .collect()
+}
+
+/// The caret is a node in the row of runs, so it is drawn between exactly the
+/// letters it stands between — no glyph measuring anywhere.
+#[test]
+fn the_caret_is_drawn_between_the_letters_it_stands_between() {
+    let mut app = headless();
+    {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for ch in ['a', 'b'] {
+            messages.write(typed(ch));
+        }
+        messages.write(pressed(KeyCode::ArrowLeft, Key::ArrowLeft));
+    }
+    app.update();
+    assert_eq!(drawn_field(&mut app, Field::Email), ["a", "|", "b"]);
+    let mut carets = app.world_mut().query::<&Caret>();
+    assert_eq!(
+        carets.iter(app.world()).count(),
+        1,
+        "one field has the caret, so one bar is drawn"
+    );
+}
+
+/// A selected run is a run with a fill behind it, and the caret is drawn at
+/// the end the player is holding.
+#[test]
+fn a_selection_is_a_run_with_a_fill_behind_it() {
+    let mut app = headless();
+    {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for ch in ['a', 'b'] {
+            messages.write(typed(ch));
+        }
+        messages.write(pressed(KeyCode::Home, Key::Home));
+    }
+    app.update();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::ShiftLeft);
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::ArrowRight, Key::ArrowRight));
+    app.update();
+    assert_eq!(
+        drawn_field(&mut app, Field::Email),
+        ["a", "|", "b"],
+        "shift and right selects the a and leaves the caret past it"
+    );
+    let mut fills = app.world_mut().query::<&BackgroundColor>();
+    let selected = fills
+        .iter(app.world())
+        .filter(|fill| fill.0 == palette::SELECTION)
+        .count();
+    assert_eq!(selected, 1, "exactly the selected run carries the fill");
+}
+
+/// A password is drawn as bullets, and the field still holds the letters —
+/// which is what lets the caret be an offset into the text and not into what
+/// is on screen.
+#[test]
+fn a_password_is_drawn_as_bullets_and_an_address_is_not() {
+    let mut app = headless();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .focus_on(Field::Password);
+    {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for ch in ['p', 'w'] {
+            messages.write(typed(ch));
+        }
+    }
+    app.update();
+    assert_eq!(
+        drawn_field(&mut app, Field::Password),
+        ["\u{2022}\u{2022}", "|"]
+    );
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::Password),
+        "pw",
+        "the bullets are drawn, never stored"
+    );
+}
+
+/// The blink is a phase of how long the caret has stood still, so nothing has
+/// to be kept in step with it — and `reduce_motion` stops it dead.
+#[test]
+fn the_caret_blinks_unless_it_was_asked_to_hold_still() {
+    assert!(caret_lit(0.0, false), "solid the moment it moves");
+    assert!(caret_lit(0.4, false));
+    assert!(!caret_lit(0.6, false), "dark through the second half");
+    assert!(caret_lit(1.1, false), "and lit again on the next round");
+    assert!(caret_lit(0.6, true), "reduce_motion is a promise it holds");
+}

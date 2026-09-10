@@ -622,6 +622,13 @@ pub(crate) mod palette {
     /// A card the client is offering to tap lands for: an offer, not a
     /// legal action, and drawn as the weaker claim it is.
     pub const REACHABLE: Color = Color::srgb(0.50, 0.47, 0.84);
+    /// The fill behind selected text in a field.
+    ///
+    /// [`ACCENT`] at a quarter, because the same accent rings the field that
+    /// has the caret: a selection and a focus are the same claim about the
+    /// same box — *this is where the typing goes* — and saying it in two
+    /// colours would make them two facts.
+    pub const SELECTION: Color = Color::srgba(0.33, 0.75, 0.71, 0.25);
     /// Soft shadow under raised elements.
     pub const SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
 

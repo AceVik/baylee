@@ -10,14 +10,15 @@
 use crate::cardmat::UiCards;
 use crate::hud::{UiFonts, btn_radius, palette, tf};
 use crate::lobby::{
-    Frame, List, LobbyState, Metrics, Pane, Press, Scrolled, button, chip, hover_of_card,
-    hover_of_entry, note, print_mark, row, scroller, spacer, text_box,
+    FieldLook, Frame, List, LobbyState, Metrics, Pane, Press, Scrolled, button, chip,
+    hover_of_card, hover_of_entry, note, print_mark, row, scroller, spacer, text_field,
 };
 use baylee_client_core::deckbuilder::{
     BuildField, CURVE_BUCKETS, Coverage, DeckBuilder, Group, Picker, Zone,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
+use baylee_client_core::textbuf::TextBuffer;
 use baylee_core::preset::Finish;
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
@@ -256,14 +257,22 @@ fn pool_panel(
     let lang = state.lobby.lang();
     let panel = build_panel(commands, metrics, percent(100), 1.0);
 
-    let search = text_box(
+    // The builder's boxes are plain strings, so the caret is always after
+    // what is in them — which is where it was drawn before there was a real
+    // one to draw, and all a box with no arrow keys of its own can honestly
+    // say.
+    let typed = TextBuffer::new(deck.text());
+    let search = text_field(
         commands,
         fonts,
         metrics,
         Phrase::Search.text(lang),
-        deck.text(),
-        deck.focus() == BuildField::Search,
-        Press::FocusBuild(BuildField::Search),
+        &FieldLook {
+            buffer: &typed,
+            focused: deck.focus() == BuildField::Search,
+            mask: false,
+            press: Press::FocusBuild(BuildField::Search),
+        },
     );
     commands.entity(panel).add_child(search);
 
@@ -1166,14 +1175,18 @@ fn deck_panel(
     let grow = f32::from(u8::from(metrics.frame == Frame::Phone));
     let panel = build_panel(commands, metrics, width, grow);
 
-    let name = text_box(
+    let typed = TextBuffer::new(deck.name());
+    let name = text_field(
         commands,
         fonts,
         metrics,
         Phrase::DeckNameLabel.text(lang),
-        deck.name(),
-        deck.focus() == BuildField::Name,
-        Press::FocusBuild(BuildField::Name),
+        &FieldLook {
+            buffer: &typed,
+            focused: deck.focus() == BuildField::Name,
+            mask: false,
+            press: Press::FocusBuild(BuildField::Name),
+        },
     );
     commands.entity(panel).add_child(name);
 

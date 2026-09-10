@@ -31,7 +31,7 @@ use baylee_client_core::lobby::{
     Field, GameMode, GameQuery, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS,
     MIN_CHAIRS, Screen, SeatKind, Tab,
 };
-use baylee_client_core::textbuf::{Dir, Step as Reach};
+use baylee_client_core::textbuf::{Dir, Step as Reach, TextBuffer};
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::Finish;
 use bevy::input::keyboard::{Key, KeyboardInput};
@@ -85,6 +85,7 @@ impl Plugin for LobbyPlugin {
                     scrolls,
                     hovers,
                     ui,
+                    ui::blink,
                     preview,
                     waiting,
                 )
@@ -291,5 +292,6 @@ pub(crate) use preview::{hover_of_card, hover_of_entry};
 use systems::Scrollable;
 pub(crate) use systems::{List, Press, Scrolled};
 pub(crate) use ui::{
-    Frame, Metrics, button, chip, heading, note, panel, print_mark, row, scroller, spacer, text_box,
+    FieldLook, Frame, Metrics, button, chip, heading, note, panel, print_mark, row, scroller,
+    spacer, text_field,
 };

@@ -378,9 +378,12 @@ fn sign_in(
         fonts,
         metrics,
         Phrase::Email.text(lang),
-        lobby.field(Field::Email),
-        lobby.focus() == Field::Email,
-        Field::Email,
+        &FieldLook {
+            buffer: lobby.buffer(Field::Email),
+            focused: lobby.focus() == Field::Email,
+            mask: false,
+            press: Press::Focus(Field::Email),
+        },
     );
     commands.entity(panel).add_child(email);
     if registering {
@@ -389,21 +392,26 @@ fn sign_in(
             fonts,
             metrics,
             Phrase::DisplayName.text(lang),
-            lobby.field(Field::DisplayName),
-            lobby.focus() == Field::DisplayName,
-            Field::DisplayName,
+            &FieldLook {
+                buffer: lobby.buffer(Field::DisplayName),
+                focused: lobby.focus() == Field::DisplayName,
+                mask: false,
+                press: Press::Focus(Field::DisplayName),
+            },
         );
         commands.entity(panel).add_child(name);
     }
-    let secret = "•".repeat(lobby.field(Field::Password).chars().count());
     let password = text_field(
         commands,
         fonts,
         metrics,
         Phrase::Password.text(lang),
-        &secret,
-        lobby.focus() == Field::Password,
-        Field::Password,
+        &FieldLook {
+            buffer: lobby.buffer(Field::Password),
+            focused: lobby.focus() == Field::Password,
+            mask: true,
+            press: Press::Focus(Field::Password),
+        },
     );
     commands.entity(panel).add_child(password);
 
@@ -768,9 +776,12 @@ fn table(
             fonts,
             metrics,
             Phrase::Search.text(lang),
-            lobby.field(Field::Search),
-            lobby.focus() == Field::Search,
-            Field::Search,
+            &FieldLook {
+                buffer: lobby.buffer(Field::Search),
+                focused: lobby.focus() == Field::Search,
+                mask: false,
+                press: Press::Focus(Field::Search),
+            },
         );
         commands.entity(hunt).add_child(box_);
         commands.entity(head_row).add_child(hunt);
@@ -806,7 +817,6 @@ fn table(
     // and two boxes a player has to tell apart would be worse than one that
     // says what it is for.
     if !alone {
-        let secret = "\u{2022}".repeat(lobby.room_password().chars().count());
         let lock = commands
             .spawn((
                 Node {
@@ -821,9 +831,12 @@ fn table(
             fonts,
             metrics,
             Phrase::RoomPassword.text(lang),
-            &secret,
-            lobby.focus() == Field::RoomPassword,
-            Field::RoomPassword,
+            &FieldLook {
+                buffer: lobby.buffer(Field::RoomPassword),
+                focused: lobby.focus() == Field::RoomPassword,
+                mask: true,
+                press: Press::Focus(Field::RoomPassword),
+            },
         );
         commands.entity(lock).add_child(box_);
         commands.entity(head_row).add_child(lock);
@@ -1361,77 +1374,6 @@ pub(crate) fn chip(
     id
 }
 
-/// A labelled text box that takes the caret when tapped, addressed by a
-/// [`Press`] of the caller's choosing.
-///
-/// [`text_field`] is the same control bound to the sign-in form's [`Field`];
-/// this one serves the builder's two boxes.
-pub(crate) fn text_box(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    label: &str,
-    value: &str,
-    focused: bool,
-    press: Press,
-) -> Entity {
-    let column = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(4),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let caption = commands
-        .spawn((
-            Text::new(label),
-            tf(fonts, metrics.small * 0.8),
-            TextColor(palette::MUTED),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let text = commands
-        .spawn((
-            Text::new(if focused {
-                format!("{value}▏")
-            } else {
-                value.to_string()
-            }),
-            tf(fonts, metrics.text),
-            TextColor(palette::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let boxed = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                min_height: px(metrics.tap),
-                align_items: AlignItems::Center,
-                padding: UiRect::axes(px(metrics.pad * 0.7), px(6)),
-                border: UiRect::all(px(1)),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(palette::PANEL),
-            BorderColor::all(if focused {
-                palette::ACCENT
-            } else {
-                Color::srgba(1.0, 1.0, 1.0, 0.08)
-            }),
-            press,
-        ))
-        .id();
-    commands.entity(boxed).add_child(text);
-    commands.entity(column).add_child(caption);
-    commands.entity(column).add_child(boxed);
-    column
-}
-
 /// The head of an opaque game id — enough to tell two tables apart, and short
 /// enough to fit on a phone.
 fn short_id(id: &str) -> String {
@@ -1516,15 +1458,97 @@ pub(super) fn despawn_leave_button(
 
 // ----------------------------------------------------------- node makers
 
+/// Everything a [`text_field`] draws that is not its label.
+pub(crate) struct FieldLook<'a> {
+    /// The text, the caret and the selection to draw.
+    pub(crate) buffer: &'a TextBuffer,
+    /// Whether this is the field with the caret.
+    pub(crate) focused: bool,
+    /// Whether the text is a password and is drawn as bullets.
+    ///
+    /// Masked *here* and not by the caller: the caret and the selection are
+    /// byte offsets into the real text, and a caller that handed over a
+    /// string of bullets would be handing over offsets into a different
+    /// string — a bullet is three bytes and the letter it stands for is one
+    /// to four.
+    pub(crate) mask: bool,
+    /// What a tap on it means.
+    pub(crate) press: Press,
+}
+
+/// The caret drawn in the field that has it.
+///
+/// A component with a system of its own rather than a glyph in the string,
+/// because the tree is retained: making a bar appear and disappear twice a
+/// second by rebuilding it would rebuild every row of the table list with it.
+/// `at` is where the caret stands and what stands around it, so a rebuild
+/// that puts it back exactly where it was leaves the blink where it was too.
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Caret {
+    /// The caret offset, the length of the selection, and the length of the
+    /// text — enough for "the same caret in the same field" and no more.
+    at: (usize, usize, usize),
+}
+
+/// How long the caret spends lit, and then dark.
+///
+/// 530 ms is the rate every desktop text field has blinked at for thirty
+/// years. It is not a number to improve on: a caret is recognised rather
+/// than read, and one blinking at a rate nothing else does reads as a fault.
+const BLINK_SECS: f32 = 0.530;
+
+/// Blinks the caret, and only the caret.
+///
+/// Touches one `BackgroundColor` and no state, so a quiet frame still costs
+/// nothing and the tree is never rebuilt for it.
+pub(super) fn blink(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut carets: Query<(&Caret, &mut BackgroundColor)>,
+    mut since: Local<f32>,
+    mut drawn: Local<Option<Caret>>,
+) {
+    let Ok((caret, mut colour)) = carets.single_mut() else {
+        *drawn = None;
+        return;
+    };
+    // A caret that has just moved, or has just had a letter typed at it, is a
+    // caret being looked at: it goes solid and the cycle starts again.
+    *since = if *drawn == Some(*caret) {
+        (*since + time.delta_secs()) % (BLINK_SECS * 2.0)
+    } else {
+        0.0
+    };
+    *drawn = Some(*caret);
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let want = if caret_lit(*since, still) {
+        palette::INK
+    } else {
+        Color::NONE
+    };
+    if colour.0 != want {
+        colour.0 = want;
+    }
+}
+
+/// Whether the bar is drawn, `since` seconds after the caret last moved.
+///
+/// A phase rather than a toggle, so nothing has to be kept in step with
+/// anything: the answer is a function of how long the caret has stood still,
+/// and a system that missed a frame is right again on the next one.
+pub(super) fn caret_lit(since: f32, still: bool) -> bool {
+    // `reduce_motion` is a promise that nothing moves, and a bar that comes
+    // and goes twice a second is movement.
+    still || since % (BLINK_SECS * 2.0) < BLINK_SECS
+}
+
 /// A labelled text box that takes the caret when tapped.
 pub(crate) fn text_field(
     commands: &mut Commands,
     fonts: &UiFonts,
     metrics: Metrics,
     label: &str,
-    value: &str,
-    focused: bool,
-    field: Field,
+    look: &FieldLook,
 ) -> Entity {
     let column = commands
         .spawn((
@@ -1545,21 +1569,6 @@ pub(crate) fn text_field(
             Pickable::IGNORE,
         ))
         .id();
-    // The caret is drawn into the string: one glyph is cheaper than a second
-    // node, and the lobby has no text selection to speak of.
-    let shown = if focused {
-        format!("{value}▏")
-    } else {
-        value.to_string()
-    };
-    let text = commands
-        .spawn((
-            Text::new(shown),
-            tf(fonts, metrics.text),
-            TextColor(palette::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
     let boxed = commands
         .spawn((
             Node {
@@ -1567,23 +1576,123 @@ pub(crate) fn text_field(
                 min_height: px(metrics.tap),
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(px(metrics.pad * 0.7), px(6)),
-                border: UiRect::all(px(1)),
+                // Two pixels whether or not it has the caret, so that taking
+                // the caret rings the box instead of moving everything in it
+                // a pixel to the left.
+                border: UiRect::all(px(2)),
                 border_radius: btn_radius(),
                 ..default()
             },
             BackgroundColor(palette::PANEL),
-            BorderColor::all(if focused {
+            BorderColor::all(if look.focused {
                 palette::ACCENT
             } else {
-                Color::srgba(1.0, 1.0, 1.0, 0.08)
+                Color::srgba(1.0, 1.0, 1.0, 0.06)
             }),
-            Press::Focus(field),
+            look.press,
         ))
         .id();
-    commands.entity(boxed).add_child(text);
+    for run in field_runs(commands, fonts, metrics, look) {
+        commands.entity(boxed).add_child(run);
+    }
     commands.entity(column).add_child(caption);
     commands.entity(column).add_child(boxed);
     column
+}
+
+/// The text inside a field: up to three runs with a bar between two of them.
+///
+/// No glyph metrics anywhere. The row is already measuring the letters, so a
+/// caret put into it as the next thing in the row lands exactly where the
+/// letters end — which is the one placement that cannot drift from the font.
+fn field_runs(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    look: &FieldLook,
+) -> Vec<Entity> {
+    let seg = look.buffer.segments();
+    let caret = look.focused.then(|| {
+        spawn_caret(
+            commands,
+            metrics,
+            Caret {
+                at: (
+                    look.buffer.cursor(),
+                    seg.selected.len(),
+                    look.buffer.text().len(),
+                ),
+            },
+        )
+    });
+    // Head, caret, selection, tail — with the caret on the other side of the
+    // selection when that is the end the player is holding. An empty run is
+    // no node: a field with the caret at its start is one bar and nothing.
+    let mut out = Vec::new();
+    // Before the selection, or before the tail: the two sides of a selected
+    // run, and the same seam when nothing is selected and the run is empty.
+    let caret_at = usize::from(seg.caret_after_selection) + 1;
+    let runs = [(seg.head, false), (seg.selected, true), (seg.tail, false)];
+    for (i, (text, selected)) in runs.into_iter().enumerate() {
+        if i == caret_at
+            && let Some(caret) = caret
+        {
+            out.push(caret);
+        }
+        if !text.is_empty() {
+            out.push(spawn_run(
+                commands, fonts, metrics, text, look.mask, selected,
+            ));
+        }
+    }
+    out
+}
+
+/// One run of a field's text, masked where the field is a password.
+fn spawn_run(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    text: &str,
+    mask: bool,
+    selected: bool,
+) -> Entity {
+    let shown = if mask {
+        "\u{2022}".repeat(text.chars().count())
+    } else {
+        text.to_string()
+    };
+    let mut run = commands.spawn((
+        Text::new(shown),
+        tf(fonts, metrics.text),
+        TextColor(palette::INK),
+        Pickable::IGNORE,
+    ));
+    if selected {
+        run.insert(BackgroundColor(palette::SELECTION));
+    }
+    run.id()
+}
+
+/// The bar itself: one logical pixel, half of it borrowed from each side so
+/// that showing it moves no letter.
+fn spawn_caret(commands: &mut Commands, metrics: Metrics, caret: Caret) -> Entity {
+    commands
+        .spawn((
+            caret,
+            Node {
+                width: px(1),
+                // Bevy lays a text node out at 1.2 times the font size, so a
+                // shorter bar would stand lower than the selection beside it
+                // and read as a fault rather than as a caret.
+                height: px(metrics.text * 1.2),
+                margin: UiRect::horizontal(px(-0.5)),
+                ..default()
+            },
+            BackgroundColor(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id()
 }
 
 /// A button. A disabled one carries no [`Press`], so a click cannot find it.
