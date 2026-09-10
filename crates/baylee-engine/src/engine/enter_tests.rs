@@ -21,7 +21,7 @@
 //! reason is worth stating exactly, because the obvious reading is wrong.
 //! Measured on a seeded Bojuka Bog: `apply_enter_modifiers` *does* reach it —
 //! it is tapped after the first mulligan is kept — and then the first turn's
-//! untap step untaps it (CR 502.1, journalled as `ObjectUntapped { cause:
+//! untap step untaps it (CR 502.3, journalled as `ObjectUntapped { cause:
 //! TurnBased }`) before the first priority. So a test built on `Cause::Setup`
 //! would have measured nothing and passed, but not because the modifier was
 //! skipped. [`printed_tests`] leans on the half of that which survives: a
