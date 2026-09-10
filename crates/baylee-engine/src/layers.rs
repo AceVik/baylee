@@ -198,10 +198,14 @@ fn apply_pt_counters(c: &mut Characteristics, obj: &GameObject) {
 
 /// The largest chain of copies [`copiable_values`] will walk.
 ///
-/// A cycle is unreachable in the rules — a copy effect names an object that
-/// was already on the battlefield when the copy was made, so the chain is
-/// as old as the game and cannot bend back on itself. This is a bound on
-/// the effect table as *data*, not on anything a player can do.
+/// A cycle is unreachable in *this pool*, not in the rules: every copy
+/// effect here is an as-it-enters one and so names something that was
+/// already on the battlefield, which makes the chain as old as the game and
+/// unable to bend back on itself. A card that turns an existing permanent
+/// into a copy of another (Cytoshape) can be pointed both ways, and the
+/// rules answer that with copiable-values arithmetic where this recursion
+/// would spin — so the bound is what stops a future card from hanging the
+/// projection, and the bound is why it is not an assertion.
 const MAX_COPY_DEPTH: u8 = 8;
 
 /// The copiable values of an object (CR 707.2).
@@ -228,6 +232,11 @@ const MAX_COPY_DEPTH: u8 = 8;
 /// registered as their own effects in layers 4 and 6 where nothing marks
 /// them as part of a copy. Both want the same change: the effect should
 /// carry a snapshot, not an id.
+///
+/// One caller that stayed on `base`: `CopyTargetSpell` copies a spell, and
+/// nothing registers a copy effect on a stack object, so the two answers
+/// cannot differ there. It is the same class as the three permanent sites
+/// and would want this function the day one does.
 #[must_use]
 pub fn copiable_values(state: &GameState, id: ObjectId) -> Option<Arc<Characteristics>> {
     copiable_values_at(state, id, 0)
