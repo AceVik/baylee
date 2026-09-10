@@ -168,6 +168,16 @@ To prove an *animation*, take two frames and diff them, peak per channel, and
 always run the counter-test — a diff that is non-zero for the wrong reason
 proves nothing.
 
+**A misplaced thing wants the arithmetic beside the picture.** `/state.shelves`
+reports where each seat's bar was told to go — `mid_x`/`mid_y`, the projected
+`along` and `depth` of its mat's ledge, the chosen `density`, the box that came
+out of it and the `ink` that box has to hold — in the same logical pixels
+`/pointer` takes. Read those against the pixels in a screenshot and "it looks
+displaced" splits into two different bugs that need different fixes: ink that
+does not sit where the model says (the drawing is wrong) versus a model whose
+ledge is not the ledge on screen (the projection is wrong). It was added for
+that split and settled it in one reading.
+
 ## Working on a look, rather than photographing one
 
 Two things turn "rebuild, launch, blink, miss it" into an actual loop, and

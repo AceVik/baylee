@@ -446,6 +446,7 @@ fn pump(
     duel: Option<Res<Duel>>,
     settings: Option<Res<ClientSettings>>,
     leaving: Query<&crate::table::Departing>,
+    shelves: Option<Res<crate::hud::Shelves>>,
     mut clock: ResMut<Time<Virtual>>,
 ) {
     control.frame += 1;
@@ -478,7 +479,12 @@ fn pump(
                 });
                 health(control.frame, size, &clock)
             }
-            "/state" => state_dump(duel.as_deref(), settings.as_deref(), leaving.iter().count()),
+            "/state" => state_dump(
+                duel.as_deref(),
+                settings.as_deref(),
+                leaving.iter().count(),
+                shelves.as_deref(),
+            ),
             "/key" => {
                 let pressed = press_chord(&job.body, &mut keys, &mut typing, window);
                 match pressed {
@@ -512,33 +518,8 @@ fn pump(
                     }
                 }
             }
-            // Anything below the fold is otherwise unreachable: a control the
-            // harness cannot scroll to is a control it cannot press. The
-            // wheel lands wherever the pointer was last put, which is how a
-            // real one picks the list it scrolls.
             "/scroll" => match window {
-                Some(entity) => {
-                    let lines: f32 = field(&job.body, "y")
-                        .and_then(|v| v.parse().ok())
-                        .unwrap_or(-3.0);
-                    let wheel = bevy::input::mouse::MouseWheel {
-                        unit: bevy::input::mouse::MouseScrollUnit::Line,
-                        x: 0.0,
-                        y: lines,
-                        window: entity,
-                        // What a mouse always sends; a finger is the other
-                        // gesture entirely and the lobby reads it as a drag.
-                        phase: bevy::input::touch::TouchPhase::Moved,
-                    };
-                    // Both, and for the same reason a click writes both: the
-                    // picking backend reads `WindowEvent`, and it is picking
-                    // that turns a wheel into the `Pointer<Scroll>` a list
-                    // listens for. The plain message is what everything else
-                    // reads.
-                    wheels.write(wheel);
-                    window_events.write(WindowEvent::MouseWheel(wheel));
-                    format!("{{\"ok\":true,\"lines\":{lines}}}")
-                }
+                Some(entity) => turn_the_wheel(&job.body, entity, &mut wheels, &mut window_events),
                 None => "{\"error\":\"no primary window\"}".to_string(),
             },
             "/screenshot" => {
@@ -563,6 +544,39 @@ fn pump(
         };
         let _ = job.reply.send(answer);
     }
+}
+
+/// Spins the wheel where the pointer is.
+///
+/// Anything below the fold is otherwise unreachable: a control the harness
+/// cannot scroll to is a control it cannot press. The wheel lands wherever the
+/// pointer was last put, which is how a real one picks the list it scrolls.
+///
+/// It is written twice for the same reason a click is: the picking backend
+/// reads [`WindowEvent`], and it is picking that turns a wheel into the
+/// `Pointer<Scroll>` a list listens for, while the plain message is what
+/// everything else reads.
+fn turn_the_wheel(
+    body: &str,
+    window: Entity,
+    wheels: &mut MessageWriter<bevy::input::mouse::MouseWheel>,
+    window_events: &mut MessageWriter<WindowEvent>,
+) -> String {
+    let lines: f32 = field(body, "y")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(-3.0);
+    let wheel = bevy::input::mouse::MouseWheel {
+        unit: bevy::input::mouse::MouseScrollUnit::Line,
+        x: 0.0,
+        y: lines,
+        window,
+        // What a mouse always sends; a finger is the other gesture entirely
+        // and the lobby reads it as a drag.
+        phase: bevy::input::touch::TouchPhase::Moved,
+    };
+    wheels.write(wheel);
+    window_events.write(WindowEvent::MouseWheel(wheel));
+    format!("{{\"ok\":true,\"lines\":{lines}}}")
 }
 
 /// Types a line of text as keyboard events.
@@ -831,7 +845,12 @@ fn write_screenshot(
 /// under test. `view` is what the host last sent, `interaction` is what the
 /// client made of it, and a disagreement between them is exactly the class of
 /// bug this endpoint exists to show.
-fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>, departing: usize) -> String {
+fn state_dump(
+    duel: Option<&Duel>,
+    settings: Option<&ClientSettings>,
+    departing: usize,
+    shelves: Option<&crate::hud::Shelves>,
+) -> String {
     let Some(duel) = duel else {
         return "{\"duel\":null}".to_string();
     };
@@ -868,7 +887,11 @@ fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>, departing:
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
          \"reachable\":{reachable},\"activatable\":{activatable},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
-         \"departing\":{departing}}}",
+         \"departing\":{departing},\"shelves\":{shelves}}}",
+        shelves = shelves_json(
+            shelves,
+            duel.view.as_ref().is_some_and(|v| v.day_night.is_some())
+        ),
         hovered = duel
             .hovered
             .map_or_else(|| "null".to_string(), |h| format!("\"{h:?}\"")),
@@ -890,6 +913,45 @@ fn state_dump(duel: Option<&Duel>, settings: Option<&ClientSettings>, departing:
             .ability_menu
             .map_or_else(|| "null".to_string(), |m| format!("\"{m:?}\"")),
     )
+}
+
+/// Where each seat's bar is drawn, and what it was allowed to be.
+///
+/// A bar is placed from a projection, not from a layout pass, so "the bar is
+/// in the wrong place" is a claim about arithmetic that a screenshot can only
+/// ever suggest. These are the numbers the placement was made from, in the
+/// same logical pixels `/pointer` takes: `mid` is the centre the box is hung
+/// on, `along` and `depth` are the projected ledge, and `ink` is what the
+/// depth has to be able to hold. A shelf whose `ink` is close to its `depth`
+/// is a bar about to stand on the creature lane behind it.
+fn shelves_json(shelves: Option<&crate::hud::Shelves>, designated: bool) -> String {
+    let Some(shelves) = shelves else {
+        return "null".to_string();
+    };
+    let rows: Vec<String> = shelves
+        .0
+        .iter()
+        .map(|(player, shelf)| {
+            let box_size = shelf.box_size(designated);
+            format!(
+                "{{\"player\":{player},\"mid_x\":{mx:.1},\"mid_y\":{my:.1},\
+                 \"along\":{along:.1},\"depth\":{depth:.1},\"tilt\":{tilt:.3},\
+                 \"density\":\"{density:?}\",\"box_w\":{bw:.1},\"box_h\":{bh:.1},\
+                 \"ink\":{ink:.1}}}",
+                player = player.get(),
+                mx = shelf.middle.x,
+                my = shelf.middle.y,
+                along = shelf.along,
+                depth = shelf.depth,
+                tilt = shelf.tilt,
+                density = shelf.density,
+                bw = box_size.x,
+                bh = box_size.y,
+                ink = shelf.density.ink_height(),
+            )
+        })
+        .collect();
+    format!("[{}]", rows.join(","))
 }
 
 #[cfg(test)]

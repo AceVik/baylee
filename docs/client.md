@@ -2513,6 +2513,20 @@ ran at all — and that is what it was added for. Three runs failed to catch a
 graveyard sink before `departing` said, flatly, that the count never left zero;
 the cause was that a card going to a pile is never stale in the first place.
 
+`shelves` is the fifth, and it answers a different kind of question again: not
+a state that hides, but an *arithmetic* a picture can only ever suggest. A
+seat's bar is placed by projecting its mat's ledge corners rather than by a
+layout pass, so "the bar is in the wrong place" is a claim about numbers — the
+centre the box is hung on, the projected length and depth of that ledge, and
+the `ink` the depth has to be able to hold — and the route reports the numbers
+the placement was actually made from, in the same logical pixels `/pointer`
+takes. A shelf whose `ink` is close to its `depth` is a bar about to stand on
+the creature lane behind it. It was added to settle exactly that question: a
+duel's bar reported `mid_y` 605.9 over a depth of 49.0, while the screenshot
+put the drawn ledge at 560..611 and the bar's ink at 591..620 — so the drawing
+follows the model to the pixel, and it is the projection that disagrees with
+the mat under it.
+
 ## Editing a shader without stopping the game
 
 `--features dev-reload` puts bevy's embedded-asset watcher behind the seven
