@@ -582,3 +582,181 @@ fn a_saga_owing_three_chapters_at_once_outlives_the_first_one_to_resolve() {
          board never reached the state this test is about"
     );
 }
+
+fn tishanas_tidebinder() -> CardIndex {
+    card_index("2993dc7d-723d-4a9b-94bd-4bb02a9f7243")
+}
+
+/// The chapter abilities of `saga` sitting on the stack.
+fn chapter_ids(engine: &Engine<RegistryLookup>, saga: ObjectId) -> Vec<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.ability)
+                .is_some_and(|loc| loc.source == saga)
+        })
+        .collect()
+}
+
+/// Drives to the one window in which chapter III can be answered: on the
+/// stack, alone, with p0 holding priority. Answers with `(saga, chapter)`.
+fn reach_a_lone_chapter_three(
+    engine: &mut Engine<RegistryLookup>,
+    p0: PlayerId,
+) -> (ObjectId, ObjectId) {
+    let mut guard = 0;
+    loop {
+        guard += 1;
+        assert!(guard < 300, "chapter III never reached the stack");
+        let saga = saga_object(engine).expect("the saga is on the battlefield");
+        let chapters = chapter_ids(engine, saga);
+        if lore(engine, saga) == 3
+            && chapters.len() == 1
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0)
+        {
+            return (saga, chapters[0]);
+        }
+        drive(engine, 1);
+    }
+}
+
+/// Flashes in Tishana's Tidebinder off three Islands and points its trigger
+/// at `chapter`, leaving the counter on the stack.
+fn flash_in_a_tidebinder(engine: &mut Engine<RegistryLookup>, p0: PlayerId, chapter: ObjectId) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities {
+        if engine
+            .state()
+            .object(source)
+            .and_then(|o| o.card)
+            .is_some_and(|c| c.index == island())
+        {
+            engine
+                .apply(p0, PlayerAction::ActivateManaAbility { source })
+                .expect("an Island taps for {U}");
+        }
+    }
+    let tidebinder = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == tishanas_tidebinder())
+        })
+        .expect("the tidebinder is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: tidebinder })
+        .expect("flash, in response to the chapter");
+
+    let mut guard = 0;
+    loop {
+        guard += 1;
+        assert!(guard < 40, "the tidebinder never asked for a target");
+        match engine.pending().clone() {
+            Pending::ChooseTargets {
+                player, options, ..
+            } => {
+                assert!(
+                    options.contains(&chapter),
+                    "chapter III was not offered as a target: {options:?}"
+                );
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![chapter],
+                            players: vec![],
+                        },
+                    )
+                    .expect("an ability on the stack is a legal target");
+                return;
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected pending: {other:?}"),
+        }
+    }
+}
+
+/// CR 714.4 is a **state-based action**, and a chapter ability can leave the
+/// stack without resolving.
+///
+/// Tishana's Tidebinder is flashed in in response to chapter III and counters
+/// it. The Saga is then sitting at three lore counters with nothing of its
+/// own on the stack, which is CR 714.4's sentence word for word — the number
+/// of lore counters is greater than or equal to the final chapter number and
+/// it isn't the source of a chapter ability that has triggered but not yet
+/// left the stack — so it is sacrificed, and no chapter ever resolved to do
+/// it.
+///
+/// The sacrifice used to live in `finish_resolution`, which only runs for an
+/// ability that *resolved*, so a countered last chapter left the Saga on the
+/// battlefield for the rest of the game: a permanent the rules say is not
+/// there, tapping for mana and holding the abilities its earlier chapters
+/// granted it. That is the difference between a rule and a step of
+/// resolution.
+#[test]
+fn a_saga_whose_last_chapter_is_countered_is_sacrificed_anyway() {
+    let mut preset = preset(11, vec![urzas_saga(), tishanas_tidebinder()]);
+    preset.seats[0].starting_battlefield = vec![entry(island()), entry(island()), entry(island())];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    drive_and_play_saga(&mut engine, p0);
+
+    let (saga, chapter) = reach_a_lone_chapter_three(&mut engine, p0);
+    flash_in_a_tidebinder(&mut engine, p0, chapter);
+
+    // Drain the stack. Nothing of the Saga's is left on it once the counter
+    // resolves, which is the state CR 714.4 asks about.
+    let mut guard = 0;
+    while !engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .is_empty()
+    {
+        guard += 1;
+        assert!(guard < 40, "the stack never drained");
+        drive(&mut engine, 1);
+    }
+    assert!(
+        chapter_ids(&engine, saga).is_empty(),
+        "chapter III is still on the stack, so it was never countered"
+    );
+    assert!(
+        saga_object(&engine).is_none(),
+        "CR 714.4: the saga is at {} lore counters with no chapter of its own \
+         on the stack, and is still on the battlefield",
+        lore(&engine, saga)
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .iter()
+            .any(|id| engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == urzas_saga())),
+        "the saga left the battlefield without reaching its owner's graveyard"
+    );
+}

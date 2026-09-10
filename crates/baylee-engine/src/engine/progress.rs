@@ -188,7 +188,16 @@ impl<L: CardLookup> Engine<L> {
             if outcome.changed {
                 continue;
             }
-            // 2b. Daybound and nightbound (CR 702.145c–g). Explicitly *not*
+            // 2b. Sagas (CR 714.4). A state-based action like the ones
+            //     above, out here only because it has to read a permanent's
+            //     abilities and `sba::run` has no lookup to read them with —
+            //     which is 2c's reason too, and the whole of the difference
+            //     between the two steps is that 2c's rules say in as many
+            //     words that they are *not* state-based actions.
+            if self.finished_sagas() {
+                continue;
+            }
+            // 2c. Daybound and nightbound (CR 702.145c–g). Explicitly *not*
             //     state-based actions, and they need the card lookup, so
             //     they sit here rather than inside `sba::run`.
             if self.day_night_statics() {
@@ -1717,52 +1726,16 @@ impl<L: CardLookup> Engine<L> {
             .object(res.on_stack)
             .is_some_and(|o| o.kind == ObjectKind::AbilityOnStack)
         {
-            // Sagas (CR 714.4): a Saga whose lore counters cover its final
-            // chapter is sacrificed. Read through [`Object::abilities`] and
-            // not through the printed face, so this asks the same question
-            // [`Self::is_saga`] does and a permanent that has *become* a
-            // Saga answers it.
-            let source = res.source;
-            let saga_is_finished = self.state.object(source).is_some_and(|o| {
-                let max = o
-                    .abilities(&self.lookup)
-                    .iter()
-                    .filter_map(|a| match a {
-                        baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. } => Some(*chapter),
-                        _ => None,
-                    })
-                    .max()
-                    .unwrap_or(0);
-                max > 0 && o.counters.get(baylee_cards_dsl::CounterKind::Lore) >= u16::from(max)
-            });
             // Abilities on the stack simply cease to exist (CR 608.2k).
+            //
+            // CR 714.4's sacrifice used to be spelled out here, on the way
+            // past: a resolving chapter carried its own Saga to the
+            // graveyard. It is a state-based action and now runs as one, in
+            // [`Self::finished_sagas`] — which is what a chapter ability
+            // that *never resolves* needs. Countering the last chapter left
+            // the Saga on the battlefield for the rest of the game.
             self.state.zones.remove(res.on_stack, ZoneLocation::Stack);
             let _ = self.state.arena.remove(res.on_stack);
-            // The rest of CR 714.4, and it is asked *after* the removal
-            // above because the sentence is about what is still there: the
-            // Saga goes only when it "isn't the source of a chapter ability
-            // that has triggered but not yet left the stack". One chapter
-            // at a time made that clause unreachable, so it was never
-            // written; a Saga can now arrive on several counters at once
-            // and owe several chapters, and the stack is last-in-first-out,
-            // so the *highest* one resolves first and would otherwise carry
-            // the Saga to the graveyard with its earlier chapters still
-            // waiting to resolve on a permanent that is no longer there.
-            if saga_is_finished && !self.a_chapter_of_it_is_still_on_the_stack(source) {
-                let owner = self
-                    .state
-                    .object(source)
-                    .map_or(res.controller, |o| o.owner);
-                if let Some(obj) = self.state.object_mut(source) {
-                    obj.kind = ObjectKind::Card;
-                }
-                let _ = self.state.move_object(
-                    source,
-                    ZoneLocation::Graveyard(owner),
-                    ZonePosition::Top,
-                    crate::event::Cause::Effect,
-                );
-            }
         } else {
             self.finalize_spell(res.on_stack);
         }
@@ -2131,6 +2104,117 @@ impl<L: CardLookup> Engine<L> {
                             })
                 })
             })
+    }
+
+    /// Whether ability `index` of `source` is one of its chapters.
+    ///
+    /// A synthetic index ([`baylee_core::ids::AbilityRef::SYNTHETIC`]) names
+    /// no entry in the list and is never a chapter.
+    fn is_a_chapter_of(&self, source: ObjectId, index: u32) -> bool {
+        index != baylee_core::ids::AbilityRef::SYNTHETIC
+            && self.state.object(source).is_some_and(|o| {
+                matches!(
+                    o.abilities(&self.lookup).get(index as usize),
+                    Some(baylee_cards_dsl::AbilityDef::SagaChapter { .. })
+                )
+            })
+    }
+
+    /// CR 714.4's second clause in full: a chapter of `source` that **has
+    /// triggered** and has not yet left the stack.
+    ///
+    /// "Has triggered" is true from the moment the lore counter lands, and
+    /// the stack is the *second* of two places such an ability can be. A
+    /// chapter is not discovered from the journal the way other triggers
+    /// are — [`Self::queue_saga_chapters`] pushes it straight into
+    /// `trigger_queue` as the counter is placed, because the trigger is
+    /// "the count crossed this number" and no event says that — so it sits
+    /// in the queue until `collect_triggers` stacks it.
+    ///
+    /// Asking the stack alone therefore answers "nothing is waiting" about
+    /// a chapter one step away from it, and sacrifices the Saga out from
+    /// underneath its own last chapter. That is what the two existing saga
+    /// tests said when this check was first written that way.
+    fn a_chapter_of_it_has_triggered(&self, source: ObjectId) -> bool {
+        self.a_chapter_of_it_is_still_on_the_stack(source)
+            || self
+                .trigger_queue
+                .iter()
+                .any(|t| t.source == source && self.is_a_chapter_of(source, t.ability_index))
+    }
+
+    /// CR 714.4: a Saga whose lore counters cover its final chapter, and
+    /// which no chapter of its own has triggered and not yet left the stack,
+    /// is sacrificed by its controller.
+    ///
+    /// It is a state-based action and the rule says so in as many words, so
+    /// what matters is that it is asked about a *state* and not about an
+    /// event. This lived in [`Self::finish_resolution`] instead, on the way
+    /// past a chapter that had just resolved, which answers the same in
+    /// every game where every chapter resolves — and a chapter can leave the
+    /// stack without resolving. Countered by Tishana's Tidebinder, the last
+    /// chapter took the sacrifice with it and the Saga stayed on the
+    /// battlefield for the rest of the game.
+    ///
+    /// "Has a chapter ability" is read through [`Object::abilities`] rather
+    /// than off the printed face, so a permanent that has *become* a copy of
+    /// a Saga answers with the chapters it has become — the same reading
+    /// [`Self::is_saga`] uses, and the reason the rule's own "with one or
+    /// more chapter abilities" needs no subtype here.
+    ///
+    /// Returns whether anything was sacrificed, which sends the fixpoint
+    /// round again — a Saga leaving the battlefield is exactly the kind of
+    /// thing the state-based actions above want another look at.
+    ///
+    /// [`Object::abilities`]: crate::object::GameObject::abilities
+    fn finished_sagas(&mut self) -> bool {
+        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
+        let mut changed = false;
+        for id in battlefield {
+            let finished = self.state.object(id).is_some_and(|o| {
+                // Every Saga on the battlefield has at least one lore
+                // counter (CR 714.3a), so this is the whole step for a
+                // board with no Saga on it and costs one field read per
+                // permanent rather than an abilities lookup.
+                if o.counters.get(baylee_cards_dsl::CounterKind::Lore) == 0 {
+                    return false;
+                }
+                let max = o
+                    .abilities(&self.lookup)
+                    .iter()
+                    .filter_map(|a| match a {
+                        baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. } => Some(*chapter),
+                        _ => None,
+                    })
+                    .max()
+                    .unwrap_or(0);
+                max > 0 && o.counters.get(baylee_cards_dsl::CounterKind::Lore) >= u16::from(max)
+            });
+            // The second half of the sentence, asked only once the counters
+            // say yes to the first: a Saga can arrive on several counters at
+            // once and owe several chapters, and the stack is
+            // last-in-first-out, so the *highest* one resolves first and
+            // would otherwise carry the Saga to the graveyard with its
+            // earlier chapters still waiting to resolve on a permanent that
+            // is no longer there.
+            if !finished || self.a_chapter_of_it_has_triggered(id) {
+                continue;
+            }
+            let Some(owner) = self.state.object(id).map(|o| o.owner) else {
+                continue;
+            };
+            if let Some(obj) = self.state.object_mut(id) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = self.state.move_object(
+                id,
+                ZoneLocation::Graveyard(owner),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            );
+            changed = true;
+        }
+        changed
     }
 
     /// Queues every chapter ability the lore count just crossed, and says
