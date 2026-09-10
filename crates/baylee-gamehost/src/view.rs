@@ -249,7 +249,9 @@ fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
         ObjectKind::Spell => Some(StackItem::Spell),
         ObjectKind::AbilityOnStack => obj.ability.map(|loc| StackItem::Ability {
             source: loc.source,
-            ability: baylee_core::ids::AbilityRef::new(loc.card, loc.index),
+            ability: loc
+                .card
+                .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index)),
         }),
         _ => None,
     }

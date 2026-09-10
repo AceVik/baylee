@@ -792,18 +792,15 @@ impl<L: CardLookup> Engine<L> {
                 .object(source)
                 .map_or(NameRef::new(0), |o| o.base.name);
             let base = self.state.bare_base(name);
-            // The same sentinel as `push_ability_to_stack`, and the same
-            // reason: an ability a continuous effect *granted* belongs to
-            // whatever it was granted to, which need not have a card.
-            // Nothing in the pool reaches this with a card-less permanent
-            // today — the three granting cards all name lands, and no token
-            // in the pool is one — so this is the wall taken down rather
-            // than a bug being fixed.
+            // An ability a continuous effect *granted* belongs to whatever
+            // it was granted to, which need not have a card. It records
+            // whichever it is, as `push_ability_to_stack` does; there is no
+            // sentinel to pick any more.
             let card = self
                 .state
                 .object(source)
                 .and_then(|o| o.card)
-                .map_or(baylee_core::ids::CardIndex::new(0), |c| c.index);
+                .map(|c| c.index);
             let id = self.state.arena.insert_with(|id| {
                 GameObject::new_ability_on_stack(
                     id,
@@ -1049,19 +1046,27 @@ impl<L: CardLookup> Engine<L> {
 
     /// Completes a loyalty activation after targeting: pushes the ability
     /// to the stack without re-paying (cost was paid at activation).
+    ///
+    /// The one thing it could refuse — a source with no card — was never
+    /// its to refuse: the ability came off the object's own list, which is
+    /// also the list `legal_actions` offered from. With that gone there is
+    /// nothing left here that can fail.
     pub(crate) fn finish_loyalty_activation(
         &mut self,
         player: PlayerId,
         source: ObjectId,
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
-    ) -> Result<(), EngineError> {
+    ) {
+        // A loyalty ability of a card-less permanent is a token copy of a
+        // planeswalker: nothing in the pool makes one, but `legal_actions`
+        // offers whatever the object's own list holds, so refusing here
+        // would be the engine taking back an offer it had just made.
         let card_index = self
             .state
             .object(source)
             .and_then(|o| o.card)
-            .map(|c| c.index)
-            .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
+            .map(|c| c.index);
         let loc = AbilityLoc {
             card: card_index,
             index: ability_index,
@@ -1094,7 +1099,6 @@ impl<L: CardLookup> Engine<L> {
             controller: player,
         });
         self.after_action(player);
-        Ok(())
     }
 
     /// Activates a planeswalker loyalty ability: applies the loyalty cost
@@ -1116,9 +1120,10 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(source)
                 .ok_or(EngineError::IllegalAction("no such permanent"))?;
-            let card = obj
-                .card
-                .ok_or(EngineError::IllegalAction("not a card-backed object"))?;
+            // Identity only, as everywhere else — the ability comes off the
+            // object's own list, and a token copy of a planeswalker has one
+            // without having a card.
+            let card = obj.card.map(|c| c.index);
             let AbilityDef::Loyalty {
                 effects, targets, ..
             } = obj
@@ -1128,7 +1133,7 @@ impl<L: CardLookup> Engine<L> {
             else {
                 return Err(EngineError::IllegalAction("not a loyalty ability"));
             };
-            (card.index, *effects, *targets)
+            (card, *effects, *targets)
         };
         // Loyalty cost is paid at activation (CR 606.3) — after checking
         // that required targets exist, before targeting.
@@ -1368,14 +1373,14 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) {
-        // Sentinel: an emblem (CR 114.2), a token and a token copy have no
-        // card, so the handle a client is given names none. What resolves
-        // is the list captured below (CR 608.2), as for any ability.
+        // An emblem (CR 114.2), a token and a token copy have no card, and
+        // the handle a client is given says so. What resolves is the list
+        // captured below (CR 608.2), as for any ability.
         let card = self
             .state
             .object(source)
             .and_then(|o| o.card)
-            .map_or(baylee_core::ids::CardIndex::new(0), |c| c.index);
+            .map(|c| c.index);
         let name = self
             .state
             .object(source)

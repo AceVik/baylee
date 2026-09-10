@@ -42,8 +42,20 @@ pub struct CardRef {
 /// Which ability an `AbilityOnStack` object represents.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct AbilityLoc {
-    /// The card the ability belongs to.
-    pub card: CardIndex,
+    /// The card the ability belongs to, when there is one.
+    ///
+    /// `None` for a token, a token copy and an emblem (CR 111.1, CR 114.2):
+    /// none of the three has a card, and the ability came off the object's
+    /// own list rather than out of a printing. It used to be
+    /// `CardIndex::new(0)` there, which is not a hole but a *claim* — index
+    /// 0 is a real card, and this handle leaves the engine twice, as the
+    /// stack entry a client draws and as the name a player's standing
+    /// answer is filed under. Every token's ability answered to the same
+    /// stranger's.
+    ///
+    /// The engine itself reads none of it: what an ability on the stack
+    /// *does* is the list captured beside it (CR 608.2, `own_abilities`).
+    pub card: Option<CardIndex>,
     /// Index into `CardDef::abilities`.
     pub index: u32,
     /// The permanent/spell that produced the ability (the source).

@@ -1128,7 +1128,12 @@ pub fn resolving_ability(
     use baylee_core::ids::AbilityRef;
     let obj = state.object(res.on_stack)?;
     if let Some(loc) = obj.ability {
-        return Some(AbilityRef::new(loc.card, loc.index));
+        // No card, no handle: a token's, a token copy's and an emblem's
+        // ability is addressed by nothing a standing answer could be filed
+        // under, and saying so is the whole point of the `Option`. It used
+        // to answer with card index 0, so one "always say yes" would have
+        // covered every such ability at once — and a real card besides.
+        return loc.card.map(|card| AbilityRef::new(card, loc.index));
     }
     // A spell resolving: what it does is its spell ability, which is not
     // an entry in the card's ability list.

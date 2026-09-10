@@ -1577,3 +1577,33 @@ about the table itself rather than the rules, and both are fixed.
     does not *apply*, and it reads as implemented from every direction —
     the name, the doc comment, the passing test. Grep for callers, not for
     the rule.
+
+## Fourth pass, 2026-09-10 — found while making a card-less ability say so
+
+### 30. Ward never fires — CONFIRMED, unreported
+
+`AbilityDef::Ward { mana }` is read by `trigger.rs` and the whole path
+exists: three synthetic effect lists, a scan that looks for a `SpellCast` or
+`AbilityTriggered` event, and a `PlayerMayPayOr` that counters the spell if
+the tax is declined. It fires for nothing. Measured on Twining Twins
+(ward {1}), targeted by an opponent's Path to Exile: the Path resolves with
+no question asked, and the same is true of a token copy of it.
+
+The shape of the hole is a timing one, and it is why the test suite has no
+ward test at all — not one, in either direction. The scan reads
+`state.object(target_obj).targets.contains(&permanent)`, which is a fact
+about the *spell on the stack*, from a window of journal entries starting at
+`from_seq`. `SpellCast` is journaled when the cast begins, and targets are
+chosen after that: by the time the spell has targets, the event that would
+have found them is behind the window.
+
+Prowess is the same branch and is *not* the same fault — it reads the
+`SpellCast` event alone and needs nothing from the spell's targets — but the
+pool has no implemented prowess creature to prove it on either (Pinnacle
+Monk is a generated stub), so both engine-level keyword triggers are
+currently unreachable from a game.
+
+Not fixed here. The change that found it made the card-less half of an
+ability handle honest, which is what let a copy of a warded creature be
+*queued* a trigger at all; that it then fires for nobody is a second fault
+underneath the first.

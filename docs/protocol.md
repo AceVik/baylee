@@ -143,19 +143,27 @@ and held by nothing outside that game, which is why an ability the engine puts
 on the stack carries `AbilityRef::SYNTHETIC` rather than the slot it was
 offered under.
 
-The other half of that handle is **not** yet honest, and this is the note
-saying so. `AbilityLoc.card`, which is what a `StackItem::Ability` carries out
-as its `AbilityRef`, is a `CardIndex`, and a card-less source has none — an
-emblem (CR 114.2), a token, and since token copies were handed the rules text
-they copy (CR 707.2) a copy of anything. All three are given
-`CardIndex::new(0)`, which is not a free sentinel: index 0 is a real card in
-the ledger, so a client looking that handle up labels the ability with a
-stranger's text. It draws the right *picture* regardless, because
+The other half of that handle **is** honest, and was not. `AbilityLoc.card`,
+which a `StackItem::Ability` carries out as its `AbilityRef`, is an
+`Option<CardIndex>` (view version 16), because a card-less source has no card
+to name — an emblem (CR 114.2), a token, and since token copies were handed
+the rules text they copy (CR 707.2) a copy of anything. All three used to be
+given `CardIndex::new(0)`, which is not a free sentinel: index 0 is a real
+card in the ledger, so a client looking that handle up labelled the ability
+with a stranger's text, and a standing answer filed under it covered every
+such ability in the game at once. The picture was always right, because
 `StackKind::Ability { source }` names the permanent rather than the card, so
-the fault is a wrong line of text and not a wrong card on the table. The fix
-is `AbilityLoc.card: Option<CardIndex>` through `StackItem::Ability` and a
-`VIEW_VERSION` bump — a change the rules gate cannot see, so it wants the full
-one.
+what it cost was a line of text and an "always say yes" that said more than
+it meant.
+
+The same `Option` mattered inside the engine, in a way the handle did not.
+Six places read the card out on their way to writing one down, and two of
+them treated *not having one* as a reason to stop: the two branches that put
+a synthetic keyword trigger on the stack returned early, so a source with no
+card was queued a trigger and never fired one. A copy of a warded or
+prowessed creature is exactly that shape. They fall through now — the card
+is identity, and identity is not a precondition — and a loyalty activation
+and a copied spell's scry rider stopped being refused for the same reason.
 
 ## Priority holds (view version 9)
 

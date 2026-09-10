@@ -1089,35 +1089,37 @@ impl<L: CardLookup> Engine<L> {
                 baylee_cards_dsl::SpendRider::Scry(n) => {
                     let fx: &'static [baylee_cards_dsl::Effect] =
                         if *n >= 2 { &SCRY_TWO } else { &SCRY_ONE };
+                    // A copied spell has no card, and the rider it was cast
+                    // with is still the rider it was cast with. The guard
+                    // that used to stand here dropped the scry rather than
+                    // write a handle it had nothing to put in.
                     let card = self
                         .state
                         .object(spell)
                         .and_then(|o| o.card)
                         .map(|c| c.index);
-                    if let Some(card) = card {
-                        let name = self
-                            .state
-                            .object(spell)
-                            .map_or(NameRef::new(0), |o| o.base.name);
-                        let base = self.state.bare_base(name);
-                        let id = self.state.arena.insert_with(|id| {
-                            GameObject::new_ability_on_stack(
-                                id,
-                                player,
-                                crate::object::AbilityLoc {
-                                    card,
-                                    index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                                    source: spell,
-                                },
-                                SmallVec::new(),
-                                base,
-                            )
-                        });
-                        self.synthetic_fx.insert(id, fx);
-                        self.state
-                            .zones
-                            .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
-                    }
+                    let name = self
+                        .state
+                        .object(spell)
+                        .map_or(NameRef::new(0), |o| o.base.name);
+                    let base = self.state.bare_base(name);
+                    let id = self.state.arena.insert_with(|id| {
+                        GameObject::new_ability_on_stack(
+                            id,
+                            player,
+                            crate::object::AbilityLoc {
+                                card,
+                                index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                                source: spell,
+                            },
+                            SmallVec::new(),
+                            base,
+                        )
+                    });
+                    self.synthetic_fx.insert(id, fx);
+                    self.state
+                        .zones
+                        .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
                 }
             }
         }

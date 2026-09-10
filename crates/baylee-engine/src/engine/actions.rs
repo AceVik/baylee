@@ -306,12 +306,8 @@ impl<L: CardLookup> Engine<L> {
                 }) = self.pending_plan.take()
                 {
                     self.loyalty_player_choice = Some(chosen);
-                    return self.finish_loyalty_activation(
-                        player,
-                        source,
-                        ability_index,
-                        SmallVec::new(),
-                    );
+                    self.finish_loyalty_activation(player, source, ability_index, SmallVec::new());
+                    return Ok(());
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 wizard.chosen_player = Some(chosen);
@@ -465,7 +461,7 @@ impl<L: CardLookup> Engine<L> {
                                 .and_then(|abilities| abilities.get(ability_index as usize)),
                             Some(AbilityDef::Loyalty { .. })
                         ) {
-                            self.finish_loyalty_activation(player, source, ability_index, targets)?;
+                            self.finish_loyalty_activation(player, source, ability_index, targets);
                         } else {
                             // Only on this arm. A loyalty ability shares the
                             // plan and finishes elsewhere, so setting the

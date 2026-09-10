@@ -1349,44 +1349,51 @@ impl<L: CardLookup> Engine<L> {
             }
             if let Some(synthetic) = t.synthetic_effects.as_ref() {
                 // Synthetic keyword trigger: effects live in the side map.
+                //
+                // The card is identity and nothing else, so a source that
+                // has none still triggers. It used to be read out and the
+                // whole branch skipped when it came back empty, which threw
+                // the *trigger* away to avoid writing a handle: a token copy
+                // of a warded or prowessed creature — Rite of Replication,
+                // Progenitor Mimic, Helm of the Host — kept the keyword on
+                // its own ability list, was queued a trigger for it, and
+                // then quietly never fired one.
                 let card = self
                     .state
                     .object(t.source)
                     .and_then(|o| o.card)
                     .map(|c| c.index);
-                if let Some(card) = card {
-                    let name = self
-                        .state
-                        .object(t.source)
-                        .map_or(NameRef::new(0), |o| o.base.name);
-                    let base = self.state.bare_base(name);
-                    // The event object doubles as the implicit target
-                    // (prowess: itself; ward: the targeting spell).
-                    let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
-                    let id = self.state.arena.insert_with(|id| {
-                        GameObject::new_ability_on_stack(
-                            id,
-                            t.controller,
-                            AbilityLoc {
-                                card,
-                                index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                                source: t.source,
-                            },
-                            targets,
-                            base,
-                        )
-                    });
-                    self.synthetic_fx.insert(id, synthetic);
-                    self.state
-                        .zones
-                        .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
-                    self.state.journal.record(GameEvent::AbilityTriggered {
-                        object: id,
-                        source: t.source,
-                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                        controller: t.controller,
-                    });
-                }
+                let name = self
+                    .state
+                    .object(t.source)
+                    .map_or(NameRef::new(0), |o| o.base.name);
+                let base = self.state.bare_base(name);
+                // The event object doubles as the implicit target
+                // (prowess: itself; ward: the targeting spell).
+                let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
+                let id = self.state.arena.insert_with(|id| {
+                    GameObject::new_ability_on_stack(
+                        id,
+                        t.controller,
+                        AbilityLoc {
+                            card,
+                            index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                            source: t.source,
+                        },
+                        targets,
+                        base,
+                    )
+                });
+                self.synthetic_fx.insert(id, synthetic);
+                self.state
+                    .zones
+                    .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+                self.state.journal.record(GameEvent::AbilityTriggered {
+                    object: id,
+                    source: t.source,
+                    ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    controller: t.controller,
+                });
             } else {
                 self.push_ability_to_stack(
                     t.controller,
@@ -2063,14 +2070,13 @@ impl<L: CardLookup> Engine<L> {
         let Some(synthetic) = t.synthetic_effects else {
             return;
         };
-        let Some(card) = self
+        // Identity, not a precondition — see the sibling branch in
+        // `stack_triggers`. A cardless source triggers like any other.
+        let card = self
             .state
             .object(t.source)
             .and_then(|o| o.card)
-            .map(|c| c.index)
-        else {
-            return;
-        };
+            .map(|c| c.index);
         let name = self
             .state
             .object(t.source)

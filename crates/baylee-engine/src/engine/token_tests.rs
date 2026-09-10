@@ -343,3 +343,98 @@ fn amass_makes_an_army_instead_of_growing_the_orc_that_cast_it() {
         "and the Bowmasters itself grew nothing"
     );
 }
+
+fn ondu_cleric() -> CardIndex {
+    card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
+}
+fn rite_of_replication() -> CardIndex {
+    card_index("fb60739e-1dc3-481d-a056-ad72e665c680")
+}
+
+/// A copy's ability on the stack is addressed by no card, and says so.
+///
+/// A token copy has no card (CR 111.1), and the handle that names an
+/// ability on the stack — `AbilityLoc::card`, which leaves the engine as
+/// the view's `StackItem::Ability` and as the name a player's standing
+/// answer is filed under — used to be filled in with `CardIndex::new(0)`
+/// when there was nothing to fill it with. That is not a hole; it is a
+/// claim, and the card at index 0 is a real one. Every token's, token
+/// copy's and emblem's ability answered to the same stranger's name, so
+/// one "always say yes to this trigger" would have covered all of them at
+/// once.
+///
+/// Rite of Replication on an Ondu Cleric is the smallest board that puts
+/// both halves on the stack at the same moment: the copy entering is an
+/// Ally entering, so the original rallies *and* the copy rallies, and the
+/// two entries have to disagree about this one field.
+#[test]
+fn a_copys_ability_is_addressed_by_no_card() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(7, island())
+        .battlefield(0, &[ondu_cleric(), island(), island(), island(), island()])
+        .hand(0, &[rite_of_replication()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let rite = super::testkit::in_hand(&engine, p0, rite_of_replication()).expect("the rite");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: rite })
+        .unwrap();
+    let cleric = super::testkit::on_battlefield(&engine, p0, ondu_cleric()).expect("the cleric");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![cleric],
+                players: Vec::new(),
+            },
+        )
+        .unwrap();
+    // Rite's kicker is an optional additional cost; five more mana is not
+    // what this board is for.
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    // Both seats pass, the Rite resolves, and the rallies go on the stack.
+    super::testkit::pass_until(&mut engine, |e| {
+        e.state()
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .filter(|id| {
+                e.state()
+                    .object(**id)
+                    .is_some_and(|o| o.kind == ObjectKind::AbilityOnStack)
+            })
+            .count()
+            == 2
+    });
+    let addressed: Vec<Option<CardIndex>> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .filter_map(|id| engine.state().object(*id))
+        .filter_map(|o| o.ability)
+        .map(|loc| loc.card)
+        .collect();
+    assert_eq!(
+        addressed.iter().filter(|c| c.is_none()).count(),
+        1,
+        "the copy's rally is addressed by no card: {addressed:?}"
+    );
+    assert_eq!(
+        addressed
+            .iter()
+            .filter(|c| **c == Some(ondu_cleric()))
+            .count(),
+        1,
+        "and the printed cleric's rally still names the cleric: {addressed:?}"
+    );
+}

@@ -1896,7 +1896,7 @@ mod tests {
         ability.toughness = None;
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: ObjectId::new(1, 0),
-            ability: baylee_core::ids::AbilityRef::new(CardIndex::new(33), 0),
+            ability: Some(baylee_core::ids::AbilityRef::new(CardIndex::new(33), 0)),
         });
         let view = ViewBuilder::new(2)
             .with_battlefield(0, [source])
@@ -1923,7 +1923,7 @@ mod tests {
         ability.card = None;
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: ObjectId::new(99, 0),
-            ability: baylee_core::ids::AbilityRef::new(CardIndex::new(1), 0),
+            ability: Some(baylee_core::ids::AbilityRef::new(CardIndex::new(1), 0)),
         });
         let view = ViewBuilder::new(2).with_stack(vec![ability]).build();
         let m = model(&view);

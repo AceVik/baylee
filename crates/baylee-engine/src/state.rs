@@ -1798,7 +1798,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     match &obj.ability {
         Some(loc) => {
             h.u8(1);
-            h.u32(loc.card.get());
+            h.option_u32(loc.card.map(baylee_core::ids::CardIndex::get));
             h.u32(loc.index);
             h.u32(position(loc.source));
         }
@@ -1862,7 +1862,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     match &obj.ability {
         Some(loc) => {
             h.u8(1);
-            h.u32(loc.card.get());
+            h.option_u32(loc.card.map(baylee_core::ids::CardIndex::get));
             h.u32(loc.index);
             h.u32(loc.source.slot());
         }

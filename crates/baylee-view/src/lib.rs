@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 15;
+pub const VIEW_VERSION: u32 = 16;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -400,7 +400,11 @@ pub struct CardIdentity {
 ///
 /// The [`AbilityRef`] is the same handle a player's standing answer is
 /// stored under, so "always yes for this" and "this is what is on the
-/// stack" name the same thing.
+/// stack" name the same thing. It is optional because a token, a token
+/// copy and an emblem have no card to name (CR 111.1, CR 114.2): their
+/// abilities are addressed by nothing, and a standing answer cannot be
+/// filed against one. It used to be card index 0 — a real card, and the
+/// same one for every such ability.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum StackItem {
     /// A spell: the card itself is on the stack, and [`PublicObject::card`]
@@ -413,8 +417,9 @@ pub enum StackItem {
         /// independent of its source (CR 113.7a) — so a client should fall
         /// back to the name below when it can no longer find the object.
         source: ObjectId,
-        /// Which ability of which card, stable across games.
-        ability: AbilityRef,
+        /// Which ability of which card, stable across games — `None` when
+        /// the source has no card and there is no such handle.
+        ability: Option<AbilityRef>,
     },
 }
 
