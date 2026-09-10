@@ -1648,3 +1648,29 @@ and the pool prints exactly two suspend cards — Ancestral Vision
 nothing in the pool as it stands is misrepresented. A suspend cost with a
 `CostPart` in it wants `cost: Cost` here and `pay_cost` on the apply path,
 which is the change to make when a card that needs it arrives.
+
+### 33. The self-play harness was calling finished games loops — FIXED
+
+Found because an engine change (entry 32, which lands next) tripped the
+acceptance soak's floor: two of the four games no longer finished. The change
+was correct and the floor was right to fire — but the games it was firing on
+were not looping.
+
+`play_report`'s own repeat detector keys on `snapshot_hash` plus turn, step
+and the open question, and halted on the **second** sighting of a key. One
+repetition is not a loop. A question that interposes itself between the last
+pass of a priority round and the end of the step reopens that round with the
+game in exactly the state it was in when the round began, and `snapshot_hash`
+covers the rules state and not the engine's queue of offers waiting to be
+made — so the two rounds hash alike. A **declined miracle** is that shape, and
+it is the commonest one there is.
+
+Measured, not argued: an instrumented replay of seed 42 printed the same hash
+at actions 110–114 and the step advancing at 115, in a game that is won on
+turn 7. Seed 7 was the same and is won on turn 56 — it had been halting at
+turn 13 since before this pass, which is why the floor stood at three of four
+rather than four.
+
+The detector now halts on the third sighting, which costs a genuine loop a few
+more samples and nothing else, and the floor is four of four: a floor under
+the measured value is exactly what let two games sit unexamined.

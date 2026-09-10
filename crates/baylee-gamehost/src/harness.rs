@@ -52,8 +52,11 @@ fn pending_fingerprint(pending: &Pending) -> u64 {
 pub enum Halt {
     /// The game ended by its own rules — somebody won, or it was a draw.
     Finished(GameResult),
-    /// The same decision point came round again, exactly: a real loop, and
-    /// the deterministic agents would spin on it forever.
+    /// The same decision point came round a **third** time, exactly: a real
+    /// loop, and the deterministic agents would spin on it forever. The
+    /// third and not the second because one repetition is not a loop — see
+    /// the detector itself for the question that reopens a priority round
+    /// without moving the game.
     Repeated {
         /// The action number the state was first seen at.
         first_seen: usize,
@@ -223,7 +226,11 @@ pub fn play_report<L: CardLookup>(
         preset.seats.len()
     );
     let mut engine = Engine::new(preset, lookup).expect("preset builds");
-    let mut seen: std::collections::HashMap<LoopKey, usize> = std::collections::HashMap::new();
+    // The first index a key was seen at, and how many times it has come
+    // round. Both, because the report wants the first and the halt wants the
+    // count — see the comment on the check below.
+    let mut seen: std::collections::HashMap<LoopKey, (usize, u32)> =
+        std::collections::HashMap::new();
     let mut tally = vec![Tally::default(); preset.seats.len()];
     let mut trail: Vec<String> = Vec::with_capacity(TRAIL);
     for i in 0..max_actions {
@@ -240,9 +247,30 @@ pub fn play_report<L: CardLookup>(
             step: engine.state().turn.step,
             pending: pending_fingerprint(&pending),
         };
-        if let Some(first_seen) = seen.insert(key, i) {
-            // Exact repetition: an infinite combo loop (real MTG boards
-            // allow these; the deterministic agent would spin forever).
+        // Exact repetition: an infinite combo loop (real MTG boards allow
+        // these; the deterministic agent would spin on one forever).
+        //
+        // The **third** sighting and not the second, because one repetition
+        // is not a loop. A question that interposes itself between the last
+        // pass of a priority round and the end of the step reopens that round
+        // with the game in exactly the state it was in when the round began,
+        // and `snapshot_hash` covers the rules state and not the engine's
+        // queue of offers waiting to be made — so the two rounds hash alike.
+        // A **declined miracle** is that shape and it is the commonest one
+        // there is: the offer is consumed, nothing goes on the stack,
+        // everybody passes again, and the step ends.
+        //
+        // Two of the four acceptance games were being called loops on
+        // exactly that, stopped at turn 6 and turn 13 in games that go on to
+        // be won on turn 7 and turn 56 — and the trail each of them printed
+        // showed the step advancing three actions after the halt, which is
+        // what a loop never does. A real one comes round a third time within
+        // a handful of actions, so this costs a genuine detection nothing
+        // but a few more samples.
+        let entry = seen.entry(key).or_insert((i, 0));
+        entry.1 += 1;
+        if entry.1 >= 3 {
+            let first_seen = entry.0;
             return report(&engine, Halt::Repeated { first_seen }, i, tally).with_trail(trail);
         }
         // `GameOver` is the only pending nobody answers, and it returned
@@ -689,7 +717,14 @@ mod tests {
         // out, and those want opposite fixes.
         let report = lines.join("\n");
         assert!(
-            finished >= 3,
+            // All four, and it was three. The two that did not finish were
+            // not games that failed to end — they were games the harness's
+            // own repeat detector stopped on a priority round a declined
+            // miracle had reopened, three actions before the step advanced.
+            // With that fixed both are won, on turn 7 and on turn 56. A
+            // floor under the measured value is what let those two sit
+            // unexamined, so this one is the measurement.
+            finished >= 4,
             "self-play games should finish (got {finished}/4)\n{report}"
         );
         // The bar used to be two of four and every one of them was reached
