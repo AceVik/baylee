@@ -3929,3 +3929,97 @@ fn the_copy_of_a_creature_spell_arrives_as_a_token() {
         "the token is the caster's, not the other seat's"
     );
 }
+
+/// Taps `count` of `seat`'s basic lands, leaving the rest untapped.
+///
+/// [`tap_mana_except`] empties the board but one, which is the wrong shape
+/// for a test that has to float mana twice in one game: the second half
+/// would find every land already tapped and read "no mana" as the answer it
+/// was looking for.
+#[track_caller]
+fn tap_mana_count(engine: &mut Engine<RegistryLookup>, seat: PlayerId, count: usize) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.mana_abilities.len() >= count,
+        "the board has {} untapped sources, the test wants {count}",
+        legal.mana_abilities.len()
+    );
+    for source in legal.mana_abilities.iter().copied().take(count) {
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+}
+
+/// Emeritus of Woe's prepared cast, offered on the opponent's turn.
+///
+/// "You may cast a copy of its spell" is a *cast*, so it obeys the timing of
+/// the spell it copies, and Emeritus of Woe's spell is Demonic Tutor — a
+/// sorcery, castable during a main phase of that player's own turn with the
+/// stack empty (CR 307.1, the special case of CR 117.1a's "a noninstant
+/// spell during their main phase"). Nothing on the card lifts that: an
+/// effect that meant a copy could be cast at any time would print the
+/// permission, the way "as though it had flash" does.
+///
+/// The offer asked one question — can the linked spell's mana cost be paid —
+/// and no others, so a prepared Warlock was a Demonic Tutor at instant speed
+/// on anybody's turn. Only Emeritus of Woe reaches this today, and its spell
+/// is a sorcery, so the fault is the whole of the mechanic in this pool.
+///
+/// The first half of the test is what keeps the second honest: a prepared
+/// cast that was never offered at all would satisfy the assertion below on
+/// its own.
+#[test]
+fn a_prepared_cast_copies_a_sorcery_and_waits_for_a_sorcery_moment() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(207, forest())
+        .battlefield(0, &[emeritus_of_woe(), swamp(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let emeritus = on_battlefield(&engine, p0, emeritus_of_woe()).expect("the Warlock");
+    // Demonic Tutor is {1}{B}; two Swamps pay it and two stay untapped for
+    // the other half of the test, on the far side of an untap step that
+    // will not come round to this seat.
+    tap_mana_count(&mut engine, p0, 2);
+    assert_eq!(
+        offered_ability(&engine, emeritus),
+        Some(crate::choice::PREPARED_CAST),
+        "in their own main phase, with the stack empty, the prepared cast is theirs to make"
+    );
+
+    // Their turn, and this seat holding priority in it. The mana floated
+    // above is gone (CR 500.4), so the two Swamps left standing are what
+    // pays for the attempt.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().turn.active == p1
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    tap_mana_count(&mut engine, p0, 2);
+    assert_eq!(
+        offered_ability(&engine, emeritus),
+        None,
+        "a sorcery cannot be cast on their turn, and a copy of one is still a sorcery"
+    );
+    // And the other probe agrees. A client naming the action out of a stale
+    // offer is refused rather than handed the tutor: the offer and the
+    // activation asking different questions about the same permanent is the
+    // shape this engine treats as worse than either answer alone.
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: emeritus,
+                    ability_index: crate::choice::PREPARED_CAST,
+                },
+            )
+            .is_err(),
+        "naming the prepared cast anyway is refused"
+    );
+}

@@ -151,6 +151,55 @@ pub(crate) fn pay_with(wild: bool, pool: &mut ManaPool, cost: &ManaCost) -> bool
     }
 }
 
+/// Whether `player` may begin casting a spell with these characteristics
+/// right now.
+///
+/// CR 117.1a is the permission: an instant any time its controller has
+/// priority, a noninstant during their own main phase with the stack empty
+/// (CR 307.1 says the same of a sorcery in particular). Flash (CR 702.8a)
+/// moves a card into the first group whatever its types say, Teferi's +1
+/// does the same for that player's sorceries, and Teferi's static pulls
+/// every opponent's spell back into the second.
+///
+/// Characteristics rather than an object, because two callers ask this
+/// about two different things. [`can_cast`] passes the *projected*
+/// characteristics of a card that is sitting in a zone, so a continuous
+/// effect that granted it flash is read. The prepared cast passes the
+/// **printed** face of a card that has no object at all — the copy does not
+/// exist until it is cast, so nothing could have granted it anything — and
+/// still wants the two player-scoped effects above, which is the whole
+/// reason this is one function and not two.
+pub(crate) fn timing_allows(
+    state: &GameState,
+    player: PlayerId,
+    types: TypeSet,
+    keywords: baylee_cards_dsl::KeywordSet,
+) -> bool {
+    // Teferi's restriction forces sorcery-speed timing on everything for
+    // opponents.
+    let teferi_lock = state.effects.iter().any(|fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
+        ) && state.is_opponent(fx.controller, player)
+    });
+    // Flash (CR 702.8a) makes a card castable whenever an instant could be
+    // — Snapcaster Mage, Restoration Angel, the whole free-spell cycle.
+    let is_instant =
+        types.contains(TypeSet::INSTANT) || keywords.contains(baylee_cards_dsl::KeywordSet::FLASH);
+    // Teferi +1: your sorceries have flash until your next turn.
+    let sorcery_flash = types.contains(TypeSet::SORCERY)
+        && state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)
+                && fx.controller == player
+        });
+    if teferi_lock || (!is_instant && !sorcery_flash) {
+        let main_phase = matches!(state.turn.phase, Phase::FirstMain | Phase::SecondMain);
+        return main_phase && state.turn.active == player && state.zones.stack_is_empty();
+    }
+    true
+}
+
 /// Whether `card` can be cast by `player` right now (printed cost or any
 /// alternative/mode).
 ///
@@ -212,32 +261,10 @@ pub fn can_cast(
     if c.types.contains(TypeSet::LAND) {
         return Err(CastError::BadTiming);
     }
-    // Timing (CR 601.3): permanents and sorceries are sorcery-speed;
-    // instants and anything with flash are any-time. Teferi's restriction
-    // forces sorcery-speed timing on everything for opponents.
-    let teferi_lock = state.effects.iter().any(|fx| {
-        matches!(
-            fx.modifier,
-            baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
-        ) && state.is_opponent(fx.controller, player)
-    });
-    // Flash (CR 702.8a) makes a card castable whenever an instant could be,
-    // whatever its types say — Snapcaster Mage, Restoration Angel, the
-    // whole free-spell cycle. It is read off the projected characteristics
-    // so a granted flash counts too.
-    let is_instant = c.types.contains(TypeSet::INSTANT)
-        || c.keywords.contains(baylee_cards_dsl::KeywordSet::FLASH);
-    // Teferi +1: your sorceries have flash until your next turn.
-    let sorcery_flash = c.types.contains(TypeSet::SORCERY)
-        && state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)
-                && fx.controller == player
-        });
-    if teferi_lock || (!is_instant && !sorcery_flash) {
-        let main_phase = matches!(state.turn.phase, Phase::FirstMain | Phase::SecondMain);
-        if !main_phase || state.turn.active != player || !state.zones.stack_is_empty() {
-            return Err(CastError::BadTiming);
-        }
+    // Timing (CR 601.3). Read off the projected characteristics, so a
+    // granted flash counts.
+    if !timing_allows(state, player, c.types, c.keywords) {
+        return Err(CastError::BadTiming);
     }
     // Restricted mana this spell may be paid with counts towards it; see
     // [`spendable_pool`].

@@ -246,15 +246,16 @@ impl<L: CardLookup> Engine<L> {
                     })
                 });
                 if let Some(linked_card) = linked {
-                    let affordable = self.lookup.card(linked_card).is_some_and(|spell_def| {
-                        let cost = &spell_def.faces[0].mana_cost;
-                        casting::affordable(
-                            &self.state,
-                            &self.state.players[player.get() as usize].mana_pool,
-                            cost,
-                        )
+                    let castable = self.lookup.card(linked_card).is_some_and(|spell_def| {
+                        let face = &spell_def.faces[0];
+                        self.prepared_cast_is_timely(player, spell_def)
+                            && casting::affordable(
+                                &self.state,
+                                &self.state.players[player.get() as usize].mana_pool,
+                                &face.mana_cost,
+                            )
                     });
-                    if affordable {
+                    if castable {
                         legal.abilities.push((id, crate::choice::PREPARED_CAST));
                     }
                 }
@@ -494,6 +495,41 @@ impl<L: CardLookup> Engine<L> {
 
     // ---------------------------------------------------- S3: abilities
 
+    /// Whether `player` could begin casting a copy of `spell_def` right now.
+    ///
+    /// A prepared permanent says "you may **cast** a copy of its spell", and
+    /// grants no exception to when that spell may be cast — so the copy is
+    /// held to the linked card's own timing, through the same
+    /// [`casting::timing_allows`] every other cast goes through. Emeritus of
+    /// Woe's spell is Demonic Tutor, a sorcery (CR 307.1), and the offer
+    /// asked about the mana and nothing else: a prepared Warlock was a tutor
+    /// at instant speed on anybody's turn.
+    ///
+    /// The linked card's own timing rather than a flat sorcery speed,
+    /// because nothing about being prepared slows a spell down — a prepared
+    /// permanent whose spell were an instant would rightly offer it at
+    /// instant speed. Sharing the function is what carries the two
+    /// player-scoped effects a hand-rolled copy of the rule would have lost:
+    /// Teferi's +1 gives that player's sorceries flash, and his static pulls
+    /// every opponent's spell back to sorcery speed.
+    ///
+    /// `keywords_for_face(0)` and not `faces[0].keywords`: a single-faced
+    /// card states its keywords once at card level and leaves the face's own
+    /// list empty, so reading the face directly would lose the flash on
+    /// every card that has one.
+    fn prepared_cast_is_timely(
+        &self,
+        player: PlayerId,
+        spell_def: &baylee_cards_dsl::CardDef,
+    ) -> bool {
+        casting::timing_allows(
+            &self.state,
+            player,
+            spell_def.faces[0].types,
+            spell_def.keywords_for_face(0),
+        )
+    }
+
     /// Prepared cast (Emeritus of Woe): pays the linked spell's cost,
     /// puts a copy of it on the stack, and removes the prepared marker.
     fn start_prepared_cast(
@@ -523,6 +559,15 @@ impl<L: CardLookup> Engine<L> {
             .card(linked_card)
             .ok_or(EngineError::IllegalAction("unknown linked card"))?;
         let face = &spell_def.faces[0];
+        // The same question the offer asked, asked again here so the two
+        // probes cannot disagree: a client that named this action out of a
+        // stale `LegalActions` is refused rather than handed a sorcery on
+        // the opponent's turn.
+        if !self.prepared_cast_is_timely(player, spell_def) {
+            return Err(EngineError::IllegalAction(
+                "the prepared spell cannot be cast right now",
+            ));
+        }
         let wild = casting::mana_is_wild(&self.state);
         if !casting::pay_with(
             wild,
