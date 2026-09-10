@@ -85,12 +85,34 @@ cargo bench -p baylee-engine -- --quick                  # numbers to compare ag
 ```
 
 `dev-control` opens a loopback HTTP harness (`/health`, `/state`, `/key`,
-`/text`, `/pointer`, `/scroll`, `/screenshot`) that drives and photographs the
-client while its window is in the background — a compile-time feature, because
-a remote-control socket in a shipped game binary is a cheat vector.
-`docs/client.md` §"Driving the client without its window" has the protocol,
-why a wheel is written twice, and the reason a click takes
-three frames.
+`/text`, `/pointer`, `/scroll`, `/screenshot`, plus the three clock routes
+`/timescale`, `/pause` and `/step`) that drives and photographs the client
+while its window is in the background — a compile-time feature, because a
+remote-control socket in a shipped game binary is a cheat vector. The clock
+routes are what make an *animation* photographable: almost everything worth
+looking at here is over before a screenshot can be asked for (a card's exit
+lives 0.55 s), so `Time<Virtual>` is slowed, stopped and advanced a counted
+number of frames instead. `docs/client.md` §"Driving the client without its
+window" has the protocol, why a wheel is written twice, the reason a click
+takes three frames, and why zero is refused by `/timescale` rather than taken
+as a pause.
+
+A shader can be edited **while the game runs**, which is the other half of
+working on a look:
+
+```bash
+BAYLEE_DEV_CONTROL=28770 BEVY_ASSET_ROOT=$PWD \
+    cargo run -p baylee-client --features dev-control,dev-reload
+```
+
+`dev-reload` watches this crate's embedded WGSL, so an edit to `felt.wgsl`
+repaints the table in a running client with no rebuild and no restart. Neither
+variable is optional: without `BEVY_ASSET_ROOT` the watcher looks every changed
+file up in the wrong place and reloads nothing — which used to fail *silently*
+and now refuses to start — and without `BAYLEE_DEV_CONTROL` the harness opens
+no socket, so the picture cannot be stopped while the shader is worked on.
+`docs/client.md` §"Editing a shader without stopping the game" has the reason
+and the proof shape.
 
 Always build the browser client `--release` (a dev-profile wasm is ~350 MB vs
 ~36 MB). Servers are quiet without `RUST_LOG=info` — the tracing subscriber

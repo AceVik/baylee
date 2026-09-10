@@ -55,6 +55,9 @@ POST /text       {"text":"dev@baylee.local"}
 POST /pointer    {"x":100,"y":200,"button":"left","press":true}
 POST /scroll     {"y":-3}
 POST /screenshot {"path":"/tmp/table.png"}
+POST /timescale  {"speed":0.1}          → {"ok":true,"speed":0.1,"paused":false}
+POST /pause      {}  |  {"paused":false} → the same two numbers
+POST /step       {"frames":6}           → answers after the sixth frame, paused
 ```
 
 Bodies are read by a hand-rolled field scanner, not a JSON parser: send flat
@@ -164,6 +167,46 @@ overlay that defaulted to open. Two rules earned the hard way:
 To prove an *animation*, take two frames and diff them, peak per channel, and
 always run the counter-test — a diff that is non-zero for the wrong reason
 proves nothing.
+
+## Working on a look, rather than photographing one
+
+Two things turn "rebuild, launch, blink, miss it" into an actual loop, and
+they are meant to be used together.
+
+**Stop the clock.** `/timescale` scales `Time<Virtual>`, `/pause` stops it,
+`/step` advances a counted number of frames and pauses again — answering only
+once the last of them has been drawn, so the reply is the signal and there is
+nothing to sleep on. Everything the table draws with reads through that clock
+(`table::glide`, `table::retire`, the sheen clock, every shader's
+`globals.time`), so a tenth speed slows the whole picture together instead of
+pulling one movement's parts apart. Zero is refused by `/timescale` on
+purpose: a pause and a stopped speed are different states, and a caller who
+could stop the clock two ways would have to remember which one to undo.
+
+**Edit the shader under the running client.** Launch it with both features and
+both variables — each of the four is load-bearing, and the one most easily
+dropped is the port: `--features dev-control` without `BAYLEE_DEV_CONTROL`
+opens no socket, so there is nothing to pause the picture with while the
+shader is being edited.
+
+```bash
+BAYLEE_DEV_CONTROL=28770 BEVY_ASSET_ROOT=$PWD \
+    cargo run -p baylee-client --features dev-control,dev-reload
+```
+
+Then an edit to `crates/baylee-client/src/shaders/felt.wgsl` repaints the felt
+in the client already on screen — no rebuild, no restart, and the camera,
+the board and the game keep their state. `BEVY_ASSET_ROOT` is not optional and
+is not decoration: bevy's watcher strips its own base path off every changed
+file before looking it up, and with the wrong base every lookup misses in
+silence. It used to look exactly like a watcher that worked; the binary now
+refuses to start instead.
+
+The proof shape for a look, and it is the same shape as any animation claim:
+`/pause`, screenshot, screenshot again — byte-identical, which is the
+counter-test for the harness. Edit the colour, screenshot — different, which
+is the claim. Put the colour back, screenshot — byte-identical to the first,
+which is the counter-test for the claim.
 
 ## What this is not for
 

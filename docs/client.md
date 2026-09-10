@@ -2482,11 +2482,12 @@ keeps its position. Together with `/pause` it is how a look is worked on: stop
 the picture, edit, look, edit again.
 
 ```bash
-BEVY_ASSET_ROOT=$PWD cargo run -p baylee-client --features dev-control,dev-reload
+BAYLEE_DEV_CONTROL=28770 BEVY_ASSET_ROOT=$PWD \
+    cargo run -p baylee-client --features dev-control,dev-reload
 ```
 
-The variable is not optional and the binary refuses to start without it, which
-is the interesting part. `embedded_asset!` files each shader under the path
+`BEVY_ASSET_ROOT` is not optional and the binary refuses to start without it,
+which is the interesting part. `embedded_asset!` files each shader under the path
 `file!()` gives it, and cargo writes that relative to the **workspace** root;
 bevy's watcher strips its *own* base path off every changed file before looking
 it up, and that base is `CARGO_MANIFEST_DIR` — this package, two directories
@@ -2496,6 +2497,12 @@ nothing. A hard stop naming the right value is the only honest answer, since
 the reload is the whole feature. Nothing else changes: the asset root proper is
 already an absolute path, and an absolute join replaces the base rather than
 extending it.
+
+`BAYLEE_DEV_CONTROL` is on that line for a reason of its own and is the piece
+most easily dropped: `--features dev-control` builds the harness in but opens
+no socket without it, so a launch missing it hot-reloads perfectly and has
+nothing to stop the picture with — and stopping the picture is half of what
+the line is for.
 
 The proof is the counter-test, because "the picture changed" is worth nothing
 on a table that animates on its own. Pause the clock, screenshot twice, and the
