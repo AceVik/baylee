@@ -118,7 +118,15 @@ fn clone_enters_as_copy_of_target() {
                             },
                         )
                         .unwrap();
-                } else if !legal.mana_abilities.is_empty() {
+                } else if !legal.mana_abilities.is_empty()
+                    // Only where the mana can be spent. A pool empties as the
+                    // step ends (CR 500.4), so a land tapped in the upkeep is
+                    // a land wasted and this loop never reaches a cast.
+                    && matches!(
+                        engine.state().turn.phase,
+                        Phase::FirstMain | Phase::SecondMain
+                    )
+                {
                     let sources = legal.mana_abilities.clone();
                     for source in sources {
                         engine

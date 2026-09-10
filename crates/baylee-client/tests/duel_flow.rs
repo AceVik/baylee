@@ -389,7 +389,19 @@ impl Client {
                     interaction.activate(source, 0)
                 } else if let Some(spell) = legal.castable.first().copied() {
                     interaction.play_card(spell)
-                } else if let Some(&(source, index)) = legal.abilities.first() {
+                } else if let Some(&(source, index)) = legal
+                    .abilities
+                    .iter()
+                    // Anything but a mana ability. Those are the arm above,
+                    // and only in a main phase — but every one of them is in
+                    // `abilities` as well, so reaching them here tapped the
+                    // whole board in the upkeep, where the pool then emptied
+                    // (CR 500.4) and left the main phase with eighteen tapped
+                    // lands and an uncastable hand. It cost this suite three
+                    // whole questions, and the mana that made it work was
+                    // mana no rule allows to still be there.
+                    .find(|(source, _)| !legal.mana_abilities.contains(source))
+                {
                     interaction.activate(source, index)
                 } else {
                     interaction.confirm()

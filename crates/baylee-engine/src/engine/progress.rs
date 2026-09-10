@@ -212,10 +212,6 @@ impl<L: CardLookup> Engine<L> {
             if self.process_delayed() {
                 return; // a delayed action produced a pending choice
             }
-            // 3c. Miracle offers for first-of-turn draws (CR 702.94).
-            if self.offer_miracle() {
-                return;
-            }
             // 4. Resolve the top of the stack after all passed.
             if self.resolve_next {
                 self.resolve_next = false;
@@ -414,6 +410,21 @@ impl<L: CardLookup> Engine<L> {
             self.passes = 0;
             self.priority_holder = None;
             if self.state.zones.stack_is_empty() {
+                // A miracle is offered here and not at the draw itself
+                // (CR 702.94a). The reveal is a triggered ability and the
+                // cast happens when it resolves, which is after a priority
+                // window — and a priority window is the only place this
+                // engine lets a player float mana, because a cost is paid
+                // from the pool and CR 601.2g is compressed away. Asked at
+                // the moment of the draw, a miracle was a question nobody
+                // could ever answer yes to: the previous step ended, so the
+                // pool was empty (CR 500.4), and the turn-based draw comes
+                // before anybody holds priority (CR 504.1, then CR 504.2).
+                // Answered either way, the round that follows is the one the
+                // rules give the step anyway.
+                if self.offer_miracle() {
+                    return true;
+                }
                 self.advance_step();
             } else {
                 self.resolve_next = true;
@@ -2502,6 +2513,24 @@ impl<L: CardLookup> Engine<L> {
     /// late and Mana Drain's mana arrived after the main phase it was cast
     /// to pay for.
     pub(crate) fn advance_step(&mut self) {
+        // The step that is ending, ends: every player's mana pool empties
+        // (CR 500.4, and CR 106.4 from the other side). This is the only
+        // place a step or phase ever changes, and it is *before* the match
+        // because the turn-based actions in those arms belong to the step
+        // being entered — the draw of CR 504.1 happens in the draw step, not
+        // at the end of the upkeep, and mana made in the upkeep must not pay
+        // for anything after it.
+        //
+        // `ManaPool::empty_at_step_end` was written for this and had exactly
+        // one caller in the workspace: its own unit test. Mana therefore
+        // floated across steps, phases and turns, which is a whole category
+        // of illegal play — a Forest tapped in the first main phase paying
+        // for an instant in the opponent's end step — and it silently
+        // propped up any test that spent mana in a later step than it made
+        // it in.
+        for player in &mut self.state.players {
+            player.mana_pool.empty_at_step_end();
+        }
         let (phase, step) = (self.state.turn.phase, self.state.turn.step);
         let (next_phase, next_step) = match (phase, step) {
             (_, Step::Untap) => {

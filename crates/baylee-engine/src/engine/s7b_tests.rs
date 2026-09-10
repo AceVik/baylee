@@ -120,7 +120,10 @@ fn suspend_countdown_casts_for_free_at_zero() {
                         .unwrap();
                     continue;
                 }
-                if !legal.mana_abilities.is_empty() {
+                // In the main phase, because a pool empties as the step ends
+                // (CR 500.4) and suspend is a sorcery-speed action: a land
+                // tapped in the upkeep is a land wasted.
+                if !legal.mana_abilities.is_empty() && engine.state().turn.step == Step::Main {
                     engine
                         .apply(
                             player,
@@ -256,7 +259,15 @@ fn ephemerate_rebounds_for_free_at_next_upkeep() {
                             },
                         )
                         .unwrap();
-                } else if !legal.mana_abilities.is_empty() {
+                } else if !legal.mana_abilities.is_empty()
+                    // Only where the mana can be spent. A pool empties as the
+                    // step ends (CR 500.4), so a land tapped in the upkeep is
+                    // a land wasted and this loop never reaches a cast.
+                    && matches!(
+                        engine.state().turn.phase,
+                        Phase::FirstMain | Phase::SecondMain
+                    )
+                {
                     let sources = legal.mana_abilities.clone();
                     for source in sources {
                         engine

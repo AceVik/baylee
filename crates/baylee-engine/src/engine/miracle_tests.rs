@@ -96,7 +96,15 @@ fn first_draw_of_turn_offers_miracle_and_casts_at_miracle_cost() {
         assert!(guard < 400, "no brainstorm window");
         match engine.pending().clone() {
             Pending::Priority { player, legal } if player == p0 => {
-                if let Some(&source) = legal.mana_abilities.first() {
+                // Only in the two steps this test ever spends mana in. A pool
+                // empties as the step ends (CR 500.4), so islands tapped in
+                // the upkeep are islands wasted — and the miracle is paid for
+                // in the draw step, where the reveal happens.
+                if let Some(&source) = legal
+                    .mana_abilities
+                    .first()
+                    .filter(|_| matches!(engine.state().turn.step, Step::Draw | Step::Main))
+                {
                     engine
                         .apply(player, PlayerAction::ActivateManaAbility { source })
                         .unwrap();
@@ -223,7 +231,15 @@ fn declining_miracle_keeps_the_card_in_hand() {
         assert!(guard < 400, "no miracle offer");
         match engine.pending().clone() {
             Pending::Priority { player, legal } if player == p0 => {
-                if let Some(&source) = legal.mana_abilities.first() {
+                // Only in the two steps this test ever spends mana in. A pool
+                // empties as the step ends (CR 500.4), so islands tapped in
+                // the upkeep are islands wasted — and the miracle is paid for
+                // in the draw step, where the reveal happens.
+                if let Some(&source) = legal
+                    .mana_abilities
+                    .first()
+                    .filter(|_| matches!(engine.state().turn.step, Step::Draw | Step::Main))
+                {
                     engine
                         .apply(player, PlayerAction::ActivateManaAbility { source })
                         .unwrap();

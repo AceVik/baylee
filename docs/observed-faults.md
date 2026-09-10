@@ -1528,3 +1528,52 @@ about the table itself rather than the rules, and both are fixed.
     seen, and the first attempt to read it diffed two *adjacent* frames that
     had landed on the same phase and reported 2.8 where the widest pair of the
     same run reported 78.7.
+
+60. **A mana pool was never emptied, in any step, ever.** *Fixed.*
+    `ManaPool::empty_at_step_end` was written for CR 106.4, carried the rule
+    in its own doc comment, and had exactly one caller in the workspace: its
+    own unit test. Nothing in the engine called it. Mana therefore floated
+    across steps, phases and whole turns — a Forest tapped in the first main
+    phase was still paying for things in the opponent's end step three turns
+    later — which is a whole category of illegal play rather than a card
+    behaving oddly.
+
+    It was found by measuring, not by reading. A test about which face of an
+    adventure is offered kept being answered by the *previous* turn's mana,
+    and the print that proved it was `pool=ManaPool { plain: [0, 2, 0, 0, 0,
+    0] }` at the start of turn 3 with nothing tapped in it. The grep came
+    after: one caller, and it was the unit test.
+
+    The fix is one loop at the top of `advance_step`, which is the only place
+    a step or phase ever changes. It is before the match rather than after,
+    because the turn-based actions in those arms belong to the step being
+    *entered* — the draw of CR 504.1 happens in the draw step, and mana made
+    in the upkeep must not pay for anything after it.
+
+    The blast radius is the interesting part, and every bit of it was a test
+    that had quietly been living on banked mana:
+
+    - Eleven engine tests drove a turn with a loop that tapped every land the
+      moment one was offered. The first offer is in the *upkeep*, so they now
+      spent the whole board there and reached the main phase with nothing.
+      All of them tap in a main phase now.
+    - `mdfc_tests` gave Sheoldred four swamps for a `{3}{B}{B}` creature. It
+      only ever worked because two turns of four swamps is eight mana.
+    - A miracle (CR 702.94) was offered at the instant of the draw, which is
+      before anybody holds priority, so with an empty pool it was a question
+      nobody could ever say yes to. The reveal is a triggered ability and the
+      cast happens when it resolves, so the offer now comes after the
+      priority round — the only place this engine lets a player float mana,
+      because a cost is paid from the pool and CR 601.2g is compressed away.
+    - The client's `duel_flow` suite stopped reaching `ChooseCards`,
+      `ChooseTargets` and `YesNo` at all. Its greedy loop guarded tapping to
+      its own main phase and then reached the same lands through
+      `LegalActions::abilities`, where a mana ability is also listed: it
+      tapped out in the upkeep every turn. Three questions of coverage were
+      resting on mana no rule allows to still be there.
+
+    The lesson is the one about dead code that is not dead: a method whose
+    only caller is its own unit test is a rule the codebase *describes* and
+    does not *apply*, and it reads as implemented from every direction —
+    the name, the doc comment, the passing test. Grep for callers, not for
+    the rule.

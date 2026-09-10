@@ -5,7 +5,9 @@
 //! spent on — and none of the cards below had an engine test. They do now,
 //! one per answer the unified effect has to get right.
 
-use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, reach_main_phase};
+use super::testkit::{
+    Duel, RegistryLookup, card_index, keep_mulligans, pass_until, reach_main_phase,
+};
 use super::*;
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::ManaColor;
@@ -339,5 +341,70 @@ fn a_lone_reflecting_pool_produces_nothing() {
     assert!(
         engine.state().players[0].mana_pool.is_empty(),
         "a Pool reflecting only itself is not a rainbow land"
+    );
+}
+
+/// Taps the first mana source the seat is offered.
+fn tap_a_land(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let source = *legal
+        .mana_abilities
+        .first()
+        .expect("an untapped mana source");
+    engine
+        .apply(seat, PlayerAction::ActivateManaAbility { source })
+        .expect("the land taps");
+}
+
+/// CR 500.4: "When a step or phase ends, any unused mana left in a player's
+/// mana pool empties." CR 106.4 says the same thing from the other side —
+/// "Each player's mana pool empties at the end of each step and phase."
+///
+/// `ManaPool::empty_at_step_end` was written for exactly this and had one
+/// caller in the whole workspace: its own unit test. Nothing in the engine
+/// ever emptied a pool, so a Forest tapped in the first main phase was still
+/// paying for things in the end step, on the opponent's turn, and three
+/// turns later.
+#[test]
+fn a_pool_does_not_survive_the_step_the_mana_was_made_in() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(13, forest()).battlefield(0, &[forest()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_a_land(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the premise: one green is floating"
+    );
+    let made_in = engine.state().turn.step;
+    pass_until(&mut engine, |e| e.state().turn.step != made_in);
+    assert!(
+        engine.state().players[0].mana_pool.is_empty(),
+        "the main phase ended and the mana was still there: {:?}",
+        engine.state().players[0].mana_pool
+    );
+}
+
+/// The same rule at the coarsest boundary there is, because this is the one
+/// that has already cost a test its premise: `cast_face_tests` had to spend
+/// every point it floated before passing the turn, or the next turn's
+/// question was answered with the last turn's mana.
+#[test]
+fn a_pool_does_not_survive_the_turn_the_mana_was_made_in() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, forest()).battlefield(0, &[forest()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_a_land(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+    let made_in = engine.state().turn.number;
+    pass_until(&mut engine, |e| e.state().turn.number > made_in);
+    assert!(
+        engine.state().players[0].mana_pool.is_empty(),
+        "the turn ended and the mana was still there: {:?}",
+        engine.state().players[0].mana_pool
     );
 }

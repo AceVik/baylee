@@ -217,7 +217,7 @@ fn the_true_scriptures_is_turned_over_and_never_cast() {
         &preset(
             13,
             vec![sheoldred()],
-            vec![swamp(), swamp(), swamp(), swamp()],
+            vec![swamp(), swamp(), swamp(), swamp(), swamp()],
         ),
         RegistryLookup,
     )
@@ -231,8 +231,14 @@ fn the_true_scriptures_is_turned_over_and_never_cast() {
         assert!(guard < 400, "no cast window found");
         match engine.pending().clone() {
             Pending::Priority { player, legal } if player == p0 => {
-                // Tap all available mana first.
-                if let Some(&source) = legal.mana_abilities.first() {
+                // Tap all available mana first — in a main phase, because a
+                // pool empties as the step ends (CR 500.4) and a swamp tapped
+                // in the upkeep buys nothing at sorcery speed.
+                if let Some(&source) = legal
+                    .mana_abilities
+                    .first()
+                    .filter(|_| engine.state().turn.step == Step::Main)
+                {
                     engine
                         .apply(player, PlayerAction::ActivateManaAbility { source })
                         .unwrap();

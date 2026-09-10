@@ -103,6 +103,19 @@ fn keep_mulligans(engine: &mut Engine<RegistryLookup>) {
     }
 }
 
+/// Whether mana made now can still be spent on a spell cast now.
+///
+/// A pool empties as the step ends (CR 500.4), so a driver loop that taps
+/// every land the moment one is offered spends its whole board in the upkeep
+/// and reaches the main phase with nothing — and then never casts anything at
+/// all.
+fn in_a_main_phase(engine: &Engine<RegistryLookup>) -> bool {
+    matches!(
+        engine.state().turn.phase,
+        Phase::FirstMain | Phase::SecondMain
+    )
+}
+
 fn pass_once(engine: &mut Engine<RegistryLookup>) {
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending());
@@ -143,7 +156,7 @@ fn force_of_will_pitch_cast_without_mana() {
                             },
                         )
                         .unwrap();
-                } else if !legal.mana_abilities.is_empty() {
+                } else if !legal.mana_abilities.is_empty() && in_a_main_phase(&engine) {
                     let sources = legal.mana_abilities.clone();
                     for source in sources {
                         engine
@@ -301,7 +314,7 @@ fn mulldrifter_evoke_draws_then_sacrifices() {
                             },
                         )
                         .unwrap();
-                } else if !legal.mana_abilities.is_empty() {
+                } else if !legal.mana_abilities.is_empty() && in_a_main_phase(&engine) {
                     let sources = legal.mana_abilities.clone();
                     for source in sources {
                         engine
@@ -687,7 +700,7 @@ fn fow_offered_at_p1s_priority(
                             },
                         )
                         .unwrap();
-                } else if !legal.mana_abilities.is_empty() {
+                } else if !legal.mana_abilities.is_empty() && in_a_main_phase(&engine) {
                     let sources = legal.mana_abilities.clone();
                     for source in sources {
                         engine
