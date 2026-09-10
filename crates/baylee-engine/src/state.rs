@@ -1211,6 +1211,13 @@ impl GameState {
                     obj.base = original;
                 }
                 obj.own_abilities = None;
+                // And the flag that says when the field it just cleared was
+                // due back, because it describes that copy and the copy ends
+                // here. A Cursed Mirror that bounced and was recast without
+                // copying anything would otherwise be swept at the next
+                // cleanup as though it were still one — harmless for a turn
+                // and a lie in the meantime.
+                obj.own_abilities_until_eot = false;
             }
         }
         let projectable = self

@@ -523,8 +523,30 @@ pub struct GameObject {
     /// `Option<&[_]>` is 16 bytes on every object in every AI ply.
     ///
     /// A card-backed object gives it up at the next zone change, with
-    /// [`GameObject::original_base`] and for the same reason.
+    /// [`GameObject::original_base`] and for the same reason — and at the
+    /// cleanup step as well when [`GameObject::own_abilities_until_eot`]
+    /// says the copy that wrote it was a temporary one.
     pub own_abilities: Option<&'static [baylee_cards_dsl::AbilityDef]>,
+    /// Whether [`GameObject::own_abilities`] was written by a copy that
+    /// ends with the turn (Cursed Mirror), and so has to be given back at
+    /// the cleanup step.
+    ///
+    /// A flag rather than a second list because there is exactly one
+    /// question — does this object stop being a copy tonight — and the
+    /// characteristics half of the same copy is already answered that way:
+    /// it is a `Layer::Copy` effect with `Duration::UntilEndOfTurn`, and
+    /// expiring is the whole of its revert. Abilities are not layer-
+    /// projected (`Characteristics` has no field for them), so the ability
+    /// half cannot expire with it and needs somewhere to say when it ends.
+    ///
+    /// It is not a sweep over every object with an `own_abilities` at
+    /// cleanup, for the reason recorded in [`Engine::cleanup_step`]: a
+    /// permanent copy has written that field too, and reverting one of
+    /// those would turn a Glasspool Mimic back into a 0/0 on the turn it
+    /// was cast.
+    ///
+    /// [`Engine::cleanup_step`]: crate::engine::Engine
+    pub own_abilities_until_eot: bool,
     /// The definition this object was created from, if a token created it.
     ///
     /// The only thing that says *which* token a card-less permanent is, and
@@ -587,6 +609,7 @@ impl GameObject {
             chosen_subtype: None,
             face_index: 0,
             own_abilities: None,
+            own_abilities_until_eot: false,
             token: None,
             pending_face_change: None,
             cast_from_hand: true,

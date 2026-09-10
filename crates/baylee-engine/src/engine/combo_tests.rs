@@ -2230,6 +2230,241 @@ fn a_mimic_copying_a_protected_creature_is_protected_too() {
     );
 }
 
+fn cursed_mirror() -> baylee_core::ids::CardIndex {
+    card_index("4d67e2a7-4aa7-44cc-853b-500d7aac046d")
+}
+fn mountain() -> baylee_core::ids::CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+/// The **third** door a copy comes through, and the one that is not a new
+/// object at all: `CopyOnEnterUntilEot` (Cursed Mirror, "you may have it
+/// become a copy of any creature on the battlefield until end of turn,
+/// except it has haste"), which is a layer-1 continuous effect rather than
+/// a rewritten base, because it has to end.
+///
+/// Leaves the Mirror untapped and priority with seat 0, so what each caller
+/// measures is the Mirror's own next activation.
+fn a_mirror_that_became_their_elf(
+    seed: u64,
+) -> (Engine<RegistryLookup>, baylee_core::ids::ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(seed, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[cursed_mirror()])
+        .battlefield(1, &[llanowar_elves(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf");
+
+    cast_from_hand(&mut engine, p0, cursed_mirror());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    assert!(
+        target_options(&engine).contains(&elf),
+        "\"any creature on the battlefield\" reaches across the table"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let mirror = on_battlefield(&engine, p0, cursed_mirror()).expect("the Mirror arrived");
+    assert_eq!(
+        pt(&engine, mirror),
+        (1, 1),
+        "the body came across, which is the half that already worked"
+    );
+    (engine, mirror)
+}
+
+/// The ability index the Mirror is offering, whatever it currently is.
+fn the_mirrors_ability(engine: &Engine<RegistryLookup>, mirror: baylee_core::ids::ObjectId) -> u32 {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("a main phase hands priority back");
+    };
+    legal
+        .abilities
+        .iter()
+        .find_map(|(source, index)| (*source == mirror).then_some(*index))
+        .expect("the Mirror is offering an ability")
+}
+
+/// A copy takes the abilities with everything else (CR 707.2). The Mirror
+/// that became a Llanowar Elf taps for `{G}`, and the `{T}: Add {R}` it was
+/// printed with is not among the things it can do — one activation reads
+/// both halves of that sentence at once, because the answer is a colour and
+/// there are only two candidates.
+#[test]
+fn a_mirror_that_became_an_elf_taps_for_what_the_elf_taps_for() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, mirror) = a_mirror_that_became_their_elf(100);
+    let index = the_mirrors_ability(&engine, mirror);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: mirror,
+                ability_index: index,
+            },
+        )
+        .expect("an offered ability is activatable");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Green),
+        1,
+        "the Elf's mana ability came with the rest of the Elf"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Red),
+        0,
+        "and the Mirror's own {{T}}: Add {{R}} is not one of the things a \
+         copy of an Elf can do"
+    );
+}
+
+/// The other end of the same sentence — "until end of turn" — and the half
+/// that has to be undone by hand.
+///
+/// The body goes back on its own: it is a `Layer::Copy` effect with
+/// `Duration::UntilEndOfTurn`, and the cleanup step drops it. The rules text
+/// cannot, because abilities are not layer-projected — `Characteristics` has
+/// no field for them, so the copy wrote them onto the object and something
+/// has to take them back. A Mirror still tapping for `{G}` on the next turn
+/// would be a copy the rules had ended and the engine had not.
+///
+/// Both halves are asked here, and in that order: an Elf's body would make
+/// the second answer meaningless, because a permanent that never stopped
+/// being a copy is *supposed* to tap for green.
+#[test]
+fn the_mirror_stops_being_an_elf_when_the_turn_does() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mirror) = a_mirror_that_became_their_elf(101);
+
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    let types = engine
+        .state()
+        .object(mirror)
+        .expect("the Mirror is still on the battlefield")
+        .characteristics()
+        .types;
+    assert!(
+        types.intersects(TypeSet::ARTIFACT) && !types.intersects(TypeSet::CREATURE),
+        "the body reverted with the effect that carried it: {types:?}"
+    );
+
+    let index = the_mirrors_ability(&engine, mirror);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: mirror,
+                ability_index: index,
+            },
+        )
+        .expect("an offered ability is activatable");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Red),
+        1,
+        "the Mirror has its own {{T}}: Add {{R}} back"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Green),
+        0,
+        "and not the Elf's, which it stopped having at the cleanup step"
+    );
+}
+
+/// The third thing a copy leaves behind, and the one that is not on the
+/// object at all: an entry in the effect table.
+///
+/// `sync_static_effects` registers a permanent's statics with
+/// `Duration::WhileSourceOnBattlefield` and drops them when the source
+/// leaves the battlefield — and a copy ending is not a departure, so nothing
+/// was dropping them. Taking the rules text back is therefore only half a
+/// revert: what was registered *from* that text has to go with it, and the
+/// next pass registers the printed abilities in its place.
+///
+/// Karmic Guide is the same instrument the Glasspool Mimic measurement used,
+/// read from the other end: `Filter::This` protection from black, which is
+/// the one copyable static in this pool that says something about the
+/// permanent that has it. Vindicate ("Destroy target permanent") is white
+/// **and** black, so protection from black would keep it off the Mirror
+/// (CR 702.16b) — and by seat 1's main phase the Mirror is an artifact that
+/// never had any.
+#[test]
+fn the_mirror_gives_back_the_protection_it_borrowed() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(102, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[cursed_mirror()])
+        .battlefield(1, &[plains(), swamp(), forest(), karmic_guide()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    // Their Angel, because the clause reaches across the table and a Guide
+    // of my own would have to be cast: it has echo {3}{W}{W}, and a seated
+    // one is asked for it at the first upkeep `reach_main_phase` walks
+    // through. Seat 1 is asked at *their* upkeep, which is after the copy
+    // has already been made and reverted.
+    let guide = on_battlefield(&engine, p1, karmic_guide()).expect("their Angel");
+
+    cast_from_hand(&mut engine, p0, cursed_mirror());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![guide],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let mirror = on_battlefield(&engine, p0, cursed_mirror()).expect("the Mirror arrived");
+
+    reach_their_main_phase(&mut engine, p1);
+    let types = engine
+        .state()
+        .object(mirror)
+        .expect("the Mirror is still on the battlefield")
+        .characteristics()
+        .types;
+    assert!(
+        !types.intersects(TypeSet::CREATURE),
+        "a Mirror that was still an Angel would be a legal target for the \
+         wrong reason: {types:?}"
+    );
+
+    cast_from_hand(&mut engine, p1, vindicate());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let options = target_options(&engine);
+    assert!(
+        options.contains(&mirror),
+        "the protection was the Angel's, and the Mirror stopped being one \
+         at the cleanup step: {options:?}"
+    );
+}
+
 fn esper_sentinel() -> baylee_core::ids::CardIndex {
     card_index("5def9f38-0a0b-4e8d-9f9d-29dcb46520b4")
 }

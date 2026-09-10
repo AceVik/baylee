@@ -750,6 +750,27 @@ impl<L: CardLookup> Engine<L> {
                     filter: crate::effects::EffectFilter::ObjectIs(id),
                     modifier: baylee_cards_dsl::Modifier::BecomeCopyOf(target),
                 });
+            // Abilities are copiable values too (CR 707.2), and the effect
+            // above cannot carry them: `Modifier::BecomeCopyOf` assigns the
+            // target's `characteristics()`, and abilities are not among them
+            // — `Characteristics` has no field for a rules text, so nothing
+            // about an ability is layer-projected. A Mirror that became a
+            // Llanowar Elf was a 1/1 Elf Druid that still tapped for {R}.
+            //
+            // Read through `abilities` rather than off the target's card, for
+            // the reason the permanent branch below does: a target that is
+            // itself a copy answers with what it has become, which is what a
+            // copy of it takes.
+            let copied = self.state.object(target).map(|o| o.abilities(&self.lookup));
+            if let Some(copied) = copied
+                && let Some(obj) = self.state.object_mut(id)
+            {
+                obj.own_abilities = Some(copied);
+                // Unlike every other writer of that field. This copy ends
+                // with the turn, and the field it writes is the one half of
+                // the copy that cannot expire on its own.
+                obj.own_abilities_until_eot = true;
+            }
             for m in mods {
                 let (layer, modifier) = match m {
                     baylee_cards_dsl::CopyMod::AddKeyword(k) => (
@@ -2318,21 +2339,60 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn cleanup_step(&mut self) -> bool {
         // Clear damage (CR 514.2), expire "until end of turn" effects
         // (CR 514.2), and check hand size.
+        let mut reverted: Vec<ObjectId> = Vec::new();
         for obj in self.state.arena.iter_mut_all() {
             obj.damage = 0;
             obj.deathtouched = false;
+            if obj.own_abilities_until_eot {
+                obj.own_abilities = None;
+                obj.own_abilities_until_eot = false;
+                reverted.push(obj.id);
+            }
         }
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
-        // A temporary copy (Cursed Mirror) reverts on the line above: it is a
+        // A temporary copy (Cursed Mirror) reverts in *two* places here, and
+        // only the characteristics half is the line above: that half is a
         // `Layer::Copy` continuous effect with `Duration::UntilEndOfTurn`, so
-        // expiring it is the whole revert and nothing here has to undo a base.
+        // expiring it is the whole of its revert and nothing has to undo a
+        // base. The ability half cannot expire, because abilities are not
+        // layer-projected — the copy wrote them into `own_abilities`, and the
+        // loop above is what takes them back.
+        //
+        // `None` rather than a stashed list because the object is card-backed
+        // and `GameObject::abilities` falls through to its own face. Nothing
+        // card-less can be flagged: the clause is on a printed card, and a
+        // token copy of a Mirror that had become a creature is handed the
+        // *creature's* list by `settle_copied_rules_text` and is not a copy
+        // that ends.
+        //
+        // The flag is why this is not a sweep over every `own_abilities`.
         // There used to be a sweep restoring `original_base` at this point,
         // which reverted nothing because no path ever set the field — and
         // would now revert the *permanent* copies that do, turning a Glasspool
-        // Mimic back into a 0/0 on the turn it was cast. The field is spent at
-        // the zone change instead (CR 400.7, `GameState::move_object`).
+        // Mimic back into a 0/0 on the turn it was cast. That field is spent
+        // at the zone change instead (CR 400.7, `GameState::move_object`), and
+        // this one is spent at whichever of the two comes first.
+        //
+        // A copy ending is a source departing as far as its effects are
+        // concerned, so what `sync_static_effects` does for a permanent that
+        // left the battlefield is what happens here: drop the continuous
+        // effects and replacement rules registered from the copied list, and
+        // let the next pass register the printed ones from the reverted list.
+        // Without it a Mirror that spent a turn as a Karmic Guide would still
+        // have protection from black as an artifact on the next.
+        if !reverted.is_empty() {
+            self.state.effects.remove_where(|fx| {
+                matches!(
+                    fx.duration,
+                    baylee_cards_dsl::Duration::WhileSourceOnBattlefield
+                ) && fx.source.is_some_and(|s| reverted.contains(&s))
+            });
+            self.state
+                .replacement_rules
+                .retain(|r| !reverted.contains(&r.source));
+        }
         self.state.invalidate_projections();
         let active = self.state.turn.active;
         // Reliquary Tower & co.: no maximum hand size for this player.
