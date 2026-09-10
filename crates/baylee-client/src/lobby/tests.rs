@@ -2063,13 +2063,13 @@ fn drawn_field(app: &mut App, field: Field) -> Vec<String> {
         .map(|(_, children)| children.iter().collect())
         .unwrap_or_default();
     kids.into_iter()
-        .map(|kid| {
+        .filter_map(|kid| {
             if app.world().get::<Caret>(kid).is_some() {
-                "|".to_string()
+                Some("|".to_string())
             } else {
-                app.world()
-                    .get::<Text>(kid)
-                    .map_or_else(String::new, |text| text.0.clone())
+                // The spacer and the eye at the end of a password box carry
+                // neither a `Text` nor a `Caret`, and are not what this reads.
+                app.world().get::<Text>(kid).map(|text| text.0.clone())
             }
         })
         .collect()
@@ -2226,4 +2226,44 @@ fn fills(app: &mut App) -> usize {
         .iter(app.world())
         .filter(|fill| fill.0 == palette::SELECTION)
         .count()
+}
+
+/// The eye beside a password shows what is being typed, and covers it again.
+#[test]
+fn the_eye_shows_the_password_and_the_bullets_come_back() {
+    let mut app = headless();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .focus_on(Field::Password);
+    {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for ch in ['p', 'w'] {
+            messages.write(typed(ch));
+        }
+    }
+    app.update();
+    assert!(
+        presses(&mut app).contains(&Press::Reveal(Field::Password)),
+        "a password box carries an eye"
+    );
+    assert!(
+        !presses(&mut app).contains(&Press::Reveal(Field::Email)),
+        "and a box that is not masked does not"
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .toggle_reveal(Field::Password);
+    app.update();
+    assert_eq!(drawn_field(&mut app, Field::Password), ["pw", "|"]);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .toggle_reveal(Field::Password);
+    app.update();
+    assert_eq!(
+        drawn_field(&mut app, Field::Password),
+        ["\u{2022}\u{2022}", "|"]
+    );
 }

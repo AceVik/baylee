@@ -91,7 +91,7 @@ pub(crate) fn tf_italic(fonts: &UiFonts, size: f32) -> TextFont {
 }
 
 /// An icon-font handle at a size.
-fn icon_tf(fonts: &UiFonts, size: f32) -> TextFont {
+pub(crate) fn icon_tf(fonts: &UiFonts, size: f32) -> TextFont {
     TextFont {
         font: bevy::text::FontSource::Handle(fonts.icons.clone()),
         font_size: bevy::text::FontSize::Px(size),
@@ -100,7 +100,7 @@ fn icon_tf(fonts: &UiFonts, size: f32) -> TextFont {
 }
 
 // Font Awesome glyph codepoints used across the overlay (fa-solid-900).
-mod glyph {
+pub(crate) mod glyph {
     /// Heart (life total).
     pub const HEART: char = '\u{f004}';
     /// Hand (cards in hand).
@@ -132,6 +132,10 @@ mod glyph {
     /// Times (close a panel). The text font has no U+2715, so the cross has
     /// to come from here or it draws as a missing glyph.
     pub const CLOSE: char = '\u{f00d}';
+    /// Eye: show a masked field.
+    pub const EYE: char = '\u{f06e}';
+    /// Eye with a line through it: cover it again.
+    pub const EYE_SLASH: char = '\u{f070}';
 }
 
 /// Root of the overlay.

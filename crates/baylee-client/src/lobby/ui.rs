@@ -381,7 +381,7 @@ fn sign_in(
         &FieldLook {
             buffer: lobby.buffer(Field::Email),
             focused: lobby.focus() == Field::Email,
-            mask: false,
+            mask: None,
             press: Press::Focus(Field::Email),
         },
     );
@@ -395,7 +395,7 @@ fn sign_in(
             &FieldLook {
                 buffer: lobby.buffer(Field::DisplayName),
                 focused: lobby.focus() == Field::DisplayName,
-                mask: false,
+                mask: None,
                 press: Press::Focus(Field::DisplayName),
             },
         );
@@ -409,7 +409,10 @@ fn sign_in(
         &FieldLook {
             buffer: lobby.buffer(Field::Password),
             focused: lobby.focus() == Field::Password,
-            mask: true,
+            mask: Some(Masked {
+                field: Field::Password,
+                shown: lobby.showing(Field::Password),
+            }),
             press: Press::Focus(Field::Password),
         },
     );
@@ -779,7 +782,7 @@ fn table(
             &FieldLook {
                 buffer: lobby.buffer(Field::Search),
                 focused: lobby.focus() == Field::Search,
-                mask: false,
+                mask: None,
                 press: Press::Focus(Field::Search),
             },
         );
@@ -834,7 +837,10 @@ fn table(
             &FieldLook {
                 buffer: lobby.buffer(Field::RoomPassword),
                 focused: lobby.focus() == Field::RoomPassword,
-                mask: true,
+                mask: Some(Masked {
+                    field: Field::RoomPassword,
+                    shown: lobby.showing(Field::RoomPassword),
+                }),
                 press: Press::Focus(Field::RoomPassword),
             },
         );
@@ -1464,16 +1470,25 @@ pub(crate) struct FieldLook<'a> {
     pub(crate) buffer: &'a TextBuffer,
     /// Whether this is the field with the caret.
     pub(crate) focused: bool,
-    /// Whether the text is a password and is drawn as bullets.
+    /// Set on a password, and `None` on every other box.
     ///
     /// Masked *here* and not by the caller: the caret and the selection are
     /// byte offsets into the real text, and a caller that handed over a
     /// string of bullets would be handing over offsets into a different
     /// string — a bullet is three bytes and the letter it stands for is one
     /// to four.
-    pub(crate) mask: bool,
+    pub(crate) mask: Option<Masked>,
     /// What a tap on it means.
     pub(crate) press: Press,
+}
+
+/// A password box: what the eye beside it addresses, and whether it is open.
+#[derive(Clone, Copy)]
+pub(crate) struct Masked {
+    /// The field the eye toggles.
+    pub(crate) field: Field,
+    /// Whether the player has asked to read what they are typing.
+    pub(crate) shown: bool,
 }
 
 /// The caret drawn in the field that has it.
@@ -1595,9 +1610,76 @@ pub(crate) fn text_field(
     for run in field_runs(commands, fonts, metrics, look) {
         commands.entity(boxed).add_child(run);
     }
+    if let Some(masked) = look.mask {
+        // Pushed to the far end of the row, so the eye is in the same place
+        // whatever is typed and the letters never run into it.
+        let gap = commands
+            .spawn((
+                Node {
+                    flex_grow: 1.0,
+                    min_width: px(metrics.gap),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(boxed).add_child(gap);
+        let eye = eye_button(commands, fonts, metrics, masked);
+        commands.entity(boxed).add_child(eye);
+    }
     commands.entity(column).add_child(caption);
     commands.entity(column).add_child(boxed);
     column
+}
+
+/// The eye at the end of a password box.
+///
+/// A glyph and no word, which is the one place in this interface where that
+/// is right: there is no room for a label beside the text inside a box this
+/// tall, and the eye is read the same way in every language — every sign-in
+/// form on the web has one. It is `Pickable` by default and the box around
+/// it is not, so the click finds the eye rather than the field under it.
+fn eye_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    masked: Masked,
+) -> Entity {
+    let mark = commands
+        .spawn((
+            Text::new(
+                if masked.shown {
+                    crate::hud::glyph::EYE_SLASH
+                } else {
+                    crate::hud::glyph::EYE
+                }
+                .to_string(),
+            ),
+            crate::hud::icon_tf(fonts, metrics.small),
+            TextColor(if masked.shown {
+                palette::ACCENT
+            } else {
+                palette::MUTED
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let button = commands
+        .spawn((
+            Node {
+                // A finger's worth of height, and enough width to be hit
+                // without pushing the text out of a narrow box.
+                min_width: px(metrics.tap * 0.7),
+                align_self: AlignSelf::Stretch,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Press::Reveal(masked.field),
+        ))
+        .id();
+    commands.entity(button).add_child(mark);
+    button
 }
 
 /// The text inside a field: up to three runs with a bar between two of them.
@@ -1648,9 +1730,8 @@ fn field_runs(
             out.push(caret);
         }
         if !text.is_empty() {
-            out.push(spawn_run(
-                commands, fonts, metrics, text, look.mask, selected,
-            ));
+            let mask = look.mask.is_some_and(|masked| !masked.shown);
+            out.push(spawn_run(commands, fonts, metrics, text, mask, selected));
         }
     }
     out

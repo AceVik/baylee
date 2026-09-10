@@ -509,6 +509,7 @@ pub(super) fn clicks(
             Press::ToggleRail(side, row) => prefs.edit().orders.toggle(side, row),
             Press::SetRail(preset) => prefs.edit().orders.set_to(preset),
             Press::Focus(field) => state.lobby.focus_on(field),
+            Press::Reveal(field) => state.lobby.toggle_reveal(field),
             Press::ToggleRegistering => state.lobby.toggle_registering(),
             Press::Submit => {
                 let request = state.lobby.submit();
@@ -942,6 +943,8 @@ pub(super) fn came_back(
 pub(crate) enum Press {
     /// Put the caret in this field.
     Focus(Field),
+    /// Show a masked field in the clear, or cover it again.
+    Reveal(Field),
     /// Swap the form between log-in and sign-up.
     ToggleRegistering,
     /// Send the sign-in form.

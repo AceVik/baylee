@@ -270,7 +270,7 @@ fn pool_panel(
         &FieldLook {
             buffer: &typed,
             focused: deck.focus() == BuildField::Search,
-            mask: false,
+            mask: None,
             press: Press::FocusBuild(BuildField::Search),
         },
     );
@@ -1184,7 +1184,7 @@ fn deck_panel(
         &FieldLook {
             buffer: &typed,
             focused: deck.focus() == BuildField::Name,
-            mask: false,
+            mask: None,
             press: Press::FocusBuild(BuildField::Name),
         },
     );

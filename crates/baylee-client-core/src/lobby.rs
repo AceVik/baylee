@@ -621,6 +621,13 @@ pub struct Lobby {
     /// Where that page starts.
     offset: usize,
     deck: Option<usize>,
+    /// The one masked field the player has asked to see, if any.
+    ///
+    /// One at a time, and never for long: the account's password and a room's
+    /// are two different secrets and showing one is no reason to show the
+    /// other. It is dropped whenever the caret leaves the field it names, so
+    /// a box that was revealed is never found revealed later.
+    revealed: Option<Field>,
     status: String,
     busy: bool,
     registration_enabled: bool,
@@ -874,8 +881,27 @@ impl Lobby {
         if field == Field::DisplayName && !self.registering() {
             return;
         }
+        if self.revealed != Some(field) {
+            self.revealed = None;
+        }
         self.focus = field;
         self.focus_epoch += 1;
+    }
+
+    /// Whether a masked field is being shown in the clear.
+    #[must_use]
+    pub fn showing(&self, field: Field) -> bool {
+        self.revealed == Some(field)
+    }
+
+    /// Shows a masked field, or covers it again.
+    ///
+    /// The caret goes into it either way: pressing the eye beside a box is a
+    /// way of saying *this box*, and a player who reveals a password does it
+    /// to read what they are typing there.
+    pub fn toggle_reveal(&mut self, field: Field) {
+        self.revealed = (self.revealed != Some(field)).then_some(field);
+        self.focus_on(field);
     }
 
     /// Moves the caret to the next or previous field — Tab and ⇧Tab. The
@@ -920,6 +946,9 @@ impl Lobby {
                 (Field::Search, _, _) => Field::RoomPassword,
             };
         }
+        // Tab always leaves the field it was in, and a reveal belongs to the
+        // field it was asked for.
+        self.revealed = None;
         let focus = self.focus;
         self.buffer_mut(focus).select_all();
         self.focus_epoch += 1;
@@ -1519,6 +1548,7 @@ impl Lobby {
         self.asked_for = None;
         self.rematch_wanted = None;
         self.password.clear();
+        self.revealed = None;
         self.focus = Field::Email;
         self.screen = Screen::SignIn { registering: false };
         self.note(Phrase::SignedOut);
@@ -2283,6 +2313,40 @@ mod tests {
         assert_eq!(lobby.field(Field::Email), "pasted@example.com");
         lobby.set_field(Field::Email, "");
         assert_eq!(lobby.field(Field::Email), "", "clearing works too");
+    }
+
+    #[test]
+    fn a_password_can_be_shown_and_covered_again() {
+        let mut lobby = Lobby::new();
+        assert!(!lobby.showing(Field::Password));
+        lobby.toggle_reveal(Field::Password);
+        assert!(lobby.showing(Field::Password));
+        assert_eq!(
+            lobby.focus(),
+            Field::Password,
+            "pressing the eye beside a box is a way of saying that box"
+        );
+        lobby.toggle_reveal(Field::Password);
+        assert!(!lobby.showing(Field::Password));
+    }
+
+    #[test]
+    fn a_shown_password_is_covered_again_by_leaving_it() {
+        let mut lobby = Lobby::new();
+        lobby.toggle_reveal(Field::Password);
+        lobby.focus_on(Field::Email);
+        assert!(
+            !lobby.showing(Field::Password),
+            "the caret left, so the secret is a secret again"
+        );
+        lobby.toggle_reveal(Field::Password);
+        lobby.cycle_focus(Tab::Next);
+        assert!(!lobby.showing(Field::Password), "and Tab is leaving too");
+        lobby.toggle_reveal(Field::RoomPassword);
+        assert!(
+            !lobby.showing(Field::Password),
+            "one at a time: a room's password is not the account's"
+        );
     }
 
     #[test]
