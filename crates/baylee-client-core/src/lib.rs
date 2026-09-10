@@ -58,6 +58,7 @@ pub mod seatbar;
 pub mod sky;
 pub mod tabletop;
 pub mod textbuf;
+pub mod timing;
 
 /// View builders for tests.
 ///
