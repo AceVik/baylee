@@ -500,13 +500,24 @@ mod tests {
             }
             for (i, _) in def.faces.iter().enumerate() {
                 for ability in def.abilities_for_face(i) {
-                    let AbilityDef::Activated {
+                    // Both arms, so a conditional equip ability cannot walk
+                    // past the lint. No card prints one today — the two
+                    // sibling lints above already read both, and this one
+                    // was written without them.
+                    let (AbilityDef::Activated {
                         cost,
                         effects,
                         target,
                         timing,
                         ..
-                    } = ability
+                    }
+                    | AbilityDef::ActivatedConditional {
+                        cost,
+                        effects,
+                        target,
+                        timing,
+                        ..
+                    }) = ability
                     else {
                         continue;
                     };

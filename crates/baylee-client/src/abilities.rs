@@ -273,6 +273,9 @@ fn owns_a_mana_ability(view: &PlayerView, object: ObjectId) -> bool {
                 AbilityDef::Activated {
                     mana_ability: true,
                     ..
+                } | AbilityDef::ActivatedConditional {
+                    mana_ability: true,
+                    ..
                 }
             )
         })

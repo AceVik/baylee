@@ -109,12 +109,25 @@ fn mana_ability(
     index: u32,
     ability: &'static AbilityDef,
 ) -> Option<Source> {
-    let AbilityDef::Activated {
+    // `ActivatedConditional` belongs here beside `Activated`, and the
+    // condition is deliberately not re-checked: this list is built from
+    // `LegalActions` and nothing else, and the engine offers a conditional
+    // ability only once its condition holds. Reading the first variant alone
+    // meant a permanent whose *only* mana ability has a condition on it
+    // counted for nothing — Mox Opal is exactly that card, so a player with
+    // metalcraft up had the planner tap around a mana it was being offered.
+    let (AbilityDef::Activated {
         cost,
         effects,
         mana_ability: true,
         ..
-    } = ability
+    }
+    | AbilityDef::ActivatedConditional {
+        cost,
+        effects,
+        mana_ability: true,
+        ..
+    }) = ability
     else {
         return None;
     };
@@ -251,5 +264,46 @@ mod tests {
         let (mut view, legal) = lantern_land();
         view.battlefield[0].granted_mana = None;
         assert!(sources(&view, &legal).is_empty());
+    }
+
+    /// Mox Opal, whose only mana ability is behind metalcraft.
+    ///
+    /// `printed` uses the print number as the `CardIndex`, which is what
+    /// makes the registry lookup reach the real card.
+    fn mox_opal() -> (PlayerView, LegalActions) {
+        let id = ObjectId::new(3, 0);
+        let mut mox = baylee_client_core::test_support::printed(3, 0, "Mox Opal", 98);
+        mox.types = baylee_core::types::TypeSet::ARTIFACT;
+        mox.power = None;
+        mox.toughness = None;
+        let view = ViewBuilder::new(2).with_battlefield(0, [mox]).build();
+        let legal = LegalActions {
+            abilities: vec![(id, 0)],
+            ..LegalActions::default()
+        };
+        (view, legal)
+    }
+
+    /// A mana ability with a condition on it is still a mana ability
+    /// (CR 605.1), and the engine has already decided the condition holds —
+    /// it would not be in `LegalActions` otherwise. Reading only
+    /// `AbilityDef::Activated` here counted a Mox Opal for zero, and it is
+    /// the whole of what that card does.
+    #[test]
+    fn a_conditional_mana_ability_is_a_source_the_planner_can_see() {
+        let (view, legal) = mox_opal();
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1, "one permanent, one source");
+        assert_eq!(sources[0].amount, 1);
+        assert_eq!(
+            sources[0].colors.len(),
+            5,
+            "one mana of any colour, as the Mox says"
+        );
+        assert_eq!(
+            sources[0].tap,
+            Tap::Ability(0),
+            "tapped through the handle the engine offered it under"
+        );
     }
 }
