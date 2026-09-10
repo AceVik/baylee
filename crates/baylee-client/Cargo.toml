@@ -61,6 +61,33 @@ dev-control = ["dep:image"]
 # bevy 0.19.1 `bevy_dylib` does not resolve, and because cargo resolves the
 # whole feature graph for the lockfile, merely *declaring* the feature breaks
 # every command in the workspace — including ones that never enable it.
+#
+# No `dev-reload = ["bevy/embedded_watcher"]` either, and for exactly the same
+# reason, which is worth writing down because everything *else* about it
+# checks out. bevy 0.19.1's `bevy_asset` asks for `notify-debouncer-full
+# ^0.7.0` and crates.io stops at 0.6.0, so the requirement cannot be selected
+# and one declared feature takes `cargo check -p baylee-client-core` down with
+# it. Measured 2026-09-10.
+#
+# What the rest of it would need, so a bevy bump can turn it on in one line:
+# all seven shaders are already `embedded_asset!`, and `AssetPlugin`'s
+# `watch_for_changes_override` can stay `None` (bevy reads
+# `cfg!(feature = "watch")`, which `embedded_watcher` implies). The one thing
+# that has to be arranged is the **root**. `embedded_asset!` remembers a
+# shader by `file!()`, which cargo writes relative to the workspace root
+# (`crates/baylee-client/src/shaders/…`), while bevy's watcher strips its base
+# path — `CARGO_MANIFEST_DIR`, this package, two directories too deep — off
+# each changed file before looking it up. Every lookup would miss and nothing
+# would reload, with no error anywhere. Setting `BEVY_ASSET_ROOT` to the
+# workspace root before `App::new()` fixes it and touches nothing else, since
+# `asset_root()` is absolute and an absolute join replaces the base rather
+# than extending it. The cost of that root is that the watcher then sees the
+# whole worktree, `target/` included.
+#
+# It would also have to stay out of `default` and off wasm: `embedded_watcher`
+# implies `file_watcher`, which pulls `notify-debouncer-full`, which does not
+# build for `wasm32-unknown-unknown` — and CI type-checks this crate for
+# exactly that target.
 
 [[bin]]
 name = "baylee-client"
