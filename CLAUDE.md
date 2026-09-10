@@ -913,7 +913,7 @@ is not a fixed number of pixels: they have the row to themselves, so they
 grow together to a cap and the slack past it goes into the gaps, which is
 what lets `Shelf::box_size` measure a split bar's box from the ledge instead
 of from the form. It reaches a duel and stops there — three seats and up have
-shelves deep enough and far too short (372×46 against the 561 px two rows are
+shelves deep enough and far too short (372×46 against the 585 px two rows are
 wide), and the length ladder takes over untouched.
 **The twelve tiles stand in the five phases of a turn** (CR 500.1), and that
 grouping is the row's whole structure: three in the beginning phase, five in
@@ -930,7 +930,17 @@ than a `flex_grow` with a cap: flex hands each *group* its share, so a phase
 of one tile and a phase of five end up with tiles of different widths and a
 pocket of dead space in the short groups. On a split bar the hinge moved to
 the **far end of the identity row**, which anchors a row that used to run out
-after the counts and gives the twelve tiles the whole ledge.
+after the counts and gives the twelve tiles the whole ledge. The tiles also
+**follow their shelf**: the tree is built when the density changes and the
+box is placed every frame, so a bar built while the camera was still easing
+in kept tiles a tenth too narrow and let `SpaceBetween` spend the difference
+on its phase gaps — 66 px tiles and 45 px gaps against the model's 72 and
+24.5, on a shelf the bar had been told was 1127 long. `stretch_step_tiles` is
+the other half of `place_seat_bars`. Measuring that found the second half of
+it: the **far** seat of a duel gets a shorter shelf, so its tiles cap with
+four pixels to spare and its phases stood ten pixels apart against three
+inside them, which is why the split form's `PHASE_GAP` is five times its tile
+gap and not three.
 **A mat is drawn `tabletop::MAT_MARGIN` wider than its playing extent on all
 four sides**, and every band on it is a fraction of a depth — so while that
 constant was `table::ZONE_MARGIN` and lived in the renderer, the shelf and

@@ -86,6 +86,33 @@ pub struct SeatStep {
     pub row: RailRow,
 }
 
+/// A step tile's share of the shelf its bar is written on.
+///
+/// The box follows the shelf every frame ([`place_seat_bars`]) and the twelve
+/// tiles inside it did not, which made a liar of the whole form: a split bar
+/// is built once, when its *density* changes, and its tiles were given the
+/// width the ledge projected at that moment. A camera still easing towards
+/// its home — which is every duel, for the first second of it — then left the
+/// box on the whole ledge and the tiles a tenth short of it, with
+/// `SpaceBetween` quietly spending the difference on the phase gaps.
+/// Photographed on a 1728-wide window: 66 px tiles and 45 px phase gaps where
+/// the model says 72 and 24.5, on a shelf the bar had already been told was
+/// 1127 long. Nothing looked broken, which is why it took a row profile to
+/// find — the bar still spanned its ledge, in the wrong proportions.
+///
+/// So the tiles follow the shelf too, the same way and in the same schedule.
+/// The span is here because a main phase is [`Density::main_span`] tiles wide
+/// and the new width has to be reached by the arithmetic that reached the old
+/// one.
+#[derive(Component)]
+pub struct SeatTile {
+    /// Whose bar this tile stands on.
+    pub player: PlayerId,
+    /// How many step widths this tile is drawn: one, or [`Density::main_span`]
+    /// for a main phase, which is one step and one phase at once.
+    pub span: f32,
+}
+
 /// A cell that opens the seat sheet: the caret, the name, life, any count.
 #[derive(Component)]
 pub struct SeatInk {
@@ -305,6 +332,35 @@ pub fn place_seat_bars(
         node.top = px(corner.y);
         node.width = px(width);
         turn.rotation = Rot2::radians(shelf.tilt);
+    }
+}
+
+/// Follows the shelves with the twelve tiles inside the bars, too.
+///
+/// [`place_seat_bars`] moves and resizes the *box*; this is the one thing
+/// inside it whose width is not a fixed number of pixels, and it has to be
+/// recomputed from the same length for the same reason — see [`SeatTile`] for
+/// what the bar looked like while it was not.
+///
+/// Its own write is guarded the same way, on the width already in the node,
+/// so a camera standing still costs one comparison per tile and no relayout.
+pub fn stretch_step_tiles(
+    shelves: Res<Shelves>,
+    duel: Res<Duel>,
+    mut tiles: Query<(&SeatTile, &mut Node)>,
+) {
+    let designated = duel.view.as_ref().is_some_and(|v| v.day_night.is_some());
+    for (tile, mut node) in &mut tiles {
+        let Some(shelf) = shelves.of(tile.player) else {
+            // The bar is hidden, not despawned. Leaving the width alone means
+            // the tiles are right again the frame the shelf comes back.
+            continue;
+        };
+        let length = shelf.box_size(designated).x;
+        let width = px(shelf.density.tile_width_on(length) * tile.span);
+        if node.width != width {
+            node.width = width;
+        }
     }
 }
 
@@ -966,6 +1022,15 @@ fn steps(
                     lost: seat.has_lost,
                 },
             );
+            // What lets the tile follow its shelf without the tree being
+            // rebuilt. Every tile carries it, the two dead ones included:
+            // they hold the silhouette of the row and a silhouette that did
+            // not grow with its neighbours would be the gap that says a phase
+            // boundary, drawn where there is none.
+            commands.entity(tile).insert(SeatTile {
+                player: seat.player,
+                span,
+            });
             commands.entity(group).add_child(tile);
         }
         commands.entity(row).add_child(group);

@@ -921,8 +921,8 @@ pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
 pub use rail::{DesignationFlash, flash_the_designation, light_the_current_step};
 pub use seatbar::{
-    BarRevision, SeatBar, SeatBarRoot, SeatInk, SeatStep, Shelf, Shelves, measure_shelves,
-    place_seat_bars, sync_seat_bars,
+    BarRevision, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
+    measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,
 };
 pub use stack::{StackMotion, ease_the_stack_in};
 pub(crate) use tray::band_of;

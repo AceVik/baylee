@@ -1876,7 +1876,7 @@ and no form ever drops the caret, the colour or the steps.
 bar on two rows — the twelve steps alone along the mat's top edge, spread
 across its whole width, and the seat's identity beneath them — which is what
 the owner asked the phase line to be. It is not a rung of that ladder and
-could not be: it asks for a *shorter* shelf than the full bar (561 against
+could not be: it asks for a *shorter* shelf than the full bar (585 against
 948, because stacked rows are as long as the longer of them) and a *deeper*
 one than any single-row form (34 of ink against 28). So `Density::for_shelf`
 takes both numbers, and `Shelf::depth` — which the ladder never consulted and
@@ -1905,7 +1905,7 @@ where a side seat and the seat across get different forms; a duel showing two
 is the same rule and not an exception to it.
 
 Three seats and up have shelves that are deep enough and far too short: at
-1728 they project 372×46, 337×44 and 337×44 against the 561 px the two-row
+1728 they project 372×46, 337×44 and 337×44 against the 585 px the two-row
 bar is wide, so the length ladder takes over untouched. Both halves of that
 sentence used to read the other way — the depth was the thing that ran out —
 and that was the shelf being measured a printed border short of the one the
@@ -1923,7 +1923,7 @@ groups: `Density::tile_gap` inside a phase, the wider `Density::phase_gap`
 between, and the slack goes into the four phase gaps and never into the seven
 tight ones.
 
-Three things fell out of that and each is worth its own sentence.
+Four things fell out of that and each is worth its own sentence.
 
 **A main phase is `MAIN_SPAN` step-widths wide.** It has no steps at all — it
 is a whole phase standing where a step stands, and it is where every land,
@@ -1951,7 +1951,29 @@ worse — the tiles began a turn-number's width in from the shelf's edge, and
 the identity row ran out after the counts with four fifths of itself empty.
 The turn number now sits at the far end of the row beneath the tiles, which
 anchors that row at both ends and gives the twelve tiles the whole ledge. It
-is still touching what it hinges: the two rows are `SPLIT_ROW_GAP` apart.
+is still touching what it hinges: `SPLIT_ROW_GAP` is nothing at all, so the
+two rows meet.
+
+**The tiles follow the shelf, and the gap between phases has a floor.** A bar
+is rebuilt when its *density* changes and re-placed every frame, which is
+right for a box and was wrong for the one ink inside it whose width is not a
+fixed number of pixels: the twelve tiles kept the width the ledge projected at
+the moment the tree was built, and a camera still easing towards its home —
+every duel, for the first second of it — then left the box on the whole shelf
+and the tiles a tenth short of it, with `SpaceBetween` quietly spending the
+difference on the phase gaps. Photographed at 1728×1052: 66 px tiles and 45 px
+phase gaps where the model says 72 and 24.5, on a shelf the bar had already
+been told was 1127 long. Nothing looked broken — the bar still spanned its
+ledge, in the wrong proportions — which is why it took a row profile through
+the tiles to find. `hud::stretch_step_tiles` is the other half of
+`place_seat_bars` and is guarded the same way, on the width already in the
+node. The same photograph then showed the *far* seat, whose shorter shelf
+(1069 against 1127) leaves four pixels over once its tiles reach their cap:
+its phases stood ten pixels apart against three inside them, which is a
+division a viewer has to look for. `PHASE_GAP` for the split form is five
+times the tile gap now rather than three — a floor only this form reaches,
+and one the near seat never notices, since its slack put it at 24.5 either
+way.
 
 Three channels on a step tile, and they answer three different questions.
 The **frame** is the standing order — none at all for a dead step, gold for

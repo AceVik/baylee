@@ -2898,7 +2898,7 @@ mod camera_tests {
     /// rather than its depth. Measured at [`WINDOW`]: a duel's shelves
     /// project 1127×61 and 1069×55, and three seats project 372×46, 337×44,
     /// 337×44 — deep enough for the 34 px of ink two rows draw, and nowhere
-    /// near the 561 px the two-row bar is wide. It used to be the depth that
+    /// near the 585 px the two-row bar is wide. It used to be the depth that
     /// ran out first; that was the shelf being measured a printed border
     /// short of the one the mat draws, and the number that moved when they
     /// were reconciled was the depth.
@@ -2950,12 +2950,14 @@ mod camera_tests {
     /// because `Canvas::hud` takes a *fixed* hand bar off the bottom, so a
     /// small window is a squarer canvas.
     ///
-    /// Every hand-over in the list is a **depth** one, and that is the shape
-    /// of the whole ladder now: the two-row bar wants 561 px of length, which
-    /// an 800-wide window already has, so what decides the form is whether
-    /// the shelf is deep enough to write two rows on — 34 px of ink against
-    /// the 21.1, 30.7 and 36.2 above. A window of the shape here gains the
-    /// phase line at about 1150, and it is its *height* that buys it.
+    /// Every hand-over above the smallest window is a **depth** one, and that
+    /// is the shape of the whole ladder now: the two-row bar wants 585 px of
+    /// length, which a 1024-wide window already gives it, so from there up
+    /// what decides the form is whether the shelf is deep enough to write two
+    /// rows on — 34 px of ink against the 30.7 and 36.2 above. The 800-wide
+    /// window is the one that fails on both counts, 548 long and 21.1 deep.
+    /// A window of the shape here gains the phase line at about 1150, and it
+    /// is its *height* that buys it.
     ///
     /// This list used to start at the compact bar at 1280 and reach the
     /// two-row one at 1728, and every number in it moved when the shelf

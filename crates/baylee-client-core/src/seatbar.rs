@@ -156,11 +156,23 @@ const TILE_GAP: [f32; 5] = [3.0, 3.0, 3.0, 3.0, 2.0];
 /// The rail has two gap sizes and that is the whole of its structure: tiles
 /// of one phase are butted together, phases stand apart. Twelve tiles at one
 /// spacing is a list of twelve equal things, which is not what a turn is —
-/// see [`crate::automation::RailPhase`]. Three times the tile gap is enough
-/// to read as a division at every form; on a shelf with slack to spare the
+/// see [`crate::automation::RailPhase`]. On a shelf with slack to spare the
 /// renderer widens these gaps further and leaves the tight ones alone, so
 /// the hierarchy grows rather than washing out.
-const PHASE_GAP: [f32; 5] = [9.0, 9.0, 9.0, 9.0, 6.0];
+///
+/// Three times the tile gap was the first answer, and it is a claim about a
+/// *floor* — which only the split form actually reaches, and which it
+/// reaches on the seat nobody thought to look at. A duel's far shelf is
+/// shorter than its near one (1069 px against 1127 at the reference window),
+/// so its tiles hit their cap with four pixels left over and the bar was
+/// photographed with ten pixels between its phases against three inside
+/// them. That is a boundary a viewer has to look for. Five times is the
+/// floor now; the near seat never notices, because its slack put it at 24.5
+/// either way, and the far seat gives up a pixel and a half of tile for a
+/// division that reads. The ladder forms keep three: their tiles are a fixed
+/// width, so raising the floor there raises [`Density::min_length`] and
+/// moves the rungs of the ladder, and no four-seat bar has been measured.
+const PHASE_GAP: [f32; 5] = [15.0, 9.0, 9.0, 9.0, 6.0];
 
 /// How wide and how tall one step tile is drawn, per density.
 ///
@@ -210,10 +222,10 @@ const MAIN_SPAN: f32 = 2.0;
 
 /// The gap between the two rows of a [`Density::Split`] bar.
 ///
-/// Two pixels, and deliberately less than [`CELL_GAP`]: the rows are one bar
-/// about one seat, and a gap wide enough to read as a division would make the
-/// phase line look like it belonged to the table rather than to the mat it is
-/// written on.
+/// Nothing at all, and deliberately less than [`CELL_GAP`]: the rows are one
+/// bar about one seat, and a gap wide enough to read as a division would make
+/// the phase line look like it belonged to the table rather than to the mat it
+/// is written on. The tile halo is the only air there is between them.
 const SPLIT_ROW_GAP: f32 = 0.0;
 
 /// How tall the identity row of a [`Density::Split`] bar is drawn.
@@ -398,7 +410,7 @@ impl Density {
     /// ran out after the counts and left four fifths of itself empty. Now the
     /// tiles have the whole edge and the turn number closes the row beneath
     /// them — still one bar about one seat, and still touching the tiles it
-    /// belongs to, because the two rows are two pixels apart.
+    /// belongs to, because the two rows have no gap between them at all.
     ///
     /// [`Self::cells`] stays the canonical list of what a form carries, and
     /// `every_row_is_dealt_from_the_cells_the_form_carries` is what stops the
