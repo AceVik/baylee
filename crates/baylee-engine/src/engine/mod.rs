@@ -500,6 +500,8 @@ mod day_night_tests;
 #[cfg(test)]
 mod draw_tests;
 #[cfg(test)]
+mod enter_tests;
+#[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
 mod keyword_tests;
