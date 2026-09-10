@@ -179,6 +179,83 @@ impl Tracker {
     }
 }
 
+/// Which door a permanent went through, when the door is one the player is
+/// owed a picture of.
+///
+/// The table already sends a departing card somewhere in particular — a pile,
+/// a rise towards the hand, a shrink to nothing — and that trajectory is the
+/// whole of what a zone change has looked like so far. It is not enough on a
+/// busy board: a creature exiled and a creature destroyed both leave the felt
+/// and slide to a pile a few centimetres apart, and in a still frame they are
+/// the same event. This is the second half of the answer, and it is a
+/// *claim about the move* rather than about the card, which is why it lives
+/// beside [`Move`] and not on anything drawn.
+///
+/// Five doors, because those are the five the owner asked for: back to hand,
+/// into exile and out of it again, into a graveyard and out of it again.
+/// Everything else is [`None`] — a spell resolving from the stack on to the
+/// battlefield is the ordinary arrival this client has always drawn, and
+/// giving it a door of its own would put a mark on the commonest event in the
+/// game, which is the everywhere-at-once the sheen was cut back from.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum Passage {
+    /// Battlefield to this seat's hand: the entrance played backwards.
+    Bounce,
+    /// Battlefield to exile: a way out with no way back in it.
+    Exiled,
+    /// Exile to the battlefield: the same door, opening.
+    Flickered,
+    /// Battlefield to a graveyard.
+    Destroyed,
+    /// A graveyard to the battlefield.
+    Returned,
+}
+
+impl Passage {
+    /// The door a move went through, if it went through one of the five.
+    ///
+    /// Deliberately blind to *whose* pile it was. A card exiled to an
+    /// opponent's exile zone went through the same door as one exiled to its
+    /// owner's, and the seat is already carried by the [`Place`] that decides
+    /// where on the table the card is sent — asking it twice would be two
+    /// answers that could disagree.
+    ///
+    /// A move with no `from` or no `to` has no door either: `None` is this
+    /// seat being unable to see one end of the move at all (a card bounced to
+    /// an opponent's hand, a permanent put on the bottom of a library), and
+    /// the neutral exit is the only honest drawing of that.
+    #[must_use]
+    pub fn of(from: Option<Place>, to: Option<Place>) -> Option<Self> {
+        match (from?, to?) {
+            (Place::Battlefield, Place::Hand) => Some(Self::Bounce),
+            (Place::Battlefield, Place::Exile(_)) => Some(Self::Exiled),
+            (Place::Exile(_), Place::Battlefield) => Some(Self::Flickered),
+            (Place::Battlefield, Place::Graveyard(_)) => Some(Self::Destroyed),
+            (Place::Graveyard(_), Place::Battlefield) => Some(Self::Returned),
+            _ => None,
+        }
+    }
+
+    /// Whether this door is one a card leaves the battlefield through.
+    ///
+    /// The renderer needs the split because the two halves are drawn in
+    /// different places: a departure is baked into a material once, on the
+    /// frame the card stops being a card, and an arrival rides the sheen the
+    /// board model has already started for it.
+    #[must_use]
+    pub fn is_departure(self) -> bool {
+        matches!(self, Self::Bounce | Self::Exiled | Self::Destroyed)
+    }
+}
+
+impl Move {
+    /// The door this move went through, if it went through one.
+    #[must_use]
+    pub fn passage(&self) -> Option<Passage> {
+        Passage::of(self.from, self.to)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,5 +480,99 @@ mod tests {
         tracker.clear();
         let moves = tracker.observe(&buried(2));
         assert!(moves.is_empty(), "{moves:?}");
+    }
+
+    /// The five doors the owner asked for, each read off the move that goes
+    /// through it. Written out one by one rather than swept, because the
+    /// point of the table is that these five are *different* and a loop over
+    /// a list of pairs would be the same statement said once.
+    #[test]
+    fn each_of_the_five_doors_is_read_off_the_move_that_uses_it() {
+        let bf = Some(Place::Battlefield);
+        assert_eq!(Passage::of(bf, Some(Place::Hand)), Some(Passage::Bounce));
+        assert_eq!(
+            Passage::of(bf, Some(Place::Exile(seat(0)))),
+            Some(Passage::Exiled)
+        );
+        assert_eq!(
+            Passage::of(Some(Place::Exile(seat(1))), bf),
+            Some(Passage::Flickered)
+        );
+        assert_eq!(
+            Passage::of(bf, Some(Place::Graveyard(seat(0)))),
+            Some(Passage::Destroyed)
+        );
+        assert_eq!(
+            Passage::of(Some(Place::Graveyard(seat(1))), bf),
+            Some(Passage::Returned)
+        );
+    }
+
+    /// The counter-test, and the one that matters most: a table that answered
+    /// *something* for every move would put a door on the commonest event in
+    /// the game — a spell resolving from the stack — which is the
+    /// everywhere-at-once the sheen was cut back from in the first place.
+    #[test]
+    fn an_ordinary_arrival_goes_through_no_door_at_all() {
+        let bf = Some(Place::Battlefield);
+        assert_eq!(Passage::of(Some(Place::Stack), bf), None);
+        assert_eq!(Passage::of(bf, Some(Place::Stack)), None);
+        assert_eq!(Passage::of(Some(Place::Hand), bf), None);
+        assert_eq!(Passage::of(bf, Some(Place::Command(seat(0)))), None);
+        // Battlefield to battlefield is not a move at all; the tracker never
+        // reports one, and this is the belt to that brace.
+        assert_eq!(Passage::of(bf, bf), None);
+    }
+
+    /// Half a move is not a door. This seat cannot see an opponent's hand or
+    /// any library, so a card sent to one of them is reported with `None` —
+    /// and a client that guessed at those would draw a card flying to a hand
+    /// it never reached.
+    #[test]
+    fn a_move_this_seat_cannot_see_both_ends_of_has_no_door() {
+        assert_eq!(Passage::of(Some(Place::Battlefield), None), None);
+        assert_eq!(Passage::of(None, Some(Place::Battlefield)), None);
+        assert_eq!(Passage::of(None, None), None);
+    }
+
+    /// Whose pile it was is the [`Place`]'s business, not the door's: a
+    /// creature exiled to an opponent's exile zone went out through the same
+    /// door as one exiled to its owner's.
+    #[test]
+    fn a_door_does_not_care_whose_pile_is_on_the_other_side_of_it() {
+        let bf = Some(Place::Battlefield);
+        for who in 0..4u8 {
+            assert_eq!(
+                Passage::of(bf, Some(Place::Graveyard(seat(who)))),
+                Some(Passage::Destroyed)
+            );
+        }
+    }
+
+    /// The split the renderer needs, and it is not cosmetic: a departure is
+    /// baked into a material on the frame the card stops being a card, and an
+    /// arrival rides a sheen the board model has already started.
+    #[test]
+    fn the_three_doors_out_are_departures_and_the_two_back_in_are_not() {
+        assert!(Passage::Bounce.is_departure());
+        assert!(Passage::Exiled.is_departure());
+        assert!(Passage::Destroyed.is_departure());
+        assert!(!Passage::Flickered.is_departure());
+        assert!(!Passage::Returned.is_departure());
+    }
+
+    /// Read through a real pair of views rather than by hand, because
+    /// `Passage::of` is only worth anything if the moves the tracker actually
+    /// produces reach it with both ends filled in.
+    #[test]
+    fn a_creature_that_dies_between_two_views_is_read_as_destroyed() {
+        let mut tracker = Tracker::default();
+        tracker.observe(&standing(1));
+        let moves = tracker.observe(&buried(2));
+        let died = moves
+            .iter()
+            .find(|m| m.object == id(1))
+            .expect("the bear left the battlefield");
+        assert_eq!(died.passage(), Some(Passage::Destroyed));
     }
 }

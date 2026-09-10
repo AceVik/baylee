@@ -13,7 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, provenance_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, provenance_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -40,6 +40,9 @@ struct CardParams {
     /// One over how long that sheen takes, or 0 for a card that is not
     /// sweeping — which is almost every card almost all of the time.
     sweep_rate: f32,
+    /// Which of the five zone-change doors this sweep draws, or `DOOR_NONE`
+    /// for the plain arrival. `cardmat::door` numbers them.
+    sweep_door: u32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -300,10 +303,18 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let brushed = 1.0 - METAL_GRAIN * noise(uv * vec2<f32>(9.0, 220.0));
     let phase = (globals.time - params.sweep_at) * params.sweep_rate;
     let travel = select(0.0, sweep_amount(uv, phase), params.sweep_rate > 0.0);
+    // A door is the same one-shot on the same clock, drawn as a different
+    // figure in a colour of its own, so the coating takes the plain band only
+    // when the card came through no door. The table's twin does the same
+    // thing with the same two lines, which is what keeps a card picked up off
+    // the felt looking like the one that was on it.
+    let door = select(DOOR_NONE, params.sweep_door, params.sweep_rate > 0.0);
+    let plain = select(0.0, travel, door == DOOR_NONE);
     color = vec4<f32>(
-        color.rgb + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * travel) * brushed,
+        color.rgb + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * plain) * brushed,
         color.a,
     );
+    color = vec4<f32>(color.rgb + door_layer(uv, phase, door), color.a);
 
     // Asleep: the same night the table draws, over the face and never on the
     // border. A card in hand is never summoning sick, but the preview of one

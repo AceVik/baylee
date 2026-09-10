@@ -31,7 +31,7 @@ use baylee_client_core::layout::{
     CARD_HEIGHT, CARD_WIDTH, PileKind, SeatSlot, TableLayout, pack_lane,
 };
 use baylee_client_core::tabletop;
-use baylee_client_core::zones::{Place, Tracker};
+use baylee_client_core::zones::{self, Place, Tracker};
 use baylee_core::color::ColorSet;
 use baylee_core::ids::ObjectId;
 use baylee_core::ids::PlayerId;
@@ -1064,6 +1064,40 @@ fn entrance_from(stand: Option<Transform>, target: &Transform) -> Transform {
     stand.unwrap_or_else(|| entrance(target))
 }
 
+/// Puts a departing card's door on the material it is already wearing.
+///
+/// Answers the handle to wear instead, or `None` for a card that is leaving
+/// through no door worth drawing — most of them: a stale group re-keying, a
+/// permanent going somewhere this seat cannot see, a card leaving on a table
+/// where the player has turned motion off.
+///
+/// A function of its own rather than six lines inside [`sync_scene`], and the
+/// reason is that this is the one frame on which it can happen at all. The
+/// card is out of the board model and out of [`SceneIndex::cards`] by the
+/// time this runs, so nothing will ever build it a look again — which is why
+/// its exit is *written on to* the material it has rather than looked up by a
+/// [`CardLook`], and why a version of this that quietly did nothing would be
+/// invisible in every test that goes through the cache.
+fn dress_the_exit(
+    materials: &mut Assets<CardMaterial>,
+    worn: &Handle<CardMaterial>,
+    step: zones::Move,
+    now: f32,
+    motion: f32,
+) -> Option<Handle<CardMaterial>> {
+    let door = step.passage().filter(|door| door.is_departure())?;
+    let mut leaving = materials.get(worn).cloned()?;
+    // `wear` makes the decision a card holding still makes, in the one place
+    // an arrival makes it too: no sweep at all, rather than a sweep on a
+    // stopped clock.
+    crate::cardmat::wear(
+        &mut leaving.params,
+        Some(crate::sheen::Sweep::leaving(now, door, EXIT_LIFE)),
+        motion,
+    );
+    Some(materials.add(leaving))
+}
+
 /// Despawns cards that have finished leaving.
 ///
 /// A plain countdown rather than [`glide`]'s settled test, because one exit
@@ -1082,14 +1116,50 @@ pub fn retire(
     }
 }
 
-/// Where every object was in the view before this one.
+/// Where every object was in the view before this one, and what has moved
+/// since anything last drew.
 ///
 /// A resource of its own rather than a field on [`SceneIndex`], because the
 /// two answer different questions and are cleared at different moments: the
 /// index is what the scene *is*, this is what the game was. Both are wiped
 /// when a table is torn down.
+///
+/// It holds the moves as well as the tracker because a view produces its
+/// batch **once** — `Tracker::observe` answers a view it has already read
+/// with nothing — and two systems need that batch: [`crate::sheen`] to say
+/// which door an arriving card came in through, and [`sync_scene`] to send a
+/// departing one out of the right one. Whichever asks first fills the list;
+/// only `sync_scene` empties it, and only once it is past the guards that
+/// would otherwise swallow the batch a bailed frame was holding.
 #[derive(Resource, Default)]
-pub struct ZoneWatch(pub Tracker);
+pub struct ZoneWatch {
+    tracker: Tracker,
+    undrawn: Vec<zones::Move>,
+}
+
+impl ZoneWatch {
+    /// Reads a view, if it has not been read, and keeps whatever it said.
+    pub fn observe(&mut self, view: &baylee_view::PlayerView) {
+        self.undrawn.extend(self.tracker.observe(view));
+    }
+
+    /// The moves nothing has drawn yet.
+    #[must_use]
+    pub fn undrawn(&self) -> &[zones::Move] {
+        &self.undrawn
+    }
+
+    /// The moves nothing has drawn yet, and they are drawn now.
+    pub fn take(&mut self) -> Vec<zones::Move> {
+        std::mem::take(&mut self.undrawn)
+    }
+
+    /// Forgets everything, for a table that is being torn down.
+    pub fn clear(&mut self) {
+        self.tracker.clear();
+        self.undrawn.clear();
+    }
+}
 
 /// Entities currently drawn, keyed by the object they represent.
 #[derive(Resource, Default)]
@@ -2151,7 +2221,7 @@ pub fn despawn_stage(
     }
     index.cards.clear();
     index.faces.clear();
-    watch.0.clear();
+    watch.clear();
     // The zones were spawned with `DuelStage`, so they have just gone with
     // it; what is left is the bookkeeping that would otherwise point at
     // entities that no longer exist.
@@ -2349,17 +2419,16 @@ pub fn sync_scene(
     };
     let blank = index.blank.clone();
     let shadow = index.shadow_quad.clone().zip(index.shadow_material.clone());
-
     // Read after the guards and not before them: a frame that bails because
     // the quad or the print table has not arrived yet must not swallow the
-    // one batch of moves this view will ever produce. `observe` answers a
-    // view it has already read with nothing, so a board that is merely being
-    // redrawn costs a sequence-number compare.
-    let moves = duel
-        .view
-        .as_ref()
-        .map(|view| watch.0.observe(view))
-        .unwrap_or_default();
+    // one batch of moves this view will ever produce. `sheen` may have read
+    // the view already this frame — it needs the same batch to know which
+    // door an arriving card came in through — so the reading and the taking
+    // are two calls, and this is the only place that takes.
+    if let Some(view) = duel.view.as_ref() {
+        watch.observe(view);
+    }
+    let moves = watch.take();
 
     // A look carrying a sweep is a key that is asked for on every frame the
     // band is crossing and never again, so it is cached like any other look —
@@ -2643,12 +2712,22 @@ pub fn sync_scene(
             // so it goes at once, as it always did — an exit played for one
             // of those would be a card visibly sliding out from under a pile
             // it never left.
-            let Some(to) = moves.iter().find(|m| m.object == id).map(|m| m.to) else {
+            let Some(step) = moves.iter().find(|m| m.object == id).copied() else {
                 commands.entity(entity).despawn();
                 continue;
             };
-            if let Ok((mut motion, _, _)) = cards.get_mut(entity) {
+            let to = step.to;
+            if let Ok((mut motion, _, mut worn)) = cards.get_mut(entity) {
                 motion.target = exit(to, pile_stand(&duel, to), &motion.target);
+                if let Some(dressed) = dress_the_exit(
+                    &mut card_materials,
+                    &worn.0,
+                    step,
+                    sheen.now(),
+                    motion_of(still),
+                ) {
+                    worn.0 = dressed;
+                }
             }
             // It stops being a card here. `CardVisual` is what every reader
             // finds a permanent by, so taking it away is what stops a hover,
@@ -4183,6 +4262,115 @@ mod exit_tests {
             .advance_by(Duration::from_secs_f32(EXIT_LIFE));
         app.update();
         assert!(app.world().get_entity(card).is_err(), "and then it is gone");
+    }
+
+    /// A plain card material, as `material` would build one for a card with
+    /// nothing happening to it.
+    fn plain(materials: &mut Assets<CardMaterial>) -> Handle<CardMaterial> {
+        materials.add(crate::cardmat::material(
+            CardLook::flat(
+                Color::srgb(0.5, 0.5, 0.5),
+                baylee_client_core::images::FinishTreatment::Plain,
+                0,
+            ),
+            None,
+            Color::srgb(0.5, 0.5, 0.5),
+            MOVING,
+        ))
+    }
+
+    fn leaving_for(to: Option<Place>) -> zones::Move {
+        zones::Move {
+            object: ObjectId::new(1, 0),
+            from: Some(Place::Battlefield),
+            to,
+        }
+    }
+
+    /// The claim item 4 is about, and the one nothing else can make: a card
+    /// on its way out wears the door it is going through.
+    ///
+    /// An outcome and not a call — the handle changes and the params on the
+    /// far side of it say which door — because the failure this guards is a
+    /// dressing that runs and writes nothing, which looks from every other
+    /// angle exactly like a card that left the ordinary way.
+    #[test]
+    fn a_card_leaving_the_table_wears_the_door_it_goes_through() {
+        let mut materials = Assets::<CardMaterial>::default();
+        let seat = baylee_core::ids::PlayerId::new(0);
+        for (to, want) in [
+            (Place::Graveyard(seat), crate::cardmat::door::DESTROYED),
+            (Place::Exile(seat), crate::cardmat::door::EXILED),
+            (Place::Hand, crate::cardmat::door::BOUNCE),
+        ] {
+            let worn = plain(&mut materials);
+            let dressed =
+                dress_the_exit(&mut materials, &worn, leaving_for(Some(to)), 12.0, MOVING)
+                    .unwrap_or_else(|| panic!("a card going to {to:?} was dressed in nothing"));
+            assert_ne!(dressed, worn, "it kept the material it arrived in");
+            let params = materials.get(&dressed).expect("the new material").params;
+            assert_eq!(params.sweep_door, want, "the wrong door for {to:?}");
+            // And it is a real one-shot on the clock it was given, or the
+            // shader draws the door at a phase it never leaves.
+            assert!(
+                (params.sweep_at - 12.0).abs() < 1e-3,
+                "started at {} rather than now",
+                params.sweep_at
+            );
+            assert!(
+                (params.sweep_rate - 1.0 / EXIT_LIFE).abs() < 1e-3,
+                "it does not last exactly as long as the exit it rides"
+            );
+        }
+    }
+
+    /// The counter-tests, which matter more than the claim: three ways of
+    /// leaving that must stay undressed.
+    #[test]
+    fn a_card_leaving_by_no_door_is_dressed_in_nothing() {
+        let mut materials = Assets::<CardMaterial>::default();
+        let worn = plain(&mut materials);
+        // Somewhere this seat cannot see: an opponent's hand, the bottom of a
+        // library. `zones` reports `None` rather than guessing, and a guess
+        // here would be a portal drawn over a card that was merely bounced.
+        assert!(
+            dress_the_exit(&mut materials, &worn, leaving_for(None), 12.0, MOVING).is_none(),
+            "a move with one end missing was given a door"
+        );
+        // The stack. A permanent going there did not leave through any of the
+        // five, and a mark on it would be the everywhere-at-once again.
+        assert!(
+            dress_the_exit(
+                &mut materials,
+                &worn,
+                leaving_for(Some(Place::Stack)),
+                12.0,
+                MOVING
+            )
+            .is_none(),
+            "leaving for the stack was drawn as a door"
+        );
+        // And a player who has turned motion off sees none of it — the same
+        // decision an arriving card makes, made in the same function.
+        let seat = baylee_core::ids::PlayerId::new(0);
+        let still = dress_the_exit(
+            &mut materials,
+            &worn,
+            leaving_for(Some(Place::Graveyard(seat))),
+            12.0,
+            crate::cardmat::STILL,
+        )
+        .expect("a still card is still dressed, just with nothing happening");
+        let params = materials.get(&still).expect("the new material").params;
+        assert!(
+            params.sweep_rate.abs() < f32::EPSILON,
+            "a still card was given a travel"
+        );
+        assert_eq!(
+            params.sweep_door,
+            crate::cardmat::door::NONE,
+            "a still card was given a door to travel through"
+        );
     }
 }
 

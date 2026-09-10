@@ -40,6 +40,7 @@
 //! until it despawns, so `UiCardMaterials` builds a sweeping look outside its
 //! cache and nothing accumulates.
 
+use baylee_client_core::zones::{Move, Passage};
 use baylee_core::ids::ObjectId;
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
@@ -56,6 +57,15 @@ pub struct Sweep {
     at_ms: u32,
     /// How long it takes, in milliseconds. Never zero.
     ms: u32,
+    /// Which door the card came through, when it came through one of the
+    /// five the player is owed a picture of.
+    ///
+    /// `None` is the plain arrival — drawn, cast, previewed — and is what
+    /// this module started life drawing and every card still draws most of
+    /// the time. A door replaces the band with a figure and a colour of its
+    /// own, and is in the key like everything else here: a creature dying and
+    /// a creature being exiled are two materials, which is the point.
+    door: Option<Passage>,
 }
 
 impl Sweep {
@@ -81,6 +91,32 @@ impl Sweep {
     #[must_use]
     fn done(self, now: f32) -> bool {
         now < self.at() || now > self.at() + self.ms as f32 / 1000.0
+    }
+
+    /// The door this sweep is drawing, if it is drawing one.
+    #[must_use]
+    pub fn door(self) -> Option<Passage> {
+        self.door
+    }
+
+    /// A departure's sweep, built where the card is leaving rather than by
+    /// [`Sheen`].
+    ///
+    /// A card on its way off the table is out of the board model and out of
+    /// `SceneIndex::cards`, so nothing will ever look its material up again —
+    /// which is exactly why it is not in [`Sheen::running`] either. It is
+    /// given the exit's own length rather than a place in the burst counter, for
+    /// the same reason: it belongs to the exit it rides on, not to a run of
+    /// arrivals.
+    ///
+    /// [`Sheen::running`]: Sheen
+    #[must_use]
+    pub fn leaving(now: f32, door: Passage, seconds: f32) -> Self {
+        Self {
+            at_ms: (now * 1000.0) as u32,
+            ms: ((seconds * 1000.0) as u32).max(1),
+            door: Some(door),
+        }
     }
 }
 
@@ -165,6 +201,17 @@ impl Sheen {
         !sweep.done(self.now)
     }
 
+    /// The clock the last look read.
+    ///
+    /// A departing card is dressed where it leaves rather than here, and it
+    /// has to be dressed on the clock the shader compares against — which is
+    /// `Time::elapsed_secs_wrapped`, read once a frame in `watch_for_arrivals`
+    /// and not the unwrapped one any other caller would reach for.
+    #[must_use]
+    pub fn now(&self) -> f32 {
+        self.now
+    }
+
     /// Starts whatever has just arrived, and forgets what has finished.
     ///
     /// Called once a frame with the board as it now is. Everything it decides
@@ -224,6 +271,41 @@ impl Sheen {
         self.previewing = previewing;
     }
 
+    /// Tells the sweeps that have just started which door their card came in
+    /// through.
+    ///
+    /// A second call rather than a sixth argument to [`observe`], and the
+    /// reason is which questions the two answer. `observe` reads *membership*
+    /// — a card is in the hand now and was not before — which is all a plain
+    /// arrival needs and is available every frame. A door needs both ends of
+    /// a move, which only [`baylee_client_core::zones::Tracker`] knows and
+    /// only on the frame a new view arrives. Folding them together would put
+    /// a list of moves into every one of this module's tests to say nothing
+    /// about most of them.
+    ///
+    /// Only the two doors *back on to* the battlefield are stamped here. The
+    /// three that leave it have no sweep in `running` to stamp: the card is
+    /// out of the board model by the time the move is read, so its departure
+    /// is minted where the exit pose is — see [`Sweep::leaving`].
+    ///
+    /// Stamping twice is harmless and is relied on: a frame that draws
+    /// nothing leaves the moves undrawn, and the next one reads them again.
+    ///
+    /// [`observe`]: Sheen::observe
+    pub fn usher(&mut self, moves: &[Move]) {
+        for step in moves {
+            let Some(door) = step.passage() else {
+                continue;
+            };
+            if door.is_departure() {
+                continue;
+            }
+            if let Some(sweep) = self.running.get_mut(&(step.object, Surface::Table)) {
+                sweep.door = Some(door);
+            }
+        }
+    }
+
     /// Forgets everything, when a duel closes.
     pub fn clear(&mut self) {
         *self = Self::default();
@@ -242,6 +324,9 @@ impl Sheen {
         Sweep {
             at_ms: (now * 1000.0) as u32,
             ms: (seconds * 1000.0) as u32,
+            // The burst is arrivals, and an arrival with a door of its own
+            // is stamped by `usher` a moment later, from the moves.
+            door: None,
         }
     }
 }
@@ -265,6 +350,7 @@ pub fn watch_for_arrivals(
     duel: Res<crate::Duel>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut sheen: ResMut<Sheen>,
+    mut watch: ResMut<crate::table::ZoneWatch>,
 ) {
     let Some(board) = duel.board.as_ref() else {
         // No board: between duels, or before the first view. Whatever the
@@ -290,6 +376,15 @@ pub fn watch_for_arrivals(
         duel.hovered,
         still,
     );
+    // And which door the ones that came from somewhere in particular came
+    // through. Read after `observe`, because it stamps the sweeps `observe`
+    // has just started; `sync_scene` is the one that empties the list, and it
+    // runs after this.
+    if let Some(view) = duel.view.as_ref() {
+        watch.observe(view);
+    }
+    let doors: Vec<Move> = watch.undrawn().to_vec();
+    sheen.usher(&doors);
 }
 
 #[cfg(test)]
@@ -411,5 +506,88 @@ mod tests {
         assert!(moving.of(id(1), Surface::Hand).is_some());
         moving.observe(1.1, [id(1)].into_iter(), std::iter::empty(), None, true);
         assert_eq!(moving.of(id(1), Surface::Hand), None);
+    }
+
+    fn arriving_from(place: baylee_client_core::zones::Place) -> Move {
+        Move {
+            object: id(1),
+            from: Some(place),
+            to: Some(baylee_client_core::zones::Place::Battlefield),
+        }
+    }
+
+    /// The two doors back on to the battlefield: a card the player last saw
+    /// in a pile is not merely arriving, and the sweep is where the client
+    /// says so.
+    #[test]
+    fn a_card_coming_back_from_a_pile_sweeps_through_that_pile_s_door() {
+        use baylee_client_core::zones::{Passage, Place};
+        let seat = baylee_core::ids::PlayerId::new(0);
+        for (from, want) in [
+            (Place::Exile(seat), Passage::Flickered),
+            (Place::Graveyard(seat), Passage::Returned),
+        ] {
+            let mut sheen = Sheen::default();
+            sheen.observe(1.0, std::iter::empty(), [id(1)].into_iter(), None, false);
+            sheen.usher(&[arriving_from(from)]);
+            let sweep = sheen
+                .of(id(1), Surface::Table)
+                .unwrap_or_else(|| panic!("a card arriving from {from:?} did not sweep"));
+            assert_eq!(sweep.door(), Some(want), "the wrong door from {from:?}");
+        }
+    }
+
+    /// The counter-test, and the one that keeps the mark meaning something:
+    /// the commonest arrival in the game — a spell resolving off the stack —
+    /// gets the plain band and no door at all.
+    #[test]
+    fn a_spell_resolving_on_to_the_table_comes_through_no_door() {
+        use baylee_client_core::zones::Place;
+        let mut sheen = Sheen::default();
+        sheen.observe(1.0, std::iter::empty(), [id(1)].into_iter(), None, false);
+        sheen.usher(&[arriving_from(Place::Stack)]);
+        let sweep = sheen.of(id(1), Surface::Table).expect("it still sweeps");
+        assert_eq!(sweep.door(), None, "an ordinary arrival was given a door");
+    }
+
+    /// A departure has no sweep here to stamp — the card is out of the board
+    /// model by the time the move is read — so `usher` must leave it alone
+    /// rather than dressing whatever else happens to answer to that id.
+    #[test]
+    fn a_card_leaving_the_table_is_not_ushered_in() {
+        use baylee_client_core::zones::Place;
+        let mut sheen = Sheen::default();
+        // It arrived a moment ago and is still sweeping when it dies.
+        sheen.observe(1.0, std::iter::empty(), [id(1)].into_iter(), None, false);
+        let arrived = sheen
+            .of(id(1), Surface::Table)
+            .expect("it swept on arrival");
+        sheen.usher(&[Move {
+            object: id(1),
+            from: Some(Place::Battlefield),
+            to: Some(Place::Graveyard(baylee_core::ids::PlayerId::new(0))),
+        }]);
+        assert_eq!(
+            sheen.of(id(1), Surface::Table),
+            Some(arrived),
+            "the arrival sweep was overwritten by the exit"
+        );
+    }
+
+    /// Stamping twice is relied on: a frame that draws nothing leaves the
+    /// moves undrawn and the next one reads them again.
+    #[test]
+    fn ushering_the_same_move_twice_changes_nothing() {
+        use baylee_client_core::zones::Place;
+        let mut sheen = Sheen::default();
+        sheen.observe(1.0, std::iter::empty(), [id(1)].into_iter(), None, false);
+        sheen.usher(&[arriving_from(Place::Graveyard(
+            baylee_core::ids::PlayerId::new(0),
+        ))]);
+        let once = sheen.of(id(1), Surface::Table);
+        sheen.usher(&[arriving_from(Place::Graveyard(
+            baylee_core::ids::PlayerId::new(0),
+        ))]);
+        assert_eq!(sheen.of(id(1), Surface::Table), once);
     }
 }

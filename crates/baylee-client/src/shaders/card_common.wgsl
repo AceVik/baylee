@@ -96,6 +96,121 @@ fn sweep_amount(uv: vec2<f32>, phase: f32) -> f32 {
     return exp(-off * off * SWEEP_WIDTH);
 }
 
+/// The five doors a permanent goes through, numbered as `cardmat::door`
+/// numbers them. Zero is the plain arrival above, and is what almost every
+/// sweep in a game is.
+const DOOR_NONE: u32 = 0u;
+const DOOR_BOUNCE: u32 = 1u;
+const DOOR_EXILED: u32 = 2u;
+const DOOR_FLICKERED: u32 = 3u;
+const DOOR_DESTROYED: u32 = 4u;
+const DOOR_RETURNED: u32 = 5u;
+
+/// How tight a door's figure is, as a Gaussian falloff.
+///
+/// Looser than [`SWEEP_WIDTH`] on purpose. The arrival band is a highlight on
+/// a coating and wants to read as a specular line; a door is a thing
+/// *happening to* the card and wants to read as light in the air around it,
+/// which a hard edge kills.
+const DOOR_WIDTH: f32 = 11.0;
+
+/// How far a ring travels past the card's corner before it is gone.
+///
+/// The card's half-diagonal in width units is about 0.87, so a ring reaching
+/// 1.15 has left the card entirely at the end of its phase — which is what
+/// makes the closing one a portal that *shuts* rather than one that fades.
+const DOOR_REACH: f32 = 1.15;
+
+/// How strongly a door's colour is laid over the card.
+///
+/// It is an addition, like the sheen, so this is a peak and not a mix: the
+/// art underneath keeps its colour and the door happens on top of it. Higher
+/// than the coating's gloss because a door is a *statement* — a player who
+/// missed it has missed the only thing the client will ever say about where
+/// that card went.
+const DOOR_GLOSS: f32 = 0.85;
+
+/// A ring travelling out from the middle of the card, or in towards it.
+///
+/// This is the portal, and both of the exile doors are it: `radius` runs
+/// outwards for a card flickering in and inwards for one being exiled, which
+/// is the owner's "the same effect reversed" said in one argument.
+fn door_ring(uv: vec2<f32>, radius: f32) -> f32 {
+    // Width-units, so the ring is round on the card rather than round in UV
+    // — a card is 88 tall for every 63 across, and a circle in UV is an egg.
+    let p = (uv - vec2<f32>(0.5, 0.5)) * vec2<f32>(1.0, 1.0 / CARD_ASPECT);
+    let off = length(p) - radius;
+    return exp(-off * off * DOOR_WIDTH * 4.0);
+}
+
+/// A band crossing the card along one axis, from `head` to `foot`.
+///
+/// The two graveyard doors are this: destruction falls down the card and a
+/// resurrection rises up it, which is the same reversal the ring makes and
+/// for the same reason — a player learns one figure and reads two events.
+fn door_band(along: f32, phase: f32, downwards: bool) -> f32 {
+    let travel = select(1.0 - phase, phase, downwards);
+    let line = mix(-SWEEP_MARGIN, 1.0 + SWEEP_MARGIN, travel);
+    let off = along - line;
+    return exp(-off * off * DOOR_WIDTH);
+}
+
+/// The colour a door is drawn in.
+///
+/// Five colours, and the pairs are deliberately the *same* colour in both
+/// directions: exile and its flicker are one violet, a destruction and a
+/// resurrection are one amber. The figure says which way the card was going,
+/// and asking the colour to say it as well would leave a player learning ten
+/// marks instead of three.
+///
+/// Amber and not red for the graveyard, because red on a card is damage and
+/// this client already draws damage. Violet for exile, because nothing else
+/// on the table is violet. Pale blue for a bounce, because it is the
+/// gentlest of the five — the card is going somewhere its owner still has
+/// it.
+fn door_tone(door: u32) -> vec3<f32> {
+    if door == DOOR_BOUNCE {
+        return vec3<f32>(0.36, 0.62, 0.92);
+    }
+    if door == DOOR_EXILED || door == DOOR_FLICKERED {
+        return vec3<f32>(0.62, 0.34, 0.90);
+    }
+    if door == DOOR_DESTROYED || door == DOOR_RETURNED {
+        return vec3<f32>(0.95, 0.63, 0.24);
+    }
+    return vec3<f32>(0.0);
+}
+
+/// What a door adds to the card, colour and all.
+///
+/// Returns black for [`DOOR_NONE`] and for a phase outside the one pass, so a
+/// card that is not going anywhere pays one compare and gets nothing — which
+/// is every card on the table almost all of the time.
+fn door_layer(uv: vec2<f32>, phase: f32, door: u32) -> vec3<f32> {
+    if door == DOOR_NONE || phase < 0.0 || phase > 1.0 {
+        return vec3<f32>(0.0);
+    }
+    var figure = 0.0;
+    if door == DOOR_BOUNCE {
+        // The entrance played backwards, so it is the arrival's own band and
+        // not a new figure — travelling the other way along the diagonal,
+        // because the card is leaving by the way it came.
+        let along = (uv.x + uv.y) * 0.5;
+        let line = mix(-SWEEP_MARGIN, 1.0 + SWEEP_MARGIN, phase);
+        let off = along - line;
+        figure = exp(-off * off * DOOR_WIDTH);
+    } else if door == DOOR_EXILED {
+        figure = door_ring(uv, mix(DOOR_REACH, 0.0, phase));
+    } else if door == DOOR_FLICKERED {
+        figure = door_ring(uv, mix(0.0, DOOR_REACH, phase));
+    } else if door == DOOR_DESTROYED {
+        figure = door_band(uv.y, phase, true);
+    } else if door == DOOR_RETURNED {
+        figure = door_band(uv.y, phase, false);
+    }
+    return door_tone(door) * figure * DOOR_GLOSS;
+}
+
 /// How many keywords can ride the rail.
 const MARK_COUNT: u32 = 12u;
 

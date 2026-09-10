@@ -368,8 +368,75 @@ pub struct CardParams {
     /// One over how long that sheen takes, in seconds, or `0.0` for a card
     /// that is not sweeping. See [`crate::sheen`].
     pub sweep_rate: f32,
+    /// Which of the five zone-change doors this sweep is drawing, or
+    /// [`door::NONE`] for the plain arrival every card wears most of the
+    /// time.
+    ///
+    /// A code rather than a colour, so the palette is one table in the shader
+    /// beside the figures it goes with, rather than five colours travelling
+    /// through Rust to be looked at once. The two halves are paired by a test
+    /// that reads the WGSL, the way the rail's are.
+    pub sweep_door: u32,
     /// The colour a card with no artwork is drawn in.
     pub tint: Vec4,
+}
+
+/// The five doors a permanent goes through, as the shader numbers them.
+///
+/// The names are [`baylee_client_core::zones::Passage`]'s; these are the
+/// wire between it and `card_common.wgsl`, and
+/// `the_doors_are_numbered_the_same_in_both_languages` is what keeps the two
+/// lists from drifting.
+pub mod door {
+    /// No door: the plain arrival — drawn, cast, previewed.
+    pub const NONE: u32 = 0;
+    /// Battlefield to hand.
+    pub const BOUNCE: u32 = 1;
+    /// Battlefield to exile.
+    pub const EXILED: u32 = 2;
+    /// Exile to battlefield.
+    pub const FLICKERED: u32 = 3;
+    /// Battlefield to a graveyard.
+    pub const DESTROYED: u32 = 4;
+    /// A graveyard to the battlefield.
+    pub const RETURNED: u32 = 5;
+
+    /// The code for a door, or [`NONE`] for a card that came through none.
+    #[must_use]
+    pub fn code(door: Option<baylee_client_core::zones::Passage>) -> u32 {
+        use baylee_client_core::zones::Passage;
+        match door {
+            None => NONE,
+            Some(Passage::Bounce) => BOUNCE,
+            Some(Passage::Exiled) => EXILED,
+            Some(Passage::Flickered) => FLICKERED,
+            Some(Passage::Destroyed) => DESTROYED,
+            Some(Passage::Returned) => RETURNED,
+        }
+    }
+}
+
+/// Writes a sweep on to params that already exist.
+///
+/// Split out of [`material`] because a departing card is dressed the other
+/// way round: it is not looked up by a [`CardLook`] at all — it has left the
+/// board model and nothing will ever ask for its material again — so its
+/// exit is written on to the material it is already wearing. One function, so
+/// the decision a still card makes is made once.
+pub fn wear(params: &mut CardParams, sweep: Option<crate::sheen::Sweep>, motion: f32) {
+    // A card holding still does not sweep. Not "sweeps at phase zero", which
+    // is where every other term is stopped: phase zero of this one is the
+    // band sitting off the card's bottom right corner, so the honest still
+    // frame of a one-shot travel is the travel not having happened.
+    params.sweep_at = sweep.map_or(0.0, crate::sheen::Sweep::at);
+    params.sweep_rate = match sweep {
+        Some(s) if motion > 0.0 => s.rate(),
+        _ => 0.0,
+    };
+    params.sweep_door = match sweep {
+        Some(s) if motion > 0.0 => door::code(s.door()),
+        _ => door::NONE,
+    };
 }
 
 /// A card whose animations run.
@@ -629,6 +696,7 @@ impl UiCardMaterials {
                 // something about them that is not true.
                 sweep_at: 0.0,
                 sweep_rate: 0.0,
+                sweep_door: door::NONE,
                 tint: Vec4::ONE,
             },
         });
@@ -837,7 +905,7 @@ pub fn material(
     motion: f32,
 ) -> CardMaterial {
     let has_art = if art.is_some() { 1.0 } else { 0.0 };
-    CardMaterial {
+    let mut made = CardMaterial {
         art,
         params: CardParams {
             finish: finish_code(look.finish),
@@ -848,19 +916,18 @@ pub fn material(
             has_art,
             strength: 1.0,
             motion,
-            // A card holding still does not sweep. Not "sweeps at phase
-            // zero", which is where every other term is stopped: phase zero
-            // of this one is the band sitting off the card's bottom right
-            // corner, so the honest still frame of a one-shot travel is the
-            // travel not having happened.
-            sweep_at: look.sweep.map_or(0.0, crate::sheen::Sweep::at),
-            sweep_rate: match look.sweep {
-                Some(s) if motion > 0.0 => s.rate(),
-                _ => 0.0,
-            },
+            // Written by `wear` below rather than here, so the one decision a
+            // still card makes about a one-shot travel is made in one place —
+            // a departing card is dressed the same way and never passes
+            // through a `CardLook` at all.
+            sweep_at: 0.0,
+            sweep_rate: 0.0,
+            sweep_door: door::NONE,
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
-    }
+    };
+    wear(&mut made.params, look.sweep, motion);
+    made
 }
 
 /// Registers the material and ships its shader inside the binary.
@@ -1313,6 +1380,7 @@ pub(crate) mod tests {
             "motion",
             "sweep_at",
             "sweep_rate",
+            "sweep_door",
             "tint",
         ];
         for (which, src) in [
@@ -1372,6 +1440,94 @@ pub(crate) mod tests {
                 "{which} lost the coating along with the animation"
             );
         }
+    }
+
+    /// The five doors are the same five numbers on both sides of the wire.
+    ///
+    /// Nothing in either compiler can notice that they are not: a
+    /// `sweep_door` of 4 is a valid `u32` whatever the shader thinks 4 means,
+    /// so a card being destroyed would simply be drawn as a bounce and the
+    /// build would stay green. This is the same pairing the rail gets, for
+    /// the same reason.
+    #[test]
+    fn the_doors_are_numbered_the_same_in_both_languages() {
+        use baylee_client_core::zones::Passage;
+        let src = include_str!("shaders/card_common.wgsl");
+        for (name, ours) in [
+            ("DOOR_NONE", door::NONE),
+            ("DOOR_BOUNCE", door::BOUNCE),
+            ("DOOR_EXILED", door::EXILED),
+            ("DOOR_FLICKERED", door::FLICKERED),
+            ("DOOR_DESTROYED", door::DESTROYED),
+            ("DOOR_RETURNED", door::RETURNED),
+        ] {
+            let theirs = wgsl_const(src, name);
+            assert!(
+                (theirs - ours as f32).abs() < f32::EPSILON,
+                "{name}: {ours} here, {theirs} in the shader"
+            );
+        }
+        // And the Rust half maps every door to one of them. Written out
+        // rather than swept, so a sixth `Passage` fails to compile here
+        // instead of quietly mapping to `NONE` and drawing nothing.
+        assert_eq!(door::code(None), door::NONE);
+        assert_eq!(door::code(Some(Passage::Bounce)), door::BOUNCE);
+        assert_eq!(door::code(Some(Passage::Exiled)), door::EXILED);
+        assert_eq!(door::code(Some(Passage::Flickered)), door::FLICKERED);
+        assert_eq!(door::code(Some(Passage::Destroyed)), door::DESTROYED);
+        assert_eq!(door::code(Some(Passage::Returned)), door::RETURNED);
+    }
+
+    /// A door and the plain arrival are never drawn at once, and the pairs
+    /// are one figure reversed rather than two.
+    ///
+    /// All of it read out of the WGSL, because none of it is observable from
+    /// Rust — and the failure it guards against is the quiet kind: a card
+    /// wearing both a white band and a violet ring reads as neither, and
+    /// looks in a screenshot exactly like a card wearing one of them.
+    #[test]
+    fn a_door_replaces_the_arrival_band_rather_than_joining_it() {
+        for (which, src) in [
+            ("card.wgsl", include_str!("shaders/card.wgsl")),
+            ("card_ui.wgsl", include_str!("shaders/card_ui.wgsl")),
+        ] {
+            assert!(
+                src.contains("let plain = select(0.0, travel, door == DOOR_NONE);"),
+                "{which} lays the arrival band under a door"
+            );
+            assert!(
+                src.contains(
+                    "let door = select(DOOR_NONE, params.sweep_door, params.sweep_rate > 0.0);"
+                ),
+                "{which} draws a door on a card that was given no sweep"
+            );
+        }
+        let common = include_str!("shaders/card_common.wgsl");
+        // The two exile doors are one ring, run in opposite directions — the
+        // owner's "the same effect reversed" in one line each.
+        assert!(
+            common.contains("door_ring(uv, mix(DOOR_REACH, 0.0, phase))"),
+            "exile no longer closes"
+        );
+        assert!(
+            common.contains("door_ring(uv, mix(0.0, DOOR_REACH, phase))"),
+            "a flicker no longer opens"
+        );
+        // And the two graveyard doors are one band, the same way.
+        assert!(
+            common.contains("door_band(uv.y, phase, true)"),
+            "a destruction no longer falls down the card"
+        );
+        assert!(
+            common.contains("door_band(uv.y, phase, false)"),
+            "a resurrection no longer rises up it"
+        );
+        // A door outside its one pass draws nothing at all, which is what
+        // keeps every card on the table paying one compare and no more.
+        assert!(
+            common.contains("if door == DOOR_NONE || phase < 0.0 || phase > 1.0 {"),
+            "a door is no longer bounded to one pass"
+        );
     }
 
     /// A card shader may only call what it has asked for by name.

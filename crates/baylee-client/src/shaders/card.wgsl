@@ -16,7 +16,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, provenance_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, provenance_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -44,6 +44,9 @@ struct CardParams {
     /// One over how long that sheen takes, or 0 for a card that is not
     /// sweeping — which is almost every card almost all of the time.
     sweep_rate: f32,
+    /// Which of the five zone-change doors this sweep draws, or `DOOR_NONE`
+    /// for the plain arrival. `cardmat::door` numbers them.
+    sweep_door: u32,
     /// The flat colour a card with no art is drawn in.
     tint: vec4<f32>,
 }
@@ -347,11 +350,21 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // card is given no sweep at all rather than one on a stopped clock.
     let phase = (globals.time - params.sweep_at) * params.sweep_rate;
     let travel = select(0.0, sweep_amount(uv, phase), params.sweep_rate > 0.0);
+    // A door is the same one-shot on the same clock, drawn as a different
+    // figure in a colour of its own, so the coating takes the plain band only
+    // when the card came through no door — otherwise the two would be laid
+    // over each other and read as neither.
+    let door = select(DOOR_NONE, params.sweep_door, params.sweep_rate > 0.0);
+    let plain = select(0.0, travel, door == DOOR_NONE);
     color = vec4<f32>(
         color.rgb
-            + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * (spec + travel)) * brushed,
+            + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * (spec + plain)) * brushed,
         color.a,
     );
+    // The door itself, over the coating rather than inside it: a bounce, an
+    // exile, a death and the two ways back are things happening *to* a card,
+    // and the coating is what the card is.
+    color = vec4<f32>(color.rgb + door_layer(uv, phase, door), color.a);
 
     // ---- the face, when the card cannot do anything yet
     //
