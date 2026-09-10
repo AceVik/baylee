@@ -229,7 +229,8 @@ pub struct FaceDef {
     /// card may be cast for this cost (CR 702.94).
     pub miracle: Option<ManaCost>,
     /// Delve (CR 702.66): each card exiled from your graveyard while
-    /// casting pays for {1}.
+    /// casting pays for {1} — as many cards as the spell's total cost has
+    /// generic mana, and no more (CR 702.66a).
     pub delve: bool,
     /// Convoke (CR 702.51): each creature tapped while casting pays for
     /// {1} (colored-mana option is a payment refinement).

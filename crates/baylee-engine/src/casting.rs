@@ -99,21 +99,16 @@ pub fn keyword_reduction(
     player: PlayerId,
 ) -> u32 {
     let convoke = if face.convoke {
-        convoke_sources(state, player).len() as u32
+        u32::try_from(convoke_sources(state, player).len()).unwrap_or(u32::MAX)
     } else {
         0
     };
     let delve = if face.delve {
-        state
-            .zones
-            .list(ZoneLocation::Graveyard(player))
-            .len()
-            .try_into()
-            .unwrap_or(u32::MAX)
+        u32::try_from(state.zones.list(ZoneLocation::Graveyard(player)).len()).unwrap_or(u32::MAX)
     } else {
         0
     };
-    convoke + delve
+    convoke.saturating_add(delve)
 }
 
 /// The generic mana a cost reduction printed on the card itself takes off

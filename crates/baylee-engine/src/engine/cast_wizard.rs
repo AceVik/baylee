@@ -629,13 +629,31 @@ impl<L: CardLookup> Engine<L> {
                     .zones
                     .list(ZoneLocation::Graveyard(wizard.player))
                     .clone();
-                if !face.delve || graveyard.is_empty() {
+                // How many may be exiled is bounded by the *cost*, not by the
+                // graveyard. CR 702.66a is "for each generic mana in this
+                // spell's total cost, you may exile a card from your
+                // graveyard rather than pay that mana", so a seventh card has
+                // nothing left to pay for once `{6}{U}{U}` has had six exiled
+                // against it. This asked for up to the whole graveyard, and
+                // `reduce_generic` cuts *up to* n — so every card past the
+                // sixth was exiled for no reduction at all, which is a cost
+                // spent for nothing and not merely an odd-looking prompt.
+                // Same shape as the X question: a bound that cannot be
+                // enforced where the answer is spent goes on the question.
+                //
+                // The bound is on `max` alone. *Which* cards go is the
+                // player's, so the whole graveyard stays in `options` — a
+                // truncated list would pick their six for them.
+                let generic = usize::try_from(wizard_total_cost(face, &wizard).generic_total())
+                    .unwrap_or(usize::MAX);
+                let room = graveyard.len().min(generic);
+                if !face.delve || room == 0 {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Convoke;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
-                let max = u8::try_from(graveyard.len()).unwrap_or(u8::MAX);
+                let max = u8::try_from(room).unwrap_or(u8::MAX);
                 self.pending = Pending::ChooseCards {
                     player: wizard.player,
                     options: graveyard,
@@ -737,12 +755,7 @@ impl<L: CardLookup> Engine<L> {
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
         let face = self.wizard_face(wizard);
         // Total mana: option cost (with X) + kicker mana when taken.
-        let mut total = wizard_cost(wizard);
-        if wizard.kicked {
-            for add in face.additional_costs {
-                total = total.combine(&add.mana);
-            }
-        }
+        let mut total = wizard_total_cost(face, wizard);
         let player = wizard.player;
         // Delve (CR 702.66) and convoke (CR 702.51) each pay for {1} of the
         // generic part, so the count comes off the cost before anything is
@@ -1137,6 +1150,26 @@ static SCRY_TWO: [baylee_cards_dsl::Effect; 1] = [baylee_cards_dsl::Effect::Scry
 
 fn wizard_cost(wizard: &CastWizard) -> ManaCost {
     chosen_option_cost(wizard).with_x(wizard.x)
+}
+
+/// The whole mana cost this cast is about to pay: the chosen option with X
+/// filled in, plus the kicker's own mana when the kicker was taken.
+///
+/// Two callers, and the second is the reason it is a function.
+/// [`Engine::finish_cast`] needs the sum to pay it; the delve stage needs it
+/// to *bound its question*, because CR 702.66a is worded "for each generic
+/// mana in this spell's total cost, you may exile a card from your graveyard
+/// rather than pay that mana" — total, so a kicker that has already been
+/// taken is part of what delve may pay for, and X likewise (`with_x` turns
+/// the variable into generic mana before this is read).
+fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
+    let mut total = wizard_cost(wizard);
+    if wizard.kicked {
+        for add in face.additional_costs {
+            total = total.combine(&add.mana);
+        }
+    }
+    total
 }
 
 /// The chosen cast option's cost as printed, X still in it.

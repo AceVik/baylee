@@ -27,6 +27,13 @@
 //! paid. Convoke, delve and that discount are now one pair of readers in
 //! `casting`, asked by both probes — the module is really about that: what
 //! moves a mana cost before anybody asks whether the pool covers it.
+//!
+//! The last test is about the other end of the same subtraction, and is
+//! filed here for that reason rather than because it is a fifth offer bug:
+//! once delve *is* counted, how much of it a player may buy is a bound, and
+//! the wizard asked about the graveyard where CR 702.66a asks about the
+//! cost. Over-counting the offer shows a card that cannot be cast;
+//! over-counting the question exiles cards that pay for nothing.
 
 use super::testkit::{
     Duel, RegistryLookup, card_index, keep_mulligans, pass_until, reach_main_phase,
@@ -454,6 +461,108 @@ fn delve_makes_a_spell_castable_that_the_pool_alone_could_not_pay() {
             "a delved card was not exiled"
         );
     }
+    assert!(
+        engine.state().players[seat.get() as usize]
+            .mana_pool
+            .is_empty(),
+        "the two islands paid the coloured half"
+    );
+}
+
+/// Seven cards in the graveyard, and `{6}{U}{U}` still eats only six.
+///
+/// The rule quoted above is a rule about the *cost* — "for each generic mana
+/// in this spell's **total** cost" — and the question was asked about the
+/// graveyard. `reduce_generic` cuts *up to* n, so a seventh card answered
+/// into it was exiled and bought nothing: a cost spent for no reduction,
+/// which is the same class of fault as the X question that asked for more
+/// life than the caster had. Neither can be caught where the answer is
+/// spent, so both are bounded on the question.
+///
+/// The bound is on `max` alone. Which six of the seven a player gives up is
+/// theirs to decide, so all seven stay in `options` — an engine that handed
+/// back a shortened list would be choosing for them.
+///
+/// The test above cannot see any of this: it buries exactly as many cards as
+/// the cost has generic mana, so the two bounds coincide. Six is the number
+/// that makes the spell castable; seven is the number that tells the two
+/// apart.
+#[test]
+fn the_delve_question_stops_at_the_generic_half_of_the_cost() {
+    let mut engine = Duel::new(5, island())
+        .hand(0, &[dig_through_time()])
+        .battlefield(0, &[island(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    let seat = PlayerId::new(0);
+    let buried = bury(&mut engine, seat, 7);
+    reach_main_phase(&mut engine, seat);
+    tap_all_lands(&mut engine, seat);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let card = *legal
+        .castable
+        .first()
+        .expect("two islands and a full graveyard pay {6}{U}{U}");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the spell is castable");
+
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the delve question, got {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 7, "any of the seven may be the one exiled");
+    assert_eq!(min, 0, "delve is never compulsory");
+    assert_eq!(max, 6, "six generic mana to pay for, and no seventh");
+
+    assert!(
+        engine
+            .apply(
+                seat,
+                PlayerAction::ChooseObjects {
+                    objects: buried.clone(),
+                },
+            )
+            .is_err(),
+        "seven cards answered a question that asked for at most six"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::ChooseCards { .. }),
+        "a refused answer leaves the question standing"
+    );
+
+    let spent = &buried[..6];
+    let kept = buried[6];
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: spent.to_vec(),
+            },
+        )
+        .expect("six is the answer the question asked for");
+
+    assert!(
+        !engine.state().zones.stack_is_empty(),
+        "the spell never reached the stack"
+    );
+    for id in spent {
+        assert_eq!(
+            engine.state().object(*id).map(|o| o.zone),
+            Some(crate::zone::Zone::Exile),
+            "a delved card was not exiled"
+        );
+    }
+    assert_eq!(
+        engine.state().object(kept).map(|o| o.zone),
+        Some(crate::zone::Zone::Graveyard),
+        "the seventh card paid for nothing, so it goes nowhere"
+    );
     assert!(
         engine.state().players[seat.get() as usize]
             .mana_pool
