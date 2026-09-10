@@ -9,6 +9,7 @@
 //! is pure arithmetic and unit-tested — and this module is the thin part that
 //! turns its answers into handle drops.
 
+use baylee_client_core::board::art_of;
 use baylee_client_core::images::{ArtSize, ImageKey, TextureBudget, resolve};
 use baylee_view::GameStatic;
 use bevy::asset::RenderAssetUsages;
@@ -349,7 +350,7 @@ impl CardTextures {
             self.budget.touch(key);
             return handle.clone();
         }
-        let Some(request) = resolve(statics, key, crate::tokenart::of) else {
+        let Some(request) = resolve(statics, key, crate::tokenart::of, crate::cardart::of) else {
             // An unresolvable printing never even becomes a request, so no
             // load state will ever report it — which is why it has to be
             // recorded here, and why this is the one failure that says so out
@@ -549,13 +550,15 @@ pub fn drive_preloads(
             }
         }
         for o in &view.battlefield {
-            if let Some(c) = o.card {
-                preload.want(ImageKey::new(c.print, c.face, ArtSize::Small));
-            } else if let Some(t) = o.token {
-                // A token is on nobody's print table, so the sweep below can
-                // never reach it: if it is not asked for here it is only ever
-                // fetched at the moment it is first drawn.
-                preload.want(ImageKey::token(t, ArtSize::Small));
+            // One call rather than the card/token pair that used to be here,
+            // and `art_of` is why: a permanent wearing another card's face
+            // fetches *that* card, so warming the cardboard underneath it
+            // would warm the one picture the player is never shown. A token
+            // is on nobody's print table either, so the sweep below can never
+            // reach one: if it is not asked for here it is only ever fetched
+            // at the moment it is first drawn.
+            if let Some(key) = art_of(o, ArtSize::Small, &crate::cardart::wearing) {
+                preload.want(key);
             }
         }
         // P2: the same cards at the size the hover preview reads them at.

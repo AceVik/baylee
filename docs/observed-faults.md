@@ -226,6 +226,23 @@ not by the order they were told, and nothing here is fixed yet.
     something else says nowhere what it copied, and the copy's own abilities
     were not offered ("tap: draw a card" on a copy that has it).
 
+    *Half fixed: it is drawn as the thing it copied now.* `card` is the
+    cardboard and `name` is the projection, so the two disagree on exactly
+    the permanents that are copying something — that disagreement is the
+    test, `ImageSource::Card` is the key it produces, and
+    `baylee-client/src/cardart.rs` is the registry lookup that turns a
+    projected name back into a card. A Clone wearing Llanowar Elves is a
+    Llanowar Elves on the table, and a copy token that had no picture at all
+    has one. What is still missing is the *provenance* the entry is named
+    for: a player cannot see that the card in front of them is a Clone. The
+    original is in hand for it — `PublicObject::card` never stopped being
+    the Clone — so that half is a mark on the card and not a protocol
+    change. The *exact printing* copied is the one thing that would need a
+    view change, and it is worth nothing: a printing is not a characteristic
+    (CR 109.3) and so is not copiable (CR 707.2).
+    The abilities clause is the engine half of this entry and is not what
+    the drawing touched.
+
 17. **Copy tokens are indistinguishable from the real card.** A token needs a
     mark that says token.
 

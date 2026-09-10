@@ -38,6 +38,7 @@
 pub mod abilities;
 pub mod ambience;
 pub mod buildui;
+pub mod cardart;
 pub mod cardmat;
 pub mod cardtext;
 pub mod choices;
@@ -1268,6 +1269,10 @@ pub fn rebuild_board(duel: &mut Duel) {
                 .slot(player)
                 .map_or(12.0, baylee_client_core::layout::SeatSlot::lane_width)
         },
+        // What card a projected name belongs to, so a permanent that has
+        // become a copy is drawn as the card it copies rather than as the
+        // cardboard underneath it.
+        crate::cardart::wearing,
     ));
     duel.layout = Some(layout);
 }

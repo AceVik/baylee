@@ -504,9 +504,43 @@ client. It is a `resolve` **parameter** and not a process-wide cell, because
 `baylee-client-core` does not link the card registry (the `manaplan` /
 `manasources` seam) and because a cell set on one path is already a known
 fault — `ART_BASE` is that, and `docs/observed-faults.md` entry 2 is where it
-is written down. And a **copy** token still has no picture: it is a copy of a
-card rather than of a registry token, carries `token: None`, and waits on the
-provenance work rather than borrowing somebody else's art.
+is written down. And the same parameter shape then took the second source
+that has no printing.
+
+**A copy is drawn as the card it copies**, and the view says two things at
+once for it. `PublicObject::card` is the *cardboard*: a copy effect assigns
+characteristics and never a printing — CR 707.2 lists the copiable values,
+CR 109.3 lists the characteristics, and art is in neither — so a Clone is a
+Clone in every zone it visits. `PublicObject::name` is the *projection*, and
+that is what the player is looking at. Reading the first under the second drew
+a Clone with "Llanowar Elves" written beneath it, which is a card that does
+not exist; a token some copy effect made was worse still, carrying neither a
+print nor a registry token id, and drew as a coloured rectangle with a name
+on it.
+
+The handle both have is the name, so `ImageSource::Card` names a registry
+index and `baylee-client`'s `cardart::wearing` is the lookup that gets there
+from a projected name — the third thing handed to a board model that this
+crate cannot look up for itself, beside `token_art` and the lane widths.
+Three details decide whether it is right:
+
+- **The answer only counts when it disagrees.** A permanent copying nothing
+  answers with its own card, so the disagreement between the registry's index
+  and `card.index` *is* the test for a copy, and `board::art_of` asks it of
+  every permanent rather than looking for a flag no view carries.
+- **A registry token is never asked.** Its name is a token's rather than a
+  card's and it already has a picture; only a permanent with a card and a
+  token with neither go to the registry.
+- **The face travels with the index.** A copy of a transformed permanent takes
+  the name the *back* is printed with, so the lookup answers `(index, face)`
+  and a card the table is showing the back of is not drawn front-up.
+
+What it does not do is pick the *printing*. There is none to pick: a printing
+is not a characteristic, so codegen's reference printing is as true a Llanowar
+Elves as any other. An exact printing would need the view to carry what the
+permanent copies, which is a `VIEW_VERSION` change and gamehost's to make —
+`docs/observed-faults.md` entry 16 is where that half stays open, together
+with the mark that says *token*.
 
 **Where the bytes come from is one process-wide setting.** By default the
 Scryfall CDN; when `GET /auth/config` says `art_cache`, the gateway's own

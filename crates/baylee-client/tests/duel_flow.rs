@@ -329,7 +329,12 @@ impl Client {
             match message {
                 HostMessage::Static(s) => self.statics = Some(*s),
                 HostMessage::View(v) => {
-                    self.board = Some(BoardModel::from_view(&v, Openings::none(), |_| 12.0));
+                    self.board = Some(BoardModel::from_view(
+                        &v,
+                        Openings::none(),
+                        |_| 12.0,
+                        baylee_client::cardart::wearing,
+                    ));
                     self.view = Some(*v);
                 }
                 HostMessage::Choice(p) => self.pending = Some(*p),
@@ -909,8 +914,13 @@ fn the_static_payload_lets_every_board_card_resolve_to_an_image() {
                 "the print table must cover every card the board wants to draw"
             ),
             None => assert!(
-                baylee_client_core::images::resolve(&statics, key, baylee_client::tokenart::of)
-                    .is_some(),
+                baylee_client_core::images::resolve(
+                    &statics,
+                    key,
+                    baylee_client::tokenart::of,
+                    baylee_client::cardart::of
+                )
+                .is_some(),
                 "the registry must cover every token the board wants to draw"
             ),
         }
@@ -1021,7 +1031,12 @@ fn smallest_legal_pick(pending: &Pending) -> usize {
 /// (the board model) or in the zone browser (every zone the table cannot
 /// show). The client's one real claim about answering a choice about objects.
 fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids::ObjectId) -> bool {
-    let board = BoardModel::from_view(view, Openings::none(), |_| 12.0);
+    let board = BoardModel::from_view(
+        view,
+        Openings::none(),
+        |_| 12.0,
+        baylee_client::cardart::wearing,
+    );
     let on_table = board
         .pods
         .iter()

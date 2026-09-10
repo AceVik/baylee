@@ -28,9 +28,9 @@
 //! The result is that collapsing can shorten the board but can never change
 //! what a player would conclude from it.
 
-use crate::images::{ArtSize, ImageKey};
+use crate::images::{ArtSize, Face, ImageKey};
 use crate::layout::{LaneKind, PileKind, pack_lane};
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, TargetRef};
 use std::collections::{HashMap, HashSet};
@@ -674,12 +674,20 @@ impl BoardModel {
     /// others' expense. One number read off the first opponent is right only
     /// in the one case where every pod is the same size — an unfocused
     /// table — and gates every other board against a seat it is not.
+    ///
+    /// `wearing` is the compiled registry, asked what card is printed under a
+    /// name. It is handed in for the reason [`crate::images::resolve`] is
+    /// handed `token_art`: the registry lives in a crate this one does not
+    /// link. Answering `None` to everything is a legal registry — a client
+    /// with nothing to ask draws what it drew before.
     #[must_use]
     pub fn from_view(
         view: &PlayerView,
         openings: Openings<'_>,
         lane_width: impl Fn(PlayerId) -> f32,
+        wearing: impl Fn(&str) -> Option<(CardIndex, u8)>,
     ) -> Self {
+        let wearing: NameLookup = &wearing;
         let individual = individual_objects(view);
 
         let ring = std::iter::once(view.seat)
@@ -695,6 +703,7 @@ impl BoardModel {
                     &individual,
                     openings.activatable,
                     lane_width(player),
+                    wearing,
                 )
             })
             .collect();
@@ -716,36 +725,45 @@ impl BoardModel {
                 // (CR 113.7a) there is nothing to borrow and the name stands
                 // alone — which is exactly what the panel then draws.
                 //
-                // Which *face* of it is the host's answer and not the
-                // source's current one, for the same reason: a Sheoldred
-                // who has turned back over while her chapter ability waits
-                // on the stack is showing the wrong side of herself, and
-                // the picture beside the sentence has to be the picture
-                // that sentence is printed on.
-                let art = o
-                    .card
-                    .or_else(|| match kind {
-                        StackKind::Ability { source, text } => {
-                            view.object(source).and_then(|s| s.card).map(|c| {
-                                text.map_or(c, |t| baylee_view::CardIdentity { face: t.face, ..c })
+                // `Small`, like every other card on the board, and for two
+                // reasons that agree: the stack panel draws a card 66 logical
+                // pixels wide, so `Normal` was fetching 488×680 for a
+                // thumbnail — and because it was the only board key at that
+                // size, a spell cast from a hand the player could already see
+                // drew the constructed face while a second copy of the same
+                // art was fetched.
+                //
+                // Which *face* of the source is the host's answer and not the
+                // source's current one: a Sheoldred who has turned back over
+                // while her chapter ability waits on the stack is showing the
+                // wrong side of herself, and the picture beside the sentence
+                // has to be the picture that sentence is printed on. It is an
+                // override of the key rather than a branch above `art_of`
+                // because a `text` at all means a real printed card — the
+                // host answers nothing for a token, an emblem or a copy — so
+                // there is no token key here to put a second face on.
+                let art = match kind {
+                    StackKind::Ability { source, text } => view
+                        .object(source)
+                        .and_then(|s| art_of(s, ArtSize::Small, wearing))
+                        .map(|key| {
+                            text.map_or(key, |t| ImageKey {
+                                face: Face::from_index(t.face),
+                                ..key
                             })
-                        }
-                        StackKind::Spell => None,
-                    })
-                    // `Small`, like every other card on the board, and for two
-                    // reasons that agree: the stack panel draws a card 66
-                    // logical pixels wide, so `Normal` was fetching 488×680 for
-                    // a thumbnail — and because it was the only board key at
-                    // that size, a spell cast from a hand the player could
-                    // already see drew the constructed face while a second copy
-                    // of the same art was fetched.
-                    .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small));
+                        }),
+                    StackKind::Spell => art_of(o, ArtSize::Small, wearing),
+                };
                 StackItem {
                     id: o.id,
                     name: o.name.clone(),
                     kind,
                     controller: o.controller,
-                    targets: o.targets.iter().map(|t| stack_target(view, *t)).collect(),
+                    targets: o
+                        .targets
+                        .iter()
+                        .map(|t| stack_target(view, *t, wearing))
+                        .collect(),
                     art,
                     depth: depth_base - 1 - i,
                 }
@@ -834,6 +852,51 @@ impl BoardModel {
 /// sending the seat their opponent's next draws — while a graveyard, a
 /// public exile and a command zone are lists whose length is the count.
 /// Reading a library's size off a list would give nought at every table.
+/// What card the compiled registry prints under a given name, and which of
+/// its faces carries it.
+///
+/// The seam a copy is drawn through. A permanent that has become a copy keeps
+/// its own cardboard — [`PublicObject::card`] is the Clone in every zone the
+/// Clone visits — while `name` is the projection, so the two disagree and
+/// only the second says what a player is looking at. Turning that name back
+/// into a card takes the registry, which this crate deliberately does not
+/// link, so the lookup arrives as an argument.
+pub type NameLookup<'a> = &'a dyn Fn(&str) -> Option<(CardIndex, u8)>;
+
+/// The registry a test that is not about copies brings: empty.
+///
+/// A board built against it draws exactly what a board drew before a copy was
+/// noticed at all, which is what keeps every other test in this file about
+/// the thing it is about.
+#[cfg(test)]
+fn no_registry(_: &str) -> Option<(CardIndex, u8)> {
+    None
+}
+
+/// The picture an object wears.
+///
+/// One answer in one place because a card, a token and a copy are the same
+/// question asked of three different fields, and three arms that each read
+/// one of them is how a copy came to be drawn as the card it is not.
+///
+/// A registry token is never asked: its name is a token's rather than a
+/// card's, and it already has a picture of its own. Everything else is, and
+/// the answer only counts when it *disagrees* with the card on the table — a
+/// permanent copying nothing answers with itself, and asking that question of
+/// every permanent on every frame is what makes the disagreement the whole
+/// test for a copy.
+#[must_use]
+pub fn art_of(obj: &PublicObject, size: ArtSize, wearing: NameLookup) -> Option<ImageKey> {
+    obj.token
+        .is_none()
+        .then(|| wearing(&obj.name))
+        .flatten()
+        .filter(|(index, _)| obj.card.is_none_or(|c| c.index != *index))
+        .map(|(index, face)| ImageKey::card(index, face, size))
+        .or_else(|| obj.card.map(|c| ImageKey::new(c.print, c.face, size)))
+        .or_else(|| obj.token.map(|t| ImageKey::token(t, size)))
+}
+
 fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
     let i = player.get() as usize;
     let seat = view.seats.get(i);
@@ -902,7 +965,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
 }
 
 /// Resolves a target handle into something drawable.
-fn stack_target(view: &PlayerView, what: TargetRef) -> StackTarget {
+fn stack_target(view: &PlayerView, what: TargetRef, wearing: NameLookup) -> StackTarget {
     let object = match what {
         TargetRef::Object(id) => view.object(id),
         TargetRef::Player(_) => None,
@@ -910,9 +973,7 @@ fn stack_target(view: &PlayerView, what: TargetRef) -> StackTarget {
     StackTarget {
         what,
         name: object.map(|o| o.name.clone()),
-        art: object
-            .and_then(|o| o.card)
-            .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+        art: object.and_then(|o| art_of(o, ArtSize::Small, wearing)),
     }
 }
 
@@ -950,6 +1011,7 @@ fn build_pod(
     individual: &HashMap<ObjectId, Individual>,
     activatable: &HashSet<ObjectId>,
     pod_width: f32,
+    wearing: NameLookup,
 ) -> SeatPod {
     let seat = view.seat(player);
     let permanents: Vec<&PublicObject> = view
@@ -985,7 +1047,7 @@ fn build_pod(
             // seventy cards, so forty Soldiers would fan at a third of a card
             // apiece.
             let crowded = pack_lane(members.len(), pod_width).fanned;
-            let groups = group_objects(&members, individual, activatable, crowded);
+            let groups = group_objects(&members, individual, activatable, crowded, wearing);
             // Measured again on what is actually drawn, and against the
             // harder bound: forty Soldiers collapse to one card and the row
             // is no longer overflowing, while forty *distinct* creatures
@@ -1030,6 +1092,7 @@ fn group_objects(
     individual: &HashMap<ObjectId, Individual>,
     activatable: &HashSet<ObjectId>,
     collapse: bool,
+    wearing: NameLookup,
 ) -> Vec<CardGroup> {
     let mut groups: Vec<CardGroup> = Vec::new();
     let mut index: HashMap<baylee_view::ObjectSummaryKey, usize> = HashMap::new();
@@ -1049,7 +1112,7 @@ fn group_objects(
         // travels either way: it is why a card is drawn on its own, and a
         // roomy row does not make an aura stop mattering.
         if !collapse || reason.is_some() {
-            groups.push(card_group(obj, reason, can_act));
+            groups.push(card_group(obj, reason, can_act, wearing));
             continue;
         }
         let key = obj.summary_key();
@@ -1059,7 +1122,7 @@ fn group_objects(
             groups[i].activatable &= can_act;
         } else {
             index.insert(key, groups.len());
-            groups.push(card_group(obj, None, can_act));
+            groups.push(card_group(obj, None, can_act, wearing));
         }
     }
 
@@ -1069,7 +1132,12 @@ fn group_objects(
     groups
 }
 
-fn card_group(obj: &PublicObject, individual: Option<Individual>, activatable: bool) -> CardGroup {
+fn card_group(
+    obj: &PublicObject,
+    individual: Option<Individual>,
+    activatable: bool,
+    wearing: NameLookup,
+) -> CardGroup {
     CardGroup {
         representative: obj.id,
         members: vec![obj.id],
@@ -1085,11 +1153,10 @@ fn card_group(obj: &PublicObject, individual: Option<Individual>, activatable: b
         // token had no picture and the renderer fell back to drawing its
         // face: a flat coloured rectangle with a name across it, which is
         // what forty Soldiers looked like. The engine stamps the token id on
-        // the object for exactly this, and `PublicObject::token` says so.
-        art: obj
-            .card
-            .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
-            .or_else(|| obj.token.map(|t| ImageKey::token(t, ArtSize::Small))),
+        // the object for exactly this, and `PublicObject::token` says so —
+        // and a token some copy effect made carries neither, which is what
+        // `art_of` asks the registry about.
+        art: art_of(obj, ArtSize::Small, wearing),
         is_token: obj.card.is_none(),
         summoning_sick: obj.summoning_sick,
         activatable,
@@ -1336,11 +1403,11 @@ mod tests {
     }
 
     fn model(view: &PlayerView) -> BoardModel {
-        BoardModel::from_view(view, Openings::none(), |_| WIDE)
+        BoardModel::from_view(view, Openings::none(), |_| WIDE, no_registry)
     }
 
     fn crowded_model(view: &PlayerView) -> BoardModel {
-        BoardModel::from_view(view, Openings::none(), |_| CROWDED)
+        BoardModel::from_view(view, Openings::none(), |_| CROWDED, no_registry)
     }
 
     #[test]
@@ -1607,6 +1674,7 @@ mod tests {
                 activatable: &HashSet::new(),
             },
             |_| WIDE,
+            no_registry,
         );
         let names: Vec<&str> = m.hand.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(
@@ -1697,7 +1765,7 @@ mod tests {
                 b.status = ObjectStatus::TAPPED;
             }
             let view = ViewBuilder::new(2).with_battlefield(0, vec![a, b]).build();
-            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy);
+            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, no_registry);
             m.pod(PlayerId::new(0))
                 .and_then(|p| p.lane(LaneKind::Lands))
                 .expect("lane")
@@ -1718,7 +1786,7 @@ mod tests {
             let view = ViewBuilder::new(2)
                 .with_battlefield(0, (1..=n).map(forest).collect::<Vec<_>>())
                 .build();
-            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy);
+            let m = BoardModel::from_view(&view, Openings::none(), |_| roomy, no_registry);
             let lane = m
                 .pod(PlayerId::new(0))
                 .and_then(|p| p.lane(LaneKind::Lands))
@@ -1730,42 +1798,138 @@ mod tests {
     }
 
     #[test]
-    fn a_registry_token_asks_for_a_picture_and_a_copy_token_does_not() {
-        // Two permanents with no printing between them, and only one of them
-        // can be drawn: a Soldier the registry knows carries the token id its
-        // art is keyed on, while a token some clone effect made is a copy of
-        // a *card* and has no registry entry to point at. It waits on the
-        // provenance work (entry 16 of `docs/observed-faults.md`), and until
-        // then it is right that it falls back to its face rather than to
-        // somebody else's picture.
+    fn a_registry_token_wears_its_own_picture_and_a_copy_token_the_card_it_copies() {
+        // Two permanents with no printing between them, drawn from opposite
+        // ends. A Soldier the registry knows carries the token id its art is
+        // keyed on. A token some clone effect made carries neither that nor a
+        // card — a copy of a *card* is on nobody's token list — so the only
+        // handle it has ever had is the name it projects, and until the
+        // registry was asked about that name it fell back to a coloured
+        // rectangle with the name written across it.
         let mut soldier = token(1, 0, "Soldier", 1, 1);
         soldier.token = Some(8);
-        let clone = token(2, 0, "Bear", 2, 2);
+        let bear_token = token(2, 0, "Bear", 2, 2);
         let view = ViewBuilder::new(2)
-            .with_battlefield(0, vec![soldier, clone])
+            .with_battlefield(0, vec![soldier, bear_token])
             .build();
-        let m = model(&view);
-        let lane = m
-            .pod(PlayerId::new(0))
-            .and_then(|p| p.lane(LaneKind::Creatures))
-            .expect("lane");
-        let art = |name: &str| {
-            lane.groups
+        let bear = CardIndex::new(7);
+        let m = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| WIDE,
+            |name| (name == "Bear").then_some((bear, 0)),
+        );
+        let art = |m: &BoardModel, name: &str| {
+            m.pod(PlayerId::new(0))
+                .and_then(|p| p.lane(LaneKind::Creatures))
+                .expect("lane")
+                .groups
                 .iter()
                 .find(|g| g.name == name)
                 .expect("group")
                 .art
         };
         assert_eq!(
-            art("Soldier"),
+            art(&m, "Soldier"),
             Some(ImageKey::token(8, ArtSize::Small)),
             "a registry token knows which picture it wears"
         );
-        assert_eq!(art("Bear"), None, "a copy token has no registry art");
-        assert!(
-            m.required_images()
-                .contains(&ImageKey::token(8, ArtSize::Small)),
-            "the token's picture has to be asked for, or nothing fetches it"
+        assert_eq!(
+            art(&m, "Bear"),
+            Some(ImageKey::card(bear, 0, ArtSize::Small)),
+            "a copy token is drawn as the card it copies"
+        );
+        for key in [
+            ImageKey::token(8, ArtSize::Small),
+            ImageKey::card(bear, 0, ArtSize::Small),
+        ] {
+            assert!(
+                m.required_images().contains(&key),
+                "{key:?} has to be asked for, or nothing fetches it"
+            );
+        }
+
+        // The counter-test, and the state every client that has no registry
+        // to ask is in: a lookup that answers nothing leaves the copy token
+        // exactly where it was — its own face with its own name on it, never
+        // somebody else's picture.
+        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, no_registry);
+        assert_eq!(art(&blind, "Bear"), None);
+        assert_eq!(
+            art(&blind, "Soldier"),
+            Some(ImageKey::token(8, ArtSize::Small)),
+            "and a registry token never needed the lookup"
+        );
+    }
+
+    #[test]
+    fn a_permanent_that_has_become_a_copy_is_drawn_as_the_card_it_copies() {
+        // The view says two things at once and only the second is what the
+        // player is looking at. `card` is the cardboard — a copy effect
+        // assigns characteristics and never a printing (CR 707.2 lists the
+        // copiable values; CR 109.3 lists the characteristics, and neither
+        // has art in it) — while `name` is the projection. So a Clone that
+        // has become a Llanowar Elves was drawn as a Clone with "Llanowar
+        // Elves" written under it, which is a card that does not exist.
+        //
+        // Object 3 is the Clone: its own card index 5, projecting the Elves'
+        // name. Object 4 is a real Llanowar Elves, index 9, and it is the
+        // control — the registry answers *itself* for it, so the disagreement
+        // that marks a copy is absent and it keeps its own printing.
+        let clone = printed(3, 0, "Llanowar Elves", 5);
+        let real = printed(4, 0, "Llanowar Elves", 9);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![clone, real])
+            .build();
+        let elves = CardIndex::new(9);
+        let m = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| WIDE,
+            |name| (name == "Llanowar Elves").then_some((elves, 0)),
+        );
+        let lane = m
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane");
+        // Two groups, not one: `ObjectSummaryKey` carries the card, so a
+        // Clone wearing another card's face can never be counted into a stack
+        // with the card itself — which is what would have hidden the copy the
+        // moment the two stood side by side.
+        assert_eq!(lane.groups.len(), 2, "the copy and the card it copies");
+        let of = |id: u32| {
+            lane.groups
+                .iter()
+                .find(|g| g.representative == ObjectId::new(id, 0))
+                .expect("group")
+                .art
+        };
+        assert_eq!(
+            of(3),
+            Some(ImageKey::card(elves, 0, ArtSize::Small)),
+            "the copy wears the picture of the card it copies"
+        );
+        assert_eq!(
+            of(4),
+            Some(ImageKey::new(PrintRef::new(9), 0, ArtSize::Small)),
+            "and the card itself keeps the printing at this table"
+        );
+
+        // The counter-test: with no registry to ask, both fall back to their
+        // own printings and the Clone is once again drawn as a Clone.
+        let blind = BoardModel::from_view(&view, Openings::none(), |_| WIDE, no_registry);
+        let blind_lane = blind
+            .pod(PlayerId::new(0))
+            .and_then(|p| p.lane(LaneKind::Creatures))
+            .expect("lane");
+        assert_eq!(
+            blind_lane
+                .groups
+                .iter()
+                .find(|g| g.representative == ObjectId::new(3, 0))
+                .expect("group")
+                .art,
+            Some(ImageKey::new(PrintRef::new(5), 0, ArtSize::Small))
         );
     }
 
@@ -1794,16 +1958,26 @@ mod tests {
                 .len()
         };
 
-        let m = BoardModel::from_view(&view, Openings::none(), |p| {
-            if p == PlayerId::new(0) { WIDE } else { CROWDED }
-        });
+        let m = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |p| {
+                if p == PlayerId::new(0) { WIDE } else { CROWDED }
+            },
+            no_registry,
+        );
         assert_eq!(groups(&m, 0), 4, "the roomy pod kept its cards apart");
         assert_eq!(groups(&m, 1), 1, "the cramped pod collapsed its own row");
 
         // The counter-test: the widths are what decide it, not the seat.
-        let m = BoardModel::from_view(&view, Openings::none(), |p| {
-            if p == PlayerId::new(0) { CROWDED } else { WIDE }
-        });
+        let m = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |p| {
+                if p == PlayerId::new(0) { CROWDED } else { WIDE }
+            },
+            no_registry,
+        );
         assert_eq!(groups(&m, 0), 1);
         assert_eq!(groups(&m, 1), 4);
     }
@@ -1816,7 +1990,7 @@ mod tests {
             .map(|i| token(i, 0, &format!("Creature {i}"), 1, 1))
             .collect();
         let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0);
+        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, no_registry);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -1830,7 +2004,7 @@ mod tests {
         // The same forty permanents, all identical: one group, no overflow.
         let objs: Vec<PublicObject> = (0..40).map(|i| token(i, 0, "Soldier", 1, 1)).collect();
         let view = ViewBuilder::new(8).with_battlefield(0, objs).build();
-        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0);
+        let m = BoardModel::from_view(&view, Openings::none(), |_| 5.0, no_registry);
         let lane = m
             .pod(PlayerId::new(0))
             .and_then(|p| p.lane(LaneKind::Creatures))
@@ -1852,7 +2026,8 @@ mod tests {
 
         let keys = m.required_images();
         assert_eq!(keys.len(), 1);
-        let request = resolve(&table, keys[0], |_| None).expect("the print table resolves it");
+        let request =
+            resolve(&table, keys[0], |_| None, |_| None).expect("the print table resolves it");
         assert!(
             request
                 .url
@@ -2045,17 +2220,17 @@ mod tests {
             activatable: set,
         };
 
-        let lit = BoardModel::from_view(&view, openings(&both), |_| CROWDED);
+        let lit = BoardModel::from_view(&view, openings(&both), |_| CROWDED, no_registry);
         let group = &lit.pods[0].lanes[0].groups[0];
         assert_eq!(group.count(), 2, "identical permanents still merge");
         assert!(group.activatable);
 
         // One of the two cannot be tapped, so the card standing for both must
         // not claim it can — the player would click it and be told no.
-        let half = BoardModel::from_view(&view, openings(&one), |_| CROWDED);
+        let half = BoardModel::from_view(&view, openings(&one), |_| CROWDED, no_registry);
         assert!(!half.pods[0].lanes[0].groups[0].activatable);
 
-        let dark = BoardModel::from_view(&view, openings(&empty), |_| CROWDED);
+        let dark = BoardModel::from_view(&view, openings(&empty), |_| CROWDED, no_registry);
         assert!(!dark.pods[0].lanes[0].groups[0].activatable);
     }
 

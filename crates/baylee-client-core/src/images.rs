@@ -105,6 +105,22 @@ pub enum ImageSource {
     Print(PrintRef),
     /// A token, by its stable id in the compiled card registry's token list.
     Token(u16),
+    /// A card in the compiled registry, by its rules index.
+    ///
+    /// The one source that names no *printing*, and it is what a copy wears.
+    /// A permanent copying another card keeps its own cardboard — a Clone is
+    /// a Clone in every zone it visits — so the print the view carries is the
+    /// wrong picture for it, and a token that copies a card has no print at
+    /// all. What both have is a projected name, and the registry answers what
+    /// card wears it. A copy takes the copiable values of what it copies
+    /// (CR 707.2), and a printing is not among them: CR 109.3 lists an
+    /// object's characteristics and neither art nor artist is one. So the
+    /// reference printing codegen recorded is as true a Llanowar Elves as
+    /// any other, and there is no right answer here to get wrong.
+    ///
+    /// Like [`Self::Token`], it needs the registry to become a URL, which is
+    /// why [`resolve`] is handed the lookup instead of linking it.
+    Card(baylee_core::ids::CardIndex),
     /// The printed back every card in the game shares.
     ///
     /// It carries nothing because there is nothing to carry: one back, one
@@ -151,6 +167,21 @@ impl ImageKey {
         }
     }
 
+    /// Builds a key for a registry card's picture at a size.
+    ///
+    /// The face is the one the *name* was found on: a copy of a transformed
+    /// permanent takes the name of the face that is up, so a lookup that
+    /// answered only an index would draw the front of a card the table is
+    /// showing the back of.
+    #[must_use]
+    pub const fn card(index: baylee_core::ids::CardIndex, face_index: u8, size: ArtSize) -> Self {
+        Self {
+            source: ImageSource::Card(index),
+            face: Face::from_index(face_index),
+            size,
+        }
+    }
+
     /// Builds a key for the printed card back.
     ///
     /// Always the front: the back of a card has no back of its own.
@@ -174,7 +205,7 @@ impl ImageKey {
     pub const fn printing(self) -> Option<PrintRef> {
         match self.source {
             ImageSource::Print(print) => Some(print),
-            ImageSource::Token(_) | ImageSource::Back => None,
+            ImageSource::Token(_) | ImageSource::Card(_) | ImageSource::Back => None,
         }
     }
 
@@ -372,11 +403,17 @@ pub fn back_url_at(base: &str, size: ArtSize) -> String {
 /// parameter rather than a process-wide cell because a cell set on one path
 /// and quietly missing on the others is what entry 2 of
 /// `docs/observed-faults.md` already is.
+///
+/// `card_art` is the same seam for [`ImageSource::Card`], which is what a
+/// copy wears: a registry index rather than a printing. Two closures rather
+/// than one because the two ids are different things and a caller that could
+/// only supply one of them would be a caller drawing half the table.
 #[must_use]
 pub fn resolve(
     statics: &GameStatic,
     key: ImageKey,
     token_art: impl Fn(u16) -> Option<&'static str>,
+    card_art: impl Fn(baylee_core::ids::CardIndex) -> Option<&'static str>,
 ) -> Option<ImageRequest> {
     match key.source {
         ImageSource::Print(print) => {
@@ -393,6 +430,15 @@ pub fn resolve(
         ImageSource::Token(id) => Some(ImageRequest {
             key,
             url: art_url_at(art_base(), token_art(id)?, key.face, key.size)?,
+            treatment: FinishTreatment::Plain,
+        }),
+        // A copy is drawn as the card it copies and never as a printing, so
+        // there is no finish to read: the cardboard on the table is the
+        // copy's own, and wearing its foil over another card's picture would
+        // be saying something true about neither.
+        ImageSource::Card(index) => Some(ImageRequest {
+            key,
+            url: art_url_at(art_base(), card_art(index)?, key.face, key.size)?,
             treatment: FinishTreatment::Plain,
         }),
         // The back needs no table to be looked up in and can never fail to
@@ -603,6 +649,11 @@ mod tests {
         None
     }
 
+    /// The registry a test that is not about copies brings: empty.
+    fn no_card_art(_: baylee_core::ids::CardIndex) -> Option<&'static str> {
+        None
+    }
+
     fn key(print: u16, size: ArtSize) -> ImageKey {
         ImageKey::new(PrintRef::new(print), 0, size)
     }
@@ -610,7 +661,7 @@ mod tests {
     #[test]
     fn url_follows_the_scryfall_cdn_sharding_scheme() {
         let s = statics();
-        let req = resolve(&s, key(0, ArtSize::Small), no_token_art).expect("resolves");
+        let req = resolve(&s, key(0, ArtSize::Small), no_token_art, no_card_art).expect("resolves");
         assert_eq!(
             req.url,
             "https://cards.scryfall.io/small/front/f/3/f333ea01-124f-4125-87ab-609be40e774c.jpg"
@@ -682,7 +733,7 @@ mod tests {
             prints: vec![],
             ..statics()
         };
-        let req = resolve(&empty, key, no_token_art).expect("resolves");
+        let req = resolve(&empty, key, no_token_art, no_card_art).expect("resolves");
         assert_eq!(req.treatment, FinishTreatment::Plain);
         assert!(
             req.url
@@ -694,15 +745,17 @@ mod tests {
     fn back_faces_and_sizes_select_different_paths() {
         let s = statics();
         let back = ImageKey::new(PrintRef::new(0), 1, ArtSize::Normal);
-        let req = resolve(&s, back, no_token_art).expect("resolves");
+        let req = resolve(&s, back, no_token_art, no_card_art).expect("resolves");
         assert!(req.url.contains("/normal/back/"));
     }
 
     #[test]
     fn finish_travels_as_a_treatment_not_a_separate_image() {
         let s = statics();
-        let foil = resolve(&s, key(1, ArtSize::Small), no_token_art).expect("resolves");
-        let plain = resolve(&s, key(0, ArtSize::Small), no_token_art).expect("resolves");
+        let foil =
+            resolve(&s, key(1, ArtSize::Small), no_token_art, no_card_art).expect("resolves");
+        let plain =
+            resolve(&s, key(0, ArtSize::Small), no_token_art, no_card_art).expect("resolves");
         assert_eq!(foil.treatment, FinishTreatment::Foil);
         // Same size and face, different printings: different files.
         assert_ne!(foil.url, plain.url);
@@ -721,7 +774,7 @@ mod tests {
         }));
         let nil = key(3, ArtSize::Small);
         assert!(
-            resolve(&s, nil, no_token_art).is_none(),
+            resolve(&s, nil, no_token_art, no_card_art).is_none(),
             "the renderer must draw a card back rather than fetch a certain 404"
         );
     }
@@ -734,9 +787,12 @@ mod tests {
         // written across it.
         let s = statics();
         let key = ImageKey::token(9, ArtSize::Small);
-        let req = resolve(&s, key, |id| {
-            (id == 9).then_some("2f40613b-1bde-4939-86ad-6bd40f9db0d6")
-        })
+        let req = resolve(
+            &s,
+            key,
+            |id| (id == 9).then_some("2f40613b-1bde-4939-86ad-6bd40f9db0d6"),
+            no_card_art,
+        )
         .expect("resolves");
         assert_eq!(
             req.url,
@@ -753,15 +809,66 @@ mod tests {
         // empty at all: a token nobody has chosen art for must fall back to
         // its own face, not issue a request built out of an empty id.
         let s = statics();
-        assert!(resolve(&s, ImageKey::token(9, ArtSize::Small), |_| Some("")).is_none());
-        assert!(resolve(&s, ImageKey::token(9, ArtSize::Small), no_token_art).is_none());
+        assert!(
+            resolve(
+                &s,
+                ImageKey::token(9, ArtSize::Small),
+                |_| Some(""),
+                no_card_art
+            )
+            .is_none()
+        );
+        assert!(
+            resolve(
+                &s,
+                ImageKey::token(9, ArtSize::Small),
+                no_token_art,
+                no_card_art
+            )
+            .is_none()
+        );
     }
 
     #[test]
+    fn a_copy_wears_a_registry_card_and_never_a_printing() {
+        // What a Clone-as-Llanowar-Elves needs and no other key can give it:
+        // the picture of a card that is in nobody's deck at this table, so
+        // the print table cannot name it and the token table does not know
+        // it. The face travels, because a copy of a transformed permanent
+        // takes the name the *back* is printed with.
+        let s = statics();
+        let idx = baylee_core::ids::CardIndex::new(714);
+        let key = ImageKey::card(idx, 1, ArtSize::Small);
+        let req = resolve(&s, key, no_token_art, |i| {
+            (i == idx).then_some("2f40613b-1bde-4939-86ad-6bd40f9db0d6")
+        })
+        .expect("resolves");
+        assert_eq!(
+            req.url,
+            "https://cards.scryfall.io/small/back/2/f/2f40613b-1bde-4939-86ad-6bd40f9db0d6.jpg"
+        );
+        // The cardboard on the table may well be a foil Clone. The picture
+        // drawn over it is another card's, so it carries no finish at all.
+        assert_eq!(req.treatment, FinishTreatment::Plain);
+        assert_eq!(key.printing(), None, "a copy names no printing");
+    }
+
+    #[test]
+    fn a_copy_of_a_card_the_registry_does_not_know_is_drawn_rather_than_fetched() {
+        // The counter-test, and the case that actually happens: a projected
+        // name the registry has no card for — a token some effect named
+        // itself, a card outside this pool — must fall back to the drawn
+        // face instead of building a request out of nothing.
+        let s = statics();
+        let key = ImageKey::card(baylee_core::ids::CardIndex::new(714), 0, ArtSize::Small);
+        assert!(resolve(&s, key, no_token_art, no_card_art).is_none());
+        assert!(resolve(&s, key, no_token_art, |_| Some("")).is_none());
+    }
+    #[test]
     fn an_implausible_printing_id_yields_no_request() {
         let s = statics();
-        assert!(resolve(&s, key(2, ArtSize::Small), no_token_art).is_none());
-        assert!(resolve(&s, key(99, ArtSize::Small), no_token_art).is_none());
+        assert!(resolve(&s, key(2, ArtSize::Small), no_token_art, no_card_art).is_none());
+        assert!(resolve(&s, key(99, ArtSize::Small), no_token_art, no_card_art).is_none());
     }
 
     #[test]
