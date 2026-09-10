@@ -913,8 +913,24 @@ is not a fixed number of pixels: they have the row to themselves, so they
 grow together to a cap and the slack past it goes into the gaps, which is
 what lets `Shelf::box_size` measure a split bar's box from the ledge instead
 of from the form. It reaches a duel and stops there — three seats and up have
-shelves deep enough and far too short (372×46 against the 507 px two rows are
+shelves deep enough and far too short (372×46 against the 561 px two rows are
 wide), and the length ladder takes over untouched.
+**The twelve tiles stand in the five phases of a turn** (CR 500.1), and that
+grouping is the row's whole structure: three in the beginning phase, five in
+combat, two at the end, and the two main phases as one tile each. Two gaps
+say it — `tile_gap` inside a phase, the wider `phase_gap` between — and on a
+split bar the slack goes into the four phase gaps and never into the seven
+tight ones. Even gaps had spread the tiles as twelve equal pills, which says
+a turn has twelve equal parts. Two more things came out of the same pass. A
+main phase is drawn `MAIN_SPAN` step-widths wide, because it *is* a whole
+phase standing where a step stands and it is where most of a turn happens —
+which also stops the two of them reading as stranded singletons between the
+runs. And the tile width is one division in `Density::tile_width_on` rather
+than a `flex_grow` with a cap: flex hands each *group* its share, so a phase
+of one tile and a phase of five end up with tiles of different widths and a
+pocket of dead space in the short groups. On a split bar the hinge moved to
+the **far end of the identity row**, which anchors a row that used to run out
+after the counts and gives the twelve tiles the whole ledge.
 **A mat is drawn `tabletop::MAT_MARGIN` wider than its playing extent on all
 four sides**, and every band on it is a fraction of a depth — so while that
 constant was `table::ZONE_MARGIN` and lived in the renderer, the shelf and
@@ -940,7 +956,10 @@ pod grows with it and the camera frames the pod, so a duel's shelf projects
 and up, framed on their depth, pay for the deeper pod as normal. The untap and cleanup steps are
 dead in the model, not merely drawn grey: `RailRow::grants_priority` is false
 there and `PhaseOrders::toggle` refuses both, so those two tiles carry no
-frame and are `Pickable::IGNORE`. The predicate is about a *standing order*,
+frame and are `Pickable::IGNORE`. They keep a 4% ground all the same — a fill
+is not a frame, and with no ground at all they were two bare words at the
+extreme ends of the row, reading as stranded text rather than as the first
+and last things a turn does. The predicate is about a *standing order*,
 not about the rules, which is what puts cleanup on the list: untap grants no
 priority at all (CR 502.4), and cleanup grants a round only *because* a
 state-based action was performed or an ability triggered (CR 514.3, 514.3a) —

@@ -148,8 +148,19 @@ impl Zone {
 /// The gap between two cells.
 pub const CELL_GAP: f32 = 6.0;
 
-/// The gap between two step tiles, per density.
+/// The gap between two step tiles *of the same phase*, per density.
 const TILE_GAP: [f32; 5] = [3.0, 3.0, 3.0, 3.0, 2.0];
+
+/// The gap between two phases, per density.
+///
+/// The rail has two gap sizes and that is the whole of its structure: tiles
+/// of one phase are butted together, phases stand apart. Twelve tiles at one
+/// spacing is a list of twelve equal things, which is not what a turn is —
+/// see [`crate::automation::RailPhase`]. Three times the tile gap is enough
+/// to read as a division at every form; on a shelf with slack to spare the
+/// renderer widens these gaps further and leaves the tight ones alone, so
+/// the hierarchy grows rather than washing out.
+const PHASE_GAP: [f32; 5] = [9.0, 9.0, 9.0, 9.0, 6.0];
 
 /// How wide and how tall one step tile is drawn, per density.
 ///
@@ -161,15 +172,41 @@ const TILE_GAP: [f32; 5] = [3.0, 3.0, 3.0, 3.0, 2.0];
 const TILE_W: [f32; 5] = [36.0, 40.0, 30.0, 11.0, 8.0];
 const TILE_H: [f32; 5] = [16.0, 24.0, 24.0, 12.0, 10.0];
 
-/// The widest a [`Density::Split`] tile is drawn.
+/// The widest a [`Density::Split`] *step* tile is drawn.
 ///
 /// The split form's tiles are the only ones that **grow**: they have the
 /// shelf to themselves, so the renderer lets them take the slack rather than
 /// leaving four hundred pixels of ink centred on a twelve-hundred-pixel
-/// ledge. The cap is four times the tile's own height, past which a tile
-/// stops reading as a tile and starts reading as a ribbon — and the slack
-/// left over goes into the gaps, so the row still spans the whole shelf.
-const SPLIT_TILE_W_MAX: f32 = 64.0;
+/// ledge. Past some multiple of its own height a tile stops reading as a tile
+/// and starts reading as a ribbon, and the slack left over goes into the
+/// phase gaps, so the row still spans the whole shelf.
+///
+/// Four and a half, written as the multiple rather than as the number,
+/// because the proportion is the rule and the height is what may change. It
+/// was four, which left a duel's 1165-pixel ledge with two hundred pixels
+/// nothing could take — spread over eleven equal gaps, that is precisely the
+/// twelve-scattered-pills arrangement this replaced. A half a tile more each
+/// and [`MAIN_SPAN`] take the ink to within a phase gap of the ends.
+const SPLIT_TILE_W_MAX: f32 = TILE_H[0] * 4.5;
+
+/// How many step tiles wide a main phase is drawn.
+///
+/// A main phase has **no steps** (CR 500.1 lists it among the five phases;
+/// CR 501.1, CR 506.1 and CR 512.1 are the three phases that have steps).
+/// Its tile is a whole phase standing where a step stands, and it is where
+/// most of a turn actually happens — every land, every sorcery, most of the
+/// spells. Drawing it the width of the untap step says the opposite.
+///
+/// It also answers the one thing the grouping could not. Four of the five
+/// groups are runs of two, three and five tiles; the two main phases are
+/// groups of one, and at a step's width they read as the stranded pills the
+/// grouping was meant to end. Two tile widths gives them the weight of the
+/// runs beside them, and takes a hundred and thirty pixels of slack out of
+/// the gaps while it is at it.
+///
+/// [`Density::main_span`] is what a caller asks, because the claim is one a
+/// form has to be able to afford and only the split bar can.
+const MAIN_SPAN: f32 = 2.0;
 
 /// The gap between the two rows of a [`Density::Split`] bar.
 ///
@@ -198,6 +235,15 @@ pub const HALO_OUT: f32 = 2.0;
 /// module is arithmetic about a strip of screen and the twelve steps are the
 /// shape it has to hold. The test below is what ties the two together.
 pub const STEPS: usize = 12;
+
+/// How many phases a turn has, and therefore how many groups a bar's tiles
+/// stand in.
+///
+/// Here for the same reason [`STEPS`] is, and tied to
+/// [`crate::automation::RAIL_PHASES`] by the same test. Eleven gaps separate
+/// twelve tiles; four of them are phase gaps and the other seven are tile
+/// gaps, which is the arithmetic [`Density::steps_width`] does.
+pub const PHASES: usize = 5;
 
 /// The caret's column, the swatch, and the life cell.
 const CARET_W: f32 = 10.0;
@@ -342,11 +388,17 @@ impl Density {
     ///
     /// One row for every form but [`Self::Split`], which puts the steps on
     /// the first — the one along the shelf's outer edge, furthest from the
-    /// lanes — and the seat's identity on the second. The hinge goes *with
-    /// the steps*, because that is what a hinge is for: the turn number
-    /// belongs to the seat whose bar it is and to the twelve tiles beside it,
-    /// and a two-row bar is exactly the arrangement that could let those two
-    /// halves drift into reading as two separate things.
+    /// lanes — and the seat's identity on the second.
+    ///
+    /// The hinge goes on the **identity** row, at its far end. It stood at
+    /// the head of the steps row, which is where a hinge belongs on a bar
+    /// written on one line; on two it made both rows worse. The steps row
+    /// began a turn-number's width in from the shelf's edge, so twelve tiles
+    /// spread over less than the ledge they were given, and the identity row
+    /// ran out after the counts and left four fifths of itself empty. Now the
+    /// tiles have the whole edge and the turn number closes the row beneath
+    /// them — still one bar about one seat, and still touching the tiles it
+    /// belongs to, because the two rows are two pixels apart.
     ///
     /// [`Self::cells`] stays the canonical list of what a form carries, and
     /// `every_row_is_dealt_from_the_cells_the_form_carries` is what stops the
@@ -358,7 +410,7 @@ impl Density {
         }
         let (mut steps, mut identity) = (Vec::new(), Vec::new());
         for cell in self.cells() {
-            if matches!(cell, Cell::Hinge | Cell::Steps) {
+            if matches!(cell, Cell::Steps) {
                 steps.push(cell);
             } else {
                 identity.push(cell);
@@ -432,6 +484,48 @@ impl Density {
         }
     }
 
+    /// How wide a step tile is actually drawn on a shelf this long.
+    ///
+    /// The arithmetic used to live in the renderer's flexbox — tiles with a
+    /// `flex_grow` and a cap, in a row set to `SpaceBetween` — and that stops
+    /// working the moment the tiles stand in groups. Flex hands each *group*
+    /// its share and a group whose tiles have all reached the cap keeps the
+    /// remainder to itself, so a phase of one tile and a phase of five end up
+    /// with tiles of different widths and a pocket of dead space inside the
+    /// short groups. Twelve tiles that no longer agree on their width is the
+    /// one thing this form promised not to do.
+    ///
+    /// So it is one division here instead: every step tile gets the same
+    /// width and a main phase gets [`MAIN_SPAN`] of them, the seven tight gaps
+    /// never move, and whatever the cap leaves over goes into the four phase
+    /// gaps, which is the only place a wider gap says something true.
+    #[must_use]
+    pub fn tile_width_on(self, length: f32) -> f32 {
+        if !self.is_split() {
+            return self.tile_width();
+        }
+        let gaps =
+            self.tile_gap() * (STEPS - PHASES) as f32 + self.phase_gap() * (PHASES - 1) as f32;
+        ((length - gaps) / self.span_units()).clamp(self.tile_width(), self.tile_width_max())
+    }
+
+    /// The gap between two phases on a shelf this long.
+    ///
+    /// [`Self::phase_gap`] plus an equal share of whatever the tiles could
+    /// not take, which is what makes the row span the shelf exactly. A form
+    /// that is not the split one never has slack to spread: its length is its
+    /// own and the shelf is allowed to be longer.
+    #[must_use]
+    pub fn phase_gap_on(self, length: f32) -> f32 {
+        if !self.is_split() {
+            return self.phase_gap();
+        }
+        let ink = self.tile_width_on(length) * self.span_units()
+            + self.tile_gap() * (STEPS - PHASES) as f32;
+        let spare = (length - ink - self.phase_gap() * (PHASES - 1) as f32).max(0.0);
+        self.phase_gap() + spare / (PHASES - 1) as f32
+    }
+
     /// How tall one step tile is drawn.
     #[must_use]
     pub const fn tile_height(self) -> f32 {
@@ -476,7 +570,7 @@ impl Density {
         self.tile_height() + HALO_OUT * 2.0 + self.row_gap() + self.identity_height()
     }
 
-    /// The gap between two step tiles at this density.
+    /// The gap between two step tiles of the same phase at this density.
     #[must_use]
     pub const fn tile_gap(self) -> f32 {
         TILE_GAP[self.rank()]
@@ -503,11 +597,50 @@ impl Density {
         matches!(self, Self::Split | Self::Full | Self::Compact)
     }
 
-    /// The twelve tiles and the eleven gaps between them.
+    /// The twelve tiles and the eleven gaps between them — four of which are
+    /// phase gaps and seven of which are not.
     #[must_use]
     pub fn steps_width(self) -> f32 {
-        let tiles = self.tile_width() * STEPS as f32;
-        tiles + self.tile_gap() * (STEPS - 1) as f32
+        let tiles = self.tile_width() * self.span_units();
+        let tight = self.tile_gap() * (STEPS - PHASES) as f32;
+        tiles + tight + self.phase_gap() * (PHASES - 1) as f32
+    }
+
+    /// How many step widths a main phase takes at this form.
+    ///
+    /// One on the ladder, where the strip's length is the thing being
+    /// fitted; [`MAIN_SPAN`] on the split bar, which is the one form whose
+    /// tiles are sized by the shelf rather than fixed and can therefore
+    /// afford the claim.
+    #[must_use]
+    pub fn main_span(self) -> f32 {
+        if self.is_split() { MAIN_SPAN } else { 1.0 }
+    }
+
+    /// The twelve tiles measured in step widths.
+    ///
+    /// Fourteen for the split form and twelve for every other, because
+    /// [`Self::main_span`] is a claim a form has to be able to afford. The split
+    /// bar is the one whose tile width is decided by the shelf rather than
+    /// fixed, so giving two of its tiles twice the share costs it nothing it
+    /// had a use for. On the ladder the strip's length *is* the thing being
+    /// fitted, and two double-width tiles would push every rung up by four or
+    /// five tile widths — a four-seat table would drop from the full bar to
+    /// the compact one to say the same thing about a main phase that its
+    /// position in the row already says.
+    #[must_use]
+    fn span_units(self) -> f32 {
+        (STEPS - 2) as f32 + self.main_span() * 2.0
+    }
+
+    /// The gap between the last tile of one phase and the first of the next.
+    ///
+    /// The **minimum** of it: a bar with slack widens these and leaves
+    /// [`Self::tile_gap`] alone, which is what keeps five groups reading as
+    /// five groups however long the shelf is.
+    #[must_use]
+    pub const fn phase_gap(self) -> f32 {
+        PHASE_GAP[self.rank()]
     }
 
     /// How wide the whole bar is drawn at this density.
@@ -683,19 +816,35 @@ mod tests {
     /// can hold *downwards past a boundary* without the bar visibly
     /// rearranging — this is the test that says the widening is sixteen
     /// pixels on one cell rather than a relayout.
+    ///
+    /// The **bar** may grow by less than the cell, and on a split bar it
+    /// grows by nothing at all: the hinge stands on the identity row, which
+    /// is 405 long against the steps row's 489, so sixteen more pixels of
+    /// turn number are absorbed by a row that had eighty-four to spare. That
+    /// is the widening being one cell rather than a relayout, seen from the
+    /// other side.
     #[test]
     fn a_designation_widens_one_cell() {
         for density in Density::ALL {
+            let cell = HINGE_W_DESIGNATED - HINGE_W;
+            assert!(
+                (density.cell_width(Cell::Hinge, true)
+                    - density.cell_width(Cell::Hinge, false)
+                    - cell)
+                    .abs()
+                    < 1e-3,
+                "{density:?} does not widen its hinge by {cell}"
+            );
             let grew = density.width(true) - density.width(false);
-            let expected = if density.cells().contains(&Cell::Hinge) {
-                HINGE_W_DESIGNATED - HINGE_W
+            let most = if density.cells().contains(&Cell::Hinge) {
+                cell
             } else {
                 0.0
             };
             assert!(
-                (grew - expected).abs() < 1e-3,
+                grew >= -1e-3 && grew <= most + 1e-3,
                 "{density:?} grows {grew} when the game gains a designation, \
-                 not {expected}"
+                 which is not between nothing and {most}"
             );
         }
     }
@@ -765,6 +914,45 @@ mod tests {
             "the bar draws {STEPS} tiles for a turn of {} steps",
             crate::automation::RAIL_ROWS.len()
         );
+        assert_eq!(
+            PHASES,
+            crate::automation::RAIL_PHASES.len(),
+            "and stands them in {PHASES} groups for a turn of {} phases",
+            crate::automation::RAIL_PHASES.len()
+        );
+    }
+
+    /// The rail has two gap sizes, and the wider one is the phase boundary.
+    ///
+    /// The whole structure of the row is this ordering: butt the tiles of a
+    /// phase together, stand the phases apart. Equal gaps is what the bar
+    /// looked like before, and it read as twelve scattered pills rather than
+    /// as a turn — so a table that ever put the phase gap at or under the
+    /// tile gap would quietly restore exactly the arrangement this replaced.
+    #[test]
+    fn a_phase_boundary_is_wider_than_a_step_boundary() {
+        for density in [
+            Density::Split,
+            Density::Full,
+            Density::Compact,
+            Density::Pip,
+            Density::Mark,
+        ] {
+            assert!(
+                density.phase_gap() > density.tile_gap(),
+                "{density:?} spaces its phases {} apart and its tiles {}",
+                density.phase_gap(),
+                density.tile_gap()
+            );
+            // Eleven gaps, however they are shared out.
+            let gaps = density.tile_gap() * (STEPS - PHASES) as f32
+                + density.phase_gap() * (PHASES - 1) as f32;
+            let bare = density.steps_width() - density.tile_width() * density.span_units();
+            assert!(
+                (gaps - bare).abs() < 1e-3,
+                "{density:?} measures {bare} of gap for {gaps} of gaps"
+            );
+        }
     }
 
     /// A numeral cell is wide enough for the number it will hold.
@@ -933,10 +1121,48 @@ mod tests {
                 "{density:?} disagrees with itself about whether it grows"
             );
             assert!(
-                density.tile_width_max() <= density.tile_height() * 4.0,
+                density.tile_width_max() <= density.tile_height() * 4.5,
                 "a {density:?} tile grows to {} on a {} tall tile",
                 density.tile_width_max(),
                 density.tile_height()
+            );
+        }
+    }
+
+    /// The split row is exactly as long as the shelf it is written on, at
+    /// every length the form is ever chosen at.
+    ///
+    /// Twelve tiles, seven tight gaps and four phase gaps, adding up to the
+    /// shelf and nothing else — which is the claim "spread across its whole
+    /// width" turns into once the tiles have a cap. A row that came up short
+    /// would be a bar floating in the middle of a ledge; one that came up
+    /// long would be ink on the felt.
+    ///
+    /// The two halves of the answer are checked apart as well, because they
+    /// fail in opposite directions: the tiles must stay between their own
+    /// width and their cap, and the phase gaps must never fall below the
+    /// tight ones, or the grouping is gone and the row is twelve pills again.
+    #[test]
+    fn a_split_row_spans_its_shelf_and_keeps_its_two_gaps_apart() {
+        let d = Density::Split;
+        for length in (d.min_length(false) as u16..2400).map(f32::from) {
+            let tile = d.tile_width_on(length);
+            let phase = d.phase_gap_on(length);
+            let total = tile * d.span_units()
+                + d.tile_gap() * (STEPS - PHASES) as f32
+                + phase * (PHASES - 1) as f32;
+            assert!(
+                (total - length).abs() < 1e-2,
+                "a {length}px shelf is written on in {total}px"
+            );
+            assert!(
+                tile >= d.tile_width() - 1e-3 && tile <= d.tile_width_max() + 1e-3,
+                "a {length}px shelf draws a {tile}px tile"
+            );
+            assert!(
+                phase > d.tile_gap(),
+                "a {length}px shelf spaces its phases {phase} and its tiles {}",
+                d.tile_gap()
             );
         }
     }

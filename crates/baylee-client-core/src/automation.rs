@@ -58,6 +58,77 @@ pub const RAIL_ROWS: [RailRow; 12] = [
     RailRow::Cleanup,
 ];
 
+/// The five phases a turn is made of (CR 500.1), which is the grouping a bar
+/// draws its twelve tiles in.
+///
+/// Twelve evenly-spaced tiles is a list; five groups is the turn. The steps
+/// are not a flat sequence and never have been — three of them belong to the
+/// beginning phase (CR 501.1), five to combat (CR 506.1), two to the ending
+/// phase (CR 512.1), and the two main phases have **no** steps at all, which
+/// is why they are single tiles here rather than an omission. A bar that
+/// spreads twelve pills across a shelf says a turn has twelve equal parts.
+/// It does not.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum RailPhase {
+    /// Untap, upkeep and draw (CR 501.1).
+    Beginning,
+    /// The precombat main phase, which has no steps.
+    PrecombatMain,
+    /// Beginning of combat through end of combat (CR 506.1).
+    Combat,
+    /// The postcombat main phase, which has no steps.
+    PostcombatMain,
+    /// The end step and the cleanup step (CR 512.1).
+    Ending,
+}
+
+/// The five phases, in turn order.
+pub const RAIL_PHASES: [RailPhase; 5] = [
+    RailPhase::Beginning,
+    RailPhase::PrecombatMain,
+    RailPhase::Combat,
+    RailPhase::PostcombatMain,
+    RailPhase::Ending,
+];
+
+impl RailPhase {
+    /// The rows this phase is made of, in turn order.
+    #[must_use]
+    pub const fn rows(self) -> &'static [RailRow] {
+        match self {
+            Self::Beginning => &[RailRow::Untap, RailRow::Upkeep, RailRow::Draw],
+            Self::PrecombatMain => &[RailRow::Main1],
+            Self::Combat => &[
+                RailRow::CombatBegin,
+                RailRow::Attackers,
+                RailRow::Blockers,
+                RailRow::Damage,
+                RailRow::CombatEnd,
+            ],
+            Self::PostcombatMain => &[RailRow::Main2],
+            Self::Ending => &[RailRow::EndStep, RailRow::Cleanup],
+        }
+    }
+}
+
+impl RailRow {
+    /// The phase this row belongs to (CR 500.1).
+    #[must_use]
+    pub const fn phase(self) -> RailPhase {
+        match self {
+            Self::Untap | Self::Upkeep | Self::Draw => RailPhase::Beginning,
+            Self::Main1 => RailPhase::PrecombatMain,
+            Self::CombatBegin
+            | Self::Attackers
+            | Self::Blockers
+            | Self::Damage
+            | Self::CombatEnd => RailPhase::Combat,
+            Self::Main2 => RailPhase::PostcombatMain,
+            Self::EndStep | Self::Cleanup => RailPhase::Ending,
+        }
+    }
+}
+
 impl RailRow {
     /// The rail label.
     #[must_use]
@@ -616,6 +687,37 @@ mod tests {
     use crate::prefs::AutoRules;
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::LegalActions;
+
+    /// The grouping and the list are two spellings of one turn.
+    ///
+    /// Written out twice on purpose — a `match` per row and a slice per phase
+    /// — because the renderer walks the phases and everything else walks
+    /// [`RAIL_ROWS`], and a row that fell out of the grouping would simply
+    /// stop being drawn while every test about tiles still passed. Reading
+    /// one out of the other would only ask whether it equalled itself.
+    #[test]
+    fn the_five_phases_are_the_twelve_steps_and_nothing_else() {
+        let flat: Vec<RailRow> = RAIL_PHASES
+            .iter()
+            .flat_map(|phase| phase.rows().iter().copied())
+            .collect();
+        assert_eq!(
+            flat,
+            RAIL_ROWS.to_vec(),
+            "the phases concatenated are the rail, in turn order"
+        );
+        for row in RAIL_ROWS {
+            assert!(
+                row.phase().rows().contains(&row),
+                "{row:?} says it is in {:?}, which does not carry it",
+                row.phase()
+            );
+        }
+        // CR 501.1, CR 506.1 and CR 512.1 in one line; the two main phases
+        // have no steps, which is the whole reason they are single tiles.
+        let sizes: Vec<usize> = RAIL_PHASES.iter().map(|p| p.rows().len()).collect();
+        assert_eq!(sizes, vec![3, 1, 5, 1, 2], "the shape of a turn");
+    }
 
     fn at(mine: bool, active_is_mine: bool, phase: Phase, step: Step) -> Situation {
         Situation {

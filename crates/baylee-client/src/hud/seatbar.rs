@@ -366,6 +366,16 @@ pub fn sync_seat_bars(
             },
             // The bars stand over the table; the space between them must not.
             Pickable::IGNORE,
+            // Written down rather than left to the default, because what it
+            // orders is worth a sentence: a bar belongs to the felt and
+            // everything the player summons stands *over* it — the stack
+            // panel (1), the hand (2), the tray (3), an overlay (10). A bar
+            // that drew over a hover preview would hide the card the player
+            // asked to see in order to say which step it is, which they
+            // already know. Zero is the ground floor of the HUD and it is
+            // where a bar belongs; it is here so that nothing acquires a
+            // `ZIndex` later and quietly reorders it.
+            ZIndex(0),
         ))
         .id();
 
@@ -460,6 +470,24 @@ fn spawn_bar(
             ))
             .id();
         for cell in cells {
+            // The hinge closes the identity row of a split bar rather than
+            // following the counts, so the row is anchored at both ends
+            // instead of running out a third of the way along and leaving the
+            // rest of the shelf blank. One strut does it: everything before
+            // it keeps its own width, and the turn number lands under the last
+            // of the twelve tiles it belongs to.
+            if density.is_split() && matches!(cell, Cell::Hinge) {
+                let strut = commands
+                    .spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(row).add_child(strut);
+            }
             let width = density.cell_width(cell, designated);
             let node = match cell {
                 Cell::Caret => caret(commands, view, seat, fonts, width, height),
@@ -468,7 +496,9 @@ fn spawn_bar(
                 Cell::Life => life(commands, seat, fonts, width, height),
                 Cell::Count(zone) => count(commands, view, seat, zone, fonts, width, height),
                 Cell::Hinge => hinge(commands, view, seat, fonts, width, height),
-                Cell::Steps => steps(commands, view, statics, seat, orders, fonts, density),
+                Cell::Steps => steps(
+                    commands, view, statics, seat, orders, fonts, density, size.x,
+                ),
             };
             commands.entity(row).add_child(node);
         }
@@ -826,7 +856,16 @@ fn designation_of(now: baylee_view::DayNight) -> (char, Color) {
     }
 }
 
-/// The twelve steps of a turn.
+/// The twelve steps of a turn, in the five phases they belong to.
+///
+/// The grouping is the row's whole structure. Twelve tiles at one spacing is
+/// a list of twelve equal things and a turn is not that — three steps in the
+/// beginning phase, five in combat, two at the end, and two main phases with
+/// no steps at all (CR 500.1). So there are two gaps: tiles of a phase are
+/// butted together at [`Density::tile_gap`] and the phases stand apart at
+/// [`Density::phase_gap`], and it is the *phase* gaps that a split bar's
+/// slack goes into. The eye then reads five groups where it used to count
+/// twelve pills.
 #[allow(clippy::too_many_arguments)]
 fn steps(
     commands: &mut Commands,
@@ -836,23 +875,26 @@ fn steps(
     orders: &PhaseOrders,
     fonts: &UiFonts,
     density: Density,
+    length: f32,
 ) -> Entity {
     let side = if same_team(statics, seat.player, view.seat) {
         RailSide::Mine
     } else {
         RailSide::Theirs
     };
-    // On a split bar the steps have the shelf to themselves, so the row is
-    // what takes the slack: `flex_grow` widens the tiles to their cap and
-    // `SpaceBetween` puts whatever is left over into the gaps between them,
-    // which is what "spread across the whole edge" means for twelve tiles
-    // that must not become ribbons. Every other form is a fixed strip.
+    // On a split bar the steps have the shelf to themselves, and what they do
+    // with it is decided in the model rather than by flex: every tile is
+    // `Density::tile_width_on` wide, the seven tight gaps never move, and the
+    // slack the cap leaves goes into the four phase gaps — which is where a
+    // wider gap says something true. `SpaceBetween` is what puts it there.
+    // Every other form is a fixed strip.
+    let tile_w = density.tile_width_on(length);
     let row = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(density.tile_gap()),
+                column_gap: px(density.phase_gap()),
                 flex_grow: f32::from(u8::from(density.is_split())),
                 justify_content: if density.is_split() {
                     JustifyContent::SpaceBetween
@@ -871,24 +913,62 @@ fn steps(
     // is the game" from anywhere on the table — every bar says which step,
     // and gold says whose.
     let is_active_seat = view.active == seat.player;
-    for (step, skipped) in orders.rows_for(side) {
-        let tile = spawn_tile(
-            commands,
-            fonts,
-            density,
-            TileState {
-                side,
-                row: step,
-                skipped,
-                live: step.grants_priority(),
-                now: step == current,
-                behind: is_active_seat && step.index() < current.index(),
-                gold: is_active_seat,
-                selected: orders.selected() == Some((side, step)),
-                lost: seat.has_lost,
-            },
-        );
-        commands.entity(row).add_child(tile);
+    let skipped = |step: RailRow| orders.rows_for(side).any(|(r, s)| r == step && s);
+    for phase in baylee_client_core::automation::RAIL_PHASES {
+        // A phase carries its own tiles and nothing else — no ground, no
+        // label, no rule. On baize a plinth under three tiles would be the
+        // tab strip again, moved onto the felt; the gap is enough, and a gap
+        // is the one grouping device that adds no ink.
+        let group = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: px(density.tile_gap()),
+                    // Sized by its tiles and nothing else. It must *not*
+                    // grow: flex would hand each group an equal share of the
+                    // slack, so a phase of one tile and a phase of five would
+                    // end up with tiles of different widths, and the short
+                    // groups would keep a pocket of dead space once their
+                    // tiles hit the cap. Twelve tiles that no longer agree on
+                    // their width is the one thing this form promised not to
+                    // do, so the width is a division in the model instead.
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        // A phase with one tile *is* that phase drawn where a step is drawn,
+        // and both of them are main phases. `MAIN_SPAN` of a step's width is
+        // what says so — see the constant for why it is a claim about the
+        // turn and not only about the slack it happens to take up.
+        let span = if phase.rows().len() == 1 {
+            density.main_span()
+        } else {
+            1.0
+        };
+        for step in phase.rows().iter().copied() {
+            let tile = spawn_tile(
+                commands,
+                fonts,
+                density,
+                tile_w * span,
+                TileState {
+                    side,
+                    row: step,
+                    skipped: skipped(step),
+                    live: step.grants_priority(),
+                    now: step == current,
+                    behind: is_active_seat && step.index() < current.index(),
+                    gold: is_active_seat,
+                    selected: orders.selected() == Some((side, step)),
+                    lost: seat.has_lost,
+                },
+            );
+            commands.entity(group).add_child(tile);
+        }
+        commands.entity(row).add_child(group);
     }
     row
 }
@@ -933,6 +1013,7 @@ fn spawn_tile(
     commands: &mut Commands,
     fonts: &UiFonts,
     density: Density,
+    width: f32,
     state: TileState,
 ) -> Entity {
     let (icon, short) = row_visual(state.row);
@@ -964,8 +1045,14 @@ fn spawn_tile(
     } else {
         palette::PARCHMENT.with_alpha(0.55 * alpha)
     };
+    // A dead step keeps the *silhouette* of its neighbours and loses every
+    // other channel. It used to have no ground at all, which left untap and
+    // cleanup as two bare words at the extreme ends of the row — read as
+    // stranded text rather than as the first and last things a turn does. A
+    // ground this faint claims nothing (a fill is not a frame, and a frame is
+    // what says "control") and says only that a place is held here.
     let fill = if !state.live {
-        Color::NONE
+        palette::PARCHMENT.with_alpha(0.04)
     } else if state.skipped {
         Color::srgba(0.227, 0.071, 0.071, 0.70 * alpha)
     } else {
@@ -980,14 +1067,13 @@ fn spawn_tile(
     let tile = commands
         .spawn((
             Node {
-                width: px(density.tile_width()),
-                max_width: px(density.tile_width_max()),
+                // One width for all twelve, handed down from
+                // `Density::tile_width_on` — so nothing on the row can twitch
+                // relative to anything else on it, which is the same promise
+                // the fixed-width numeral cells make, kept the same way.
+                width: px(width),
                 height: px(density.tile_height()),
-                // The tiles of a split bar grow *together* into the row's
-                // slack, so nothing on the row can twitch relative to
-                // anything else on it — which is the same promise the
-                // fixed-width numeral cells make, kept a different way.
-                flex_grow: f32::from(u8::from(density.is_split())),
+                flex_grow: 0.0,
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,

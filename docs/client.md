@@ -1876,15 +1876,15 @@ and no form ever drops the caret, the colour or the steps.
 bar on two rows — the twelve steps alone along the mat's top edge, spread
 across its whole width, and the seat's identity beneath them — which is what
 the owner asked the phase line to be. It is not a rung of that ladder and
-could not be: it asks for a *shorter* shelf than the full bar (507 against
-924, because stacked rows are as long as the longer of them) and a *deeper*
+could not be: it asks for a *shorter* shelf than the full bar (561 against
+948, because stacked rows are as long as the longer of them) and a *deeper*
 one than any single-row form (34 of ink against 28). So `Density::for_shelf`
 takes both numbers, and `Shelf::depth` — which the ladder never consulted and
 `camera_tests` only asserted about — is finally what decides something.
 Three consequences worth knowing. Its tiles **grow**: they have the row to
-themselves, so `flex_grow` widens them to `tile_width_max` and
-`SpaceBetween` puts the slack past that into the gaps, which is the only ink
-on any bar that is not a fixed number of pixels — and it is allowed because
+themselves, so `Density::tile_width_on` widens them to `tile_width_max` and
+`SpaceBetween` puts the slack past that into the phase gaps, which is the only
+ink on any bar that is not a fixed number of pixels — and it is allowed because
 they grow *together*, so nothing on the row moves relative to anything else.
 Its box is therefore measured from the **shelf** rather than from the form
 (`Shelf::box_size`), and `SeatBar::placed` carries that width so a camera
@@ -1905,11 +1905,53 @@ where a side seat and the seat across get different forms; a duel showing two
 is the same rule and not an exception to it.
 
 Three seats and up have shelves that are deep enough and far too short: at
-1728 they project 372×46, 337×44 and 337×44 against the 507 px the two-row
+1728 they project 372×46, 337×44 and 337×44 against the 561 px the two-row
 bar is wide, so the length ladder takes over untouched. Both halves of that
 sentence used to read the other way — the depth was the thing that ran out —
 and that was the shelf being measured a printed border short of the one the
 mat draws. See "Where a bar is measured from", below.
+
+### The twelve tiles stand in five phases
+
+A turn has five phases and they have three, none, five, none and two steps
+(CR 500.1, and CR 501.1 / CR 506.1 / CR 512.1 for the three that have any).
+Twelve tiles at one spacing says the opposite — twelve equal parts — and on a
+duel's 1165-pixel ledge, where the tiles reach their cap long before the ends,
+the leftover went into eleven equal gaps and the row read as twelve scattered
+pills. `automation::RailPhase` is the grouping, and the row is drawn as five
+groups: `Density::tile_gap` inside a phase, the wider `Density::phase_gap`
+between, and the slack goes into the four phase gaps and never into the seven
+tight ones.
+
+Three things fell out of that and each is worth its own sentence.
+
+**A main phase is `MAIN_SPAN` step-widths wide.** It has no steps at all — it
+is a whole phase standing where a step stands, and it is where every land,
+every sorcery and most of the spells of a turn happen. It is also the one
+thing the grouping could not fix on its own: four of the five groups are runs
+of two, three and five tiles, and the two main phases are groups of one, which
+at a step's width read as exactly the stranded pills the grouping was meant to
+end. Only the split form makes the claim — on the ladder the strip's length
+*is* the thing being fitted, and two double-width tiles would push every rung
+up by four or five tile widths.
+
+**The tile width is a division, not a `flex_grow`.** Growth with a cap works
+for twelve siblings in one row and stops working the moment they stand in
+groups: flex hands each *group* its share, so a phase of one tile and a phase
+of five end up with tiles of different widths and the short groups keep a
+pocket of dead space once their tiles hit the cap. Twelve tiles that no longer
+agree on their width is the one thing this form promised not to do, so
+`Density::tile_width_on` divides once and `phase_gap_on` says where the
+remainder went. `a_split_row_spans_its_shelf_and_keeps_its_two_gaps_apart`
+checks both at every length the form is chosen at.
+
+**The hinge closes the identity row.** It used to head the steps row, which is
+where a hinge belongs on a bar written on one line; on two it made both rows
+worse — the tiles began a turn-number's width in from the shelf's edge, and
+the identity row ran out after the counts with four fifths of itself empty.
+The turn number now sits at the far end of the row beneath the tiles, which
+anchors that row at both ends and gives the twelve tiles the whole ledge. It
+is still touching what it hinges: the two rows are `SPLIT_ROW_GAP` apart.
 
 Three channels on a step tile, and they answer three different questions.
 The **frame** is the standing order — none at all for a dead step, gold for
@@ -1920,9 +1962,12 @@ it and the whole tile interior would glow. The **ink alpha** is time — which
 turn's row this is. Untap and cleanup get no frame at all and are
 `Pickable::IGNORE`: a control that can never do anything should not look like
 one, and both are stepped over by the keyboard for the same reason
-(`RailRow::grants_priority`, CR 502.4 and CR 514.3a). When the game is in one
-of them it gets an under-tick instead of a frame — the game being somewhere
-does not make it a control.
+(`RailRow::grants_priority`, CR 502.4 and CR 514.3a). They do keep a 4%
+ground — a fill is not a frame, so it claims nothing, and with no ground at
+all the two of them were bare words at the extreme ends of the row, reading as
+stranded text rather than as the first and last things a turn does. When the
+game is in one of them it gets an under-tick instead of a frame — the game
+being somewhere does not make it a control.
 
 The bar is its **own retained tree**, `SeatBarRoot`, a sibling of `HudRoot`
 with its own `BarRevision`. `HudRevision` carries `hovered`, so the overlay

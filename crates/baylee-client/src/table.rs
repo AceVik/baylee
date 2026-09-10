@@ -2898,7 +2898,7 @@ mod camera_tests {
     /// rather than its depth. Measured at [`WINDOW`]: a duel's shelves
     /// project 1127×61 and 1069×55, and three seats project 372×46, 337×44,
     /// 337×44 — deep enough for the 34 px of ink two rows draw, and nowhere
-    /// near the 507 px the two-row bar is wide. It used to be the depth that
+    /// near the 561 px the two-row bar is wide. It used to be the depth that
     /// ran out first; that was the shelf being measured a printed border
     /// short of the one the mat draws, and the number that moved when they
     /// were reconciled was the depth.
@@ -2951,7 +2951,7 @@ mod camera_tests {
     /// small window is a squarer canvas.
     ///
     /// Every hand-over in the list is a **depth** one, and that is the shape
-    /// of the whole ladder now: the two-row bar wants 507 px of length, which
+    /// of the whole ladder now: the two-row bar wants 561 px of length, which
     /// an 800-wide window already has, so what decides the form is whether
     /// the shelf is deep enough to write two rows on — 34 px of ink against
     /// the 21.1, 30.7 and 36.2 above. A window of the shape here gains the
