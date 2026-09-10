@@ -437,6 +437,10 @@ impl<L: CardLookup> Engine<L> {
                 }
                 if max == 0 {
                     // Zero required targets (e.g. X = 0): skip targeting.
+                    // This reads `max` off the requirement, before the
+                    // options are known; the other way of having nothing to
+                    // choose is a `max` the board cannot fill, and that one
+                    // is decided below, once they are.
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Kicker;
                     self.cast_wizard = Some(wizard);
@@ -450,6 +454,24 @@ impl<L: CardLookup> Engine<L> {
                 if options.len() + player_options.len() < min as usize {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("not enough legal targets"));
+                }
+                if options.is_empty() && player_options.is_empty() {
+                    // Nothing to point at, and `min` is zero or the check
+                    // above would have refused the cast: the only answer is
+                    // the empty list, so the spell goes on the stack with no
+                    // targets instead of the caster being stopped for a
+                    // choice they cannot make.
+                    //
+                    // Eerie Interlude and Clever Concealment are what reach
+                    // it today — "any number of target permanents you
+                    // control" is `min` 0, `max` 255, so the branch above
+                    // never sees them, and either one is castable on an
+                    // empty board. `collect_triggers` is the same rule on
+                    // the trigger side.
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Kicker;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
                 }
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,

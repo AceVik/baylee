@@ -1206,21 +1206,45 @@ impl<L: CardLookup> Engine<L> {
                     self.trigger_queue.pop_front();
                     continue;
                 }
-                self.pending_plan = Some(PlanKind::Trigger {
-                    source: t.source,
-                    ability_index: t.ability_index,
-                });
-                let max = req.max.min(offered as u8);
-                self.pending = Pending::ChooseTargets {
-                    player: t.controller,
-                    options,
-                    player_options,
-                    min: req.min,
-                    max,
-                    reason: TargetPrompt::Targets,
-                };
-                self.awaiting_answer = true;
-                return;
+                // Only when there is something to decide. `offered` reaching
+                // `req.min` above leaves one case behind: a trigger that may
+                // decline (`min` 0, "up to one target") with nothing legal to
+                // point at. It still goes on the stack — CR 603.3d removes a
+                // trigger that *cannot* be targeted legally, and one that
+                // needs no target can always be — but with no targets and no
+                // question, because the only answer is the empty list.
+                //
+                // Publishing it anyway was a stop the player could not
+                // influence: a Skyclave Apparition entering against a board
+                // of nothing but lands offered `ChooseTargets { options: [],
+                // min: 0, max: 0 }` and waited. Falling out of this block
+                // instead reaches the same tail an untargeted trigger takes,
+                // which is what stacks it.
+                //
+                // `WizardStage::Targets` is the twin of this branch on the
+                // spell side, and it needs both halves for the same reason
+                // this one does: a wizard reads `max` off the requirement
+                // before it knows the options, so Eerie Interlude's "any
+                // number of target creatures you control" (`max` 255) walks
+                // past the `max == 0` test and is stopped by the empty
+                // option list beside it.
+                if offered > 0 {
+                    self.pending_plan = Some(PlanKind::Trigger {
+                        source: t.source,
+                        ability_index: t.ability_index,
+                    });
+                    let max = req.max.min(offered as u8);
+                    self.pending = Pending::ChooseTargets {
+                        player: t.controller,
+                        options,
+                        player_options,
+                        min: req.min,
+                        max,
+                        reason: TargetPrompt::Targets,
+                    };
+                    self.awaiting_answer = true;
+                    return;
+                }
             }
             self.trigger_queue.pop_front();
             if t.once_per_turn {

@@ -1373,3 +1373,143 @@ fn a_slow_land_counts_the_other_lands_and_never_itself() {
         "the Island and the first Beach are two other lands"
     );
 }
+
+fn skyclave_apparition() -> baylee_core::ids::CardIndex {
+    card_index("d90af00a-d322-4265-9954-7b1e80702e18")
+}
+
+/// Casts the Apparition on p0's first main phase and leaves it on the
+/// stack, with `their_board` standing across the table.
+fn a_skyclave_over(their_board: &[baylee_core::ids::CardIndex]) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(201, forest())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .hand(0, &[skyclave_apparition()])
+        .battlefield(1, their_board)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("a main phase hands priority back");
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let card = in_hand(&engine, p0, skyclave_apparition()).expect("the Apparition is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("three Plains pay {1}{W}{W}");
+    engine
+}
+
+/// "Exile **up to one** target ... you don't control" against a board with
+/// nothing on it to exile.
+///
+/// The trigger still goes on the stack. CR 603.3d removes a triggered
+/// ability that cannot be given a legal target, and one that requires no
+/// target always can be — so what it must not do is *ask*: with an empty
+/// option list and a minimum of zero, the only answer is the empty list,
+/// and a stop the player cannot influence is not a choice. The engine used
+/// to publish `ChooseTargets { options: [], min: 0, max: 0 }` and wait
+/// there.
+///
+/// The second board is what keeps the first honest. A filter that matched
+/// nothing at all would pass the first half and read exactly the same, so
+/// the same Apparition is put down against a creature it *can* exile and
+/// the question has to appear.
+#[test]
+fn up_to_one_target_with_nothing_to_point_at_is_not_a_question() {
+    let p0 = PlayerId::new(0);
+    let mut engine = a_skyclave_over(&[forest(), forest()]);
+    let mut trigger_stacked = false;
+    for _ in 0..20 {
+        if stack_is_empty(&engine) {
+            break;
+        }
+        // Something on the stack while the Apparition is already standing is
+        // its own enters-trigger: the spell has left, and nothing else at
+        // this table triggers at all. Without this the test would read the
+        // same on a trigger CR 603.3d had *removed* — an exile that finds
+        // nothing to exile does nothing either way, so "nobody was asked" is
+        // only half of what is being claimed.
+        if on_battlefield(&engine, p0, skyclave_apparition()).is_some() {
+            trigger_stacked = true;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("nothing was legal to exile, so nothing was asked: {other:?}"),
+        }
+    }
+    assert!(
+        trigger_stacked,
+        "the trigger went on the stack, with no targets and no question"
+    );
+    assert!(stack_is_empty(&engine), "and then resolved");
+    assert!(
+        on_battlefield(&engine, p0, skyclave_apparition()).is_some(),
+        "and the Apparition itself is standing there, trigger and all"
+    );
+
+    let mut engine = a_skyclave_over(&[forest(), ondu_cleric()]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, min, .. } = engine.pending().clone() else {
+        unreachable!("the loop above stopped on one")
+    };
+    assert_eq!(min, 0, "\"up to one\" may still decline");
+    assert_eq!(
+        options,
+        vec![on_battlefield(&engine, PlayerId::new(1), ondu_cleric()).expect("their Cleric")],
+        "their Cleric is the one thing it may point at"
+    );
+}
+
+fn eerie_interlude() -> baylee_core::ids::CardIndex {
+    card_index("0634091a-a74c-4cea-b6d1-7324a725554a")
+}
+
+/// "Exile **any number of** target creatures you control", with none to exile.
+///
+/// The spell half of what the Apparition's trigger settles above, and it
+/// arrives by a different door: `min` is 0 and `max` is 255, so the cast
+/// wizard's `max == 0` branch never sees this spell and the *board* is what
+/// leaves it with nothing to choose. One legal answer is not a choice, so the
+/// spell is cast with no targets rather than the caster being held at
+/// `ChooseTargets { options: [], min: 0, max: 255 }` — a stop that can only
+/// be answered one way.
+#[test]
+fn a_spell_that_may_target_any_number_is_not_asked_with_nothing_to_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(202, forest())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .hand(0, &[eerie_interlude()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("a main phase hands priority back");
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let card = in_hand(&engine, p0, eerie_interlude()).expect("the Interlude is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("three Plains pay {2}{W}");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "no creatures to exile, so no question: {:?}",
+        engine.pending()
+    );
+    assert!(!stack_is_empty(&engine), "and the spell is on the stack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
+    });
+}

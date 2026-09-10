@@ -570,13 +570,13 @@ fn an_ability_the_copy_paid_for_with_its_life_still_resolves() {
         .unwrap();
     pass_until(&mut engine, |e| pt(e, mimic) == (2, 2));
     // The copied enters-trigger is "exile up to one **other** target non-Fox
-    // creature", and both creatures at the table are the same Fox: the choice
-    // arrives with nothing in it and is answered with nothing.
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
+    // creature", and both creatures at the table are the same Fox: it has
+    // nothing to point at, so it goes on the stack with no targets and
+    // nobody is asked. This used to answer an empty choice by hand —
+    // `up_to_one_target_with_nothing_to_point_at_is_not_a_question` is why
+    // the choice no longer arrives.
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { .. })
+        matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
     });
 
     // No tap in the cost, so the copy may do this the turn it arrives.
