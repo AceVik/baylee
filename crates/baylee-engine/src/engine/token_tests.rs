@@ -438,3 +438,125 @@ fn a_copys_ability_is_addressed_by_no_card() {
         "and the printed cleric's rally still names the cleric: {addressed:?}"
     );
 }
+
+fn sokka() -> CardIndex {
+    card_index("6b68acc2-b9d5-495b-8054-c04bae1349f1")
+}
+fn brainstorm() -> CardIndex {
+    card_index("36cd2364-d113-47d1-b2c4-b088d9eb88dd")
+}
+
+/// Casts one Brainstorm and runs the table back to a quiet main phase.
+///
+/// Everything it answers is somebody's own decision — Brainstorm's two
+/// cards back on top are taken from the *end* of the list so the second
+/// copy is never the one put back, and there is no other question on this
+/// board.
+#[track_caller]
+fn cast_a_brainstorm(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let spell = super::testkit::in_hand(engine, seat, brainstorm()).expect("a Brainstorm in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        let _ = engine.apply(seat, PlayerAction::ActivateManaAbility { source });
+    }
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    for _ in 0..24 {
+        if super::testkit::stack_is_empty(engine)
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat)
+        {
+            return;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                ..
+            } => {
+                let back: Vec<_> = options.into_iter().rev().take(min as usize).collect();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects: back })
+                    .unwrap();
+            }
+            other => panic!("nothing else should be asked here, got {other:?}"),
+        }
+    }
+    panic!("the Brainstorm never finished resolving");
+}
+
+/// A token's keyword trigger fires, and the keyword can be one it was given.
+///
+/// The card-less half of an ability handle used to be a reason to *stop*:
+/// both branches that put a synthetic keyword trigger (prowess, ward) on
+/// the stack read the source's card out first and returned when there was
+/// none, so a token was queued a trigger it never fired. Nothing about
+/// prowess needs a card — it is one line of arithmetic on the creature
+/// that has it.
+///
+/// Sokka is the whole board. He prints prowess, gives it to every other
+/// Ally his controller has, and makes an Ally token on each noncreature
+/// spell — so the *first* Brainstorm creates the token and the *second*
+/// is the spell its borrowed prowess answers.
+///
+/// The second token is the counter-test and costs nothing: it is made by
+/// the same trigger on the same spell, so it arrives after that spell was
+/// cast and has nothing to have grown from. One 2/2 and one 1/1 on a
+/// board where both are the same token is the pair that says the trigger
+/// fired for a reason rather than by accident.
+#[test]
+fn a_token_grows_on_the_prowess_it_was_lent() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(11, island())
+        .battlefield(0, &[sokka(), island(), island(), island(), island()])
+        .hand(0, &[brainstorm(), brainstorm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_a_brainstorm(&mut engine, p0);
+    let first = *tokens_on_battlefield(&engine)
+        .first()
+        .expect("Sokka made an Ally token");
+    assert_eq!(
+        power_and_toughness(&engine, first),
+        (1, 1),
+        "the token arrives as the 1/1 it is printed as"
+    );
+
+    cast_a_brainstorm(&mut engine, p0);
+    assert_eq!(
+        power_and_toughness(&engine, first),
+        (2, 2),
+        "and grows on a prowess it holds only because Sokka is standing beside it"
+    );
+    let second = *tokens_on_battlefield(&engine)
+        .iter()
+        .find(|id| **id != first)
+        .expect("the second Brainstorm made a second Ally token");
+    assert_eq!(
+        power_and_toughness(&engine, second),
+        (1, 1),
+        "the token that arrived with the spell had nothing to grow on"
+    );
+}
+
+/// The projected size of a permanent, which is the only one worth asking
+/// about here: prowess is a continuous effect, not a counter.
+fn power_and_toughness(engine: &Engine<RegistryLookup>, id: ObjectId) -> (i16, i16) {
+    let c = engine
+        .state()
+        .object(id)
+        .expect("the permanent is on the battlefield")
+        .characteristics();
+    (
+        c.power.expect("a creature has power"),
+        c.toughness.expect("a creature has toughness"),
+    )
+}

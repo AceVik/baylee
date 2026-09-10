@@ -1598,10 +1598,19 @@ chosen after that: by the time the spell has targets, the event that would
 have found them is behind the window.
 
 Prowess is the same branch and is *not* the same fault — it reads the
-`SpellCast` event alone and needs nothing from the spell's targets — but the
-pool has no implemented prowess creature to prove it on either (Pinnacle
-Monk is a generated stub), so both engine-level keyword triggers are
-currently unreachable from a game.
+`SpellCast` event alone and needs nothing from the spell's targets. It is
+also reachable, and is now played rather than read: **Sokka, Tenacious
+Tactician** prints menace and prowess, gives both to every other Ally his
+controller has, and makes an Ally token on each noncreature spell, so one
+board proves the card-less half of the synthetic-trigger fix by playing
+it — `token_tests::a_token_grows_on_the_prowess_it_was_lent`, where the
+first Brainstorm makes the token and the second is the spell its borrowed
+prowess answers. With the old guard back in place the token stays 1/1.
+
+(The first draft of this entry said the pool had no implemented prowess
+creature. It was grepped for the printed word `Prowess` under `cards/`
+rather than for `KeywordSet::PROWESS`, which is how a keyword is spelled
+where it counts — the pool-wide-claim lesson, once more.)
 
 Not fixed here. The change that found it made the card-less half of an
 ability handle honest, which is what let a copy of a warded creature be
