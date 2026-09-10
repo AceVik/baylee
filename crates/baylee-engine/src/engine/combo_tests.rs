@@ -2479,6 +2479,78 @@ fn the_mirror_gives_back_the_protection_it_borrowed() {
     );
 }
 
+/// The ordering question the other two copy paths do not raise: is a copy's
+/// replacement rule registered before the trigger its own arrival caused is
+/// collected?
+///
+/// A token copy is handed its rules text by `settle_copied_rules_text` at
+/// step 0 of the pass, ahead of everything, which is what makes the token
+/// answer ([`the_copy_registers_the_replacement_rule_it_copied`]) say
+/// nothing about ordering. `check_copy_on_enter` runs at 0b, one step
+/// *after* the scan that registers what a permanent can do — and what saves
+/// it is that it asks the controller a question: the machine returns on
+/// `awaiting_answer`, and the pass that applies the answer starts again at
+/// step 0, so the rule is registered before step 3 collects a trigger.
+///
+/// Cursed Mirror rather than a Glasspool Mimic, because a Mimic may copy
+/// only a creature you control and would need a Katara of mine standing
+/// there multiplying the same trigger — two multipliers and no way to say
+/// which one did it. "Any creature on the battlefield" reaches theirs, so
+/// the only multiplier on my side of the table is the one the Mirror has
+/// just become.
+#[test]
+fn the_mirror_multiplies_the_trigger_its_own_arrival_caused() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(103, forest())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                earth_king_s_lieutenant(),
+            ],
+        )
+        .hand(0, &[cursed_mirror()])
+        .battlefield(1, &[katara_the_fearless(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        plus_one_counters(&engine, p0, earth_king_s_lieutenant()),
+        0,
+        "nothing has entered yet"
+    );
+    let katara = on_battlefield(&engine, p1, katara_the_fearless()).expect("their Katara");
+
+    cast_from_hand(&mut engine, p0, cursed_mirror());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![katara],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        plus_one_counters(&engine, p0, earth_king_s_lieutenant()),
+        2,
+        "my Lieutenant's rally fired for the Ally that entered, and once \
+         more because by the time the trigger was collected that Ally was a \
+         Katara"
+    );
+    assert_eq!(
+        engine.state().object(katara).map(|o| o.controller),
+        Some(p1),
+        "and the Katara it copied is still theirs"
+    );
+}
+
 fn esper_sentinel() -> baylee_core::ids::CardIndex {
     card_index("5def9f38-0a0b-4e8d-9f9d-29dcb46520b4")
 }

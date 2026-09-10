@@ -940,23 +940,26 @@ impl<L: CardLookup> Engine<L> {
         // face instead registered the Mimic's own statics, of which it has
         // none.
         //
-        // A Mimic is registered a pass late, because
-        // `check_copy_on_enter` runs inside `apply_enter_modifiers`, one
-        // step *after* this one: the pass it arrives on scans it with an
-        // empty list, and the next pass picks it up — the question below
-        // being whether the effect is already registered and not whether
-        // the permanent has been looked at. For a static that costs
-        // nothing; no priority is granted between two passes, so no player
-        // ever sees the board without it.
+        // A Mimic is registered on the pass after the one it arrived on,
+        // because `check_copy_on_enter` runs inside `apply_enter_modifiers`,
+        // one step *after* this one: the pass it arrives on scans it before
+        // it is a copy of anything, and the next pass picks it up — the
+        // question below being whether the effect is already registered and
+        // not whether the permanent has been looked at.
         //
-        // It is not free for the loop at the bottom. `collect_triggers` is
-        // step 3 of the *same* pass that hands the Mimic its list at 0b,
-        // so the copy's own triggered abilities fire on schedule while its
-        // replacement rules are still a step behind them — a Mimic that
-        // entered as a Katara would not double the trigger its own
-        // arrival causes, which by CR 707.2 it should. A token copy has
-        // neither problem: `settle_copied_rules_text` hands it its list at
-        // step 0, ahead of both, which is why that function runs where it
+        // Nothing happens in between, which is the part worth knowing and
+        // is not luck. `check_copy_on_enter` asks the controller which
+        // creature to copy, so it sets a pending and the machine returns on
+        // `awaiting_answer` two lines later; the pass that applies the
+        // answer begins again at step 0 and reaches this scan and the one at
+        // the bottom before `collect_triggers` at step 3. So a Mirror that
+        // entered as a Katara *does* multiply the trigger its own arrival
+        // caused, and no player is ever offered priority on a board where a
+        // copy is missing half its rules text.
+        //
+        // A token copy is asked nothing and could not be saved that way:
+        // `settle_copied_rules_text` hands it its list at step 0, ahead of
+        // every scan in the pass, which is why that function runs where it
         // does.
         let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut to_register = Vec::new();
