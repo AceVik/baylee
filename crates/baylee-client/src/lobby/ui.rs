@@ -1632,7 +1632,15 @@ fn field_runs(
     // Before the selection, or before the tail: the two sides of a selected
     // run, and the same seam when nothing is selected and the run is empty.
     let caret_at = usize::from(seg.caret_after_selection) + 1;
-    let runs = [(seg.head, false), (seg.selected, true), (seg.tail, false)];
+    // Only the field with the caret shows a selection. Both marks say the
+    // same thing — *this is where the typing goes* — so a field that has
+    // neither the caret nor the typing must show neither, and the accent
+    // that rings the focused box was standing in two boxes at once.
+    let runs = [
+        (seg.head, false),
+        (seg.selected, look.focused),
+        (seg.tail, false),
+    ];
     for (i, (text, selected)) in runs.into_iter().enumerate() {
         if i == caret_at
             && let Some(caret) = caret

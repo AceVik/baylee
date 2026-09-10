@@ -2122,12 +2122,11 @@ fn a_selection_is_a_run_with_a_fill_behind_it() {
         ["a", "|", "b"],
         "shift and right selects the a and leaves the caret past it"
     );
-    let mut fills = app.world_mut().query::<&BackgroundColor>();
-    let selected = fills
-        .iter(app.world())
-        .filter(|fill| fill.0 == palette::SELECTION)
-        .count();
-    assert_eq!(selected, 1, "exactly the selected run carries the fill");
+    assert_eq!(
+        fills(&mut app),
+        1,
+        "exactly the selected run carries the fill"
+    );
 }
 
 /// A password is drawn as bullets, and the field still holds the letters —
@@ -2170,4 +2169,61 @@ fn the_caret_blinks_unless_it_was_asked_to_hold_still() {
     assert!(!caret_lit(0.6, false), "dark through the second half");
     assert!(caret_lit(1.1, false), "and lit again on the next round");
     assert!(caret_lit(0.6, true), "reduce_motion is a promise it holds");
+}
+
+/// A field nobody is typing into shows no selection either.
+///
+/// The fill and the ring are the same accent saying the same thing, so a
+/// selection left standing in a field the caret has walked out of put that
+/// claim in two boxes at once. Found by looking at the screen.
+#[test]
+fn a_field_without_the_caret_shows_no_selection() {
+    let mut app = headless();
+    {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for ch in ['a', 'b'] {
+            messages.write(typed(ch));
+        }
+        messages.write(pressed(KeyCode::Home, Key::Home));
+    }
+    app.update();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::ShiftLeft);
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::ArrowRight, Key::ArrowRight));
+    app.update();
+    assert_eq!(fills(&mut app), 1, "the premise: a selection was made");
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .release(KeyCode::ShiftLeft);
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::Tab, Key::Tab));
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.focus(),
+        Field::Password,
+        "the caret left the field"
+    );
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .buffer(Field::Email)
+            .selection()
+            .is_some(),
+        "and the selection is still in the buffer, undrawn"
+    );
+    assert_eq!(fills(&mut app), 0, "nothing is drawn selected any more");
+}
+
+/// How many runs on screen carry the selection fill.
+fn fills(app: &mut App) -> usize {
+    let mut query = app.world_mut().query::<&BackgroundColor>();
+    query
+        .iter(app.world())
+        .filter(|fill| fill.0 == palette::SELECTION)
+        .count()
 }
