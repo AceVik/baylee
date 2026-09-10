@@ -157,6 +157,56 @@ const SLEEP_DIM: f32 = 0.22;
 const SLEEP_MOON: vec3<f32> = vec3<f32>(0.74, 0.82, 1.0);
 const SLEEP_LIFT: vec3<f32> = vec3<f32>(0.02, 0.03, 0.06);
 
+/// The water a creature that has only just arrived is still settling into.
+///
+/// The blanket says *asleep*; the rings say *only just landed*, and the two
+/// are needed together because a colour cast alone is ambiguous with the art
+/// underneath it — a blue creature drawn cold looks like a blue creature. The
+/// rings are the half no art can be mistaken for: they are the one thing in
+/// the night that moves *across* the face instead of along one axis of it,
+/// which is what reads as something happening to the card rather than as
+/// something printed on it.
+///
+/// Water and not roots or frost, of the three shapes this could have taken.
+/// Roots would have to be drawn as organic shape, and shape on the face is
+/// how a *creature type* reads; frost would be crystalline, and the border's
+/// own register already spends hard blue-grey on indestructible. Rings are
+/// neither — a luminance swell tinted with the same `SLEEP_MOON` the rest of
+/// the night is lit by, so the card's colour identity survives it intact,
+/// which is the one thing an unlit stage exists to protect.
+///
+/// They spread from the middle of the card because that is where a thing
+/// dropped into still water lands. `SLEEP_RING_ASPECT` is the card's own
+/// 88:63, without which the circles would be drawn as ellipses, and
+/// `SLEEP_RING_REACH` is the distance from the middle to a corner in that
+/// corrected space, so the radius the rest of the block reads is 0 at the
+/// centre and 1 at the corner whatever size the card is drawn at.
+///
+/// `SLEEP_RING_SHARP` is what makes them rings at all. A plain sine is a
+/// corrugation — equal halves, light and dark, which is the wash the first
+/// attempt drew; raising it to a power leaves a thin crest on flat water, and
+/// `SLEEP_RING_FLOOR` takes the mean back off so the water between two crests
+/// is a shade *under* the card rather than exactly it. Five crests to the
+/// corner was chosen against the smallest card the table draws: photographed
+/// at 60, 106 and 220 pixels wide, five stays legible at the first and does
+/// not moire at the last.
+///
+/// 3.4 seconds is one crest leaving the middle at a pace nothing else on a
+/// card keeps — the breath is 5, the sheaths 3.93 and 2.86, the chase slower
+/// still — so a sick creature that is also hexproof never has two of its
+/// lights arrive together. At `motion == 0` the clock stops with the rings at
+/// fixed radii, which is an honest frame of the animation rather than an
+/// absence of it.
+const SLEEP_RING_SECONDS: f32 = 3.4;
+const SLEEP_RING_ASPECT: f32 = 1.397;
+const SLEEP_RING_REACH: f32 = 0.86;
+const SLEEP_RING_COUNT: f32 = 5.0;
+const SLEEP_RING_SHARP: f32 = 5.0;
+const SLEEP_RING_BIRTH: f32 = 0.10;
+const SLEEP_RING_FADE: f32 = 0.62;
+const SLEEP_RING_FLOOR: f32 = 0.16;
+const SLEEP_RING_LIGHT: f32 = 0.13;
+
 /// What a card's corner is inked with once the scan's white is cut away: the
 /// same near-black as the slab's edge wall, so the corner reads as the card
 /// turning away rather than as a mark printed on it.
@@ -320,6 +370,18 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         var asleep = mix(color.rgb, vec3<f32>(luma), SLEEP_DESAT);
         asleep = mix(asleep, asleep * SLEEP_MOON, weight);
         asleep = asleep * (1.0 - SLEEP_DIM * weight) + SLEEP_LIFT * weight;
+        // The rings, spreading from the middle of the card. No crest at the
+        // very centre, where one would read as a pulsing dot, and none at the
+        // rim, where the border's own register is already speaking.
+        let ring_at = vec2<f32>(uv.x - 0.5, (uv.y - 0.5) * SLEEP_RING_ASPECT);
+        let ring_r = length(ring_at) / SLEEP_RING_REACH;
+        let ring_env = smoothstep(0.0, SLEEP_RING_BIRTH, ring_r)
+            * (1.0 - smoothstep(SLEEP_RING_FADE, 1.0, ring_r));
+        let swell = 0.5 + 0.5 * sin(
+            6.2831855 * (ring_r * SLEEP_RING_COUNT - t / SLEEP_RING_SECONDS),
+        );
+        let ring = ring_env * (pow(swell, SLEEP_RING_SHARP) - SLEEP_RING_FLOOR);
+        asleep = asleep + ring * SLEEP_RING_LIGHT * SLEEP_MOON;
         color = vec4<f32>(asleep, color.a);
     }
 

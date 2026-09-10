@@ -668,6 +668,25 @@ separation is the whole grammar:
   bounded: red stays red, green goes teal, white goes coldest, and pushing it
   further would start deciding a card's colour identity for it, which is the
   one thing an unlit stage exists to protect.
+
+  A cast alone was still ambiguous with the art under it — a blue creature
+  drawn cold looks like a blue creature — so the night has a second half:
+  **slow rings spreading from the middle of the card** (`SLEEP_RING_*`), the
+  splash a thing that has only just landed is still settling out of. They are
+  the one part of the drawing that moves *across* the face rather than along
+  one axis of it, which is what no art can be mistaken for. Water rather than
+  roots or frost of the three shapes it could have taken: roots would have to
+  be organic shape, and shape on the face is how a creature *type* reads,
+  while frost would be crystalline and the border already spends hard
+  blue-grey on indestructible. A ring is neither — a luminance swell tinted
+  with the same moon, so colour identity survives it. Five crests to the
+  corner, chosen against the smallest card the table draws (photographed at
+  60, 106 and 220 pixels wide), one leaving the middle every 3.4 s, which is
+  clear of every other clock a card can wear. Measured on the running client:
+  over two seconds the sick card moves 38 levels per channel while an
+  untapped-neighbour control moves 0, and the change varies by 36 levels
+  *within a single row* — which is the ring rather than the blanket, since a
+  blanket is constant along x.
 - **The perimeter says what is on offer.** `glow::ACTIVATABLE` rides in the
   same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
   `LegalActions` rather than from the card, and is drawn as a warm light

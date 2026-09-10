@@ -1426,7 +1426,7 @@ pub(crate) mod tests {
         let table = include_str!("shaders/card.wgsl");
         let ui = include_str!("shaders/card_ui.wgsl");
         let theirs = night(table);
-        assert_eq!(theirs.len(), 10, "the table shader lost a sleep constant");
+        assert_eq!(theirs.len(), 19, "the table shader lost a sleep constant");
         assert_eq!(theirs, night(ui), "the two shaders sleep differently");
 
         // And the breath runs on the constant that names its period, with
@@ -1441,6 +1441,10 @@ pub(crate) mod tests {
             assert!(
                 src.contains("sin(t * 6.2831855 / SLEEP_SECONDS)"),
                 "{which} does not breathe on SLEEP_SECONDS"
+            );
+            assert!(
+                src.contains("ring_r * SLEEP_RING_COUNT - t / SLEEP_RING_SECONDS"),
+                "{which} does not send its rings out on SLEEP_RING_SECONDS"
             );
         }
     }
