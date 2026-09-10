@@ -739,6 +739,54 @@ fn an_ability_the_engine_cannot_pay_for_is_never_offered() {
     );
 }
 
+/// The class that card is one member of, guarded where the sweep cannot look.
+///
+/// An ability whose cost `can_afford` refuses unconditionally is never
+/// offered, so [`COVERAGE_FLOOR`] counts the card exactly as it counts a
+/// vanilla creature: it arrives, is asked, and answers with nothing. The
+/// sweep cannot *report* the next Recurring Nightmare — it can only fail to
+/// mention it — while the deckbuilder goes on listing the card as playable
+/// and it sits in a deck doing nothing at all.
+///
+/// So this half is static and pool-wide, in the shape of
+/// `keyword_tests::no_card_claims_a_keyword_the_engine_ignores`: a card that
+/// prints such a cost says `Coverage::Partial` with the reason on it, or the
+/// build fails. Recurring Nightmare was moved by hand; this is what stops
+/// the next one arriving as playable.
+///
+/// Activated abilities only, and both spellings of one
+/// ([`AbilityDef::ActivatedConditional`] is the same ability with a
+/// precondition, and reading only the first is how six other places got this
+/// wrong). A spell's alternative or additional cost is a different path
+/// entirely — it is paid in the casting wizard, which does have somewhere to
+/// ask — and neither `can_afford` nor `pay_cost` is ever shown one.
+#[test]
+fn no_implemented_card_hides_an_ability_the_engine_will_never_offer() {
+    let mut offenders = Vec::new();
+    for def in baylee_cards::all().filter(|d| d.is_implemented()) {
+        for face in 0..def.faces.len() {
+            for ability in def.abilities_for_face(face) {
+                let (AbilityDef::Activated { cost, .. }
+                | AbilityDef::ActivatedConditional { cost, .. }) = ability
+                else {
+                    continue;
+                };
+                for part in cost.parts {
+                    if crate::engine::abilities::choice_cost_unpayable(part) {
+                        offenders.push(format!("{} — {part:?}", def.name()));
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "an implemented card carries an activated ability the engine will \
+         never offer, because `can_afford` refuses its cost on every board: \
+         {offenders:?}"
+    );
+}
+
 /// A permanent that makes mana two ways is offered once.
 ///
 /// `mana_abilities` is addressed by `PlayerAction::ActivateManaAbility

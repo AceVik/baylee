@@ -7,6 +7,32 @@ use super::{
 use crate::choice::TargetPrompt;
 use baylee_cards_dsl::ActivationZone;
 
+/// The cost parts no activation can pay, whatever the board says.
+///
+/// Both of them name something to *choose*, and `pay_cost` answers both with
+/// "choice costs are not supported yet (M2)": an activation has nowhere to
+/// ask a player which permanent to sacrifice or which card to discard.
+/// `can_afford` therefore refuses them for that reason rather than for
+/// anything it can see on the board, which is the whole point — it is what
+/// `legal_actions` gates the offer on, and an offer the payment refuses is
+/// the engine lighting a permanent up and then punishing the player for
+/// pressing it. Recurring Nightmare is the one card in the pool that reaches
+/// it, and its `{0}` mana cost is why nothing was visibly lost: `pay_cost`
+/// refuses these *after* emptying the pool for the mana half and applying
+/// every earlier part, and it does not rewind.
+///
+/// A predicate rather than a list written out wherever it is needed, because
+/// the second reader is a pool-wide guard —
+/// `offer_tests::no_implemented_card_hides_an_ability_the_engine_will_never_offer`
+/// — and a card carrying such a cost has an ability the offer sweep can
+/// never press, which looks from there exactly like a card with no ability
+/// at all. Anything `can_afford` comes to refuse unconditionally belongs
+/// here, and supporting choice costs is a deletion here that relaxes both
+/// readers at once.
+pub(crate) const fn choice_cost_unpayable(part: &CostPart) -> bool {
+    matches!(part, CostPart::Sacrifice(_) | CostPart::Discard(_))
+}
+
 impl<L: CardLookup> Engine<L> {
     /// Whether a spell has something it could legally be cast at.
     ///
@@ -492,6 +518,9 @@ impl<L: CardLookup> Engine<L> {
             return false;
         }
         for part in cost.parts {
+            if choice_cost_unpayable(part) {
+                return false;
+            }
             match part {
                 // CR 302.6, second sentence: a creature's activated ability
                 // with the tap or the untap symbol in its cost cannot be
@@ -519,17 +548,9 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
-                // A cost that names something to choose, and `pay_cost`
-                // answers both of these with "choice costs are not supported
-                // yet (M2)". Saying so here rather than there is the whole
-                // point: this is what `legal_actions` gates the offer on, and
-                // an offer the payment refuses is the two-probes
-                // disagreement — the engine lights a permanent up and then
-                // punishes the player for pressing it. Recurring Nightmare is
-                // the one card in the pool that reaches it, and its `{0}`
-                // mana cost is why nothing was visibly lost: `pay_cost`
-                // refuses these *after* emptying the pool for the mana half
-                // and applying every earlier part, and it does not rewind.
+                // Already refused, by [`choice_cost_unpayable`] above. Named
+                // here rather than swept into a `_` so that a new `CostPart`
+                // is still a compile error in this match.
                 CostPart::Sacrifice(_) | CostPart::Discard(_) => return false,
                 CostPart::SacrificeSelf
                 | CostPart::DiscardSelf
