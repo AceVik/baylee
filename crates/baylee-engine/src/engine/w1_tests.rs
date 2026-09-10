@@ -300,3 +300,89 @@ fn triome_cycling_from_hand_draws() {
         assert!(guard < 60, "triome never cycled");
     }
 }
+
+/// [`preset_with_hand`] with seat 0 on a chosen life total.
+fn preset_at_life(seed: u64, hand0: Vec<CardIndex>, life: i32) -> GamePreset {
+    let mut preset = preset_with_hand(seed, hand0, vec![]);
+    preset.seats[0].starting_life = Some(life);
+    preset
+}
+
+/// CR 119.4: a player may pay life while their life total is greater than or
+/// **equal** to the payment, so a shockland asks a player on exactly two life
+/// and takes their last two if they say yes.
+///
+/// The engine used to write that boundary as `life <= amount → cannot`, in
+/// three places, which is one point of life too many: the land entered tapped
+/// without a question being asked, and the player was never told there was
+/// one. Paying is not the same act as losing: the loss is CR 104.3b/704.5a,
+/// a separate rule that an effect saying a player cannot lose the game turns
+/// off, so a payment which presupposed it would be refusing something
+/// CR 119.4 permits. The margin that keeps the house AI
+/// off this cliff is the AI's own (`activate::life_ok`, `life > amount + 5`),
+/// which is where a policy belongs.
+#[test]
+fn a_shockland_asks_a_player_who_can_pay_their_last_two_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Engine::new(
+        &preset_at_life(41, vec![hallowed_fountain()], 2),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    play_land_from_hand(&mut engine, p0);
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        panic!(
+            "the shockland never asked a player who could pay; pending is {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        prompt,
+        crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 2 }
+    );
+
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(engine.state().players[0].life, 0, "the two life were paid");
+    // Whether the land came in untapped is `shockland_pays_life_or_enters_
+    // tapped`'s question and cannot be asked here: the seat leaves the game
+    // in the same `apply`, taking its permanents with it (CR 800.4a), so the
+    // object is already gone by the time this returns.
+    //
+    // The other half of the same decision, and the reason it is one.
+    assert!(
+        matches!(engine.pending(), Pending::GameOver(_)),
+        "a player at zero life loses to CR 704.5a; pending is {:?}",
+        engine.pending()
+    );
+}
+
+/// The boundary from the other side: one life is not two, so there is nothing
+/// to ask about and the land enters tapped (CR 119.4, CR 614.1c).
+#[test]
+fn a_shockland_asks_nobody_who_cannot_pay_in_full() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Engine::new(
+        &preset_at_life(41, vec![hallowed_fountain()], 1),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    play_land_from_hand(&mut engine, p0);
+    assert!(
+        !matches!(engine.pending(), Pending::YesNo { .. }),
+        "a player on one life cannot pay two and must not be asked to"
+    );
+    assert_eq!(engine.state().players[0].life, 1, "nothing was paid");
+    let fountain = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+    assert!(
+        engine
+            .state()
+            .object(fountain)
+            .unwrap()
+            .status
+            .contains(crate::object::Status::TAPPED),
+        "an unpayable shockland enters tapped"
+    );
+}

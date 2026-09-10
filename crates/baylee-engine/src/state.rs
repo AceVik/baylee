@@ -507,6 +507,33 @@ impl GameState {
         other != player && self.side_of(other) != self.side_of(player)
     }
 
+    /// Whether `player` may pay `amount` life (CR 119.4).
+    ///
+    /// The rule is "greater than or **equal** to the amount of the payment",
+    /// so a player on exactly two life may pay two and lose the game to
+    /// CR 704.5a a moment later. That is their call and not the engine's:
+    /// this was written three times as `life <= amount → no`, which quietly
+    /// took the last point of life off the table — a shockland entered
+    /// tapped without asking, and a fetchland was never offered. The margin
+    /// that keeps the house AI from killing itself is the AI's own
+    /// (`activate::life_ok`, `life > amount + 5`), which is where a policy
+    /// belongs; a rule that refuses a legal action is not a policy.
+    ///
+    /// Zero is always payable whatever the life total, including a negative
+    /// one, which is CR 119.4b said exactly.
+    ///
+    /// Two-Headed Giant pays out of the team's life total (CR 119.4a), which
+    /// this does not model: teams exist here ([`Player::team`]) but life
+    /// does not pool — every seat carries its own — so this asks the seat.
+    #[must_use]
+    pub fn can_pay_life(&self, player: PlayerId, amount: i32) -> bool {
+        amount <= 0
+            || self
+                .players
+                .get(player.get() as usize)
+                .is_some_and(|p| p.life >= amount)
+    }
+
     /// Builds a game from a preset: seats, decks, shuffles, opening hands,
     /// starting battlefield, emblems.
     ///

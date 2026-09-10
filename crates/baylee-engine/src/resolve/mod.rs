@@ -1082,7 +1082,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
         Effect::AddMana { .. } => mana::exec(state, res, op),
         Effect::PayLifeOrEnterTapped { amount } => {
             // Not payable at all → no choice, enters tapped (CR 614.1c).
-            if state.players[you.get() as usize].life <= i32::from(amount) {
+            if !state.can_pay_life(you, i32::from(amount)) {
                 if let Some(obj) = state.object_mut(res.source) {
                     obj.status.insert(Status::TAPPED);
                 }

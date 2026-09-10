@@ -620,7 +620,7 @@ impl<L: CardLookup> Engine<L> {
                     EnterModifier::TappedOrPayLife(amount) => {
                         let amount = *amount;
                         // Unpayable → tapped without a choice.
-                        if self.state.players[controller.get() as usize].life <= i32::from(amount) {
+                        if !self.state.can_pay_life(controller, i32::from(amount)) {
                             if let Some(obj) = self.state.object_mut(id) {
                                 obj.status.insert(Status::TAPPED);
                                 changed = true;

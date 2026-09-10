@@ -503,7 +503,7 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
                 CostPart::PayLife(n) => {
-                    if self.state.players[player.get() as usize].life <= i32::from(*n) {
+                    if !self.state.can_pay_life(player, i32::from(*n)) {
                         return false;
                     }
                 }
