@@ -114,11 +114,24 @@ impl Characteristics {
             .iter()
             .chain(def.faces.iter().flat_map(|f| f.abilities.iter()));
         for ability in all_abilities {
-            let baylee_cards_dsl::AbilityDef::Activated {
+            // A conditional mana ability counts, and counts unconditionally.
+            // CR 106.7 asks what an ability "would produce if the ability
+            // were to resolve at that time" and tells the reader to ignore
+            // whether its costs could be paid; an "activate only if…" clause
+            // is a restriction on *beginning* the activation (CR 602.5) and
+            // is not part of resolving it either. So Bleachbone Verge could
+            // produce {W} whether or not a Plains is on the table — and a
+            // Fellwar Stone across from it was being offered {B} alone.
+            let (baylee_cards_dsl::AbilityDef::Activated {
                 mana_ability: true,
                 effects,
                 ..
-            } = ability
+            }
+            | baylee_cards_dsl::AbilityDef::ActivatedConditional {
+                mana_ability: true,
+                effects,
+                ..
+            }) = ability
             else {
                 continue;
             };
