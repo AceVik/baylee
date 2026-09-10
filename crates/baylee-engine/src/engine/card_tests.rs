@@ -1513,3 +1513,159 @@ fn a_spell_that_may_target_any_number_is_not_asked_with_nothing_to_target() {
         matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
     });
 }
+
+fn nephalia_drownyard() -> baylee_core::ids::CardIndex {
+    card_index("6429b4ed-1845-4643-9a3d-85f7c12f2bba")
+}
+
+fn blighted_gorge() -> baylee_core::ids::CardIndex {
+    card_index("c2cb0afd-781f-4cfa-b680-ed1edfa81868")
+}
+fn mountain() -> baylee_core::ids::CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+fn library_size(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(seat))
+        .len()
+}
+
+/// Nephalia Drownyard: "{1}{U}{B}, {T}: Target player mills three cards."
+///
+/// A player is the only thing this can be pointed at, and the *object* list
+/// for such a spec is empty by construction — so an ability `LegalActions`
+/// had just offered was refused by `apply` with "no legal targets", the
+/// disagreement between two probes this engine treats as the worst kind.
+/// Three implemented lands print it and all three were dead: the Drownyard,
+/// Duskmantle, House of Shadow and Orzhova, the Church of Deals.
+#[test]
+fn a_land_that_mills_target_player_can_be_activated() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(203, forest())
+        .battlefield(0, &[nephalia_drownyard(), island(), island(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let drownyard = on_battlefield(&engine, p0, nephalia_drownyard()).expect("the Drownyard");
+    // Its own tap is part of the ability's cost, so it is the one land that
+    // must not be spent on the mana.
+    tap_mana_except(&mut engine, p0, drownyard);
+    let before = library_size(&engine, p1);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: drownyard,
+                ability_index: 1,
+            },
+        )
+        .expect("two Islands and a Swamp pay {1}{U}{B}");
+    let Pending::ChooseTargets {
+        options,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the mill asks whose library: {:?}", engine.pending())
+    };
+    assert!(options.is_empty(), "a seat is not an object");
+    assert!(
+        player_options.contains(&p1),
+        "and the other seat is one of the answers"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
+    });
+    assert_eq!(
+        library_size(&engine, p1),
+        before - 3,
+        "three cards off the top of the library that was named"
+    );
+}
+
+/// Blighted Gorge: "{4}{R}, {T}, Sacrifice this land: it deals 2 damage to
+/// any target" — at a table with no creature on it.
+///
+/// "Any target" is one set spanning objects and players (CR 115.4), and the
+/// offer used to count only the objects: with an empty board the ability was
+/// withheld, although a player is always there to point at. The activation
+/// then had the second half of the same fault, so the two ends of this test
+/// are two defects — the ability has to be offered, and it has to go
+/// through.
+#[test]
+fn a_land_that_burns_any_target_reaches_a_face_across_an_empty_board() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(204, forest())
+        .battlefield(
+            0,
+            &[
+                blighted_gorge(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let gorge = on_battlefield(&engine, p0, blighted_gorge()).expect("the Gorge");
+    tap_mana_except(&mut engine, p0, gorge);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("still priority");
+    };
+    assert!(
+        legal.abilities.contains(&(gorge, 1)),
+        "a face is a legal target even with nothing on the battlefield"
+    );
+    let life = engine.state().players[1].life;
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: gorge,
+                ability_index: 1,
+            },
+        )
+        .expect("five Mountains pay {4}{R}");
+    let Pending::ChooseTargets {
+        options,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the damage asks where: {:?}", engine.pending())
+    };
+    assert!(options.is_empty(), "no creature at the table");
+    assert!(player_options.contains(&p1), "but both faces are there");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
+    });
+    assert_eq!(
+        engine.state().players[1].life,
+        life - 2,
+        "two damage to the seat that was named"
+    );
+}

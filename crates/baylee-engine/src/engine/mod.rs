@@ -91,6 +91,14 @@ pub struct Engine<L: CardLookup> {
     pending_plan: Option<PlanKind>,
     /// A player chosen for a pending loyalty `AnyPlayer` target.
     loyalty_player_choice: Option<PlayerId>,
+    /// The seats named by a pending activation's target choice.
+    ///
+    /// Carried in a field for the reason [`Engine::activating_abilities`] is:
+    /// `start_activation` is re-entered with the answer, and threading a
+    /// second list through every caller of a function most of them pass
+    /// nothing to buys nothing. It is taken at the top of that function, so
+    /// an activation refused after `apply` set it cannot hand it on.
+    activation_target_players: Vec<PlayerId>,
     /// The activating source's ability list, read before its cost is paid.
     ///
     /// CR 602.2a puts an activated ability on the stack *before* its costs
@@ -280,6 +288,7 @@ impl<L: CardLookup> Engine<L> {
             pending_plan: None,
             agreed_draw: false,
             loyalty_player_choice: None,
+            activation_target_players: Vec::new(),
             activating_abilities: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),

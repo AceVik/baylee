@@ -467,6 +467,11 @@ impl<L: CardLookup> Engine<L> {
                         ) {
                             self.finish_loyalty_activation(player, source, ability_index, targets)?;
                         } else {
+                            // Only on this arm. A loyalty ability shares the
+                            // plan and finishes elsewhere, so setting the
+                            // field for one would leave it standing for
+                            // whichever activation came next.
+                            self.activation_target_players.clone_from(&players);
                             self.start_activation(player, source, ability_index, targets)?;
                         }
                     }

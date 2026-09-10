@@ -357,13 +357,18 @@ impl<L: CardLookup> Engine<L> {
             return true;
         }
         let wanted = req.min as usize;
-        if matches!(
-            req.spec,
-            baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
-        ) {
-            return eval::target_player_options(&self.state, &req.spec, player).len() >= wanted;
-        }
-        eval::target_options(&req.spec, &self.state, player, source).len() >= wanted
+        // Both halves of one choice (CR 115.4): "any target" is a creature,
+        // a planeswalker, a battle *or* a player, so only the sum says
+        // whether the ability can be pointed anywhere. Splitting on the spec
+        // instead — players for `AnyPlayer`, objects for everything else —
+        // read Blighted Gorge's "deal 2 damage to any target" as objects
+        // alone, and withheld it at a table with an empty board although a
+        // player is always there to point at. `target_player_options`
+        // answers empty for every object-only spec, which is what lets one
+        // sum serve every spec; the cast wizard adds them the same way.
+        let objects = eval::target_options(&req.spec, &self.state, player, source).len();
+        let players = eval::target_player_options(&self.state, &req.spec, player).len();
+        objects + players >= wanted
     }
 
     /// Whether Karn's lock covers this permanent: "activated abilities of
@@ -699,6 +704,11 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
+        // The player half of a choice this activation has already answered,
+        // put here by `apply`. Read out before anything at all can return,
+        // so that an activation refused further down cannot leave it
+        // standing for the next one to inherit.
+        let chosen_players = std::mem::take(&mut self.activation_target_players);
         // Prepared cast (`choice::PREPARED_CAST`): pay the linked
         // spell's cost, put a copy on the stack, unprepare the source.
         if ability_index == crate::choice::PREPARED_CAST {
@@ -800,12 +810,33 @@ impl<L: CardLookup> Engine<L> {
             ));
         }
         let _ = zone;
-        // Targets (chosen first unless already provided).
+        // Targets, unless the answer is already in hand — and it is in hand
+        // when *either* half of it is. Asking only about the objects sent an
+        // ability whose targets are all players straight back to the same
+        // question: `apply` re-enters here with an empty object list, which
+        // read as "nothing chosen yet".
+        //
+        // This used to be written twice — once here and once after the cost
+        // was paid, identically — and the second copy was unreachable:
+        // nothing between them touches `targets` or `target`. What it left
+        // behind is a comment claiming the engine chooses targets after
+        // paying, which is neither what it does nor what the rules say
+        // (CR 601.2c chooses targets, CR 601.2h pays; an activation follows
+        // the same order by CR 602.2b).
         if targets.is_empty()
+            && chosen_players.is_empty()
             && let Some(spec) = target
         {
             let options = eval::target_options(&spec, &self.state, player, source);
-            if options.is_empty() {
+            // Players are the other half of the same choice, and asking for
+            // objects alone made three implemented lands dead: Nephalia
+            // Drownyard, Duskmantle and Orzhova all say "target player",
+            // whose object list is empty by construction — so each was
+            // offered in `LegalActions` (which does add the two counts) and
+            // then refused here with "no legal targets", the two-probes
+            // disagreement this engine treats as the worst kind.
+            let player_options = eval::target_player_options(&self.state, &spec, player);
+            if options.is_empty() && player_options.is_empty() {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
             self.pending_plan = Some(PlanKind::ActivateAbility {
@@ -815,7 +846,7 @@ impl<L: CardLookup> Engine<L> {
             self.pending = Pending::ChooseTargets {
                 player,
                 options,
-                player_options: Vec::new(),
+                player_options,
                 min: 1,
                 max: 1,
                 reason: TargetPrompt::Targets,
@@ -827,30 +858,6 @@ impl<L: CardLookup> Engine<L> {
             return Err(EngineError::IllegalAction("cannot pay the cost"));
         }
         self.pay_cost(player, source, &cost)?;
-        // Targets are chosen after the cost is paid (CR 602.1b); the
-        // target-choice plan completes via finish_activation.
-        if targets.is_empty()
-            && let Some(spec) = target
-        {
-            let options = eval::target_options(&spec, &self.state, player, source);
-            if options.is_empty() {
-                return Err(EngineError::IllegalAction("no legal targets"));
-            }
-            self.pending_plan = Some(PlanKind::ActivateAbility {
-                source,
-                ability_index,
-            });
-            self.pending = Pending::ChooseTargets {
-                player,
-                options,
-                player_options: Vec::new(),
-                min: 1,
-                max: 1,
-                reason: TargetPrompt::Targets,
-            };
-            self.awaiting_answer = true;
-            return Ok(());
-        }
         if mana_ability {
             // Mana abilities resolve immediately, without the stack
             // (CR 605.3b). Choice-mana abilities (any-color lands, Command
@@ -881,6 +888,23 @@ impl<L: CardLookup> Engine<L> {
             }
         } else {
             self.push_ability_to_stack(player, source, ability_index, targets);
+            // The seats that were targeted, written onto the ability now
+            // that there is one — the same two fields the trigger path
+            // writes, and for the same reason: `target_players` is the set
+            // that was named, `chosen_player` the single seat
+            // `PlayerRel::Chosen` reads back at resolution. It cannot wait
+            // until `apply` has this call's answer, because `after_action`
+            // below stacks whatever a sacrifice cost triggered, and that
+            // lands above this ability.
+            if !chosen_players.is_empty()
+                && let Some(top) = self.state.zones.list(ZoneLocation::Stack).last().copied()
+                && let Some(obj) = self.state.object_mut(top)
+            {
+                obj.target_players = chosen_players.iter().copied().collect();
+                if let [only] = chosen_players[..] {
+                    obj.chosen_player = Some(only);
+                }
+            }
         }
         self.after_action(player);
         Ok(())
