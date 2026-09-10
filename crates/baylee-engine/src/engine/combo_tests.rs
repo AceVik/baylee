@@ -109,6 +109,12 @@ fn crib_swap() -> baylee_core::ids::CardIndex {
 fn rite_of_replication() -> baylee_core::ids::CardIndex {
     card_index("fb60739e-1dc3-481d-a056-ad72e665c680")
 }
+fn thief_of_blood() -> baylee_core::ids::CardIndex {
+    card_index("97d61346-bd53-4eb8-a920-6ae0382eb20d")
+}
+fn spark_double() -> baylee_core::ids::CardIndex {
+    card_index("8dcb35e5-ae44-455f-86e3-4a77d496ff34")
+}
 
 /// The one *non-mana* activated ability `source` is offering right now.
 ///
@@ -4022,4 +4028,159 @@ fn a_prepared_cast_copies_a_sorcery_and_waits_for_a_sorcery_moment() {
             .is_err(),
         "naming the prepared cast anyway is refused"
     );
+}
+
+/// Thief of Blood over a Karn, with a Doubling Season on the seat `season`
+/// names.
+///
+/// Karn is cast rather than set up on the board, so the counters the Thief
+/// drains are ones the engine placed; its loyalty is read back before the
+/// Thief takes it, and the test asserts that number rather than assuming it.
+/// Ten Swamps is exactly the two casts — `{4}` and then `{4}{B}{B}`, both in
+/// the same main phase off one tap.
+fn a_thief_over_a_karn(seed: u64, season: usize) -> (u16, (i16, i16)) {
+    let p0 = PlayerId::new(0);
+    let mut mine = vec![swamp(); 10];
+    let mut theirs = Vec::new();
+    if season == 0 {
+        mine.push(doubling_season());
+    } else {
+        theirs.push(doubling_season());
+    }
+    let mut engine = Duel::new(seed, swamp())
+        .battlefield(0, &mine)
+        .hand(0, &[karn_the_great_creator(), thief_of_blood()])
+        .battlefield(1, &theirs)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, karn_the_great_creator());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, karn_the_great_creator()).is_some() && stack_is_empty(e)
+    });
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("Karn arrived");
+    let loyalty = engine
+        .state()
+        .object(karn)
+        .expect("Karn")
+        .counters
+        .get(baylee_cards_dsl::CounterKind::Loyalty);
+
+    cast_from_hand(&mut engine, p0, thief_of_blood());
+    // Karn *leaving* is the signal, not the Thief arriving: the drain is an
+    // enters-trigger, so the creature stands on the table for a priority
+    // round before anything has been taken off the board. Karn is at zero
+    // loyalty and dead to a state-based action the moment it has been.
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, karn_the_great_creator()).is_none() && stack_is_empty(e)
+    });
+    let thief = on_battlefield(&engine, p0, thief_of_blood()).expect("the Thief arrived");
+    (loyalty, pt(&engine, thief))
+}
+
+/// "This creature enters with a +1/+1 counter on it for each counter removed
+/// this way" is the effect of a resolving ability putting counters on a
+/// permanent, which is the first case CR 614.16 names — so a Doubling Season
+/// doubles what lands. The drain above it is removal, which no replacement
+/// here touches.
+///
+/// The enchantment moves across the table rather than off it, because both
+/// numbers this test reads are ones it changes: under my own Season a Karn
+/// enters with ten loyalty and the Thief takes twice that, and the same
+/// board with the Season on the other seat gives five and five. A board with
+/// one enchantment on it and no second reading cannot tell the two apart.
+#[test]
+fn a_thief_of_blood_takes_twice_what_it_drained_under_your_own_season() {
+    let (loyalty, size) = a_thief_over_a_karn(88, 0);
+    assert_eq!(loyalty, 10, "Karn's printed five, doubled on the way in");
+    assert_eq!(
+        size,
+        (21, 21),
+        "and the ten it drained doubled again on the way onto the Thief"
+    );
+
+    let (loyalty, size) = a_thief_over_a_karn(89, 1);
+    assert_eq!(
+        loyalty, 5,
+        "their enchantment does not double my walker's loyalty"
+    );
+    assert_eq!(
+        size,
+        (6, 6),
+        "nor what lands on my Thief: five drained, five placed"
+    );
+}
+
+/// A Spark Double copying seat 0's Llanowar Elves, with a Doubling Season on
+/// the board only when `season` says so.
+///
+/// Their Elf is the bystander, and it is the same card as mine on purpose:
+/// "a creature or planeswalker **you control**" read off the wrong seat
+/// would offer a permanent that looks identical in every other way.
+fn a_spark_double_copying_an_elf(seed: u64, season: bool) -> ((i16, i16), u16) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut mine = vec![island(), island(), island(), island(), llanowar_elves()];
+    if season {
+        mine.push(doubling_season());
+    }
+    let mut engine = Duel::new(seed, island())
+        .battlefield(0, &mine)
+        .hand(0, &[spark_double()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let my_elf = on_battlefield(&engine, p0, llanowar_elves()).expect("my elf");
+    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their elf");
+
+    cast_from_hand(&mut engine, p0, spark_double());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let options = target_options(&engine);
+    assert!(
+        options.contains(&my_elf) && !options.contains(&their_elf),
+        "\"a creature or planeswalker you control\" is the whole scope: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![my_elf],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, spark_double()).is_some() && stack_is_empty(e)
+    });
+    let copy = on_battlefield(&engine, p0, spark_double()).expect("the copy arrived");
+    let loyalty = engine
+        .state()
+        .object(copy)
+        .expect("the copy")
+        .counters
+        .get(baylee_cards_dsl::CounterKind::Loyalty);
+    (pt(&engine, copy), loyalty)
+}
+
+/// "…except it enters with an additional +1/+1 counter on it" is a
+/// replacement effect (CR 614.1c), and a counter-doubling replacement
+/// applies to what another replacement effect places even when the event it
+/// modified was not itself an effect (CR 614.16).
+///
+/// What it copies is a 1/1, so every point above that is a counter this test
+/// is about. The loyalty counter is asserted beside the P/T because the card
+/// puts one on whatever it copied, and a door that doubled one kind and not
+/// the other would read as working from the creature alone.
+#[test]
+fn a_spark_double_under_a_doubling_season_enters_with_two_of_each_counter() {
+    let (bare, bare_loyalty) = a_spark_double_copying_an_elf(90, false);
+    assert_eq!(bare, (2, 2), "one +1/+1 counter on a copied 1/1");
+    assert_eq!(bare_loyalty, 1, "and one loyalty counter beside it");
+
+    let (doubled, doubled_loyalty) = a_spark_double_copying_an_elf(91, true);
+    assert_eq!(doubled, (3, 3), "two +1/+1 counters under the Season");
+    assert_eq!(doubled_loyalty, 2, "and two loyalty counters");
 }

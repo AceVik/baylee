@@ -822,13 +822,17 @@ impl<L: CardLookup> Engine<L> {
                         baylee_cards_dsl::Modifier::AddSubtype(s),
                     ),
                     baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
-                        if let Some(obj) = self.state.object_mut(id) {
-                            obj.counters.add(kind, n);
-                        }
-                        // A copy that arrives with counters is projected from
-                        // them (CR 613.4c), and nothing in the effect table
-                        // moved to say so.
-                        self.state.invalidate_projections();
+                        // "…except it enters with an additional counter on
+                        // it" is a replacement effect (CR 614.1c), and a
+                        // counter-doubling replacement applies to what
+                        // another replacement effect places (CR 614.16) —
+                        // the same reading that already sends a
+                        // planeswalker's starting loyalty through this
+                        // door. It carries the journal entry and the
+                        // invalidation too, the latter being what a copy
+                        // arriving with counters needs (CR 613.4c), since
+                        // nothing in the effect table moved to say so.
+                        crate::replacement::put_counters(&mut self.state, id, kind, n);
                         continue;
                     }
                     baylee_cards_dsl::CopyMod::RemoveSupertype(_) => continue, // no modifier form
@@ -902,7 +906,13 @@ impl<L: CardLookup> Engine<L> {
                     b.keywords = b.keywords.union(k);
                 }
                 baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
-                    obj.counters.add(kind, n);
+                    // The same door as the temporary branch above, for the
+                    // same reason (CR 614.1c, CR 614.16). This is the arm
+                    // a card in the pool actually reaches: Spark Double
+                    // enters with one +1/+1 counter and one loyalty
+                    // counter, and under a Doubling Season it enters with
+                    // two of whichever it can hold.
+                    crate::replacement::put_counters(&mut self.state, id, kind, n);
                 }
             }
         }

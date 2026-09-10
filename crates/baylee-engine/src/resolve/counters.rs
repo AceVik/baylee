@@ -54,12 +54,25 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     }
                 }
             }
-            if drained > 0
-                && let Some(src) = state.object_mut(res.source)
-            {
-                src.counters
-                    .add(baylee_cards_dsl::CounterKind::P1P1, drained);
+            // The drain half above is removal and stays where it is. The
+            // placement half is a resolving ability's effect putting
+            // counters on a permanent, which is the first case CR 614.16
+            // names, so it goes through the door that applies the
+            // multiplying replacements — a Thief of Blood under a Doubling
+            // Season arrives twice the size. Writing `counters.add` here
+            // also skipped the journal entry, so nothing downstream could
+            // see the counters land.
+            if drained > 0 {
+                crate::replacement::put_counters(
+                    state,
+                    res.source,
+                    baylee_cards_dsl::CounterKind::P1P1,
+                    drained,
+                );
             }
+            // Kept beside the door's own invalidation: the drain is a
+            // characteristic change too, and it happens whether or not
+            // anything is placed afterwards.
             state.invalidate_projections();
             None
         }
