@@ -1044,6 +1044,21 @@ closes the duel and drops the host with it.
 The lobby is `DuelPhase::Closed` only, and brings its own 2D camera — the duel
 brings its own and the two never coexist.
 
+### A wait is not a veil
+
+`lobby/systems::waiting` says what the lobby is waiting for on every frame it
+is waiting — signing in, talking to the gateway, working offline, taking a
+seat — and `loading::raise` decides whether that is worth a screen. It is not,
+for the first quarter of a second (`loading::GRACE`), and offline that covers
+every wait there is: a request is answered in this process and its reply is
+read on the next frame, so *play offline*, *edit* and every other button
+raised the veil for one or two frames. Thirty milliseconds of "One moment"
+over a screen that had already finished drawing is not information about a
+wait, it is a flash — and a flash on every click is what the offline lobby's
+flicker was. There is deliberately no minimum time to leave the veil up once
+it is raised, because that would be the same lie in the other direction; a
+duel taking the screen still drops it on the frame it does (`teardown`).
+
 ## The deck builder
 
 A screen of its own (`Screen::Build`), and the same split again: every
