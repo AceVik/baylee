@@ -493,9 +493,19 @@ pub enum Effect {
     /// Counter the first target regardless of whether it is a spell or an
     /// ability on the stack (Ertai Resurrected).
     CounterTargetSpellOrAbility,
-    /// The source of the first target (an ability) loses all abilities
-    /// until end of turn.
-    TargetSourceLosesAbilities,
+    /// The permanent whose ability an earlier [`Effect::CounterTargetAbility`]
+    /// of the same resolution countered loses its abilities, for as long as
+    /// the source of this effect remains on the battlefield (Tishana's
+    /// Tidebinder).
+    ///
+    /// `source_filter` is the printed restriction — the Tidebinder's rider
+    /// reaches "an artifact, creature, or planeswalker" and nothing else —
+    /// and it is data on the card rather than a rule in the engine because
+    /// the next card to say this will draw the line somewhere else.
+    TargetSourceLosesAbilities {
+        /// Which permanents the rider reaches.
+        source_filter: &'static Filter,
+    },
     /// Register delayed mana at the controller's next first main phase
     /// (Mana Drain): colorless mana equal to the first target's cmc.
     DelayedManaAtNextFirstMain {

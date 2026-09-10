@@ -74,6 +74,19 @@ pub struct Resolution {
     /// It changes what happens when the resolution *finishes*: there is no
     /// stack object to finalize, and its controller keeps priority.
     pub mana_ability: bool,
+    /// The permanent whose ability an earlier effect of *this* resolution
+    /// countered.
+    ///
+    /// Tishana's Tidebinder is one sentence in two effects — counter the
+    /// ability, then strip the permanent it came from — and the second half
+    /// has no way of its own to name that permanent: both read the same
+    /// target, and an ability that has been countered ceases to exist
+    /// (CR 608.2k), so the lookup finds nothing. It found nothing for as
+    /// long as the card existed, and the rider had never once fired. The
+    /// counter writes the answer down here on its way past instead, which
+    /// is what makes the pair independent of the order the card lists them
+    /// in.
+    pub countered_source: Option<ObjectId>,
 }
 
 /// What [`Filter::This`](baylee_cards_dsl::Filter::This) names right now.
@@ -522,6 +535,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
         targeted: res.targeted,
         awaiting: None,
         mana_ability: false,
+        countered_source: res.countered_source,
     };
     let mut fallback = fallback;
     match run(state, &mut fallback) {
@@ -1145,6 +1159,7 @@ fn run_nested_with(
         targeted: res.targeted,
         awaiting: None,
         mana_ability: false,
+        countered_source: res.countered_source,
     };
     match run(state, &mut nested) {
         Flow::Complete => None,
@@ -1557,12 +1572,17 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
-        Effect::TargetSourceLosesAbilities => {
-            if let Some(&target_id) = res.targets.first() {
-                let source = state
-                    .object(target_id)
-                    .and_then(|o| o.ability.map(|a| a.source));
-                if let Some(src) = source {
+        Effect::TargetSourceLosesAbilities { source_filter } => {
+            // The permanent an earlier effect of this same resolution took
+            // an ability off. Reading `res.targets` here instead is what
+            // made the whole rider dead code: the ability it names has been
+            // removed from the arena by then.
+            if let Some(src) = res.countered_source {
+                let applies = state.object(src).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && eval::matches(source_filter, state, o, you, res.source)
+                });
+                if applies {
                     let ts = state.next_timestamp();
                     state.effects.register(crate::effects::ContinuousEffect {
                         id: baylee_core::ids::EffectId::new(0),
@@ -1570,7 +1590,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         controller: you,
                         layer: baylee_cards_dsl::Layer::Ability,
                         timestamp: ts,
-                        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                        duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
                         filter: crate::effects::EffectFilter::ObjectIs(src),
                         modifier: baylee_cards_dsl::Modifier::LoseKeywords,
                     });

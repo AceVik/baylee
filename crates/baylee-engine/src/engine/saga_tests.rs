@@ -740,6 +740,18 @@ fn a_saga_whose_last_chapter_is_countered_is_sacrificed_anyway() {
         chapter_ids(&engine, saga).is_empty(),
         "chapter III is still on the stack, so it was never countered"
     );
+    // The other half of the Tidebinder's sentence reaches an artifact, a
+    // creature or a planeswalker, and Urza's Saga is a land enchantment. It
+    // is asserted here because this is the only board in the suite where
+    // that clause is asked about something it must not reach — and because
+    // it would otherwise be invisible: the Saga has no keywords to lose,
+    // which is what a widened filter would take from it.
+    assert!(
+        !engine.state().effects.iter().any(
+            |fx| matches!(fx.filter, crate::effects::EffectFilter::ObjectIs(id) if id == saga)
+        ),
+        "the tidebinder's rider was registered against a land"
+    );
     assert!(
         saga_object(&engine).is_none(),
         "CR 714.4: the saga is at {} lore counters with no chapter of its own \

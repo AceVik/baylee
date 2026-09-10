@@ -472,7 +472,10 @@ Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 Combat/damage: `DealDamage`, `DealDamageToTargetController`.
 Removal: `Destroy`, `DestroyAll`, `Exile`, `CounterTargetSpell`,
 `CounterTargetAbility`, `CounterTargetSpellOrAbility`,
-`TargetSourceLosesAbilities`, `SacrificeFilter`, `ReturnToHand`,
+`TargetSourceLosesAbilities` (Tishana's Tidebinder: it reaches the permanent
+whose ability an *earlier* `CounterTargetAbility` in the same effect list
+countered, so it has to follow one; `source_filter` is the printed
+restriction on which permanents it reaches), `SacrificeFilter`, `ReturnToHand`,
 `ReturnAllToHand`, `RedirectTarget` (Misdirection).
 Zones: `SearchLibrary`, `OptionalBasicLandSearchFor`, `GraveyardToTop`,
 `GraveyardToHand`, `GraveyardToBattlefield`, `ExileGraveyard`, `Blink`,

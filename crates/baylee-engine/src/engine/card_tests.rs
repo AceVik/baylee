@@ -1801,3 +1801,192 @@ fn a_conditional_mana_ability_still_says_what_its_land_could_produce() {
         "and {{B}} outright: {options:?}"
     );
 }
+
+/// Taps every mana source `seat` has, except the ones printed `skip`.
+///
+/// [`tap_mana_except`] keeps one object; this keeps a whole printing, which
+/// is how a test says "leave the Plains for the instant I am holding".
+fn tap_all_mana_but(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    skip: Option<baylee_core::ids::CardIndex>,
+) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities {
+        let printed = engine
+            .state()
+            .object(source)
+            .and_then(|o| o.card)
+            .map(|c| c.index);
+        if skip.is_some() && printed == skip {
+            continue;
+        }
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+}
+
+fn baleful_strix() -> baylee_core::ids::CardIndex {
+    card_index("37688720-03de-4eca-a82d-a0afe8d58adc")
+}
+fn tishanas_tidebinder() -> baylee_core::ids::CardIndex {
+    card_index("2993dc7d-723d-4a9b-94bd-4bb02a9f7243")
+}
+
+/// A Baleful Strix under a Tishana's Tidebinder that countered its
+/// enters-trigger. Answers `(engine, p0, p1, strix)` with the counter
+/// resolved and the stack empty.
+///
+/// p0 keeps a Plains and Swords to Plowshares in reserve, for the half of
+/// the sentence that asks what happens when the Tidebinder leaves.
+fn a_strix_the_tidebinder_answered() -> (Engine<RegistryLookup>, PlayerId, PlayerId, ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(23, island())
+        .battlefield(0, &[island(), swamp(), plains()])
+        .hand(0, &[baleful_strix(), swords_to_plowshares()])
+        .battlefield(1, &[island(), island(), island()])
+        .hand(1, &[tishanas_tidebinder()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_main_phase(&mut engine, p0);
+    let strix_card = in_hand(&engine, p0, baleful_strix()).expect("the strix is in hand");
+    tap_all_mana_but(&mut engine, p0, Some(plains()));
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: strix_card })
+        .unwrap();
+
+    // Let the Strix resolve; its enters-trigger is what the Tidebinder is
+    // here for, so stop as soon as that is on the stack with p1 to answer.
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, baleful_strix()).is_some()
+            && !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    let strix = on_battlefield(&engine, p0, baleful_strix()).expect("the strix landed");
+    let trigger = engine.state().zones.list(crate::zone::ZoneLocation::Stack)[0];
+
+    tap_all_mana_but(&mut engine, p1, None);
+    let tide_card = in_hand(&engine, p1, tishanas_tidebinder()).expect("the tidebinder is in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: tide_card })
+        .unwrap();
+
+    // The Tidebinder resolves and its own enters-trigger asks for a target.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!("pass_until only stops on a target choice")
+    };
+    assert!(
+        options.contains(&trigger),
+        "the strix's enters-trigger was not offered as a target: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![trigger],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    (engine, p0, p1, strix)
+}
+
+/// The keywords of `object`, as the layers project them.
+fn keywords_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_cards_dsl::KeywordSet {
+    engine
+        .state()
+        .object(object)
+        .expect("the object is still there")
+        .characteristics()
+        .keywords
+}
+
+/// Tishana's Tidebinder: "counter up to one target activated or triggered
+/// ability. If an ability of an artifact, creature, or planeswalker is
+/// countered this way, that permanent loses all abilities for as long as
+/// this creature remains on the battlefield."
+///
+/// The second sentence had never once fired. Both halves read the same
+/// target, and the first half removes the countered ability from the arena
+/// before the second half looks it up — so it found nothing, registered
+/// nothing, and Baleful Strix kept its flying and its deathtouch with a
+/// Tidebinder standing over it.
+///
+/// The keywords are what this asserts because they are what the engine can
+/// take away; the rest of the sentence is the `NOT SUPPORTED` note on the
+/// card. Both halves are checked: the effect has to be registered *against
+/// the Strix*, because a rider aimed at nothing leaves exactly the same
+/// keywords standing on a creature that happens to have none.
+#[test]
+fn tishanas_tidebinder_strips_the_permanent_whose_ability_it_countered() {
+    let (engine, _p0, _p1, strix) = a_strix_the_tidebinder_answered();
+    let keywords = keywords_of(&engine, strix);
+    assert!(
+        !keywords.contains(baylee_cards_dsl::KeywordSet::FLYING)
+            && !keywords.contains(baylee_cards_dsl::KeywordSet::DEATHTOUCH),
+        "the strix kept {keywords:?} after its ability was countered"
+    );
+    assert!(
+        engine.state().effects.iter().any(
+            |fx| matches!(fx.filter, crate::effects::EffectFilter::ObjectIs(id) if id == strix)
+        ),
+        "nothing was registered against the strix, so the keywords went \
+         somewhere else or were never there"
+    );
+}
+
+/// "…for as long as this creature remains on the battlefield." Swords to
+/// Plowshares takes the Tidebinder away and the Strix has its flying and its
+/// deathtouch back.
+///
+/// The rider was written `Duration::UntilEndOfTurn`, which is what the card
+/// file's header claimed too — and both were wrong in the same direction:
+/// the suppression is not a turn's effect, it is the Tidebinder's, and it
+/// outlives the turn exactly as long as the Tidebinder does.
+#[test]
+fn the_strix_takes_its_keywords_back_when_the_tidebinder_leaves() {
+    let (mut engine, p0, p1, strix) = a_strix_the_tidebinder_answered();
+    let tidebinder = on_battlefield(&engine, p1, tishanas_tidebinder()).expect("it stayed");
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana_but(&mut engine, p0, None);
+    let stp = in_hand(&engine, p0, swords_to_plowshares()).expect("the sword is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: stp })
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&tidebinder),
+        "the tidebinder was not a legal target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![tidebinder],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p1, tishanas_tidebinder()).is_none() && stack_is_empty(e)
+    });
+
+    let keywords = keywords_of(&engine, strix);
+    assert!(
+        keywords.contains(baylee_cards_dsl::KeywordSet::FLYING)
+            && keywords.contains(baylee_cards_dsl::KeywordSet::DEATHTOUCH),
+        "the tidebinder is gone and the strix is still stripped: {keywords:?}"
+    );
+}

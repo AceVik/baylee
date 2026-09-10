@@ -37,7 +37,12 @@ Maze of Ith, Urza's Saga (partial), Venser the Sojourner (partial) plus the
   (Venser +2): fires for ANY controller, not just the active player —
   unlike upkeep/first-main delayed triggers.
 - Counter-ability machinery: `Effect::CounterTargetAbility`,
-  `TargetSpec::AbilityOnStack`, `TargetSourceLosesAbilities` (Tishana).
+  `TargetSpec::AbilityOnStack`, `TargetSourceLosesAbilities` (Tishana). The
+  rider does NOT read `res.targets` — by the time it runs, the ability that
+  was targeted has ceased to exist (CR 608.2k) and its `ObjectId` resolves to
+  nothing. It reads `Resolution::countered_source`, which the counter writes
+  down before removing the object, so the rider has to follow the counter in
+  the same effect list.
 - Resolution-time targeting: `RedirectTarget` + `AwaitingOp::RedirectNewTarget`
   — Misdirection's new target is chosen at resolution (CR 115.7), not at
   cast time. `Pending::ChooseTargets` has NO `prompt` field (unlike

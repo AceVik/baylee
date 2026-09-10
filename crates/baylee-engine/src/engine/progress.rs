@@ -1458,6 +1458,7 @@ impl<L: CardLookup> Engine<L> {
                     targeted: false,
                     awaiting: None,
                     mana_ability: false,
+                    countered_source: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
@@ -1483,6 +1484,7 @@ impl<L: CardLookup> Engine<L> {
                 targeted,
                 awaiting: None,
                 mana_ability: false,
+                countered_source: None,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -1544,6 +1546,7 @@ impl<L: CardLookup> Engine<L> {
                 targeted,
                 awaiting: None,
                 mana_ability: false,
+                countered_source: None,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),

@@ -623,6 +623,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 state
                     .journal
                     .record(GameEvent::SpellCountered { object: target_id });
+                // Whose ability it was, written down before the object it
+                // is written on stops existing. Nothing else in this
+                // resolution can answer that afterwards — see
+                // [`Resolution::countered_source`].
+                res.countered_source = state
+                    .object(target_id)
+                    .and_then(|o| o.ability.map(|a| a.source));
                 // Abilities on the stack cease to exist when countered.
                 state.zones.remove(target_id, ZoneLocation::Stack);
                 let _ = state.arena.remove(target_id);
