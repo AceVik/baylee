@@ -665,11 +665,29 @@ impl<L: CardLookup> Engine<L> {
     /// learned something.
     ///
     /// The entering permanent is left out because its own clause is a
-    /// replacement applied on the way in. Nothing in the pool can see the
-    /// difference — all 42 lands with an enters-tapped-unless clause name
-    /// something they are not — and the one cycle that could says "other"
-    /// itself: Mystic Sanctuary is an Island and counts three or more
-    /// *other* Islands.
+    /// replacement applied on the way in, and ten cards in the pool can see
+    /// the difference. A slow land prints "two or more **other** lands" and
+    /// `landgen` reads that as `And(&[ControlledByYou, LAND])` — which a slow
+    /// land matches — so this line is where the word "other" is spoken for
+    /// Deserted Beach and its nine siblings. Count the entering land and
+    /// every one of them comes in untapped a land early.
+    ///
+    /// It used to say the opposite: that nothing in the pool could see it,
+    /// every enters-tapped-unless clause naming something the land is not,
+    /// with Mystic Sanctuary as the one cycle that could and saying "other"
+    /// itself. Mystic Sanctuary is a generated stub carrying no
+    /// enter-modifier at all, so it was standing in for the ten cards that
+    /// really do this — while
+    /// `card_tests::a_slow_land_counts_the_other_lands_and_never_itself`,
+    /// four hundred lines away, played one and asserted the opposite.
+    ///
+    /// A card *could* say it for itself: `Filter::Another` is read by `eval`
+    /// as `obj.id != this`, and the `this` passed below is the entering
+    /// permanent. None of the ten uses it. That is a division of labour
+    /// rather than an oversight, and
+    /// `card_tests::the_only_lands_that_would_count_themselves_are_the_slow_ones`
+    /// is the fence around it — the list is asked of `eval::matches`, so a
+    /// new cycle on either side of the split is a build failure.
     fn controls_at_least(
         &self,
         filter: &baylee_cards_dsl::Filter,

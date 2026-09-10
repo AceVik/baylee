@@ -1374,6 +1374,107 @@ fn a_slow_land_counts_the_other_lands_and_never_itself() {
     );
 }
 
+/// The lands whose own enters-tapped-unless filter matches the land printing
+/// it, and therefore the exact set that
+/// [`a_slow_land_counts_the_other_lands_and_never_itself`] speaks for.
+const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
+    "Deathcap Glade",
+    "Deserted Beach",
+    "Dreamroot Cascade",
+    "Haunted Ridge",
+    "Overgrown Farmland",
+    "Rockfall Vale",
+    "Shattered Sanctum",
+    "Shipwreck Marsh",
+    "Stormcarved Coast",
+    "Sundown Pass",
+];
+
+/// One line in `controls_at_least` skips the entering permanent, and this is
+/// the list of cards that would change if it went.
+///
+/// Its own comment used to say the list was empty — "nothing in the pool can
+/// see the difference", every enters-tapped-unless clause naming something
+/// the land is not, and the one cycle that could saying "other" itself. Both
+/// halves are wrong. The slow lands print `Filter::And(&[ControlledByYou,
+/// LAND])` and are lands, so all ten count themselves; and the cycle the note
+/// named as the safe one, Mystic Sanctuary, is a generated stub with no
+/// enter-modifier at all. The line is load-bearing for ten implemented cards,
+/// and the test above is what plays one.
+///
+/// The word the ten are missing is one the DSL *can* say — `Filter::Another`,
+/// which `eval` reads as `obj.id != this` — and none of them says it, because
+/// `landgen` reads "two or more other lands" into a bare count and lets the
+/// engine supply the "other". That is a workable division of labour and this
+/// is the fence around it: the day a filter here stops matching its own card,
+/// or a new cycle starts, the split has to be looked at again rather than
+/// discovered by a land that taps for one turn too few.
+///
+/// Asked through `eval::matches` rather than by reading the filters, because a
+/// second implementation of "does this match" is exactly the thing that would
+/// agree with itself and not with the engine. Both directions are asserted:
+/// an unexpected land is a new cycle, a missing one is a list gone stale.
+#[test]
+fn the_only_lands_that_would_count_themselves_are_the_slow_ones() {
+    let mut clauses = Vec::new();
+    let mut behind_the_front_face = Vec::new();
+    for def in baylee_cards::all() {
+        for (i, face) in def.faces.iter().enumerate() {
+            for modifier in face.enter_modifiers {
+                let filter = match modifier {
+                    baylee_cards_dsl::EnterModifier::TappedUnless(f) => *f,
+                    baylee_cards_dsl::EnterModifier::TappedUnlessCount { filter, .. } => *filter,
+                    _ => continue,
+                };
+                if i == 0 {
+                    clauses.push((face.name, def.index, filter));
+                } else {
+                    behind_the_front_face.push(face.name);
+                }
+            }
+        }
+    }
+    assert!(
+        behind_the_front_face.is_empty(),
+        "a back face carries an enters-tapped-unless clause, and this sweep \
+         puts front faces on the table, so it was never asked about: \
+         {behind_the_front_face:?}"
+    );
+    assert!(
+        clauses.len() >= 30,
+        "only {} enters-tapped-unless clauses were found; the walk is not \
+         reaching the pool",
+        clauses.len()
+    );
+
+    let p0 = PlayerId::new(0);
+    let board: Vec<_> = clauses.iter().map(|(_, index, _)| *index).collect();
+    let engine = Duel::new(114, forest()).battlefield(0, &board).start();
+    let mut counts_itself = Vec::new();
+    for id in engine.state().zones.list(ZoneLocation::Battlefield) {
+        let obj = engine.state().object(*id).expect("on the battlefield");
+        let Some(card) = obj.card else { continue };
+        let Some((name, _, filter)) = clauses.iter().find(|(_, index, _)| *index == card.index)
+        else {
+            continue;
+        };
+        // `this` is the entering permanent, which is what `controls_at_least`
+        // passes — so a filter that did say `Another` answers `false` here for
+        // the same reason the skipped line would have made it moot.
+        if crate::eval::matches(filter, engine.state(), obj, p0, obj.id) {
+            counts_itself.push(*name);
+        }
+    }
+    counts_itself.sort_unstable();
+    assert_eq!(
+        counts_itself, LANDS_THAT_WOULD_COUNT_THEMSELVES,
+        "the set of lands whose enters-tapped-unless clause matches the land \
+         itself has changed; `controls_at_least` skipping the entering \
+         permanent is what makes each of them read \"other\", so a new arrival \
+         needs a played test and a departure needs this list shortened"
+    );
+}
+
 fn skyclave_apparition() -> baylee_core::ids::CardIndex {
     card_index("d90af00a-d322-4265-9954-7b1e80702e18")
 }
