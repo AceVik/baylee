@@ -951,12 +951,19 @@ impl Lobby {
 
     /// Shows a masked field, or covers it again.
     ///
-    /// The caret goes into it either way: pressing the eye beside a box is a
-    /// way of saying *this box*, and a player who reveals a password does it
-    /// to read what they are typing there.
+    /// The caret goes into it: pressing the eye beside a box is a way of
+    /// saying *this box*, and a player who reveals a password does it to read
+    /// what they are typing there. It moves only when it was somewhere else,
+    /// though. Naming a field the caret is already in is a real event — it is
+    /// what a tap on that field means, and a browser answers it by pointing
+    /// its own `<input>` at the value again, which leaves the caret after the
+    /// text. The eye pressed halfway through a word would then send the caret
+    /// to the end there and leave it where it was on the desktop.
     pub fn toggle_reveal(&mut self, field: Field) {
         self.revealed = (self.revealed != Some(field)).then_some(field);
-        self.focus_on(field);
+        if self.focus != field {
+            self.focus_on(field);
+        }
     }
 
     /// Moves the caret to the next or previous field — Tab and ⇧Tab. The
@@ -2409,6 +2416,26 @@ mod tests {
         );
         lobby.toggle_reveal(Field::Password);
         assert!(!lobby.showing(Field::Password));
+    }
+
+    #[test]
+    fn the_eye_leaves_a_caret_that_is_already_in_the_box_alone() {
+        let mut lobby = Lobby::new();
+        lobby.focus_on(Field::Password);
+        lobby.set_field_at(Field::Password, "hunter2", 3, None);
+        let epoch = lobby.focus_epoch();
+        lobby.toggle_reveal(Field::Password);
+        assert!(lobby.showing(Field::Password));
+        assert_eq!(
+            lobby.focus_epoch(),
+            epoch,
+            "the caret was already there, so nothing re-opens a browser's own input"
+        );
+        assert_eq!(
+            lobby.buffer(Field::Password).cursor(),
+            3,
+            "and the caret stays where the player was typing"
+        );
     }
 
     #[test]
