@@ -79,7 +79,6 @@ use baylee_client_core::reconnect::Retry;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::{GameStatic, PlayerView};
-use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use host::{DuelHost, HostMessage, LinkState};
 
@@ -193,8 +192,36 @@ pub enum Deed {
     /// index and fire the neighbour. Membership in the rebuilt list is
     /// checked before it is sent, so an ability that is gone disarms.
     Ability(PlayerAction),
-    /// Tap the sources of this plan, then cast — see [`ManaRun`].
-    Run(baylee_client_core::manaplan::Plan),
+    /// Suspend the card — `Interaction::suspend`.
+    ///
+    /// Its own deed rather than a shape of [`Self::Play`], because it is not
+    /// playing the card: "rather than cast this card from your hand, pay {U}
+    /// and exile it with four time counters on it" (CR 702.62a).
+    Suspend,
+    /// Tap the sources of this plan, then do `then` — see [`ManaRun`].
+    Run {
+        /// The taps, and the cost they are for.
+        plan: baylee_client_core::manaplan::Plan,
+        /// What the floated mana is spent on when the last tap is made.
+        then: RunEnd,
+    },
+}
+
+/// What a mana run does once the mana is up.
+///
+/// The run exists because the engine offers a spell only when its mana is
+/// already floating, and there are exactly two things in this client that a
+/// seat pays mana for out of its hand. They are told apart here rather than
+/// guessed at the end, because the engine's answer at that moment is a
+/// `LegalActions` in which both lists are populated and a run that picked the
+/// wrong one would cast a card the player meant to suspend — which is not an
+/// action anything can take back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunEnd {
+    /// `PlayerAction::CastSpell`.
+    Cast,
+    /// `PlayerAction::Suspend`.
+    Suspend,
 }
 
 /// What the hover preview has to stand beside.
@@ -285,6 +312,13 @@ pub struct Duel {
     /// judgement, not something the engine said, and the difference is worth
     /// keeping visible at the type level.
     pub reachable: std::collections::HashSet<ObjectId>,
+    /// Cards in hand that are not suspendable yet and would be after tapping.
+    ///
+    /// [`Self::reachable`] for the other thing a hand card can be paid for.
+    /// The two are kept apart because a card in both is two deeds and the
+    /// click has to ask which, and because the run that spends the mana must
+    /// know which list to look in when it finishes.
+    pub suspend_reach: std::collections::HashSet<ObjectId>,
     /// Permanents the engine listed at least one activatable ability for.
     ///
     /// The engine's own answer, unlike [`Self::reachable`] — `LegalActions`
@@ -438,6 +472,15 @@ impl Duel {
     #[must_use]
     pub fn outbox(&self) -> &[PlayerAction] {
         &self.outbox
+    }
+
+    /// Takes the queued actions, the way `flush_outbox` does on a frame.
+    ///
+    /// The `pub` half of the same seam, for a test that drives more than one
+    /// round trip: reading [`Self::outbox`] and never emptying it makes the
+    /// second step of a run look like the first one repeated.
+    pub fn take_outbox(&mut self) -> Vec<PlayerAction> {
+        std::mem::take(&mut self.outbox)
     }
 
     /// The local seat, once the static payload has arrived.
@@ -840,6 +883,11 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                     .stack
                     .iter()
                     .any(|o| !hud::same_team(duel.statics.as_ref(), o.controller, view.seat)),
+                // What this client is offering that the engine's list does
+                // not name. Without it `pass_when_nothing_to_do` reads an
+                // empty `castable` over four untapped Forests as an empty
+                // hand and passes the window away.
+                offering: !duel.reachable.is_empty() || !duel.suspend_reach.is_empty(),
             },
             prefs.orders(),
             prefs.auto(),
@@ -875,16 +923,19 @@ pub struct ManaRun {
     asking: Option<baylee_core::mana::ManaColor>,
     /// The spell all of this is for.
     card: ObjectId,
+    /// What the mana is spent on once every tap is made.
+    then: RunEnd,
 }
 
 impl ManaRun {
     /// Starts a run for `card`.
     #[must_use]
-    pub fn new(plan: baylee_client_core::manaplan::Plan, card: ObjectId) -> Self {
+    pub fn new(plan: baylee_client_core::manaplan::Plan, card: ObjectId, then: RunEnd) -> Self {
         Self {
             steps: plan.steps.into(),
             asking: None,
             card,
+            then,
         }
     }
 
@@ -904,6 +955,17 @@ impl ManaRun {
 /// see and spend — and it is much better than the alternative of pushing an
 /// action the engine will refuse.
 fn run_mana_plan(mut duel: ResMut<Duel>) {
+    advance_mana_run(&mut duel);
+}
+
+/// One step of a run, against whatever the engine is asking right now.
+///
+/// The system above is the wiring; this is the decision, and it is `pub` so a
+/// test can drive a whole run against a real `LocalHost` the way the frame
+/// loop does — press, send, take the answer, press again. A run asserted on
+/// through its `ManaRun` alone would prove the plan and not the spending, and
+/// spending is where every one of this function's failure modes lives.
+pub fn advance_mana_run(duel: &mut Duel) {
     if duel.mana_run.is_none() {
         return;
     }
@@ -942,11 +1004,25 @@ fn run_mana_plan(mut duel: ResMut<Duel>) {
                 }
             } else {
                 // Every tap is made; the mana is floating and the engine is
-                // offering the spell it was floated for.
-                let card = duel.mana_run.as_ref().map(ManaRun::card);
-                match card.filter(|c| legal.castable.contains(c)) {
-                    Some(card) => action = Some(PlayerAction::CastSpell { card }),
-                    None => abort = Some("the mana is up but the spell is not castable"),
+                // offering the thing it was floated for. Which list to look
+                // in was decided when the run was armed, not here — a card
+                // that is castable *and* suspendable is two different deeds
+                // and neither is undoable.
+                let run = duel.mana_run.as_ref().map(|r| (r.card, r.then));
+                match run {
+                    Some((card, RunEnd::Cast)) if legal.castable.contains(&card) => {
+                        action = Some(PlayerAction::CastSpell { card });
+                    }
+                    Some((card, RunEnd::Suspend)) if legal.suspendable.contains(&card) => {
+                        action = Some(PlayerAction::Suspend { card });
+                    }
+                    Some((_, RunEnd::Cast)) => {
+                        abort = Some("the mana is up but the spell is not castable");
+                    }
+                    Some((_, RunEnd::Suspend)) => {
+                        abort = Some("the mana is up but the card cannot be suspended");
+                    }
+                    None => abort = Some("the run lost the card it was paying for"),
                 }
                 finished = true;
             }
@@ -1015,6 +1091,22 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
             .find(|c| c.object == card)?;
         commander_cost(commander)?.with_more_generic(2 * commander.casts)
     };
+    let pool = view.seat(view.seat)?.mana_pool;
+    baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+}
+
+/// The taps that would make `card` suspendable, if any.
+///
+/// [`mana_for`] for the suspend cost. Separate rather than a flag on it,
+/// because the two costs are different numbers on the same card — Ancestral
+/// Vision prints no mana cost at all and suspends for `{U}` — and a caller
+/// that took the wrong one would tap the wrong lands.
+#[must_use]
+pub fn suspend_mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manaplan::Plan> {
+    let view = duel.view.as_ref()?;
+    let legal = duel.interaction.as_ref()?.legal_actions()?;
+    let hand_card = view.hand.iter().find(|c| c.id == card)?;
+    let cost = suspend_cost(hand_card.card)?;
     let pool = view.seat(view.seat)?.mana_pool;
     baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
 }
@@ -1099,14 +1191,25 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
 }
 
 /// Rebuilds the render model from the current view.
-pub(crate) fn rebuild_board(duel: &mut Duel) {
+///
+/// `pub` because the two indigo sets it computes — [`Duel::reachable`] and
+/// [`Duel::suspend_reach`] — are what the click path reads, so an end-to-end
+/// test has to build them the way a frame does rather than assign them by
+/// hand.
+pub fn rebuild_board(duel: &mut Duel) {
     duel.reachable = reachable(duel);
+    duel.suspend_reach = suspend_reach(duel);
     duel.activatable = activatable(duel);
 
     let Some(view) = duel.view.as_ref() else {
         return;
     };
-    let playable: HashSet<ObjectId> = duel
+    // Three lists, one light. `lands` and `castable` are what the engine will
+    // accept this instant, and `suspendable` is the same kind of claim about
+    // the other way a card leaves a hand — suspend's first ability is an
+    // activated one the engine offers or does not (CR 702.62a), so it is gold
+    // beside them rather than a fourth colour.
+    let playable: std::collections::HashSet<ObjectId> = duel
         .interaction
         .as_ref()
         .and_then(Interaction::legal_actions)
@@ -1115,11 +1218,21 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
                 .lands
                 .iter()
                 .chain(legal.castable.iter())
+                .chain(legal.suspendable.iter())
                 .copied()
                 .collect()
         })
         .unwrap_or_default();
-    let playable: std::collections::HashSet<ObjectId> = playable.into_iter().collect();
+
+    // Indigo is this client's own offer, and it has two halves for the same
+    // reason gold does. They stay apart on `Duel` because a click has to know
+    // which `PlayerAction` a mana run ends in; the union is drawing only.
+    let reach: std::collections::HashSet<ObjectId> = duel
+        .reachable
+        .iter()
+        .chain(duel.suspend_reach.iter())
+        .copied()
+        .collect();
 
     // Allies sit on one side of the table, so the roster is part of the
     // geometry: a partner's board is read as often as one's own, and across
@@ -1142,7 +1255,7 @@ pub(crate) fn rebuild_board(duel: &mut Duel) {
         view,
         baylee_client_core::board::Openings {
             playable: &playable,
-            reachable: &duel.reachable,
+            reachable: &reach,
             activatable: &duel.activatable,
         },
         // Each pod is measured against its own row. This used to be one
@@ -1224,6 +1337,15 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // Types off the view, because those are the *projected* ones; flash
         // off the printed card, because a `HandObject` carries no keywords.
         .filter(|card| baylee_client_core::timing::allows(view, card.types, has_flash(card.card)))
+        // And it has to print a cost at all (CR 202.1a). A blank cost is
+        // payable by an empty pool, so a suspend-only card was "reachable"
+        // with a plan of no taps at all: the click armed a run, the run
+        // finished at once and asked the engine to cast a card it will never
+        // offer. The engine has the same rule in `casting::has_a_printed_cost`
+        // — this is the client not offering what that will refuse.
+        .filter(|card| {
+            manasources::hand_cost(card).is_some_and(|cost| cost.symbols().next().is_some())
+        })
         .filter(|card| manasources::hand_cost(card).is_some_and(&affordable))
         .map(|card| card.id)
         // The command zone is castable from too (CR 903.8), and leaving it
@@ -1274,6 +1396,67 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .map(|c| c.object),
         )
         .collect()
+}
+
+/// Which cards in hand a tap or two would make **suspendable**.
+///
+/// [`reachable`]'s counterpart, and it needs one because suspend is paid for
+/// like anything else: the engine offers `legal.suspendable` only once the
+/// cost is floating, so a suspend card over untapped lands is a card with
+/// nothing to do — which is precisely the report this answers, *"so first tap
+/// and pay mana, then suspend"*.
+///
+/// The timing gate is [`baylee_client_core::timing::sorcery_window`] and not
+/// `allows`: suspend's ability says "activate only as a sorcery" (CR 702.62a)
+/// whatever the card's own type is, and the engine gates its offer on exactly
+/// that. Flash on the card would be the wrong question — an instant with
+/// suspend still may not suspend at instant speed.
+fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
+    let Some(view) = duel.view.as_ref() else {
+        return std::collections::HashSet::new();
+    };
+    let Some(legal) = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+    else {
+        return std::collections::HashSet::new();
+    };
+    if !baylee_client_core::timing::sorcery_window(view) {
+        return std::collections::HashSet::new();
+    }
+    let sources = manasources::sources(view, legal);
+    if sources.is_empty() {
+        return std::collections::HashSet::new();
+    }
+    let Some(pool) = view.seat(view.seat).map(|s| s.mana_pool) else {
+        return std::collections::HashSet::new();
+    };
+    view.hand
+        .iter()
+        .filter(|card| !legal.suspendable.contains(&card.id))
+        .filter(|card| {
+            suspend_cost(card.card).is_some_and(|cost| {
+                baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
+            })
+        })
+        .map(|card| card.id)
+        .collect()
+}
+
+/// What a card's suspend ability costs, or `None` when it has none.
+///
+/// Off the card and not off the view: `AbilityDef::Suspend` is printed data,
+/// and a `HandObject` carries the projected characteristics rather than the
+/// abilities. The card's own list rather than the face's, for the reason
+/// `keywords_for_face` exists — a single-faced card keeps its abilities on
+/// the `CardDef` and leaves the face's list empty.
+fn suspend_cost(card: baylee_view::CardIdentity) -> Option<baylee_core::mana::ManaCost> {
+    let def = baylee_cards::by_index(card.index)?;
+    def.abilities.iter().find_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::Suspend { cost, .. } => Some(*cost),
+        _ => None,
+    })
 }
 
 /// A commander's printed cost, before CR 903.8's tax.
@@ -1625,6 +1808,12 @@ mod reachable_tests {
     ///
     /// Found rather than named, because a test that hard-codes a card breaks
     /// when the pool is re-cut and says nothing about what it was testing.
+    ///
+    /// It has to ask for a *printed* cost out loud. "Cheap" and "mono-green"
+    /// are both satisfied trivially by a card that prints no mana cost at all
+    /// — cmc zero, no colours — and Ancestral Vision is a single-faced
+    /// sorcery at index 4, so this picked it first and every reach test below
+    /// was built on a card CR 202.1a says can never be cast for mana.
     fn a_cheap_sorcery() -> &'static baylee_cards_dsl::CardDef {
         const GREEN: ColorSet = ColorSet::of(Color::Green);
         baylee_cards::all()
@@ -1635,6 +1824,7 @@ mod reachable_tests {
                     && !def
                         .keywords_for_face(0)
                         .contains(baylee_cards_dsl::KeywordSet::FLASH)
+                    && face.mana_cost.symbols().next().is_some()
                     && face.mana_cost.cmc() <= 2
                     && face.mana_cost.colors().difference(GREEN) == ColorSet::EMPTY
             })

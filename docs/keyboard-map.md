@@ -161,6 +161,19 @@ its own manual land tap, after which the spell is castable outright and the run
 would float mana nobody asked for. Picking from the ability chooser arms rather
 than sends: the chooser disambiguates, it does not confirm.
 
+**Suspending is a fourth deed, and a run has two ends.** "Rather than cast this
+card from your hand, pay {U} and exile it with four time counters on it"
+(CR 702.62a) is not playing the card, so `Deed::Suspend` is its own arm rather
+than a shape of `Deed::Play` — and one card can be both, which is why the tap
+order in `input.rs` asks about casting first. A `Deed::Run` therefore carries a
+`RunEnd` saying what the floated mana is spent on when the last land is tapped.
+That choice is made when the run is armed and never when it lands: at the end
+the engine's answer is a `LegalActions` with the card in *both* lists, and a run
+that guessed there would cast a spell the player meant to suspend, which is not
+an action anything can take back. The prompt bar says which — "Pay {U} and cast"
+against "Pay {U} and suspend", the cost drawn as its own pips rather than
+counted as a number of cards to tap.
+
 **An armed deed is drawn as a sentence in two halves.** The card wears
 `glow::ARMED` — a bright ring held tight against its printed edge, breathing in
 place — and lifts to the height a chosen card sits at, keeping it when the

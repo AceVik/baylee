@@ -932,13 +932,23 @@ messages! {
     /// The armed button for a spell whose mana still has to be tapped.
     ///
     /// `{0}` is the *price* — the spell's mana cost, tax and all — and it is
-    /// the one placeholder here that is never filled with a string: the row
+    /// one of the two placeholders here never filled with a string (the other
+    /// is [`Self::ArmedSuspend`], which prices the same way): the row
     /// splits the phrase at it and draws the cost as mana pips, so a
     /// translation is free to put the price first (as the German does) and
     /// still gets the discs in the right place. It used to read "Tap 3",
     /// which counted the client's own lands instead of naming what the
     /// spell costs.
     ArmedPayAndCast { en: "Pay {0} and cast", de: "{0} zahlen und zaubern" },
+    /// The armed button for suspending a card whose cost still has to be tapped.
+    ///
+    /// `{0}` is the suspend cost, drawn as pips like [`Self::ArmedPayAndCast`]
+    /// — and it is the *suspend* cost, which is a different number from the
+    /// card's own: Ancestral Vision prints no mana cost and suspends for
+    /// `{U}`.
+    ArmedSuspend { en: "Pay {0} and suspend", de: "{0} zahlen und aussetzen" },
+    /// The armed button for suspending when the cost is already floating.
+    ArmedSuspendNow { en: "Suspend this card", de: "Diese Karte aussetzen" },
     /// The button that puts an armed deed back, with nothing sent.
     ArmedCancel { en: "Not yet", de: "Doch nicht" },
     /// Aim next

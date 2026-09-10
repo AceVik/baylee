@@ -1367,10 +1367,27 @@ fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<ArmedWor
         // needs to read before spending a turn's lands is the *price* —
         // `{4}{U}{U}` — so the plan carries the cost it was built for and
         // the row draws it.
-        crate::Deed::Run(plan) => duel.reachable.contains(&armed.object).then(|| ArmedWords {
-            text: Phrase::ArmedPayAndCast.text(lang).to_string(),
-            cost: Some(plan.cost),
-        }),
+        crate::Deed::Run { plan, then } => {
+            let (offered, phrase) = match then {
+                crate::RunEnd::Cast => (&duel.reachable, Phrase::ArmedPayAndCast),
+                crate::RunEnd::Suspend => (&duel.suspend_reach, Phrase::ArmedSuspend),
+            };
+            offered.contains(&armed.object).then(|| ArmedWords {
+                text: phrase.text(lang).to_string(),
+                cost: Some(plan.cost),
+            })
+        }
+        // The engine is already offering the suspend, so the cost is floating
+        // and there is nothing left to quote — the same reason `Play` quotes
+        // nothing.
+        crate::Deed::Suspend => duel
+            .interaction
+            .as_ref()
+            .and_then(|i| i.suspend(armed.object))
+            .map(|_| ArmedWords {
+                text: Phrase::ArmedSuspendNow.text(lang).to_string(),
+                cost: None,
+            }),
     }
 }
 

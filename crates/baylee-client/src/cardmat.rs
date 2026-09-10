@@ -231,10 +231,12 @@ impl Offer {
             activatable,
             armed: members.contains(&armed.object),
             will_tap: match &armed.deed {
-                crate::Deed::Run(plan) => {
+                // Whichever end the run has: a land the plan spends is a land
+                // the player has to see marked before the second click.
+                crate::Deed::Run { plan, .. } => {
                     plan.steps.iter().any(|step| members.contains(&step.source))
                 }
-                crate::Deed::Play | crate::Deed::Ability(_) => false,
+                crate::Deed::Play | crate::Deed::Ability(_) | crate::Deed::Suspend => false,
             },
         }
     }
@@ -1494,14 +1496,17 @@ pub(crate) mod tests {
 
         let run = crate::Armed {
             object: elsewhere,
-            deed: crate::Deed::Run(Plan {
-                steps: vec![Step {
-                    source: forests[1],
-                    tap: Tap::Intrinsic,
-                    color: None,
-                }],
-                ..default()
-            }),
+            deed: crate::Deed::Run {
+                plan: Plan {
+                    steps: vec![Step {
+                        source: forests[1],
+                        tap: Tap::Intrinsic,
+                        color: None,
+                    }],
+                    ..default()
+                },
+                then: crate::RunEnd::Cast,
+            },
         };
         let offer = Offer::on(Some(&run), &forests, false);
         assert!(offer.will_tap, "one of the three is being spent");
@@ -1510,14 +1515,17 @@ pub(crate) mod tests {
         // And a plan that touches none of them leaves the stack dark.
         let other = crate::Armed {
             object: elsewhere,
-            deed: crate::Deed::Run(Plan {
-                steps: vec![Step {
-                    source: elsewhere,
-                    tap: Tap::Intrinsic,
-                    color: None,
-                }],
-                ..default()
-            }),
+            deed: crate::Deed::Run {
+                plan: Plan {
+                    steps: vec![Step {
+                        source: elsewhere,
+                        tap: Tap::Intrinsic,
+                        color: None,
+                    }],
+                    ..default()
+                },
+                then: crate::RunEnd::Cast,
+            },
         };
         assert_eq!(
             Offer::on(Some(&other), &forests, true),

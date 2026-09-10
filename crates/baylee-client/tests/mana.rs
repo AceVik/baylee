@@ -701,7 +701,7 @@ fn an_armed_run_becomes_a_plain_cast_when_the_lands_are_tapped_by_hand() {
     duel.reachable = std::iter::once(spell).collect();
 
     activate_card(&mut duel, spell);
-    let Some(Deed::Run(plan)) = duel.armed.as_ref().map(|a| a.deed.clone()) else {
+    let Some(Deed::Run { plan, .. }) = duel.armed.as_ref().map(|a| a.deed.clone()) else {
         panic!("a spell the lands can pay for arms a run: {:?}", duel.armed);
     };
     assert!(duel.outbox().is_empty(), "arming puts nothing on the wire");
@@ -915,5 +915,222 @@ fn a_tap_only_ability_fires_on_one_tap() {
             source: loremaster,
             ability_index: 0,
         }]
+    );
+}
+
+/// Ancestral Vision — no mana cost at all, and Suspend 4—`{U}`.
+const VISION: &str = "9728dec9-d482-4c7a-8cdc-44d010dc878d";
+/// Island.
+const ISLAND: &str = "b2c6aa39-2d2a-459c-a555-fb48ba993373";
+
+/// Seat 0 opens with Ancestral Vision in hand and one untapped Island.
+fn suspend_preset() -> GamePreset {
+    let deck: Vec<DeckEntry> = (0..60).map(|_| entry(ISLAND)).collect();
+    let seat = |ai: bool| SeatSpec {
+        controller: if ai {
+            SeatController::Ai(AIProfile::default())
+        } else {
+            SeatController::Open
+        },
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
+        deck: deck.clone(),
+        sideboard: vec![],
+        commanders: vec![],
+        starting_life: None,
+        starting_hand: None,
+        starting_battlefield: vec![],
+        emblems: vec![],
+        team: None,
+    };
+    let mut preset = GamePreset {
+        format: FormatId::Freeform,
+        seed: 7,
+        house_rules: HouseRules::default(),
+        modifiers: vec![],
+        prints: vec![PrintInfo {
+            scryfall_id: uuid::Uuid::nil(),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        }],
+        seats: vec![seat(false), seat(true)],
+    };
+    preset.seats[0].starting_hand = Some(vec![entry(VISION)]);
+    preset.seats[0].starting_battlefield = vec![entry(ISLAND)];
+    preset
+}
+
+/// Suspending, end to end, the way the owner asked for it.
+///
+/// Reported as: *"Suspend works different. The text says: Rather then cast
+/// this spell from your hand, PAY x and exile …, so first tap and pay mana,
+/// then suspend."* Which is what the card says, and neither half of this
+/// client did it: the engine offered `suspendable` off an empty pool (fixed
+/// on its side), and nothing here ever built a `PlayerAction::Suspend` at
+/// all — `legal.suspendable` was read by the automation rules and by nothing
+/// else, so a Suspend 4—{U} in hand answered no click.
+///
+/// Driven through `activate_card` and `advance_mana_run` against a real
+/// `LocalHost`, because what is claimed is about a *click*: a test that built
+/// the action by hand would pass just as loudly with no button behind it.
+#[test]
+fn a_suspend_card_taps_its_island_and_then_suspends() {
+    use baylee_client::input::activate_card;
+    use baylee_client::{Deed, Duel, RunEnd, advance_mana_run};
+    use baylee_client_core::interaction::Interaction;
+
+    let mut table = Table::open_with(&suspend_preset());
+    table.walk_to_main();
+
+    let vision = table
+        .view()
+        .hand
+        .iter()
+        .find(|c| c.name == "Ancestral Vision")
+        .expect("the card is in the opening hand")
+        .id;
+
+    // The engine offers neither half of it yet, which is the whole problem:
+    // the {U} is still in the Island. And it is not castable at any point —
+    // a card with no mana cost cannot be cast (CR 202.1a).
+    assert!(
+        !table.legal().suspendable.contains(&vision),
+        "the cost is not floating, so the engine offers no suspend"
+    );
+    assert!(
+        !table.legal().castable.contains(&vision),
+        "and a blank mana cost is never a free spell"
+    );
+
+    let mut duel = Duel::default();
+    let refresh = |duel: &mut Duel, table: &Table| {
+        duel.view = Some(table.view().clone());
+        duel.interaction = Some(Interaction::new(
+            table.pending.clone().expect("priority"),
+            PlayerId::new(0),
+        ));
+        baylee_client::rebuild_board(duel);
+    };
+    refresh(&mut duel, &table);
+    assert!(
+        duel.suspend_reach.contains(&vision),
+        "one untapped Island pays {{U}}, so the client offers to tap it"
+    );
+
+    // And the drawn hand says so, which is the half a player can actually
+    // see. A suspend-only card used to sit there with no light on it at all:
+    // `Openings` was built from `lands` and `castable` alone, so neither the
+    // engine's own `suspendable` nor this client's `suspend_reach` reached
+    // the board model. Clicking it worked — finding it did not.
+    let drawn = |duel: &Duel| {
+        duel.board
+            .as_ref()
+            .expect("a view builds a board")
+            .hand
+            .iter()
+            .find(|c| c.id == vision)
+            .map(|c| (c.playable, c.reachable))
+            .expect("the card is in the drawn hand")
+    };
+    assert_eq!(
+        drawn(&duel),
+        (false, true),
+        "with the {{U}} still in the Island: indigo, and not gold"
+    );
+
+    // First click arms, second click sends. Nothing reaches the wire in
+    // between — suspending exiles the card and there is no undo.
+    activate_card(&mut duel, vision);
+    let Some(Deed::Run { then, .. }) = duel.armed.as_ref().map(|a| a.deed.clone()) else {
+        panic!("the click arms a run: {:?}", duel.armed);
+    };
+    assert_eq!(then, RunEnd::Suspend, "and the run ends in a suspend");
+    assert!(duel.outbox().is_empty(), "arming puts nothing on the wire");
+
+    activate_card(&mut duel, vision);
+    for action in duel.take_outbox() {
+        table.submit(action);
+    }
+    assert!(duel.mana_run.is_some(), "the second click starts the run");
+
+    // Now spend it, one engine round trip per step, exactly as the frame
+    // loop does.
+    let mut gold_once_the_mana_was_up = false;
+    for _ in 0..8 {
+        refresh(&mut duel, &table);
+        // The other half of the light: the moment the engine itself offers
+        // the suspend, the card is gold rather than indigo — the same
+        // promotion a castable spell gets when its mana floats.
+        if table.legal().suspendable.contains(&vision) {
+            gold_once_the_mana_was_up = drawn(&duel).0;
+        }
+        advance_mana_run(&mut duel);
+        let sent = duel.take_outbox();
+        if sent.is_empty() {
+            break;
+        }
+        for action in sent {
+            table.submit(action);
+        }
+        if duel.mana_run.is_none() {
+            break;
+        }
+    }
+    assert_eq!(duel.last_error, None, "the run finished without aborting");
+    assert!(
+        gold_once_the_mana_was_up,
+        "the engine's own offer lights the card gold"
+    );
+
+    // The card is in exile with four time counters on it, and the Island is
+    // tapped. That is what "pay {U} and exile it" means.
+    let exiled = table
+        .view()
+        .exile
+        .iter()
+        .flatten()
+        .find(|o| o.name == "Ancestral Vision")
+        .expect("the suspended card is in exile");
+    assert_eq!(
+        exiled
+            .counters
+            .iter()
+            .find(|c| c.kind == baylee_view::CounterKind::Time)
+            .map(|c| c.count),
+        Some(4),
+        "Suspend 4 exiles it with four time counters: {:?}",
+        exiled.counters
+    );
+}
+
+/// The click path resolves a cast before a suspend, and nothing in the pool
+/// is both.
+///
+/// `activate_card` reads `play_card` first and `suspend` after it, which is
+/// an *order* and would be a silent choice on a card that offered both — and
+/// there is no undo for either. The pool makes the question moot: a suspend
+/// card prints no mana cost, so CR 202.1a keeps it out of `castable`
+/// altogether. This is that claim as a build failure rather than a comment,
+/// because the first card that breaks it needs a chooser and not an order.
+#[test]
+fn no_suspend_card_in_the_pool_is_also_castable() {
+    let mut both: Vec<&str> = Vec::new();
+    for def in baylee_cards::all() {
+        let suspends = def
+            .abilities
+            .iter()
+            .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Suspend { .. }));
+        if !suspends {
+            continue;
+        }
+        for face in def.faces {
+            if face.mana_cost.symbols().next().is_some() {
+                both.push(face.name);
+            }
+        }
+    }
+    assert!(
+        both.is_empty(),
+        "these cards can be cast *and* suspended, so one click has two \
+         answers and `activate_card` picks the first silently: {both:?}"
     );
 }

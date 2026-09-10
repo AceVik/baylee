@@ -485,9 +485,14 @@ pub enum AutoAnswer {
 
 /// Where the game is, from the local seat's point of view.
 ///
-/// Bundled rather than passed as four loose flags, because they are always
-/// read together and swapping `mine` for `active_is_mine` is a bug no
-/// signature would catch.
+/// Bundled rather than passed as loose flags, because they are always read
+/// together and swapping `mine` for `active_is_mine` is a bug no signature
+/// would catch.
+// That bundling is also the lint's own remedy: these are four independent
+// yes/no facts about one moment, named where they are answered so a call
+// site cannot hand them over in the wrong order. There is no state the game
+// is *in* here — every one of the sixteen combinations is a real window.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Situation {
     /// Whether the pending choice is the local seat's to answer.
@@ -506,6 +511,23 @@ pub struct Situation {
     /// *wants*; an opponent's is the one thing a standing order must not
     /// answer for them.
     pub opposing_stack: bool,
+    /// Whether this client is offering the seat something the engine's own
+    /// list does not name.
+    ///
+    /// `LegalActions` is what the engine will accept *right now*, and right
+    /// now is with the mana still in the lands: a hand of spells over four
+    /// untapped Forests is an empty `castable`, an empty `abilities`, and a
+    /// player with plenty to do. [`nothing_to_do`] read the engine's list
+    /// alone, so `pass_when_nothing_to_do` passed the window out from under
+    /// them — and every land they had not spent emptied at the end of the
+    /// step.
+    ///
+    /// Answered by the caller because it is the shell that plans the taps:
+    /// `crate::manaplan` needs the card registry to know what a printed mana
+    /// ability makes, and this crate does not have it. It is the union of the
+    /// two indigo sets — a spell whose lands could be tapped for it, and a
+    /// card that could be suspended the same way.
+    pub offering: bool,
 }
 
 /// The standing-order decision: given the pending choice, where the game
@@ -540,8 +562,13 @@ pub fn auto_answer(
         // ability and nothing to suspend, so withholding the pass would leave
         // a player looking at a window whose only legal action is the one
         // being withheld.
+        //
+        // `at.offering` is the half the engine's list cannot answer: what
+        // this client would tap lands *for*. Without it the rule fired on a
+        // hand full of spells and a board full of untapped lands, which is
+        // the commonest board there is.
         Pending::Priority { legal, .. }
-            if rules.pass_when_nothing_to_do && nothing_to_do(legal) =>
+            if rules.pass_when_nothing_to_do && !at.offering && nothing_to_do(legal) =>
         {
             AutoAnswer::Pass
         }
@@ -597,6 +624,7 @@ mod tests {
             phase,
             step,
             opposing_stack: false,
+            offering: false,
         }
     }
 
@@ -1391,6 +1419,52 @@ mod tests {
                 None
             ),
             AutoAnswer::None
+        );
+    }
+
+    /// A hand this client could pay for is not passed away.
+    ///
+    /// `pass_when_nothing_to_do` is on by default and reads `LegalActions`,
+    /// which is the engine's answer *with the mana still in the lands*: a
+    /// hand of spells over four untapped Forests is an empty `castable`, an
+    /// empty `abilities`, and a player with plenty to do. The engine's own
+    /// list cannot say so, and the rule passed the window away — after which
+    /// the pool empties at the end of the step and the turn's lands are gone.
+    ///
+    /// It is `Situation::offering` that carries the missing half, set by the
+    /// shell from the two indigo sets. The negative case below is the whole
+    /// point of the flag: with nothing to reach for, the rule still fires.
+    #[test]
+    fn a_window_this_client_is_offering_something_in_is_not_passed_away() {
+        let rules = AutoRules {
+            pass_when_nothing_to_do: true,
+            ..AutoRules::default()
+        };
+        let mine = at(true, true, Phase::FirstMain, Step::Main);
+        assert_eq!(
+            auto_answer(
+                &nothing_pending(),
+                mine,
+                &PhaseOrders::default(),
+                &rules,
+                None
+            ),
+            AutoAnswer::Pass,
+            "nothing offered by anybody is still nothing to do"
+        );
+        assert_eq!(
+            auto_answer(
+                &nothing_pending(),
+                Situation {
+                    offering: true,
+                    ..mine
+                },
+                &PhaseOrders::default(),
+                &rules,
+                None
+            ),
+            AutoAnswer::None,
+            "but a spell the lands could be tapped for is something to do"
         );
     }
 }

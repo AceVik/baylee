@@ -169,7 +169,49 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
         && let Some(plan) = crate::mana_for(duel, object)
     {
         duel.last_error = None;
-        arm(duel, object, Deed::Run(plan));
+        arm(
+            duel,
+            object,
+            Deed::Run {
+                plan,
+                then: crate::RunEnd::Cast,
+            },
+        );
+        return;
+    }
+    // Suspending is the fourth thing a card in hand can do, and it was the
+    // one nothing could reach: `legal.suspendable` was read by the automation
+    // rules and by nothing else, so a Suspend 4—{U} answered no click at all.
+    // Both halves sit here in the order the two above do — the engine's own
+    // offer first, this client's offer to tap for it second.
+    //
+    // *After* the cast, which is a decision and not an accident: a card that
+    // could be cast and suspended on the same click is two deeds and this
+    // path would silently pick one. No card in the pool is both — every
+    // suspend card there prints no mana cost, so CR 202.1a keeps it out of
+    // `castable` entirely — and `no_suspend_card_in_the_pool_is_also_castable`
+    // is what says so, because the day one is, this line has to become a
+    // chooser rather than an order.
+    if duel
+        .interaction
+        .as_ref()
+        .is_some_and(|i| i.suspend(object).is_some())
+    {
+        arm(duel, object, Deed::Suspend);
+        return;
+    }
+    if duel.suspend_reach.contains(&object)
+        && let Some(plan) = crate::suspend_mana_for(duel, object)
+    {
+        duel.last_error = None;
+        arm(
+            duel,
+            object,
+            Deed::Run {
+                plan,
+                then: crate::RunEnd::Suspend,
+            },
+        );
         return;
     }
     // A permanent with something to do does it. One ability goes straight
@@ -295,7 +337,20 @@ pub fn fire_armed(duel: &mut Duel) {
         // two taps this seat holds priority, so the one thing that can have
         // changed is its own manual land tap, after which the spell may be
         // castable outright and the run would float mana nobody asked for.
-        Deed::Run(plan) => {
+        Deed::Suspend => {
+            match duel
+                .interaction
+                .as_ref()
+                .and_then(|i| i.suspend(armed.object))
+            {
+                Some(action) => duel.submit(action),
+                None => duel.last_error = Some(STALE.to_string()),
+            }
+        }
+        Deed::Run {
+            plan,
+            then: crate::RunEnd::Cast,
+        } => {
             if let Some(action) = duel
                 .interaction
                 .as_ref()
@@ -304,7 +359,32 @@ pub fn fire_armed(duel: &mut Duel) {
                 duel.submit(action);
             } else if duel.reachable.contains(&armed.object) {
                 duel.last_error = None;
-                duel.mana_run = Some(crate::ManaRun::new(plan, armed.object));
+                duel.mana_run = Some(crate::ManaRun::new(plan, armed.object, crate::RunEnd::Cast));
+            } else {
+                duel.last_error = Some(STALE.to_string());
+            }
+        }
+        // The same shape for the other end, and the same short-circuit: the
+        // manual tap that happened between the two clicks may already have
+        // floated the cost, in which case the engine is offering the suspend
+        // outright and a run would float mana nobody asked for.
+        Deed::Run {
+            plan,
+            then: crate::RunEnd::Suspend,
+        } => {
+            if let Some(action) = duel
+                .interaction
+                .as_ref()
+                .and_then(|i| i.suspend(armed.object))
+            {
+                duel.submit(action);
+            } else if duel.suspend_reach.contains(&armed.object) {
+                duel.last_error = None;
+                duel.mana_run = Some(crate::ManaRun::new(
+                    plan,
+                    armed.object,
+                    crate::RunEnd::Suspend,
+                ));
             } else {
                 duel.last_error = Some(STALE.to_string());
             }

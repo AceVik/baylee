@@ -1318,6 +1318,27 @@ impl Interaction {
         }
     }
 
+    /// Builds the action for suspending a card, rejecting anything the engine
+    /// did not list as suspendable.
+    ///
+    /// Deliberately not part of [`Self::play_card`]. Suspending is the one
+    /// thing a card can do from a hand that is *not* playing it — "rather
+    /// than cast this card from your hand, pay {U} and exile it" — so a card
+    /// that is both castable and suspendable has two answers and the caller
+    /// has to pick, which is what an ability chooser is for. Folding it in
+    /// would have made that choice silently.
+    ///
+    /// Nothing built this action before, which is why `legal.suspendable`
+    /// appeared in the client only as an empty vector in test fixtures: a
+    /// suspend card in hand was unreachable by mouse and by keyboard alike.
+    #[must_use]
+    pub fn suspend(&self, card: ObjectId) -> Option<PlayerAction> {
+        self.legal_actions()?
+            .suspendable
+            .contains(&card)
+            .then_some(PlayerAction::Suspend { card })
+    }
+
     /// Builds the action for playing a card while holding priority, rejecting
     /// anything the engine did not list as legal.
     #[must_use]
