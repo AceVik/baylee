@@ -355,7 +355,7 @@ in the reader and never in the card: one rule wrote hundreds of files, so
 patching the one in front of you leaves the rest broken and is reverted on the
 next run anyway. `cargo run -p xtask -- adopt --name "<card>"` is the way out
 — it strips the marker and hands the file over for good. `validate` reports
-the split (212 hand-owned, 364 machine-owned, 789 stubs), which is the number
+the split (207 hand-owned, 383 machine-owned, 775 stubs), which is the number
 to watch: a machine-owned card is a rule's output, and a rule is testable.
 
 A card file is written with the macros in `baylee-cards-dsl/src/build.rs` and
