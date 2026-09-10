@@ -520,8 +520,9 @@ on it.
 
 The handle both have is the name, so `ImageSource::Card` names a registry
 index and `baylee-client`'s `cardart::wearing` is the lookup that gets there
-from a projected name — the third thing handed to a board model that this
-crate cannot look up for itself, beside `token_art` and the lane widths.
+from a projected name — the second thing handed to a board model that this
+crate cannot answer for itself, beside the lane widths, and the same shape
+`resolve` already used for `token_art` one paragraph up.
 Three details decide whether it is right:
 
 - **The answer only counts when it disagrees.** A permanent copying nothing

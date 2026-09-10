@@ -40,9 +40,11 @@ pub fn of(index: CardIndex) -> Option<&'static str> {
 ///
 /// Front faces are indexed first and a back face only fills a name no front
 /// face claimed, so a card whose back happens to share another card's printed
-/// name cannot take that name away from it. Names collide in this pool — that
-/// is what `validate`'s split between unique names and all names is about —
-/// and the front is the one a player means.
+/// name cannot take that name away from it. No name in today's pool is
+/// carried by two cards at all, and
+/// `every_name_the_registry_prints_leads_back_to_a_picture` is what says so
+/// rather than a comment claiming it; the ordering is the answer prepared in
+/// advance for the day one appears, and the front is the one a player means.
 #[must_use]
 pub fn wearing(name: &str) -> Option<(CardIndex, u8)> {
     static BY_NAME: OnceLock<HashMap<&'static str, (CardIndex, u8)>> = OnceLock::new();
@@ -74,29 +76,33 @@ mod tests {
     /// comes back has to be one `of` can turn into a picture. This is the
     /// only place either is read, so a registry that renumbered under them
     /// would be caught nowhere else.
+    ///
+    /// It asserts that for *every* face and not only for fronts, which is a
+    /// claim about the pool rather than about the lookup: no face in it is
+    /// printed with a name another card also carries. Were one, the second
+    /// card would answer with the first card's index and the copy of a
+    /// transformed permanent would be drawn as somebody else entirely. The
+    /// front-first pass in [`wearing`] decides who wins such a tie; this is
+    /// what says the tie is not being played today, and it is the thing to
+    /// read first if it ever fails.
     #[test]
     fn every_name_the_registry_prints_leads_back_to_a_picture() {
         let mut checked = 0usize;
         for card in baylee_cards::all() {
-            for (i, face) in card.faces.iter().enumerate() {
+            for face in card.faces {
                 let Some((index, _)) = wearing(face.name) else {
                     panic!("{} is printed and cannot be found by its name", face.name);
                 };
-                // The *front* of a card always answers with that card. A back
-                // face may legitimately answer with a different one, which is
-                // exactly the collision the front-first pass is there for.
-                if i == 0 {
-                    assert_eq!(
-                        index, card.index,
-                        "{} does not answer with its own card",
-                        face.name
-                    );
-                    assert!(
-                        of(index).is_some(),
-                        "{} has a name but no printing to draw",
-                        face.name
-                    );
-                }
+                assert_eq!(
+                    index, card.index,
+                    "{} does not answer with its own card",
+                    face.name
+                );
+                assert!(
+                    of(index).is_some(),
+                    "{} has a name but no printing to draw",
+                    face.name
+                );
                 checked += 1;
             }
         }

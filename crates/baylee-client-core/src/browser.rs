@@ -808,8 +808,9 @@ mod tests {
     use crate::board::{BoardModel, Openings};
 
     /// The registry this file has no use for: a zone browser lists cards in
-    /// hidden zones, and a copy effect ends when its permanent leaves the
-    /// battlefield (CR 707.2 applies to what is *there*), so nothing a
+    /// hidden zones, and a card that arrives in one is a new object with no
+    /// memory of its previous existence (CR 400.7), so whatever it was
+    /// copying on the battlefield it is not copying in a graveyard. Nothing a
     /// browser draws is ever wearing another card's face.
     fn no_registry(_: &str) -> Option<(baylee_core::ids::CardIndex, u8)> {
         None
