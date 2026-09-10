@@ -187,7 +187,7 @@ const SLEEP_LIFT: vec3<f32> = vec3<f32>(0.02, 0.03, 0.06);
 /// attempt drew; raising it to a power leaves a thin crest on flat water, and
 /// `SLEEP_RING_FLOOR` takes the mean back off so the water between two crests
 /// is a shade *under* the card rather than exactly it. Five crests to the
-/// corner was chosen against the smallest card the table draws: photographed
+/// corner was chosen against the smallest card the table draws: previewed
 /// at 60, 106 and 220 pixels wide, five stays legible at the first and does
 /// not moire at the last.
 ///
@@ -380,7 +380,11 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         let swell = 0.5 + 0.5 * sin(
             6.2831855 * (ring_r * SLEEP_RING_COUNT - t / SLEEP_RING_SECONDS),
         );
-        let ring = ring_env * (pow(swell, SLEEP_RING_SHARP) - SLEEP_RING_FLOOR);
+        // `max` on the base because a negative one leaves `pow` indeterminate
+        // in WGSL, and a backend compiling with fast-math is allowed to answer
+        // `sin` a hair past -1. One NaN here is a black pixel on the one card
+        // this whole block exists to draw a player towards.
+        let ring = ring_env * (pow(max(swell, 0.0), SLEEP_RING_SHARP) - SLEEP_RING_FLOOR);
         asleep = asleep + ring * SLEEP_RING_LIGHT * SLEEP_MOON;
         color = vec4<f32>(asleep, color.a);
     }

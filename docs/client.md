@@ -680,7 +680,7 @@ separation is the whole grammar:
   while frost would be crystalline and the border already spends hard
   blue-grey on indestructible. A ring is neither — a luminance swell tinted
   with the same moon, so colour identity survives it. Five crests to the
-  corner, chosen against the smallest card the table draws (photographed at
+  corner, chosen against the smallest card the table draws (previewed at
   60, 106 and 220 pixels wide), one leaving the middle every 3.4 s, which is
   clear of every other clock a card can wear. Measured on the running client:
   over two seconds the sick card moves 38 levels per channel while an
