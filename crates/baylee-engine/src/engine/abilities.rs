@@ -27,8 +27,8 @@ use baylee_cards_dsl::ActivationZone;
 /// — and a card carrying such a cost has an ability the offer sweep can
 /// never press, which looks from there exactly like a card with no ability
 /// at all. Anything `can_afford` comes to refuse unconditionally belongs
-/// here, and supporting choice costs is a deletion here that relaxes both
-/// readers at once.
+/// here, and the day an activation can ask a player which card to discard,
+/// this answers `false` and every reader relaxes at once.
 pub(crate) const fn choice_cost_unpayable(part: &CostPart) -> bool {
     matches!(part, CostPart::Sacrifice(_) | CostPart::Discard(_))
 }

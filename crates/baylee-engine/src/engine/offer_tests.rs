@@ -787,6 +787,66 @@ fn no_implemented_card_hides_an_ability_the_engine_will_never_offer() {
     );
 }
 
+/// The tokens carrying such an ability, and why each is not a live defect.
+///
+/// A name and a reason, the way `keyword_tests::ENFORCED` is a keyword and
+/// the rule that reads it: a list nobody can grow without writing down what
+/// they are excusing. Both halves are checked below, so an entry that stops
+/// being true fails as loudly as a token that stops being listed.
+const INERT_TOKENS: &[(&str, &str)] = &[(
+    "Blood",
+    "`{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card` — the \
+     discard is a choice an activation has nowhere to make, and no card in \
+     the pool creates a Blood token, so nothing is ever offered it",
+)];
+
+/// [`no_implemented_card_hides_an_ability_the_engine_will_never_offer`], for
+/// the permanents no card prints.
+///
+/// A token is a permanent `legal_actions` asks `can_afford` about like any
+/// other, and `tokens::ALL` sits *beside* `cards/` rather than inside it,
+/// which is how the first pass at this class walked straight past Blood. The
+/// day a card creates one, its only ability is never offered and the player
+/// is handed an artifact that does nothing at all — the same defect as the
+/// card half, arriving through a door the card half cannot see.
+#[test]
+fn no_token_carries_an_ability_the_engine_will_never_offer() {
+    let mut offenders = Vec::new();
+    let mut still_inert = Vec::new();
+    for token in baylee_cards::tokens::ALL {
+        let excused = INERT_TOKENS.iter().any(|(name, _)| *name == token.name);
+        for ability in token.abilities {
+            let (AbilityDef::Activated { cost, .. }
+            | AbilityDef::ActivatedConditional { cost, .. }) = ability
+            else {
+                continue;
+            };
+            for part in cost.parts {
+                if !crate::engine::abilities::choice_cost_unpayable(part) {
+                    continue;
+                }
+                if excused {
+                    still_inert.push(token.name);
+                } else {
+                    offenders.push(format!("{} — {part:?}", token.name));
+                }
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "a token carries an activated ability the engine will never offer, \
+         because `can_afford` refuses its cost on every board: {offenders:?}"
+    );
+    for (name, why) in INERT_TOKENS {
+        assert!(
+            still_inert.contains(name),
+            "{name} is excused here for a cost it no longer has — {why}; take \
+             the entry out of INERT_TOKENS"
+        );
+    }
+}
+
 /// A permanent that makes mana two ways is offered once.
 ///
 /// `mana_abilities` is addressed by `PlayerAction::ActivateManaAbility
