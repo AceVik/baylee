@@ -847,6 +847,56 @@ fn no_token_carries_an_ability_the_engine_will_never_offer() {
     }
 }
 
+/// The twin of that pair, and the one no test of an action could fail on.
+///
+/// [`no_implemented_card_hides_an_ability_the_engine_will_never_offer`] and
+/// its token half are about a cost the engine *refuses*. This is about a cost
+/// the engine forgets: `ExileFromHand` and `PayLifeX` are paid in the casting
+/// wizard, so `can_afford` accepts them and `pay_cost` walks past them —
+/// right for Force of Will's pitch and Toxic Deluge's X, and on an activated
+/// ability a pitch cost that exiles nothing. The activation succeeds, which
+/// is why nothing else can catch it: the only evidence would be the card
+/// still in a hand that was supposed to have paid it.
+///
+/// Both doors in one test, because neither has anything to excuse. No card
+/// and no token prints such a cost today, so there is no [`INERT_TOKENS`]
+/// half to keep honest — the message says which one arrived and that is
+/// enough. A card that wants to print one says `Coverage::Partial` with the
+/// reason on it, exactly as the other half of this class demands.
+#[test]
+fn nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip() {
+    let mut offenders = Vec::new();
+    let mut check = |who: &str, ability: &AbilityDef| {
+        let (AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. }) =
+            ability
+        else {
+            return;
+        };
+        for part in cost.parts {
+            if crate::engine::abilities::paid_by_the_casting_wizard(part) {
+                offenders.push(format!("{who} — {part:?}"));
+            }
+        }
+    };
+    for def in baylee_cards::all().filter(|d| d.is_implemented()) {
+        for face in 0..def.faces.len() {
+            for ability in def.abilities_for_face(face) {
+                check(def.name(), ability);
+            }
+        }
+    }
+    for token in baylee_cards::tokens::ALL {
+        for ability in token.abilities {
+            check(token.name, ability);
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "an activated ability carries a cost part `pay_cost` skips, so the \
+         engine offers the ability and then never charges for it: {offenders:?}"
+    );
+}
+
 /// A permanent that makes mana two ways is offered once.
 ///
 /// `mana_abilities` is addressed by `PlayerAction::ActivateManaAbility

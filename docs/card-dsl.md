@@ -332,6 +332,23 @@ express at all yet.
   `Sacrifice(filter)`, `Discard(filter)`, `DiscardSelf` (cycling),
   `PayLife(n)`, `PayLifeX`, `ExileSelf`, `ExileFromHand(filter)`.
 
+Four of those are **spell-only today**, and an *activated* ability that carries
+one fails the build rather than shipping. `Sacrifice(filter)` and
+`Discard(filter)` name something to choose and an activation has nowhere to ask
+the question, so `can_afford` refuses the cost and the ability is never offered
+at all — the card is inert while the deckbuilder lists it as playable.
+`ExileFromHand(filter)` and `PayLifeX` are the opposite and the worse half:
+they are paid in the cast wizard, which an activation never enters, so the
+ability *is* offered and the part is silently skipped — a pitch cost that
+exiles nothing. Both are guarded pool-wide in
+`baylee-engine/src/engine/offer_tests.rs`
+(`no_implemented_card_hides_an_ability_the_engine_will_never_offer`, its token
+twin, and `nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`).
+A card that prints such an activation takes `Coverage::Partial("…")` with the
+reason on it and a `// NOT SUPPORTED:` comment, like any other unread clause —
+Recurring Nightmare is the one in the pool, and it goes back to `Implemented`
+the day an activation can suspend on a choice during cost payment.
+
 ### Ability kinds
 
 - `AbilityDef::Spell { effects, targets: Option<TargetReq> }`

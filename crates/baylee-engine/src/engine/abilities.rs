@@ -33,6 +33,30 @@ pub(crate) const fn choice_cost_unpayable(part: &CostPart) -> bool {
     matches!(part, CostPart::Sacrifice(_) | CostPart::Discard(_))
 }
 
+/// The cost parts an activation would leave unpaid, and think it had paid.
+///
+/// The twin of [`choice_cost_unpayable`], and the worse half of the pair.
+/// Both of these are paid in `cast_wizard` — the pitch of Force of Will, the
+/// X of Toxic Deluge — which is a path neither `can_afford` nor `pay_cost` is
+/// ever shown, so both of them treat the pair as nothing at all: one accepts
+/// it, the other walks past it. For a spell's alternative or additional cost
+/// that is exactly right. For an **activated** ability there is no wizard,
+/// and the ability is offered, pressed, and its part silently not paid — a
+/// pitch cost that exiles nothing.
+///
+/// So the two failures are opposites, and this one is invisible from further
+/// away. A choice cost is offered and then refused, which at least ends in an
+/// error; this is offered and then granted for free, and the activation
+/// *succeeds* — no test of an action can fail on it, and the only evidence is
+/// the card still sitting in a hand that should have paid it. Which is why
+/// the reader that matters is a pool-wide guard,
+/// `offer_tests::nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`,
+/// and why nothing here refuses: the parts are correct where they are used,
+/// and the guard is what keeps them from being used anywhere else.
+pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
+    matches!(part, CostPart::ExileFromHand(_) | CostPart::PayLifeX)
+}
+
 impl<L: CardLookup> Engine<L> {
     /// Whether a spell has something it could legally be cast at.
     ///
@@ -552,6 +576,14 @@ impl<L: CardLookup> Engine<L> {
                 // here rather than swept into a `_` so that a new `CostPart`
                 // is still a compile error in this match.
                 CostPart::Sacrifice(_) | CostPart::Discard(_) => return false,
+                // The first four are paid off the source alone, so there is
+                // nothing about the board to ask. The last two are
+                // [`paid_by_the_casting_wizard`]: accepted here and skipped
+                // by `pay_cost`, which is right for a spell and would hand an
+                // activation half its cost for free. Nothing in the pool
+                // prints one on an activated ability, and
+                // `offer_tests::nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`
+                // is what keeps it that way.
                 CostPart::SacrificeSelf
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
@@ -1245,6 +1277,9 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for part in cost.parts {
+            if paid_by_the_casting_wizard(part) {
+                continue;
+            }
             match part {
                 CostPart::TapSelf => {
                     if let Some(obj) = self.state.object_mut(source) {
@@ -1308,9 +1343,12 @@ impl<L: CardLookup> Engine<L> {
                         Cause::Cost,
                     )?;
                 }
-                CostPart::ExileFromHand(_) | CostPart::PayLifeX => {
-                    // Choice/X-driven parts are paid in the casting wizard.
-                }
+                // Already skipped, by [`paid_by_the_casting_wizard`] above —
+                // and *skipped* is the word, because an activation has no
+                // wizard to pay them anywhere else. Named here rather than
+                // swept into a `_` so that a new `CostPart` is still a
+                // compile error in this match.
+                CostPart::ExileFromHand(_) | CostPart::PayLifeX => {}
                 CostPart::Sacrifice(_) | CostPart::Discard(_) => {
                     return Err(EngineError::IllegalAction(
                         "choice costs are not supported yet (M2)",
