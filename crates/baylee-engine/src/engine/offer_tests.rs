@@ -540,3 +540,96 @@ fn every_offered_ability_can_be_activated() {
         },
     );
 }
+
+/// The one live disagreement of this shape that the sweep's board cannot
+/// reach, given the board it needs.
+///
+/// Recurring Nightmare's only ability is `Sacrifice a creature, Return this
+/// enchantment to its owner's hand: Return target creature card from your
+/// graveyard to the battlefield`, and [`probe`] stands a card up beside
+/// twenty basics on a board with no creature and an empty graveyard. Both
+/// halves are missing there, and `legal_actions` asks about the *target*
+/// before it asks about the cost, so the sweep finds a card with nothing to
+/// press and says nothing about it.
+///
+/// Given both halves the offer went out and `pay_cost` then refused it:
+/// [`CostPart::Sacrifice`] and [`CostPart::Discard`] are choice costs no
+/// activation can pay yet, and `can_afford` passed them in a silent no-op
+/// arm. So the engine offered a card's only ability and took it back — on a
+/// card the deckbuilder was listing as playable.
+///
+/// [`CostPart::Sacrifice`]: baylee_cards_dsl::CostPart::Sacrifice
+/// [`CostPart::Discard`]: baylee_cards_dsl::CostPart::Discard
+#[test]
+fn an_ability_the_engine_cannot_pay_for_is_never_offered() {
+    let seat = PlayerId::new(0);
+    let nightmare = card_index("a6708b11-1bcd-4208-a967-fe91f2e3313c");
+    let elves = card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3");
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6");
+    let mut engine = Duel::new(SEED, forest)
+        .battlefield(0, &[nightmare, elves, elves])
+        .start();
+    // One of the two Elves into the graveyard: the ability wants a creature
+    // to sacrifice *and* a creature card to bring back, and without the
+    // second the offer is refused for want of a target long before anything
+    // asks whether the cost is payable.
+    let doomed = on_battlefield(&engine, seat, elves).expect("an Elf on the battlefield");
+    sba::destroy(
+        engine
+            .dev_state_mut(seat)
+            .expect("the test kit grants dev commands"),
+        doomed,
+    );
+    assert!(
+        walk_to_own_main(&mut engine, seat),
+        "the board never reached seat 0's own main phase"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(seat))
+            .iter()
+            .any(|id| engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == elves))),
+        "the probe needs a creature card in the graveyard to be worth anything"
+    );
+    assert!(
+        on_battlefield(&engine, seat, elves).is_some(),
+        "the probe needs a creature left to sacrifice"
+    );
+    let source = on_battlefield(&engine, seat, nightmare).expect("Recurring Nightmare in play");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let offered: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(who, _)| *who == source)
+        .map(|(_, index)| *index)
+        .collect();
+    assert!(
+        offered.is_empty(),
+        "the engine offered Recurring Nightmare's ability {offered:?}, whose \
+         cost `pay_cost` cannot pay"
+    );
+    // The other probe, asked the same question: refused at the door, with
+    // nothing paid on the way to the refusal.
+    let refused = engine.apply(
+        seat,
+        PlayerAction::ActivateAbility {
+            source,
+            ability_index: 0,
+        },
+    );
+    assert!(
+        matches!(
+            refused,
+            Err(EngineError::IllegalAction("ability not activatable"))
+        ),
+        "the activation should agree with the offer, and answered {refused:?}"
+    );
+}

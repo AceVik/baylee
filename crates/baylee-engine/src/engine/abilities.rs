@@ -507,9 +507,19 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
+                // A cost that names something to choose, and `pay_cost`
+                // answers both of these with "choice costs are not supported
+                // yet (M2)". Saying so here rather than there is the whole
+                // point: this is what `legal_actions` gates the offer on, and
+                // an offer the payment refuses is the two-probes
+                // disagreement — the engine lights a permanent up and then
+                // punishes the player for pressing it. Recurring Nightmare is
+                // the one card in the pool that reaches it, and its `{0}`
+                // mana cost is why nothing was visibly lost: `pay_cost`
+                // refuses these *after* emptying the pool for the mana half
+                // and applying every earlier part, and it does not rewind.
+                CostPart::Sacrifice(_) | CostPart::Discard(_) => return false,
                 CostPart::SacrificeSelf
-                | CostPart::Sacrifice(_)
-                | CostPart::Discard(_)
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
