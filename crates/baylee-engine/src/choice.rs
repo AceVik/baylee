@@ -231,6 +231,12 @@ pub enum ChoicePrompt {
     /// Delve: exile cards from your graveyard, each paying for {1}
     /// (CR 702.66). Not a search and not a discard — the pile is offered so
     /// the caster can spend it.
+    ///
+    /// The only prompt in this enum that is part of a *cost*, which is what
+    /// makes it worth telling apart: `options` is the whole graveyard, but
+    /// `max` is the generic mana in the spell's total cost (CR 702.66a), and
+    /// answering below it leaves a cast that cannot pay. The house AI reads
+    /// this variant for exactly that reason.
     Delve,
     /// Generic selection.
     Generic,

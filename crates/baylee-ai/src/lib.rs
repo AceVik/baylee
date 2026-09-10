@@ -20,7 +20,7 @@ pub mod combat;
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
 use baylee_core::preset::Politics;
-use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};
+use baylee_engine::choice::{ChoicePrompt, Pending, PlayerAction, YesNoPrompt};
 use baylee_view::{Phase, PlayerView};
 
 /// A greedy one-ply heuristic controller. Deterministic given the same
@@ -261,9 +261,35 @@ impl HeuristicAgent {
                 objects: vec![options[0]],
             },
             Pending::ChooseCards {
-                options, min, max, ..
+                options,
+                min,
+                max,
+                prompt,
+                ..
             } => {
-                let n = if max <= 2 { max } else { min };
+                // Delve is the one question in this family that is part of a
+                // *cost*, and declining a cost is not free. Everything else
+                // here may be answered with `min` and nothing is lost;
+                // answering delve with zero loses the spell, because
+                // `casting::can_cast` counted the graveyard when it put the
+                // card in `legal.castable` and the mana is not there without
+                // it. A cast that cannot pay is reversed whole (CR 601.2h)
+                // and hands priority straight back with the same
+                // `LegalActions` — so an agent that declines here casts the
+                // same spell again, and again: the harness reports that as
+                // `Halt::Repeated` and a real table would sit in it.
+                //
+                // `max` rather than "as many as are needed" because it *is*
+                // as many as are needed: the question is bounded by the
+                // generic mana in the spell's total cost, which is the same
+                // subtraction `can_cast` made to decide the spell was
+                // affordable at all. Taking it is taking the offer the
+                // agent was already answering.
+                let n = if prompt == ChoicePrompt::Delve || max <= 2 {
+                    max
+                } else {
+                    min
+                };
                 PlayerAction::ChooseObjects {
                     objects: options[..(n as usize).min(options.len())].to_vec(),
                 }
@@ -976,6 +1002,53 @@ mod tests {
                 source: obj(1),
                 ability_index: 3,
             }
+        );
+    }
+
+    /// Delve is a cost, so the agent pays it; every other pile is declined.
+    ///
+    /// The `ChooseCards` rule answers `min` whenever the list is longer than
+    /// two, which is right for a search, a scry and a wish — declining any of
+    /// them loses nothing. Delve is the one prompt in that family the engine
+    /// asks *during a cast*, and `casting::can_cast` counted the graveyard
+    /// when it offered the spell: answering zero leaves a cast that cannot
+    /// pay, which is reversed whole and hands priority back with the same
+    /// `LegalActions`. A deterministic agent then casts it again, forever.
+    ///
+    /// Both halves are here on purpose. The first alone would pass just as
+    /// well if the arm had been widened for every prompt at once, and an
+    /// agent that bottomed its whole hand to a scry would be a worse player
+    /// than one that never delved.
+    #[test]
+    fn the_delve_question_is_a_cost_and_the_agent_pays_it() {
+        let graveyard: Vec<ObjectId> = (10..17).map(obj).collect();
+        let v = view(0, &[20, 20], vec![]);
+        let pile = |prompt| Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: graveyard.clone(),
+            min: 0,
+            max: 6,
+            prompt,
+        };
+
+        let PlayerAction::ChooseObjects { objects } = agent().act(&v, &pile(ChoicePrompt::Delve))
+        else {
+            panic!("expected a card choice")
+        };
+        assert_eq!(
+            objects.len(),
+            6,
+            "the whole reduction the spell was offered on"
+        );
+
+        let PlayerAction::ChooseObjects { objects } =
+            agent().act(&v, &pile(ChoicePrompt::ScryBottom))
+        else {
+            panic!("expected a card choice")
+        };
+        assert!(
+            objects.is_empty(),
+            "a pile that costs nothing to decline is still declined"
         );
     }
 }
