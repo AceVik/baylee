@@ -1,4 +1,5 @@
-//! Convoke (CR 702.51), and the two things that were wrong with it.
+//! Convoke (CR 702.51), the two things that were wrong with it, and the two
+//! other cost reductions that were wrong in the same place.
 //!
 //! Convoke asks a question during the cast, and answering it went to the
 //! wrong place: `ChooseTargets` was routed to "the wizard" without asking
@@ -12,8 +13,24 @@
 //! *before* the mana was, so a cast that then could not pay the rest
 //! returned the spell to hand with the creatures left tapped. CR 601.2h
 //! reverses the whole casting, and there is no half of it to keep.
+//!
+//! Delve (CR 702.66a) is here for the third: it is the same reduction of the
+//! same generic half, paid in the same wizard a stage earlier, and the
+//! `can_cast` fix that taught the offer to count convoke sources left it out
+//! — so the one delve card in the pool was offered exactly when its printed
+//! cost was already payable, which is the one case delve is not for.
+//!
+//! And the printed cost reduction for the fourth, which is the same fault
+//! pointing the other way: the wizard applied Surgical Metamorph's discount
+//! when it built the cast options and the offer did not, so the seat the
+//! discount belongs to was never shown the card at the price it would have
+//! paid. Convoke, delve and that discount are now one pair of readers in
+//! `casting`, asked by both probes — the module is really about that: what
+//! moves a mana cost before anybody asks whether the pool covers it.
 
-use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, reach_main_phase};
+use super::testkit::{
+    Duel, RegistryLookup, card_index, keep_mulligans, pass_until, reach_main_phase,
+};
 use super::*;
 use baylee_core::ids::CardIndex;
 
@@ -28,6 +45,53 @@ fn clever_concealment() -> CardIndex {
 /// `{1}{W}` 1/1 — a body to tap, and a legal phase-out target.
 fn ondu_cleric() -> CardIndex {
     card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
+}
+fn island() -> CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+/// `{6}{U}{U}` instant, delve — the whole of the pool's use of the keyword.
+fn dig_through_time() -> CardIndex {
+    card_index("f8b17b89-26ce-4208-874a-9e1d66514640")
+}
+/// `{3}{U}` creature, "costs {1} less if you weren't the starting player" —
+/// the whole of the pool's use of `FaceDef::cost_reduction`.
+fn surgical_metamorph() -> CardIndex {
+    card_index("4f328996-f9dd-4c7a-9548-bc4b9d0d943f")
+}
+
+/// Moves `n` cards off the top of `seat`'s library into their graveyard, and
+/// answers with them.
+///
+/// A test harness rewriting the board, which is what the dev capability is
+/// for: how a card reaches a graveyard is not what the delve test is about,
+/// and milling six with a spell would put that spell's own rules text between
+/// the premise and the assertion.
+#[track_caller]
+fn bury(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) -> Vec<ObjectId> {
+    let state = engine
+        .dev_state_mut(seat)
+        .expect("the test harness grants dev commands");
+    let doomed: Vec<ObjectId> = state
+        .zones
+        .list(crate::zone::ZoneLocation::Library(seat))
+        .iter()
+        .copied()
+        .take(n)
+        .collect();
+    assert_eq!(doomed.len(), n, "the library holds that many cards");
+    doomed
+        .iter()
+        .map(|id| {
+            state
+                .move_object(
+                    *id,
+                    crate::zone::ZoneLocation::Graveyard(seat),
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::DevCommand,
+                )
+                .expect("a card moves to the graveyard")
+        })
+        .collect()
 }
 
 /// Every untapped permanent `seat` controls, in the engine's own order.
@@ -301,7 +365,7 @@ fn a_cast_that_cannot_pay_hands_priority_back() {
         "the refused cast left its own question standing: {:?}",
         engine.pending()
     );
-    // And the spell is back in hand with nothing spent â the other half of
+    // And the spell is back in hand with nothing spent — the other half of
     // CR 601.2h, already true before this fix and worth pinning beside it.
     assert!(
         engine.state().zones.stack_is_empty(),
@@ -316,4 +380,144 @@ fn a_cast_that_cannot_pay_hands_priority_back() {
             assert!(!is_tapped(&engine, id), "a creature was convoked anyway");
         }
     }
+}
+
+/// `{6}{U}{U}` on two islands, with six cards in the graveyard.
+///
+/// Delve, CR 702.66a: "for each generic mana in this spell's total cost, you
+/// may exile a card from your graveyard rather than pay that mana". The
+/// generic half of a cost, one card each, after the total cost is worked out
+/// — which is convoke's arithmetic exactly, and the reason both are one
+/// subtraction in `can_cast`.
+///
+/// They were not. The convoke fix wrote its own reason down —
+/// "`can_cast` did not count them at all, so a convoke spell was offered as
+/// castable exactly when its printed cost was already payable, which is the
+/// one case convoke is not for" — and delve was left sitting one field over
+/// with the whole sentence still true of it. Dig Through Time is the only
+/// delve card in the pool, is `Coverage::Implemented`, and the deckbuilder
+/// offers it as playable: eight mana or nothing, with a full graveyard doing
+/// nothing at all.
+///
+/// The graveyard is filled through `dev_state_mut` rather than played into,
+/// because what is under test is the offer and not how cards get to a
+/// graveyard.
+#[test]
+fn delve_makes_a_spell_castable_that_the_pool_alone_could_not_pay() {
+    let mut engine = Duel::new(5, island())
+        .hand(0, &[dig_through_time()])
+        .battlefield(0, &[island(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    let seat = PlayerId::new(0);
+    let buried = bury(&mut engine, seat, 6);
+    reach_main_phase(&mut engine, seat);
+    tap_all_lands(&mut engine, seat);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let card = *legal
+        .castable
+        .first()
+        .expect("two islands and six cards in the graveyard pay {6}{U}{U}");
+
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the spell is castable");
+    let Pending::ChooseCards { options, max, .. } = engine.pending().clone() else {
+        panic!("expected the delve question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options.len(),
+        6,
+        "every card in the graveyard may be exiled"
+    );
+    assert_eq!(max, 6, "and all six of them at once");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: buried.clone(),
+            },
+        )
+        .expect("exiling all six is a legal answer");
+
+    assert!(
+        !engine.state().zones.stack_is_empty(),
+        "the spell never reached the stack"
+    );
+    for id in &buried {
+        assert_eq!(
+            engine.state().object(*id).map(|o| o.zone),
+            Some(crate::zone::Zone::Exile),
+            "a delved card was not exiled"
+        );
+    }
+    assert!(
+        engine.state().players[seat.get() as usize]
+            .mana_pool
+            .is_empty(),
+        "the two islands paid the coloured half"
+    );
+}
+
+/// `{3}{U}` for the seat that did not start is `{2}{U}`, and three islands
+/// pay it.
+///
+/// Surgical Metamorph prints "this spell costs {1} less to cast if you
+/// weren't the starting player", which `FaceDef::cost_reduction` carries and
+/// `cast_options` read when it built the normal-cost option — while
+/// `can_cast`, the probe that decides whether the card is offered at all,
+/// read the printed cost and nothing else. So the discount existed only after
+/// the point it could no longer be reached: the seat entitled to it saw the
+/// card greyed out at three mana and had to hold a fourth land to be shown a
+/// spell that costs three.
+///
+/// The mirror of the delve test above, and deliberately kept beside it. Both
+/// are the offer and the option list probing different costs; they simply
+/// leaned opposite ways, and a fix for either alone would have left the other
+/// looking like a different kind of problem.
+#[test]
+fn a_printed_cost_reduction_is_counted_by_the_offer_as_well() {
+    let mut engine = Duel::new(6, island())
+        .hand(1, &[surgical_metamorph()])
+        .battlefield(1, &[island(), island(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    let seat = PlayerId::new(1);
+    assert_ne!(
+        engine.state().starting_player,
+        seat,
+        "the discount is printed for the seat that did not start"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == seat
+    });
+    let metamorph = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(seat))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == surgical_metamorph()))
+        })
+        .expect("Surgical Metamorph in hand");
+    tap_all_lands(&mut engine, seat);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&metamorph),
+        "three islands pay {{2}}{{U}}, which is what this seat is charged"
+    );
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: metamorph })
+        .expect("and the wizard charges the same price the offer quoted");
 }

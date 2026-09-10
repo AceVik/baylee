@@ -74,6 +74,72 @@ pub fn convoke_sources(state: &GameState, player: PlayerId) -> Vec<ObjectId> {
         .collect()
 }
 
+/// The generic mana this face's keywords can pay for right now: convoke's
+/// untapped permanents (CR 702.51) and delve's graveyard (CR 702.66a), one
+/// point each.
+///
+/// One function because two probes ask it and an offer is the difference
+/// between their answers. [`can_cast`] decides whether the card appears in
+/// `LegalActions` at all; `Engine::cast_options` decides which ways of casting
+/// it appear once it has been pressed. Every time those two have counted
+/// differently the result has been the same defect in one of its two
+/// directions — a card offered and then refused as "no way to cast this
+/// spell", or a card never offered that the wizard would have paid for
+/// happily. Convoke was fixed by making the count one function and delve was
+/// left beside it: Dig Through Time is the pool's only delve card, is
+/// `Coverage::Implemented`, and was offered at eight mana or not at all, with
+/// a full graveyard doing nothing.
+///
+/// The *printed* face, because neither keyword can be granted: a copy of a
+/// delve spell is not a delve spell.
+#[must_use]
+pub fn keyword_reduction(
+    state: &GameState,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+) -> u32 {
+    let convoke = if face.convoke {
+        convoke_sources(state, player).len() as u32
+    } else {
+        0
+    };
+    let delve = if face.delve {
+        state
+            .zones
+            .list(ZoneLocation::Graveyard(player))
+            .len()
+            .try_into()
+            .unwrap_or(u32::MAX)
+    } else {
+        0
+    };
+    convoke + delve
+}
+
+/// The generic mana a cost reduction printed on the card itself takes off
+/// right now — Surgical Metamorph's "costs {1} less if you weren't the
+/// starting player".
+///
+/// The other half of the pair above, and it went the same way: the wizard
+/// applied it when it built the normal-cost option and the offer did not, so
+/// the seat the reduction is *for* was never shown the card at the price it
+/// would have paid.
+#[must_use]
+pub fn printed_reduction(
+    state: &GameState,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+) -> u32 {
+    match face.cost_reduction {
+        Some(baylee_cards_dsl::CostReduction::NotStartingPlayer(n))
+            if player != state.starting_player =>
+        {
+            n
+        }
+        _ => 0,
+    }
+}
+
 /// Whether `pool` covers `cost`, honouring a mana-conversion effect.
 pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) -> bool {
     wild_or_not(mana_is_wild(state), pool, cost)
@@ -277,24 +343,27 @@ pub fn can_cast(
     // (CR 601.2f) — which is why it is folded into each probe below rather
     // than into the first one.
     let tax = commander_tax(state, player, card);
-    // Convoke (CR 702.51) is a *reduction* of the generic part, so it goes
-    // on the same probes the tax does and in the other direction. Read off
-    // the printed face: a granted convoke does not exist.
-    let convoke = obj
+    // Convoke and delve are *reductions* of the generic part, so they go on
+    // the same probes the tax does and in the other direction. Read off the
+    // printed face: a granted convoke does not exist.
+    let printed_face = obj
         .card
         .and_then(|c| lookup.card(c.index))
-        .filter(|def| def.faces[0].convoke)
-        .map_or(0, |_| convoke_sources(state, player).len() as u32);
+        .map(|def| &def.faces[0]);
+    let reduction = printed_face.map_or(0, |face| keyword_reduction(state, face, player));
     let probe = |cost: &ManaCost| {
         affordable(
             state,
             pool,
-            &cost.with_more_generic(tax).with_less_generic(convoke),
+            &cost.with_more_generic(tax).with_less_generic(reduction),
         )
     };
-    // Printed cost probed with X = 0; the full payment is validated when
-    // the wizard finishes.
-    if !probe(&c.mana_cost.with_x(0)) {
+    // Printed cost probed with X = 0, and after a reduction printed on the
+    // card itself; the full payment is validated when the wizard finishes.
+    let normal_cost = c
+        .mana_cost
+        .with_less_generic(printed_face.map_or(0, |face| printed_reduction(state, face, player)));
+    if !probe(&normal_cost.with_x(0)) {
         // Alternative costs may still make it castable (pitch/evoke). The
         // wizard computes the exact options; this decides only whether there
         // is one, and asks about the whole cost to do it.

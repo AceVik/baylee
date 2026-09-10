@@ -263,23 +263,20 @@ impl<L: CardLookup> Engine<L> {
         // mode would be offered that the player then cannot pay for.
         let tax = casting::commander_tax(&self.state, player, card);
         // Convoke (CR 702.51) pays {1} per untapped creature or artifact and
-        // is therefore part of what "afford" means. It has to be the same
-        // count `casting::can_cast` uses, or the spell is offered in
+        // delve (CR 702.66a) pays {1} per card exiled from the graveyard, so
+        // both are part of what "afford" means. It has to be the same count
+        // `casting::can_cast` uses, or the spell is offered in
         // `LegalActions` and then refused here as "no way to cast this
         // spell" — which is what happened, and it is why the count lives in
-        // one function.
-        let convoke = if face.convoke {
-            casting::convoke_sources(&self.state, player).len() as u32
-        } else {
-            0
-        };
+        // one function rather than in each of them.
+        let reduction = casting::keyword_reduction(&self.state, face, player);
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
             casting::wild_or_not(
                 casting::mana_is_wild(&self.state),
                 pool,
-                &cost.with_more_generic(tax).with_less_generic(convoke),
+                &cost.with_more_generic(tax).with_less_generic(reduction),
             )
         };
         let mut options = Vec::new();
@@ -302,15 +299,13 @@ impl<L: CardLookup> Engine<L> {
             return Ok(options);
         }
         // Conditional cost reduction printed on the card (Surgical
-        // Metamorph & co.).
-        let normal_cost = match face.cost_reduction {
-            Some(baylee_cards_dsl::CostReduction::NotStartingPlayer(n))
-                if player != self.state.starting_player =>
-            {
-                face.mana_cost.with_less_generic(n)
-            }
-            _ => face.mana_cost,
-        };
+        // Metamorph & co.), through the same reader `can_cast` uses — this
+        // was the second place the two probes disagreed, and in the other
+        // direction from convoke: the wizard knew the discount and the offer
+        // did not, so the seat entitled to it was never shown the card.
+        let normal_cost =
+            face.mana_cost
+                .with_less_generic(casting::printed_reduction(&self.state, face, player));
         // Normal cost (X probed with 0; the real check happens at payment).
         if afford(&normal_cost.with_x(0)) {
             options.push(CastModeDesc {
