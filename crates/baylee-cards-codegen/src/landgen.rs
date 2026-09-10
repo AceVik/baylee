@@ -23,6 +23,7 @@
 use crate::body::CardBody;
 use crate::catalog::SubtypeCatalogs;
 use crate::scryfall::ScryfallCard;
+use baylee_core::types::SubtypeKind;
 use std::fmt::Write as _;
 
 /// The five basic land types and the mana each grants (CR 305.6).
@@ -264,7 +265,12 @@ impl Recognizer<'_> {
                 .trim_start_matches("an ")
                 .trim_start_matches("a ")
                 .trim();
-            let path = self.cats.const_path(word)?;
+            // A *land* subtype, named as one. The filter below says
+            // `Filter::LAND` beside this clause, so a word that resolved to
+            // the creature catalog — which `const_path` searches first —
+            // would build a check nothing can satisfy, and the land would
+            // enter tapped forever while claiming to be a checkland.
+            let path = self.cats.const_path_of(SubtypeKind::Land, word)?;
             clauses.push(format!("Filter::HasSubtype({path})"));
         }
         let inner = if clauses.len() == 1 {
@@ -551,6 +557,10 @@ mod tests {
                 "Forest".into(),
                 "Cave".into(),
             ],
+            // Not decoration: `const_path` searches creature first, so a
+            // catalog with no creatures in it cannot show a land reader
+            // reaching into the wrong one.
+            creature: vec!["Cleric".into(), "Zombie".into()],
             ..SubtypeCatalogs::default()
         };
         c.normalize();
@@ -635,6 +645,40 @@ mod tests {
         assert_eq!(
             body.abilities,
             ["mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])])"]
+        );
+    }
+
+    /// A checkland checks a *land* subtype, and a sentence naming any other
+    /// kind is a sentence this reader has not understood.
+    ///
+    /// The filter it builds says `Filter::LAND` beside the subtype clause, so
+    /// a name resolved out of the creature catalog — which `const_path`
+    /// reaches first, the catalogs being searched in id order — would compile
+    /// to a check nothing on a battlefield can ever satisfy. The card would
+    /// be generated `Implemented` and enter tapped for the rest of its life,
+    /// which is precisely the "close enough" path
+    /// [`one_unread_clause_refuses_the_whole_card`] exists to keep shut.
+    #[test]
+    fn a_checkland_that_names_something_other_than_a_land_type_is_refused() {
+        assert!(
+            recognize(
+                &card(
+                    "Land",
+                    "This land enters tapped unless you control a Zombie.\n{T}: Add {B}.",
+                ),
+                &cats(),
+            )
+            .is_none()
+        );
+        // The land type of the same shape is still read, so the refusal is
+        // about the kind and not about the sentence.
+        let body = read(
+            "Land",
+            "This land enters tapped unless you control a Cave.\n{T}: Add {B}.",
+        );
+        assert!(
+            body.statics
+                .contains("Filter::HasSubtype(subtypes::land::CAVE)")
         );
     }
 

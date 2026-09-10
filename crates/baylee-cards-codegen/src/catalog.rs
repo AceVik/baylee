@@ -57,18 +57,40 @@ impl SubtypeCatalogs {
 
     /// The generated constant path for a subtype name, e.g.
     /// `subtypes::land::FOREST`.
+    ///
+    /// The catalogs are searched in id order, so a name printed by two kinds
+    /// answers with the earlier one — creature before land. Use
+    /// [`Self::const_path_of`] wherever the kind is already known from the
+    /// sentence being read.
     #[must_use]
     pub fn const_path(&self, name: &str) -> Option<String> {
-        for (kind, names) in self.ordered() {
-            if names.iter().any(|n| n.eq_ignore_ascii_case(name)) {
-                return Some(format!(
-                    "subtypes::{}::{}",
-                    module_name(kind),
-                    const_name(name)
-                ));
-            }
-        }
-        None
+        self.ordered()
+            .into_iter()
+            .find_map(|(kind, names)| Self::lookup(kind, names, name))
+    }
+
+    /// The same, restricted to one kind.
+    ///
+    /// A reader that already knows which kind it is looking at has to say so.
+    /// A checkland's "unless you control a Swamp" is a *land* subtype, and
+    /// the filter it becomes says `Filter::LAND` beside the subtype clause —
+    /// so a name that resolved to a creature constant would build a filter
+    /// nothing can ever match, and the card would be generated as
+    /// `Implemented` while entering tapped for the rest of its life. Refusing
+    /// it is the honest-stub rule: an unread word leaves a stub.
+    #[must_use]
+    pub fn const_path_of(&self, kind: SubtypeKind, name: &str) -> Option<String> {
+        self.ordered()
+            .into_iter()
+            .find(|(k, _)| *k == kind)
+            .and_then(|(k, names)| Self::lookup(k, names, name))
+    }
+
+    fn lookup(kind: SubtypeKind, names: &[String], name: &str) -> Option<String> {
+        names
+            .iter()
+            .any(|n| n.eq_ignore_ascii_case(name))
+            .then(|| format!("subtypes::{}::{}", module_name(kind), const_name(name)))
     }
 }
 
@@ -238,6 +260,38 @@ mod tests {
         assert_eq!(
             cats.const_path("forest").as_deref(),
             Some("subtypes::land::FOREST")
+        );
+    }
+
+    /// A name two kinds print resolves to the earlier kind, and a reader that
+    /// knows which one it wants can say so.
+    ///
+    /// Scryfall prints no such collision today, which is exactly why this is
+    /// asserted on a catalog built by hand: the trap is one printing away and
+    /// would be silent when it arrived — a checkland whose filter says
+    /// `Filter::LAND` beside `HasSubtype(creature::CAVE)` matches nothing,
+    /// and the land enters tapped forever while claiming to be implemented.
+    #[test]
+    fn a_name_two_kinds_share_is_reached_by_naming_the_kind() {
+        let mut cats = SubtypeCatalogs {
+            creature: vec!["Cave".into()],
+            land: vec!["Cave".into()],
+            ..SubtypeCatalogs::default()
+        };
+        cats.normalize();
+        assert_eq!(
+            cats.const_path("cave").as_deref(),
+            Some("subtypes::creature::CAVE"),
+            "the flat lookup answers with the earlier kind, id order"
+        );
+        assert_eq!(
+            cats.const_path_of(SubtypeKind::Land, "cave").as_deref(),
+            Some("subtypes::land::CAVE")
+        );
+        assert_eq!(
+            cats.const_path_of(SubtypeKind::Land, "wizard").as_deref(),
+            None,
+            "a name of another kind is not a land subtype and must not answer"
         );
     }
 
