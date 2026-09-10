@@ -29,7 +29,7 @@ use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
 use baylee_client_core::lobby::{
     Field, GameMode, GameQuery, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS,
-    MIN_CHAIRS, Screen, SeatKind,
+    MIN_CHAIRS, Screen, SeatKind, Tab,
 };
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::Finish;

@@ -320,7 +320,7 @@ pub(super) fn keyboard(
         }
         match &key.logical_key {
             Key::Backspace => state.lobby.backspace(),
-            Key::Tab => state.lobby.cycle_focus(),
+            Key::Tab => state.lobby.cycle_focus(Tab::Next),
             Key::Enter => {
                 let request = if table {
                     state.lobby.search_again()

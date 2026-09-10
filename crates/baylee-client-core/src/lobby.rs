@@ -13,6 +13,7 @@
 
 use crate::deckbuilder::DeckBuilder;
 use crate::i18n::{Lang, Phrase};
+use crate::textbuf::{Dir, Step as Reach, TextBuffer};
 use serde::{Deserialize, Serialize};
 
 /// Which screen the lobby is showing.
@@ -70,6 +71,16 @@ impl Field {
             Self::Password | Self::RoomPassword => FieldKind::Password,
         }
     }
+}
+
+/// Which way the Tab key moves the caret between fields.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Tab {
+    /// Tab: on to the next field.
+    #[default]
+    Next,
+    /// ⇧Tab: back to the previous one.
+    Back,
 }
 
 /// What a shell should ask its platform for when a [`Field`] takes the caret.
@@ -596,11 +607,11 @@ enum Performer {
 pub struct Lobby {
     screen: Screen,
     focus: Field,
-    email: String,
-    display_name: String,
-    password: String,
-    room_password: String,
-    search: String,
+    email: TextBuffer,
+    display_name: TextBuffer,
+    password: TextBuffer,
+    room_password: TextBuffer,
+    search: TextBuffer,
     performer: Performer,
     decks: Vec<DeckSummary>,
     games: Vec<GameSummary>,
@@ -678,21 +689,44 @@ impl Lobby {
         self.focus_epoch
     }
 
-    /// Replaces a field wholesale.
+    /// Replaces a field wholesale, caret to the end.
     ///
     /// For a shell whose platform owns the text — a browser's own input, where
     /// autofill, paste and an IME all change the value without a keystroke the
-    /// client ever sees.
+    /// client ever sees. Use [`Lobby::set_field_at`] where that platform can
+    /// also say where its caret is.
     pub fn set_field(&mut self, field: Field, value: &str) {
         if self.field(field) == value {
             return;
         }
-        *self.field_mut(field) = value.to_string();
+        self.buffer_mut(field).set(value, value.len(), None);
+    }
+
+    /// The same, with the caret and selection the platform reports.
+    ///
+    /// Unlike [`Lobby::set_field`] this writes even when the text has not
+    /// changed, because moving the caret inside unchanged text is exactly what
+    /// an arrow key in a browser's own `<input>` does.
+    pub fn set_field_at(
+        &mut self,
+        field: Field,
+        value: &str,
+        cursor: usize,
+        anchor: Option<usize>,
+    ) {
+        self.buffer_mut(field).set(value, cursor, anchor);
     }
 
     /// The text in one field.
     #[must_use]
     pub fn field(&self, field: Field) -> &str {
+        self.buffer(field).text()
+    }
+
+    /// One field's whole state — text, caret and selection — for a shell that
+    /// draws the caret rather than letting a platform draw it.
+    #[must_use]
+    pub fn buffer(&self, field: Field) -> &TextBuffer {
         match field {
             Field::Email => &self.email,
             Field::DisplayName => &self.display_name,
@@ -819,28 +853,50 @@ impl Lobby {
         self.focus_epoch += 1;
     }
 
-    /// Moves the caret to the next field — the Tab key. The display name is
-    /// not in the ring when the form is logging in, because it is not shown.
+    /// Moves the caret to the next or previous field — Tab and ⇧Tab. The
+    /// display name is not in the ring when the form is logging in, because it
+    /// is not shown.
     ///
     /// The table screen is its own ring of two — the search box and the room
     /// password — because those two are the fields on it, and Tab between
-    /// screens would move the caret somewhere nobody can see it.
-    pub fn cycle_focus(&mut self) {
+    /// screens would move the caret somewhere nobody can see it. A ring of two
+    /// reverses to itself, which is why the direction only reads on the
+    /// sign-in form.
+    ///
+    /// The field arrived at has all of its text selected, as tabbing into a
+    /// field in a browser does: the next character typed replaces what is
+    /// there, which is what a player correcting an address expects and what
+    /// append-only fields could never do.
+    pub fn cycle_focus(&mut self, dir: Tab) {
         if self.screen == Screen::Table {
             self.focus = match self.focus {
                 Field::Search => Field::RoomPassword,
                 _ => Field::Search,
             };
-            self.focus_epoch += 1;
-            return;
+        } else {
+            self.focus = match (self.focus, self.registering(), dir) {
+                // Logging in: two fields, and a ring of two reverses to
+                // itself. The display name is not drawn, so it is not in it.
+                (Field::Email | Field::DisplayName, false, _) => Field::Password,
+                (Field::Password, false, _) => Field::Email,
+                // Signing up: three, and the direction finally reads.
+                (Field::Email, true, Tab::Next) | (Field::Password, true, Tab::Back) => {
+                    Field::DisplayName
+                }
+                (Field::DisplayName, true, Tab::Next) | (Field::Email, true, Tab::Back) => {
+                    Field::Password
+                }
+                (Field::Password, true, Tab::Next) | (Field::DisplayName, true, Tab::Back) => {
+                    Field::Email
+                }
+                // Neither of the table screen's two fields is on this one, but
+                // the caret survives a change of screen, so Tab has to answer.
+                (Field::RoomPassword, _, _) => Field::Search,
+                (Field::Search, _, _) => Field::RoomPassword,
+            };
         }
-        self.focus = match (self.focus, self.registering()) {
-            (Field::Email, true) => Field::DisplayName,
-            (Field::Email, false) | (Field::DisplayName, _) => Field::Password,
-            (Field::Password, _) => Field::Email,
-            (Field::RoomPassword, _) => Field::Search,
-            (Field::Search, _) => Field::RoomPassword,
-        };
+        let focus = self.focus;
+        self.buffer_mut(focus).select_all();
         self.focus_epoch += 1;
     }
 
@@ -865,7 +921,7 @@ impl Lobby {
     /// What has been typed into the room password box.
     #[must_use]
     pub fn room_password(&self) -> &str {
-        &self.room_password
+        self.room_password.text()
     }
 
     /// Empties the room password box.
@@ -879,19 +935,42 @@ impl Lobby {
         }
     }
 
-    /// Appends one typed character to the focused field.
+    /// Types one character into the focused field, at the caret.
     pub fn type_char(&mut self, ch: char) {
-        if ch.is_control() {
-            return;
-        }
-        let focus = self.focus;
-        self.field_mut(focus).push(ch);
+        let mut buf = [0u8; 4];
+        self.insert(ch.encode_utf8(&mut buf));
     }
 
-    /// Deletes the last character of the focused field.
+    /// Types a run of text into the focused field — a paste, or an IME
+    /// committing several characters at once. Control characters are dropped.
+    pub fn insert(&mut self, text: &str) {
+        let focus = self.focus;
+        self.buffer_mut(focus).insert(text);
+    }
+
+    /// Selects everything in the focused field — ⌘A.
+    pub fn select_all(&mut self) {
+        let focus = self.focus;
+        self.buffer_mut(focus).select_all();
+    }
+
+    /// Moves the caret in the focused field, extending the selection when
+    /// `select` is set — the arrow keys, Home and End, with or without shift.
+    pub fn move_caret(&mut self, reach: Reach, dir: Dir, select: bool) {
+        let focus = self.focus;
+        self.buffer_mut(focus).move_caret(reach, dir, select);
+    }
+
+    /// Deletes the character after the caret, or the selection — Delete.
+    pub fn delete_forward(&mut self) {
+        let focus = self.focus;
+        self.buffer_mut(focus).delete_forward();
+    }
+
+    /// Deletes the character before the caret, or the selection — Backspace.
     pub fn backspace(&mut self) {
         let focus = self.focus;
-        self.field_mut(focus).pop();
+        self.buffer_mut(focus).delete_back();
     }
 
     /// Swaps the form between log-in and sign-up.
@@ -921,11 +1000,11 @@ impl Lobby {
         if self.busy {
             return None;
         }
-        if self.email.trim().is_empty() || self.password.is_empty() {
+        if self.email.text().trim().is_empty() || self.password.is_empty() {
             self.note(Phrase::NeedEmailAndPassword);
             return None;
         }
-        if registering && self.display_name.trim().is_empty() {
+        if registering && self.display_name.text().trim().is_empty() {
             self.note(Phrase::NeedDisplayName);
             return None;
         }
@@ -933,15 +1012,15 @@ impl Lobby {
         if registering {
             self.note(Phrase::CreatingAccount);
             Some(LobbyRequest::Register {
-                email: self.email.trim().to_string(),
-                display_name: self.display_name.trim().to_string(),
-                password: self.password.clone(),
+                email: self.email.text().trim().to_string(),
+                display_name: self.display_name.text().trim().to_string(),
+                password: self.password.text().to_string(),
             })
         } else {
             self.note(Phrase::SigningIn);
             Some(LobbyRequest::LogIn {
-                email: self.email.trim().to_string(),
-                password: self.password.clone(),
+                email: self.email.text().trim().to_string(),
+                password: self.password.text().to_string(),
             })
         }
     }
@@ -1057,7 +1136,7 @@ impl Lobby {
     #[must_use]
     pub fn query(&self) -> GameQuery {
         GameQuery {
-            q: self.search.trim().to_string(),
+            q: self.search.text().trim().to_string(),
             offset: self.offset,
             limit: PAGE,
         }
@@ -1144,7 +1223,7 @@ impl Lobby {
         chairs: usize,
         name: String,
     ) -> Option<LobbyRequest> {
-        let password = self.room_password.clone();
+        let password = self.room_password.text().to_string();
         self.open_locked_room(mode, chairs, name, password)
     }
 
@@ -1180,7 +1259,8 @@ impl Lobby {
     /// box — which a room that is not locked simply ignores.
     pub fn join_seat(&mut self, game_id: &str, seat: Option<u32>) -> Option<LobbyRequest> {
         let deck_id = self.picked_deck()?;
-        let password = std::mem::take(&mut self.room_password);
+        let password = self.room_password.text().to_string();
+        self.room_password.clear();
         self.busy = true;
         // A table only starts once every chair is ready and the host says go,
         // so sitting down does not begin the game — the seat screen waits
@@ -1441,8 +1521,8 @@ impl Lobby {
                 self.note(Phrase::AccountCreated);
                 self.busy = true;
                 Some(LobbyRequest::LogIn {
-                    email: self.email.trim().to_string(),
-                    password: self.password.clone(),
+                    email: self.email.text().trim().to_string(),
+                    password: self.password.text().to_string(),
                 })
             }
             LobbyEvent::LoggedIn { token } => {
@@ -1573,7 +1653,7 @@ impl Lobby {
         !matches!(self.performer, Performer::Nobody)
     }
 
-    fn field_mut(&mut self, field: Field) -> &mut String {
+    fn buffer_mut(&mut self, field: Field) -> &mut TextBuffer {
         match field {
             Field::Email => &mut self.email,
             Field::DisplayName => &mut self.display_name,
@@ -1604,8 +1684,8 @@ mod tests {
     /// A signed-in lobby with one deck, without walking the whole flow.
     fn seated_lobby() -> Lobby {
         let mut lobby = Lobby::new();
-        lobby.email.push_str("a@b.c");
-        lobby.password.push_str("hunter22");
+        lobby.set_field(Field::Email, "a@b.c");
+        lobby.set_field(Field::Password, "hunter22");
         assert!(lobby.submit().is_some());
         assert_eq!(
             lobby.apply(LobbyEvent::LoggedIn {
@@ -2154,7 +2234,7 @@ mod tests {
             "tapping the field you are already in still has to raise a keyboard"
         );
         let again = lobby.focus_epoch();
-        lobby.cycle_focus();
+        lobby.cycle_focus(Tab::Next);
         assert!(lobby.focus_epoch() > again);
         let refused = lobby.focus_epoch();
         lobby.focus_on(Field::DisplayName);
@@ -2182,15 +2262,104 @@ mod tests {
     }
 
     #[test]
+    fn shift_tab_walks_the_sign_up_form_backwards() {
+        let mut lobby = Lobby::new();
+        lobby.toggle_registering();
+        assert_eq!(lobby.focus(), Field::Email);
+        lobby.cycle_focus(Tab::Back);
+        assert_eq!(
+            lobby.focus(),
+            Field::Password,
+            "back from the first is last"
+        );
+        lobby.cycle_focus(Tab::Back);
+        assert_eq!(lobby.focus(), Field::DisplayName);
+        lobby.cycle_focus(Tab::Back);
+        assert_eq!(lobby.focus(), Field::Email);
+    }
+
+    /// A ring of two reverses to itself, so the log-in form answers Tab and
+    /// ⇧Tab alike — which is what a browser does with two fields as well.
+    #[test]
+    fn shift_tab_on_the_log_in_form_is_tab() {
+        let mut lobby = Lobby::new();
+        lobby.cycle_focus(Tab::Back);
+        assert_eq!(lobby.focus(), Field::Password);
+        lobby.cycle_focus(Tab::Back);
+        assert_eq!(lobby.focus(), Field::Email);
+    }
+
+    /// Tabbing into a field selects it, so the next character replaces what
+    /// is there. An append-only field could not do that, which is why an
+    /// address typed one letter wrong had to be deleted back to the mistake.
+    #[test]
+    fn tabbing_into_a_field_selects_what_is_in_it() {
+        let mut lobby = Lobby::new();
+        lobby.set_field(Field::Password, "wrong");
+        lobby.cycle_focus(Tab::Next);
+        assert_eq!(lobby.focus(), Field::Password);
+        assert_eq!(lobby.buffer(Field::Password).selection(), Some(0..5));
+        lobby.type_char('r');
+        assert_eq!(lobby.field(Field::Password), "r");
+    }
+
+    /// Clicking into a field is not tabbing into it: the caret is placed,
+    /// nothing is selected, and typing goes on from there.
+    #[test]
+    fn clicking_into_a_field_does_not_select_it() {
+        let mut lobby = Lobby::new();
+        lobby.set_field(Field::Password, "half");
+        lobby.focus_on(Field::Password);
+        assert_eq!(lobby.buffer(Field::Password).selection(), None);
+        lobby.type_char('!');
+        assert_eq!(lobby.field(Field::Password), "half!");
+    }
+
+    /// What a browser's `<input>` reports after the player moved its caret:
+    /// the text is unchanged and only the caret moved, which
+    /// [`Lobby::set_field`] discards as "no change".
+    #[test]
+    fn the_platform_may_move_the_caret_without_changing_the_text() {
+        let mut lobby = Lobby::new();
+        lobby.set_field(Field::Email, "mail@example.com");
+        lobby.set_field_at(Field::Email, "mail@example.com", 4, Some(0));
+        assert_eq!(lobby.buffer(Field::Email).cursor(), 4);
+        assert_eq!(lobby.buffer(Field::Email).selection(), Some(0..4));
+        lobby.type_char('n');
+        assert_eq!(lobby.field(Field::Email), "n@example.com");
+    }
+
+    /// The caret is a caret and not an append cursor: a correction made in
+    /// the middle of an address lands in the middle of it.
+    #[test]
+    fn typing_lands_at_the_caret_and_backspace_takes_what_is_before_it() {
+        let mut lobby = Lobby::new();
+        lobby.set_field_at(Field::Email, "mailexample.com", 4, None);
+        lobby.type_char('@');
+        assert_eq!(lobby.field(Field::Email), "mail@example.com");
+        lobby.backspace();
+        assert_eq!(lobby.field(Field::Email), "mailexample.com");
+        lobby.delete_forward();
+        assert_eq!(lobby.field(Field::Email), "mailxample.com");
+        lobby.move_caret(Reach::Line, Dir::Left, false);
+        lobby.type_char('e');
+        assert_eq!(
+            lobby.field(Field::Email),
+            "emailxample.com",
+            "Home, then type"
+        );
+    }
+
+    #[test]
     fn tab_skips_the_display_name_when_logging_in() {
         let mut lobby = Lobby::new();
         assert_eq!(lobby.focus(), Field::Email);
-        lobby.cycle_focus();
+        lobby.cycle_focus(Tab::Next);
         assert_eq!(lobby.focus(), Field::Password);
-        lobby.cycle_focus();
+        lobby.cycle_focus(Tab::Next);
         assert_eq!(lobby.focus(), Field::Email);
         lobby.toggle_registering();
-        lobby.cycle_focus();
+        lobby.cycle_focus(Tab::Next);
         assert_eq!(lobby.focus(), Field::DisplayName);
     }
 
