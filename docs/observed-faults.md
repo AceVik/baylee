@@ -1716,3 +1716,43 @@ rather than four.
 The detector now halts on the third sighting, which costs a genuine loop a few
 more samples and nothing else, and the floor is four of four: a floor under
 the measured value is exactly what let two games sit unexamined.
+
+## Sixth pass, 2026-09-10 — found while building a deck to photograph a copy
+
+### 34. A modal triggered ability never triggers — CONFIRMED, cause found
+
+Found by accident. A scratch deck for the copy-of-a-token proof opened with
+Aether Channeler, whose ETB is "choose one — Bird token / bounce a nonland
+permanent / draw a card". It was cast, it resolved, and **nothing happened**:
+no token, no card drawn, no permanent returned, no mode asked, an empty stack,
+and `last_error` reporting no refusal. Every channel a fault normally arrives
+through was silent, which is what makes it worth an entry — a player reads
+that as the card doing nothing, and there is nothing to report.
+
+The cause is in `crates/baylee-engine/src/trigger.rs`, and it is the shape the
+`activated-conditional-is-a-forgotten-twin` lesson describes. `collect` is the
+only place a `PendingTrigger` is made, and both of its loops open with
+
+```rust
+let AbilityDef::Triggered { trigger, once_per_turn, .. } = ability else {
+    continue;
+};
+```
+
+so an `AbilityDef::ModalTriggered` is skipped in silence. It never becomes a
+pending trigger, never reaches the stack, and is therefore never asked about.
+The far half of the path is already built — `progress.rs` reads
+`ModalTriggered` in three places to offer the modes and to resolve the chosen
+one — so what is missing is the collection arm, not the mechanism.
+
+Five cards in the pool carry one, and all five are marked `Implemented`:
+Aether Channeler, Charming Prince, Ertai Resurrected, Inspirit Flagship Vessel
+and Primaris Eliminator. That is the part to fix first — a card the
+deckbuilder offers as playable whose printed ability cannot fire is worse than
+a stub, because a stub says so.
+
+Not investigated, and both wanting a rule looked up rather than recalled:
+whether the mode is chosen at the moment the trigger is put on the stack (a
+spell chooses its modes as it is cast, and a triggered ability is not cast, so
+the two are separate sentences in the rules), and whether `trigger_count` and
+`once_per_turn` need anything the modal variant does not already carry.
