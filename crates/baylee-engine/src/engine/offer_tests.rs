@@ -49,14 +49,19 @@ const SEED: u64 = 4_211;
 ///
 /// This is the lesson the gamehost soak taught: a pool-wide test that
 /// reaches nothing passes exactly as loudly as one that reaches everything.
-/// The number is 459 measured on 2026-09-10, less a tenth, so ordinary pool
+/// The number is 464 measured on 2026-09-10, less a tenth, so ordinary pool
 /// growth never touches it and a setup change that stops part of the pool
 /// from arriving at its main phase fails here instead of silently.
 ///
-/// It is now every implemented card that has anything to press: no board is
-/// abandoned on the way in and none is abandoned tapping its mana. The rest
-/// of the pool is cards with no activated ability at all.
-const COVERAGE_FLOOR: usize = 413;
+/// It is now every implemented card the engine draws a button for on this
+/// board: no board is abandoned on the way in and none is abandoned tapping
+/// its mana. What is left out is *not* simply "cards with no activated
+/// ability". An ability whose cost `can_afford` refuses to offer is a card
+/// that arrives, is asked, and answers with nothing — counted here exactly
+/// as a vanilla creature is. Recurring Nightmare is that shape (a sacrifice
+/// cost is a choice an activation cannot make yet), and it left the
+/// implemented pool by hand rather than by anything this number can see.
+const COVERAGE_FLOOR: usize = 417;
 
 /// The floor under the deeds driven all the way back to a quiet priority.
 ///
@@ -64,11 +69,11 @@ const COVERAGE_FLOOR: usize = 413;
 /// enumerated is the point of the drive, and a drive that stops at the first
 /// question it cannot answer checks nothing past the press. This is the
 /// second half of [`COVERAGE_FLOOR`]: that one says the sweep still reaches
-/// the pool, this one says it still gets through it. Every one of the 645
+/// the pool, this one says it still gets through it. Every one of the 658
 /// deeds rested when this was measured on 2026-09-10, with nothing stalled
 /// and no question the driver could not answer; the floor is that less a
 /// tenth.
-const RESTED_FLOOR: usize = 580;
+const RESTED_FLOOR: usize = 592;
 
 /// One thing an object was offered, in the two lists an offer can live in.
 ///
@@ -108,6 +113,25 @@ fn basics() -> Vec<CardIndex> {
     field
 }
 
+/// The quietest creature in the pool.
+///
+/// Twenty basics cannot supply two things a probe board wants: a creature to
+/// sacrifice or to point at, and a creature *card* in a graveyard to bring
+/// back. One card serves both, and Llanowar Elves is the one that brings
+/// least of its own — its whole text is one mana ability, so no trigger
+/// fires, no static applies and no keyword changes what anything else on the
+/// board can do.
+///
+/// The pool has no vanilla creature at all: the only implemented creatures
+/// with an empty `abilities` list are the five werewolves, and daybound
+/// would put every probe board into a *game state* (CR 731) the card under
+/// test can read. One mana ability nothing presses is the smaller footprint
+/// — and nothing presses it, because [`deeds`] only ever looks at the
+/// probed card's own objects.
+fn quiet_creature() -> CardIndex {
+    card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
+}
+
 /// Whether a card's front face is something that can sit on a battlefield.
 ///
 /// The same five types `decks::probe_preset` asks about, and for the same
@@ -135,7 +159,7 @@ fn is_permanent(def: &baylee_cards_dsl::CardDef) -> bool {
 /// which notices when "cannot probe" starts meaning "most of the pool".
 ///
 /// Three of those questions are asked by a permanent *on the way in*, and
-/// the walker answers them rather than abandoning the board — twenty-five
+/// the walker answers them rather than abandoning the board — twenty-three
 /// implemented cards, the ten shocklands among them, had no probe at all
 /// until it did. What it must not do is answer them the way
 /// [`drive_to_rest`] does: the driver is exercising an effect and takes an
@@ -207,12 +231,21 @@ fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> bool
 
 /// A board holding `card` in both zones an ability can be activated from —
 /// seat 0's hand and, when it is a permanent, seat 0's battlefield — beside
-/// twenty basics, walked to seat 0's first main phase with every basic
-/// tapped for mana.
+/// twenty basics and two [`quiet_creature`]s, one of which is put into the
+/// graveyard before anything is asked, walked to seat 0's first main phase
+/// with every basic tapped for mana.
 ///
 /// The card's own permanent is deliberately left untapped
 /// ([`tap_mana_except`]'s reason): one whose interesting ability costs `{T}`
 /// would otherwise have spent itself paying for the mana that pays for it.
+/// The surviving Elf is left untapped for a different reason — it is there
+/// to be a creature, not to make mana.
+///
+/// Twenty basics answer only "can this be afforded". The pair of Elves
+/// answers "is there anything for it to reach": an Equipment has nothing to
+/// equip on a board of lands, and a land that returns a creature card from a
+/// graveyard has nothing to return from an empty one. Neither was offered
+/// anything to press before, so neither was probed at all.
 ///
 /// Returns the engine, the card's objects (battlefield first, then hand —
 /// a fixed order, so a deed found on one board addresses the same object on
@@ -221,10 +254,12 @@ fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> bool
 fn probe(card: CardIndex) -> Option<(Engine<RegistryLookup>, Vec<ObjectId>, LegalActions)> {
     let seat = PlayerId::new(0);
     let def = baylee_cards::by_index(card)?;
+    let elf = quiet_creature();
     let mut field = basics();
     if is_permanent(def) {
         field.insert(0, card);
     }
+    field.extend([elf, elf]);
     let filler = baylee_cards::decks::basic_lands()
         .into_iter()
         .flatten()
@@ -234,9 +269,26 @@ fn probe(card: CardIndex) -> Option<(Engine<RegistryLookup>, Vec<ObjectId>, Lega
         .battlefield(0, &field)
         .hand(0, &[card])
         .start();
+    // One of the two Elves into the graveyard, before anything is asked. It
+    // is the *last* of them and not the first because the card under test may
+    // itself be Llanowar Elves and `on_battlefield` answers with the first
+    // match: the probed permanent has to be the one that survives.
+    let doomed = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .rfind(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == elf))
+        })?;
+    sba::destroy(engine.dev_state_mut(seat)?, doomed);
     if !walk_to_own_main(&mut engine, seat) {
         return None;
     }
+    let survivor = on_battlefield(&engine, seat, elf);
     let permanent = on_battlefield(&engine, seat, card);
     let objects: Vec<ObjectId> = permanent
         .into_iter()
@@ -249,7 +301,7 @@ fn probe(card: CardIndex) -> Option<(Engine<RegistryLookup>, Vec<ObjectId>, Lega
         return None;
     };
     for source in legal.mana_abilities {
-        if Some(source) == permanent {
+        if Some(source) == permanent || Some(source) == survivor {
             continue;
         }
         // A mana ability the engine offered and then refused is the same
