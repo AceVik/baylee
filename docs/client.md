@@ -2473,6 +2473,54 @@ ran at all — and that is what it was added for. Three runs failed to catch a
 graveyard sink before `departing` said, flatly, that the count never left zero;
 the cause was that a card going to a pile is never stale in the first place.
 
+## Editing a shader without stopping the game
+
+`--features dev-reload` puts bevy's embedded-asset watcher behind the seven
+shaders in `src/shaders/`, so saving `felt.wgsl` repaints the table in the
+client already on screen — no rebuild, no restart, no reconnect, and the game
+keeps its position. Together with `/pause` it is how a look is worked on: stop
+the picture, edit, look, edit again.
+
+```bash
+BEVY_ASSET_ROOT=$PWD cargo run -p baylee-client --features dev-control,dev-reload
+```
+
+The variable is not optional and the binary refuses to start without it, which
+is the interesting part. `embedded_asset!` files each shader under the path
+`file!()` gives it, and cargo writes that relative to the **workspace** root;
+bevy's watcher strips its *own* base path off every changed file before looking
+it up, and that base is `CARGO_MANIFEST_DIR` — this package, two directories
+deeper — unless `BEVY_ASSET_ROOT` overrides it. Every lookup would miss, and
+the failure is completely silent: a client that watches, notices, and reloads
+nothing. A hard stop naming the right value is the only honest answer, since
+the reload is the whole feature. Nothing else changes: the asset root proper is
+already an absolute path, and an absolute join replaces the base rather than
+extending it.
+
+The proof is the counter-test, because "the picture changed" is worth nothing
+on a table that animates on its own. Pause the clock, screenshot twice, and the
+two files are byte-identical; then turn `FELT_CLOTH` magenta and the felt is
+magenta in the next screenshot; then put the colour back and the frame returns
+byte for byte. The middle step is the claim, and the two outer ones are what
+make it a measurement.
+
+`--features dev-dylink` is the neighbouring feature and it is documented here
+mostly to stop it being rediscovered: it links bevy as one shared library, and
+on this crate a one-line edit to `main.rs` rebuilds in 2.0 s statically against
+1.6 s through the dylib, for a two-minute first build. The workspace's
+`[profile.dev] debug = "line-tables-only"` had already taken the link cost this
+would have saved.
+
+Both features were written up as impossible at bevy 0.19.1, with a resolver
+error to prove it — `bevy_dylib ^0.19.1` and `notify-debouncer-full ^0.7.0`
+each "could not be selected". Both crates had been on crates.io the whole time.
+What had stopped was this machine's registry index cache, a year stale for
+those two entries and never revalidated, so an error naming crates.io was
+describing one laptop. Cargo's manifest carries the longer version of that;
+the short one is that a resolver failure against a crate that plainly exists
+is a claim about the local index until a `curl https://index.crates.io/…` says
+otherwise.
+
 ## Verification
 
 - `cargo test -p baylee-client --test duel_flow` plays real games headlessly

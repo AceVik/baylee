@@ -20,6 +20,13 @@ use baylee_client::{
 use bevy::prelude::*;
 
 fn main() {
+    // Hot shader reload is watching from a root, and the wrong root reloads
+    // nothing while looking exactly like the right one.
+    #[cfg(all(feature = "dev-reload", not(target_arch = "wasm32")))]
+    if let Err(reason) = watching_from_the_workspace_root() {
+        eprintln!("{reason}");
+        return;
+    }
     // A ticket means somebody is already waiting at a table; anything else
     // starts at the lobby.
     let seated = match seated_host() {
@@ -111,4 +118,39 @@ fn asset_root() -> &'static str {
     } else {
         concat!(env!("CARGO_MANIFEST_DIR"), "/assets")
     }
+}
+
+/// Refuses to start when `BEVY_ASSET_ROOT` is not the workspace root.
+///
+/// `embedded_asset!` files a shader under the path `file!()` gives it, and
+/// cargo writes that relative to the **workspace** root; bevy's watcher
+/// strips its own base path off every changed file before looking it up, and
+/// that base is `CARGO_MANIFEST_DIR` — this package, two directories deeper —
+/// unless `BEVY_ASSET_ROOT` says otherwise. If the two are not the same
+/// directory then every lookup misses: no error, no warning, and a client
+/// that looks like it is watching. A hard stop is the only honest answer,
+/// because the reload is the entire point of the feature.
+#[cfg(all(feature = "dev-reload", not(target_arch = "wasm32")))]
+fn watching_from_the_workspace_root() -> Result<(), String> {
+    use std::path::Path;
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("this crate sits two directories under the workspace root");
+    let asked = std::env::var("BEVY_ASSET_ROOT").unwrap_or_default();
+    // Through `canonicalize`, so a trailing slash or a symlinked checkout is
+    // not read as a different directory.
+    let same = match (std::fs::canonicalize(&asked), std::fs::canonicalize(root)) {
+        (Ok(set), Ok(here)) => set == here,
+        _ => false,
+    };
+    if same {
+        return Ok(());
+    }
+    Err(format!(
+        "dev-reload needs BEVY_ASSET_ROOT={} (it is {:?}); with any other root the \
+         shader watcher looks every changed file up in the wrong place and reloads nothing",
+        root.display(),
+        asked
+    ))
 }

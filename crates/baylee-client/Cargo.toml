@@ -57,37 +57,64 @@ futures-util.workspace = true
 # all; the loopback bind is the second lock, not the first.
 dev-control = ["dep:image"]
 
-# No `dev-dylink = ["bevy/dynamic_linking"]` here, and it was tried: at
-# bevy 0.19.1 `bevy_dylib` does not resolve, and because cargo resolves the
-# whole feature graph for the lockfile, merely *declaring* the feature breaks
-# every command in the workspace — including ones that never enable it.
+# Two development features that trade a slower first build for a faster loop,
+# both off by default and neither ever in a shipped build.
 #
-# No `dev-reload = ["bevy/embedded_watcher"]` either, and for exactly the same
-# reason, which is worth writing down because everything *else* about it
-# checks out. bevy 0.19.1's `bevy_asset` asks for `notify-debouncer-full
-# ^0.7.0` and crates.io stops at 0.6.0, so the requirement cannot be selected
-# and one declared feature takes `cargo check -p baylee-client-core` down with
-# it. Measured 2026-09-10.
+# `dev-reload` is the one that pays. It watches the shader sources this crate
+# embeds, so an edit to `felt.wgsl` repaints the table in a *running* client
+# with no rebuild and no restart — measured by pausing the picture through
+# `/pause`, turning `FELT_CLOTH` magenta and watching the felt change under a
+# client nobody had rebuilt; putting the colour back restored the frame byte
+# for byte.
 #
-# What the rest of it would need, so a bevy bump can turn it on in one line:
-# all seven shaders are already `embedded_asset!`, and `AssetPlugin`'s
-# `watch_for_changes_override` can stay `None` (bevy reads
-# `cfg!(feature = "watch")`, which `embedded_watcher` implies). The one thing
-# that has to be arranged is the **root**. `embedded_asset!` remembers a
-# shader by `file!()`, which cargo writes relative to the workspace root
-# (`crates/baylee-client/src/shaders/…`), while bevy's watcher strips its base
-# path — `CARGO_MANIFEST_DIR`, this package, two directories too deep — off
-# each changed file before looking it up. Every lookup would miss and nothing
-# would reload, with no error anywhere. Setting `BEVY_ASSET_ROOT` to the
-# workspace root before `App::new()` fixes it and touches nothing else, since
-# `asset_root()` is absolute and an absolute join replaces the base rather
-# than extending it. The cost of that root is that the watcher then sees the
-# whole worktree, `target/` included.
+# `dev-dylink` links bevy as one shared library instead of statically, and it
+# is here with its measurement rather than its reputation: a one-line edit to
+# `main.rs` rebuilds in **2.0 s** statically and **1.6 s** through the dylib,
+# against a two-minute first build. The usual "tens of seconds of linking" is
+# not a cost this crate pays, because `[profile.dev] debug =
+# "line-tables-only"` in the workspace manifest already took it out. The line
+# stays so the next person can re-measure in one word instead of an
+# afternoon — not because it will change the day.
 #
-# It would also have to stay out of `default` and off wasm: `embedded_watcher`
-# implies `file_watcher`, which pulls `notify-debouncer-full`, which does not
-# build for `wasm32-unknown-unknown` — and CI type-checks this crate for
-# exactly that target.
+#   BEVY_ASSET_ROOT=$PWD cargo run -p baylee-client --features dev-reload
+#   cargo run -p baylee-client --features dev-dylink
+#
+# Both must stay out of `default` and off wasm. `dynamic_linking` has no
+# meaning there, and `embedded_watcher` implies `file_watcher`, which pulls
+# `notify-debouncer-full`, which does not build for `wasm32-unknown-unknown`
+# — and CI type-checks this crate for exactly that target. A binary built
+# with `dev-dylink` also needs bevy's dylib on its search path, so it is run
+# through `cargo run` rather than as `./target/debug/baylee-client`.
+#
+# Both were written up here as *impossible* at bevy 0.19.1, with a resolver
+# error to prove it: `bevy_dylib ^0.19.1` and `notify-debouncer-full ^0.7.0`
+# each "could not be selected", the candidate lists stopping at 0.16.1 and
+# 0.6.0. Both crates were on crates.io the whole time, published alongside the
+# bevy that asks for them. What had stopped was the local registry index
+# cache — `~/.cargo/registry/index/*/.cache/be/vy/bevy_dylib` was dated a year
+# back and cargo never revalidated it — so an error that named crates.io was
+# describing one laptop. A resolver failure against a crate that plainly
+# exists is worth one `curl https://index.crates.io/...` before it is written
+# down as a fact about the world.
+dev-dylink = ["bevy/dynamic_linking"]
+dev-reload = ["bevy/embedded_watcher"]
+
+# `BEVY_ASSET_ROOT` is the load-bearing half of `dev-reload`, and getting it
+# wrong fails *silently*. `embedded_asset!` remembers a shader by `file!()`,
+# which cargo writes relative to the workspace root
+# (`crates/baylee-client/src/shaders/felt.wgsl`), while bevy's watcher strips
+# its own base path off each changed file before looking it up — and that base
+# is `CARGO_MANIFEST_DIR` unless `BEVY_ASSET_ROOT` says otherwise, which is
+# this package, two directories too deep. Every lookup would miss and nothing
+# would reload, with no error anywhere. So the binary refuses to start when
+# the variable is not the workspace root (`main.rs`) rather than pretending to
+# watch. It touches nothing else: `AssetPlugin`'s `file_path` here is
+# absolute, and an absolute join replaces the base rather than extending it.
+# `watch_for_changes_override` can stay `None` — bevy defaults it to
+# `cfg!(feature = "watch")`, which `embedded_watcher` implies. The cost of
+# that root is that the watcher then sees the whole worktree, `target/`
+# included.
+
 
 [[bin]]
 name = "baylee-client"
