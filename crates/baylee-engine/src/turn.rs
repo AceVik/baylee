@@ -6,7 +6,7 @@
 use baylee_core::ids::PlayerId;
 use serde::{Deserialize, Serialize};
 
-/// The five phases of a turn (CR 505.1).
+/// The five phases of a turn (CR 500.1).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Phase {
     /// Beginning phase.
@@ -21,7 +21,12 @@ pub enum Phase {
     Ending,
 }
 
-/// The steps of a turn (CR 505.1); `Main` covers both main phases.
+/// The steps of a turn; `Main` covers both main phases.
+///
+/// Three phases have steps and the citation is one apiece: the beginning
+/// phase (CR 501.1), the combat phase (CR 506.1) and the ending phase
+/// (CR 512.1). The two main phases have none — CR 505.1 is what says so, and
+/// it was the number written here for both of these enums.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Step {
     /// Untap step.
