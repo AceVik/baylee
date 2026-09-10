@@ -57,6 +57,7 @@ pub mod reconnect;
 pub mod seatbar;
 pub mod sky;
 pub mod tabletop;
+pub mod textbuf;
 
 /// View builders for tests.
 ///
