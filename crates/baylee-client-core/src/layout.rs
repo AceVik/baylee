@@ -222,9 +222,9 @@ impl PileKind {
 ///
 /// Half a card, the mat printed border, and bare table between the two.
 /// The bare table is the point of the number: a pile touching the mat reads
-/// as part of the board. The border being cleared is the client's own
-/// `ZONE_MARGIN`, and `a_pile_stands_clear_of_the_mat_it_serves` over there
-/// fails if the two ever drift apart.
+/// as part of the board. The border being cleared is
+/// [`crate::tabletop::MAT_MARGIN`], and `a_pile_stands_clear_of_the_mat_it_serves`
+/// in the renderer fails if the two ever drift apart.
 pub const PILE_REACH: f32 = 1.45;
 
 /// How much wider than its playing surface a seat's whole place is, per side.

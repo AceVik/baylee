@@ -2945,10 +2945,10 @@ mod camera_tests {
     ///
     /// Measured, at a window kept the shape of [`WINDOW`]: the local ledge
     /// projects 548, 688, 768 and 1247 pixels long and 21.1, 30.7, 36.2 and
-    /// 69.4 deep. The length is 0.65 of the window's width throughout — a
-    /// ratio rather than a constant, because `Canvas::hud` takes a *fixed*
-    /// hand bar off the bottom and a small window is therefore a squarer
-    /// canvas.
+    /// 69.4 deep. The length runs 0.69, 0.67, 0.67 and 0.65 of the window's
+    /// width — a band and not a constant, and it narrows as the window grows
+    /// because `Canvas::hud` takes a *fixed* hand bar off the bottom, so a
+    /// small window is a squarer canvas.
     ///
     /// Every hand-over in the list is a **depth** one, and that is the shape
     /// of the whole ladder now: the two-row bar wants 507 px of length, which

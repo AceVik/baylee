@@ -1646,10 +1646,13 @@ mod tests {
     /// A mat's corner and rim are lengths now, so they can be checked against
     /// the mat the layout actually hands out.
     ///
-    /// The shallowest one there is: [`crate::layout::POD_DEPTH`] plus the
-    /// printed border on both sides, which is the client's `ZONE_MARGIN` and
-    /// is not visible from here — so the border is left out and the bound is
-    /// the stricter for it. Both sides again, and each is a mistake that has
+    /// The shallowest one there is: [`crate::layout::POD_DEPTH`] plus
+    /// [`MAT_MARGIN`] on either side. The bound is taken against the playing
+    /// extent alone anyway, because that is the stricter of the two
+    /// rectangles — but it is a choice now rather than the only rectangle
+    /// this crate can reach, which is what it was while the border was
+    /// `ZONE_MARGIN` in the renderer and no constant here. Both sides again,
+    /// and each is a mistake that has
     /// been made on this table: too round and a board reads as a button, too
     /// square and the mat has spikes at the corners where the rim doubles
     /// back on itself.
@@ -2096,7 +2099,6 @@ mod tests {
         // Tall, because a fence is a hairline: `MAT_SEAM_WIDTH` of a mat
         // 96 rows deep is one row, and one row cannot be told from its
         // neighbour.
-        let mat = seat_mat(256, H, 0.1, 0.02, ACCENT, false);
         let lane = (crate::layout::POD_DEPTH - MAT_LEDGE) / 3.0;
         #[expect(clippy::cast_possible_truncation, reason = "a row of a texture")]
         let row = |t: f32| (t / MAT_DRAWN_DEPTH * H as f32) as u32;
@@ -2105,22 +2107,40 @@ mod tests {
         // The shelf is the border plus `MAT_LEDGE`, and the three lanes are
         // each exactly `SeatSlot::lane_height` — the same rectangle a card is
         // placed against.
-        for (what, at) in [
-            ("the shelf's own fence", MAT_MARGIN + MAT_LEDGE),
-            ("the first lane seam", MAT_MARGIN + MAT_LEDGE + lane),
-            ("the second lane seam", MAT_MARGIN + MAT_LEDGE + lane * 2.0),
-        ] {
-            let here = mat.pixel(128, row(at))[3];
-            for away in [-12, 12] {
-                let there = mat.pixel(128, row(at).saturating_add_signed(away))[3];
-                assert!(
-                    here > there,
-                    "{what} belongs {at} table units in from the centre-facing \
-                     edge, which is row {}: it reads {here} there and {there} \
-                     a dozen rows {}",
-                    row(at),
-                    if away < 0 { "before" } else { "after" }
-                );
+        //
+        // Both mats, because the shelf changes ends and the lanes do not: a
+        // near seat spends a border *and* a shelf before its creature row
+        // starts, a far seat spends only the border and meets its shelf at
+        // the other end. Sampling one of them leaves the other's arithmetic
+        // held by nothing — and the mutant that reads the lanes' start as a
+        // plain `LEDGE_FRAC`-or-zero is algebraically right on the near mat,
+        // so it is exactly the one a single-mat test lets through.
+        for ledge_outer in [false, true] {
+            let mat = seat_mat(256, H, 0.1, 0.02, ACCENT, ledge_outer);
+            let lanes = MAT_MARGIN + if ledge_outer { 0.0 } else { MAT_LEDGE };
+            let fence = if ledge_outer {
+                lanes + lane * 3.0
+            } else {
+                lanes
+            };
+            for (what, at) in [
+                ("the first lane seam", lanes + lane),
+                ("the second lane seam", lanes + lane * 2.0),
+                ("the shelf's own fence", fence),
+            ] {
+                let here = mat.pixel(128, row(at))[3];
+                for away in [-12, 12] {
+                    let there = mat.pixel(128, row(at).saturating_add_signed(away))[3];
+                    assert!(
+                        here > there,
+                        "on the {} seat's mat {what} belongs {at} table units \
+                         in from the centre-facing edge, which is row {}: it \
+                         reads {here} there and {there} a dozen rows {}",
+                        if ledge_outer { "far" } else { "near" },
+                        row(at),
+                        if away < 0 { "before" } else { "after" }
+                    );
+                }
             }
         }
     }

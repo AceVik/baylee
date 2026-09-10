@@ -1983,6 +1983,18 @@ nothing. Its mutant is the old lane arithmetic — split what the shelf leaves
 in three instead of taking `SeatSlot::lane_height` — which moves the first
 seam 0.06 units and fails it.
 
+It sweeps **both** mats, because the shelf changes ends and the lanes do not:
+a near seat spends a border *and* a shelf before its creature row starts, a
+far seat spends only the border and meets its shelf at the other end. Sampling
+one of them is what let a second mutant through — reading the lanes' start as
+a plain `LEDGE_FRAC`-or-zero, which is algebraically the same thing on a near
+mat and half a card out on a far one. The far mat's branch exists in the
+shader too, where no unit test reaches it, so it was read off the running
+client instead: `/state.shelves` puts the opponent's shelf at 105.4..162.2
+logical, and a column through the photograph finds the mat's rim at 106 and
+the ledge fence at 162, the two lane seams following at 224 and 286 against
+222.5 and 283 predicted from the ledge's own scale.
+
 The bar the shelf can hold changed with it, and in the direction the owner
 asked for: a duel's local shelf projects 61.1 px deep at 1728 where it read
 40.3, so the two-row bar now reaches any laptop rather than only a wide
