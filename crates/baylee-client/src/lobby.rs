@@ -31,6 +31,7 @@ use baylee_client_core::lobby::{
     Field, GameMode, GameQuery, GameSummary, Lobby, LobbyEvent, LobbyRequest, MAX_CHAIRS,
     MIN_CHAIRS, Screen, SeatKind, Tab,
 };
+use baylee_client_core::textbuf::{Dir, Step as Reach};
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::Finish;
 use bevy::input::keyboard::{Key, KeyboardInput};

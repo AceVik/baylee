@@ -505,6 +505,107 @@ fn typing_reaches_the_form() {
     );
 }
 
+/// A named key with no text of its own, for the ones a text field answers.
+fn pressed(key_code: KeyCode, logical_key: Key) -> KeyboardInput {
+    KeyboardInput {
+        key_code,
+        logical_key,
+        state: bevy::input::ButtonState::Pressed,
+        text: None,
+        repeat: false,
+        window: Entity::PLACEHOLDER,
+    }
+}
+
+/// The point of the whole exercise: a correction made in the middle of what
+/// was typed, which an append-only field could not do at all.
+#[test]
+fn the_caret_moves_and_typing_lands_where_it_is() {
+    let mut app = headless();
+    {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for ch in ['a', 'b'] {
+            messages.write(typed(ch));
+        }
+        messages.write(pressed(KeyCode::Home, Key::Home));
+        messages.write(typed('x'));
+    }
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::Email),
+        "xab"
+    );
+}
+
+/// Shift and an arrow select, and the next character replaces the run.
+#[test]
+fn shift_and_an_arrow_select_what_the_next_key_replaces() {
+    let mut app = headless();
+    {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for ch in ['a', 'b', 'c'] {
+            messages.write(typed(ch));
+        }
+    }
+    app.update();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::ShiftLeft);
+    {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        messages.write(pressed(KeyCode::ArrowLeft, Key::ArrowLeft));
+        messages.write(pressed(KeyCode::ArrowLeft, Key::ArrowLeft));
+    }
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .buffer(Field::Email)
+            .selection(),
+        Some(1..3)
+    );
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .release(KeyCode::ShiftLeft);
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(typed('z'));
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::Email),
+        "az"
+    );
+}
+
+/// ⇧Tab walks the form backwards.
+#[test]
+fn shift_tab_moves_the_caret_back_a_field() {
+    let mut app = headless();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::ShiftLeft);
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::Tab, Key::Tab));
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.focus(),
+        Field::Password,
+        "back from the first field is the last one"
+    );
+}
+
+/// The retained tree is rebuilt from Bevy's change detection, and merely
+/// taking `&mut` out of a `ResMut` marks it changed. A key handler that
+/// reached for the lobby on every quiet frame therefore rebuilt the whole
+/// screen sixty times a second — which is what this caught.
 #[test]
 fn a_quiet_frame_does_not_rebuild_the_tree() {
     let mut app = headless();

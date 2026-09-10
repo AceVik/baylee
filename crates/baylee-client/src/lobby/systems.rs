@@ -309,6 +309,53 @@ pub(super) fn keyboard(
         keys.clear();
         return;
     }
+    // Nothing was pressed, so nothing is touched. `ResMut` is what the lobby's
+    // retained tree watches — change detection stands in for a revision
+    // struct — and merely taking `&mut` out of one marks it changed, so a
+    // handler that reached for the state on every quiet frame would rebuild
+    // the whole screen sixty times a second.
+    if keys.is_empty() {
+        return;
+    }
+    text_field_keys(&mut keys, &codes, state.as_mut(), &mailbox, table);
+}
+
+/// The sign-in and table screens' own text fields.
+///
+/// Its own function because it is the whole of what a browser's `<input>`
+/// would answer for free, written out for a canvas that has none: a caret
+/// that moves by character, word and line, a selection that shift extends,
+/// Delete as well as Backspace, and select-all.
+fn text_field_keys(
+    keys: &mut MessageReader<KeyboardInput>,
+    codes: &ButtonInput<KeyCode>,
+    state: &mut LobbyState,
+    mailbox: &Mailbox,
+    table: bool,
+) {
+    // The three modifiers a text field reads, and they are read once for the
+    // whole batch because a key event carries no modifier state of its own.
+    // Which one means what is the platform's convention and not a preference:
+    // shift extends a selection everywhere, and the two reaches past a single
+    // character are ⌥/Ctrl for a word and ⌘/Home-End for the line.
+    let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let word = codes.any_pressed([
+        KeyCode::AltLeft,
+        KeyCode::AltRight,
+        KeyCode::ControlLeft,
+        KeyCode::ControlRight,
+    ]);
+    let line = codes.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    // ⌘A and Ctrl+A. The same chord has to keep its "a" out of the field,
+    // which is why it is answered before the text arm below ever sees it.
+    let command = line || codes.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let reach = if line {
+        Reach::Line
+    } else if word {
+        Reach::Word
+    } else {
+        Reach::Char
+    };
     for key in keys.read() {
         if !key.state.is_pressed() {
             continue;
@@ -320,14 +367,26 @@ pub(super) fn keyboard(
         }
         match &key.logical_key {
             Key::Backspace => state.lobby.backspace(),
-            Key::Tab => state.lobby.cycle_focus(Tab::Next),
+            Key::Delete => state.lobby.delete_forward(),
+            Key::ArrowLeft => state.lobby.move_caret(reach, Dir::Left, shift),
+            Key::ArrowRight => state.lobby.move_caret(reach, Dir::Right, shift),
+            Key::Home => state.lobby.move_caret(Reach::Line, Dir::Left, shift),
+            Key::End => state.lobby.move_caret(Reach::Line, Dir::Right, shift),
+            Key::Tab => state
+                .lobby
+                .cycle_focus(if shift { Tab::Back } else { Tab::Next }),
             Key::Enter => {
                 let request = if table {
                     state.lobby.search_again()
                 } else {
                     state.lobby.submit()
                 };
-                dispatch(&mut state, &mailbox, request);
+                dispatch(state, mailbox, request);
+            }
+            Key::Character(text) if command => {
+                if text.eq_ignore_ascii_case("a") {
+                    state.lobby.select_all();
+                }
             }
             // Everything else is text or nothing. `type_char` drops the
             // control characters Tab and Enter also produce.
