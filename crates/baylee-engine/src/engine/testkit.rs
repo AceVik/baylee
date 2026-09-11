@@ -448,7 +448,7 @@ pub fn play_land_face(
 // forgotten.
 // ---------------------------------------------------------------------------
 
-/// One thing an object was offered, in the two lists an offer can live in.
+/// One thing an object was offered, in the three lists an offer can live in.
 ///
 /// A mana ability belongs here on the same footing as any other: CR 605.1
 /// only says it skips the stack, and `mana_abilities` is an enumeration in
@@ -459,6 +459,8 @@ pub enum Deed {
     Mana,
     /// `LegalActions::abilities` named this object and this index.
     Ability(u32),
+    /// `LegalActions::castable` named this card in hand.
+    Cast,
 }
 
 impl Deed {
@@ -470,6 +472,7 @@ impl Deed {
                 source,
                 ability_index,
             },
+            Self::Cast => PlayerAction::CastSpell { card: source },
         }
     }
 }
@@ -505,6 +508,33 @@ pub fn basics() -> Vec<CardIndex> {
 pub fn quiet_creature() -> CardIndex {
     card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
 }
+
+/// The quietest artifact in the pool, for the same job one type up.
+///
+/// Twenty basics and a handful of Elves answer "target creature", "target
+/// land" and "target permanent", and answer nothing at all to "target
+/// artifact" — so every card in the pool that points at one was going
+/// unpressed. Sol Ring is Llanowar Elves again in artifact form: its whole
+/// printed text is one mana ability, so no trigger fires, no static applies
+/// and nothing it does changes what another permanent is.
+///
+/// There is no enchantment beside it, and that is a fact about the pool
+/// rather than an omission. Of the implemented enchantments, every single
+/// one prints a static, a trigger or a replacement effect — the quietest are
+/// Rhystic Study and Smothering Tithe, which watch what the *opponent* does
+/// — so putting any of them on a probe board would put a rule on it. The
+/// card that would do the job does not exist yet; when one is adopted this
+/// is where it goes.
+pub fn quiet_artifact() -> CardIndex {
+    card_index("6ad8011d-3471-4369-9d68-b264cc027487")
+}
+
+/// The seed [`arena`] runs at.
+///
+/// Fixed rather than swept, for the reason `offer_tests` gives: the board is
+/// built by hand down to the last permanent, so all a varying seed would
+/// move is which seat takes the first turn.
+pub const SEED: u64 = 4_211;
 
 /// Whether a card's front face is something that can sit on a battlefield.
 ///
@@ -604,14 +634,46 @@ pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> 
     false
 }
 
-/// Everything `legal` offers to do with `objects`, each named by its
+/// Every *activation* `legal` offers on `objects`, each named by its
 /// *position* in that slice rather than by its `ObjectId`, so the answer
 /// survives being carried to a freshly built board.
+///
+/// Casting is deliberately not here. A sweep that asks whether every offered
+/// activation can actually be performed is asking about `abilities` and
+/// `mana_abilities`; `castable` is a third list with its own sweep, and
+/// folding it in would silently move that sweep's counted floors. See
+/// [`presses`] for the other reading.
 pub fn deeds(legal: &LegalActions, objects: &[ObjectId]) -> Vec<(usize, Deed)> {
     let mut found = Vec::new();
     for (slot, object) in objects.iter().enumerate() {
         if legal.mana_abilities.contains(object) {
             found.push((slot, Deed::Mana));
+        }
+        found.extend(
+            legal
+                .abilities
+                .iter()
+                .filter(|(source, _)| source == object)
+                .map(|(_, index)| (slot, Deed::Ability(*index))),
+        );
+    }
+    found
+}
+
+/// Everything on `objects` that could make the engine *do* something to the
+/// board, named by position for [`deeds`]' reason.
+///
+/// The other half of the same offer, and the two differ by one variant each
+/// because they are asked for different reasons. A mana ability is left out:
+/// it targets nothing, and pressing it would tap the very source an ability
+/// with a `{T}` cost still needs. Casting is put in: a spell is most of what
+/// the pool prints, and a sweep that only ever pressed abilities would never
+/// see an instant at all.
+pub fn presses(legal: &LegalActions, objects: &[ObjectId]) -> Vec<(usize, Deed)> {
+    let mut found = Vec::new();
+    for (slot, object) in objects.iter().enumerate() {
+        if legal.castable.contains(object) {
+            found.push((slot, Deed::Cast));
         }
         found.extend(
             legal
@@ -794,4 +856,122 @@ pub fn drive_to_rest(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> Res
         }
     }
     Rest::Stalled
+}
+
+/// A board where every filter this sweep can afford has **two** of something.
+///
+/// Seat 0 gets the card (on the battlefield too, when it is a permanent),
+/// twenty basics for mana, three [`quiet_creature`]s with two more of them
+/// put into the graveyard before anything is asked, and two
+/// [`quiet_artifact`]s; seat 1 gets two Elves and one artifact. That is a
+/// second creature for "target creature", a second creature an opponent
+/// controls, a second creature card in a graveyard, a second artifact and an
+/// artifact an opponent controls, and — from the basics — a second land and a
+/// second permanent, which between them are most of the target specs the pool
+/// prints.
+///
+/// The Elves, the Sol Rings and the card's own permanent are the only things
+/// left untapped: an ability whose cost is `{T}` must not have spent its
+/// source paying for the mana that pays for it, and a bystander that tapped
+/// for mana is a bystander whose status has already changed for a reason of
+/// its own.
+///
+/// Returns the engine and the card's objects, battlefield first then hand —
+/// a fixed order, so a press found on one board addresses the same object on
+/// the next.
+pub fn arena(card: CardIndex) -> Option<(Engine<RegistryLookup>, Vec<ObjectId>)> {
+    let seat = PlayerId::new(0);
+    let def = baylee_cards::by_index(card)?;
+    let elf = quiet_creature();
+    let rock = quiet_artifact();
+    let mut field = basics();
+    if is_permanent(def) {
+        field.insert(0, card);
+    }
+    field.extend([elf; 5]);
+    field.extend([rock; 2]);
+    let filler = baylee_cards::decks::basic_lands()
+        .into_iter()
+        .flatten()
+        .next()
+        .unwrap_or(card);
+    let mut engine = Duel::new(SEED, filler)
+        .battlefield(0, &field)
+        .battlefield(1, &[elf, elf, rock])
+        .hand(0, &[card])
+        .start();
+    // Two of seat 0's five Elves into the graveyard, from the *end* of the
+    // battlefield list: the card under test may itself be Llanowar Elves, and
+    // the probed permanent has to be one of the ones that survives.
+    for _ in 0..2 {
+        let doomed = *engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .rfind(|id| {
+                engine
+                    .state()
+                    .object(**id)
+                    .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == elf))
+            })?;
+        sba::destroy(engine.dev_state_mut(seat)?, doomed);
+    }
+    if !walk_to_own_main(&mut engine, seat) {
+        return None;
+    }
+    let objects: Vec<ObjectId> = mine(&engine, seat, card, Zone::Battlefield)
+        .into_iter()
+        .chain(mine(&engine, seat, card, Zone::Hand))
+        .collect();
+    if objects.is_empty() {
+        return None;
+    }
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        return None;
+    };
+    for source in legal.mana_abilities {
+        let is_fodder = engine.state().object(source).is_some_and(|o| {
+            o.card
+                .is_some_and(|c| c.index == card || c.index == elf || c.index == rock)
+        });
+        if is_fodder {
+            continue;
+        }
+        // A mana ability offered and then refused is the offer sweep's
+        // finding, not this one's: the board is abandoned rather than
+        // unwrapped through.
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .ok()?;
+    }
+    Some((engine, objects))
+}
+
+/// Every object `seat` has in `zone` that came from `card`.
+pub fn mine(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+    zone: Zone,
+) -> Vec<ObjectId> {
+    let location = match zone {
+        Zone::Battlefield => ZoneLocation::Battlefield,
+        Zone::Hand => ZoneLocation::Hand(seat),
+        Zone::Graveyard => ZoneLocation::Graveyard(seat),
+        _ => return Vec::new(),
+    };
+    engine
+        .state()
+        .zones
+        .list(location)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
+        })
+        .collect()
 }

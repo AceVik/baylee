@@ -58,17 +58,21 @@
 //! # What it cannot reach
 //!
 //! Only what the board can offer a second of. The bystanders here are
-//! Llanowar Elves and basic lands, so "target creature", "target permanent",
-//! "target land" and "target creature card in a graveyard" all find one, and
-//! "target artifact you control", "target spell" and "target player" find
-//! none — the last of those because a seat is not an object and has no state
-//! this module knows how to photograph.
+//! Llanowar Elves, Sol Rings and basic lands, so "target creature", "target
+//! artifact", "target permanent", "target land" and "target creature card in
+//! a graveyard" all find one, and "target enchantment", "target spell" and
+//! "target player" find none — the last of those because a seat is not an
+//! object and has no state this module knows how to photograph.
 //!
-//! Measured 2026-09-11: 152 implemented cards in the pool print a
-//! `TargetSpec`, and 56 of them were watched here. That gap is the evidence
-//! for whether a wider board is worth building — two quiet artifacts and two
-//! quiet enchantments would be the next thing to try — and it is a counted
-//! number rather than a wider board built on a guess.
+//! The board earned its Sol Rings by measurement. Of the 152 implemented
+//! cards in the pool that print a `TargetSpec`, 56 were watched here when the
+//! bystanders were Elves and basics; the artifacts took that to **60 cards
+//! and 377 bystanders** (from 336), which is the whole of what one more
+//! permanent type is worth. An enchantment would be the next one and cannot
+//! be had: every implemented enchantment in the pool prints a static, a
+//! trigger or a replacement effect, so putting one here would put a rule on
+//! the board — [`testkit::quiet_artifact`](super::testkit::quiet_artifact)
+//! says so where the next person will look.
 //!
 //! What it *does* hold was measured rather than argued. Replacing the chosen
 //! target list with the whole enumeration in `actions.rs` — one line, and
@@ -84,70 +88,14 @@
 //! trample — because a continuous effect is registered, not recorded.
 
 use super::testkit::{
-    Duel, RegistryLookup, Rest, answer_one, at_rest, basic_forest, basics, is_permanent,
-    keep_mulligans, on_battlefield, quiet_creature, walk_to_own_main,
+    Duel, RegistryLookup, Rest, SEED, answer_one, arena, at_rest, basic_forest, keep_mulligans,
+    on_battlefield, presses, quiet_creature,
 };
 use super::*;
 use crate::object::{Characteristics, Status};
-use crate::zone::{Zone, ZoneLocation};
+use crate::zone::Zone;
 use baylee_cards_dsl::{AbilityDef, CardDef, CounterKind};
-use baylee_core::ids::{CardIndex, ObjectId, SubtypeId};
-
-/// The seed every probe runs at, for [`offer_tests`](super::offer_tests)'
-/// reason: the board is built by hand, so all a varying seed would move is
-/// which seat takes the first turn.
-const SEED: u64 = 4_211;
-
-/// One thing this sweep can press to make an ability target.
-///
-/// Deliberately *not* [`testkit::Deed`](super::testkit::Deed), which is the
-/// offer sweep's vocabulary and covers the two lists an *ability* lives in.
-/// The largest population of targeted effects in any pool is spells, so a
-/// cast has to be pressable here — and adding it to `Deed` would have
-/// widened the offer sweep's floors along with it.
-#[derive(Clone, Copy, Debug)]
-enum Press {
-    /// `LegalActions::castable` named this card in hand.
-    Cast,
-    /// `LegalActions::abilities` named this object and this index.
-    Ability(u32),
-}
-
-impl Press {
-    fn action(self, object: ObjectId) -> PlayerAction {
-        match self {
-            Self::Cast => PlayerAction::CastSpell { card: object },
-            Self::Ability(ability_index) => PlayerAction::ActivateAbility {
-                source: object,
-                ability_index,
-            },
-        }
-    }
-}
-
-/// Everything a player could do with `objects` that might make the engine
-/// ask for a target, each named by its *position* in that slice.
-///
-/// A position rather than an `ObjectId` because the board is rebuilt for
-/// every press — the first press moves the game on, so asking the second
-/// question of that state would be asking a different question — and an id
-/// from the previous board addresses nothing on the next one.
-fn presses(legal: &LegalActions, objects: &[ObjectId]) -> Vec<(usize, Press)> {
-    let mut found = Vec::new();
-    for (slot, object) in objects.iter().enumerate() {
-        if legal.castable.contains(object) {
-            found.push((slot, Press::Cast));
-        }
-        found.extend(
-            legal
-                .abilities
-                .iter()
-                .filter(|(source, _)| source == object)
-                .map(|(_, index)| (slot, Press::Ability(*index))),
-        );
-    }
-    found
-}
+use baylee_core::ids::{ObjectId, SubtypeId};
 
 /// Everything a player's answer named, so it can be taken out of the
 /// bystander set.
@@ -414,123 +362,10 @@ fn differences(before: &Look, after: &Look, shield_characteristics: bool) -> Vec
     out
 }
 
-/// A board where every filter this sweep can afford has **two** of something.
-///
-/// Seat 0 gets the card (on the battlefield too, when it is a permanent),
-/// twenty basics for mana, three [`quiet_creature`]s and two more of them put
-/// into the graveyard before anything is asked; seat 1 gets two. That is a
-/// second creature for "target creature", a second creature an opponent
-/// controls, a second creature card in a graveyard and — from the basics — a
-/// second land and a second permanent, which between them are most of the
-/// target specs the pool prints.
-///
-/// The Elves and the card's own permanent are the only things left untapped:
-/// an ability whose cost is `{T}` must not have spent its source paying for
-/// the mana that pays for it, and an Elf that tapped for mana is a bystander
-/// whose status has already changed for a reason of its own.
-///
-/// Returns the engine and the card's objects, battlefield first then hand —
-/// a fixed order, so a press found on one board addresses the same object on
-/// the next.
-fn probe(card: CardIndex) -> Option<(Engine<RegistryLookup>, Vec<ObjectId>)> {
-    let seat = PlayerId::new(0);
-    let def = baylee_cards::by_index(card)?;
-    let elf = quiet_creature();
-    let mut field = basics();
-    if is_permanent(def) {
-        field.insert(0, card);
-    }
-    field.extend([elf; 5]);
-    let filler = baylee_cards::decks::basic_lands()
-        .into_iter()
-        .flatten()
-        .next()
-        .unwrap_or(card);
-    let mut engine = Duel::new(SEED, filler)
-        .battlefield(0, &field)
-        .battlefield(1, &[elf, elf])
-        .hand(0, &[card])
-        .start();
-    // Two of seat 0's five Elves into the graveyard, from the *end* of the
-    // battlefield list: the card under test may itself be Llanowar Elves, and
-    // the probed permanent has to be one of the ones that survives.
-    for _ in 0..2 {
-        let doomed = *engine
-            .state()
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .rfind(|id| {
-                engine
-                    .state()
-                    .object(**id)
-                    .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == elf))
-            })?;
-        sba::destroy(engine.dev_state_mut(seat)?, doomed);
-    }
-    if !walk_to_own_main(&mut engine, seat) {
-        return None;
-    }
-    let objects: Vec<ObjectId> = mine(&engine, seat, card, Zone::Battlefield)
-        .into_iter()
-        .chain(mine(&engine, seat, card, Zone::Hand))
-        .collect();
-    if objects.is_empty() {
-        return None;
-    }
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        return None;
-    };
-    for source in legal.mana_abilities {
-        let is_fodder = engine.state().object(source).is_some_and(|o| {
-            o.card
-                .is_some_and(|c| c.index == card || c.index == quiet_creature())
-        });
-        if is_fodder {
-            continue;
-        }
-        // A mana ability offered and then refused is the offer sweep's
-        // finding, not this one's: the board is abandoned rather than
-        // unwrapped through.
-        engine
-            .apply(seat, PlayerAction::ActivateManaAbility { source })
-            .ok()?;
-    }
-    Some((engine, objects))
-}
-
-/// Every object `seat` has in `zone` that came from `card`.
-fn mine(
-    engine: &Engine<RegistryLookup>,
-    seat: PlayerId,
-    card: CardIndex,
-    zone: Zone,
-) -> Vec<ObjectId> {
-    let location = match zone {
-        Zone::Battlefield => ZoneLocation::Battlefield,
-        Zone::Hand => ZoneLocation::Hand(seat),
-        Zone::Graveyard => ZoneLocation::Graveyard(seat),
-        _ => return Vec::new(),
-    };
-    engine
-        .state()
-        .zones
-        .list(location)
-        .iter()
-        .copied()
-        .filter(|id| {
-            engine
-                .state()
-                .object(*id)
-                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
-        })
-        .collect()
-}
-
 /// The card a bystanding object was printed from, for the report.
 ///
-/// A bystander is only ever a Llanowar Elves or a basic today, so this is one
-/// word — but a widened board would make "a bystander" ambiguous, and a
+/// A bystander is a Llanowar Elves, a Sol Ring or a basic today, so this is
+/// one word — but a wider board would make "a bystander" ambiguous, and a
 /// report nobody can act on is the failure mode this whole tier is written
 /// against.
 fn whose(engine: &Engine<RegistryLookup>, id: ObjectId) -> &'static str {
@@ -628,14 +463,14 @@ const REACHES_FURTHER: &[(&str, &str)] = &[];
 /// How small the sweep may get before it has stopped measuring anything.
 ///
 /// The count with the floor on it is *cards*, not presses, because a card is
-/// the unit the pool grows in. Measured 2026-09-11: 571 cards probed, 811
-/// presses, 56 of them watched on 56 cards over 336 bystanders. The floors
-/// are those less a tenth, so ordinary pool growth never touches them and a
-/// setup change that stops part of the pool reaching its main phase fails
-/// here instead of shrinking the sweep in silence.
-const CARD_FLOOR: usize = 50;
+/// the unit the pool grows in. Measured 2026-09-11 with the Sol Rings on the
+/// board: 572 cards probed, 816 presses, 60 of them watched on 60 cards over
+/// 377 bystanders. The floors are those less a tenth, so ordinary pool growth
+/// never touches them and a setup change that stops part of the pool reaching
+/// its main phase fails here instead of shrinking the sweep in silence.
+const CARD_FLOOR: usize = 54;
 /// The floor under bystanders actually compared, on the same measurement.
-const BYSTANDER_FLOOR: usize = 300;
+const BYSTANDER_FLOOR: usize = 339;
 
 /// What one chunk of the pool managed.
 #[derive(Default)]
@@ -702,7 +537,7 @@ fn strays(def: &'static CardDef) -> (Vec<String>, Tally) {
     let seat = PlayerId::new(0);
     let mut offenders = Vec::new();
     let mut tally = Tally::default();
-    let Some((engine, objects)) = probe(def.index) else {
+    let Some((engine, objects)) = arena(def.index) else {
         return (offenders, tally);
     };
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
@@ -719,7 +554,7 @@ fn strays(def: &'static CardDef) -> (Vec<String>, Tally) {
     for (slot, press) in all {
         // A board per press: the first one moves the game on, and asking the
         // second question of that state would be asking a different question.
-        let Some((mut engine, objects)) = probe(def.index) else {
+        let Some((mut engine, objects)) = arena(def.index) else {
             continue;
         };
         let Some(object) = objects.get(slot).copied() else {
