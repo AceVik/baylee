@@ -195,16 +195,19 @@ fn path_to_exile() -> baylee_core::ids::CardIndex {
     card_index("d683d985-9888-4d21-8b5f-69e69ce4a03b")
 }
 
-/// Ward {1} (CR 702.21a): an opponent's spell that targets the permanent is
-/// countered unless **that opponent** pays the tax.
+/// Drives a duel to the moment Twining Twins' ward asks p1 for its tax, and
+/// hands the engine back standing on that question.
 ///
-/// The tax is asked of the caster, not of the ward's controller, which is
-/// the half of the rule a `PlayerRel` can get backwards without anything
-/// noticing — so the assertion names the seat as well as the number.
-#[test]
-fn ward_taxes_the_opponent_who_targeted_it() {
+/// Three tests share it because the three things worth proving about ward
+/// are one question and two answers — and until the resolution seam was
+/// fixed, *nothing reached the answers at all*. `AwaitingOp::PlayerMayPay`
+/// was never suspended, so `resume_tax_choice`, the pool debit and the
+/// counter-the-spell fallback had never executed in any game this engine
+/// has played.
+#[track_caller]
+fn ward_asks_for_its_tax(seed: u64) -> (Engine<RegistryLookup>, baylee_core::ids::ObjectId) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(17, plains())
+    let mut engine = Duel::new(seed, plains())
         .battlefield(0, &[twining_twins()])
         // Two, because the tax is only ever *asked* of a seat that could pay
         // it: `PlayerMayPayOr` runs its fallback outright off an empty pool,
@@ -240,19 +243,14 @@ fn ward_taxes_the_opponent_who_targeted_it() {
 
     // The trigger goes on the stack above the spell and asks before it.
     for _ in 0..20 {
-        if let Pending::YesNo {
-            player,
-            prompt: crate::choice::YesNoPrompt::PayTax { mana },
-            ..
-        } = engine.pending()
-        {
-            assert_eq!(*mana, 1, "Twining Twins prints ward {{1}}");
-            assert_eq!(
-                *player, p1,
-                "the tax is paid by the spell's controller, not by the \
-                 creature's (CR 702.21a)"
-            );
-            return;
+        if matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::PayTax { .. },
+                ..
+            }
+        ) {
+            return (engine, twins);
         }
         // Anything that is not priority means the tax was never asked and
         // Path has already resolved. Naming the finding here matters: the
@@ -271,4 +269,124 @@ fn ward_taxes_the_opponent_who_targeted_it() {
         engine.apply(player, PlayerAction::PassPriority).unwrap();
     }
     panic!("ward never asked for its tax");
+}
+
+/// Ward {1} (CR 702.21a): an opponent's spell that targets the permanent is
+/// countered unless **that opponent** pays the tax.
+///
+/// The tax is asked of the caster, not of the ward's controller, which is
+/// the half of the rule a `PlayerRel` can get backwards without anything
+/// noticing — so the assertion names the seat as well as the number.
+#[test]
+fn ward_taxes_the_opponent_who_targeted_it() {
+    let p1 = PlayerId::new(1);
+    let (engine, _twins) = ward_asks_for_its_tax(17);
+    let Pending::YesNo {
+        player,
+        prompt: crate::choice::YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending()
+    else {
+        unreachable!("the helper returns standing on the tax question")
+    };
+    assert_eq!(*mana, 1, "Twining Twins prints ward {{1}}");
+    assert_eq!(
+        *player, p1,
+        "the tax is paid by the spell's controller, not by the creature's \
+         (CR 702.21a)"
+    );
+}
+
+/// The declined half: "countered unless that player pays" is a *counter*,
+/// not a fizzle. Path goes to its owner's graveyard and the creature it
+/// pointed at is still on the battlefield.
+#[test]
+fn ward_declined_counters_the_spell_that_targeted_it() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, twins) = ward_asks_for_its_tax(19);
+    let pool_before = engine.state().players[1].mana_pool.total();
+
+    engine
+        .apply(p1, PlayerAction::YesNo(false))
+        .expect("declining is an answer");
+    pass_until(&mut engine, |e| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .is_empty()
+    });
+
+    assert_eq!(
+        engine
+            .state()
+            .object(twins)
+            .map(|o| o.zone)
+            .expect("the creature still exists"),
+        crate::zone::Zone::Battlefield,
+        "the spell was countered, so it never exiled anything",
+    );
+    assert!(
+        in_graveyard(&engine, p1, path_to_exile()).is_some(),
+        "a countered spell goes to its owner's graveyard (CR 701.5a)",
+    );
+    assert_eq!(
+        engine.state().players[1].mana_pool.total(),
+        pool_before,
+        "declining spends nothing",
+    );
+}
+
+/// The paid half: the mana leaves the pool and the spell resolves.
+#[test]
+fn ward_paid_lets_the_spell_through_and_costs_the_mana() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, twins) = ward_asks_for_its_tax(23);
+    let pool_before = engine.state().players[1].mana_pool.total();
+    assert!(
+        pool_before >= 1,
+        "the second Plains is what makes the tax payable"
+    );
+
+    engine
+        .apply(p1, PlayerAction::YesNo(true))
+        .expect("paying is an answer");
+    assert_eq!(
+        engine.state().players[1].mana_pool.total(),
+        pool_before - 1,
+        "ward {{1}} costs one mana, taken from the floating pool",
+    );
+
+    // Path resolves, exiles the creature — and then offers its *controller*
+    // the basic-land search, which is the ramp half of the same card and the
+    // reason this cannot simply pass priority to the end. The search is
+    // declined here; that it is asked at all is entry 30's other victim
+    // proving itself alive.
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::ChooseCards { player, .. } => engine
+                .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
+                .expect("the search may be declined"),
+            Pending::Priority { player, .. } => {
+                if engine
+                    .state()
+                    .zones
+                    .list(crate::zone::ZoneLocation::Stack)
+                    .is_empty()
+                {
+                    break;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the spell resolves: {other:?}"),
+        }
+    }
+    assert_eq!(
+        engine
+            .state()
+            .object(twins)
+            .map(|o| o.zone)
+            .expect("the creature still exists as a card"),
+        crate::zone::Zone::Exile,
+        "the tax was paid, so Path resolved and exiled its target",
+    );
 }

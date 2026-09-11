@@ -313,6 +313,32 @@ pub fn in_hand(
         })
 }
 
+/// Whether `card` sits in `seat`'s graveyard.
+///
+/// The third of the trio, and the one a *negative* outcome is read off:
+/// a countered spell and a resolved one differ only in which zone the card
+/// ends up in, so a test that could not look in a graveyard could only
+/// prove that nothing happened.
+#[must_use]
+pub fn in_graveyard(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> Option<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Graveyard(seat))
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+}
+
 /// Taps everything that makes mana for `seat` except `keep`.
 ///
 /// The exception is the point: a land whose *other* ability the test is

@@ -144,9 +144,11 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
 ///
 /// Legality is enumerated *before* any resolution exists, so the two context
 /// relations have no answer here and an empty list is the honest one — this
-/// is one of exactly two callers allowed to read [`players`]' `None` as
-/// "nobody". Every `CardInGraveyard` in the pool names `You` or `EachPlayer`;
-/// one naming `Chosen` would be a bug in the card.
+/// is the **only** caller allowed to read [`players`]' `None` as "nobody".
+/// [`players`] has four callers in all and the other three
+/// (`resolve::players_of` and two in `team_tests`) `expect` a relation the
+/// state can answer. Every `CardInGraveyard` in the pool names `You` or
+/// `EachPlayer`; one naming `Chosen` would be a bug in the card.
 fn graveyard_options(
     filter: &Filter,
     rel: PlayerRel,

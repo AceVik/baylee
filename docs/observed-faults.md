@@ -1628,10 +1628,14 @@ Fixed by routing all ten sites through `players_of`, and by changing
 context relations. The `Option` is the half that matters. `vec![]` reads
 exactly like "no seats matched", so a new caller swallows the trap without
 noticing; a `None` cannot be consumed without a visible decision, which is
-the same convention-into-a-build-failure idiom the card tests use. Two
-callers legitimately have no resolution to ask — `eval::target_options`
-enumerates legality *before* one exists — and now say so in a sentence
-instead of by accident.
+the same convention-into-a-build-failure idiom the card tests use. **One**
+caller legitimately has no resolution to ask — `eval::graveyard_options`,
+which enumerates legality *before* one exists — and now says so in a
+sentence instead of by accident. This paragraph said "two" until the
+callers were counted: `eval::players` has four, and the other three
+(`resolve::players_of` and two in `team_tests`) `expect` a relation the
+state can answer. A claim about how many places may do something is exactly
+the kind this file has been wrong about before.
 
 Three tests, one per victim the pool can reach today:
 `keyword_tests::ward_taxes_the_opponent_who_targeted_it`,
@@ -1641,6 +1645,20 @@ the **seat** and not merely that a question was asked, because offering
 Path's search to the caster would be just as wrong and would pass a test
 that only counted a `ChooseCards`. Each was mutated by reverting its own
 site alone: each failed, and only that one.
+
+Two more were added afterwards, and the reason is worth stating: the ward
+test proved the tax was **asked** and returned there, and everything past
+that point — `resume_tax_choice`, the pool debit, the
+counter-the-spell fallback — was code that had never executed in a game,
+because until this fix nothing reached it.
+`keyword_tests::ward_declined_counters_the_spell_that_targeted_it` answers
+no and finds Path in its owner's graveyard with the creature still on the
+battlefield (CR 702.21a is "countered unless paid", not "fizzles");
+`ward_paid_lets_the_spell_through_and_costs_the_mana` answers yes, finds
+the pool one lighter, and then has to decline Path's basic-land search on
+the way through — which is the ramp half of this same entry proving itself
+alive. Mutants: `actually_paid = true` kills the first,
+`actually_paid = false` the second.
 
 Prowess is the same branch and is *not* the same fault — it reads the
 `SpellCast` event alone and needs nothing from the spell's targets. It is
@@ -1907,6 +1925,12 @@ Reveillark) read the graveyard, the exile rider or nothing at all — none reads
 the dead object's counters, tapped-ness, attachment or projected power. A card
 that did would be an LKI fault of its own, not a reason to leave this.
 
+That scan read *triggers*, which is one of the two shapes a stale read takes.
+The other is an effect list that moves an object and then reads it inside a
+single resolution, and sweeping `Amount`'s object-reading variants against the
+pool found two of those — both already wrong before this change, and both
+entry 38.
+
 The test is `a_blinked_permanent_comes_back_untapped`: a land tapped the only
 way a player can tap it — by using it — then Aminatou's −1, then the land is
 untapped.
@@ -1926,9 +1950,71 @@ pump written for the old permanent still applies to the new one; and an
 Equipment stays attached across the blink (fault 36 clears the blinked
 permanent's own `attached_to`, which is the other side of the same wire).
 
+A blinked **Aura** is the visible half of that, and fault 36 changed which way
+it is wrong. Before, the Aura came back still pointing at its old host and
+looked attached; now `attached_to` is cleared on the way out, it returns
+attached to nothing, and `run_attachment_sbas` puts it straight into its
+owner's graveyard (CR 704.5m). The rules answer is neither: CR 303.4f gives an
+Aura entering the battlefield by any means other than resolving as an Aura
+spell a *choice* of what it enchants, and the engine has no question for that
+choice. So this is an unsupported interaction rather than a regression, and it
+is unsupported in the direction that at least tells the player something
+happened. The pool has three Auras (Journey to Eternity, Strength of the
+Harvest, Glasswing Grace) and Aminatou is the one card in it that can blink a
+permanent that is not a creature, so the exposure is small and the fix belongs
+with the rest of 37 rather than ahead of it.
+
 The fix shape is a new object rather than a moved one — the same thing
 `create_token_copies` already does with a set of copiable values — or, much
 cheaper, a `version` comparison at the two or three places that resolve a
 stored `ObjectId` back into a target. One test proves it either way: Path to
 Exile on Llanowar Elves, blink in response, the Elves are still on the
 battlefield and Path was countered.
+
+### 38. An effect that reads an object it just moved reads the printed card — RECORDED
+
+Found by the sweep entry 36 asks for, and **older than 36**: the cause is a
+line `move_object` has had all along.
+
+CR 608.2g: an effect that needs information about an object which is no longer
+in the zone it was expected to be in uses that object's *last known
+information*. This engine keeps no such snapshot. `Amount::TargetPower` is
+documented as "the power of the first target (last known characteristics)" and
+is evaluated as `state.object(target).characteristics().power` — and
+`characteristics()` is the layer cache if it is valid and the printed `base` if
+it is not. `move_object` clears that cache (CR 400.7, and the comment above the
+line says why: a creature that died under an anthem must not sit in the
+graveyard still pumped), and `refresh_characteristics` revisits only the
+battlefield and the projectable stack, so an object in exile never gets one
+back. Counters reach power through the projection too (`invalidate_projections`
+is what a counter write calls), so this is not the half fault 36 changed: the
+counters rode along on the object before that fix and were not read then
+either.
+
+Two cards in the pool exile a creature and then read its power in the same
+effect list:
+
+- **Swords to Plowshares** — `Effect::Exile` then
+  `GainLifeFor { amount: Amount::TargetPower }`.
+- **Solitude** — the same pair on its enters-the-battlefield trigger.
+
+Both gain the creature's **printed** power. A 1/1 Llanowar Elves with three
++1/+1 counters is a 4/4 and gains its controller 1 life; under a lord it is the
+same. The two amounts that look like this and are not affected:
+`Amount::SourcePower` already documents reading zero for a source that has
+left, and `Amount::TargetCmc` (Reanimate) reads a mana cost, which is printed
+and which no layer in this pool touches.
+
+The fix shape is a last-known-information snapshot taken at the moment
+`move_object` clears the cache — the projected `Characteristics` the object had
+while it was still a permanent, stored beside the object and read by
+`resolve::amount2` when the target is no longer where the effect expected it.
+That is the same snapshot fault 36's deliberate omission will want if a card
+ever reads a dead permanent's counters, and the same one a dies-trigger reading
+projected power would need, so it is one piece of work and not three.
+
+The test is Swords to Plowshares on a creature whose power is projected rather
+than printed — a Llanowar Elves with a +1/+1 counter on it, which asserts 2 life
+and fails at 1 today. Its mutant is the counter removed: the assertion has to
+drop to 1 with it, or it is reading the printed number and agreeing by
+accident.
