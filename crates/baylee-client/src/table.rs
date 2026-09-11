@@ -1189,6 +1189,16 @@ pub struct SceneIndex {
     /// whose card changed (an anthem, a counter, a clone) without rebuilding
     /// every face every frame.
     faces: HashMap<ObjectId, (u64, Vec<Entity>)>,
+    /// What stood in a pile's hover fan on the **previous** frame, and which
+    /// pile each card came out of.
+    ///
+    /// Previous and not current, which is the whole reason it is kept at all.
+    /// A fan closes by leaving the board model, so the frame that has to send
+    /// its cards home is a frame on which they are already gone — and a card
+    /// that leaves with no zone change behind it is otherwise despawned where
+    /// it stands, which for seven cards in the air is seven cards blinking
+    /// out of it.
+    fanned: HashMap<ObjectId, Place>,
     /// One material per colour identity and look, for cards drawing their
     /// own face rather than artwork.
     face_materials: HashMap<CardLook, Handle<CardMaterial>>,
@@ -2271,6 +2281,23 @@ fn card_transform(slot: &SeatSlot, position: Vec2, tapped: bool, lift: f32) -> T
     }
 }
 
+/// How one card of a pile's hover fan is turned.
+///
+/// A rotation of its own rather than two more arguments to
+/// [`card_transform`], because the two are never both true: a card lifted out
+/// of a graveyard is not a permanent and has no tap state to compose with.
+///
+/// The order is the one a card is already built by — lay the quad flat, then
+/// turn it to face its owner — with the lying-flat quarter turn short of
+/// square by the pose's tilt, so the edge furthest from the owner rises. Which
+/// edge that is on *screen* is the pose's business and not this function's;
+/// see [`baylee_client_core::FanPose::tilt`].
+fn fan_rotation(slot: &SeatSlot, pose: baylee_client_core::FanPose) -> Quat {
+    Quat::from_rotation_y(-slot.facing)
+        * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2 + pose.tilt)
+        * Quat::from_rotation_z(pose.yaw)
+}
+
 /// Where every group in the current board model belongs.
 struct Placement {
     object: ObjectId,
@@ -2284,6 +2311,28 @@ struct Placement {
     offer: crate::cardmat::Offer,
     corner: baylee_client_core::cardplate::Corner,
     selected: bool,
+    /// Set while this card stands in a pile's hover fan, and then it carries
+    /// the pose and the pile the card was lifted out of.
+    ///
+    /// The pile is here for the way *back*. A fan closes by leaving the board
+    /// model, and a card that leaves with no zone change behind it is
+    /// despawned where it stands — right for a graveyard's old top card,
+    /// covered by the one that landed on it, and wrong for seven cards that
+    /// have to drop back into the pile they came out of.
+    fan: Option<(baylee_client_core::FanPose, PileKind)>,
+}
+
+/// The place a pile stands for, for the zone machinery that speaks in places.
+///
+/// `None` for a library: nothing ever moves *to* one that this table can
+/// draw, and nothing is ever lifted out of one that has an object behind it.
+fn place_of(kind: PileKind, player: PlayerId) -> Option<Place> {
+    match kind {
+        PileKind::Graveyard => Some(Place::Graveyard(player)),
+        PileKind::Exile => Some(Place::Exile(player)),
+        PileKind::Command | PileKind::Command2 => Some(Place::Command(player)),
+        PileKind::Library => None,
+    }
 }
 
 /// Computes placements for the whole table.
@@ -2295,6 +2344,10 @@ fn placements(duel: &Duel) -> Vec<Placement> {
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return Vec::new();
     };
+    // Which pile, if any, the pointer has spread open. Read once for the
+    // whole table: at most one pile is ever open, because the pointer is over
+    // at most one card.
+    let fanned = board.fanned_pile(duel.hovered);
     let mut out = Vec::new();
     for pod in &board.pods {
         let Some(slot) = layout.slot(pod.player) else {
@@ -2345,6 +2398,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         .interaction
                         .as_ref()
                         .is_some_and(|i| group.members.iter().any(|member| i.is_selected(*member))),
+                    fan: None,
                 });
             }
         }
@@ -2363,6 +2417,48 @@ fn placements(duel: &Duel) -> Vec<Placement> {
         // A library has no object, and neither has an empty pile. Those two
         // are drawn by `sync_zones`, which needs no card behind them.
         for pile in &pod.piles {
+            // The hover fan. It replaces the pile's own top card rather than
+            // standing beside it — the top card *is* the first card of the
+            // fan, and drawing both would put one card in two places and give
+            // `index.cards` two entities for one id.
+            //
+            // The pile's thickness goes on the **lowest** card of the fan,
+            // which is the one still standing over the pile's own place: it
+            // is the rest of the cards, and carrying it up with the top card
+            // instead would lift the whole deck into the air with it.
+            if fanned == Some((pod.player, pile.kind)) && !pile.fan.is_empty() {
+                let len = pile.fan.len();
+                let under = usize::try_from(pile.count).unwrap_or(usize::MAX);
+                for (i, card) in pile.fan.iter().enumerate() {
+                    let pose = slot.fan_pose(pile.kind, i, len);
+                    out.push(Placement {
+                        object: card.object,
+                        slot: *slot,
+                        position: pose.at,
+                        lift: pose.lift,
+                        tapped: false,
+                        count: if i + 1 == len {
+                            under.saturating_sub(len - 1).max(1)
+                        } else {
+                            1
+                        },
+                        art: card.art,
+                        offer: crate::cardmat::Offer::on(
+                            duel.armed.as_ref(),
+                            &[card.object],
+                            false,
+                        ),
+                        corner: baylee_client_core::cardplate::Corner::default(),
+                        selected: duel
+                            .interaction
+                            .as_ref()
+                            .is_some_and(|i| i.is_selected(card.object)),
+                        fan: Some((pose, pile.kind)),
+                    });
+                }
+                continue;
+            }
+
             let Some(top) = pile.top else {
                 continue;
             };
@@ -2388,6 +2484,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     .interaction
                     .as_ref()
                     .is_some_and(|i| i.is_selected(top)),
+                fan: None,
             });
         }
     }
@@ -2492,6 +2589,10 @@ pub fn sync_scene(
 
     let wanted = placements(&duel);
     let mut live: HashSet<ObjectId> = HashSet::new();
+    // What is standing in a fan this frame, and which pile it came out of.
+    // Rebuilt every frame rather than kept, because a fan is open for exactly
+    // as long as the pointer is on it and the answer is never carried over.
+    let mut fanned: HashMap<ObjectId, Place> = HashMap::new();
 
     // The keyboard/mouse cursor. What is *chosen* rides on the placement,
     // because that is where a group's members are.
@@ -2572,6 +2673,15 @@ pub fn sync_scene(
             placement.tapped,
             placement.lift + deck,
         );
+        // A card in a fan is tipped up and turned; everything else about it —
+        // where it stands, the deck under it, the hover lift below — is the
+        // same arithmetic every other card gets.
+        if let Some((pose, kind)) = placement.fan {
+            transform.rotation = fan_rotation(&placement.slot, pose);
+            if let Some(place) = place_of(kind, placement.slot.player) {
+                fanned.insert(placement.object, place);
+            }
+        }
         // Hover (cursor) lifts the card a touch; a chosen card stays raised
         // until the choice is answered, and so does an armed one — a deed
         // waiting on a second tap is a commitment the player has already
@@ -2617,10 +2727,21 @@ pub fn sync_scene(
                     entrance_from(
                         pile_stand(
                             &duel,
-                            moves
-                                .iter()
-                                .find(|m| m.object == placement.object)
-                                .and_then(|m| m.from),
+                            // A card the fan is lifting comes out of its own
+                            // pile, which is where it has been lying all
+                            // along. Asked first, because `moves` has nothing
+                            // to say about a card that has not moved and the
+                            // generic entrance would drop it out of the air
+                            // onto a mark it is supposed to have risen to.
+                            placement
+                                .fan
+                                .and_then(|(_, kind)| place_of(kind, placement.slot.player))
+                                .or_else(|| {
+                                    moves
+                                        .iter()
+                                        .find(|m| m.object == placement.object)
+                                        .and_then(|m| m.from)
+                                }),
                         ),
                         &transform,
                     ),
@@ -2719,6 +2840,23 @@ pub fn sync_scene(
             // of those would be a card visibly sliding out from under a pile
             // it never left.
             let Some(step) = moves.iter().find(|m| m.object == id).copied() else {
+                // Unless it is a card the fan had in the air a frame ago. It
+                // has not left anywhere — the pointer left *it* — so it takes
+                // the pile-bound exit with no door on it, which is the glide
+                // that puts it back under the pile's top card. A card that
+                // moved zones on the same frame never reaches here: the move
+                // below is the truer answer and takes precedence.
+                if let Some(&home) = index.fanned.get(&id) {
+                    if let Ok((mut motion, _, _)) = cards.get_mut(entity) {
+                        motion.target =
+                            exit(Some(home), pile_stand(&duel, Some(home)), &motion.target);
+                    }
+                    commands
+                        .entity(entity)
+                        .remove::<CardVisual>()
+                        .insert((Pickable::IGNORE, Departing { left: EXIT_LIFE }));
+                    continue;
+                }
                 commands.entity(entity).despawn();
                 continue;
             };
@@ -2745,6 +2883,10 @@ pub fn sync_scene(
                 .insert((Pickable::IGNORE, Departing { left: EXIT_LIFE }));
         }
     }
+
+    // After the stale pass and not before it: what this frame fanned is next
+    // frame's answer to "was that card in the air".
+    index.fanned = fanned;
 
     // Tell the cache what is on screen so it can evict the rest.
     let visible: Vec<ImageKey> = wanted.iter().filter_map(|p| p.art).collect();
@@ -4640,5 +4782,133 @@ mod combat_tests {
             top < CARD_LIFT,
             "a row of twelve climbs {top} off the table"
         );
+    }
+
+    /// What the pointer does to a pile.
+    mod fan {
+        use super::*;
+
+        /// A seat whose graveyard holds `count` cards, with a fan of at most
+        /// seven of them and nothing else on the board.
+        fn with_graveyard(count: u32) -> BoardModel {
+            let mut model = board(Vec::new());
+            let pile = model.pods[0]
+                .piles
+                .iter_mut()
+                .find(|p| p.kind == baylee_client_core::PileKind::Graveyard)
+                .expect("every seat has a graveyard");
+            pile.count = count;
+            pile.top = Some(obj(100));
+            pile.fan = (0..count.min(7))
+                .map(|i| baylee_client_core::FannedCard {
+                    // Top of the pile first, so the first is the top card.
+                    object: obj(100 - i),
+                    art: None,
+                    name: format!("card {i}"),
+                })
+                .collect();
+            model
+        }
+
+        fn hovering(board: BoardModel, hovered: Option<ObjectId>) -> Duel {
+            Duel {
+                board: Some(board),
+                layout: Some(TableLayout::new(&[PlayerId::new(0)], 1.78, None)),
+                hovered,
+                ..Duel::default()
+            }
+        }
+
+        /// A pointer on a graveyard card lifts the whole fan out of the pile,
+        /// and a pointer anywhere else leaves one card lying on it.
+        ///
+        /// The counter-arm is the half that matters: a fan that was always
+        /// out would pass the first assertion on its own.
+        #[test]
+        fn the_pile_opens_under_the_pointer_and_shuts_when_it_leaves() {
+            let shut = placements(&hovering(with_graveyard(10), None));
+            assert_eq!(shut.len(), 1, "a pile nobody is pointing at is one card");
+            assert!(shut[0].fan.is_none());
+            assert_eq!(shut[0].object, obj(100));
+
+            let open = placements(&hovering(with_graveyard(10), Some(obj(100))));
+            assert_eq!(open.len(), 7, "the fan is not seven cards");
+            assert!(
+                open.iter().all(|p| p.fan.is_some()),
+                "a card of the fan is lying on the table"
+            );
+            assert_eq!(
+                open.iter().filter(|p| p.object == obj(100)).count(),
+                1,
+                "the top card is drawn twice — once as the pile and once as \
+                 the fan, which is two entities for one id"
+            );
+        }
+
+        /// The fan stays open while the pointer travels along it.
+        ///
+        /// This is the case that makes a fan usable at all: once it is out,
+        /// the pointer is no longer over the pile — it is over a card that
+        /// was not on the table a moment ago — and a reading that knew only
+        /// the pile's top card would shut on the first pixel of travel.
+        #[test]
+        fn the_pointer_may_travel_along_the_fan() {
+            for card in [obj(100), obj(97), obj(94)] {
+                let open = placements(&hovering(with_graveyard(10), Some(card)));
+                assert_eq!(open.len(), 7, "the fan shut under the pointer at {card:?}");
+            }
+        }
+
+        /// The pile's thickness stays on the bottom of the fan.
+        ///
+        /// The deck hangs under the card that carries the count, so putting
+        /// the ten on the card the fan raised highest would lift the whole
+        /// graveyard a card's height into the air with it. The bottom card is
+        /// the one still standing over the pile's own place, and it is the
+        /// rest of the cards.
+        #[test]
+        fn the_deck_stays_under_the_bottom_of_the_fan() {
+            let open = placements(&hovering(with_graveyard(10), Some(obj(100))));
+            let counts: Vec<usize> = open.iter().map(|p| p.count).collect();
+            assert_eq!(
+                counts,
+                [1, 1, 1, 1, 1, 1, 4],
+                "the deck is on the wrong card"
+            );
+
+            // And a pile with nothing under the fan still stands on one card.
+            let shallow = placements(&hovering(with_graveyard(3), Some(obj(100))));
+            assert_eq!(
+                shallow.iter().map(|p| p.count).collect::<Vec<_>>(),
+                [1, 1, 1]
+            );
+        }
+
+        /// Every card of the fan is tipped towards the camera.
+        ///
+        /// Measured as the quad's own normal after the rotation: world `+z`
+        /// is where the camera is, so the face leans into it when the third
+        /// component is positive. A card lying flat answers zero, which is
+        /// what the counter-arm at the bottom holds.
+        #[test]
+        fn the_fan_leans_into_the_screen() {
+            let duel = hovering(with_graveyard(7), Some(obj(100)));
+            let placed = placements(&duel);
+            let slot = placed[0].slot;
+            for card in &placed {
+                let (pose, _) = card.fan.expect("every card here is fanned");
+                let normal = fan_rotation(&card.slot, pose) * Vec3::Z;
+                assert!(
+                    normal.z > 0.3,
+                    "a fanned card faces {normal:?}, which is not the camera"
+                );
+            }
+
+            let flat = card_transform(&slot, Vec2::ZERO, false, 0.0).rotation * Vec3::Z;
+            assert!(
+                flat.z.abs() < 1e-6,
+                "a card on the table already leans, so leaning proves nothing"
+            );
+        }
     }
 }

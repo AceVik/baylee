@@ -876,6 +876,29 @@ impl BoardModel {
         self.pods.iter().find(|p| p.player == player)
     }
 
+    /// Which pile a hover has spread open, if any.
+    ///
+    /// Asked of the **fan** rather than of the pile's top card, and once the
+    /// fan is out the two are different questions: the card on top of the
+    /// pile is the first card of its own fan, so the pointer that opened it
+    /// is still on something this answers for — but the other six are cards
+    /// the pile did not have a moment ago, and a reading that knew only the
+    /// top one would shut the fan the instant the pointer slid along it.
+    ///
+    /// A library therefore never opens this way. It has no cards to list, so
+    /// there is nothing here to hover, and the backs it fans are raised by
+    /// something that knows a pile is a place and not a card.
+    #[must_use]
+    pub fn fanned_pile(&self, hovered: Option<ObjectId>) -> Option<(PlayerId, PileKind)> {
+        let hovered = hovered?;
+        self.pods.iter().find_map(|pod| {
+            pod.piles
+                .iter()
+                .find(|pile| pile.fan.iter().any(|card| card.object == hovered))
+                .map(|pile| (pod.player, pile.kind))
+        })
+    }
+
     /// Every image key the model wants resident, cheapest first.
     ///
     /// The renderer feeds this straight into the texture budget: everything
@@ -1669,6 +1692,58 @@ mod tests {
             assert_eq!(graveyard.fan[0].name, "Elf");
             assert!(graveyard.fan[0].art.is_none(), "a token has no printing");
             assert!(graveyard.fan[1].art.is_some());
+        }
+
+        /// A hover opens the pile the card is in, at the seat it belongs to.
+        ///
+        /// A graveyard is public, so an opponent's opens like anyone's — and
+        /// it has to open as *theirs*, because the fan stands beside their
+        /// mat and not beside the viewer's.
+        #[test]
+        fn a_hover_opens_the_pile_the_card_is_lying_in() {
+            let view = ViewBuilder::new(2)
+                .with_graveyard(
+                    0,
+                    vec![printed(1, 0, "buried", 1), printed(3, 0, "on top", 3)],
+                )
+                .with_exile(1, vec![printed(2, 1, "theirs", 2)])
+                .build();
+            let model = model(&view);
+            let card_in = |seat: u8, kind, at: usize| {
+                model
+                    .pod(PlayerId::new(seat))
+                    .expect("the seat is at the table")
+                    .piles
+                    .iter()
+                    .find(|p| p.kind == kind)
+                    .expect("the seat has this pile")
+                    .fan[at]
+                    .object
+            };
+
+            assert_eq!(
+                model.fanned_pile(Some(card_in(0, PileKind::Graveyard, 0))),
+                Some((PlayerId::new(0), PileKind::Graveyard))
+            );
+            // And the card *under* that one, which is what the pointer is
+            // over once the fan is out — and what a reading that knew only
+            // the pile's top card would answer nothing for.
+            assert_eq!(
+                model.fanned_pile(Some(card_in(0, PileKind::Graveyard, 1))),
+                Some((PlayerId::new(0), PileKind::Graveyard)),
+                "the fan shut under a pointer that had travelled along it"
+            );
+            assert_eq!(
+                model.fanned_pile(Some(card_in(1, PileKind::Exile, 0))),
+                Some((PlayerId::new(1), PileKind::Exile)),
+                "an opponent's exile opened as somebody else's pile"
+            );
+            assert_eq!(model.fanned_pile(None), None);
+            assert_eq!(
+                model.fanned_pile(Some(ObjectId::new(99, 0))),
+                None,
+                "a card lying on nothing opened a pile"
+            );
         }
 
         /// Every face the fan will draw is resident before the hover, and
