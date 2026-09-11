@@ -37,6 +37,7 @@
 pub mod automation;
 pub mod board;
 pub mod browser;
+pub mod bugreport;
 pub mod card_face;
 pub mod cardplate;
 pub mod cardrail;
