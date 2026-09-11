@@ -205,16 +205,73 @@ pub fn face_has_a_legal_target(
         return true;
     };
     let abilities = def.abilities_for_face(face);
-    if abilities
-        .iter()
-        .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
-    {
-        return true;
+    // A modal spell is answered mode by mode (CR 700.2): the card is castable
+    // when *any* one of its modes can be pointed at something, and which one
+    // is `cast_options`' question, not this one's.
+    let mut modal = abilities.iter().filter_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => Some(modes),
+        _ => None,
+    });
+    if let Some(modes) = modal.next() {
+        return modes
+            .iter()
+            .any(|mode| requirement_is_reachable(mode.targets, state, player, card));
     }
-    let Some(req) = abilities.iter().find_map(|a| match a {
+    let req = abilities.iter().find_map(|a| match a {
         baylee_cards_dsl::AbilityDef::Spell { targets, .. } => *targets,
         _ => None,
-    }) else {
+    });
+    requirement_is_reachable(req, state, player, card)
+}
+
+/// Whether one mode of a modal spell (CR 700.2) can be pointed at anything.
+///
+/// The half of [`face_has_a_legal_target`] a *mode* needs, and the reason it
+/// is separate: the card being castable and this particular mode being
+/// takeable are two questions, and the wizard has to ask the second one about
+/// every button it offers. It did not, which was invisible for as long as a
+/// modal spell was also offered a mode-less `Normal` cast that resolved to
+/// nothing — Cyclonic Rift on an empty board offered "return target nonland
+/// permanent" and refused it with "not enough legal targets" the moment it
+/// was pressed.
+#[must_use]
+pub fn mode_has_a_legal_target(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    mode: usize,
+) -> bool {
+    let Some(def) = state
+        .object(card)
+        .and_then(|o| o.card)
+        .and_then(|c| lookup.card(c.index))
+    else {
+        return true;
+    };
+    let req = def.abilities.iter().find_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes.get(mode).map(|m| m.targets),
+        _ => None,
+    });
+    match req {
+        Some(req) => requirement_is_reachable(req, state, player, card),
+        None => true,
+    }
+}
+
+/// Whether a target requirement can be met on this board.
+///
+/// Deliberately conservative, and answers `true` whenever it cannot be sure:
+/// no requirement at all, a minimum of zero, an X-counted requirement whose
+/// number nobody has picked yet, and anything naming a *player*, who is not
+/// an object and is never absent. All of those stay the wizard's problem.
+fn requirement_is_reachable(
+    req: Option<baylee_cards_dsl::TargetReq>,
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+) -> bool {
+    let Some(req) = req else {
         return true;
     };
     if req.min == 0

@@ -235,6 +235,27 @@ fn spellbook_preset(seed: u64, hand: &[&str], board: &[&str]) -> GamePreset {
     preset
 }
 
+/// The modal cast, with something across the table to point at.
+///
+/// `Pending::ChooseCastMode` is only a *question* when two ways of casting
+/// survive, and Cyclonic Rift's two are "return target nonland permanent you
+/// don't control" and its overload. The first needs a permanent on the other
+/// side of the table, and this is the one preset in the file that gives the
+/// house one before the game starts.
+///
+/// It used to be reached without that, for the wrong reason: a modal spell
+/// was offered a mode-*less* `Normal` cast that resolved to nothing, so there
+/// were two options on an empty board — one of them a no-op, and the one this
+/// suite answered with. Both halves are fixed in the engine now (a modal
+/// spell is offered no mode-less cast, and a mode with nowhere to point is
+/// not offered at all), which leaves the question needing a real second
+/// answer in order to exist.
+fn rift_preset(seed: u64) -> GamePreset {
+    let mut preset = spellbook_preset(seed, &[CYCLONIC_RIFT, COMMANDERS_INSIGHT], &[]);
+    preset.seats[1].starting_battlefield = vec![entry(GREAT_DIVIDE_GUIDE)];
+    preset
+}
+
 /// Two of one legend on the table.
 ///
 /// The only way to reach the legend rule at all: CR 704.5j is a state-based
@@ -1080,10 +1101,7 @@ fn every_question_this_suite_reaches_gets_an_answer() {
         &spellbook_preset(5, &[CHARMING_PRINCE, SPELLSEEKER, CULTIVATE], &[]),
         600,
     ));
-    record!(run_greedily(
-        &spellbook_preset(6, &[CYCLONIC_RIFT, COMMANDERS_INSIGHT], &[]),
-        600,
-    ));
+    record!(run_greedily(&rift_preset(6), 600));
     record!(run_greedily(
         &spellbook_preset(7, &[RITE_OF_REPLICATION], &[GREAT_DIVIDE_GUIDE]),
         600,

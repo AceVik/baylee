@@ -398,7 +398,16 @@ impl<L: CardLookup> Engine<L> {
             };
             for (i, mode) in modes.iter().enumerate() {
                 let cost = mode.cost_override.unwrap_or(face.mana_cost);
-                if afford(&cost.with_x(0)) {
+                // Affordable *and* pointable. Every other option in this
+                // function is paired with the probe `can_cast` makes, and a
+                // mode was the one that was not: Cyclonic Rift on an empty
+                // board offered "return target nonland permanent you don't
+                // control" and answered the press with "not enough legal
+                // targets", leaving the question standing so an agent pressed
+                // it again on the next pass.
+                if afford(&cost.with_x(0))
+                    && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
+                {
                     options.push(CastModeDesc {
                         index: (options.len()) as u8,
                         kind: CastModeKind::Mode(i),
