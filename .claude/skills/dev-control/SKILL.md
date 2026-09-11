@@ -52,7 +52,7 @@ GET  /health                     → {"ok":true,"frame":…,"width":…,"height"
 GET  /state                      → the dump below
 POST /key        {"name":"Space","shift":false,"hold":false,"release":false}
 POST /text       {"text":"dev@baylee.local"}
-POST /pointer    {"x":100,"y":200,"button":"left","press":true}
+POST /pointer    {"x":100,"y":200,"button":"left","press":true,"hold":false,"release":false}
 POST /scroll     {"y":-3}
 POST /screenshot {"path":"/tmp/table.png"}
 POST /timescale  {"speed":0.1}          → {"ok":true,"speed":0.1,"paused":false}
@@ -147,6 +147,15 @@ resolves as a 0/0 and dies to a state-based action with nothing in
 down; `{"release":true}` lifts it. Part of the client is about a key *being*
 held — shift turns a double-faced card over for as long as it is down — and a
 harness that could only tap cannot reach it.
+
+**The pointer takes the same pair, and a press is not a click.**
+`{"press":true,"hold":true}` presses and stops there; a later
+`{"release":true}` lets go; the answer says `"clicked"`, `"held"` or
+`"released"`, so a script cannot confuse them. Everything that exists only
+*between* the two needs it — a drag, and a card giving way under the finger —
+because a screenshot cannot be asked for in the middle of one call.
+Photograph the rest state, hold, photograph, release, photograph: the third
+should come back to the first, and "byte-identical" is a real answer.
 
 ## Screenshots, and proving a render claim
 

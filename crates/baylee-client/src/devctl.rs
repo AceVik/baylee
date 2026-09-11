@@ -33,7 +33,7 @@
 //! GET  /state                      → the dump below
 //! POST /key      {"name":"Space","shift":false,"hold":false,"release":false}
 //! POST /text     {"text":"dev@baylee.local"}
-//! POST /pointer  {"x":100,"y":200,"button":"left","press":true}
+//! POST /pointer  {"x":100,"y":200,"button":"left","press":true,"hold":false,"release":false}
 //! POST /scroll   {"y":-3}   (wheel lines, over wherever the pointer is)
 //! POST /screenshot {"path":"/tmp/table.png"}   (replies once written)
 //! POST /timescale {"speed":0.1}   (the whole picture, a tenth as fast)
@@ -174,8 +174,19 @@ struct Click {
     at: Vec2,
     button: MouseButton,
     stage: ClickStage,
-    /// Held until the release is written, so a caller that got its answer
-    /// knows the click is finished rather than merely begun.
+    /// Whether the button stays down once it has been pressed.
+    ///
+    /// A press and its release are one call by default, which is right for a
+    /// tap and no use at all for the things that exist only *while* the
+    /// button is down: a drag, and a card giving way under the finger. Both
+    /// are drawn by code of the kind that has shipped unwired here before,
+    /// and neither could be photographed. Named after [`press_key`]'s pair,
+    /// because it is the same pair.
+    hold: bool,
+    /// What the answer calls what it did.
+    word: &'static str,
+    /// Held until the last stage is written, so a caller that got its answer
+    /// knows the deed is finished rather than merely begun.
     reply: Sender<String>,
 }
 
@@ -506,12 +517,14 @@ fn pump(
                 match move_pointer(&job.body, &mut windows, &mut moves, &mut window_events) {
                     Err(err) => format!("{{\"error\":\"{err}\"}}"),
                     Ok((_, None)) => "{\"ok\":true,\"clicked\":false}".to_string(),
-                    Ok((at, Some(button))) => {
-                        // The answer is owed after the release, not now.
+                    Ok((at, Some(deed))) => {
+                        // The answer is owed after the last stage, not now.
                         control.clicking.push(Click {
                             at,
-                            button,
-                            stage: ClickStage::Press,
+                            button: deed.button,
+                            stage: deed.stage,
+                            hold: deed.hold,
+                            word: deed.word,
                             reply: job.reply,
                         });
                         continue;
@@ -747,7 +760,7 @@ fn move_pointer(
     windows: &mut Query<(Entity, &mut Window), With<PrimaryWindow>>,
     moves: &mut MessageWriter<CursorMoved>,
     window_events: &mut MessageWriter<WindowEvent>,
-) -> Result<(Vec2, Option<MouseButton>), String> {
+) -> Result<(Vec2, Option<ButtonDeed>), String> {
     let (entity, mut window) = windows.single_mut().map_err(|_| "no primary window")?;
     let at = match (field(body, "x"), field(body, "y")) {
         (Some(x), Some(y)) => {
@@ -767,7 +780,9 @@ fn move_pointer(
         }
         _ => window.cursor_position().ok_or("no x/y and no cursor")?,
     };
-    if !flag(body, "press") {
+    let hold = flag(body, "hold");
+    let let_go = flag(body, "release");
+    if !flag(body, "press") && !let_go {
         return Ok((at, None));
     }
     let button = match field(body, "button").unwrap_or("left") {
@@ -776,7 +791,37 @@ fn move_pointer(
         "middle" => MouseButton::Middle,
         other => return Err(format!("unknown button: {other}")),
     };
-    Ok((at, Some(button)))
+    // `release` wins over `press`, so a caller that sends both gets the
+    // half it can only have meant: you cannot let go of a button on the
+    // same call that presses it and still have held it.
+    let (stage, hold, word) = if let_go {
+        (ClickStage::Release, false, "released")
+    } else if hold {
+        (ClickStage::Press, true, "held")
+    } else {
+        (ClickStage::Press, false, "clicked")
+    };
+    Ok((
+        at,
+        Some(ButtonDeed {
+            button,
+            stage,
+            hold,
+            word,
+        }),
+    ))
+}
+
+/// What a `/pointer` call does with the button once the cursor has moved.
+struct ButtonDeed {
+    button: MouseButton,
+    /// The stage to start at: a press for a click or a hold, the release for
+    /// a call that only lets go.
+    stage: ClickStage,
+    /// Whether the press is the end of it.
+    hold: bool,
+    /// What the answer calls it.
+    word: &'static str,
 }
 
 /// Plays the next stage of every click in flight, one stage per frame.
@@ -792,6 +837,9 @@ fn advance_clicks(
 ) {
     for click in std::mem::take(&mut control.clicking) {
         let (state, next) = match click.stage {
+            // A held press has no second stage: the button stays down until a
+            // `{"release":true}` of its own comes to lift it.
+            ClickStage::Press if click.hold => (ButtonState::Pressed, None),
             ClickStage::Press => (ButtonState::Pressed, Some(ClickStage::Release)),
             ClickStage::Release => (ButtonState::Released, None),
         };
@@ -810,8 +858,8 @@ fn advance_clicks(
             Some(stage) => control.clicking.push(Click { stage, ..click }),
             None => {
                 let _ = click.reply.send(format!(
-                    "{{\"ok\":true,\"clicked\":true,\"x\":{},\"y\":{}}}",
-                    click.at.x, click.at.y
+                    "{{\"ok\":true,\"{}\":true,\"x\":{},\"y\":{}}}",
+                    click.word, click.at.x, click.at.y
                 ));
             }
         }
@@ -1097,6 +1145,62 @@ mod tests {
                 .pressed(MouseButton::Left)
         );
         assert!(answers.try_recv().unwrap().contains("\"clicked\":true"));
+    }
+
+    /// A held press stays down, and the release that lifts it is a call of
+    /// its own.
+    ///
+    /// Without this the harness could not photograph anything that exists
+    /// only while a button is down — a drag, or a card giving way under the
+    /// finger — because press and release were one call and a screenshot
+    /// cannot be asked for in between. The answer word says which of the
+    /// three a caller got, so a script cannot mistake a hold for a click.
+    #[test]
+    fn a_press_can_be_held_and_let_go_of_separately() {
+        let (mut app, tx) = harness();
+        let (reply, answers) = channel();
+        tx.send(Job {
+            path: "/pointer".to_string(),
+            body: r#"{"x":40,"y":60,"press":true,"hold":true}"#.to_string(),
+            reply,
+        })
+        .unwrap();
+
+        app.update();
+        assert_eq!(window_events(&app), ["move 40 60"]);
+        app.update();
+        assert_eq!(window_events(&app), ["press"]);
+        assert!(answers.try_recv().unwrap().contains("\"held\":true"));
+
+        // The button is still down two frames later, which is the whole
+        // point: the ordinary click would have let go on this one.
+        app.update();
+        assert_eq!(window_events(&app), [] as [String; 0]);
+        assert!(
+            app.world()
+                .resource::<ButtonInput<MouseButton>>()
+                .pressed(MouseButton::Left)
+        );
+
+        let (reply, answers) = channel();
+        tx.send(Job {
+            path: "/pointer".to_string(),
+            body: r#"{"release":true}"#.to_string(),
+            reply,
+        })
+        .unwrap();
+        // Two frames for the same reason the press took two: a job is drained
+        // after the stages have been played, so its own first stage is the
+        // next frame's.
+        app.update();
+        app.update();
+        assert_eq!(window_events(&app), ["release"]);
+        assert!(
+            !app.world()
+                .resource::<ButtonInput<MouseButton>>()
+                .pressed(MouseButton::Left)
+        );
+        assert!(answers.try_recv().unwrap().contains("\"released\":true"));
     }
 
     /// The same regression one gesture along: a wheel written only as a

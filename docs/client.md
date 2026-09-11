@@ -2608,6 +2608,8 @@ BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control
 curl -s localhost:28770/health        # {"ok":true,"frame":1183,"width":1728,"height":1052,"scale":2}
 curl -s localhost:28770/state         # the view, the pending choice, the interaction
 curl -s -XPOST localhost:28770/pointer   -d '{"x":864,"y":655,"press":true}'
+curl -s -XPOST localhost:28770/pointer   -d '{"x":509,"y":966,"press":true,"hold":true}'
+curl -s -XPOST localhost:28770/pointer   -d '{"release":true}'
 curl -s -XPOST localhost:28770/key       -d '{"name":"Space","shift":false}'
 curl -s -XPOST localhost:28770/scroll    -d '{"y":-6}'
 curl -s -XPOST localhost:28770/screenshot -d '{"path":"/tmp/table.png"}'
@@ -2616,7 +2618,7 @@ curl -s -XPOST localhost:28770/pause     -d '{}'
 curl -s -XPOST localhost:28770/step      -d '{"frames":6}'
 ```
 
-Six things about it are load-bearing.
+Seven things about it are load-bearing.
 
 **It is a compile-time feature, not a runtime switch.** A remote-control socket
 inside a game binary is a cheat vector, and the only guarantee worth having is
@@ -2640,6 +2642,18 @@ press on the next and the release on the one after, mirrored into `WindowEvent`
 exactly as `bevy_winit` does, and answers the caller only once the release is
 out. `devctl::tests::a_click_is_a_move_then_a_press_then_a_release` is that
 sequence as a test.
+
+**A press can also be held, and that is a different tool.** `{"hold":true}`
+presses and stops there; `{"release":true}` is the call that lets go, and the
+answer says which of the three it did (`"clicked"`, `"held"`, `"released"`) so
+a script cannot mistake one for another. It is the pointer's half of the pair
+`/key` has always had, and it exists because press and release in one call
+cannot photograph anything that lives *between* them: a drag, which this
+document used to record as unprovable through the harness, and a card giving
+way under the finger. That second one is what it was built for — a held press
+on a hand card measured its top edge six physical pixels lower and its face
+dimmer, and the screenshot after the release was byte-identical to the one
+before the press.
 
 **A wheel is written twice, for the same reason a click is.** `/scroll` sends a
 `MouseWheel` *and* the `WindowEvent::MouseWheel` beside it, because it is
