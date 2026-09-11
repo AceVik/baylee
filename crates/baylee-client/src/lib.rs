@@ -267,6 +267,16 @@ pub struct Duel {
     pub focus: Option<PlayerId>,
     /// The card the pointer or keyboard cursor is on.
     pub hovered: Option<ObjectId>,
+    /// The *place* the pointer is on, for a pile that is drawn through no
+    /// card of its own.
+    ///
+    /// A second field rather than a second meaning for [`Self::hovered`],
+    /// because the two are different kinds of thing and only one of them can
+    /// be previewed. In practice it is only ever a library: every other pile
+    /// is found through its top card, which is an object like any other, and
+    /// a library is face down to everybody — its owner included, CR 401.2 —
+    /// so it has no card to be found by.
+    pub hovered_pile: Option<(PlayerId, baylee_client_core::PileKind)>,
     /// What the preview should stand beside, in logical pixels.
     ///
     /// `None` when the hover came from the keyboard cursor, which has no
@@ -616,7 +626,7 @@ fn add_present_systems(app: &mut App) {
                 .before(table::sync_scene)
                 .before(hud::sync_overlay),
             table::sync_scene,
-            table::sync_zones,
+            (table::sync_zones, table::sync_library_fan).chain(),
             table::sync_table,
             sky::hang_sky,
             sky::sync_sky,

@@ -1672,6 +1672,7 @@ pub fn pointer_hover(
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
     tray_cards: Query<&TrayCard>,
+    piles: Query<&crate::table::PileVisual>,
     parents: Query<&ChildOf>,
     places: Query<&GlobalTransform>,
     table_camera: Query<(&Camera, &GlobalTransform), With<crate::table::TableCamera>>,
@@ -1756,6 +1757,13 @@ pub fn pointer_hover(
             // has since travelled, which on a fast sweep is a card or two
             // further along.
             let at = over.pointer_location.position;
+            // The pointer is on one thing, so entering anything at all ends
+            // whatever place it was on. Cleared here and written back a few
+            // lines down when the thing entered is itself a place: without
+            // it, walking off a library and onto a graveyard card would hold
+            // both fans open, because a place reports its own `Out` a frame
+            // later than the card reports its `Over`.
+            duel.hovered_pile = None;
             if let Some((card, v)) = lineage_bearer(over.entity, &cards, &parents) {
                 duel.hovered = Some(v.object);
                 // The card itself, when it can be projected: a permanent on
@@ -1780,6 +1788,12 @@ pub fn pointer_hover(
                 duel.hovered = Some(t.object);
                 duel.hovered_at = Some(HoverSpot::Point(at));
                 *source = HoverSource::Tray;
+            } else if let Some(pile) = find_in_lineage(over.entity, &piles, &parents) {
+                // A *place* rather than a card, which in practice means a
+                // library. It writes neither `hovered` nor `hovered_at`:
+                // there is no card here to look at, and a pile that opened
+                // the preview panel would be claiming there is.
+                duel.hovered_pile = Some((pile.player, pile.kind));
             }
         }
         for out in outs.read() {
@@ -1794,7 +1808,23 @@ pub fn pointer_hover(
                 duel.hovered_at = None;
                 *source = HoverSource::Elsewhere;
             }
+            if find_in_lineage(out.entity, &piles, &parents)
+                .is_some_and(|pile| duel.hovered_pile == Some((pile.player, pile.kind)))
+            {
+                duel.hovered_pile = None;
+            }
         }
+    }
+
+    // The same staleness a hovered card is held against, for a place. A
+    // library's slabs are despawned and rebuilt whenever its seat is — the
+    // last card of a deck leaving is exactly that — and a despawned entity
+    // fires no `Out`, so a fan left standing over a library that no longer
+    // exists would never come down.
+    if let Some((player, kind)) = duel.hovered_pile
+        && !piles.iter().any(|p| p.player == player && p.kind == kind)
+    {
+        duel.hovered_pile = None;
     }
 
     *last = duel.hovered;
