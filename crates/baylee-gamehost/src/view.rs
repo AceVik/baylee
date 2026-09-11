@@ -132,6 +132,30 @@ fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> String {
     }
 }
 
+/// A planeswalker's loyalty as it stands, not as it is printed.
+///
+/// `Characteristics::loyalty` is the number on the card and never moves;
+/// CR 306.5c says the loyalty of a planeswalker on the battlefield is the
+/// number of loyalty counters on it, which is what CR 306.5b puts there as it
+/// enters and what the engine's own state-based check reads when it puts one
+/// at zero into a graveyard. Sending the printed number meant a client drew a
+/// walker at its starting loyalty for the whole game: it ticked up, was
+/// attacked down and died, and the plate never moved.
+///
+/// Off the battlefield the printed number is the right answer and there are no
+/// counters to read, so the object's kind decides. A face that prints no
+/// loyalty stays `None` either way — the field says "this is a planeswalker's
+/// plate", and a permanent carrying loyalty counters without being one is
+/// `CounterEntry` business, not this.
+fn loyalty_now(obj: &GameObject, printed: Option<u16>) -> Option<u16> {
+    let printed = printed?;
+    if obj.kind == ObjectKind::Permanent {
+        Some(obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty))
+    } else {
+        Some(printed)
+    }
+}
+
 /// Projects one object into its public form for `seat`.
 fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<PublicObject> {
     let obj = state.object(id)?;
@@ -171,7 +195,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         keywords: chars.keywords.bits(),
         power: chars.power,
         toughness: chars.toughness,
-        loyalty: chars.loyalty,
+        loyalty: loyalty_now(obj, chars.loyalty),
         mana_value: chars.mana_cost.cmc(),
         damage: obj.damage,
         counters: obj
@@ -1464,6 +1488,58 @@ mod tests {
             "a land played this turn was projected summoning sick"
         );
         assert!(asleep(bear), "a creature that entered this turn is asleep");
+    }
+
+    /// CR 306.5c: a planeswalker's loyalty is the counters on it, not the
+    /// number printed on the card. The client draws the plate off this field,
+    /// so a printed number meant a walker stood at its starting loyalty for
+    /// the whole game however it was ticked or attacked.
+    #[test]
+    fn a_planeswalker_is_projected_at_the_loyalty_it_has() {
+        let preset = mixed_print_preset();
+        let engine = Engine::new(&preset, Registry).expect("game starts");
+        let mut state = engine.state().clone();
+        let seat = PlayerId::new(0);
+
+        let mut walker = |zone, counters: u16| {
+            let name = state.names.intern("Fresh Walker");
+            let kind = if matches!(zone, baylee_engine::zone::ZoneLocation::Battlefield) {
+                baylee_engine::object::ObjectKind::Permanent
+            } else {
+                baylee_engine::object::ObjectKind::Card
+            };
+            let id = state.create_bare(seat, kind, name, zone);
+            let obj = state.object_mut(id).expect("just created");
+            obj.base_mut().types = baylee_core::types::TypeSet::PLANESWALKER;
+            obj.base_mut().loyalty = Some(4);
+            obj.counters
+                .set(baylee_cards_dsl::CounterKind::Loyalty, counters);
+            id
+        };
+        let ticked = walker(baylee_engine::zone::ZoneLocation::Battlefield, 6);
+        let dying = walker(baylee_engine::zone::ZoneLocation::Battlefield, 1);
+        let held = walker(baylee_engine::zone::ZoneLocation::Graveyard(seat), 0);
+
+        let view = player_view(&state, seat, None, 0, None, false);
+        let loyalty = |id: ObjectId| {
+            view.battlefield
+                .iter()
+                .chain(view.graveyards.iter().flatten())
+                .find(|o| o.id == id)
+                .expect("the object is in the view")
+                .loyalty
+        };
+        // Both directions: a printed number would answer 4 for each of them,
+        // so one of these alone proves nothing.
+        assert_eq!(loyalty(ticked), Some(6), "a walker that ticked up");
+        assert_eq!(loyalty(dying), Some(1), "a walker that has been attacked");
+        // Off the battlefield there are no counters and the card is what it
+        // prints, which is the answer a graveyard panel wants.
+        assert_eq!(
+            loyalty(held),
+            Some(4),
+            "a walker card is its printed number"
+        );
     }
 
     /// The tally is a second life total (CR 903.10a), and it is public: the

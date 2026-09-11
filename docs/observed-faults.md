@@ -2619,3 +2619,37 @@ Spacecraft printing a body and carrying none passed. It now reads a
 numbers, which is the shape of the fault rather than the instance of it.
 `a_stationed_spacecraft_becomes_the_creature_it_prints` stations the Vessel
 to 8 and asserts it is standing there as a 5/5.
+
+## Ninth pass, 2026-09-11 — the loyalty plate, from the same report
+
+### 50. A planeswalker was drawn at the loyalty it was printed with — FIXED
+
+Reported as: the planeswalker loyalty drawing shows only base loyalty.
+
+`Characteristics::loyalty` is the number on the card and it never moves. CR
+306.5c says the loyalty of a planeswalker on the battlefield is the number of
+loyalty counters on it — which is what CR 306.5b's intrinsic replacement puts
+there as it enters, what a loyalty ability spends, what combat damage takes
+off (CR 306.8) and what the state-based check reads when it puts one at zero
+into a graveyard. Every part of the engine agreed; `view.rs` sent the printed
+number instead, so the plate the client draws stood at the starting loyalty
+for the whole game — it ticked up, was attacked down, died, and the number
+under the gilt rim never changed.
+
+`loyalty_now` is the whole fix and its shape is the interesting half: the
+object's **kind** decides. A permanent answers with its counters, and a card
+in a hand, a library or a graveyard answers with the printed number, because
+there are no counters on it and the printed number is what a graveyard panel
+should show. A face that prints no loyalty stays `None` either way — that
+field says "this is a planeswalker's plate", and a permanent carrying loyalty
+counters without being one is `CounterEntry` business.
+
+`a_planeswalker_is_projected_at_the_loyalty_it_has` asserts three, because
+the printed number would answer the same 4 for all of them: a walker that
+ticked to 6, one attacked down to 1, and a card in a graveyard at its printed
+4. The mutant is the field sending `printed` again.
+
+`VIEW_VERSION` stays at 16. The struct did not change — the same field
+carries a better number — and a client built against 16 renders it without
+knowing anything happened, which is exactly the case the version is *not*
+for.
