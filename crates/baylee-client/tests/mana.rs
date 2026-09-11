@@ -303,7 +303,7 @@ fn a_permanent_offers_exactly_what_it_can_do_and_never_the_same_tap_twice() {
         forest,
     );
     assert_eq!(options.len(), 1, "{options:?}");
-    assert_eq!(options[0].label, "Tap for G");
+    assert_eq!(options[0].label, "Tap for {G}");
 
     // And it is an action the engine takes.
     table.submit(options[0].action.clone());
