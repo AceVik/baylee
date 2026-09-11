@@ -646,19 +646,6 @@ mod tests {
         );
     }
 
-    /// A player who has asked the table to hold still gets a still arrow.
-    #[test]
-    fn reduce_motion_reaches_the_current() {
-        let still = arrow(
-            a_line(LineKind::Attack),
-            Vec3::ZERO,
-            Vec3::new(2.0, 0.0, 0.0),
-            crate::cardmat::STILL,
-        )
-        .1;
-        assert!((still.motion - crate::cardmat::STILL).abs() < f32::EPSILON);
-    }
-
     #[test]
     fn a_seat_is_aimed_at_from_the_near_edge_of_its_mat() {
         use baylee_client_core::layout::TableLayout;
@@ -795,11 +782,15 @@ mod running {
     #[test]
     fn a_second_frame_reuses_what_the_first_one_built() {
         // The failure this is aimed at is a line spawned per frame: the table
-        // looks right and the entity count climbs forever. The mesh and the
-        // materials are cached in `LineAssets`, so those must not grow either.
+        // looks right and the entity count climbs forever. The quad is cached
+        // in `LineAssets` and must not grow — and neither may the material
+        // table, which is the newer of the two failures: an arrow owns its
+        // uniform, so an `add` on the wrong branch leaks one material per
+        // arrow per frame while the table goes on looking exactly right.
         let mut app = harness(a_fight());
         app.update();
-        let after_one = app.world().resource::<Assets<Mesh>>().len();
+        let meshes = app.world().resource::<Assets<Mesh>>().len();
+        let mats = app.world().resource::<Assets<ArrowMaterial>>().len();
 
         for _ in 0..5 {
             app.update();
@@ -808,9 +799,41 @@ mod running {
         assert_eq!(lines(&mut app).len(), 2, "still two lines, not twelve");
         assert_eq!(
             app.world().resource::<Assets<Mesh>>().len(),
-            after_one,
+            meshes,
             "the unit quad is built once and reused"
         );
+        assert_eq!(
+            app.world().resource::<Assets<ArrowMaterial>>().len(),
+            mats,
+            "an arrow keeps the material it was given"
+        );
+    }
+
+    /// A player who has asked the table to hold still gets a still arrow.
+    ///
+    /// Through the system rather than through `arrow`, because the claim is
+    /// that the *preference* reaches the uniform: `arrow` is handed a number
+    /// and passing it on proves only that it was passed on. What can break is
+    /// the one line that reads `Prefs`, and this is the only test that runs
+    /// it.
+    #[test]
+    fn reduce_motion_reaches_the_current() {
+        for (reduce_motion, want) in [
+            (false, crate::cardmat::MOVING),
+            (true, crate::cardmat::STILL),
+        ] {
+            let mut app = harness(a_fight());
+            app.world_mut().resource_mut::<Prefs>().edit().reduce_motion = reduce_motion;
+            app.update();
+
+            let mut q = app.world_mut().query::<&CombatLine>();
+            let motions: Vec<f32> = q.iter(app.world()).map(|line| line.params.motion).collect();
+            assert_eq!(motions.len(), 2, "both arrows are drawn: {motions:?}");
+            assert!(
+                motions.iter().all(|m| (m - want).abs() < f32::EPSILON),
+                "reduce_motion = {reduce_motion} wants {want}, got {motions:?}"
+            );
+        }
     }
 
     #[test]
