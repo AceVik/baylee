@@ -313,13 +313,10 @@ fn makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool {
     )
 }
 
-/// "Tap for {G}", or "Tap for WUBRG" where there is a choice to make.
+/// "Tap for {G}", or "Tap for {U} or {B}" where there is a choice to make —
+/// and "Tap for any color" where there is no choice worth drawing.
 fn mana_label(lang: Lang, source: &baylee_client_core::manaplan::Source) -> String {
-    let colors: String = source.colors.iter().map(|c| pip(*c)).collect();
-    if source.amount > 1 && source.colors.len() == 1 {
-        return Phrase::TapFor.fill(lang, &[&colors.repeat(source.amount as usize)]);
-    }
-    Phrase::TapFor.fill(lang, &[&colors])
+    Phrase::TapFor.fill(lang, &[&mana_choice(lang, &source.colors, source.amount)])
 }
 
 /// A printed ability's label: a planeswalker's loyalty cost, otherwise what
@@ -353,12 +350,7 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
             // beside "Tap for {C}" is the shape this whole path was reported
             // as broken in.
             if let Some((mana, true)) = baylee_cards_dsl::mana_made(cost, effects) {
-                let colors: String = mana.colors.iter().map(|c| pip(*c)).collect();
-                let colors = if mana.amount > 1 && mana.colors.len() == 1 {
-                    colors.repeat(mana.amount as usize)
-                } else {
-                    colors
-                };
+                let colors = mana_choice(lang, &mana.colors, mana.amount);
                 return Phrase::TapForRestricted.fill(lang, &[&colors]);
             }
             cost_label(lang, cost).unwrap_or_else(unnamed)
@@ -396,14 +388,46 @@ fn cost_label(lang: Lang, cost: &Cost) -> Option<String> {
 }
 
 /// One mana symbol, as a letter.
-const fn pip(color: ManaColor) -> char {
+const fn pip(color: ManaColor) -> &'static str {
     match color {
-        ManaColor::White => 'W',
-        ManaColor::Blue => 'U',
-        ManaColor::Black => 'B',
-        ManaColor::Red => 'R',
-        ManaColor::Green => 'G',
-        ManaColor::Colorless => 'C',
+        ManaColor::White => "{W}",
+        ManaColor::Blue => "{U}",
+        ManaColor::Black => "{B}",
+        ManaColor::Red => "{R}",
+        ManaColor::Green => "{G}",
+        ManaColor::Colorless => "{C}",
+    }
+}
+
+/// What a source makes, written so that [`crate::manaui::spawn_rich`] can
+/// draw it: the symbols in braces, or the words for "any colour".
+///
+/// Three shapes, and the first two are the owner's complaint. Five discs in a
+/// row is not "any colour" — the printed cards say the words and so does this
+/// — and a run of bare letters ("Tap for WUBRG") was never a symbol at all.
+/// A short choice keeps its symbols and gets a conjunction, because two or
+/// three discs read at a glance where five do not.
+fn mana_choice(lang: Lang, colors: &[ManaColor], amount: u8) -> String {
+    const EVERY: [ManaColor; 5] = [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ];
+    if EVERY.iter().all(|c| colors.contains(c)) {
+        return Phrase::AnyColor.text(lang).to_string();
+    }
+    match colors {
+        // Nothing to choose: "{G}{G}" is what a Bloom Tender-shaped source
+        // makes, and repeating the symbol says so where "{G} x2" would make a
+        // player do arithmetic.
+        [one] => pip(*one).repeat(amount.max(1) as usize),
+        [] => String::new(),
+        [rest @ .., last] => {
+            let head = rest.iter().map(|c| pip(*c)).collect::<Vec<_>>().join(", ");
+            Phrase::OrLast.fill(lang, &[&head, pip(*last)])
+        }
     }
 }
 
@@ -630,6 +654,39 @@ mod tests {
 
     /// The card the whole restricted-mana path was reported broken on.
     ///
+    /// The three shapes a mana choice is written in, and why there are three.
+    ///
+    /// The owner reported "Tap for WUBRG" as ugly, and it was two faults in
+    /// one string: bare letters where the interface draws symbols everywhere
+    /// else, and five of them in a row where the card itself says three
+    /// words. A short choice is the case that keeps its symbols — two discs
+    /// and a conjunction read at a glance.
+    #[test]
+    fn a_mana_choice_is_written_as_symbols_until_it_is_every_colour() {
+        use baylee_core::mana::ManaColor::{Black, Blue, Green, Red, White};
+        assert_eq!(mana_choice(Lang::En, &[Green], 1), "{G}");
+        assert_eq!(
+            mana_choice(Lang::En, &[Green], 3),
+            "{G}{G}{G}",
+            "a source that makes three of one colour says so three times",
+        );
+        assert_eq!(mana_choice(Lang::En, &[Blue, Black], 1), "{U} or {B}");
+        assert_eq!(
+            mana_choice(Lang::En, &[White, Blue, Black], 1),
+            "{W}, {U} or {B}",
+        );
+        assert_eq!(
+            mana_choice(Lang::En, &[White, Blue, Black, Red, Green], 1),
+            "any color",
+            "five discs is not a symbol, it is arithmetic",
+        );
+        assert_eq!(
+            mana_choice(Lang::De, &[White, Blue, Black, Red, Green], 1),
+            "beliebige Farbe",
+        );
+        assert_eq!(mana_choice(Lang::De, &[Blue, Black], 1), "{U} oder {B}");
+    }
+
     /// Jasmine Dragon Tea Shop prints two mana abilities: `{T}: Add {C}` and
     /// `{T}: Add one mana of any color`, the second spendable only on Allies.
     /// `manasources` reduces a permanent to the one tap it can read and
@@ -653,7 +710,7 @@ mod tests {
         let labels: Vec<&str> = out.iter().map(|o| o.label.as_str()).collect();
         assert_eq!(
             labels,
-            vec!["Tap for C", "Tap for WUBRG (restricted)"],
+            vec!["Tap for {C}", "Tap for any color (restricted)"],
             "both taps have to be tellable apart: {out:?}"
         );
         assert!(

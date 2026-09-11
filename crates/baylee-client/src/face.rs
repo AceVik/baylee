@@ -323,13 +323,10 @@ pub fn spawn_ui(
                 TextBlock::Rules(t) => (t.clone(), INK),
                 TextBlock::Reminder(t) => (format!("({t})"), MUTED),
             };
-            let node = commands
-                .spawn((
-                    Text::new(text),
-                    text_font(fonts, body_size),
-                    TextColor(color),
-                ))
-                .id();
+            // Rich: this is the face a player reads when there is no printing
+            // to show, so `{T}: Add {G}` has to be the symbols the card
+            // prints rather than the letters they are written with.
+            let node = crate::manaui::spawn_rich(commands, fonts, &text, body_size, color);
             commands.entity(paper).add_child(node);
         }
         if face.text_pending {

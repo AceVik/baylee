@@ -50,6 +50,16 @@ mod glyph {
     pub const ZERO: char = '\u{e605}';
     /// `{16}`; `{17}`..`{20}` follow it consecutively.
     pub const SIXTEEN: char = '\u{e62a}';
+    /// `{T}`, the tap symbol: a clockwise arrow.
+    ///
+    /// Not a mana symbol — `ManaCost` cannot hold it and never should — but
+    /// it is printed in the same ink on the same disc, and it is the symbol a
+    /// player reads most often. Verified against the shipped font rather than
+    /// taken from the stylesheet: the glyph at this codepoint rasterises to
+    /// the clockwise arrow, and `\u{e61c}` beside it is the older tilted T.
+    pub const TAP: char = '\u{e61a}';
+    /// `{Q}`, untap: the same arrow the other way round.
+    pub const UNTAP: char = '\u{e61b}';
     /// The largest generic cost the font spells with one glyph.
     pub const LARGEST_GENERIC: u32 = 20;
 }
@@ -254,6 +264,85 @@ pub fn parse(text: &str) -> Option<Vec<Pip>> {
         .map(|c| cost(&c))
 }
 
+/// One piece of a line that mixes prose with printed symbols.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Segment {
+    /// Prose, set in the interface font.
+    Text(String),
+    /// A symbol, drawn on its disc.
+    Symbol(Pip),
+}
+
+/// The pip for one `{...}` symbol, whether or not it is mana.
+///
+/// `body` is what stands between the braces. Two symbols are not mana at all
+/// and cannot be: `ManaCost` holds mana, and the tap symbol is a cost a
+/// permanent pays with itself. They are printed in the same ink on the same
+/// disc, so they belong in the same table — the alternative was the letter
+/// "T" in a sentence full of real symbols.
+#[must_use]
+pub fn symbol(body: &str) -> Option<Pip> {
+    let disc = Disc::Generic;
+    match body {
+        "T" | "t" => {
+            return Some(Pip::Solid {
+                glyph: glyph::TAP,
+                disc,
+            });
+        }
+        "Q" | "q" => {
+            return Some(Pip::Solid {
+                glyph: glyph::UNTAP,
+                disc,
+            });
+        }
+        _ => {}
+    }
+    let mut drawn = parse(&format!("{{{body}}}"))?;
+    // Exactly one: `{W}{U}` inside one pair of braces is not a symbol, and
+    // letting it through would draw two pips where the text has one.
+    if drawn.len() == 1 { drawn.pop() } else { None }
+}
+
+/// Splits a line into the prose and the symbols written in it.
+///
+/// `{T}: Add {G}.` is three symbols' worth of meaning in a line the interface
+/// has always drawn as letters. Everything outside a brace run stays prose; a
+/// brace run this table does not know stays prose **with its braces**, since
+/// `{Q}` on screen tells a player more than a hole does, and an unclosed brace
+/// is prose to the end of the line rather than a symbol that swallows it.
+#[must_use]
+pub fn segments(text: &str) -> Vec<Segment> {
+    let mut out: Vec<Segment> = Vec::new();
+    let mut prose = String::new();
+    let mut rest = text;
+    while let Some(open) = rest.find('{') {
+        let (before, from_brace) = rest.split_at(open);
+        prose.push_str(before);
+        let Some(close) = from_brace.find('}') else {
+            prose.push_str(from_brace);
+            rest = "";
+            break;
+        };
+        let body = &from_brace[1..close];
+        match symbol(body) {
+            Some(pip) => {
+                if !prose.is_empty() {
+                    out.push(Segment::Text(std::mem::take(&mut prose)));
+                }
+                out.push(Segment::Symbol(pip));
+            }
+            None => prose.push_str(&from_brace[..=close]),
+        }
+        rest = &from_brace[close + 1..];
+    }
+    prose.push_str(rest);
+    if !prose.is_empty() {
+        out.push(Segment::Text(prose));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,6 +375,68 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The tap symbol is the one a player reads most often and the one thing
+    /// `ManaCost` can never hold, so it has its own door.
+    #[test]
+    fn the_tap_symbol_is_drawn_and_is_not_mana() {
+        assert_eq!(
+            symbol("T"),
+            Some(Pip::Solid {
+                glyph: glyph::TAP,
+                disc: Disc::Generic
+            }),
+        );
+        assert_eq!(
+            symbol("Q"),
+            Some(Pip::Solid {
+                glyph: glyph::UNTAP,
+                disc: Disc::Generic
+            }),
+        );
+        assert!(
+            ManaCost::try_parse("{T}").is_err(),
+            "if this ever parses as mana, the door above is the wrong one",
+        );
+    }
+
+    /// A brace run that is more than one symbol is not a symbol.
+    #[test]
+    fn two_symbols_in_one_brace_pair_are_not_a_pip() {
+        assert!(symbol("W").is_some());
+        assert!(symbol("WU").is_none(), "{{WU}} is not a printed symbol");
+        assert!(symbol("nonsense").is_none());
+    }
+
+    /// The line the whole thing exists for.
+    #[test]
+    fn a_line_is_split_into_its_prose_and_its_symbols() {
+        let segs = segments("{T}: Add {G}.");
+        assert_eq!(
+            segs,
+            vec![
+                Segment::Symbol(symbol("T").expect("tap")),
+                Segment::Text(": Add ".to_string()),
+                Segment::Symbol(symbol("G").expect("green")),
+                Segment::Text(".".to_string()),
+            ],
+        );
+    }
+
+    /// Both ways of writing nothing the table knows: prose keeps its braces,
+    /// and an unclosed brace does not eat the rest of the line.
+    #[test]
+    fn an_unreadable_brace_run_stays_prose_with_its_braces() {
+        assert_eq!(
+            segments("Pay {Energy} now"),
+            vec![Segment::Text("Pay {Energy} now".to_string())],
+        );
+        assert_eq!(
+            segments("half a brace {W"),
+            vec![Segment::Text("half a brace {W".to_string())],
+        );
+        assert_eq!(segments(""), Vec::new(), "an empty line draws nothing");
     }
 
     /// The generic run is two blocks in the font, not one; an off-by-one here

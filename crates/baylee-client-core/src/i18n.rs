@@ -1071,6 +1071,18 @@ messages! {
     // ---- what an ability costs
     /// Tap for {0}
     TapFor { en: "Tap for {0}", de: "Tappen für {0}" },
+    /// any color
+    ///
+    /// What the *cards* say. Five discs in a row is not "any colour" — it is
+    /// five claims a player has to add up — and a land that makes all five is
+    /// making one offer, not five.
+    AnyColor { en: "any color", de: "beliebige Farbe" },
+    /// {0} or {1}
+    ///
+    /// The tail of a list of colours a source may choose between. Two or
+    /// three symbols read at a glance where five do not, which is why this
+    /// exists beside [`Phrase::AnyColor`] rather than instead of it.
+    OrLast { en: "{0} or {1}", de: "{0} oder {1}" },
     /// Ability {0}
     AbilityNumbered { en: "Ability {0}", de: "Fähigkeit {0}" },
     /// Granted ability

@@ -2882,3 +2882,44 @@ standalone binary has no offline front door of its own any more, and if it
 should have one, `house_duel` is what it would call. Until that is settled the
 doc promises a caller that does not exist and the test name says it does, and
 both are cheap to correct without deciding anything.
+
+### 51. Printed symbols were drawn as the letters they are written with — FIXED
+
+Reported as: `{T}` and the mana symbols must be real symbols everywhere,
+including the ability text on the fallback card view; and "Tap for WUBRG" is
+ugly — say "Tap for any color" where it is any, and real pips otherwise.
+
+Two faults in one string, and the second is the one that explains the first.
+Every label this client builds is a `String`, and `manaui` could draw a
+*cost* (`spawn_cost`, a row of discs from a `ManaCost`) but had nothing that
+could draw a **sentence** with symbols in it. So `cost_label` wrote the
+literal `{T}` and it reached the screen as three characters; `mana_label`
+went the other way and wrote bare letters, which is where "Tap for WUBRG"
+came from — five letters standing for five discs, in an interface that draws
+discs everywhere else.
+
+`manapip::segments` is the missing half and it lives in the crate with no
+GPU: a line in, prose and `Pip`s out, with a brace run the table cannot read
+kept **as prose with its braces**, because `{Energy}` on screen says more
+than a hole does. `manaui::spawn_rich` is the renderer for it, and it now
+draws the ability buttons, the armed row and the fallback card face's rules
+text. The tap symbol needed a glyph, which is the part that was not
+guesswork: the font's `post` table is version 3.0 and carries no glyph names,
+so the candidate codepoints were rasterised out of the shipped `mana.ttf` and
+read — `\u{e61a}` is the clockwise arrow, `\u{e61b}` the anticlockwise one,
+and `\u{e61c}` the older tilted T.
+
+"Tap for any color" is `mana_choice`, and it is three shapes rather than two:
+one colour keeps its symbol and repeats it for a source that makes more than
+one, a short choice keeps its symbols and gets a conjunction (`{U} or {B}`),
+and all five become the words the card itself prints. Five discs in a row is
+not "any colour" — it is arithmetic a player has to do.
+
+Tests on both sides of the split. `a_line_is_split_into_its_prose_and_its_
+symbols` and `an_unreadable_brace_run_stays_prose_with_its_braces` hold the
+model; `a_mana_choice_is_written_as_symbols_until_it_is_every_colour` holds
+all three shapes in both languages; and `spawn_rich` is **run** in an `App`
+(`a_rich_line_becomes_prose_and_discs_and_nothing_pickable`), because written
+and never called is a shape this client has shipped before — the same test
+asserts every child carries `Pickable::IGNORE`, since a label left pickable
+sits in front of the button it labels.

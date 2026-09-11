@@ -760,14 +760,16 @@ pub fn sync_overlay(
                     commands.entity(button).add_child(mark);
                 }
                 if !option.label.is_empty() {
-                    let text = commands
-                        .spawn((
-                            Text::new(option.label.clone()),
-                            tf(&fonts, 13.0),
-                            TextColor(palette::PARCHMENT_INK),
-                            Pickable::IGNORE,
-                        ))
-                        .id();
+                    // Rich, not plain: a label carries printed symbols in
+                    // braces and drawing them as letters is what made "Tap
+                    // for WUBRG" a sentence nobody could read.
+                    let text = crate::manaui::spawn_rich(
+                        &mut commands,
+                        &fonts,
+                        &option.label,
+                        13.0,
+                        palette::PARCHMENT_INK,
+                    );
                     commands.entity(button).add_child(text);
                 }
                 if let Some(cost) = option.cost {
@@ -851,14 +853,16 @@ pub fn sync_overlay(
                         }),
                         Feel::new(fill),
                         soft_shadow(),
-                        children![(
-                            Text::new(option.label.clone()),
-                            tf(&fonts, 13.0),
-                            TextColor(palette::PARCHMENT_INK),
-                            Pickable::IGNORE,
-                        )],
                     ))
                     .id();
+                let text = crate::manaui::spawn_rich(
+                    &mut commands,
+                    &fonts,
+                    &option.label,
+                    13.0,
+                    palette::PARCHMENT_INK,
+                );
+                commands.entity(button).add_child(text);
                 commands.entity(row).add_child(button);
             }
             commands.entity(bar).add_child(row);
@@ -1569,19 +1573,14 @@ fn spawn_armed(
 ///
 /// `Pickable::IGNORE`, like every label inside a control here: a `Text` is a
 /// `Node`, so a label left pickable sits in front of the button and `Feel`
-/// animates the padding while the middle goes dead.
+/// animates the padding while the middle goes dead. `spawn_rich` supplies
+/// that on every child it makes, and it is what turns a `{T}` the phrase
+/// carries into the printed symbol rather than the letter T.
 fn put_words(commands: &mut Commands, fonts: &UiFonts, button: Entity, text: &str, ink: Color) {
     if text.is_empty() {
         return;
     }
-    let node = commands
-        .spawn((
-            Text::new(text.to_string()),
-            tf(fonts, 13.0),
-            TextColor(ink),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let node = crate::manaui::spawn_rich(commands, fonts, text, 13.0, ink);
     commands.entity(button).add_child(node);
 }
 

@@ -202,6 +202,54 @@ pub fn spawn_cost(
     Some(row)
 }
 
+/// Spawns a line that mixes prose with the symbols printed in it.
+///
+/// `{T}: Add {G}` is one sentence and has always been drawn as letters in it.
+/// This is the one door that stops that: `manapip::segments` splits the line
+/// in a crate with no GPU and carries the tests, and every child here is
+/// `Pickable::IGNORE`, because a label inside a button is a node in front of
+/// it and a hover that lands on the label is a hover the button never sees.
+///
+/// `size` is the text's font size; the discs are set a little under it, at
+/// roughly the cap height, so the line reads as a sentence rather than as
+/// prose with badges dropped into it.
+pub fn spawn_rich(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    color: Color,
+) -> Entity {
+    let row = commands
+        .spawn((
+            Node {
+                column_gap: px((size * 0.12).max(1.0)),
+                align_items: AlignItems::Center,
+                flex_wrap: bevy::ui::FlexWrap::Wrap,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for segment in baylee_client_core::manapip::segments(text) {
+        let child = match segment {
+            baylee_client_core::manapip::Segment::Text(words) => commands
+                .spawn((
+                    Text::new(words),
+                    crate::hud::tf(fonts, size),
+                    TextColor(color),
+                    Pickable::IGNORE,
+                ))
+                .id(),
+            baylee_client_core::manapip::Segment::Symbol(pip) => {
+                spawn_pip(commands, fonts, pip, size * 0.88)
+            }
+        };
+        commands.entity(row).add_child(child);
+    }
+    row
+}
+
 /// Spawns a cost, falling back to the raw string when it will not parse.
 ///
 /// A cost the parser rejects is still information — showing `{Q}` beats
@@ -228,4 +276,124 @@ pub fn spawn_cost_or_text(
                 .id(),
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::manapip::{Disc, Pip};
+
+    fn fonts() -> UiFonts {
+        UiFonts {
+            text: Handle::default(),
+            italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        }
+    }
+
+    /// Written and never called is a shape this client has shipped before, so
+    /// the spawner is *run*: one line in, a row of real entities out.
+    ///
+    /// What it asserts is the split — prose stays prose and a symbol becomes a
+    /// disc — and that nothing inside the row is pickable. A `Text` is a
+    /// `Node`, so one pickable label sits in front of the button it labels and
+    /// the middle of that button goes dead.
+    #[test]
+    fn a_rich_line_becomes_prose_and_discs_and_nothing_pickable() {
+        let mut app = App::new();
+        let fonts = fonts();
+        let row = {
+            let mut commands = app.world_mut().commands();
+            spawn_rich(&mut commands, &fonts, "{T}: Add {G}.", 13.0, Color::WHITE)
+        };
+        app.world_mut().flush();
+
+        let children: Vec<Entity> = app
+            .world()
+            .entity(row)
+            .get::<Children>()
+            .expect("the row has children")
+            .iter()
+            .collect();
+        assert_eq!(children.len(), 4, "two symbols and the words between them");
+
+        let texts: Vec<String> = children
+            .iter()
+            .filter_map(|e| app.world().entity(*e).get::<Text>().map(|t| t.0.clone()))
+            .collect();
+        assert_eq!(
+            texts,
+            vec![": Add ".to_string(), ".".to_string()],
+            "the braces are gone from the prose because they became discs",
+        );
+
+        // A disc is a node with a glyph child, which is what the two
+        // non-text children are.
+        let discs = children
+            .iter()
+            .filter(|e| app.world().entity(**e).get::<Text>().is_none())
+            .count();
+        assert_eq!(discs, 2, "{{T}} and {{G}} are drawn, not spelled");
+
+        for child in &children {
+            assert!(
+                app.world().entity(*child).contains::<Pickable>(),
+                "every child of a label carries Pickable::IGNORE",
+            );
+        }
+    }
+
+    /// A line with nothing to draw is still a row, not a panic.
+    #[test]
+    fn a_line_with_no_symbols_is_one_run_of_words() {
+        let mut app = App::new();
+        let fonts = fonts();
+        let row = {
+            let mut commands = app.world_mut().commands();
+            spawn_rich(&mut commands, &fonts, "Granted ability", 13.0, Color::WHITE)
+        };
+        app.world_mut().flush();
+        let children: Vec<Entity> = app
+            .world()
+            .entity(row)
+            .get::<Children>()
+            .expect("the row has children")
+            .iter()
+            .collect();
+        assert_eq!(children.len(), 1);
+        assert_eq!(
+            app.world()
+                .entity(children[0])
+                .get::<Text>()
+                .expect("prose")
+                .0,
+            "Granted ability",
+        );
+    }
+
+    /// The disc a pip asks for is the one the palette paints, for every
+    /// variant — a new `Disc` with no colour would be an invisible symbol.
+    #[test]
+    fn every_disc_has_a_paint() {
+        for disc in [
+            Disc::White,
+            Disc::Blue,
+            Disc::Black,
+            Disc::Red,
+            Disc::Green,
+            Disc::Generic,
+            Disc::Snow,
+        ] {
+            let c = disc_color(disc).to_srgba();
+            assert!(
+                c.red + c.green + c.blue > 0.3,
+                "{disc:?} is painted dark enough to hide its own ink",
+            );
+        }
+        assert!(matches!(
+            baylee_client_core::manapip::symbol("T"),
+            Some(Pip::Solid { .. })
+        ));
+    }
 }
