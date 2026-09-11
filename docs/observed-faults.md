@@ -2779,7 +2779,7 @@ after `100c211` on a binary rebuilt `--features dev-control` — `cargo test`
 overwrites that one — where Nesting Dovehawk went 0 → 1 across the same two
 rebuilds.
 
-The first attempt at that gesture measured nothing, and it is entry 36's trap
+The first attempt at that gesture measured nothing, and it is entry 39's trap
 again rather than a coincidence: `POST /pointer {"hold":true}` fell through to
 the bare-move branch and answered `{"ok":true,"clicked":false}` — a `200` that
 reads like a press that happened, on the one route whose whole purpose is
@@ -2793,9 +2793,9 @@ only answer: it is this module's promise that a card never stays sunk, held
 for a schedule that draws the hand without running the input path — which is
 what `touch`'s own tests are.
 
-## Eighth pass, 2026-09-11 — found while teaching `/state` to say where things are
+## Ninth pass, 2026-09-11 — found while teaching `/state` to say where things are
 
-### 36. A yes/no question can only be answered with the pointer — WITHDRAWN, not a fault
+### 39. A yes/no question can only be answered with the pointer — WITHDRAWN, not a fault
 
 Kept rather than deleted, because the entry was wrong in the way an entry here
 can most easily be wrong: every observation in it was real and the conclusion
@@ -2842,9 +2842,9 @@ this question and is useful anyway — a pointer harness needs button positions
 whatever the keyboard can do. Its *justification* in `docs/client.md` and in
 the skill has been corrected along with this.
 
-## Ninth pass, 2026-09-11 — found while writing the eighth pass down
+## Tenth pass, 2026-09-11 — found while writing the ninth pass down
 
-### 37. `host::house_duel` is dead code, and its doc promises it cannot drift — CONFIRMED
+### 40. `host::house_duel` is dead code, and its doc promises it cannot drift — CONFIRMED
 
 `crates/baylee-client/src/host.rs` builds a solo duel against the house AI and
 says of it: *"Everything the standalone binary needs for offline play, and the
